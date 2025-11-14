@@ -19,8 +19,18 @@ Implementation of a complete Discord game scheduling system with microservices a
 - docker/api.Dockerfile - Multi-stage Docker image for FastAPI web service with health checks
 - docker/scheduler.Dockerfile - Multi-stage Docker image for Celery worker and beat services
 - docker/postgres/init.sql - PostgreSQL initialization script with UUID extension
-- pyproject.toml - Python project configuration with all required dependencies for microservices
+- pyproject.toml - Python project configuration with all required dependencies for microservices including psycopg2-binary
 - src/shared/**init**.py - Shared package initialization for cross-service models and utilities
+- src/shared/models/**init**.py - SQLAlchemy models export with Base class
+- src/shared/models/base.py - SQLAlchemy declarative base class for all models
+- src/shared/models/user.py - User model with Discord ID and UTC timestamps
+- src/shared/models/guild.py - GuildConfiguration model with inheritance settings
+- src/shared/models/channel.py - ChannelConfiguration model with channel-specific overrides
+- src/shared/models/game.py - GameSession model with status tracking and relationships
+- src/shared/models/participant.py - GameParticipant model with nullable user_id for placeholders
+- alembic.ini - Alembic configuration for database migrations with PostgreSQL connection
+- alembic/env.py - Alembic environment setup with model imports and Base metadata
+- alembic/versions/bfa73f1adefc_initial_schema.py - Initial database migration with all tables and constraints
 - src/bot/main.py - Discord bot service main module with placeholder implementation
 - src/api/main.py - FastAPI web service with health check and root endpoints
 - src/scheduler/celery_app.py - Celery application configuration with RabbitMQ and Redis
