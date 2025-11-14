@@ -20,7 +20,7 @@ Implementation of a complete Discord game scheduling system with microservices a
 - docker/scheduler.Dockerfile - Multi-stage Docker image for Celery worker and beat services
 - docker/postgres/init.sql - PostgreSQL initialization script with UUID extension
 - pyproject.toml - Python project configuration with all required dependencies for microservices including psycopg2-binary
-- src/shared/**init**.py - Shared package initialization for cross-service models and utilities
+- src/shared/**init**.py - Shared package initialization with schemas and utils exports
 - src/shared/models/**init**.py - SQLAlchemy models export with Base class
 - src/shared/models/base.py - SQLAlchemy declarative base class for all models
 - src/shared/models/user.py - User model with Discord ID and UTC timestamps
@@ -46,6 +46,14 @@ Implementation of a complete Discord game scheduling system with microservices a
 - src/shared/cache/client.py - Async Redis client wrapper with connection pooling and error handling
 - src/shared/cache/keys.py - Centralized cache key patterns for consistent naming across services
 - src/shared/cache/ttl.py - TTL configuration constants with cache tier classification
+- src/shared/schemas/**init**.py - Pydantic schemas package initialization with all schema exports
+- src/shared/schemas/auth.py - Authentication schemas for OAuth2 login, user info, and guild information
+- src/shared/schemas/game.py - Game management schemas for create, update, response, and join operations
+- src/shared/schemas/guild_config.py - Guild and channel configuration schemas with inheritance support
+- src/shared/schemas/participant.py - Participant schemas for validation errors and suggestions
+- src/shared/utils/**init**.py - Utility modules package initialization
+- src/shared/utils/timezone.py - UTC timezone handling utilities with Discord timestamp formatting
+- src/shared/utils/discord.py - Discord API helpers for user resolution and permission checking
 
 **Fixes Applied:**
 
