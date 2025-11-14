@@ -36,6 +36,12 @@ Implementation of a complete Discord game scheduling system with microservices a
 - src/scheduler/celery_app.py - Celery application configuration with RabbitMQ and Redis
 - src/scheduler/tasks.py - Celery tasks for notifications and background processing
 - README.md - Project documentation with setup instructions and service information
+- src/shared/messaging/**init**.py - Messaging package initialization with all exports
+- src/shared/messaging/config.py - RabbitMQ connection management with health checks and auto-reconnect
+- src/shared/messaging/events.py - Event schema definitions with Pydantic models and factory functions
+- src/shared/messaging/publisher.py - Event publishing client with persistent messaging and correlation IDs
+- src/shared/messaging/consumer.py - Event consumption framework with handlers and auto-registration
+- rabbitmq/definitions.json - RabbitMQ queue and exchange definitions with dead letter queues
 
 **Fixes Applied:**
 

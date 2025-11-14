@@ -1,0 +1,217 @@
+{
+  "rabbit_version": "3.12.0",
+  "rabbitmq_version": "3.12.0",
+  "product_name": "RabbitMQ",
+  "product_version": "3.12.0",
+  "users": [
+    {
+      "name": "guest",
+      "password_hash": "0kDmMwC8iRtE9CXAXBCo7IJ7YZSKk1A9pPDzPJOjAYvYaJSz",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": "administrator"
+    }
+  ],
+  "vhosts": [
+    {
+      "name": "/"
+    }
+  ],
+  "permissions": [
+    {
+      "user": "guest",
+      "vhost": "/",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    }
+  ],
+  "topic_permissions": [],
+  "parameters": [],
+  "global_parameters": [
+    {
+      "name": "cluster_name",
+      "value": "game-scheduler@localhost"
+    }
+  ],
+  "policies": [
+    {
+      "vhost": "/",
+      "name": "game-scheduler-ha",
+      "pattern": "^game-scheduler.*",
+      "apply-to": "all",
+      "definition": {
+        "ha-mode": "all",
+        "ha-sync-mode": "automatic"
+      },
+      "priority": 0
+    }
+  ],
+  "queues": [
+    {
+      "name": "bot.game.created",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "game_scheduler.dlx",
+        "x-dead-letter-routing-key": "dead.game.created"
+      }
+    },
+    {
+      "name": "bot.game.updated",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "game_scheduler.dlx",
+        "x-dead-letter-routing-key": "dead.game.updated"
+      }
+    },
+    {
+      "name": "bot.notification.send_dm",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "game_scheduler.dlx",
+        "x-dead-letter-routing-key": "dead.notification.send_dm"
+      }
+    },
+    {
+      "name": "api.game.player_joined",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "game_scheduler.dlx",
+        "x-dead-letter-routing-key": "dead.game.player_joined"
+      }
+    },
+    {
+      "name": "api.game.player_left",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "game_scheduler.dlx",
+        "x-dead-letter-routing-key": "dead.game.player_left"
+      }
+    },
+    {
+      "name": "scheduler.game.created",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "game_scheduler.dlx",
+        "x-dead-letter-routing-key": "dead.game.created"
+      }
+    },
+    {
+      "name": "scheduler.game.updated",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "game_scheduler.dlx",
+        "x-dead-letter-routing-key": "dead.game.updated"
+      }
+    },
+    {
+      "name": "scheduler.game.cancelled",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "game_scheduler.dlx",
+        "x-dead-letter-routing-key": "dead.game.cancelled"
+      }
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "game_scheduler",
+      "vhost": "/",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "game_scheduler.dlx",
+      "vhost": "/",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    }
+  ],
+  "bindings": [
+    {
+      "source": "game_scheduler",
+      "vhost": "/",
+      "destination": "bot.game.created",
+      "destination_type": "queue",
+      "routing_key": "game.created",
+      "arguments": {}
+    },
+    {
+      "source": "game_scheduler",
+      "vhost": "/",
+      "destination": "bot.game.updated",
+      "destination_type": "queue",
+      "routing_key": "game.updated",
+      "arguments": {}
+    },
+    {
+      "source": "game_scheduler",
+      "vhost": "/",
+      "destination": "bot.notification.send_dm",
+      "destination_type": "queue",
+      "routing_key": "notification.send_dm",
+      "arguments": {}
+    },
+    {
+      "source": "game_scheduler",
+      "vhost": "/",
+      "destination": "api.game.player_joined",
+      "destination_type": "queue",
+      "routing_key": "game.player_joined",
+      "arguments": {}
+    },
+    {
+      "source": "game_scheduler",
+      "vhost": "/",
+      "destination": "api.game.player_left",
+      "destination_type": "queue",
+      "routing_key": "game.player_left",
+      "arguments": {}
+    },
+    {
+      "source": "game_scheduler",
+      "vhost": "/",
+      "destination": "scheduler.game.created",
+      "destination_type": "queue",
+      "routing_key": "game.created",
+      "arguments": {}
+    },
+    {
+      "source": "game_scheduler",
+      "vhost": "/",
+      "destination": "scheduler.game.updated",
+      "destination_type": "queue",
+      "routing_key": "game.updated",
+      "arguments": {}
+    },
+    {
+      "source": "game_scheduler",
+      "vhost": "/",
+      "destination": "scheduler.game.cancelled",
+      "destination_type": "queue",
+      "routing_key": "game.cancelled",
+      "arguments": {}
+    }
+  ]
+}
