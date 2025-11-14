@@ -22,13 +22,13 @@ RUN addgroup --system appgroup && \
 FROM base AS deps
 
 # Copy dependency files
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml README.md ./
 
 # Install uv for dependency management
 RUN pip install uv
 
 # Install dependencies
-RUN uv sync --frozen --no-dev
+RUN uv sync --no-dev
 
 # Production stage
 FROM base AS production
@@ -46,8 +46,9 @@ RUN chown -R appuser:appgroup /app
 # Switch to non-root user
 USER appuser
 
-# Add virtual environment to PATH
+# Add virtual environment to PATH and set PYTHONPATH
 ENV PATH="/app/.venv/bin:$PATH"
+ENV PYTHONPATH="/app"
 
 # Expose port
 EXPOSE 8000
@@ -57,4 +58,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD curl --fail http://localhost:8000/health || exit 1
 
 # Start the API server
-CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
