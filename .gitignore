@@ -96,9 +96,6 @@ celerybeat.pid
 # Redis dump file
 dump.rdb
 
-# UV lock file (if using uv package manager)
-uv.lock
-
 # Alembic
 # Keep alembic.ini and migrations, but ignore sensitive configs
 alembic.ini.local
