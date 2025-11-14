@@ -42,6 +42,10 @@ Implementation of a complete Discord game scheduling system with microservices a
 - src/shared/messaging/publisher.py - Event publishing client with persistent messaging and correlation IDs
 - src/shared/messaging/consumer.py - Event consumption framework with handlers and auto-registration
 - rabbitmq/definitions.json - RabbitMQ queue and exchange definitions with dead letter queues
+- src/shared/cache/**init**.py - Cache package initialization with client, keys, and TTL exports
+- src/shared/cache/client.py - Async Redis client wrapper with connection pooling and error handling
+- src/shared/cache/keys.py - Centralized cache key patterns for consistent naming across services
+- src/shared/cache/ttl.py - TTL configuration constants with cache tier classification
 
 **Fixes Applied:**
 
