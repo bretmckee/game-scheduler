@@ -2,31 +2,31 @@
 Pydantic schemas for request/response validation and serialization.
 """
 
-from .auth import LoginResponse, UserInfo, GuildInfo
+from .auth import GuildInfo, LoginResponse, UserInfo
 from .game import (
     CreateGameRequest,
-    GameResponse,
     GameDetailsResponse,
-    UpdateGameRequest,
+    GameResponse,
     JoinGameResponse,
+    UpdateGameRequest,
 )
 from .guild_config import (
-    GuildConfigRequest,
-    GuildConfigResponse,
     ChannelConfigRequest,
     ChannelConfigResponse,
+    GuildConfigRequest,
+    GuildConfigResponse,
 )
 from .participant import ParticipantResponse, ParticipantValidationError
 
 __all__ = [
     # Auth schemas
     "LoginResponse",
-    "UserInfo", 
+    "UserInfo",
     "GuildInfo",
     # Game schemas
     "CreateGameRequest",
     "GameResponse",
-    "GameDetailsResponse", 
+    "GameDetailsResponse",
     "UpdateGameRequest",
     "JoinGameResponse",
     # Configuration schemas

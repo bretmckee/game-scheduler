@@ -5,13 +5,12 @@ All timestamps are stored in UTC in the database and converted for display
 by the client (Discord or web browser).
 """
 
-from datetime import datetime, timezone
-from typing import Union
+from datetime import UTC, datetime
 
 
 def utc_now() -> datetime:
     """Get current UTC datetime with timezone info."""
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def ensure_utc(dt: datetime) -> datetime:
@@ -29,8 +28,8 @@ def ensure_utc(dt: datetime) -> datetime:
     """
     if dt.tzinfo is None:
         # Assume naive datetime is already UTC
-        return dt.replace(tzinfo=timezone.utc)
-    elif dt.tzinfo == timezone.utc:
+        return dt.replace(tzinfo=UTC)
+    elif dt.tzinfo == UTC:
         return dt
     else:
         raise ValueError(f"Datetime must be UTC, got {dt.tzinfo}")
@@ -52,7 +51,7 @@ def to_unix_timestamp(dt: datetime) -> int:
     return int(dt_utc.timestamp())
 
 
-def from_unix_timestamp(timestamp: Union[int, float]) -> datetime:
+def from_unix_timestamp(timestamp: int | float) -> datetime:
     """
     Convert Unix timestamp to UTC datetime.
     
@@ -62,7 +61,7 @@ def from_unix_timestamp(timestamp: Union[int, float]) -> datetime:
     Returns:
         UTC datetime with timezone info
     """
-    return datetime.fromtimestamp(timestamp, tz=timezone.utc)
+    return datetime.fromtimestamp(timestamp, tz=UTC)
 
 
 def format_discord_timestamp(dt: datetime, format_code: str = "F") -> str:
@@ -103,18 +102,18 @@ def validate_future_datetime(dt: datetime, min_hours_ahead: int = 0) -> datetime
     """
     dt_utc = ensure_utc(dt)
     now = utc_now()
-    
+
     if dt_utc <= now:
         raise ValueError("Datetime must be in the future")
-    
+
     if min_hours_ahead > 0:
         min_time = now.replace(
             hour=now.hour + min_hours_ahead,
-            minute=0, 
-            second=0, 
+            minute=0,
+            second=0,
             microsecond=0
         )
         if dt_utc < min_time:
             raise ValueError(f"Datetime must be at least {min_hours_ahead} hours in the future")
-    
+
     return dt_utc

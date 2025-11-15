@@ -1,6 +1,7 @@
 """FastAPI web service main module."""
 
 import logging
+
 from fastapi import FastAPI
 
 logger = logging.getLogger(__name__)

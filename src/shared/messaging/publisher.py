@@ -1,14 +1,11 @@
 """Event publisher for sending messages to RabbitMQ."""
 
-import json
 import logging
-from typing import Optional
 from uuid import uuid4
 
-import aio_pika
-from aio_pika import Message, DeliveryMode
+from aio_pika import DeliveryMode, Message
 
-from .config import get_connection, RabbitMQConnection
+from .config import RabbitMQConnection, get_connection
 from .events import BaseEvent, EventType, get_routing_key
 
 logger = logging.getLogger(__name__)
@@ -16,20 +13,20 @@ logger = logging.getLogger(__name__)
 
 class EventPublisher:
     """Publishes events to RabbitMQ exchange."""
-    
-    def __init__(self, connection: Optional[RabbitMQConnection] = None):
+
+    def __init__(self, connection: RabbitMQConnection | None = None):
         self._connection = connection
-    
+
     async def _get_connection(self) -> RabbitMQConnection:
         """Get or create RabbitMQ connection."""
         if self._connection is None:
             self._connection = await get_connection()
         return self._connection
-    
+
     async def publish_event(
         self,
         event: BaseEvent,
-        guild_id: Optional[str] = None,
+        guild_id: str | None = None,
         persistent: bool = True
     ) -> bool:
         """
@@ -45,17 +42,17 @@ class EventPublisher:
         """
         try:
             connection = await self._get_connection()
-            
+
             # Generate correlation ID if not provided
             if not event.correlation_id:
                 event.correlation_id = str(uuid4())
-            
+
             # Serialize event
             message_body = event.json().encode('utf-8')
-            
+
             # Create message with proper delivery mode
             delivery_mode = DeliveryMode.PERSISTENT if persistent else DeliveryMode.NOT_PERSISTENT
-            
+
             message = Message(
                 message_body,
                 delivery_mode=delivery_mode,
@@ -68,38 +65,38 @@ class EventPublisher:
                     'guild_id': guild_id
                 }
             )
-            
+
             # Determine routing key
             routing_key = get_routing_key(event.event_type, guild_id)
-            
+
             # Publish to exchange
             await connection.exchange.publish(
                 message,
                 routing_key=routing_key
             )
-            
+
             logger.debug(
                 f"Published event {event.event_type.value} "
                 f"with routing key '{routing_key}' "
                 f"(correlation_id: {event.correlation_id})"
             )
-            
+
             return True
-            
+
         except Exception as e:
             logger.error(
                 f"Failed to publish event {event.event_type.value}: {e}",
                 exc_info=True
             )
             return False
-    
+
     async def publish_dict(
         self,
         event_type: EventType,
         data: dict,
-        guild_id: Optional[str] = None,
-        source_service: Optional[str] = None,
-        correlation_id: Optional[str] = None,
+        guild_id: str | None = None,
+        source_service: str | None = None,
+        correlation_id: str | None = None,
         persistent: bool = True
     ) -> bool:
         """
@@ -122,9 +119,9 @@ class EventPublisher:
             source_service=source_service,
             correlation_id=correlation_id
         )
-        
+
         return await self.publish_event(event, guild_id, persistent)
-    
+
     async def publish_game_created(
         self,
         game_id: str,
@@ -133,7 +130,7 @@ class EventPublisher:
         channel_id: str,
         host_id: str,
         scheduled_at_unix: int,
-        max_players: Optional[int] = None,
+        max_players: int | None = None,
         source_service: str = "api"
     ) -> bool:
         """Convenience method to publish game.created event."""
@@ -152,7 +149,7 @@ class EventPublisher:
             guild_id=guild_id,
             source_service=source_service
         )
-    
+
     async def publish_player_joined(
         self,
         game_id: str,
@@ -161,7 +158,7 @@ class EventPublisher:
         guild_id: str,
         channel_id: str,
         current_players: int,
-        max_players: Optional[int] = None,
+        max_players: int | None = None,
         source_service: str = "bot"
     ) -> bool:
         """Convenience method to publish game.player_joined event."""
@@ -180,7 +177,7 @@ class EventPublisher:
             guild_id=guild_id,
             source_service=source_service
         )
-    
+
     async def publish_notification_request(
         self,
         user_id: str,
@@ -188,8 +185,8 @@ class EventPublisher:
         game_title: str,
         game_time_unix: int,
         notification_type: str,
-        channel_name: Optional[str] = None,
-        guild_name: Optional[str] = None,
+        channel_name: str | None = None,
+        guild_name: str | None = None,
         source_service: str = "scheduler"
     ) -> bool:
         """Convenience method to publish notification.send_dm event."""
@@ -209,7 +206,7 @@ class EventPublisher:
 
 
 # Global publisher instance
-_publisher: Optional[EventPublisher] = None
+_publisher: EventPublisher | None = None
 
 
 async def get_publisher() -> EventPublisher:
@@ -222,7 +219,7 @@ async def get_publisher() -> EventPublisher:
 
 async def publish_event(
     event: BaseEvent,
-    guild_id: Optional[str] = None,
+    guild_id: str | None = None,
     persistent: bool = True
 ) -> bool:
     """Convenience function to publish an event."""
@@ -233,9 +230,9 @@ async def publish_event(
 async def publish_dict(
     event_type: EventType,
     data: dict,
-    guild_id: Optional[str] = None,
-    source_service: Optional[str] = None,
-    correlation_id: Optional[str] = None,
+    guild_id: str | None = None,
+    source_service: str | None = None,
+    correlation_id: str | None = None,
     persistent: bool = True
 ) -> bool:
     """Convenience function to publish event from dictionary."""

@@ -3,7 +3,6 @@ Discord API helpers and utilities for user resolution and permission checking.
 """
 
 import re
-from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass
 
 
@@ -12,17 +11,17 @@ class DiscordUser:
     """Discord user information."""
     id: str
     username: str
-    global_name: Optional[str] = None
-    avatar: Optional[str] = None
+    global_name: str | None = None
+    avatar: str | None = None
 
 
-@dataclass 
+@dataclass
 class GuildMember:
     """Discord guild member information."""
     user: DiscordUser
-    nick: Optional[str] = None
-    roles: List[str] = None
-    
+    nick: str | None = None
+    roles: list[str] = None
+
     @property
     def display_name(self) -> str:
         """Get resolved display name using Discord priority."""
@@ -45,7 +44,7 @@ def extract_mention_text(mention: str) -> str:
     mention = mention.strip()
     if not mention.startswith('@'):
         raise ValueError("Mention must start with @")
-    
+
     return mention[1:].strip().lower()
 
 
@@ -69,10 +68,10 @@ def validate_discord_id(discord_id: str) -> str:
     """
     if not discord_id.isdigit():
         raise ValueError("Discord ID must be numeric")
-    
+
     if len(discord_id) < 17 or len(discord_id) > 19:
         raise ValueError("Discord ID must be 17-19 digits (snowflake format)")
-    
+
     return discord_id
 
 
@@ -168,7 +167,7 @@ def format_user_mention(discord_id: str) -> str:
     return f"<@{discord_id}>"
 
 
-def parse_user_mention(mention: str) -> Optional[str]:
+def parse_user_mention(mention: str) -> str | None:
     """
     Parse Discord user mention to extract user ID.
     
@@ -199,6 +198,6 @@ def build_member_search_query(query: str) -> str:
     query = query.strip().lower()
     if query.startswith('@'):
         query = query[1:]
-    
+
     # Discord API expects URL-encoded query
     return query.strip()

@@ -1,6 +1,7 @@
 """Celery application configuration."""
 
 import logging
+
 from celery import Celery
 
 logger = logging.getLogger(__name__)

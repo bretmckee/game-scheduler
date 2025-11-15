@@ -1,6 +1,7 @@
 """Celery tasks for the scheduler service."""
 
 import logging
+
 from celery import current_app as celery_app
 
 logger = logging.getLogger(__name__)
