@@ -76,11 +76,12 @@ class EventPublisher:
         Publish event to exchange.
 
         Args:
-            event: Event to publish
-            routing_key: Optional routing key override. Uses event_type if not provided.
+            event: Event to publish.
+            routing_key: Optional routing key override. Uses event_type if not
+                provided.
 
         Raises:
-            RuntimeError: If not connected
+            RuntimeError: If not connected.
         """
         if self._channel is None:
             await self.connect()
@@ -115,9 +116,9 @@ class EventPublisher:
         Convenience method for publishing without creating Event object.
 
         Args:
-            event_type: Event type string
-            data: Event payload
-            trace_id: Optional correlation ID
+            event_type: Event type string.
+            data: Event payload.
+            trace_id: Optional correlation ID.
         """
         from shared.messaging.events import EventType
 
