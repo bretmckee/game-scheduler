@@ -433,3 +433,21 @@ Implementation of a complete Discord game scheduling system with microservices a
 - ✅ Events published to RabbitMQ successfully with Event wrapper and EventType
 - ✅ User receives confirmation message (ephemeral followup)
 - ⏳ Message editing with updated participant list (handled by Task 2.5 event consumer)
+
+### Infrastructure: Dependency Management Cleanup
+
+**Files Changed:**
+
+- docker/bot.Dockerfile - Updated to use pyproject.toml directly
+- docker/api.Dockerfile - Updated to use pyproject.toml directly
+- docker/scheduler.Dockerfile - Updated to use pyproject.toml directly
+- requirements.txt - Removed (redundant)
+- services/bot/requirements.txt - Removed (redundant)
+
+**Changes:**
+
+- Eliminated duplicate requirements.txt files
+- All Dockerfiles now use `uv pip install --system .` to install from pyproject.toml
+- Single source of truth for dependencies
+- Prevents synchronization drift between requirements.txt and pyproject.toml
+- Modern uv-native dependency management throughout project

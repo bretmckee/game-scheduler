@@ -14,10 +14,9 @@ RUN pip install --no-cache-dir uv
 
 # Copy dependency files
 COPY pyproject.toml ./
-COPY requirements.txt ./
 
 # Install Python dependencies
-RUN uv pip install --system -r requirements.txt
+RUN uv pip install --system .
 
 # Production stage
 FROM python:3.11-slim AS production
