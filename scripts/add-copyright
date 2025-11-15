@@ -1,0 +1,3 @@
+#! /bin/bash
+set -e -u -o pipefail
+uv run autocopyright -s "#" -d . -e ".*/.venv/" -g "*.py" -l "./templates/agpl-template.jinja2"
