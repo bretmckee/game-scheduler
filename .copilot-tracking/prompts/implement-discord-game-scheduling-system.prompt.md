@@ -1,6 +1,6 @@
 ---
 mode: agent
-model: Claude Sonnet 4
+model: Claude Sonnet 4.5
 ---
 <!-- markdownlint-disable-file -->
 # Implementation Prompt: Discord Game Scheduling System
