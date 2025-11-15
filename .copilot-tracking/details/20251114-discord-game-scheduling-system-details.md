@@ -1,4 +1,5 @@
 <!-- markdownlint-disable-file -->
+
 # Task Details: Discord Game Scheduling System
 
 ## Research Reference
@@ -116,6 +117,30 @@ Build Python package with SQLAlchemy models, Pydantic schemas, and shared utilit
   - #file:../../.github/instructions/python.instructions.md - Python conventions
 - **Dependencies**:
   - None (foundational package)
+
+### Task 1.6: Configure Python tooling and development environment
+
+Set up uv package manager, ruff linting/formatting, pytest testing, and pyproject.toml configuration for consistent development workflows.
+
+- **Files**:
+  - `pyproject.toml` - Project configuration with dependencies and tool settings
+  - `.python-version` - Python version specification for uv
+  - `requirements-dev.txt` - Development dependencies (if needed)
+  - `ruff.toml` or `pyproject.toml` - Ruff configuration for linting and formatting
+  - `pytest.ini` or `pyproject.toml` - Pytest configuration
+- **Success**:
+  - `uv run python --version` shows Python 3.11+
+  - `uv run pytest` executes test discovery and runs successfully
+  - `uv run ruff check src/` performs linting without errors
+  - `uv run ruff format src/` formats code consistently
+  - All Python scripts executed via `uv run` command prefix
+  - Project follows src layout structure with all packages under `src/`
+- **Research References**:
+  - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 1154-1186) - Python tooling requirements
+  - #file:../../.github/instructions/python.instructions.md - Python conventions and tooling
+- **Dependencies**:
+  - uv package manager installed globally
+  - Python 3.11+ available in system
 
 ## Phase 2: Discord Bot Service
 

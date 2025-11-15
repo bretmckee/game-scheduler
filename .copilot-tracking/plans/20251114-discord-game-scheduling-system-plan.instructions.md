@@ -62,141 +62,146 @@ Implement a complete Discord game scheduling system with microservices architect
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 67-79)
 
 - [x] Task 1.5: Create shared data models package
+
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 81-96)
+
+- [ ] Task 1.6: Configure Python tooling and development environment
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 98-115)
 
 ### [ ] Phase 2: Discord Bot Service
 
 - [ ] Task 2.1: Initialize discord.py bot with Gateway connection
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 98-114)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 117-133)
 
 - [ ] Task 2.2: Implement slash commands for game management
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 116-136)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 135-155)
 
 - [ ] Task 2.3: Build game announcement message formatter with buttons
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 138-159)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 157-178)
 
 - [ ] Task 2.4: Implement button interaction handlers
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 161-181)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 180-200)
 
 - [ ] Task 2.5: Set up RabbitMQ event publishing and subscriptions
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 183-200)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 202-219)
 
 - [ ] Task 2.6: Implement role authorization checks
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 202-217)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 221-236)
 
 ### [ ] Phase 3: Web API Service
 
 - [ ] Task 3.1: Initialize FastAPI application with middleware
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 219-234)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 238-253)
 
 - [ ] Task 3.2: Implement Discord OAuth2 authentication flow
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 236-257)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 255-276)
 
 - [ ] Task 3.3: Create role-based authorization middleware
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 259-275)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 278-294)
 
 - [ ] Task 3.4: Build guild and channel configuration endpoints
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 277-297)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 296-316)
 
 - [ ] Task 3.5: Implement game management endpoints
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 299-324)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 318-343)
 
 - [ ] Task 3.6: Build display name resolution service
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 326-347)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 345-366)
 
 - [ ] Task 3.7: Implement settings inheritance resolution logic
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 349-365)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 368-384)
 
 ### [ ] Phase 4: Scheduler Service
 
 - [ ] Task 4.1: Set up Celery worker with RabbitMQ broker
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 367-382)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 386-401)
 
 - [ ] Task 4.2: Implement notification check task
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 384-401)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 403-420)
 
 - [ ] Task 4.3: Build notification delivery task
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 403-417)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 422-436)
 
 - [ ] Task 4.4: Add game status update tasks
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 419-433)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 438-452)
 
 ### [ ] Phase 5: Web Dashboard Frontend
 
 - [ ] Task 5.1: Set up React application with Material-UI
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 435-450)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 454-469)
 
 - [ ] Task 5.2: Implement OAuth2 login flow with redirect handling
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 452-467)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 471-486)
 
 - [ ] Task 5.3: Build guild and channel management pages
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 469-487)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 488-506)
 
 - [ ] Task 5.4: Create game management interface
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 489-511)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 508-530)
 
 - [ ] Task 5.5: Implement participant pre-population with validation
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 513-534)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 532-553)
 
 ### [ ] Phase 6: Integration & Testing
 
 - [ ] Task 6.1: Integration tests for inter-service communication
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 536-551)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 555-570)
 
 - [ ] Task 6.2: End-to-end tests for user workflows
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 553-571)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 572-590)
 
 - [ ] Task 6.3: Load testing for concurrent operations
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 573-587)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 592-606)
 
 - [ ] Task 6.4: Test display name resolution scenarios
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 589-607)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 608-626)
 
 - [ ] Task 6.5: Test pre-populated participants feature
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 609-629)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 628-648)
 
 ### [ ] Phase 7: Advanced Features
 
 - [ ] Task 7.1: Implement waitlist support
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 631-645)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 650-664)
 
 - [ ] Task 7.2: Add game templates for recurring sessions
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 647-660)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 666-679)
 
 - [ ] Task 7.3: Build calendar export functionality
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 662-674)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 681-693)
 
 - [ ] Task 7.4: Create statistics dashboard
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 676-689)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 695-708)
 
 ## Dependencies
 
 - Python 3.11+ with async/await support
+- uv package manager (https://uv.run/) for dependency management and script execution
 - PostgreSQL 15+ for primary data store
 - RabbitMQ 3.12+ for message broker
 - Redis 7+ for caching and Celery backend
@@ -207,6 +212,8 @@ Implement a complete Discord game scheduling system with microservices architect
 - SQLAlchemy 2.0 for async ORM
 - Celery for distributed task queue
 - React with Material-UI for frontend
+- ruff for code formatting, import sorting, and linting
+- pytest for unit and integration testing
 
 ## Success Criteria
 
@@ -227,3 +234,6 @@ Implement a complete Discord game scheduling system with microservices architect
 - Services can be deployed and scaled independently
 - System recovers gracefully from individual service failures
 - Message delivery guaranteed via RabbitMQ acknowledgments
+- All Python code follows project conventions with uv, ruff, and pytest
+- Code passes linting, formatting, and type checking standards
+- All Python scripts and tests execute via `uv run` command prefix

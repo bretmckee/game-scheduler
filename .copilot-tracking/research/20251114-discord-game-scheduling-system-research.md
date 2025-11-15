@@ -1156,6 +1156,41 @@ async def create_game(
 - **Authentication**: Discord OAuth2 for web dashboard (users already on Discord)
 - **API Gateway**: Optional nginx or Traefik for routing to services
 
+### Python Development Tooling
+
+**Package Management & Execution**
+
+- **uv** (https://uv.run/): Modern Python package manager and project management tool
+  - Replaces pip, venv, pipx, and poetry with single fast tool
+  - All Python commands must be executed with `uv run` prefix
+  - Virtual environment and dependency management handled automatically
+  - Examples: `uv run pytest`, `uv run python src/api/main.py`, `uv run celery worker`
+
+**Project Structure**
+
+- **src layout**: Place all Python packages under `src/` directory
+  - Prevents accidental imports of uninstalled packages during development
+  - Clear separation between source code and project configuration
+  - Standard structure: `src/api/`, `src/bot/`, `src/scheduler/`, `src/shared/`
+
+**Code Quality Tools**
+
+- **pytest**: Testing framework for unit, integration, and end-to-end tests
+  - Execute with: `uv run pytest tests/`
+  - Configuration in `pyproject.toml` with coverage reporting
+- **ruff**: Fast Python linter and formatter (replaces flake8, black, isort)
+  - Linting: `uv run ruff check src/`
+  - Formatting: `uv run ruff format src/`
+  - Import sorting: `uv run ruff check --select I --fix src/`
+  - Configuration in `pyproject.toml` for consistent team standards
+
+**Development Workflow**
+
+- All scripts, tests, and commands executed through `uv run`
+- Pre-commit hooks should use `uv run ruff check` and `uv run pytest`
+- Docker containers use `uv` for dependency installation and script execution
+- CI/CD pipelines must install and use `uv` for all Python operations
+
 ### Discord Interaction Pattern: Buttons (Modern)
 
 Use Discord's Button components for all player interactions:
@@ -1574,12 +1609,15 @@ _Asynchronous Communication:_
 
 ### Dependencies
 
-- Python 3.11+
-- PostgreSQL 15+
-- RabbitMQ 3.12+
-- Redis 7+
+- Python 3.11+ with async/await support
+- uv package manager (https://uv.run/) for dependency management
+- PostgreSQL 15+ for primary data store
+- RabbitMQ 3.12+ for message broker
+- Redis 7+ for caching and Celery backend
 - Docker and Docker Compose for containerization
 - Discord Application with bot token and OAuth2 credentials
+- ruff for code formatting, import sorting, and linting
+- pytest for unit and integration testing
 
 ### Success Criteria
 
