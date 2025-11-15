@@ -1,0 +1,4 @@
+#! /bin/bash
+set -e -u -o pipefail
+uv run autocopyright -s "#" -d alembic -d services -d shared -d tests -g "*.py" -l "./templates/agpl-template.jinja2"
+uv run autocopyright -s "//" -d frontend/src -g "*.ts" -g "*.tsx" -l "./templates/agpl-template.jinja2"
