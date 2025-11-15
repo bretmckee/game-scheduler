@@ -1,0 +1,18 @@
+# Discord bot service dependencies
+discord.py>=2.3.0,<3.0.0
+pydantic>=2.0.0,<3.0.0
+pydantic-settings>=2.0.0,<3.0.0
+
+# Database
+sqlalchemy[asyncio]>=2.0.0,<3.0.0
+asyncpg>=0.29.0,<1.0.0
+alembic>=1.12.0,<2.0.0
+
+# Messaging
+aio-pika>=9.3.0,<10.0.0
+
+# Cache
+redis[hiredis]>=5.0.0,<6.0.0
+
+# Shared package (installed in editable mode via Dockerfile)
+# -e /app/shared
