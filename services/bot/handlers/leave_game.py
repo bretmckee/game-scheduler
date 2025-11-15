@@ -1,0 +1,124 @@
+"""Leave game button interaction handler."""
+
+import logging
+import uuid
+
+import discord
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from services.bot.handlers.utils import (
+    send_deferred_response,
+    send_error_message,
+    send_success_message,
+)
+from shared.database import get_db_session
+from shared.messaging.events import Event, EventType, PlayerLeftEvent
+from shared.messaging.publisher import EventPublisher
+from shared.models.game import GameSession
+from shared.models.participant import GameParticipant
+from shared.models.user import User
+
+logger = logging.getLogger(__name__)
+
+
+async def handle_leave_game(
+    interaction: discord.Interaction, game_id: str, publisher: EventPublisher
+) -> None:
+    """Handle leave game button interaction.
+
+    Args:
+        interaction: Discord interaction from button click
+        game_id: Game session ID from custom_id
+        publisher: RabbitMQ event publisher
+
+    Validates user is participant, publishes event to RabbitMQ,
+    and sends confirmation message.
+    """
+    await send_deferred_response(interaction)
+
+    try:
+        game_uuid = uuid.UUID(game_id)
+    except ValueError:
+        await send_error_message(interaction, "Invalid game ID")
+        return
+
+    user_discord_id = str(interaction.user.id)
+
+    async with get_db_session() as db:
+        result = await _validate_leave_game(db, game_uuid, user_discord_id)
+
+        if not result["can_leave"]:
+            await send_error_message(interaction, result["error"])
+            return
+
+        game = result["game"]
+        participant_count = result["participant_count"]
+
+    event_payload = PlayerLeftEvent(
+        game_id=game_uuid,
+        player_id=user_discord_id,
+        player_count=participant_count - 1,
+        max_players=game.maxPlayers or 10,
+    )
+
+    event = Event(event_type=EventType.PLAYER_LEFT, data=event_payload.model_dump())
+
+    await publisher.publish(event)
+
+    await send_success_message(interaction, f"You've left **{game.title}**")
+
+    logger.info(
+        f"User {user_discord_id} left game {game_id} "
+        f"({participant_count - 1}/{game.maxPlayers or 10})"
+    )
+
+
+async def _validate_leave_game(db: AsyncSession, game_id: uuid.UUID, user_discord_id: str) -> dict:
+    """Validate user can leave game.
+
+    Args:
+        db: Database session
+        game_id: Game session UUID
+        user_discord_id: Discord user ID
+
+    Returns:
+        Dictionary with validation results:
+        - can_leave: bool
+        - error: str (if can_leave is False)
+        - game: GameSession
+        - participant_count: int
+    """
+    result = await db.execute(select(GameSession).where(GameSession.id == game_id))
+    game = result.scalar_one_or_none()
+
+    if not game:
+        return {"can_leave": False, "error": "Game not found"}
+
+    if game.status == "COMPLETED":
+        return {"can_leave": False, "error": "Cannot leave a completed game"}
+
+    result = await db.execute(select(User).where(User.discordId == user_discord_id))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        return {"can_leave": False, "error": "You're not part of this game"}
+
+    result = await db.execute(
+        select(GameParticipant)
+        .where(GameParticipant.gameSessionId == game_id)
+        .where(GameParticipant.userId == user.id)
+    )
+    participant = result.scalar_one_or_none()
+
+    if not participant:
+        return {"can_leave": False, "error": "You're not part of this game"}
+
+    result = await db.execute(
+        select(GameParticipant)
+        .where(GameParticipant.gameSessionId == game_id)
+        .where(GameParticipant.userId.isnot(None))
+    )
+    participant_count = len(result.scalars().all())
+
+    return {"can_leave": True, "game": game, "participant_count": participant_count}

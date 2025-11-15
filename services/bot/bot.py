@@ -16,6 +16,7 @@ class GameSchedulerBot(commands.Bot):
 
     Attributes:
         config: Bot configuration with Discord credentials and service URLs
+        button_handler: Handler for button interactions
     """
 
     def __init__(self, config: BotConfig) -> None:
@@ -26,6 +27,7 @@ class GameSchedulerBot(commands.Bot):
             config: Bot configuration with Discord credentials
         """
         self.config = config
+        self.button_handler = None
 
         intents = discord.Intents.default()
         intents.guilds = True
@@ -44,9 +46,15 @@ class GameSchedulerBot(commands.Bot):
         logger.info("Running bot setup hook")
 
         from services.bot.commands import setup_commands
+        from services.bot.handlers import ButtonHandler
+        from shared.messaging.publisher import EventPublisher
 
         await setup_commands(self)
         logger.info("Commands registered successfully")
+
+        publisher = EventPublisher()
+        self.button_handler = ButtonHandler(publisher)
+        logger.info("Button handler initialized")
 
         if self.config.environment == "development":
             logger.info("Syncing commands in development mode")
@@ -65,6 +73,17 @@ class GameSchedulerBot(commands.Bot):
     async def on_resumed(self) -> None:
         """Handle Gateway reconnection after disconnect."""
         logger.info("Bot reconnected to Gateway")
+
+    async def on_interaction(self, interaction: discord.Interaction) -> None:
+        """
+        Handle button and other interactions.
+
+        Args:
+            interaction: Discord interaction event
+        """
+        if interaction.type == discord.InteractionType.component:
+            if self.button_handler:
+                await self.button_handler.handle_interaction(interaction)
 
     async def on_error(self, event_method: str, *args, **kwargs) -> None:
         """
