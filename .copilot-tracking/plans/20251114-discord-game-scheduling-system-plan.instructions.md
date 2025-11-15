@@ -74,11 +74,11 @@ Implement a complete Discord game scheduling system with microservices architect
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 116-136)
 
-- [ ] Task 2.3: Build game announcement message formatter with buttons
+- [x] Task 2.3: Build game announcement message formatter with buttons
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 138-159)
 
-- [ ] Task 2.4: Implement button interaction handlers
+- [x] Task 2.4: Implement button interaction handlers
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 161-181)
 
