@@ -245,7 +245,7 @@ applyTo: '.copilot-tracking/changes/{{date}}-{{task_description}}-changes.md'
 ````markdown
 ---
 mode: agent
-model: Claude Sonnet 4
+model: Claude Sonnet 4.5
 ---
 <!-- markdownlint-disable-file -->
 # Implementation Prompt: {{task_name}}
