@@ -69,7 +69,7 @@ class EventConsumer:
         Bind queue to exchange with routing key pattern.
 
         Args:
-            routing_key: Routing key pattern (supports wildcards: * and #)
+            routing_key: Routing key pattern (supports wildcards: * and #).
         """
         if self._queue is None:
             await self.connect()
@@ -82,8 +82,8 @@ class EventConsumer:
         Register handler function for event type.
 
         Args:
-            event_type: Event type to handle
-            handler: Async function that receives Event object
+            event_type: Event type to handle.
+            handler: Async function that receives Event object.
         """
         routing_key = event_type.value
 
