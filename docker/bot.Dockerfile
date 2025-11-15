@@ -15,9 +15,11 @@ RUN pip install --no-cache-dir uv
 # Copy dependency files
 COPY pyproject.toml ./
 COPY requirements.txt ./
+COPY services/bot/requirements.txt ./bot_requirements.txt
 
 # Install Python dependencies
 RUN uv pip install --system -r requirements.txt
+RUN uv pip install --system -r bot_requirements.txt
 
 # Production stage
 FROM python:3.11-slim AS production
@@ -36,6 +38,11 @@ COPY --from=base /usr/local/bin /usr/local/bin
 # Copy application code
 COPY shared/ ./shared/
 COPY services/bot/ ./services/bot/
+
+# Install shared package in editable mode
+USER root
+RUN pip install -e ./shared
+USER appuser
 
 # Create non-root user
 RUN addgroup --system appgroup && adduser --system --group appuser
