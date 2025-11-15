@@ -142,6 +142,31 @@ Set up uv package manager, ruff linting/formatting, pytest testing, and pyprojec
   - uv package manager installed globally
   - Python 3.11+ available in system
 
+### Task 1.7: Update existing code to comply with updated Python instructions
+
+Update all existing Python files to follow the updated Python instructions which now include specific Google Python style guide requirements for imports, trailing commas, comments, and docstrings.
+
+- **Files**:
+  - `src/shared/**/*.py` - All shared package modules
+  - `src/api/main.py` - FastAPI application entry point
+  - `src/bot/main.py` - Discord bot entry point
+  - `src/scheduler/celery_app.py` - Celery application configuration
+  - `src/scheduler/tasks.py` - Celery task definitions
+  - `alembic/env.py` - Alembic migration environment
+  - `tests/**/*.py` - All test modules
+- **Success**:
+  - All imports follow Google style guide format (use `from x import y` pattern appropriately)
+  - Trailing commas added to multi-line sequences when closing token is on separate line
+  - Function and class docstrings follow PEP 257 and Google style guide format
+  - Comments updated to be clear and concise following Google style guide
+  - All Python files pass `uv run ruff check` without style violations
+  - Type hints are properly formatted and complete
+- **Research References**:
+  - #file:../../.github/instructions/python.instructions.md - Updated Python conventions with Google style guide
+- **Dependencies**:
+  - Task 1.6 completion (Python tooling setup)
+  - Existing Python codebase
+
 ## Phase 2: Discord Bot Service
 
 ### Task 2.1: Initialize discord.py bot with Gateway connection
