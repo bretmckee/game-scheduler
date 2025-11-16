@@ -262,8 +262,8 @@ You WILL follow #file:../../.github/instructions/task-implementation.instruction
 You WILL systematically implement #file:../plans/{{date}}-{{task_description}}-plan.instructions.md task-by-task
 You WILL follow ALL project standards and conventions
 
-**CRITICAL**: If ${input:phaseStop:true} is true, you WILL stop after each Phase for user review.
-**CRITICAL**: If ${input:taskStop:false} is true, you WILL stop after each Task for user review.
+**CRITICAL**: If ${input:phaseStop:true} is true or not specified, you WILL stop after each Phase for user review.
+**CRITICAL**: If ${input:taskStop:true} is true or not specified, you WILL stop after each Task for user review.
 
 ### Step 3: Cleanup
 
