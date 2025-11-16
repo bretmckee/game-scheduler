@@ -156,7 +156,7 @@ Implementation of a complete Discord game scheduling system with microservices a
 
 **Bot Configuration:**
 
-- Discord.py bot with required intents (guilds, guild_messages, message_content, members)
+- Discord.py bot with Intents.none() (no privileged intents required)
 - Auto-reconnect on Gateway disconnection
 - Slash command tree setup with development mode syncing
 - Event handlers for ready, disconnect, resumed, guild_join, guild_remove
@@ -168,7 +168,7 @@ Implementation of a complete Discord game scheduling system with microservices a
 - Bot connects to Discord Gateway via discord.py
 - Bot responds to ready event with guild count logging
 - Auto-reconnect implemented through discord.py connection management
-- Intents configured for all required Discord features
+- Intents configured correctly (no privileged intents needed for interactions-only bot)
 - Bot class ready for command extension loading (Task 2.2)
 
 ### Modified
@@ -489,3 +489,26 @@ Implementation of a complete Discord game scheduling system with microservices a
 - Container startup no longer fails due to missing/conflicting mounted files
 - Infrastructure services (postgres, redis, rabbitmq) start successfully and remain healthy
 - Application services now run with predictable, immutable file systems
+
+### Modified (Post-Implementation)
+
+- services/bot/bot.py - Changed Discord intents from default with privileged flags to Intents.none()
+
+**Rationale:**
+
+- Bot uses only slash commands (app_commands) and button interactions, not message events
+- Discord interactions provide all necessary user/guild data automatically
+- Privileged intents (message_content, members) are unnecessary for interactions-only bots
+- Removes requirement for Discord Developer Portal privileged intent approval
+- Follows Discord best practices for modern interaction-based bots
+
+- .copilot-tracking/research/20251114-discord-game-scheduling-system-research.md - Added documentation for "Requires OAuth2 Code Grant" bot setting
+
+**Content Added:**
+
+- Explanation of "Requires OAuth2 Code Grant" security setting in Discord Application Bot settings
+- Distinction between bot authorization methods (simple invite link vs full OAuth2 flow)
+- When to enable/disable the setting based on bot requirements
+- Specific recommendation for Game Scheduler Bot (keep disabled)
+- Clarification that OAuth2 Code Grant is for user authentication on web dashboard, not bot authorization
+- Bot authenticates with bot token and only needs bot-level permissions

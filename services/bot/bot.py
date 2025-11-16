@@ -47,11 +47,7 @@ class GameSchedulerBot(commands.Bot):
         self.config = config
         self.button_handler = None
 
-        intents = discord.Intents.default()
-        intents.guilds = True
-        intents.guild_messages = True
-        intents.message_content = True
-        intents.members = True
+        intents = discord.Intents.none()
 
         super().__init__(
             command_prefix="!",
