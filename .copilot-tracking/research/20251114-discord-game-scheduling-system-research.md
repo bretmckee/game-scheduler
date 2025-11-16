@@ -310,6 +310,28 @@ function ParticipantList({ participants }: { participants: Participant[] }) {
 - After authentication, fetch user's guild memberships and roles via Discord API
 - Cache role data in Redis with TTL to avoid excessive API calls
 
+**Bot Authorization: "Requires OAuth2 Code Grant" Setting**
+
+- This is a security setting in Discord Application's Bot settings page
+- Controls how the bot can be added to servers
+- **When DISABLED (Default - Recommended for this project)**:
+  - Users add bot via simple invite link
+  - Format: `https://discord.com/api/oauth2/authorize?client_id=YOUR_CLIENT_ID&permissions=PERMISSIONS&scope=bot`
+  - Bot is added immediately without authorization code exchange
+  - Simpler flow, standard for typical bots
+  - Sufficient when bot only needs bot-level permissions (not user-specific data)
+- **When ENABLED**:
+  - Requires full OAuth2 Authorization Code Flow to add bot
+  - User redirected to Discord, then back with authorization code
+  - Code must be exchanged for access token server-side
+  - More complex, required only if bot needs to act on behalf of users
+  - Needed for accessing user-specific data (DMs, Spotify, etc.)
+- **For Game Scheduler Bot**: Keep DISABLED
+  - Bot authenticates with bot token (not OAuth2 user tokens)
+  - Bot needs only bot permissions (send messages, manage messages, etc.)
+  - OAuth2 Code Grant is for web dashboard user authentication, not bot authorization
+  - Users should add bot via simple invite link with required permissions
+
 **Role-Based Authorization System**
 
 - Discord roles determine user permissions within the application
