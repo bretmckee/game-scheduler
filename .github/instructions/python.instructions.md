@@ -85,6 +85,14 @@ applyTo: "**/*.py"
 
   ```
 
+
+### Naming
+  - 3.16 Naming
+    These names are all self describing (i.e. module_name shows how to name modules)
+    ```python
+    module_name, package_name, ClassName, method_name, ExceptionName, function_name, GLOBAL_CONSTANT_NAME, global_var_name, instance_var_name, function_parameter_name, local_var_name, query_proper_noun_for_thing, send_acronym_via_https.
+    ```
+
 ### Comments and Docstrings
 
 - Write clear and concise comments for each function.
