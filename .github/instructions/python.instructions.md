@@ -47,9 +47,7 @@ applyTo: "**/*.py"
   - 2.2.4 Imports
 
     ```
-      2.2.4 Decision
-
-    Use import x for importing packages and modules.
+    Use import x for importing packages and modules, but not for importing objects within packages and modules.
     Use from x import y where x is the package prefix and y is the module name with no prefix.
     Use from x import y as z in any of the following circumstances:
     Two modules named y are to be imported.
@@ -60,6 +58,24 @@ applyTo: "**/*.py"
     Use import y as z only when z is a standard abbreviation (e.g., import numpy as np).
 
     ```
+
+### Examples of Imports
+
+#### Good
+
+```python
+  from a.b import c
+  ...
+  c.DoSomething(input, output)
+```
+
+#### Bad
+
+```python
+  from a.b import c
+  ...
+  c(input, output)
+```
 
 - 3.4.1 Trailing commas in sequences of items?
 
