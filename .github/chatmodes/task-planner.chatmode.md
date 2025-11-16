@@ -263,7 +263,7 @@ You WILL systematically implement #file:../plans/{{date}}-{{task_description}}-p
 You WILL follow ALL project standards and conventions
 
 **CRITICAL**: If ${input:phaseStop:true} is true, you WILL stop after each Phase for user review.
-**CRITICAL**: If ${input:taskStop:false} is true, you WILL stop after each Task for user review.
+**CRITICAL**: If ${input:taskStop:stop} is true, you WILL stop after each Task for user review.
 
 ### Step 3: Cleanup
 
