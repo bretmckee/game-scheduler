@@ -515,10 +515,18 @@ Implementation of a complete Discord game scheduling system with microservices a
 
 ### Phase 2: Discord Bot Service - RabbitMQ Event Publishing and Subscriptions
 
-- services/bot/events/**init**.py - Event package initialization with exports
+- services/bot/events/__init__.py - Event package initialization with exports
 - services/bot/events/consumer.py - Event consumer for subscribing to RabbitMQ events
 - services/bot/events/handlers.py - Event handlers for game.created, game.updated, and notification.send_dm
 - services/bot/bot.py - Updated to initialize and start event consumer in setup_hook, stop in close()
+- services/bot/auth/__init__.py - Authentication module initialization with exports
+- services/bot/auth/permissions.py - Discord permission flag utilities with IntFlag enum
+- services/bot/auth/cache.py - Role caching wrapper for Redis storage with TTL management
+- services/bot/auth/role_checker.py - Role verification service with guild/channel role checking
+- tests/services/bot/auth/__init__.py - Test package initialization
+- tests/services/bot/auth/test_permissions.py - Permission utility tests (12 tests, 100% passing)
+- tests/services/bot/auth/test_cache.py - Role caching tests (11 tests, 100% passing)
+- tests/services/bot/auth/test_role_checker.py - Role checker tests (8 tests, 100% passing)
 
 **Event Consumer Implementation:**
 
@@ -601,3 +609,110 @@ Implementation of a complete Discord game scheduling system with microservices a
 - Updated test patches to match new import location: `services.bot.events.handlers.game_message.format_game_announcement`
 - All 23 tests still passing after refactor
 - Code follows Google Python Style Guide import conventions
+
+### Phase 2: Discord Bot Service - Role Authorization Checks
+
+- services/bot/auth/__init__.py - Authentication module initialization with exports
+- services/bot/auth/permissions.py - Discord permission flag utilities with IntFlag enum
+- services/bot/auth/cache.py - Role caching wrapper for Redis storage with TTL management
+- services/bot/auth/role_checker.py - Role verification service with guild/channel role checking
+
+**Permission Utilities:**
+
+- `DiscordPermissions` IntFlag enum with all Discord permission flags
+- Permission checking functions: `has_permission()`, `has_any_permission()`, `has_all_permissions()`
+- Convenience functions: `has_manage_guild()`, `has_administrator()`, `has_manage_channels()`
+- Bitwise permission flag support for efficient permission checks
+- Covers all 41 Discord permission types (CREATE_INSTANT_INVITE through MODERATE_MEMBERS)
+
+**Role Caching:**
+
+- `RoleCache` class wraps Redis operations for role data
+- `get_user_roles()` - Fetch cached user roles with 5-minute TTL
+- `set_user_roles()` - Cache user roles with automatic expiration
+- `invalidate_user_roles()` - Force cache invalidation for critical operations
+- `get_guild_roles()` - Fetch cached guild role definitions
+- `set_guild_roles()` - Cache guild roles with 10-minute TTL
+- Graceful error handling with logging throughout
+- Async singleton pattern with `get_role_cache()` factory
+
+**Role Checker Service:**
+
+- `RoleChecker` class for verifying user permissions
+- `get_member_roles()` - Fetch Discord member roles with Redis caching
+- `invalidate_member_roles()` - Clear cached role data on changes
+- `has_manage_guild_permission()` - Check MANAGE_GUILD or ADMINISTRATOR permission
+- `has_manage_channels_permission()` - Check MANAGE_CHANNELS or ADMINISTRATOR permission
+- `check_permission_from_roles()` - Check if user's roles grant specific permission
+- `can_host_game()` - Verify game hosting permission with channel/guild inheritance
+- `can_configure_guild()` - Verify guild configuration permission
+- `can_configure_channel()` - Verify channel configuration permission
+- Integrates with database to check configured allowed roles
+- Singleton pattern with `get_role_checker()` factory
+
+**Testing and Quality:**
+
+- tests/services/bot/auth/__init__.py - Test package initialization
+- tests/services/bot/auth/test_permissions.py - Permission utility tests (12 tests, 100% passing)
+  - Tests for single and multiple permission checks
+  - Tests for ADMINISTRATOR permission detection
+  - Tests for any/all permission combinations
+  - Tests for specific permission helpers
+  - Tests for permission flag bit values
+- tests/services/bot/auth/test_cache.py - Role caching tests (11 tests, 100% passing)
+  - Tests for cache hit/miss scenarios
+  - Tests for setting user and guild roles
+  - Tests for cache invalidation
+  - Tests for error handling
+  - Tests for singleton pattern
+- tests/services/bot/auth/test_role_checker.py - Role checker tests (8 tests, 100% passing)
+  - Tests for initialization
+  - Tests for MANAGE_GUILD permission checks
+  - Tests for MANAGE_CHANNELS permission checks
+  - Tests for ADMINISTRATOR permission override
+  - Tests for role invalidation
+  - Tests for singleton pattern
+- Total: 31 tests created (31 passing, 100% pass rate)
+- All code linted with ruff (0 issues)
+- All code formatted with ruff
+- Comprehensive error handling and logging
+- Type hints on all functions
+- Google-style docstrings throughout
+
+**Success Criteria Met:**
+
+- ✅ Roles fetched from Discord API via member.roles
+- ✅ Results cached in Redis with 5-minute TTL (CacheTTL.USER_ROLES)
+- ✅ Permission checks work for all required permissions
+- ✅ Cache invalidation available for critical operations
+- ✅ Integration ready for slash commands (Task 2.2)
+- ✅ Support for guild and channel-specific role configurations
+- ✅ Hierarchy checking: channel roles → guild roles → MANAGE_GUILD fallback
+
+**Code Quality Improvements (2025-11-16):**
+
+- Fixed import pattern in role_checker.py to follow Google Python Style Guide (2.2.4 Imports)
+- Changed from "Bad" pattern: `from a.b.c import function` → `function()`
+- Changed to "Good" pattern: `from a.b import c` → `c.function()`
+- Updated imports:
+  - `from services.bot.auth import cache as auth_cache` → use `auth_cache.get_role_cache()`
+  - `from shared import database` → use `database.get_db_session()`
+- Updated all function calls to use module prefix pattern
+- Updated test patches to match new import locations
+- All 31 tests still passing after refactor
+- All lint checks passing (ruff check)
+- Code follows Python instructions for import style
+
+**Phase 2 Complete:**
+
+- All 6 tasks in Phase 2 completed successfully
+- Discord bot service fully functional with:
+  - Gateway connection and auto-reconnect
+  - Slash commands for game management and configuration
+  - Game announcement message formatting with Discord buttons
+  - Button interaction handlers with validation
+  - RabbitMQ event publishing and subscription
+  - Role-based authorization with Redis caching
+- Total Phase 2 tests: 30 bot tests + 51 command tests + 55 formatter/handler tests + 23 event tests + 31 auth tests = 190 tests
+- 100% test pass rate across all Phase 2 modules
+- Ready to proceed to Phase 3: Web API Service
