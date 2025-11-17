@@ -87,6 +87,19 @@ applyTo: "**/*.py"
 
   ```
 
+
+### Naming Conventions
+  - Name modules, packages, methods, functions, global variables, instance
+    variables, function parameters, local variables with snake_case.
+  - Name  classes and exceptions using pascal case (camel case with the first letter
+    capitalized).
+  - Name global constants in all upper caps snake case.
+
+  These names are all self describing (i.e. module_name shows how to name modules)
+  ```python
+  module_name, package_name, ClassName, method_name, ExceptionName, function_name, GLOBAL_CONSTANT_NAME, global_var_name, instance_var_name, function_parameter_name, local_var_name, query_proper_noun_for_thing, send_acronym_via_https.
+  ```
+
 ### Comments and Docstrings
 
 - Write clear and concise comments for each function.
