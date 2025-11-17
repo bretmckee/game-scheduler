@@ -7,8 +7,9 @@ applyTo: "**/*.py"
 
 ## Python Instructions
 
-- Ensure functions have descriptive names and always use type hints.
-- Use the `typing` module for type annotations (e.g., `List[str]`, `Dict[str, int]`).
+- Ensure functions have descriptive names and always use modern (python 3.11+)
+  type hints.
+- Use pydantic for type validation.
 - Break down complex functions into smaller, more manageable functions.
 
 ## General Instructions
