@@ -44,15 +44,17 @@ class GameSchedulerBot(commands.Bot):
         logger.info("Running bot setup hook")
 
         from services.bot.commands import setup_commands
-        from services.bot.events import EventConsumer
-        from services.bot.events.handlers import (
-            handle_game_created,
-            handle_game_updated,
-            handle_notification_send_dm,
-        )
         from services.bot.handlers import ButtonHandler
-        from shared.messaging.events import EventType
         from shared.messaging.publisher import EventPublisher
+
+        # Event consumer not yet implemented - commented out for now
+        # from services.bot.events import EventConsumer
+        # from services.bot.events.handlers import (
+        #     handle_game_created,
+        #     handle_game_updated,
+        #     handle_notification_send_dm,
+        # )
+        # from shared.messaging.events import EventType
 
         await setup_commands(self)
         logger.info("Commands registered successfully")
@@ -61,14 +63,15 @@ class GameSchedulerBot(commands.Bot):
         self.button_handler = ButtonHandler(publisher)
         logger.info("Button handler initialized")
 
-        self.event_consumer = EventConsumer(self)
-        self.event_consumer.register_handler(EventType.GAME_CREATED, handle_game_created)
-        self.event_consumer.register_handler(EventType.GAME_UPDATED, handle_game_updated)
-        self.event_consumer.register_handler(
-            EventType.NOTIFICATION_SEND_DM, handle_notification_send_dm
-        )
-        await self.event_consumer.start()
-        logger.info("Event consumer started")
+        # Event consumer initialization - to be implemented in Task 2.5
+        # self.event_consumer = EventConsumer(self)
+        # self.event_consumer.register_handler(EventType.GAME_CREATED, handle_game_created)
+        # self.event_consumer.register_handler(EventType.GAME_UPDATED, handle_game_updated)
+        # self.event_consumer.register_handler(
+        #     EventType.NOTIFICATION_SEND_DM, handle_notification_send_dm
+        # )
+        # await self.event_consumer.start()
+        # logger.info("Event consumer started")
 
         if self.config.environment == "development":
             logger.info("Syncing commands in development mode")
@@ -130,9 +133,10 @@ class GameSchedulerBot(commands.Bot):
         """Cleanup resources before bot shutdown."""
         logger.info("Shutting down bot")
 
-        if self.event_consumer:
-            await self.event_consumer.stop()
-            logger.info("Event consumer stopped")
+        # Event consumer cleanup - to be implemented when Task 2.5 is complete
+        # if self.event_consumer:
+        #     await self.event_consumer.stop()
+        #     logger.info("Event consumer stopped")
 
         await super().close()
 

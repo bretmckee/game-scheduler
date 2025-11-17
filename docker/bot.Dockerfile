@@ -12,10 +12,12 @@ WORKDIR /app
 # Install uv for dependency management
 RUN pip install --no-cache-dir uv
 
-# Copy dependency files
+# Copy dependency files and source code needed for package discovery
 COPY pyproject.toml ./
+COPY shared/ ./shared/
+COPY services/ ./services/
 
-# Install Python dependencies
+# Install Python dependencies (includes the local package)
 RUN uv pip install --system .
 
 # Production stage
@@ -38,9 +40,6 @@ COPY services/bot/ ./services/bot/
 
 # Create non-root user
 RUN addgroup --system appgroup && adduser --system --group appuser
-
-# Install shared package in editable mode
-RUN pip install -e ./shared
 
 # Set ownership
 RUN chown -R appuser:appgroup /app
