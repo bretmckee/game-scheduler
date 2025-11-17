@@ -17,6 +17,7 @@ class GameSchedulerBot(commands.Bot):
     Attributes:
         config: Bot configuration with Discord credentials and service URLs
         button_handler: Handler for button interactions
+        event_consumer: Consumer for RabbitMQ events
     """
 
     def __init__(self, config: BotConfig) -> None:
@@ -28,6 +29,7 @@ class GameSchedulerBot(commands.Bot):
         """
         self.config = config
         self.button_handler = None
+        self.event_consumer = None
 
         intents = discord.Intents.none()
 
@@ -42,7 +44,14 @@ class GameSchedulerBot(commands.Bot):
         logger.info("Running bot setup hook")
 
         from services.bot.commands import setup_commands
+        from services.bot.events import EventConsumer
+        from services.bot.events.handlers import (
+            handle_game_created,
+            handle_game_updated,
+            handle_notification_send_dm,
+        )
         from services.bot.handlers import ButtonHandler
+        from shared.messaging.events import EventType
         from shared.messaging.publisher import EventPublisher
 
         await setup_commands(self)
@@ -51,6 +60,15 @@ class GameSchedulerBot(commands.Bot):
         publisher = EventPublisher()
         self.button_handler = ButtonHandler(publisher)
         logger.info("Button handler initialized")
+
+        self.event_consumer = EventConsumer(self)
+        self.event_consumer.register_handler(EventType.GAME_CREATED, handle_game_created)
+        self.event_consumer.register_handler(EventType.GAME_UPDATED, handle_game_updated)
+        self.event_consumer.register_handler(
+            EventType.NOTIFICATION_SEND_DM, handle_notification_send_dm
+        )
+        await self.event_consumer.start()
+        logger.info("Event consumer started")
 
         if self.config.environment == "development":
             logger.info("Syncing commands in development mode")
@@ -111,6 +129,11 @@ class GameSchedulerBot(commands.Bot):
     async def close(self) -> None:
         """Cleanup resources before bot shutdown."""
         logger.info("Shutting down bot")
+
+        if self.event_consumer:
+            await self.event_consumer.stop()
+            logger.info("Event consumer stopped")
+
         await super().close()
 
 
