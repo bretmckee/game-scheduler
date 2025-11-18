@@ -18,6 +18,7 @@ def mock_interaction():
     interaction = MagicMock(spec=Interaction)
     interaction.response = AsyncMock()
     interaction.response.send_message = AsyncMock()
+    interaction.permissions = discord.Permissions.none()
     return interaction
 
 
@@ -35,7 +36,9 @@ def mock_member_with_manage_guild():
     """Create mock member with MANAGE_GUILD permission."""
     member = MagicMock(spec=discord.Member)
     member.id = 987654321
-    member.guild_permissions = discord.Permissions(manage_guild=True)
+    permissions = discord.Permissions(manage_guild=True)
+    member.guild_permissions = permissions
+    type(member).guild_permissions = property(lambda self: permissions)
     return member
 
 
@@ -44,7 +47,9 @@ def mock_member_with_manage_channels():
     """Create mock member with MANAGE_CHANNELS permission."""
     member = MagicMock(spec=discord.Member)
     member.id = 987654321
-    member.guild_permissions = discord.Permissions(manage_channels=True)
+    permissions = discord.Permissions(manage_channels=True)
+    member.guild_permissions = permissions
+    type(member).guild_permissions = property(lambda self: permissions)
     return member
 
 
@@ -53,7 +58,9 @@ def mock_member_no_permissions():
     """Create mock member with no special permissions."""
     member = MagicMock(spec=discord.Member)
     member.id = 987654321
-    member.guild_permissions = discord.Permissions()
+    permissions = discord.Permissions()
+    member.guild_permissions = permissions
+    type(member).guild_permissions = property(lambda self: permissions)
     return member
 
 
@@ -126,7 +133,7 @@ async def test_require_manage_guild_not_member(mock_interaction, mock_guild):
     assert result is None
     mock_interaction.response.send_message.assert_called_once()
     call_args = mock_interaction.response.send_message.call_args
-    assert "permissions" in call_args[0][0].lower()
+    assert "permission" in call_args[0][0].lower()
     assert call_args[1]["ephemeral"] is True
 
 
@@ -199,5 +206,5 @@ async def test_require_manage_channels_not_member(mock_interaction, mock_guild):
     assert result is None
     mock_interaction.response.send_message.assert_called_once()
     call_args = mock_interaction.response.send_message.call_args
-    assert "permissions" in call_args[0][0].lower()
+    assert "permission" in call_args[0][0].lower()
     assert call_args[1]["ephemeral"] is True
