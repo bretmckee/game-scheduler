@@ -30,6 +30,8 @@ import uvicorn
 from services.api.app import create_app
 from services.api.config import get_api_config
 
+app = create_app()
+
 
 def setup_logging(log_level: str) -> None:
     """
