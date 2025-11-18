@@ -412,96 +412,9 @@ Build service to resolve game settings using guild → channel → game hierarch
   - Task 3.4 (config endpoints)
   - Task 3.5 (game endpoints)
 
-## Phase 4: Scheduler Service
+## Phase 4: Web Dashboard Frontend
 
-### Task 4.1: Set up Celery worker with RabbitMQ broker
-
-Configure Celery app with RabbitMQ broker, result backend, and worker pool settings.
-
-- **Files**:
-  - `services/scheduler/celery_app.py` - Celery application
-  - `services/scheduler/config.py` - Celery configuration
-  - `services/scheduler/worker.py` - Worker entry point
-  - `services/scheduler/beat.py` - Beat scheduler entry
-  - `services/scheduler/requirements.txt` - Python dependencies
-- **Success**:
-  - Workers start and connect to RabbitMQ
-  - Beat scheduler runs periodic tasks
-  - Tasks execute reliably with retries
-  - Dead letter queue handles failures
-- **Research References**:
-  - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 40-55) - Celery capabilities
-  - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 1341-1360) - Scheduler service deployment
-- **Dependencies**:
-  - Celery 5.3+
-  - Task 1.3 (RabbitMQ)
-  - Task 1.4 (Redis backend)
-
-### Task 4.2: Implement notification check task
-
-Create periodic task to query upcoming games and schedule notification delivery tasks.
-
-- **Files**:
-  - `services/scheduler/tasks/check_notifications.py` - Periodic check task
-  - `services/scheduler/tasks/schedule_notification.py` - Per-game notification scheduler
-  - `services/scheduler/utils/notification_windows.py` - Time window calculations
-- **Success**:
-  - Task runs every 5 minutes via Beat
-  - Queries games with upcoming scheduled_at times
-  - Resolves reminder settings using inheritance
-  - Creates notification tasks for each participant
-  - Tracks sent notifications to avoid duplicates
-- **Research References**:
-  - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 1569-1584) - Notification responsibilities
-  - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 1510-1538) - Reminder flow
-  - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 948-989) - Settings inheritance
-- **Dependencies**:
-  - Task 4.1 (Celery setup)
-  - Task 1.2 (database models)
-
-### Task 4.3: Build notification delivery task
-
-Create task to publish notification events to bot service queue for DM delivery.
-
-- **Files**:
-  - `services/scheduler/tasks/send_notification.py` - Notification task
-  - `services/scheduler/services/notification_service.py` - Notification logic
-- **Success**:
-  - Events published to notification queue
-  - Includes user ID, game details, and timestamp
-  - Bot service receives and sends DMs
-  - Delivery status tracked in database
-  - Failed deliveries retry with exponential backoff
-- **Research References**:
-  - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 1510-1538) - Notification message flow
-  - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 1539-1568) - Event schemas
-- **Dependencies**:
-  - Task 4.2 (notification check)
-  - Task 1.3 (RabbitMQ)
-
-### Task 4.4: Add game status update tasks
-
-Create tasks to update game status from SCHEDULED → IN_PROGRESS → COMPLETED based on time.
-
-- **Files**:
-  - `services/scheduler/tasks/update_game_status.py` - Status update task
-  - `services/scheduler/utils/status_transitions.py` - Status state machine
-- **Success**:
-  - Games marked IN_PROGRESS at start time
-  - Games marked COMPLETED after duration
-  - Button states updated in Discord messages
-  - Status change events published
-  - Historical game data preserved
-- **Research References**:
-  - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 856-947) - GameSession status field
-  - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 1569-1584) - Status update responsibilities
-- **Dependencies**:
-  - Task 4.1 (Celery setup)
-  - Task 1.2 (database models)
-
-## Phase 5: Web Dashboard Frontend
-
-### Task 5.1: Set up React application with Material-UI
+### Task 4.1: Set up React application with Material-UI
 
 Initialize React app with TypeScript, Material-UI, React Router, and API client configuration.
 
@@ -526,7 +439,7 @@ Initialize React app with TypeScript, Material-UI, React Router, and API client 
   - Material-UI 5+
   - TypeScript 5+
 
-### Task 5.2: Implement OAuth2 login flow with redirect handling
+### Task 4.2: Implement OAuth2 login flow with redirect handling
 
 Build login page with Discord OAuth2 redirect and callback handling with token storage.
 
@@ -546,10 +459,10 @@ Build login page with Discord OAuth2 redirect and callback handling with token s
   - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 752-795) - OAuth2 flow
   - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 796-820) - Token management
 - **Dependencies**:
-  - Task 5.1 (React setup)
+  - Task 4.1 (React setup)
   - Task 3.2 (API OAuth2 endpoints)
 
-### Task 5.3: Build guild and channel management pages
+### Task 4.3: Build guild and channel management pages
 
 Create pages for viewing and editing guild/channel configurations with inheritance preview.
 
@@ -569,10 +482,10 @@ Create pages for viewing and editing guild/channel configurations with inheritan
   - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 948-989) - Settings inheritance
   - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 1390-1424) - Web dashboard pages
 - **Dependencies**:
-  - Task 5.2 (auth flow)
+  - Task 4.2 (auth flow)
   - Task 3.4 (config API)
 
-### Task 5.4: Create game management interface
+### Task 4.4: Create game management interface
 
 Build pages for browsing games, creating games with DateTimePicker, and managing hosted games.
 
@@ -595,10 +508,10 @@ Build pages for browsing games, creating games with DateTimePicker, and managing
   - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 248-276) - API response pattern
   - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 277-311) - Frontend rendering
 - **Dependencies**:
-  - Task 5.3 (guild pages)
+  - Task 4.3 (guild pages)
   - Task 3.5 (game API)
 
-### Task 5.5: Implement participant pre-population with validation
+### Task 4.5: Implement participant pre-population with validation
 
 Add multi-line input for initial participants with validation error display and disambiguation UI.
 
@@ -619,8 +532,95 @@ Add multi-line input for initial participants with validation error display and 
   - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 500-614) - Validation error handling
   - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 615-750) - Frontend error recovery
 - **Dependencies**:
-  - Task 5.4 (game interface)
+  - Task 4.4 (game interface)
   - Task 3.5 (game API with validation)
+
+## Phase 5: Scheduler Service
+
+### Task 5.1: Set up Celery worker with RabbitMQ broker
+
+Configure Celery app with RabbitMQ broker, result backend, and worker pool settings.
+
+- **Files**:
+  - `services/scheduler/celery_app.py` - Celery application
+  - `services/scheduler/config.py` - Celery configuration
+  - `services/scheduler/worker.py` - Worker entry point
+  - `services/scheduler/beat.py` - Beat scheduler entry
+  - `services/scheduler/requirements.txt` - Python dependencies
+- **Success**:
+  - Workers start and connect to RabbitMQ
+  - Beat scheduler runs periodic tasks
+  - Tasks execute reliably with retries
+  - Dead letter queue handles failures
+- **Research References**:
+  - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 40-55) - Celery capabilities
+  - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 1341-1360) - Scheduler service deployment
+- **Dependencies**:
+  - Celery 5.3+
+  - Task 1.3 (RabbitMQ)
+  - Task 1.4 (Redis backend)
+
+### Task 5.2: Implement notification check task
+
+Create periodic task to query upcoming games and schedule notification delivery tasks.
+
+- **Files**:
+  - `services/scheduler/tasks/check_notifications.py` - Periodic check task
+  - `services/scheduler/tasks/schedule_notification.py` - Per-game notification scheduler
+  - `services/scheduler/utils/notification_windows.py` - Time window calculations
+- **Success**:
+  - Task runs every 5 minutes via Beat
+  - Queries games with upcoming scheduled_at times
+  - Resolves reminder settings using inheritance
+  - Creates notification tasks for each participant
+  - Tracks sent notifications to avoid duplicates
+- **Research References**:
+  - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 1569-1584) - Notification responsibilities
+  - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 1510-1538) - Reminder flow
+  - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 948-989) - Settings inheritance
+- **Dependencies**:
+  - Task 5.1 (Celery setup)
+  - Task 1.2 (database models)
+
+### Task 5.3: Build notification delivery task
+
+Create task to publish notification events to bot service queue for DM delivery.
+
+- **Files**:
+  - `services/scheduler/tasks/send_notification.py` - Notification task
+  - `services/scheduler/services/notification_service.py` - Notification logic
+- **Success**:
+  - Events published to notification queue
+  - Includes user ID, game details, and timestamp
+  - Bot service receives and sends DMs
+  - Delivery status tracked in database
+  - Failed deliveries retry with exponential backoff
+- **Research References**:
+  - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 1510-1538) - Notification message flow
+  - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 1539-1568) - Event schemas
+- **Dependencies**:
+  - Task 5.2 (notification check)
+  - Task 1.3 (RabbitMQ)
+
+### Task 5.4: Add game status update tasks
+
+Create tasks to update game status from SCHEDULED → IN_PROGRESS → COMPLETED based on time.
+
+- **Files**:
+  - `services/scheduler/tasks/update_game_status.py` - Status update task
+  - `services/scheduler/utils/status_transitions.py` - Status state machine
+- **Success**:
+  - Games marked IN_PROGRESS at start time
+  - Games marked COMPLETED after duration
+  - Button states updated in Discord messages
+  - Status change events published
+  - Historical game data preserved
+- **Research References**:
+  - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 856-947) - GameSession status field
+  - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 1569-1584) - Status update responsibilities
+- **Dependencies**:
+  - Task 5.1 (Celery setup)
+  - Task 1.2 (database models)
 
 ## Phase 6: Integration & Testing
 
