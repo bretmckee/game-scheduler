@@ -14,8 +14,8 @@ class Base(AsyncAttrs, DeclarativeBase):
 
 
 def utc_now() -> datetime:
-    """Return current UTC datetime."""
-    return datetime.now(UTC)
+    """Return current UTC datetime (timezone-naive)."""
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 def generate_uuid() -> str:
