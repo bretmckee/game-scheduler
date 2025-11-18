@@ -1,14 +1,34 @@
-import { FC } from 'react';
-import { Box, Button, Container, Typography, Paper } from '@mui/material';
+import { FC, useState } from 'react';
+import { Box, Button, Container, Typography, Paper, Alert } from '@mui/material';
+import { apiClient } from '../api/client';
 
-const DISCORD_CLIENT_ID = import.meta.env.VITE_DISCORD_CLIENT_ID || '';
 const REDIRECT_URI = `${window.location.origin}/auth/callback`;
 
 export const LoginPage: FC = () => {
-  const handleLogin = () => {
-    const scopes = ['identify', 'guilds', 'guilds.members.read'];
-    const authUrl = `https://discord.com/api/oauth2/authorize?client_id=${DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=${scopes.join('%20')}`;
-    window.location.href = authUrl;
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await apiClient.get('/api/v1/auth/login', {
+        params: { redirect_uri: REDIRECT_URI }
+      });
+      
+      const { authorization_url, state } = response.data;
+      
+      // Store state in sessionStorage for CSRF validation
+      sessionStorage.setItem('oauth_state', state);
+      
+      // Redirect to Discord OAuth2 authorization page
+      window.location.href = authorization_url;
+    } catch (err) {
+      console.error('Login initiation failed:', err);
+      setError('Failed to initiate login. Please try again.');
+      setLoading(false);
+    }
   };
 
   return (
@@ -21,13 +41,21 @@ export const LoginPage: FC = () => {
           <Typography variant="body1" color="text.secondary" paragraph>
             Sign in with your Discord account to get started
           </Typography>
+          
+          {error && (
+            <Alert severity="error" sx={{ mt: 2, mb: 2 }}>
+              {error}
+            </Alert>
+          )}
+          
           <Button
             variant="contained"
             size="large"
             onClick={handleLogin}
+            disabled={loading}
             sx={{ mt: 2 }}
           >
-            Login with Discord
+            {loading ? 'Connecting to Discord...' : 'Login with Discord'}
           </Button>
         </Paper>
       </Box>
