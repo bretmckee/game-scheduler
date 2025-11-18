@@ -27,8 +27,8 @@ def upgrade() -> None:
         sa.Column("id", sa.String(36), primary_key=True),
         sa.Column("discord_id", sa.String(20), nullable=False, unique=True),
         sa.Column("notification_preferences", sa.JSON(), nullable=False, server_default="{}"),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("created_at", sa.DateTime(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(), nullable=False),
     )
     op.create_index("ix_users_discord_id", "users", ["discord_id"])
 
@@ -43,8 +43,8 @@ def upgrade() -> None:
         sa.Column("default_rules", sa.Text(), nullable=True),
         sa.Column("allowed_host_role_ids", sa.JSON(), nullable=False, server_default="[]"),
         sa.Column("require_host_role", sa.Boolean(), nullable=False, server_default="false"),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("created_at", sa.DateTime(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(), nullable=False),
     )
     op.create_index("ix_guild_configurations_guild_id", "guild_configurations", ["guild_id"])
 
@@ -66,8 +66,8 @@ def upgrade() -> None:
         sa.Column("default_rules", sa.Text(), nullable=True),
         sa.Column("allowed_host_role_ids", sa.JSON(), nullable=True),
         sa.Column("game_category", sa.String(50), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("created_at", sa.DateTime(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(), nullable=False),
     )
     op.create_index(
         "ix_channel_configurations_channel_id", "channel_configurations", ["channel_id"]
@@ -79,7 +79,7 @@ def upgrade() -> None:
         sa.Column("id", sa.String(36), primary_key=True),
         sa.Column("title", sa.String(200), nullable=False),
         sa.Column("description", sa.Text(), nullable=False),
-        sa.Column("scheduled_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("scheduled_at", sa.DateTime(), nullable=False),
         sa.Column("max_players", sa.Integer(), nullable=True),
         sa.Column(
             "guild_id",
@@ -98,8 +98,8 @@ def upgrade() -> None:
         sa.Column("rules", sa.Text(), nullable=True),
         sa.Column("reminder_minutes", sa.JSON(), nullable=True),
         sa.Column("status", sa.String(20), nullable=False, server_default="SCHEDULED"),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("created_at", sa.DateTime(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(), nullable=False),
     )
     op.create_index("ix_game_sessions_status", "game_sessions", ["status"])
     op.create_index("ix_game_sessions_created_at", "game_sessions", ["created_at"])
@@ -121,7 +121,7 @@ def upgrade() -> None:
             nullable=True,
         ),
         sa.Column("display_name", sa.String(100), nullable=True),
-        sa.Column("joined_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("joined_at", sa.DateTime(), nullable=False),
         sa.Column("status", sa.String(20), nullable=False, server_default="JOINED"),
         sa.Column("is_pre_populated", sa.Boolean(), nullable=False, server_default="false"),
         sa.CheckConstraint(

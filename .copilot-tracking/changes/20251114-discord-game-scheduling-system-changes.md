@@ -745,3 +745,63 @@ Created `get_permissions()` helper function to reliably obtain user permissions 
 - Eliminates redundant "Could not verify your permissions" error messages
 - Cleaner, DRY code with centralized permission logic
 - Maintains all security checks while improving robustness
+
+### Phase X: Database Timezone Fix - 2025-11-17
+
+**Fixed datetime timezone handling to use timezone-naive UTC datetimes throughout the system.**
+
+**Problem:**
+
+- SQLAlchemy models were using implicit datetime type mapping which defaulted to `TIMESTAMP WITHOUT TIME ZONE`
+- Alembic migrations defined columns as `TIMESTAMP WITH TIME ZONE`
+- The `utc_now()` function returned timezone-aware datetime objects
+- PostgreSQL rejected timezone-aware datetimes for timezone-naive columns, causing: "can't subtract offset-naive and offset-aware datetimes" error
+
+**Solution:**
+
+- Adopted the convention that all datetimes are stored as timezone-naive UTC in the database
+- Application layer "knows" all timestamps are UTC without storing timezone information
+- Modified `shared/models/base.py`:
+  - Updated `utc_now()` to return timezone-naive datetime: `datetime.now(UTC).replace(tzinfo=None)`
+  - Updated docstring to clarify it returns timezone-naive UTC datetime
+- Updated `alembic/versions/001_initial_schema.py`:
+  - Changed all `sa.DateTime(timezone=True)` to `sa.DateTime()` for timezone-naive columns
+  - Affected tables: users, guild_configurations, channel_configurations, game_sessions, game_participants
+  - All datetime columns now use `TIMESTAMP WITHOUT TIME ZONE`
+- Created migration `alembic/versions/9eb33bf3186b_change_timestamps_to_timezone_naive.py`:
+  - Alters existing database columns from `TIMESTAMP WITH TIME ZONE` to `TIMESTAMP WITHOUT TIME ZONE`
+  - Includes full upgrade and downgrade paths for all 5 tables
+  - Applied to containerized database successfully
+
+**Database Migration:**
+
+- Created and applied Alembic migration `9eb33bf3186b`
+- Successfully altered all datetime columns in containerized PostgreSQL database:
+  - `users`: `created_at`, `updated_at`
+  - `guild_configurations`: `created_at`, `updated_at`
+  - `channel_configurations`: `created_at`, `updated_at`
+  - `game_sessions`: `scheduled_at`, `created_at`, `updated_at`
+  - `game_participants`: `joined_at`
+- Restarted bot service to ensure compatibility with updated schema
+- Verified alembic_version table shows current migration: `9eb33bf3186b`
+
+**Testing:**
+
+- Created `tests/shared/models/test_base.py` with comprehensive tests:
+  - `test_utc_now_returns_timezone_naive_datetime()` - Verifies timezone-naive behavior
+  - `test_utc_now_consistent_timing()` - Verifies consistency across calls
+  - `test_generate_uuid_returns_string()` - Validates UUID generation format
+  - `test_generate_uuid_unique()` - Validates UUID uniqueness
+- All 4 new tests pass
+- All 11 existing `test_config_guild.py` tests pass (previously failed with timezone error)
+- Code passes ruff lint checks
+
+**Benefits:**
+
+- Simpler architecture - no timezone conversions needed
+- Consistent convention - application layer knows everything is UTC
+- Better PostgreSQL alignment - `TIMESTAMP WITHOUT TIME ZONE` is standard for UTC-only systems
+- No timezone arithmetic issues - avoids offset-naive/aware datetime mixing
+- Better performance - no timezone conversion overhead in database operations
+- Follows best practices for UTC-only systems
+- Fixes `/config-guild` command error that prevented guild configuration
