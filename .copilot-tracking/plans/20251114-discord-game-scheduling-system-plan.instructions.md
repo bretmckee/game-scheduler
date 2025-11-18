@@ -118,43 +118,43 @@ Implement a complete Discord game scheduling system with microservices architect
 - [x] Task 3.7: Implement settings inheritance resolution logic
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 349-365)
 
-### [ ] Phase 4: Scheduler Service
+### [ ] Phase 4: Web Dashboard Frontend
 
-- [ ] Task 4.1: Set up Celery worker with RabbitMQ broker
-
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 367-382)
-
-- [ ] Task 4.2: Implement notification check task
-
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 384-401)
-
-- [ ] Task 4.3: Build notification delivery task
-
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 403-417)
-
-- [ ] Task 4.4: Add game status update tasks
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 419-433)
-
-### [ ] Phase 5: Web Dashboard Frontend
-
-- [ ] Task 5.1: Set up React application with Material-UI
+- [ ] Task 4.1: Set up React application with Material-UI
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 435-450)
 
-- [ ] Task 5.2: Implement OAuth2 login flow with redirect handling
+- [ ] Task 4.2: Implement OAuth2 login flow with redirect handling
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 452-467)
 
-- [ ] Task 5.3: Build guild and channel management pages
+- [ ] Task 4.3: Build guild and channel management pages
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 469-487)
 
-- [ ] Task 5.4: Create game management interface
+- [ ] Task 4.4: Create game management interface
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 489-511)
 
-- [ ] Task 5.5: Implement participant pre-population with validation
+- [ ] Task 4.5: Implement participant pre-population with validation
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 513-534)
+
+### [ ] Phase 5: Scheduler Service
+
+- [ ] Task 5.1: Set up Celery worker with RabbitMQ broker
+
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 367-382)
+
+- [ ] Task 5.2: Implement notification check task
+
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 384-401)
+
+- [ ] Task 5.3: Build notification delivery task
+
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 403-417)
+
+- [ ] Task 5.4: Add game status update tasks
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 419-433)
 
 ### [ ] Phase 6: Integration & Testing
 
