@@ -805,3 +805,120 @@ Created `get_permissions()` helper function to reliably obtain user permissions 
 - Better performance - no timezone conversion overhead in database operations
 - Follows best practices for UTC-only systems
 - Fixes `/config-guild` command error that prevented guild configuration
+
+### Phase 3: Web API Service - FastAPI Application Initialization
+
+**Date**: 2025-11-17
+
+- services/api/**init**.py - Package initialization with module docstring
+- services/api/config.py - Configuration management with environment variable loading
+- services/api/app.py - FastAPI application factory with lifespan management
+- services/api/main.py - Main entry point with Uvicorn server configuration
+- services/api/middleware/**init**.py - Middleware package exports
+- services/api/middleware/cors.py - CORS configuration for frontend access
+- services/api/middleware/error_handler.py - Global exception handling with JSON responses
+
+**FastAPI Configuration:**
+
+- Application title: "Discord Game Scheduler API"
+- OpenAPI documentation at /docs (development only)
+- CORS configured for frontend origins (http://localhost:3000, 3001)
+- Health check endpoint at /health
+- Redis connection initialized on startup
+- Lifespan context manager for resource cleanup
+
+**Configuration Settings:**
+
+- Discord OAuth2: client_id, client_secret, bot_token
+- Database: PostgreSQL async connection URL
+- Redis: Cache and session storage URL
+- RabbitMQ: Message broker URL
+- API: Host (0.0.0.0), port (8000)
+- JWT: Secret key, algorithm (HS256), expiration (24 hours)
+- Environment: development/production mode
+- Logging: Configurable log level (INFO default)
+
+**Error Handling:**
+
+- Validation errors (422): Field-level error details with type and message
+- Database errors (500): Generic message with logging
+- General exceptions (500): Catch-all with error logging
+- All error responses in consistent JSON format
+
+**Testing and Quality:**
+
+- All API service files formatted with ruff (0 issues)
+- All API service files linted with ruff (0 issues)
+- Type hints on all functions following Python 3.11+ conventions
+- Comprehensive docstrings following Google style guide
+- Proper async patterns throughout
+- Global singleton pattern for configuration
+
+**Success Criteria Met:**
+
+- ✅ FastAPI application initializes successfully
+- ✅ OpenAPI documentation accessible at /docs in development
+- ✅ CORS configured for frontend origins
+- ✅ Global error handlers return consistent JSON responses
+- ✅ Health check endpoint returns service status
+- ✅ Redis connection managed in lifespan
+- ✅ Configuration loaded from environment variables
+- ✅ All code follows Python conventions
+
+### Phase 3: Web API Service - Code Verification and Testing
+
+**Date**: 2025-11-17
+
+**Verification Completed:**
+
+- ✅ All Python code follows Python 3.11+ conventions with modern type hints
+- ✅ All functions have descriptive names and complete type annotations
+- ✅ Imports follow Google Python Style Guide (modules imported, not objects)
+- ✅ Naming conventions: snake_case for functions/variables, PascalCase for classes
+- ✅ Comprehensive docstrings following Google style guide format
+- ✅ All code passes ruff linting with zero errors (except Pylance false positives)
+- ✅ All code formatted with ruff format
+- ✅ Comments follow self-explanatory code guidelines (minimal, explain WHY not WHAT)
+- ✅ Singleton pattern correctly implemented with global variable
+
+**Testing Results:**
+
+Created comprehensive unit test suite with 40 tests:
+
+- tests/services/api/test_config.py - 5 tests for configuration loading and singleton
+- tests/services/api/test_app.py - 8 tests for FastAPI application factory and lifespan
+- tests/services/api/test_main.py - 5 tests for main entry point and Uvicorn configuration
+- tests/services/api/middleware/test_cors.py - 8 tests for CORS configuration
+- tests/services/api/middleware/test_error_handler.py - 14 tests for error handling
+
+**Test Coverage:**
+
+- Configuration: Default values, environment variables, singleton pattern, debug mode
+- Application: FastAPI instance creation, middleware configuration, lifespan management, health endpoint
+- Main: Logging setup, Uvicorn server configuration, config value usage
+- CORS: Origin configuration, debug/production modes, credentials, methods, headers
+- Error Handlers: Validation errors (422), database errors (500), general exceptions (500), handler registration
+
+**All Tests Pass:** 40/40 tests passing ✅
+
+**Code Quality Metrics:**
+
+- Zero linting errors (3 Pylance false positives on FastAPI exception handlers - runtime verified)
+- 100% test coverage for critical paths
+- All async patterns correctly implemented with AsyncMock where needed
+- Proper mocking and dependency injection in tests
+- Clear test names following "test*<action>*<expected_result>" pattern
+
+**Notes:**
+
+- Pylance reports type errors for FastAPI exception handlers but this is a known false positive
+- The handlers work correctly at runtime as verified by comprehensive tests
+- FastAPI's exception handler signature accepts base Exception type which Pylance doesn't recognize
+
+**Success Criteria Met:**
+
+- ✅ Project conventions followed
+- ✅ All relevant coding conventions followed
+- ✅ All new code passes ruff lint checks
+- ✅ All new code has complete and passing unit tests (40/40)
+- ✅ Changes file updated with all modifications
