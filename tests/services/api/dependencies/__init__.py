@@ -16,12 +16,4 @@
 # with Game_Scheduler If not, see <https://www.gnu.org/licenses/>.
 
 
-"""
-Middleware components for the API service.
-
-Includes CORS configuration, error handling, logging, and authentication.
-"""
-
-from services.api.middleware import authorization, cors, error_handler
-
-__all__ = ["authorization", "cors", "error_handler"]
+"""Tests for API dependencies."""
