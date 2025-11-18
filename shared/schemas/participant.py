@@ -34,8 +34,9 @@ class ParticipantResponse(BaseModel):
     game_session_id: str = Field(..., description="Game session ID (UUID)")
     user_id: str | None = Field(None, description="User ID (UUID) - None for placeholder entries")
     discord_id: str | None = Field(None, description="Discord snowflake ID - None for placeholders")
-    display_name: str = Field(
-        ..., description="Resolved display name (guild-specific or placeholder text)"
+    display_name: str | None = Field(
+        None,
+        description="Resolved display name (guild-specific or placeholder text) - None if not resolved",
     )
     joined_at: str = Field(..., description="Join timestamp (UTC ISO)")
     status: str = Field(
