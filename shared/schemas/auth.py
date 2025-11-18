@@ -45,12 +45,7 @@ class TokenResponse(BaseModel):
     """OAuth2 token response."""
 
     access_token: str = Field(..., description="Discord access token")
-    token_type: str = Field(default="Bearer", description="Token type")
     expires_in: int = Field(..., description="Token expiration time in seconds")
-    refresh_token: str | None = Field(
-        None, description="Refresh token for obtaining new access tokens"
-    )
-    scope: str = Field(..., description="Granted OAuth2 scopes")
 
 
 class RefreshTokenRequest(BaseModel):
@@ -64,7 +59,11 @@ class UserInfoResponse(BaseModel):
 
     id: str = Field(..., description="Discord user snowflake ID")
     username: str = Field(..., description="Discord username")
-    discriminator: str = Field(..., description="Discord discriminator (legacy)")
     avatar: str | None = Field(None, description="Avatar hash")
-    global_name: str | None = Field(None, description="User's global display name")
-    email: str | None = Field(None, description="User email (requires email scope)")
+    guilds: list[dict] = Field(default_factory=list, description="User's guilds")
+
+
+class CurrentUser(BaseModel):
+    """Current authenticated user from token."""
+
+    discord_id: str = Field(..., description="Discord user snowflake ID")
