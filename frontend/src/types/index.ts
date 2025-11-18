@@ -86,10 +86,11 @@ export interface AuthTokens {
 }
 
 export interface CurrentUser {
-  discordId: string;
-  username?: string;
+  id: string;
+  username: string;
+  discordId?: string;  // For backward compatibility
   discriminator?: string;
-  avatar?: string;
+  avatar?: string | null;
   guilds?: DiscordGuild[];
 }
 
