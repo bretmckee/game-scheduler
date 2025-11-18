@@ -2,7 +2,9 @@
 mode: agent
 model: Claude Sonnet 4.5
 ---
+
 <!-- markdownlint-disable-file -->
+
 # Implementation Prompt: Discord Game Scheduling System
 
 ## Implementation Instructions
@@ -10,6 +12,7 @@ model: Claude Sonnet 4.5
 ### Step 1: Verify new and modified code.
 
 You WILL verify that any new or added code follows:
+
 - #file:../../.github/instructions/python.instructions.md for all Python code
 - #file:../../.github/instructions/self-explanatory-code-commenting.instructions.md for commenting style
 
@@ -19,4 +22,4 @@ You WILL verify that any new or added code follows:
 - [ ] All relevant coding conventions followed
 - [ ] All new and modified code passes lint
 - [ ] All new and modified code has complete and passing unit tests
-- [ ] Changes file updated to describe any changes made
+- [ ] Changes file updated to describe any changes made. There is no need to describe things that were already correct.

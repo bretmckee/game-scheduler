@@ -1435,6 +1435,157 @@ Created comprehensive unit test suite with 40 tests:
 
 ---
 
+### Phase 3: Web API Service - Game Management Endpoints (Task 3.5)
+
+**Date**: 2025-11-17
+
+- services/api/services/participant_resolver.py - Discord @mention validation and placeholder support (230 lines)
+- services/api/services/games.py - Game session business logic service (403 lines)
+- services/api/routes/games.py - REST endpoints for game CRUD operations (342 lines)
+- services/api/app.py - Updated to register games router
+- shared/schemas/participant.py - Updated display_name to optional (str | None)
+
+**Participant Resolver Service (services/api/services/participant_resolver.py):**
+
+- ParticipantResolver class with Discord API integration
+- resolve_initial_participants() - Validates @mentions and placeholder strings
+  - Strips @ prefix and searches guild members via Discord API
+  - Returns valid participants (Discord users + placeholders)
+  - Returns validation errors with disambiguation suggestions
+- \_search_guild_members() - Discord API member search with query matching
+- ensure_user_exists() - Creates User records in database if needed
+- Supports single match (auto-resolve), multiple matches (disambiguation), no matches (error)
+- Validation error format includes: input, reason, suggestions array with discordId/username/displayName
+
+**Game Service Features (services/api/services/games.py):**
+
+- GameService class with async database operations
+- create_game() - Creates game with pre-populated participant validation
+  - Resolves @mentions via ParticipantResolver
+  - Returns 422 with suggestions if any mentions invalid
+  - Creates GameParticipant records for Discord users and placeholders
+  - Applies settings inheritance (game → channel → guild → defaults)
+  - Publishes GAME_CREATED event to RabbitMQ
+- get_game() - Fetches game with participants using selectinload
+- list_games() - Query with filters: guild_id, channel_id, status
+- update_game() - Updates game fields, publishes GAME_UPDATED event
+- delete_game() - Cancels game (sets status=CANCELLED), publishes GAME_CANCELLED event
+- join_game() - Adds participant with validation:
+  - Checks game not full (non-placeholder count < max_players)
+  - Checks user not already joined
+  - Checks game status is SCHEDULED
+  - Creates User record if needed
+  - Publishes PLAYER_JOINED event
+- leave_game() - Removes participant, publishes PLAYER_LEFT event
+- Settings inheritance logic: resolve_max_players, resolve_reminder_minutes, resolve_rules
+
+**Game Endpoints (services/api/routes/games.py):**
+
+- POST /api/v1/games - Create game with initial_participants validation
+  - Requires authentication (get_current_user)
+  - Validates @mentions before creating game
+  - Returns 422 with validation_errors on invalid mentions
+  - Returns 201 with GameResponse on success
+- GET /api/v1/games - List games with filters
+  - Optional filters: guild_id, channel_id, status
+  - Returns list of GameResponse schemas
+- GET /api/v1/games/{id} - Get single game details
+  - Returns 404 if game not found
+- PUT /api/v1/games/{id} - Update game (host-only)
+  - Validates user is game host
+  - Returns 403 if not authorized
+  - Updates specified fields only (partial update)
+- DELETE /api/v1/games/{id} - Cancel game (host-only)
+  - Validates user is game host
+  - Sets status to CANCELLED
+- POST /api/v1/games/{id}/join - Join as participant
+  - Validates game not full, not already joined
+  - Returns 400 on validation failure
+- POST /api/v1/games/{id}/leave - Leave game
+  - Removes user from participants
+  - Returns 400 if not a participant
+
+**Testing and Quality:**
+
+- ✅ All game management files formatted with ruff (0 issues)
+- ✅ All files linted with ruff (0 issues)
+- ✅ Type hints on all functions following Python 3.11+ conventions
+- ✅ Comprehensive docstrings following Google style guide
+- ✅ Proper async patterns throughout
+- ✅ Exception chaining with "from None" for cleaner tracebacks
+- ✅ Module imports follow Google Python Style Guide
+- ✅ 9/9 unit tests passing for ParticipantResolver (100%)
+- ⚠️ GameService tests created but require fixture updates to match actual model fields
+
+**Code Standards Verification (2025-11-17):**
+
+✅ **Python Conventions (python.instructions.md):**
+
+- Modern Python 3.11+ type hints on all functions
+- Pydantic used for schema validation (GameCreateRequest, GameUpdateRequest, etc.)
+- Descriptive function names with clear purpose
+- Complex logic broken into smaller methods (resolve_max_players, resolve_reminder_minutes, etc.)
+- Consistent snake_case naming for functions, variables, parameters
+- PascalCase for classes (ParticipantResolver, GameService, ValidationError)
+- Function docstrings immediately after def/class keywords
+- Imports at top of file, properly organized by ruff/isort
+- Trailing commas used appropriately in multi-line structures
+
+✅ **Commenting Style (self-explanatory-code-commenting.instructions.md):**
+
+- No obvious or redundant comments found
+- Section headers used for complex business logic flows (acceptable per guidelines)
+- Comments explain WHY, not WHAT (e.g., "Resolve settings with inheritance")
+- Docstrings explain function purpose and usage, not implementation details
+- No outdated, decorative, or changelog comments
+- Code is self-explanatory through descriptive names
+- Only necessary comments: section markers and business logic explanations
+
+✅ **Linting:**
+
+- All new files pass ruff check with zero errors
+- Import ordering compliant (I001 violations auto-fixed)
+- No style, code quality, or complexity issues
+- Exception chaining properly implemented (B904 compliant)
+- Unused imports removed
+
+✅ **Testing:**
+
+- tests/services/api/services/test_participant_resolver.py: 9 comprehensive tests, all passing
+  - Covers placeholder validation, single/multiple/no Discord member matches
+  - Tests mixed participants, empty inputs, user creation, API error handling
+  - Proper async/await patterns with AsyncMock
+  - Test fixtures properly defined and isolated
+- tests/services/api/services/test_games.py: 15 tests created (fixtures need model field corrections)
+  - Comprehensive coverage of CRUD operations
+  - Tests authorization, validation, edge cases
+  - Needs updates: model field names (guild_discord_id → guild_id_discord, is_placeholder field)
+
+**Success Criteria Met:**
+
+- ✅ Game creation validates @mentions via Discord API
+- ✅ Invalid @mentions return 422 with suggestions for disambiguation
+- ✅ Multiple matches return candidate list for user selection
+- ✅ Placeholder strings (non-@ format) supported for non-Discord participants
+- ✅ Settings inheritance works (game → channel → guild → defaults)
+- ✅ Host authorization enforced on update/delete operations
+- ✅ Participant capacity limits enforced (non-placeholder count)
+- ✅ RabbitMQ events published for all game state changes
+- ✅ All code passes lint checks and follows project conventions
+- ✅ Games router registered in FastAPI application
+
+**Implementation Notes:**
+
+- ParticipantResolver uses Discord API /guilds/{id}/members/search endpoint
+- GameService uses SQLAlchemy async sessions with proper relationship loading
+- Event publishing uses EventPublisher with Event wrapper and EventType enum
+- UUID fields properly converted between str and UUID types for API/database compatibility
+- Settings inheritance implemented inline (not via SettingsResolver class)
+- channel_id field used instead of non-existent channel_discord_id
+- All HTTPException raises include "from None" to prevent exception chaining in API errors
+
+---
+
 ## Test Suite Fixes - 2025-11-17
 
 ### Summary
@@ -1571,3 +1722,51 @@ Fixed all 29 failing tests in the project test suite, achieving 100% test pass r
 ✅ **No Breaking Changes:** All fixes maintain existing functionality
 ✅ **Standards Compliant:** Follows project testing patterns and conventions
 ✅ **Clean Test Suite:** Ready for CI/CD integration
+
+## Code Standards Compliance Updates (2025-11-17)
+
+### Services: API Game Service
+
+**File:** `services/api/services/games.py`
+
+**Changes:**
+
+- **Import conventions**: Changed from `from datetime import UTC` to `import datetime` per Python instructions (section 2.2.4)
+  - "Use `from x import y` where x is the package prefix and y is the module name with no prefix"
+  - "Import modules and use them with their prefix, do not import module contents (e.g. functions/classes/etc. directly)"
+  - Updated all references from `UTC` to `datetime.UTC`
+- **Line length**: Split long timezone conversion lines across multiple lines to stay within 100 character limit
+- **Comment quality**: Improved timezone conversion comments to explain WHY (database storage format) rather than WHAT (the code action)
+- Comments now focus on business logic: "Database stores timestamps as naive UTC, so convert timezone-aware inputs"
+
+### Tests: API Game Service Tests
+
+**File:** `tests/services/api/services/test_games.py`
+
+**Changes:**
+
+- **Import conventions**: Changed from `from datetime import UTC, datetime, timedelta, timezone` to `import datetime`
+  - Updated all references to use module prefix: `datetime.datetime`, `datetime.UTC`, `datetime.timezone`, `datetime.timedelta`
+- **New regression test**: Added `test_create_game_timezone_conversion` to verify proper UTC conversion of timezone-aware datetimes
+  - Test uses EST timezone (UTC-5) to verify 10:00 AM EST converts to 15:00 UTC, not stored as 10:00
+  - Verified test fails when using `replace(tzinfo=None)` (incorrect) and passes with `astimezone(UTC).replace(tzinfo=None)` (correct)
+- **Fixture fixes**: Added missing required fields to comply with schema:
+  - `sample_game_data` fixture: `max_players=4, reminder_minutes=[60], rules="Test rules"`
+  - `test_update_game_success`: Added `description` and `status` to `GameUpdateRequest`
+  - `test_update_game_not_host`: Added `description` and `status` to `GameUpdateRequest`
+
+**Testing:**
+
+- New timezone test verified to fail when using `replace(tzinfo=None)` (incorrect - keeps original time)
+- Test passes with `astimezone(UTC).replace(tzinfo=None)` (correct - converts to UTC first)
+- All 16 tests passing after convention fixes
+
+**Standards Verified:**
+
+- ✅ Python imports at module level (not inline in functions)
+- ✅ Comments explain "why" not "what" per self-explanatory-code-commenting guidelines
+- ✅ Type hints present on all functions
+- ✅ Descriptive function and variable names
+- ✅ No lint errors in modified files
+- ✅ Complete test coverage for timezone conversion regression
+- ✅ All tests passing (16/16)
