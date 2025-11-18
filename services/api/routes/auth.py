@@ -95,9 +95,10 @@ async def callback(
 
     config = get_api_config()
 
-    # Check if there's a frontend to redirect to, otherwise show success page
-    if config.frontend_url and config.frontend_url != "http://localhost:3000":
-        return RedirectResponse(url=f"{config.frontend_url}?success=true&user_id={discord_id}")
+    # Redirect to frontend callback with success params
+    if config.frontend_url:
+        callback_url = f"{config.frontend_url}/auth/callback?success=true&user_id={discord_id}"
+        return RedirectResponse(url=callback_url)
 
     # Return a simple success page for testing without a frontend
     html_content = f"""
