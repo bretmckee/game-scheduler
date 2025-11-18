@@ -1165,3 +1165,118 @@ Created comprehensive unit test suite with 40 tests:
 
 - services/api/routes/auth.py - Fixed callback redirect logic and return type
 - test_oauth.py - Updated to use httpx instead of requests
+
+### Phase 3: Web API Service - Role-Based Authorization (Task 3.3)
+
+**Date**: 2025-11-17
+
+- services/api/auth/**init**.py - Added roles module export
+- services/api/auth/roles.py - Role verification service with Redis caching (237 lines)
+- services/api/dependencies/**init**.py - Added permissions module export
+- services/api/dependencies/permissions.py - FastAPI permission dependencies (223 lines)
+- services/api/middleware/**init**.py - Added authorization module export
+- services/api/middleware/authorization.py - Request logging middleware (72 lines)
+- tests/services/api/auth/**init**.py - Test package initialization
+- tests/services/api/auth/test_roles.py - Role service tests (257 lines, 13 tests)
+- tests/services/api/dependencies/**init**.py - Test package initialization
+- tests/services/api/dependencies/test_permissions.py - Permission dependency tests (235 lines, 11 tests)
+- tests/services/api/middleware/**init**.py - Test package initialization (created)
+- tests/services/api/middleware/test_authorization.py - Middleware tests (104 lines, 6 tests)
+
+**Role Verification Service (services/api/auth/roles.py):**
+
+- RoleVerificationService class with Discord API integration
+- get_user_role_ids() - Fetch user's role IDs from Discord API with Redis caching
+  - Cache key pattern: `user_roles:{user_id}:{guild_id}`
+  - TTL: 5 minutes (CacheTTL.USER_ROLES)
+  - Supports force_refresh parameter to bypass cache
+- check_manage_guild_permission() - Verify MANAGE_GUILD permission (0x20)
+  - Fetches user's guilds from Discord API
+  - Checks permission bitfield for guild
+- check_manage_channels_permission() - Verify MANAGE_CHANNELS permission (0x10)
+- check_administrator_permission() - Verify ADMINISTRATOR permission (0x08)
+- check_game_host_permission() - Three-tier inheritance check:
+  1. Channel-specific allowed roles (ChannelConfiguration.allowed_host_role_ids)
+  2. Guild-level allowed roles (GuildConfiguration.allowed_host_role_ids)
+  3. Fallback to MANAGE_GUILD permission if no roles configured
+- invalidate_user_roles() - Clear cached roles for critical operations
+- Uses async database queries with SQLAlchemy
+- Uses async Redis operations via shared cache client
+- Permission constants: MANAGE_GUILD=0x00000020, MANAGE_CHANNELS=0x00000010, ADMINISTRATOR=0x00000008
+
+**Permission Dependencies (services/api/dependencies/permissions.py):**
+
+- get_role_service() - Singleton pattern for RoleVerificationService
+- require_manage_guild() - FastAPI dependency for guild management endpoints
+  - Depends on get_current_user for authentication
+  - Checks MANAGE_GUILD permission via role service
+  - Raises HTTPException(403) on permission denial
+- require_manage_channels() - Dependency for channel configuration endpoints
+  - Checks MANAGE_CHANNELS permission
+  - Returns channel_id from request for authorization context
+- require_game_host() - Dependency for game creation/management
+  - Depends on get_db_session for database access
+  - Checks channel → guild → MANAGE_GUILD inheritance
+  - Validates user can host games in specific channel
+- require_administrator() - Dependency for admin-only operations
+  - Strictest permission check (ADMINISTRATOR flag)
+- All dependencies return current user on success for route handlers
+- Clear error messages on permission denial
+
+**Authorization Middleware (services/api/middleware/authorization.py):**
+
+- AuthorizationMiddleware(BaseHTTPMiddleware) for request logging
+- Extracts user_id from X-User-Id header for logging context
+- Logs all requests with method, path, user_id, and timing
+- Special logging for 403 Forbidden responses (permission denied)
+- Special logging for 401 Unauthorized responses (authentication failure)
+- Exception handling with error logging
+- Performance tracking with millisecond precision
+- Note: Actual authorization performed via FastAPI dependencies, not middleware
+
+**Testing and Quality:**
+
+- ✅ All auth/permission/middleware files formatted with ruff (0 issues)
+- ✅ All files linted with ruff (0 issues, B008 is FastAPI false positive)
+- ✅ 30 total tests created and passing (100% pass rate)
+- ✅ Test breakdown:
+  - test_roles.py: 13 tests for role verification service
+  - test_permissions.py: 11 tests for permission dependencies
+  - test_authorization.py: 6 tests for authorization middleware
+- ✅ Comprehensive test coverage including:
+  - Role caching with hit/miss scenarios
+  - Discord API integration (mocked)
+  - Permission bitfield checking
+  - Database query scenarios (mocked with MagicMock for Result.scalar_one_or_none)
+  - Channel → Guild inheritance resolution
+  - HTTPException raising on permission denial
+  - Request logging and timing
+  - Error scenarios (missing sessions, API errors, cache failures)
+- ✅ AsyncMock test fix: Used MagicMock for SQLAlchemy Result objects (scalar_one_or_none is synchronous)
+- ✅ Type hints on all functions following Python 3.11+ conventions
+- ✅ Comprehensive docstrings following Google style guide
+- ✅ Proper async patterns throughout with AsyncSession and async cache operations
+
+**Success Criteria Met:**
+
+- ✅ Role verification service fetches roles from Discord API
+- ✅ Redis caching reduces API calls (5-minute TTL)
+- ✅ Permission dependencies integrate with FastAPI routes
+- ✅ Guild-specific permissions enforced (MANAGE_GUILD, MANAGE_CHANNELS, ADMINISTRATOR)
+- ✅ Channel-specific permissions enforced with inheritance (channel → guild → permission)
+- ✅ Cache invalidation available for critical operations
+- ✅ 403 errors returned for insufficient permissions
+- ✅ Authorization middleware logs auth events
+- ✅ All code passes lint checks
+- ✅ All unit tests pass (30/30)
+- ✅ Code follows Python conventions and project standards
+
+**Implementation Notes:**
+
+- Permission bitfield constants defined in roles.py for maintainability
+- RoleVerificationService uses singleton pattern via get_role_service()
+- Database models use snake_case (guild_id, channel_id, allowed_host_role_ids)
+- Discord API client accessed via get_discord_client() singleton
+- Cache client accessed via async \_get_cache() helper method
+- SQLAlchemy queries use async sessions with select() and execute()
+- Test mocking: MagicMock for synchronous methods (Result.scalar_one_or_none), AsyncMock for async methods (db.execute)
