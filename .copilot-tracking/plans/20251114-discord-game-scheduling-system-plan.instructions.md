@@ -99,7 +99,7 @@ Implement a complete Discord game scheduling system with microservices architect
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 236-257)
 
-- [ ] Task 3.3: Create role-based authorization middleware
+- [x] Task 3.3: Create role-based authorization middleware
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 259-275)
 
