@@ -41,7 +41,7 @@ from shared.schemas import participant as participant_schemas
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/games", tags=["games"])
+router = APIRouter(prefix="/api/v1/games", tags=["games"])
 
 # ruff: noqa: B008
 
@@ -263,7 +263,7 @@ async def _build_game_response(game: game_model.GameSession) -> game_schemas.Gam
 
     discord_user_ids = [p.user.discord_id for p in game.participants if p.user is not None]
 
-    display_name_resolver = display_names_module.get_display_name_resolver()
+    display_name_resolver = await display_names_module.get_display_name_resolver()
     display_names_map = {}
 
     if discord_user_ids:
