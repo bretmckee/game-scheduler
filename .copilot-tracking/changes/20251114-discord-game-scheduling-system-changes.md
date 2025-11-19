@@ -3445,3 +3445,119 @@ $ docker compose up -d api
 - Added: Complete game editing workflow with validation
 - Added: Comprehensive test coverage for edit functionality
 - Improved: User can modify game details after creation
+
+### Phase 4: Web Dashboard Frontend - Participant Pre-population with Validation (Task 4.5)
+
+**Date**: 2025-11-18
+
+- frontend/src/components/MentionChip.tsx - Clickable suggestion chip component (26 lines)
+- frontend/src/components/ValidationErrors.tsx - Validation error display with disambiguation UI (54 lines)
+- frontend/src/pages/CreateGame.tsx - Updated to handle validation errors and suggestion clicks
+- frontend/src/components/**tests**/MentionChip.test.tsx - Unit tests for MentionChip (3 tests, 100% passing)
+- frontend/src/components/**tests**/ValidationErrors.test.tsx - Unit tests for ValidationErrors (5 tests, 100% passing)
+
+**MentionChip Component:**
+
+- Displays clickable suggestion chips with username and display name
+- Format: `@username (Display Name)`
+- Hover effect with primary color theme
+- onClick handler to replace invalid mention with selected suggestion
+- Outlined primary color variant for visual clarity
+- Responsive cursor styling
+
+**ValidationErrors Component:**
+
+- Displays validation errors with clear formatting
+- Alert component with error severity and title
+- Each error shows: original input, reason for failure
+- Suggestion chips displayed when disambiguation needed
+- "Did you mean:" prompt for user-friendly guidance
+- Proper spacing and layout with Material-UI Box components
+
+**CreateGame Validation Handling:**
+
+- Added `validationErrors` state for API validation responses
+- Added `ValidationError` and `ValidationErrorResponse` TypeScript interfaces
+- Error handler checks for 422 status and `invalid_mentions` error type
+- Preserves all form data on validation error
+- `handleSuggestionClick` function to replace invalid mentions
+- Clears validation errors when suggestion is applied
+- User can re-submit form after correcting mentions
+
+**Validation Error Flow:**
+
+1. User enters @mentions in initial participants field
+2. Form submits to API with participant list
+3. API returns 422 with invalid_mentions array if validation fails
+4. Frontend displays ValidationErrors component with suggestions
+5. User clicks suggestion chip to replace invalid mention
+6. Form data updated with corrected @mention
+7. Validation errors cleared, ready for re-submission
+
+**TypeScript Interfaces:**
+
+```typescript
+interface ValidationError {
+  input: string;
+  reason: string;
+  suggestions: Array<{
+    discordId: string;
+    username: string;
+    displayName: string;
+  }>;
+}
+
+interface ValidationErrorResponse {
+  error: string;
+  message: string;
+  invalid_mentions: ValidationError[];
+  valid_participants: string[];
+}
+```
+
+**Testing and Quality:**
+
+- ✅ All TypeScript files compile without errors
+- ✅ 8 new unit tests created (100% pass rate)
+- ✅ MentionChip tests: rendering, click handling, styling
+- ✅ ValidationErrors tests: error display, suggestions, click callbacks
+- ✅ Production build successful (758.04 kB bundle, 226.01 kB gzipped)
+- ✅ All 33 frontend tests passing
+- ✅ Material-UI components used consistently
+- ✅ Proper React hooks usage throughout
+
+**Success Criteria Met:**
+
+- ✅ Input accepts @mentions and plain text in CreateGame form
+- ✅ Form preserves all data on validation error
+- ✅ Validation errors display with clear reasons
+- ✅ Disambiguation chips shown for multiple matches
+- ✅ Clicking suggestion replaces invalid mention in form
+- ✅ Successfully resolved participants preserved in form
+- ✅ Form can be re-submitted after correction
+- ✅ No user data loss during validation process
+- ✅ Clear visual feedback throughout the flow
+
+**User Experience:**
+
+- Clear error messages explain why @mentions failed
+- Clickable suggestions for quick correction
+- No need to re-enter entire participant list
+- Visual distinction between errors and suggestions
+- Smooth workflow from error to correction to re-submission
+
+**Files Modified:** 1 file (CreateGame.tsx)
+**Files Created:** 4 files (2 components + 2 test files)
+
+**Code Standards Verification (2025-11-18):**
+
+- ✅ All TypeScript code follows ReactJS conventions from `.github/instructions/reactjs.instructions.md`
+- ✅ Self-explanatory code principles followed - no unnecessary comments
+- ✅ TypeScript type checking passes with zero errors (`npm run type-check`)
+- ✅ All 33 frontend tests pass (8 new tests for Task 4.5 components)
+- ✅ Production build successful with no compilation errors
+- ✅ Proper TypeScript interfaces defined for all data structures
+- ✅ Consistent naming conventions throughout (camelCase for variables/functions)
+- ✅ Material-UI components used consistently with project patterns
+- ✅ Test coverage includes: rendering, user interactions, callbacks, edge cases
+- ✅ No ESLint configuration present (project uses TypeScript compiler for validation)
