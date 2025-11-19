@@ -54,29 +54,37 @@ export interface GameSession {
   id: string;
   title: string;
   description: string;
-  scheduledAt: string;
-  maxPlayers: number | null;
-  guildId: string;
-  channelId: string;
-  messageId: string | null;
-  hostId: string;
+  scheduled_at: string;
+  scheduled_at_unix: number;
+  max_players: number | null;
+  guild_id: string;
+  channel_id: string;
+  message_id: string | null;
+  host_id: string;
+  host_discord_id: string;
   rules: string | null;
-  reminderMinutes: number[] | null;
+  reminder_minutes: number[] | null;
   status: 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
-  createdAt: string;
-  updatedAt: string;
+  participant_count: number;
   participants?: Participant[];
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Participant {
   id: string;
-  gameSessionId: string;
-  userId: string | null;
-  discordId: string | null;
-  displayName: string | null;
-  joinedAt: string;
+  game_session_id: string;
+  user_id: string | null;
+  discord_id: string | null;
+  display_name: string | null;
+  joined_at: string;
   status: 'JOINED' | 'DROPPED' | 'WAITLIST' | 'PLACEHOLDER';
-  isPrePopulated: boolean;
+  is_pre_populated: boolean;
+}
+
+export interface GameListResponse {
+  games: GameSession[];
+  total: number;
 }
 
 export interface AuthTokens {
@@ -87,6 +95,7 @@ export interface AuthTokens {
 
 export interface CurrentUser {
   id: string;
+  user_uuid: string;
   username: string;
   discordId?: string;  // For backward compatibility
   discriminator?: string;

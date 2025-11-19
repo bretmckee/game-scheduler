@@ -16,14 +16,268 @@
 // with Game_Scheduler If not, see <https://www.gnu.org/licenses/>.
 
 
-import { FC } from 'react';
-import { Typography } from '@mui/material';
+import { FC, useState, useEffect } from 'react';
+import {
+  Container,
+  Typography,
+  Box,
+  TextField,
+  Button,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  CircularProgress,
+  Alert,
+  Paper,
+  SelectChangeEvent,
+} from '@mui/material';
+import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { useNavigate, useParams } from 'react-router-dom';
+import { apiClient } from '../api/client';
+import { Channel } from '../types';
+
+interface FormData {
+  title: string;
+  description: string;
+  scheduledAt: Date | null;
+  channelId: string;
+  maxPlayers: string;
+  reminderMinutes: string;
+  rules: string;
+  initialParticipants: string;
+}
 
 export const CreateGame: FC = () => {
+  const navigate = useNavigate();
+  const { guildId } = useParams<{ guildId: string }>();
+  const [channels, setChannels] = useState<Channel[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [formData, setFormData] = useState<FormData>({
+    title: '',
+    description: '',
+    scheduledAt: null,
+    channelId: '',
+    maxPlayers: '',
+    reminderMinutes: '',
+    rules: '',
+    initialParticipants: '',
+  });
+
+  useEffect(() => {
+    const fetchChannels = async () => {
+      if (!guildId) return;
+
+      try {
+        const response = await apiClient.get<Channel[]>(
+          `/api/v1/guilds/${guildId}/channels`
+        );
+        setChannels(response.data);
+      } catch (err: any) {
+        console.error('Failed to fetch channels:', err);
+        setError('Failed to load channels. Please try again.');
+      }
+    };
+
+    fetchChannels();
+  }, [guildId]);
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSelectChange = (event: SelectChangeEvent) => {
+    setFormData((prev) => ({ ...prev, channelId: event.target.value }));
+  };
+
+  const handleDateChange = (date: Date | null) => {
+    setFormData((prev) => ({ ...prev, scheduledAt: date }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!guildId || !formData.channelId || !formData.scheduledAt) {
+      setError('Please fill in all required fields.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const payload = {
+        title: formData.title,
+        description: formData.description,
+        scheduled_at: formData.scheduledAt.toISOString(),
+        guild_id: guildId,
+        channel_id: formData.channelId,
+        max_players: formData.maxPlayers ? parseInt(formData.maxPlayers) : null,
+        reminder_minutes: formData.reminderMinutes
+          ? formData.reminderMinutes.split(',').map((m) => parseInt(m.trim()))
+          : null,
+        rules: formData.rules || null,
+        initial_participants: formData.initialParticipants
+          ? formData.initialParticipants
+              .split('\n')
+              .map((s) => s.trim())
+              .filter((s) => s.length > 0)
+          : [],
+      };
+
+      const response = await apiClient.post('/api/v1/games', payload);
+
+      navigate(`/games/${response.data.id}`);
+    } catch (err: any) {
+      console.error('Failed to create game:', err);
+      setError(
+        err.response?.data?.detail || 'Failed to create game. Please try again.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div>
-      <Typography variant="h4">Create Game</Typography>
-      <Typography>Coming soon...</Typography>
-    </div>
+    <LocalizationProvider dateAdapter={AdapterDateFns}>
+      <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
+        <Paper elevation={3} sx={{ p: 4 }}>
+          <Typography variant="h4" gutterBottom>
+            Create New Game
+          </Typography>
+
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
+
+          <Box component="form" onSubmit={handleSubmit} sx={{ mt: 3 }}>
+            <TextField
+              fullWidth
+              required
+              label="Game Title"
+              name="title"
+              value={formData.title}
+              onChange={handleChange}
+              margin="normal"
+              disabled={loading}
+            />
+
+            <TextField
+              fullWidth
+              required
+              multiline
+              rows={3}
+              label="Description"
+              name="description"
+              value={formData.description}
+              onChange={handleChange}
+              margin="normal"
+              disabled={loading}
+            />
+
+            <DateTimePicker
+              label="Scheduled Time *"
+              value={formData.scheduledAt}
+              onChange={handleDateChange}
+              disabled={loading}
+              sx={{ width: '100%', mt: 2, mb: 1 }}
+            />
+
+            <FormControl fullWidth margin="normal" required>
+              <InputLabel>Channel</InputLabel>
+              <Select
+                value={formData.channelId}
+                onChange={handleSelectChange}
+                label="Channel"
+                disabled={loading}
+              >
+                {channels.map((channel) => (
+                  <MenuItem key={channel.id} value={channel.id}>
+                    {channel.channelName}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <TextField
+              fullWidth
+              label="Max Players"
+              name="maxPlayers"
+              type="number"
+              value={formData.maxPlayers}
+              onChange={handleChange}
+              margin="normal"
+              helperText="Leave empty to use channel/guild default"
+              disabled={loading}
+              inputProps={{ min: 1, max: 100 }}
+            />
+
+            <TextField
+              fullWidth
+              label="Reminder Times (minutes)"
+              name="reminderMinutes"
+              value={formData.reminderMinutes}
+              onChange={handleChange}
+              margin="normal"
+              helperText="Comma-separated (e.g., 60, 15). Leave empty for default"
+              disabled={loading}
+            />
+
+            <TextField
+              fullWidth
+              multiline
+              rows={3}
+              label="Rules"
+              name="rules"
+              value={formData.rules}
+              onChange={handleChange}
+              margin="normal"
+              helperText="Leave empty to use channel/guild default"
+              disabled={loading}
+            />
+
+            <TextField
+              fullWidth
+              multiline
+              rows={4}
+              label="Initial Participants"
+              name="initialParticipants"
+              value={formData.initialParticipants}
+              onChange={handleChange}
+              margin="normal"
+              helperText="One per line. Use @username for Discord users or plain text for placeholders"
+              disabled={loading}
+            />
+
+            <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
+              <Button
+                type="submit"
+                variant="contained"
+                disabled={loading}
+                fullWidth
+              >
+                {loading ? <CircularProgress size={24} /> : 'Create Game'}
+              </Button>
+              <Button
+                variant="outlined"
+                onClick={() => navigate(-1)}
+                disabled={loading}
+                fullWidth
+              >
+                Cancel
+              </Button>
+            </Box>
+          </Box>
+        </Paper>
+      </Container>
+    </LocalizationProvider>
   );
 };
