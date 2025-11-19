@@ -6,30 +6,30 @@ export interface User {
 
 export interface Guild {
   id: string;
-  guildId: string;
-  guildName: string;
-  defaultMaxPlayers: number;
-  defaultReminderMinutes: number[];
-  defaultRules: string;
-  allowedHostRoleIds: string[];
-  requireHostRole: boolean;
-  createdAt: string;
-  updatedAt: string;
+  guild_id: string;
+  guild_name: string;
+  default_max_players: number;
+  default_reminder_minutes: number[];
+  default_rules: string;
+  allowed_host_role_ids: string[];
+  require_host_role: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Channel {
   id: string;
-  guildId: string;
-  channelId: string;
-  channelName: string;
-  isActive: boolean;
-  maxPlayers: number | null;
-  reminderMinutes: number[] | null;
-  defaultRules: string | null;
-  allowedHostRoleIds: string[] | null;
-  gameCategory: string | null;
-  createdAt: string;
-  updatedAt: string;
+  guild_id: string;
+  channel_id: string;
+  channel_name: string;
+  is_active: boolean;
+  max_players: number | null;
+  reminder_minutes: number[] | null;
+  default_rules: string | null;
+  allowed_host_role_ids: string[] | null;
+  game_category: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface GameSession {
