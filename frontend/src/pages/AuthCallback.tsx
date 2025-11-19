@@ -20,7 +20,6 @@ import { FC, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Box, CircularProgress, Typography, Container } from '@mui/material';
 import { useAuth } from '../hooks/useAuth';
-import { apiClient } from '../api/client';
 
 export const AuthCallback: FC = () => {
   const [searchParams] = useSearchParams();
@@ -29,34 +28,22 @@ export const AuthCallback: FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const completeLogin = async (userId: string) => {
+    const completeLogin = async () => {
       try {
-        // Tokens are stored in Redis, fetch user info to complete login
-        await apiClient.get('/api/v1/auth/user', {
-          headers: { 'X-User-Id': userId }
-        });
-        
-        login({
-          user_id: userId,
-          access_token: 'stored-in-redis',
-          refresh_token: 'stored-in-redis'
-        });
-        
+        await login();
         navigate('/guilds');
       } catch (err) {
-        console.error('Failed to fetch user info:', err);
+        console.error('Failed to complete login:', err);
         setError('Failed to fetch user information');
         setTimeout(() => navigate('/login'), 3000);
       }
     };
 
     const handleCallback = async () => {
-      // Check if we're coming back from API redirect with success
       const successParam = searchParams.get('success');
-      const userId = searchParams.get('user_id');
       
-      if (successParam === 'true' && userId) {
-        await completeLogin(userId);
+      if (successParam === 'true') {
+        await completeLogin();
         return;
       }
 
@@ -95,9 +82,20 @@ export const AuthCallback: FC = () => {
       sessionStorage.removeItem('oauth_state');
 
       try {
-        // API callback redirects browser to this page with success params
-        // So we make the call and let the redirect happen
-        window.location.href = `/api/v1/auth/callback?code=${code}&state=${state}`;
+        // Call the API callback endpoint through the Vite proxy
+        // This ensures cookies are set correctly for localhost:3000
+        const response = await fetch(`/api/v1/auth/callback?code=${code}&state=${state}`, {
+          credentials: 'include'
+        });
+
+        if (response.ok) {
+          // Callback succeeded, now fetch user info
+          await completeLogin();
+        } else {
+          const data = await response.json().catch(() => ({ detail: 'Unknown error' }));
+          setError(data.detail || 'Failed to complete authentication');
+          setTimeout(() => navigate('/login'), 3000);
+        }
       } catch (err: any) {
         console.error('OAuth callback error:', err);
         const errorMessage = err.response?.data?.detail || 'Failed to complete authentication';
