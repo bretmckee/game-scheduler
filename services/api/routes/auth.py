@@ -221,7 +221,7 @@ async def get_user_info(
         user_info = await oauth2.get_user_from_token(access_token)
 
         # Use cached guilds to avoid rate limiting
-        cache_key = f"user_guilds:{current_user.discord_id}"
+        cache_key = f"user_guilds:{current_user.user.discord_id}"
         redis = await cache_client.get_redis_client()
         cached = await redis.get(cache_key)
 
@@ -235,21 +235,9 @@ async def get_user_info(
 
             await redis.set(cache_key, json.dumps(guilds), ttl=60)
 
-        # Get database user record to get UUID
-        from sqlalchemy import select
-
-        from shared.models import user as user_model
-
-        stmt = select(user_model.User).where(user_model.User.discord_id == current_user.discord_id)
-        result = await db.execute(stmt)
-        db_user = result.scalar_one_or_none()
-
-        if not db_user:
-            raise HTTPException(status_code=404, detail="User not found in database")
-
         return auth_schemas.UserInfoResponse(
             id=user_info["id"],
-            user_uuid=str(db_user.id),
+            user_uuid=str(current_user.user.id),
             username=user_info["username"],
             avatar=user_info.get("avatar"),
             guilds=guilds,

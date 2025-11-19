@@ -73,14 +73,14 @@ async def require_manage_guild(
     access_token = token_data["access_token"]
 
     has_permission = await role_service.check_manage_guild_permission(
-        current_user.discord_id,
+        current_user.user.discord_id,
         guild_id,
         access_token,
     )
 
     if not has_permission:
         logger.warning(
-            f"User {current_user.discord_id} lacks MANAGE_GUILD permission in guild {guild_id}"
+            f"User {current_user.user.discord_id} lacks MANAGE_GUILD permission in guild {guild_id}"
         )
         raise HTTPException(
             status_code=403,
@@ -117,14 +117,15 @@ async def require_manage_channels(
     access_token = token_data["access_token"]
 
     has_permission = await role_service.check_manage_channels_permission(
-        current_user.discord_id,
+        current_user.user.discord_id,
         guild_id,
         access_token,
     )
 
     if not has_permission:
         logger.warning(
-            f"User {current_user.discord_id} lacks MANAGE_CHANNELS permission in guild {guild_id}"
+            f"User {current_user.user.discord_id} lacks MANAGE_CHANNELS permission "
+            f"in guild {guild_id}"
         )
         raise HTTPException(
             status_code=403,
@@ -168,7 +169,7 @@ async def require_game_host(
     access_token = token_data["access_token"]
 
     has_permission = await role_service.check_game_host_permission(
-        current_user.discord_id,
+        current_user.user.discord_id,
         guild_id,
         db,
         channel_id=channel_id,
@@ -177,7 +178,7 @@ async def require_game_host(
 
     if not has_permission:
         logger.warning(
-            f"User {current_user.discord_id} lacks game host permission in "
+            f"User {current_user.user.discord_id} lacks game host permission in "
             f"guild {guild_id}, channel {channel_id}"
         )
         raise HTTPException(
@@ -215,14 +216,15 @@ async def require_administrator(
     access_token = token_data["access_token"]
 
     has_permission = await role_service.check_administrator_permission(
-        current_user.discord_id,
+        current_user.user.discord_id,
         guild_id,
         access_token,
     )
 
     if not has_permission:
         logger.warning(
-            f"User {current_user.discord_id} lacks ADMINISTRATOR permission in guild {guild_id}"
+            f"User {current_user.user.discord_id} lacks ADMINISTRATOR permission "
+            f"in guild {guild_id}"
         )
         raise HTTPException(
             status_code=403,
