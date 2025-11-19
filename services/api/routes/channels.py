@@ -18,7 +18,7 @@ router = APIRouter(prefix="/api/v1/channels", tags=["channels"])
 async def get_channel(
     channel_discord_id: str,
     current_user: auth_schemas.CurrentUser = Depends(dependencies.auth.get_current_user),
-    db: AsyncSession = Depends(database.get_db_session),
+    db: AsyncSession = Depends(database.get_db),
 ) -> channel_schemas.ChannelConfigResponse:
     """
     Get channel configuration by Discord channel ID.
@@ -67,7 +67,7 @@ async def get_channel(
 async def create_channel_config(
     request: channel_schemas.ChannelConfigCreateRequest,
     current_user: auth_schemas.CurrentUser = Depends(permissions.require_manage_channels),
-    db: AsyncSession = Depends(database.get_db_session),
+    db: AsyncSession = Depends(database.get_db),
 ) -> channel_schemas.ChannelConfigResponse:
     """
     Create channel configuration.
@@ -116,7 +116,7 @@ async def update_channel_config(
     channel_discord_id: str,
     request: channel_schemas.ChannelConfigUpdateRequest,
     current_user: auth_schemas.CurrentUser = Depends(permissions.require_manage_channels),
-    db: AsyncSession = Depends(database.get_db_session),
+    db: AsyncSession = Depends(database.get_db),
 ) -> channel_schemas.ChannelConfigResponse:
     """
     Update channel configuration.
