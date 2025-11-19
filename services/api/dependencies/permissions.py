@@ -48,7 +48,7 @@ async def require_manage_guild(
     Raises:
         HTTPException: If user lacks MANAGE_GUILD permission
     """
-    token_data = await tokens.get_user_tokens(current_user.discord_id)
+    token_data = await tokens.get_user_tokens(current_user.session_token)
     if not token_data:
         raise HTTPException(status_code=401, detail="Session expired")
 
@@ -92,7 +92,7 @@ async def require_manage_channels(
     Raises:
         HTTPException: If user lacks MANAGE_CHANNELS permission
     """
-    token_data = await tokens.get_user_tokens(current_user.discord_id)
+    token_data = await tokens.get_user_tokens(current_user.session_token)
     if not token_data:
         raise HTTPException(status_code=401, detail="Session expired")
 
@@ -143,7 +143,7 @@ async def require_game_host(
     Raises:
         HTTPException: If user lacks game host permission
     """
-    token_data = await tokens.get_user_tokens(current_user.discord_id)
+    token_data = await tokens.get_user_tokens(current_user.session_token)
     if not token_data:
         raise HTTPException(status_code=401, detail="Session expired")
 
@@ -190,7 +190,7 @@ async def require_administrator(
     Raises:
         HTTPException: If user lacks ADMINISTRATOR permission
     """
-    token_data = await tokens.get_user_tokens(current_user.discord_id)
+    token_data = await tokens.get_user_tokens(current_user.session_token)
     if not token_data:
         raise HTTPException(status_code=401, detail="Session expired")
 
