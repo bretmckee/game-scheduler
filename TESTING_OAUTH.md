@@ -98,14 +98,16 @@ INFO - Stored tokens for user 123456789
 # Connect to Redis
 docker exec -it gamebot-redis redis-cli
 
-# List all sessions
+# List all sessions (now stored with UUID keys)
 KEYS session:*
 
-# Check a specific session (replace with your Discord ID)
-GET session:123456789
+# Check a specific session (replace with UUID from cookie, not Discord ID)
+GET session:abc-123-def-456-uuid
 
-# You should see encrypted token data
+# You should see encrypted token data including user_id
 ```
+
+Note: Session keys are now stored as `session:{uuid4}` instead of `session:{discord_id}` for security.
 
 ### Check Database
 
@@ -121,13 +123,35 @@ SELECT * FROM users;
 
 ## Testing Additional Endpoints
 
-Once you've logged in, you can test other endpoints:
+Once you've logged in and received the session cookie, you can test other endpoints.
+
+**Important**: The new secure implementation uses HTTPOnly cookies for authentication.
+You'll need to use a browser or tool that supports cookies (like curl with `-b` flag to save/send cookies).
+
+### Save the Session Cookie
+
+After completing the OAuth2 flow in your browser:
+
+```bash
+# The browser automatically receives the session_token cookie
+# To test with curl, you need to capture it during the callback
+```
+
+### Testing with curl and Cookies
+
+```bash
+# Step 1: Complete OAuth flow and save cookies
+curl -c cookies.txt -L "http://localhost:8000/api/v1/auth/callback?code=YOUR_CODE&state=YOUR_STATE"
+
+# Step 2: Use saved cookies for authenticated requests
+curl -b cookies.txt http://localhost:8000/api/v1/auth/user
+```
 
 ### Get User Info
 
 ```bash
-# Replace YOUR_DISCORD_ID with your actual Discord user ID
-curl -H "X-User-Id: YOUR_DISCORD_ID" http://localhost:8000/api/v1/auth/user
+# With cookie file
+curl -b cookies.txt http://localhost:8000/api/v1/auth/user
 ```
 
 Expected response:
@@ -152,14 +176,29 @@ Expected response:
 ### Refresh Token
 
 ```bash
-curl -X POST -H "X-User-Id: YOUR_DISCORD_ID" http://localhost:8000/api/v1/auth/refresh
+# The cookie is sent automatically
+curl -b cookies.txt -X POST http://localhost:8000/api/v1/auth/refresh
 ```
 
 ### Logout
 
 ```bash
-curl -X POST -H "X-User-Id: YOUR_DISCORD_ID" http://localhost:8000/api/v1/auth/logout
+# Clears the session and cookie
+curl -b cookies.txt -c cookies.txt -X POST http://localhost:8000/api/v1/auth/logout
 ```
+
+### Testing Security
+
+The old X-User-Id header authentication has been removed for security:
+
+```bash
+# This will FAIL (returns 401 validation error for missing cookie)
+curl -H "X-User-Id: 123456789" http://localhost:8000/api/v1/auth/user
+
+# Response: {"error":"validation_error","field":"cookie.session_token"}
+```
+
+Only requests with valid session cookies are accepted.
 
 ## Troubleshooting
 
