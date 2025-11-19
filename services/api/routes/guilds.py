@@ -153,7 +153,7 @@ async def get_guild(
         raise HTTPException(status_code=401, detail="No session found")
 
     access_token = token_data["access_token"]
-    user_guild_ids = await get_user_guilds_cached(access_token, current_user.discord_id)
+    user_guild_ids = await get_user_guilds_cached(access_token, current_user.user.discord_id)
 
     if guild_discord_id not in user_guild_ids:
         raise HTTPException(
@@ -295,7 +295,7 @@ async def list_guild_channels(
         raise HTTPException(status_code=401, detail="No session found")
 
     access_token = token_data["access_token"]
-    user_guild_ids = await get_user_guilds_cached(access_token, current_user.discord_id)
+    user_guild_ids = await get_user_guilds_cached(access_token, current_user.user.discord_id)
 
     if guild_discord_id not in user_guild_ids:
         raise HTTPException(
