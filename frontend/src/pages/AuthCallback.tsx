@@ -16,7 +16,7 @@
 // with Game_Scheduler If not, see <https://www.gnu.org/licenses/>.
 
 
-import { FC, useEffect, useState } from 'react';
+import { FC, useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Box, CircularProgress, Typography, Container } from '@mui/material';
 import { useAuth } from '../hooks/useAuth';
@@ -26,8 +26,12 @@ export const AuthCallback: FC = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
   const [error, setError] = useState<string | null>(null);
+  const hasProcessed = useRef(false);
 
   useEffect(() => {
+    // Prevent duplicate processing (React StrictMode runs effects twice)
+    if (hasProcessed.current) return;
+    hasProcessed.current = true;
     const completeLogin = async () => {
       try {
         await login();
@@ -70,15 +74,7 @@ export const AuthCallback: FC = () => {
         return;
       }
 
-      // Validate state matches what we stored
-      const storedState = sessionStorage.getItem('oauth_state');
-      if (!storedState || storedState !== state) {
-        setError('Invalid state parameter (CSRF protection)');
-        sessionStorage.removeItem('oauth_state');
-        setTimeout(() => navigate('/login'), 3000);
-        return;
-      }
-
+      // Clear stored state (backend validates it)
       sessionStorage.removeItem('oauth_state');
 
       try {
@@ -105,7 +101,7 @@ export const AuthCallback: FC = () => {
     };
 
     handleCallback();
-  }, [searchParams, login, navigate]);
+  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <Container maxWidth="sm">
