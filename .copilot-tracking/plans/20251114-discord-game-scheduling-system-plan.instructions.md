@@ -118,7 +118,7 @@ Implement a complete Discord game scheduling system with microservices architect
 - [x] Task 3.7: Implement settings inheritance resolution logic
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 349-365)
 
-### [ ] Phase 4: Web Dashboard Frontend
+### [x] Phase 4: Web Dashboard Frontend
 
 - [x] Task 4.1: Set up React application with Material-UI
 
@@ -136,7 +136,7 @@ Implement a complete Discord game scheduling system with microservices architect
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 489-511)
 
-- [ ] Task 4.5: Implement participant pre-population with validation
+- [x] Task 4.5: Implement participant pre-population with validation
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 513-534)
 
 ### [ ] Phase 5: Scheduler Service
