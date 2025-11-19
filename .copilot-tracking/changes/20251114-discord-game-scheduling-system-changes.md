@@ -1384,9 +1384,9 @@ Created comprehensive unit test suite with 40 tests:
 - services/api/services/games.py - Changed create_game, update_game, delete_game to accept host_user_id
 - services/api/services/games.py - Updated host authorization checks to compare game.host_id with host_user_id
 - services/api/routes/games.py - Updated routes to pass current_user.user_id instead of current_user.discord_id
-- services/api/routes/games.py - Removed host_discord_id from _build_game_response
+- services/api/routes/games.py - Removed host_discord_id from \_build_game_response
 - frontend/src/types/index.ts - Removed host_discord_id from GameSession TypeScript interface
-- frontend/src/pages/__tests__/EditGame.test.tsx - Removed host_discord_id from test mock data
+- frontend/src/pages/**tests**/EditGame.test.tsx - Removed host_discord_id from test mock data
 - tests/services/api/services/test_games.py - Updated all tests to use host_user_id instead of host_discord_id
 
 **Benefits:**
@@ -1407,6 +1407,78 @@ Created comprehensive unit test suite with 40 tests:
 - ✅ Frontend type definitions reflect schema changes
 - ✅ All backend tests updated and passing
 - ✅ No breaking changes to other service integrations (bot, scheduler use game.host_id relationship)
+
+### Phase 3: Refactoring - Remove Redundant discord_id from CurrentUser (2025-11-19)
+
+**Problem:**
+
+- CurrentUser schema contained both `user_id` (database UUID) and `discord_id` (Discord snowflake ID)
+- This redundancy was a potential source of errors and data inconsistency
+- Both fields represented the same user, just different ID formats
+- Required maintaining both values in sync across the application
+
+**Solution:**
+
+- Refactored CurrentUser to store the complete User model object instead of separate ID fields
+- Discord ID now accessed through `current_user.user.discord_id` (from model relationship)
+- Database ID now accessed through `current_user.user.id` (from model relationship)
+- Eliminated redundant field storage while maintaining full access to all user properties
+
+**Files Modified:**
+
+- shared/schemas/auth.py - Changed CurrentUser to store User model with `arbitrary_types_allowed`
+- services/api/dependencies/auth.py - Updated get_current_user to return user model in CurrentUser
+- services/api/routes/games.py - Updated all routes to use `current_user.user.id` and `current_user.user.discord_id`
+- services/api/routes/auth.py - Updated user endpoint to use `current_user.user` directly, removed redundant database query
+- services/api/routes/guilds.py - Updated guild routes to use `current_user.user.discord_id`
+- services/api/dependencies/permissions.py - Updated all permission checks to use `current_user.user.discord_id`
+
+**Benefits:**
+
+- Single source of truth: User model is authoritative for all user data
+- No redundancy: All user properties accessed through one model object
+- Future-proof: Any new user properties automatically available without schema changes
+- Cleaner code: No need to manually sync multiple ID fields
+- Type safety: Full User model with all relationships available
+- Reduced queries: Eliminated redundant user lookup in auth routes
+- Consistent access pattern: Always `current_user.user.*` for any user property
+
+**Success Criteria:**
+
+- ✅ CurrentUser stores User model instead of separate fields
+- ✅ All routes access user properties through `current_user.user.*`
+- ✅ Discord ID obtained via `current_user.user.discord_id`
+- ✅ Database ID obtained via `current_user.user.id`
+- ✅ Eliminated redundant database query in auth user endpoint
+- ✅ All permission checks use `current_user.user.discord_id`
+- ✅ All backend tests passing (16/16)
+- ✅ Docker build successful
+- ✅ Code passes lint checks (except expected FastAPI B008)
+
+**Bug Fix - Pydantic Runtime Error (2025-11-19):**
+
+**Problem:**
+
+- API server crashed on startup with: `CurrentUser is not fully defined; you should define user_model, then call CurrentUser.model_rebuild()`
+- Forward reference string annotation `"user_model.User"` with `TYPE_CHECKING` wasn't available at runtime
+- Pydantic couldn't validate the schema without the actual type definition
+
+**Solution:**
+
+- Changed `user` field type from forward reference `"user_model.User"` to `Any`
+- Removed unused `TYPE_CHECKING` import block
+- This allows Pydantic to accept SQLAlchemy models with `arbitrary_types_allowed=True`
+
+**Files Modified:**
+
+- shared/schemas/auth.py - Changed user field type to `Any` and removed TYPE_CHECKING imports
+
+**Verification:**
+
+- ✅ API server starts without errors
+- ✅ Health endpoint responds correctly
+- ✅ All 16 game service tests pass
+- ✅ No runtime Pydantic validation errors
 - CurrentUser schema updated to include access_token for Discord API calls
 - Module imports follow Google Python Style Guide (import modules, not objects)
 - FastAPI B008 warnings expected and documented (dependency injection pattern)

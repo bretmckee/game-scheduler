@@ -1,5 +1,7 @@
 """Pydantic schemas for authentication endpoints."""
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -49,7 +51,8 @@ class UserInfoResponse(BaseModel):
 class CurrentUser(BaseModel):
     """Current authenticated user information."""
 
-    user_id: str = Field(..., description="User's database ID (UUID)")
-    discord_id: str = Field(..., description="User's Discord snowflake ID")
+    user: Any = Field(..., description="Authenticated user model")
     access_token: str = Field(..., description="Discord access token")
     session_token: str = Field(..., description="Session token for Redis lookup")
+
+    model_config = {"from_attributes": True, "arbitrary_types_allowed": True}
