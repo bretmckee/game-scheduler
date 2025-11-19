@@ -104,7 +104,7 @@ export const GuildDashboard: FC = () => {
   return (
     <Container sx={{ mt: 4, mb: 4 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4">{guild.guildName}</Typography>
+        <Typography variant="h4">{guild.guild_name}</Typography>
         <Button
           variant="outlined"
           startIcon={<SettingsIcon />}
@@ -132,19 +132,19 @@ export const GuildDashboard: FC = () => {
                   <ListItem>
                     <ListItemText
                       primary="Max Players"
-                      secondary={guild.defaultMaxPlayers}
+                      secondary={guild.default_max_players}
                     />
                   </ListItem>
                   <ListItem>
                     <ListItemText
                       primary="Reminder Times"
-                      secondary={`${guild.defaultReminderMinutes.join(', ')} minutes before`}
+                      secondary={`${guild.default_reminder_minutes.join(', ')} minutes before`}
                     />
                   </ListItem>
                   <ListItem>
                     <ListItemText
                       primary="Default Rules"
-                      secondary={guild.defaultRules || 'Not set'}
+                      secondary={guild.default_rules || 'Not set'}
                     />
                   </ListItem>
                 </List>
@@ -195,15 +195,15 @@ export const GuildDashboard: FC = () => {
                 {channels.map((channel) => (
                   <ListItemButton
                     key={channel.id}
-                    onClick={() => navigate(`/channels/${channel.channelId}/config`)}
+                    onClick={() => navigate(`/channels/${channel.channel_id}/config`)}
                   >
                     <ListItemText
-                      primary={channel.channelName}
+                      primary={channel.channel_name}
                       secondary={
                         <>
-                          {channel.gameCategory && `Category: ${channel.gameCategory} • `}
-                          {channel.isActive ? 'Active' : 'Inactive'}
-                          {channel.maxPlayers !== null && ` • Max: ${channel.maxPlayers}`}
+                          {channel.game_category && `Category: ${channel.game_category} • `}
+                          {channel.is_active ? 'Active' : 'Inactive'}
+                          {channel.max_players !== null && ` • Max: ${channel.max_players}`}
                         </>
                       }
                     />
