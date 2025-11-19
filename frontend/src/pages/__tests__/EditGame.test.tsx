@@ -44,17 +44,17 @@ describe('EditGame', () => {
   const mockChannels: Channel[] = [
     {
       id: 'channel123',
-      guildId: 'guild123',
-      channelId: '987654321',
-      channelName: 'Test Channel',
-      isActive: true,
-      maxPlayers: null,
-      reminderMinutes: null,
-      defaultRules: null,
-      allowedHostRoleIds: null,
-      gameCategory: null,
-      createdAt: '2025-01-01T00:00:00Z',
-      updatedAt: '2025-01-01T00:00:00Z',
+      guild_id: 'guild123',
+      channel_id: '987654321',
+      channel_name: 'Test Channel',
+      is_active: true,
+      max_players: null,
+      reminder_minutes: null,
+      default_rules: null,
+      allowed_host_role_ids: null,
+      game_category: null,
+      created_at: '2025-01-01T00:00:00Z',
+      updated_at: '2025-01-01T00:00:00Z',
     },
   ];
 

@@ -209,7 +209,7 @@ export const EditGame: FC = () => {
               >
                 {channels.map((channel) => (
                   <MenuItem key={channel.id} value={channel.id}>
-                    {channel.channelName}
+                    {channel.channel_name}
                   </MenuItem>
                 ))}
               </Select>
