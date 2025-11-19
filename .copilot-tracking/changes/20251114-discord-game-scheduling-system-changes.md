@@ -3809,3 +3809,70 @@ interface ValidationErrorResponse {
 - ✅ GAME_STARTED events published for bot message updates
 - ✅ Retry logic handles transient failures gracefully
 - ✅ All code follows project conventions and standards
+
+---
+
+## Bug Fix: Frontend Blank Screen on Guild View (2025-11-19)
+
+**Issue**: Selecting a guild from "View my Guilds" resulted in a blank white screen due to TypeScript interface mismatch with API responses.
+
+**Root Cause**: API returns snake_case properties (e.g., `guild_name`, `default_max_players`) but TypeScript interfaces expected camelCase (e.g., `guildName`, `defaultMaxPlayers`), causing the frontend components to access undefined properties.
+
+**Solution**: Updated all TypeScript interfaces and frontend components to use snake_case property names matching the API response format.
+
+**Changes Made**:
+
+1. **TypeScript Interface Updates** (`frontend/src/types/index.ts`):
+
+   - Updated `Guild` interface: `guildId` → `guild_id`, `guildName` → `guild_name`, `defaultMaxPlayers` → `default_max_players`, etc.
+   - Updated `Channel` interface: `channelId` → `channel_id`, `channelName` → `channel_name`, `isActive` → `is_active`, `maxPlayers` → `max_players`, etc.
+
+2. **Component Updates**:
+
+   - `frontend/src/pages/GuildDashboard.tsx` - Updated all guild and channel property references to snake_case
+   - `frontend/src/pages/GuildConfig.tsx` - Updated form data initialization to use snake_case guild properties
+   - `frontend/src/pages/ChannelConfig.tsx` - Updated channel and guild property references throughout
+   - `frontend/src/pages/CreateGame.tsx` - Updated channel property reference from `channelName` to `channel_name`
+   - `frontend/src/pages/EditGame.tsx` - Updated channel property reference from `channelName` to `channel_name`
+   - `frontend/src/pages/BrowseGames.tsx` - Updated channel property reference from `channelName` to `channel_name`
+
+3. **Test File Updates**:
+
+   - `frontend/src/pages/__tests__/GuildConfig.test.tsx` - Updated mock Guild object to use snake_case properties
+   - `frontend/src/pages/__tests__/EditGame.test.tsx` - Updated mock Channel object to use snake_case properties
+
+4. **Python Schema Verification** (`shared/schemas/guild.py`):
+   - Confirmed Pydantic schemas use snake_case without camelCase aliases
+   - Maintained consistency with project-wide snake_case convention
+
+**Files Modified**:
+
+- frontend/src/types/index.ts
+- frontend/src/pages/GuildDashboard.tsx
+- frontend/src/pages/GuildConfig.tsx
+- frontend/src/pages/ChannelConfig.tsx
+- frontend/src/pages/CreateGame.tsx
+- frontend/src/pages/EditGame.tsx
+- frontend/src/pages/BrowseGames.tsx
+- frontend/src/pages/**tests**/GuildConfig.test.tsx
+- frontend/src/pages/**tests**/EditGame.test.tsx
+
+**Impact**:
+
+- ✅ Guild dashboard now displays correctly with guild name, default settings, and quick actions
+- ✅ Channel list displays properly with channel names, categories, and status
+- ✅ Channel configuration page loads and saves correctly
+- ✅ Guild configuration page functions properly
+- ✅ Game creation and editing forms display channel names correctly
+- ✅ All TypeScript compilation errors resolved
+- ✅ Frontend container builds successfully
+- ✅ Consistent snake_case naming convention maintained across entire codebase
+- ✅ No breaking changes to API or backend services
+
+**Success Criteria Met**:
+
+- ✅ Guild view displays complete information without blank screens
+- ✅ All TypeScript interfaces match API response structure
+- ✅ Frontend components correctly access all guild and channel properties
+- ✅ Test files pass with updated mock data
+- ✅ Project maintains consistent naming conventions
