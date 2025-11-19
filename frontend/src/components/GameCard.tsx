@@ -1,0 +1,91 @@
+import { FC } from 'react';
+import {
+  Card,
+  CardContent,
+  CardActions,
+  Typography,
+  Button,
+  Chip,
+  Box,
+} from '@mui/material';
+import { useNavigate } from 'react-router-dom';
+import { GameSession } from '../types';
+
+interface GameCardProps {
+  game: GameSession;
+  showActions?: boolean;
+}
+
+export const GameCard: FC<GameCardProps> = ({ game, showActions = true }) => {
+  const navigate = useNavigate();
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'SCHEDULED':
+        return 'primary';
+      case 'IN_PROGRESS':
+        return 'success';
+      case 'COMPLETED':
+        return 'default';
+      case 'CANCELLED':
+        return 'error';
+      default:
+        return 'default';
+    }
+  };
+
+  const formatDateTime = (isoString: string) => {
+    const date = new Date(isoString);
+    return date.toLocaleString(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    });
+  };
+
+  const participantCount = game.participant_count || 0;
+  const maxPlayers = game.max_players || 10;
+
+  return (
+    <Card sx={{ mb: 2 }}>
+      <CardContent>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+          <Typography variant="h6" component="div">
+            {game.title}
+          </Typography>
+          <Chip
+            label={game.status}
+            color={getStatusColor(game.status)}
+            size="small"
+          />
+        </Box>
+
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          {game.description}
+        </Typography>
+
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 1 }}>
+          <Typography variant="body2">
+            <strong>When:</strong> {formatDateTime(game.scheduled_at)}
+          </Typography>
+          <Typography variant="body2">
+            <strong>Players:</strong> {participantCount}/{maxPlayers}
+          </Typography>
+        </Box>
+
+        {game.rules && (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            <strong>Rules:</strong> {game.rules}
+          </Typography>
+        )}
+      </CardContent>
+
+      {showActions && (
+        <CardActions>
+          <Button size="small" onClick={() => navigate(`/games/${game.id}`)}>
+            View Details
+          </Button>
+        </CardActions>
+      )}
+    </Card>
+  );
+};

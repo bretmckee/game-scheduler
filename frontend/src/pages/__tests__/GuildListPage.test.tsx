@@ -18,6 +18,7 @@ vi.mock('react-router-dom', async () => {
 describe('GuildListPage', () => {
   const mockUser: CurrentUser = {
     id: '123',
+    user_uuid: 'uuid-123',
     username: 'testuser',
     discordId: '123',
     guilds: [

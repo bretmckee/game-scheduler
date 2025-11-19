@@ -40,6 +40,7 @@ class UserInfoResponse(BaseModel):
     """Discord user information response."""
 
     id: str = Field(..., description="Discord user snowflake ID")
+    user_uuid: str = Field(..., description="Database user UUID")
     username: str = Field(..., description="Discord username")
     avatar: str | None = Field(None, description="Avatar hash")
     guilds: list[dict] = Field(default_factory=list, description="User's guilds")
