@@ -1,11 +1,11 @@
-"""
-Token management for storing and retrieving OAuth2 tokens.
+"""Token management for storing and retrieving OAuth2 tokens.
 
 Uses Redis for session storage with encrypted token data.
 """
 
 import base64
 import logging
+import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -76,10 +76,11 @@ async def store_user_tokens(
         expires_in: Seconds until access token expires
 
     Returns:
-        Session ID for retrieving tokens later
+        Session token (UUID4) for retrieving tokens later
     """
     redis = await cache_client.get_redis_client()
 
+    session_token = str(uuid.uuid4())
     encrypted_access = encrypt_token(access_token)
     encrypted_refresh = encrypt_token(refresh_token)
 
@@ -92,26 +93,26 @@ async def store_user_tokens(
         "expires_at": expiry.isoformat(),
     }
 
-    session_key = f"session:{user_id}"
+    session_key = f"session:{session_token}"
     await redis.set_json(session_key, session_data, ttl=cache_ttl.CacheTTL.SESSION)
 
     logger.info(f"Stored tokens for user {user_id}")
-    return session_key
+    return session_token
 
 
-async def get_user_tokens(user_id: str) -> dict[str, Any] | None:
+async def get_user_tokens(session_token: str) -> dict[str, Any] | None:
     """
-    Retrieve user OAuth2 tokens from Redis session.
+    Retrieve user tokens from Redis session.
 
     Args:
-        user_id: Discord user ID
+        session_token: Session token (UUID4)
 
     Returns:
-        Token data with access_token, refresh_token, expires_at or None if not found
+        Dictionary with user_id, access_token, refresh_token, expires_at or None
     """
     redis = await cache_client.get_redis_client()
 
-    session_key = f"session:{user_id}"
+    session_key = f"session:{session_token}"
     session_data = await redis.get_json(session_key)
 
     if session_data is None:
@@ -130,34 +131,35 @@ async def get_user_tokens(user_id: str) -> dict[str, Any] | None:
 
 
 async def refresh_user_tokens(
-    user_id: str, new_access_token: str, new_refresh_token: str, expires_in: int
+    session_token: str, new_access_token: str, new_expires_in: int
 ) -> None:
     """
-    Update stored tokens after refresh.
+    Update user's access token after refresh.
 
     Args:
-        user_id: Discord user ID
-        new_access_token: New OAuth2 access token
-        new_refresh_token: New OAuth2 refresh token
-        expires_in: Seconds until new access token expires
-    """
-    await store_user_tokens(user_id, new_access_token, new_refresh_token, expires_in)
-    logger.info(f"Refreshed tokens for user {user_id}")
-
-
-async def delete_user_tokens(user_id: str) -> None:
-    """
-    Delete user session and tokens.
-
-    Args:
-        user_id: Discord user ID
+        session_token: Session token (UUID4)
+        new_access_token: New access token from refresh
+        new_expires_in: New expiration time in seconds
     """
     redis = await cache_client.get_redis_client()
 
-    session_key = f"session:{user_id}"
+    session_key = f"session:{session_token}"
+    session_data = await redis.get_json(session_key)
+
+
+async def delete_user_tokens(session_token: str) -> None:
+    """
+    Delete user tokens from Redis session.
+
+    Args:
+        session_token: Session token (UUID4)
+    """
+    redis = await cache_client.get_redis_client()
+
+    session_key = f"session:{session_token}"
     await redis.delete(session_key)
 
-    logger.info(f"Deleted tokens for user {user_id}")
+    logger.info(f"Deleted session {session_token}")
 
 
 async def is_token_expired(expires_at: datetime) -> bool:
