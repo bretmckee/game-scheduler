@@ -38,6 +38,7 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiClient } from '../api/client';
 import { Channel } from '../types';
+import { ValidationErrors } from '../components/ValidationErrors';
 
 interface FormData {
   title: string;
@@ -50,12 +51,30 @@ interface FormData {
   initialParticipants: string;
 }
 
+interface ValidationError {
+  input: string;
+  reason: string;
+  suggestions: Array<{
+    discordId: string;
+    username: string;
+    displayName: string;
+  }>;
+}
+
+interface ValidationErrorResponse {
+  error: string;
+  message: string;
+  invalid_mentions: ValidationError[];
+  valid_participants: string[];
+}
+
 export const CreateGame: FC = () => {
   const navigate = useNavigate();
   const { guildId } = useParams<{ guildId: string }>();
   const [channels, setChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<ValidationError[] | null>(null);
   const [formData, setFormData] = useState<FormData>({
     title: '',
     description: '',
@@ -111,6 +130,7 @@ export const CreateGame: FC = () => {
     try {
       setLoading(true);
       setError(null);
+      setValidationErrors(null);
 
       const payload = {
         title: formData.title,
@@ -136,12 +156,32 @@ export const CreateGame: FC = () => {
       navigate(`/games/${response.data.id}`);
     } catch (err: any) {
       console.error('Failed to create game:', err);
-      setError(
-        err.response?.data?.detail || 'Failed to create game. Please try again.'
-      );
+      
+      if (err.response?.status === 422 && err.response.data?.error === 'invalid_mentions') {
+        const errorData = err.response.data as ValidationErrorResponse;
+        setValidationErrors(errorData.invalid_mentions);
+        setError(errorData.message);
+      } else {
+        setError(
+          err.response?.data?.detail || 'Failed to create game. Please try again.'
+        );
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSuggestionClick = (originalInput: string, newUsername: string) => {
+    const lines = formData.initialParticipants.split('\n');
+    const updatedLines = lines.map(line => 
+      line.trim() === originalInput ? newUsername : line
+    );
+    setFormData(prev => ({
+      ...prev,
+      initialParticipants: updatedLines.join('\n')
+    }));
+    setValidationErrors(null);
+    setError(null);
   };
 
   return (
@@ -156,6 +196,13 @@ export const CreateGame: FC = () => {
             <Alert severity="error" sx={{ mb: 2 }}>
               {error}
             </Alert>
+          )}
+
+          {validationErrors && (
+            <ValidationErrors 
+              errors={validationErrors}
+              onSuggestionClick={handleSuggestionClick}
+            />
           )}
 
           <Box component="form" onSubmit={handleSubmit} sx={{ mt: 3 }}>
