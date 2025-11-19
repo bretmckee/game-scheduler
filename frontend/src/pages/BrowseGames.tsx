@@ -109,7 +109,7 @@ export const BrowseGames: FC = () => {
             <MenuItem value="all">All Channels</MenuItem>
             {channels.map((channel) => (
               <MenuItem key={channel.id} value={channel.id}>
-                {channel.channelName}
+                {channel.channel_name}
               </MenuItem>
             ))}
           </Select>

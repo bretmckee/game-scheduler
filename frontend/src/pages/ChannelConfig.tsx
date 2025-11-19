@@ -51,16 +51,16 @@ export const ChannelConfig: FC = () => {
         
         setChannel(channelData);
 
-        const guildResponse = await apiClient.get<Guild>(`/api/v1/guilds/${channelData.guildId}`);
+        const guildResponse = await apiClient.get<Guild>(`/api/v1/guilds/${channelData.guild_id}`);
         setGuild(guildResponse.data);
         
         setFormData({
-          isActive: channelData.isActive,
-          maxPlayers: channelData.maxPlayers?.toString() || '',
-          reminderMinutes: channelData.reminderMinutes?.join(', ') || '',
-          defaultRules: channelData.defaultRules || '',
-          allowedHostRoleIds: channelData.allowedHostRoleIds?.join(', ') || '',
-          gameCategory: channelData.gameCategory || '',
+          isActive: channelData.is_active,
+          maxPlayers: channelData.max_players?.toString() || '',
+          reminderMinutes: channelData.reminder_minutes?.join(', ') || '',
+          defaultRules: channelData.default_rules || '',
+          allowedHostRoleIds: channelData.allowed_host_role_ids?.join(', ') || '',
+          gameCategory: channelData.game_category || '',
         });
       } catch (err: any) {
         console.error('Failed to fetch channel:', err);
@@ -106,7 +106,7 @@ export const ChannelConfig: FC = () => {
 
       setSuccess(true);
       setTimeout(() => {
-        navigate(`/guilds/${channel?.guildId}`);
+        navigate(`/guilds/${channel?.guild_id}`);
       }, 1500);
     } catch (err: any) {
       console.error('Failed to save channel config:', err);
@@ -137,23 +137,23 @@ export const ChannelConfig: FC = () => {
 
   const resolvedMaxPlayers = formData.maxPlayers
     ? parseInt(formData.maxPlayers)
-    : guild?.defaultMaxPlayers || 10;
+    : guild?.default_max_players || 10;
 
   const resolvedReminders = formData.reminderMinutes
     ? formData.reminderMinutes
         .split(',')
         .map((s) => parseInt(s.trim()))
         .filter((n) => !isNaN(n))
-    : guild?.defaultReminderMinutes || [60, 15];
+    : guild?.default_reminder_minutes || [60, 15];
 
-  const resolvedRules = formData.defaultRules || guild?.defaultRules || '';
+  const resolvedRules = formData.defaultRules || guild?.default_rules || '';
 
   return (
     <Container sx={{ mt: 4, mb: 4 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, gap: 2 }}>
         <Button
           startIcon={<ArrowBackIcon />}
-          onClick={() => navigate(`/guilds/${channel?.guildId}`)}
+          onClick={() => navigate(`/guilds/${channel?.guild_id}`)}
         >
           Back
         </Button>
@@ -170,7 +170,7 @@ export const ChannelConfig: FC = () => {
       <Card sx={{ mb: 3 }}>
         <CardContent>
           <Typography variant="h6" gutterBottom>
-            Channel: {channel?.channelName}
+            Channel: {channel?.channel_name}
           </Typography>
           <FormControlLabel
             control={
@@ -294,7 +294,7 @@ export const ChannelConfig: FC = () => {
         </Button>
         <Button
           variant="outlined"
-          onClick={() => navigate(`/guilds/${channel?.guildId}`)}
+          onClick={() => navigate(`/guilds/${channel?.guild_id}`)}
           disabled={saving}
         >
           Cancel
