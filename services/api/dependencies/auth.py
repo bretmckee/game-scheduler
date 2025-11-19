@@ -55,8 +55,7 @@ async def get_current_user(
         raise HTTPException(status_code=401, detail="User not found")
 
     return auth_schemas.CurrentUser(
-        user_id=user.id,
-        discord_id=user.discord_id,
+        user=user,
         access_token=token_data["access_token"],
         session_token=session_token,
     )

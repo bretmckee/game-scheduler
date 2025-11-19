@@ -139,7 +139,9 @@ async def test_create_game_without_participants(
     reload_result = MagicMock()
     reload_result.scalar_one_or_none.return_value = created_game
 
-    mock_db.execute = AsyncMock(side_effect=[guild_result, channel_result, host_result, reload_result])
+    mock_db.execute = AsyncMock(
+        side_effect=[guild_result, channel_result, host_result, reload_result]
+    )
     mock_db.flush = AsyncMock()
     mock_db.commit = AsyncMock()
     mock_db.add = MagicMock()
@@ -219,7 +221,9 @@ async def test_create_game_with_valid_participants(
     reload_result = MagicMock()
     reload_result.scalar_one_or_none.return_value = created_game
 
-    mock_db.execute = AsyncMock(side_effect=[guild_result, channel_result, host_result, reload_result])
+    mock_db.execute = AsyncMock(
+        side_effect=[guild_result, channel_result, host_result, reload_result]
+    )
     mock_db.flush = AsyncMock()
     mock_db.commit = AsyncMock()
     mock_db.add = MagicMock()
@@ -331,7 +335,9 @@ async def test_create_game_timezone_conversion(
     reload_result = MagicMock()
     reload_result.scalar_one_or_none.return_value = created_game
 
-    mock_db.execute = AsyncMock(side_effect=[guild_result, channel_result, host_result, reload_result])
+    mock_db.execute = AsyncMock(
+        side_effect=[guild_result, channel_result, host_result, reload_result]
+    )
     mock_db.flush = AsyncMock()
     mock_db.commit = AsyncMock()
     mock_participant_resolver.ensure_user_exists = AsyncMock(return_value=sample_user)
