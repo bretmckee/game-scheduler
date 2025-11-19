@@ -2259,3 +2259,88 @@ Fixed all 29 failing tests in the project test suite, achieving 100% test pass r
 - ✅ Redis caching performance maintained
 
 **Files Modified:** 7 backend/frontend files
+
+---
+
+### Bug Fixes - Python Syntax Errors in Authentication Files
+
+**Issue**: API container crash loop with `SyntaxError: unterminated triple-quoted string literal` after container rebuild
+
+**Root Cause**: Multiple Python files had duplicate docstring opening markers (`"""\n"""`) at the beginning of files, creating unterminated string literals.
+
+**Files Fixed:**
+
+- services/api/routes/auth.py:
+  - Removed duplicate `"""` at file start (lines 1-2)
+  - Completed incomplete `refresh` endpoint implementation (missing body)
+- services/api/auth/tokens.py:
+  - Removed duplicate `"""` at file start (lines 1-2)
+  - Fixed docstring: `"""Token management for storing and retrieving OAuth2 tokens.`
+- services/api/dependencies/auth.py:
+  - Removed duplicate `"""` at file start (lines 1-2)
+  - Fixed docstring: `"""Authentication dependencies for FastAPI routes.`
+
+**Resolution Steps:**
+
+1. Identified syntax errors via `docker compose logs api`
+2. Fixed each file by removing duplicate docstring openers
+3. Verified syntax with `python3 -m py_compile <file>`
+4. Rebuilt container: `docker compose build api`
+5. Container now starts successfully (healthy status)
+
+**Success Criteria:**
+
+- ✅ All Python files pass syntax validation
+- ✅ API container starts without errors
+- ✅ Health check passes
+- ✅ Authentication endpoints functional
+
+---
+
+### Bug Fixes - OAuth Login Flow Issues
+
+**Issue 1**: CSRF validation error flashing during OAuth callback
+
+**Root Cause**: Frontend was validating OAuth state parameter after backend already validated it, causing redundant CSRF error messages to flash briefly.
+
+**Files Modified:**
+
+- frontend/src/pages/AuthCallback.tsx:
+  - Removed client-side state validation (lines 56-63)
+  - Backend already validates state securely via Redis
+  - Kept sessionStorage cleanup for housekeeping
+  - Eliminated "Invalid state parameter (CSRF protection)" flash message
+
+**Issue 2**: "Authentication failed" error due to duplicate OAuth callback requests
+
+**Root Cause**:
+
+- React 18 StrictMode runs effects twice in development
+- useEffect dependencies (`login`, `navigate`) caused multiple re-renders
+- OAuth authorization codes are single-use only
+- First request consumed the code, second request failed with "Invalid code"
+
+**Files Modified:**
+
+- frontend/src/pages/AuthCallback.tsx:
+  - Added `useRef` flag to prevent duplicate processing
+  - Simplified useEffect dependencies to only `[searchParams]`
+  - Added comment: `// Prevent duplicate processing (React StrictMode runs effects twice)`
+  - Prevents "Discord API error 400: Invalid code in request"
+
+**Resolution:**
+
+1. Removed redundant CSRF validation from frontend
+2. Added `hasProcessed` ref to prevent duplicate OAuth callback calls
+3. Simplified effect dependencies to prevent unnecessary re-runs
+4. Login flow now completes smoothly without error flashes
+
+**Success Criteria:**
+
+- ✅ No CSRF error messages during login
+- ✅ No "Authentication failed" errors
+- ✅ OAuth callback processed exactly once
+- ✅ Smooth login experience without flashing errors
+- ✅ Session cookies set correctly after successful OAuth flow
+
+**Files Modified:** 1 frontend file
