@@ -1,5 +1,4 @@
-"""
-Authentication routes for Discord OAuth2 flow.
+"""Authentication routes for Discord OAuth2 flow.
 
 Handles login, callback, refresh, logout, and user info endpoints.
 """
@@ -7,8 +6,7 @@ Handles login, callback, refresh, logout, and user info endpoints.
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.api.auth import oauth2, tokens
@@ -44,6 +42,7 @@ async def login(redirect_uri: str = Query(...)) -> auth_schemas.LoginResponse:
 
 @router.get("/callback", response_model=None)
 async def callback(
+    response: Response,
     code: str = Query(...),
     state: str = Query(...),
     db: AsyncSession = Depends(get_db_session),
@@ -52,12 +51,14 @@ async def callback(
     Handle Discord OAuth2 callback.
 
     Args:
+        response: Response object for setting cookies
         code: Authorization code from Discord
         state: State token for CSRF protection
         db: Database session
 
     Returns:
-        Redirect to frontend or HTML success page
+        JSON response with success status for AJAX calls,
+        or redirect to frontend for direct browser navigation
     """
     try:
         redirect_uri = await oauth2.validate_state(state)
@@ -86,7 +87,7 @@ async def callback(
         await db.commit()
         logger.info(f"Created new user with Discord ID: {discord_id}")
 
-    await tokens.store_user_tokens(
+    session_token = await tokens.store_user_tokens(
         discord_id,
         token_data["access_token"],
         token_data["refresh_token"],
@@ -94,65 +95,19 @@ async def callback(
     )
 
     config = get_api_config()
+    is_production = config.environment == "production"
 
-    # Redirect to frontend callback with success params
-    if config.frontend_url:
-        callback_url = f"{config.frontend_url}/auth/callback?success=true&user_id={discord_id}"
-        return RedirectResponse(url=callback_url)
+    response.set_cookie(
+        key="session_token",
+        value=session_token,
+        httponly=True,
+        secure=is_production,
+        samesite="lax",
+        max_age=86400,
+    )
 
-    # Return a simple success page for testing without a frontend
-    html_content = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Login Successful</title>
-        <style>
-            body {{
-                font-family: Arial, sans-serif;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                height: 100vh;
-                margin: 0;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            }}
-            .container {{
-                background: white;
-                padding: 40px;
-                border-radius: 10px;
-                box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-                text-align: center;
-                max-width: 500px;
-            }}
-            h1 {{ color: #5865F2; margin-bottom: 20px; }}
-            .success {{ color: #43b581; font-size: 24px; margin: 20px 0; }}
-            code {{
-                background: #f0f0f0;
-                padding: 2px 6px;
-                border-radius: 3px;
-                font-family: monospace;
-            }}
-            .info {{ margin: 20px 0; text-align: left; }}
-            .info p {{ margin: 10px 0; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>✅ Discord Login Successful!</h1>
-            <div class="success">Authentication Complete</div>
-            <div class="info">
-                <p><strong>Your Discord ID:</strong> <code>{discord_id}</code></p>
-                <p><strong>Status:</strong> Tokens stored securely in Redis</p>
-                <p><strong>Session:</strong> Valid for 24 hours</p>
-            </div>
-            <p style="margin-top: 30px; color: #666;">
-                You can now close this window and use the API with your Discord ID.
-            </p>
-        </div>
-    </body>
-    </html>
-    """
-    return HTMLResponse(content=html_content)
+    # Return JSON for modern frontends (development mode with fetch)
+    return {"success": True, "message": "Authentication successful"}
 
 
 @router.post("/refresh")
@@ -160,13 +115,13 @@ async def refresh(
     current_user: Annotated[auth_schemas.CurrentUser, Depends(auth_deps.get_current_user)],
 ) -> auth_schemas.TokenResponse:
     """
-    Refresh access token using refresh token.
+    Refresh expired access token.
 
     Args:
         current_user: Current authenticated user
 
     Returns:
-        New token data
+        New access token and expiration
     """
     token_data = await tokens.get_user_tokens(current_user.discord_id)
     if not token_data:
@@ -180,30 +135,31 @@ async def refresh(
             new_tokens["refresh_token"],
             new_tokens["expires_in"],
         )
-
         return auth_schemas.TokenResponse(
-            access_token=new_tokens["access_token"],
-            expires_in=new_tokens["expires_in"],
+            access_token=new_tokens["access_token"], expires_in=new_tokens["expires_in"]
         )
     except Exception as e:
         logger.error(f"Token refresh failed: {e}")
-        raise HTTPException(status_code=500, detail="Failed to refresh token") from e
+        raise HTTPException(status_code=401, detail="Failed to refresh token") from e
 
 
 @router.post("/logout")
 async def logout(
+    response: Response,
     current_user: Annotated[auth_schemas.CurrentUser, Depends(auth_deps.get_current_user)],
 ) -> dict[str, str]:
     """
-    Logout user and delete session.
+    Logout user and clear session.
 
     Args:
+        response: Response object for clearing cookies
         current_user: Current authenticated user
 
     Returns:
         Success message
     """
-    await tokens.delete_user_tokens(current_user.discord_id)
+    await tokens.delete_user_tokens(current_user.session_token)
+    response.delete_cookie(key="session_token", samesite="lax")
     return {"message": "Logged out successfully"}
 
 

@@ -314,10 +314,46 @@ function ParticipantList({ participants }: { participants: Participant[] }) {
   2. Redirect to Discord OAuth2 authorization URL with client_id and scopes
   3. User approves, Discord redirects back with authorization code
   4. Backend exchanges code for access_token and refresh_token
-  5. Access token valid for 7 days, refresh token for long-term sessions
-  6. Store tokens securely (encrypted in database or session storage)
+  5. Backend generates UUID4 session token (cryptographically random)
+  6. Store tokens in Redis with session key pattern: `session:{uuid4_token}`
+  7. Backend sets HTTPOnly cookie with session token (prevents XSS attacks)
+  8. Cookie configuration: httponly=True, secure=True (prod), samesite="lax", max_age=86400
+  9. Frontend receives session cookie automatically (no localStorage)
+- Access token valid for 7 days, refresh token for long-term sessions
+- Tokens encrypted with Fernet before storage in Redis
+- Session TTL: 24 hours (86400 seconds)
 - After authentication, fetch user's guild memberships and roles via Discord API
 - Cache role data in Redis with TTL to avoid excessive API calls
+
+**Security Implementation (2025-11-18 Update)**
+
+- **Session Token Strategy**: UUID4 tokens replace predictable Discord IDs
+  - Old vulnerable pattern: `session:{discord_id}` (predictable, public information)
+  - New secure pattern: `session:{random_uuid}` (cryptographically random)
+  - Session tokens cannot be guessed or derived from public user information
+- **HTTPOnly Cookies**: Session tokens transmitted via secure cookies
+  - HTTPOnly flag prevents JavaScript access (XSS protection)
+  - SameSite=lax prevents CSRF attacks
+  - secure=True in production ensures HTTPS-only transmission
+  - Browser automatically includes cookies in requests (no manual header management)
+- **No Client-Side Storage**: Frontend never stores tokens or user IDs
+  - Old vulnerable pattern: localStorage with Discord ID in X-User-Id header
+  - New secure pattern: Cookies only, managed entirely by browser
+  - Eliminates localStorage XSS attack vector
+- **Authentication Dependency**: FastAPI Cookie() dependency validates session
+  - Reads session_token from HTTPOnly cookie
+  - Looks up session in Redis: `session:{session_token}`
+  - Returns CurrentUser with discord_id, access_token, and session_token
+  - Old X-User-Id header authentication removed entirely
+- **Token Refresh**: Automatic with cookies
+  - Frontend calls `/auth/refresh` with cookie (no body needed)
+  - Backend uses session_token from cookie to look up tokens
+  - Refresh preserves session_token (doesn't change UUID)
+  - Updated access token stored back to same Redis key
+- **Logout**: Clears cookie server-side
+  - Backend deletes session from Redis
+  - Backend calls response.delete_cookie() to clear client cookie
+  - Frontend makes async logout call then clears local state
 
 **Bot Authorization: "Requires OAuth2 Code Grant" Setting**
 
