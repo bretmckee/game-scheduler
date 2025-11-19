@@ -132,12 +132,14 @@ async def test_create_game_without_participants(
     guild_result.scalar_one_or_none.return_value = sample_guild
     channel_result = MagicMock()
     channel_result.scalar_one_or_none.return_value = sample_channel
+    host_result = MagicMock()
+    host_result.scalar_one_or_none.return_value = sample_user
 
     # Mock get_game call after commit
     reload_result = MagicMock()
     reload_result.scalar_one_or_none.return_value = created_game
 
-    mock_db.execute = AsyncMock(side_effect=[guild_result, channel_result, reload_result])
+    mock_db.execute = AsyncMock(side_effect=[guild_result, channel_result, host_result, reload_result])
     mock_db.flush = AsyncMock()
     mock_db.commit = AsyncMock()
     mock_db.add = MagicMock()
@@ -152,7 +154,7 @@ async def test_create_game_without_participants(
 
     game = await game_service.create_game(
         game_data=sample_game_data,
-        host_discord_id=sample_user.discord_id,
+        host_user_id=sample_user.id,
         access_token="token",
     )
 
@@ -210,12 +212,14 @@ async def test_create_game_with_valid_participants(
     guild_result.scalar_one_or_none.return_value = sample_guild
     channel_result = MagicMock()
     channel_result.scalar_one_or_none.return_value = sample_channel
+    host_result = MagicMock()
+    host_result.scalar_one_or_none.return_value = sample_user
 
     # Mock get_game call after commit
     reload_result = MagicMock()
     reload_result.scalar_one_or_none.return_value = created_game
 
-    mock_db.execute = AsyncMock(side_effect=[guild_result, channel_result, reload_result])
+    mock_db.execute = AsyncMock(side_effect=[guild_result, channel_result, host_result, reload_result])
     mock_db.flush = AsyncMock()
     mock_db.commit = AsyncMock()
     mock_db.add = MagicMock()
@@ -229,7 +233,7 @@ async def test_create_game_with_valid_participants(
 
     game = await game_service.create_game(
         game_data=sample_game_data,
-        host_discord_id=sample_user.discord_id,
+        host_user_id=sample_user.id,
         access_token="token",
     )
 
@@ -261,14 +265,16 @@ async def test_create_game_with_invalid_participants(
     guild_result.scalar_one_or_none.return_value = sample_guild
     channel_result = MagicMock()
     channel_result.scalar_one_or_none.return_value = sample_channel
+    host_result = MagicMock()
+    host_result.scalar_one_or_none.return_value = sample_user
 
-    mock_db.execute = AsyncMock(side_effect=[guild_result, channel_result])
+    mock_db.execute = AsyncMock(side_effect=[guild_result, channel_result, host_result])
     mock_participant_resolver.ensure_user_exists = AsyncMock(return_value=sample_user)
 
     with pytest.raises(resolver_module.ValidationError) as exc_info:
         await game_service.create_game(
             game_data=sample_game_data,
-            host_discord_id=sample_user.discord_id,
+            host_user_id=sample_user.id,
             access_token="token",
         )
 
@@ -319,11 +325,13 @@ async def test_create_game_timezone_conversion(
     guild_result.scalar_one_or_none.return_value = sample_guild
     channel_result = MagicMock()
     channel_result.scalar_one_or_none.return_value = sample_channel
+    host_result = MagicMock()
+    host_result.scalar_one_or_none.return_value = sample_user
 
     reload_result = MagicMock()
     reload_result.scalar_one_or_none.return_value = created_game
 
-    mock_db.execute = AsyncMock(side_effect=[guild_result, channel_result, reload_result])
+    mock_db.execute = AsyncMock(side_effect=[guild_result, channel_result, host_result, reload_result])
     mock_db.flush = AsyncMock()
     mock_db.commit = AsyncMock()
     mock_participant_resolver.ensure_user_exists = AsyncMock(return_value=sample_user)
@@ -342,7 +350,7 @@ async def test_create_game_timezone_conversion(
 
     await game_service.create_game(
         game_data=game_data,
-        host_discord_id=sample_user.discord_id,
+        host_user_id=sample_user.id,
         access_token="token",
     )
 
@@ -444,7 +452,7 @@ async def test_update_game_success(game_service, mock_db, sample_user):
             description="Updated description",
             status="SCHEDULED",
         ),
-        host_discord_id=sample_user.discord_id,
+        host_user_id=sample_user.id,
     )
 
     assert updated.title == "New Title"
@@ -472,7 +480,7 @@ async def test_update_game_not_host(game_service, mock_db, sample_user):
                 description="Updated description",
                 status="SCHEDULED",
             ),
-            host_discord_id=sample_user.discord_id,
+            host_user_id=sample_user.id,
         )
 
 
@@ -497,7 +505,7 @@ async def test_delete_game_success(game_service, mock_db, sample_user):
     mock_db.execute = AsyncMock(side_effect=[game_result, user_result])
     mock_db.commit = AsyncMock()
 
-    await game_service.delete_game(game_id=game_id, host_discord_id=sample_user.discord_id)
+    await game_service.delete_game(game_id=game_id, host_user_id=sample_user.id)
 
     assert mock_game.status == "CANCELLED"
     mock_db.commit.assert_called_once()
