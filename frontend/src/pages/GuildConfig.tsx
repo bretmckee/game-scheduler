@@ -66,11 +66,11 @@ export const GuildConfig: FC = () => {
         
         setGuild(guildData);
         setFormData({
-          defaultMaxPlayers: guildData.defaultMaxPlayers,
-          defaultReminderMinutes: guildData.defaultReminderMinutes.join(', '),
-          defaultRules: guildData.defaultRules || '',
-          allowedHostRoleIds: guildData.allowedHostRoleIds.join(', '),
-          requireHostRole: guildData.requireHostRole,
+          defaultMaxPlayers: guildData.default_max_players,
+          defaultReminderMinutes: guildData.default_reminder_minutes.join(', '),
+          defaultRules: guildData.default_rules || '',
+          allowedHostRoleIds: guildData.allowed_host_role_ids.join(', '),
+          requireHostRole: guildData.require_host_role,
         });
       } catch (err: any) {
         console.error('Failed to fetch guild:', err);
