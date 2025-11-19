@@ -166,12 +166,14 @@ async def logout(
 @router.get("/user", response_model=auth_schemas.UserInfoResponse)
 async def get_user_info(
     current_user: Annotated[auth_schemas.CurrentUser, Depends(auth_deps.get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> auth_schemas.UserInfoResponse:
     """
     Get current user information and guilds.
 
     Args:
         current_user: Current authenticated user
+        db: Database session
 
     Returns:
         User info and guild list
@@ -200,8 +202,21 @@ async def get_user_info(
         user_info = await oauth2.get_user_from_token(access_token)
         guilds = await oauth2.get_user_guilds(access_token)
 
+        # Get database user record to get UUID
+        from sqlalchemy import select
+
+        from shared.models import user as user_model
+
+        stmt = select(user_model.User).where(user_model.User.discord_id == current_user.discord_id)
+        result = await db.execute(stmt)
+        db_user = result.scalar_one_or_none()
+
+        if not db_user:
+            raise HTTPException(status_code=404, detail="User not found in database")
+
         return auth_schemas.UserInfoResponse(
             id=user_info["id"],
+            user_uuid=str(db_user.id),
             username=user_info["username"],
             avatar=user_info.get("avatar"),
             guilds=guilds,

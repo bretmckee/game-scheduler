@@ -106,14 +106,8 @@ class DisplayNameResolver:
         return result.get(user_id, "Unknown User")
 
 
-_resolver_instance: DisplayNameResolver | None = None
-
-
-def get_display_name_resolver() -> DisplayNameResolver:
-    """Get display name resolver singleton."""
-    global _resolver_instance
-    if _resolver_instance is None:
-        discord_api = discord_client.get_discord_client()
-        cache = cache_client.get_redis_client()
-        _resolver_instance = DisplayNameResolver(discord_api, cache)
-    return _resolver_instance
+async def get_display_name_resolver() -> DisplayNameResolver:
+    """Get display name resolver instance with initialized dependencies."""
+    discord_api = discord_client.get_discord_client()
+    cache = await cache_client.get_redis_client()
+    return DisplayNameResolver(discord_api, cache)
