@@ -267,10 +267,11 @@ class TestConfigurationService:
         """Update guild configuration."""
         service = config.ConfigurationService(mock_db)
 
-        await service.update_guild_config()
+        result = await service.update_guild_config(sample_guild, default_max_players=15)
 
         assert mock_db.commit.called
         assert mock_db.refresh.called
+        assert result == sample_guild
 
     @pytest.mark.asyncio
     async def test_update_channel_config(self, mock_db, sample_channel):
