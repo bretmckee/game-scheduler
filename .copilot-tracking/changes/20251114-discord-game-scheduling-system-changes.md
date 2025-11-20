@@ -4489,7 +4489,6 @@ channel = await self.bot.fetch_channel(int(channel_id))
   - Added database deletion of participant record within the handler
   - Modified `_validate_leave_game` to return the participant object
   - Handler now deletes participant and commits transaction before publishing event
-  
 - `services/bot/handlers/join_game.py`:
   - Added database creation of participant record within the handler
   - Handler now creates GameParticipant, adds to session, and commits before publishing event
@@ -4545,3 +4544,124 @@ await db.commit()
 - Clicking "Join Game" button now adds participant to `game_participants` table
 - Events still published for downstream processing (message updates, etc.)
 - No functional regressions in validation or error handling
+
+---
+
+## Bug Fix: Display Game Host on Web Pages (2025-11-19)
+
+**Issue**: Game status web page did not display the game host information. While the `host_id` field existed in the database and API responses, the host's Discord display name was not being resolved or shown to users.
+
+**Root Cause**: The `_build_game_response()` function in `services/api/routes/games.py` was resolving display names for participants but not for the game host. The frontend had no fields to receive or display host information.
+
+### Changes Made
+
+**Backend - Schema Updates**:
+
+- `shared/schemas/game.py` - Added `host_discord_id` and `host_display_name` fields to `GameResponse` schema
+
+**Backend - API Updates**:
+
+- `services/api/routes/games.py` - Updated `_build_game_response()` function:
+  - Include host's Discord ID in display name resolution batch
+  - Resolve host display name using same mechanism as participants
+  - Return host information (discord_id and display_name) in API response
+
+**Frontend - Type Updates**:
+
+- `frontend/src/types/index.ts` - Added `host_discord_id` and `host_display_name` to `GameSession` interface
+
+**Frontend - UI Updates**:
+
+- `frontend/src/pages/GameDetails.tsx` - Added host display name in "Game Details" section (displayed before scheduled time)
+- `frontend/src/components/GameCard.tsx` - Added host display name to game cards in lists/browse views
+
+**Frontend - Test Updates**:
+
+- `frontend/src/pages/__tests__/EditGame.test.tsx` - Updated mock `GameSession` object to include new required fields
+
+### Implementation Details
+
+**Display Name Resolution**:
+
+- Leverages existing cached Discord API mechanism for resolving display names
+- Host's Discord ID added to batch resolution alongside participants
+- Uses Redis caching for performance (same TTL as other Discord user data)
+- Falls back gracefully if host information unavailable
+
+**Code Before**:
+
+```python
+# services/api/routes/games.py
+discord_user_ids = [p.user.discord_id for p in game.participants if p.user is not None]
+display_name_resolver = await display_names_module.get_display_name_resolver()
+display_names_map = {}
+if discord_user_ids:
+    if game.guild_id:
+        guild_discord_id = game.guild.guild_id
+        display_names_map = await display_name_resolver.resolve_display_names(
+            guild_discord_id, discord_user_ids
+        )
+```
+
+**Code After**:
+
+```python
+# services/api/routes/games.py
+discord_user_ids = [p.user.discord_id for p in game.participants if p.user is not None]
+
+# Add host to the list of users to resolve
+host_discord_id = game.host.discord_id if game.host else None
+if host_discord_id and host_discord_id not in discord_user_ids:
+    discord_user_ids.append(host_discord_id)
+
+display_name_resolver = await display_names_module.get_display_name_resolver()
+display_names_map = {}
+if discord_user_ids:
+    if game.guild_id:
+        guild_discord_id = game.guild.guild_id
+        display_names_map = await display_name_resolver.resolve_display_names(
+            guild_discord_id, discord_user_ids
+        )
+
+# Resolve host display name
+host_display_name = None
+if host_discord_id and host_discord_id in display_names_map:
+    host_display_name = display_names_map[host_discord_id]
+```
+
+**UI Display**:
+
+```tsx
+{
+  /* frontend/src/pages/GameDetails.tsx */
+}
+{
+  game.host_display_name && (
+    <Typography variant="body2" paragraph>
+      <strong>Host:</strong> {game.host_display_name}
+    </Typography>
+  );
+}
+```
+
+### Architecture Consistency
+
+- Maintains existing pattern of not caching user display names in database
+- Fetches display names at render time from Discord API (with Redis caching)
+- Consistent with participant display name resolution approach
+- No changes required to database schema (uses existing `host_id` foreign key)
+
+### Testing
+
+- All modified files pass linting (0 errors)
+- TypeScript compilation successful
+- Frontend test suite updated and passing
+- Services rebuilt and deployed successfully
+- Manual testing confirmed host display name appears on game details and game cards
+
+### Benefits
+
+- **User Experience**: Users can now see who is hosting each game
+- **Consistency**: Host information displayed alongside other game details
+- **Performance**: Leverages existing caching infrastructure
+- **Maintainability**: Follows established patterns in codebase
