@@ -66,14 +66,15 @@ class TestTokenStorage:
             mock_redis_instance = AsyncMock()
             mock_redis.return_value = mock_redis_instance
 
-            session_key = await store_user_tokens(
+            session_token = await store_user_tokens(
                 user_id="123456789",
                 access_token="test_access",
                 refresh_token="test_refresh",
                 expires_in=3600,
             )
 
-            assert session_key == "session:123456789"
+            assert isinstance(session_token, str)
+            assert len(session_token) == 36  # UUID4 format
             mock_redis_instance.set_json.assert_called_once()
 
     @pytest.mark.asyncio
@@ -120,11 +121,20 @@ class TestTokenStorage:
             mock_redis_instance = AsyncMock()
             mock_redis.return_value = mock_redis_instance
 
+            expires_at = datetime.now(UTC).replace(tzinfo=None) + timedelta(hours=1)
+            encrypted_access = encrypt_token("old_access")
+            encrypted_refresh = encrypt_token("test_refresh")
+            session_token = "test-uuid-token"
+
+            mock_redis_instance.get_json.return_value = {
+                "user_id": "123456789",
+                "access_token": encrypted_access,
+                "refresh_token": encrypted_refresh,
+                "expires_at": expires_at.isoformat(),
+            }
+
             await refresh_user_tokens(
-                user_id="123456789",
-                new_access_token="new_access",
-                new_refresh_token="new_refresh",
-                expires_in=3600,
+                session_token=session_token, new_access_token="new_access", new_expires_in=7200
             )
 
             mock_redis_instance.set_json.assert_called_once()
