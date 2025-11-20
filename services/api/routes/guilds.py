@@ -19,6 +19,7 @@
 """Guild configuration endpoints."""
 
 # ruff: noqa: B008
+import asyncio
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -36,18 +37,24 @@ from shared.schemas import guild as guild_schemas
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/guilds", tags=["guilds"])
 
+# In-memory locks for preventing duplicate Discord API calls
+_guild_fetch_locks: dict[str, asyncio.Lock] = {}
+_locks_lock = asyncio.Lock()
+
 
 async def get_user_guilds_cached(access_token: str, discord_id: str) -> dict[str, dict]:
     """
     Get user guilds with caching to avoid Discord rate limits.
 
-    Caches results for 60 seconds since guild membership changes infrequently.
+    Caches results for 5 minutes since guild membership changes very infrequently.
+    Uses locking to prevent race conditions where multiple requests hit Discord API simultaneously.
     """
     from services.api.auth import discord_client, oauth2
 
     cache_key = f"user_guilds:{discord_id}"
     redis = await cache_client.get_redis_client()
 
+    # Check cache first (fast path without lock)
     cached = await redis.get(cache_key)
     if cached:
         import json
@@ -60,36 +67,61 @@ async def get_user_guilds_cached(access_token: str, discord_id: str) -> dict[str
 
         return {g["id"]: g for g in guilds_list}
 
-    try:
-        user_guilds = await oauth2.get_user_guilds(access_token)
-        user_guild_ids = {g["id"]: g for g in user_guilds}
+    # Get or create lock for this user
+    async with _locks_lock:
+        if discord_id not in _guild_fetch_locks:
+            _guild_fetch_locks[discord_id] = asyncio.Lock()
+        user_lock = _guild_fetch_locks[discord_id]
 
-        import json
+    # Acquire lock to prevent duplicate requests
+    async with user_lock:
+        # Check cache again in case another request just populated it
+        cached = await redis.get(cache_key)
+        if cached:
+            import json
 
-        await redis.set(cache_key, json.dumps(user_guilds), ttl=60)
+            guilds_list = json.loads(cached)
 
-        logger.info(
-            f"Cached {len(user_guild_ids)} guilds for user {discord_id} with key {cache_key}"
-        )
+            logger.info(
+                f"returning {len(guilds_list)} cached guilds for user {discord_id} "
+                f"(fetched by another request)"
+            )
 
-        return user_guild_ids
-    except discord_client.DiscordAPIError as e:
-        error_detail = f"Failed to fetch user guilds: {e}"
+            return {g["id"]: g for g in guilds_list}
 
-        if e.status == 429:
-            logger.error(f"Rate limit headers: {dict(e.headers)}")
-            reset_after = e.headers.get("x-ratelimit-reset-after")
-            reset_at = e.headers.get("x-ratelimit-reset")
-            if reset_after:
-                error_detail += f" | Rate limit resets in {reset_after} seconds"
-            if reset_at:
-                error_detail += f" | Reset at Unix timestamp {reset_at}"
+        # Make the actual Discord API call
+        try:
+            user_guilds = await oauth2.get_user_guilds(access_token)
+            user_guild_ids = {g["id"]: g for g in user_guilds}
 
-        logger.error(error_detail)
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Unable to verify guild membership at this time. Please try again in a moment.",
-        ) from e
+            import json
+
+            await redis.set(cache_key, json.dumps(user_guilds), ttl=300)
+
+            logger.info(
+                f"Cached {len(user_guild_ids)} guilds for user {discord_id} with key {cache_key}"
+            )
+
+            return user_guild_ids
+        except discord_client.DiscordAPIError as e:
+            error_detail = f"Failed to fetch user guilds: {e}"
+
+            if e.status == 429:
+                logger.error(f"Rate limit headers: {dict(e.headers)}")
+                reset_after = e.headers.get("x-ratelimit-reset-after")
+                reset_at = e.headers.get("x-ratelimit-reset")
+                if reset_after:
+                    error_detail += f" | Rate limit resets in {reset_after} seconds"
+                if reset_at:
+                    error_detail += f" | Reset at Unix timestamp {reset_at}"
+
+            logger.error(error_detail)
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=(
+                    "Unable to verify guild membership at this time. Please try again in a moment."
+                ),
+            ) from e
 
 
 @router.get("", response_model=guild_schemas.GuildListResponse)
@@ -102,23 +134,25 @@ async def list_guilds(
 
     Returns guild configurations with current settings.
     """
-    from services.api.auth import discord_client
-
-    client = discord_client.get_discord_client()
     service = config_service.ConfigurationService(db)
 
-    user_guilds = await client.get_user_guilds(current_user.access_token)
+    # Use cached guilds to avoid Discord rate limits
+    user_guilds_dict = await get_user_guilds_cached(
+        current_user.access_token,
+        current_user.user.discord_id,
+    )
 
     guild_configs = []
-    for guild_data in user_guilds:
-        guild_config = await service.get_guild_by_discord_id(guild_data["id"])
-
+    for guild_id, discord_guild_data in user_guilds_dict.items():
+        guild_config = await service.get_guild_by_discord_id(guild_id)
         if guild_config:
+            guild_name = discord_guild_data.get("name", "Unknown Guild")
+
             guild_configs.append(
                 guild_schemas.GuildConfigResponse(
                     id=guild_config.id,
                     guild_id=guild_config.guild_id,
-                    guild_name=guild_config.guild_name,
+                    guild_name=guild_name,
                     default_max_players=guild_config.default_max_players,
                     default_reminder_minutes=guild_config.default_reminder_minutes,
                     default_rules=guild_config.default_rules,
@@ -132,21 +166,27 @@ async def list_guilds(
     return guild_schemas.GuildListResponse(guilds=guild_configs)
 
 
-@router.get("/{guild_discord_id}", response_model=guild_schemas.GuildConfigResponse)
+@router.get("/{guild_id}", response_model=guild_schemas.GuildConfigResponse)
 async def get_guild(
-    guild_discord_id: str,
+    guild_id: str,
     current_user: auth_schemas.CurrentUser = Depends(dependencies.auth.get_current_user),
     db: AsyncSession = Depends(database.get_db),
 ) -> guild_schemas.GuildConfigResponse:
     """
-    Get guild configuration by Discord guild ID.
+    Get guild configuration by database UUID.
 
     Requires user to be member of the guild.
-    Auto-creates configuration with defaults if it doesn't exist.
     """
     from services.api.auth import tokens
 
     service = config_service.ConfigurationService(db)
+
+    guild_config = await service.get_guild_by_id(guild_id)
+    if not guild_config:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Guild configuration not found",
+        )
 
     token_data = await tokens.get_user_tokens(current_user.session_token)
     if not token_data:
@@ -155,29 +195,29 @@ async def get_guild(
     access_token = token_data["access_token"]
     user_guild_ids = await get_user_guilds_cached(access_token, current_user.user.discord_id)
 
-    if guild_discord_id not in user_guild_ids:
+    discord_guild_id = guild_config.guild_id
+
+    logger.info(
+        f"get_guild: UUID {guild_id} maps to Discord guild {discord_guild_id}. "
+        f"User has access to {len(user_guild_ids)} guilds"
+    )
+
+    if discord_guild_id not in user_guild_ids:
+        logger.warning(
+            f"get_guild: Discord guild {discord_guild_id} not found in "
+            f"user's {len(user_guild_ids)} guilds"
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not a member of this guild",
         )
 
-    guild_config = await service.get_guild_by_discord_id(guild_discord_id)
-    if not guild_config:
-        guild_data = user_guild_ids[guild_discord_id]
-        guild_config = await service.create_guild_config(
-            guild_discord_id=guild_discord_id,
-            guild_name=guild_data["name"],
-            default_max_players=10,
-            default_reminder_minutes=[60, 15],
-            default_rules=None,
-            allowed_host_role_ids=[],
-            require_host_role=False,
-        )
+    guild_name = user_guild_ids[discord_guild_id].get("name", "Unknown Guild")
 
     return guild_schemas.GuildConfigResponse(
         id=guild_config.id,
         guild_id=guild_config.guild_id,
-        guild_name=guild_config.guild_name,
+        guild_name=guild_name,
         default_max_players=guild_config.default_max_players,
         default_reminder_minutes=guild_config.default_reminder_minutes,
         default_rules=guild_config.default_rules,
@@ -212,7 +252,6 @@ async def create_guild_config(
 
     guild_config = await service.create_guild_config(
         guild_discord_id=request.guild_id,
-        guild_name=request.guild_name,
         default_max_players=request.default_max_players,
         default_reminder_minutes=request.default_reminder_minutes or [60, 15],
         default_rules=request.default_rules,
@@ -220,10 +259,15 @@ async def create_guild_config(
         require_host_role=request.require_host_role,
     )
 
+    user_guild_ids = await get_user_guilds_cached(
+        current_user.access_token, current_user.user.discord_id
+    )
+    guild_name = user_guild_ids.get(request.guild_id, {}).get("name", "Unknown Guild")
+
     return guild_schemas.GuildConfigResponse(
         id=guild_config.id,
         guild_id=guild_config.guild_id,
-        guild_name=guild_config.guild_name,
+        guild_name=guild_name,
         default_max_players=guild_config.default_max_players,
         default_reminder_minutes=guild_config.default_reminder_minutes,
         default_rules=guild_config.default_rules,
@@ -234,9 +278,9 @@ async def create_guild_config(
     )
 
 
-@router.put("/{guild_discord_id}", response_model=guild_schemas.GuildConfigResponse)
+@router.put("/{guild_id}", response_model=guild_schemas.GuildConfigResponse)
 async def update_guild_config(
-    guild_discord_id: str,
+    guild_id: str,
     request: guild_schemas.GuildConfigUpdateRequest,
     current_user: auth_schemas.CurrentUser = Depends(permissions.require_manage_guild),
     db: AsyncSession = Depends(database.get_db),
@@ -248,7 +292,7 @@ async def update_guild_config(
     """
     service = config_service.ConfigurationService(db)
 
-    guild_config = await service.get_guild_by_discord_id(guild_discord_id)
+    guild_config = await service.get_guild_by_id(guild_id)
     if not guild_config:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Guild configuration not found"
@@ -257,10 +301,15 @@ async def update_guild_config(
     updates = request.model_dump(exclude_unset=True)
     guild_config = await service.update_guild_config(guild_config, **updates)
 
+    user_guild_ids = await get_user_guilds_cached(
+        current_user.access_token, current_user.user.discord_id
+    )
+    guild_name = user_guild_ids.get(guild_config.guild_id, {}).get("name", "Unknown Guild")
+
     return guild_schemas.GuildConfigResponse(
         id=guild_config.id,
         guild_id=guild_config.guild_id,
-        guild_name=guild_config.guild_name,
+        guild_name=guild_name,
         default_max_players=guild_config.default_max_players,
         default_reminder_minutes=guild_config.default_reminder_minutes,
         default_rules=guild_config.default_rules,
@@ -272,23 +321,29 @@ async def update_guild_config(
 
 
 @router.get(
-    "/{guild_discord_id}/channels",
+    "/{guild_id}/channels",
     response_model=list[channel_schemas.ChannelConfigResponse],
 )
 async def list_guild_channels(
-    guild_discord_id: str,
+    guild_id: str,
     current_user: auth_schemas.CurrentUser = Depends(dependencies.auth.get_current_user),
     db: AsyncSession = Depends(database.get_db),
 ) -> list[channel_schemas.ChannelConfigResponse]:
     """
-    List all configured channels for a guild.
+    List all configured channels for a guild by UUID.
 
     Returns channels with their settings and inheritance information.
-    Auto-creates guild configuration if it doesn't exist.
     """
     from services.api.auth import tokens
 
     service = config_service.ConfigurationService(db)
+
+    guild_config = await service.get_guild_by_id(guild_id)
+    if not guild_config:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Guild configuration not found",
+        )
 
     token_data = await tokens.get_user_tokens(current_user.session_token)
     if not token_data:
@@ -297,23 +352,21 @@ async def list_guild_channels(
     access_token = token_data["access_token"]
     user_guild_ids = await get_user_guilds_cached(access_token, current_user.user.discord_id)
 
-    if guild_discord_id not in user_guild_ids:
+    discord_guild_id = guild_config.guild_id
+
+    logger.info(
+        f"list_guild_channels: UUID {guild_id} maps to Discord guild {discord_guild_id}. "
+        f"User has access to {len(user_guild_ids)} guilds"
+    )
+
+    if discord_guild_id not in user_guild_ids:
+        logger.warning(
+            f"list_guild_channels: Discord guild {discord_guild_id} not found in "
+            f"user's {len(user_guild_ids)} guilds"
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not a member of this guild",
-        )
-
-    guild_config = await service.get_guild_by_discord_id(guild_discord_id)
-    if not guild_config:
-        guild_data = user_guild_ids[guild_discord_id]
-        guild_config = await service.create_guild_config(
-            guild_discord_id=guild_discord_id,
-            guild_name=guild_data["name"],
-            default_max_players=10,
-            default_reminder_minutes=[60, 15],
-            default_rules=None,
-            allowed_host_role_ids=[],
-            require_host_role=False,
         )
 
     channels = await service.get_channels_by_guild(guild_config.id)
@@ -322,6 +375,7 @@ async def list_guild_channels(
         channel_schemas.ChannelConfigResponse(
             id=channel.id,
             guild_id=channel.guild_id,
+            guild_discord_id=guild_config.guild_id,
             channel_id=channel.channel_id,
             channel_name=channel.channel_name,
             is_active=channel.is_active,

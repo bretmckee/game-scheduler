@@ -135,6 +135,25 @@ class ConfigurationService:
         self.db = db
         self.resolver = SettingsResolver()
 
+    async def get_guild_by_id(self, guild_id: str) -> "guild.GuildConfiguration | None":
+        """
+        Fetch guild configuration by database UUID.
+
+        Args:
+            guild_id: Database UUID
+
+        Returns:
+            Guild configuration or None if not found
+        """
+        from shared.models import guild as guild_module
+
+        result = await self.db.execute(
+            select(guild_module.GuildConfiguration).where(
+                guild_module.GuildConfiguration.id == guild_id
+            )
+        )
+        return result.scalar_one_or_none()
+
     async def get_guild_by_discord_id(
         self, guild_discord_id: str
     ) -> "guild.GuildConfiguration | None":
@@ -153,6 +172,25 @@ class ConfigurationService:
             select(guild_module.GuildConfiguration).where(
                 guild_module.GuildConfiguration.guild_id == guild_discord_id
             )
+        )
+        return result.scalar_one_or_none()
+
+    async def get_channel_by_id(self, channel_id: str) -> "channel.ChannelConfiguration | None":
+        """
+        Fetch channel configuration by database UUID with guild relationship.
+
+        Args:
+            channel_id: Database UUID
+
+        Returns:
+            Channel configuration or None if not found
+        """
+        from shared.models import channel as channel_module
+
+        result = await self.db.execute(
+            select(channel_module.ChannelConfiguration)
+            .options(selectinload(channel_module.ChannelConfiguration.guild))
+            .where(channel_module.ChannelConfiguration.id == channel_id)
         )
         return result.scalar_one_or_none()
 
@@ -197,14 +235,13 @@ class ConfigurationService:
         return list(result.scalars().all())
 
     async def create_guild_config(
-        self, guild_discord_id: str, guild_name: str, **settings
+        self, guild_discord_id: str, **settings
     ) -> "guild.GuildConfiguration":
         """
         Create new guild configuration.
 
         Args:
             guild_discord_id: Discord guild snowflake ID
-            guild_name: Discord guild name
             **settings: Additional configuration settings
 
         Returns:
@@ -212,9 +249,7 @@ class ConfigurationService:
         """
         from shared.models import guild as guild_module
 
-        guild_config = guild_module.GuildConfiguration(
-            guild_id=guild_discord_id, guild_name=guild_name, **settings
-        )
+        guild_config = guild_module.GuildConfiguration(guild_id=guild_discord_id, **settings)
         self.db.add(guild_config)
         await self.db.commit()
         await self.db.refresh(guild_config)

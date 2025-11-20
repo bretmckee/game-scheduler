@@ -46,7 +46,6 @@ def sample_guild():
     return guild.GuildConfiguration(
         id=str(uuid.uuid4()),
         guild_id="123456789",
-        guild_name="Test Guild",
         default_max_players=10,
         default_reminder_minutes=[60, 15],
         default_rules="Default guild rules",
@@ -203,7 +202,6 @@ class TestConfigurationService:
 
         result = await service.create_guild_config(
             guild_discord_id="123456789",
-            guild_name="Test Guild",
             default_max_players=10,
             default_reminder_minutes=[60, 15],
         )
@@ -287,9 +285,7 @@ class TestConfigurationService:
         """Update guild configuration."""
         service = config.ConfigurationService(mock_db)
 
-        await service.update_guild_config(
-            sample_guild, guild_name="Updated Guild", default_max_players=12
-        )
+        await service.update_guild_config()
 
         assert mock_db.commit.called
         assert mock_db.refresh.called

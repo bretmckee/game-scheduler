@@ -213,7 +213,7 @@ export const GuildDashboard: FC = () => {
                 {channels.map((channel) => (
                   <ListItemButton
                     key={channel.id}
-                    onClick={() => navigate(`/channels/${channel.channel_id}/config`)}
+                    onClick={() => navigate(`/channels/${channel.id}/config`)}
                   >
                     <ListItemText
                       primary={channel.channel_name}

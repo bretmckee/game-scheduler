@@ -31,20 +31,13 @@ import {
   Alert,
 } from '@mui/material';
 import { useAuth } from '../hooks/useAuth';
-import { DiscordGuild } from '../types';
-
-const MANAGE_GUILD_PERMISSION = 0x00000020;
-
-const hasManageGuildPermission = (guild: DiscordGuild): boolean => {
-  if (guild.owner) return true;
-  const permissions = BigInt(guild.permissions);
-  return (permissions & BigInt(MANAGE_GUILD_PERMISSION)) !== BigInt(0);
-};
+import { apiClient } from '../api/client';
+import { Guild } from '../types';
 
 export const GuildListPage: FC = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [guilds, setGuilds] = useState<DiscordGuild[]>([]);
+  const [guilds, setGuilds] = useState<Guild[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,10 +51,8 @@ export const GuildListPage: FC = () => {
         setLoading(true);
         setError(null);
         
-        if (user.guilds) {
-          const managedGuilds = user.guilds.filter(hasManageGuildPermission);
-          setGuilds(managedGuilds);
-        }
+        const response = await apiClient.get<{ guilds: Guild[] }>('/api/v1/guilds');
+        setGuilds(response.data.guilds);
       } catch (err) {
         console.error('Failed to fetch guilds:', err);
         setError('Failed to load guilds. Please try again.');
@@ -95,7 +86,7 @@ export const GuildListPage: FC = () => {
     return (
       <Container sx={{ mt: 4 }}>
         <Alert severity="info">
-          You don't have management permissions in any guilds with the bot. You need the "Manage Server" permission to configure game sessions.
+          No guilds with bot configurations found. Make sure the bot is added to your Discord server.
         </Alert>
       </Container>
     );
@@ -117,24 +108,11 @@ export const GuildListPage: FC = () => {
               <CardActionArea onClick={() => navigate(`/guilds/${guild.id}`)}>
                 <CardContent>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    {guild.icon ? (
-                      <Avatar
-                        src={`https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png`}
-                        alt={guild.name}
-                        sx={{ width: 56, height: 56 }}
-                      />
-                    ) : (
-                      <Avatar sx={{ width: 56, height: 56 }}>
-                        {guild.name.charAt(0).toUpperCase()}
-                      </Avatar>
-                    )}
+                    <Avatar sx={{ width: 56, height: 56 }}>
+                      {guild.guild_name.charAt(0).toUpperCase()}
+                    </Avatar>
                     <Box>
-                      <Typography variant="h6">{guild.name}</Typography>
-                      {guild.owner && (
-                        <Typography variant="caption" color="primary">
-                          Owner
-                        </Typography>
-                      )}
+                      <Typography variant="h6">{guild.guild_name}</Typography>
                     </Box>
                   </Box>
                 </CardContent>
