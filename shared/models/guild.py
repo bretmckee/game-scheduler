@@ -42,7 +42,6 @@ class GuildConfiguration(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
     guild_id: Mapped[str] = mapped_column(String(20), unique=True, index=True)
-    guild_name: Mapped[str] = mapped_column(String(100))
     default_max_players: Mapped[int | None] = mapped_column(Integer, nullable=True)
     default_reminder_minutes: Mapped[list[int]] = mapped_column(JSON, default=lambda: [60, 15])
     default_rules: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -58,4 +57,4 @@ class GuildConfiguration(Base):
     games: Mapped[list["GameSession"]] = relationship("GameSession", back_populates="guild")
 
     def __repr__(self) -> str:
-        return f"<GuildConfiguration(id={self.id}, guild_name={self.guild_name})>"
+        return f"<GuildConfiguration(id={self.id}, guild_id={self.guild_id})>"

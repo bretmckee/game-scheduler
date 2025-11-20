@@ -38,7 +38,7 @@ import { Channel, Guild } from '../types';
 import { InheritancePreview } from '../components/InheritancePreview';
 
 export const ChannelConfig: FC = () => {
-  const { channelId } = useParams<{ channelId: string }>();
+  const { channelUuid } = useParams<{ channelUuid: string }>();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -58,13 +58,13 @@ export const ChannelConfig: FC = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!channelId) return;
+      if (!channelUuid) return;
 
       try {
         setLoading(true);
         setError(null);
 
-        const channelResponse = await apiClient.get<Channel>(`/api/v1/channels/${channelId}`);
+        const channelResponse = await apiClient.get<Channel>(`/api/v1/channels/${channelUuid}`);
         const channelData = channelResponse.data;
         
         setChannel(channelData);
@@ -89,10 +89,10 @@ export const ChannelConfig: FC = () => {
     };
 
     fetchData();
-  }, [channelId]);
+  }, [channelUuid]);
 
   const handleSave = async () => {
-    if (!channelId) return;
+    if (!channelUuid) return;
 
     try {
       setSaving(true);
@@ -113,7 +113,7 @@ export const ChannelConfig: FC = () => {
             .filter((s) => s.length > 0)
         : null;
 
-      await apiClient.put(`/api/v1/channels/${channelId}`, {
+      await apiClient.put(`/api/v1/channels/${channelUuid}`, {
         is_active: formData.isActive,
         max_players: formData.maxPlayers ? parseInt(formData.maxPlayers) : null,
         reminder_minutes: reminderMinutes,

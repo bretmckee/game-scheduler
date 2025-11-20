@@ -36,9 +36,9 @@ export interface Guild {
 }
 
 export interface Channel {
-  id: string;
+  id: string; // Database UUID (use for navigation and API calls)
   guild_id: string;
-  channel_id: string;
+  channel_id: string; // Discord snowflake (internal only)
   channel_name: string;
   is_active: boolean;
   max_players: number | null;

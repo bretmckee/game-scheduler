@@ -251,7 +251,6 @@ async def test_check_game_host_permission_with_guild_roles(role_checker, mock_db
     guild_config = GuildConfiguration(
         id="g1",
         guild_id="456",
-        guild_name="test",
         allowed_host_role_ids=["role456"],
     )
 
@@ -292,7 +291,6 @@ async def test_check_game_host_permission_no_match(role_checker, mock_db):
     guild_config = GuildConfiguration(
         id="g1",
         guild_id="456",
-        guild_name="test",
         allowed_host_role_ids=["role123", "role456"],
     )
 

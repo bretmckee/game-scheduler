@@ -25,7 +25,6 @@ class GuildConfigCreateRequest(BaseModel):
     """Create guild configuration."""
 
     guild_id: str = Field(..., description="Discord guild snowflake ID")
-    guild_name: str = Field(..., description="Discord guild name")
     default_max_players: int | None = Field(
         None, description="Default max players for games (inherited by channels)"
     )
@@ -48,7 +47,6 @@ class GuildConfigCreateRequest(BaseModel):
 class GuildConfigUpdateRequest(BaseModel):
     """Update guild configuration (all fields optional)."""
 
-    guild_name: str | None = None
     default_max_players: int | None = None
     default_reminder_minutes: list[int] | None = None
     default_rules: str | None = None
