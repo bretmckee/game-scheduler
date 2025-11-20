@@ -9,7 +9,11 @@ async def send_deferred_response(interaction: discord.Interaction) -> None:
     Args:
         interaction: Discord interaction object
     """
-    await interaction.response.defer(ephemeral=True)
+    if not interaction.response.is_done():
+        try:
+            await interaction.response.defer(ephemeral=True)
+        except discord.HTTPException:
+            pass
 
 
 async def send_error_message(interaction: discord.Interaction, message: str) -> None:
@@ -19,7 +23,13 @@ async def send_error_message(interaction: discord.Interaction, message: str) -> 
         interaction: Discord interaction object
         message: Error message to display to user
     """
-    await interaction.followup.send(content=f"❌ {message}", ephemeral=True)
+    try:
+        if interaction.response.is_done():
+            await interaction.followup.send(content=f"❌ {message}", ephemeral=True)
+        else:
+            await interaction.response.send_message(content=f"❌ {message}", ephemeral=True)
+    except discord.HTTPException:
+        pass
 
 
 async def send_success_message(interaction: discord.Interaction, message: str) -> None:
@@ -29,4 +39,10 @@ async def send_success_message(interaction: discord.Interaction, message: str) -
         interaction: Discord interaction object
         message: Success message to display to user
     """
-    await interaction.followup.send(content=f"✅ {message}", ephemeral=True)
+    try:
+        if interaction.response.is_done():
+            await interaction.followup.send(content=f"✅ {message}", ephemeral=True)
+        else:
+            await interaction.response.send_message(content=f"✅ {message}", ephemeral=True)
+    except discord.HTTPException:
+        pass

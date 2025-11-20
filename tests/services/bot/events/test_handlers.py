@@ -1,5 +1,6 @@
 """Unit tests for bot event handlers."""
 
+import asyncio
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -59,6 +60,8 @@ def test_event_handlers_initialization(event_handlers, mock_bot):
     assert EventType.GAME_UPDATED in event_handlers._handlers
     assert EventType.NOTIFICATION_SEND_DM in event_handlers._handlers
     assert EventType.GAME_CREATED in event_handlers._handlers
+    assert EventType.PLAYER_JOINED not in event_handlers._handlers
+    assert EventType.PLAYER_LEFT not in event_handlers._handlers
 
 
 @pytest.mark.asyncio
@@ -108,7 +111,7 @@ async def test_handle_game_created_success(event_handlers, mock_bot, sample_game
     mock_message = MagicMock()
     mock_message.id = 123456789
     mock_channel.send = AsyncMock(return_value=mock_message)
-    mock_bot.get_channel.return_value = mock_channel
+    mock_bot.fetch_channel = AsyncMock(return_value=mock_channel)
 
     sample_game.host = sample_user
     sample_game.participants = []
@@ -156,15 +159,20 @@ async def test_handle_game_created_invalid_channel(event_handlers, mock_bot):
 
 @pytest.mark.asyncio
 async def test_handle_game_updated_success(event_handlers, mock_bot, sample_game, sample_user):
-    """Test successful handling of game.updated event."""
-    mock_channel = MagicMock(spec=discord.TextChannel)
+    """Test successful handling of game.updated event with adaptive backoff."""
+    mock_discord_channel = MagicMock(spec=discord.TextChannel)
     mock_message = MagicMock()
     mock_message.edit = AsyncMock()
-    mock_channel.fetch_message = AsyncMock(return_value=mock_message)
-    mock_bot.get_channel.return_value = mock_channel
+    mock_discord_channel.fetch_message = AsyncMock(return_value=mock_message)
+    mock_bot.fetch_channel = AsyncMock(return_value=mock_discord_channel)
 
     sample_game.host = sample_user
     sample_game.participants = []
+
+    # Add mock channel configuration with Discord channel_id
+    mock_channel_config = MagicMock()
+    mock_channel_config.channel_id = "123456789"
+    sample_game.channel = mock_channel_config
 
     with patch("services.bot.events.handlers.get_db_session") as mock_db_session:
         mock_db = MagicMock()
@@ -184,7 +192,12 @@ async def test_handle_game_updated_success(event_handlers, mock_bot, sample_game
                 data = {"game_id": sample_game.id}
                 await event_handlers._handle_game_updated(data)
 
-                mock_channel.fetch_message.assert_awaited_once_with(int(sample_game.message_id))
+                # First update has 0s delay (instant), just yield to event loop
+                await asyncio.sleep(0.01)
+
+                mock_discord_channel.fetch_message.assert_awaited_once_with(
+                    int(sample_game.message_id)
+                )
                 mock_message.edit.assert_awaited_once_with(embed=mock_embed, view=mock_view)
 
 
@@ -193,12 +206,19 @@ async def test_handle_game_updated_message_not_found(
     event_handlers, mock_bot, sample_game, sample_user
 ):
     """Test game.updated event when message not found."""
-    mock_channel = MagicMock(spec=discord.TextChannel)
-    mock_channel.fetch_message = AsyncMock(side_effect=discord.NotFound(MagicMock(), MagicMock()))
-    mock_bot.get_channel.return_value = mock_channel
+    mock_discord_channel = MagicMock(spec=discord.TextChannel)
+    mock_discord_channel.fetch_message = AsyncMock(
+        side_effect=discord.NotFound(MagicMock(), MagicMock())
+    )
+    mock_bot.fetch_channel = AsyncMock(return_value=mock_discord_channel)
 
     sample_game.host = sample_user
     sample_game.participants = []
+
+    # Add mock channel configuration with Discord channel_id
+    mock_channel_config = MagicMock()
+    mock_channel_config.channel_id = "123456789"
+    sample_game.channel = mock_channel_config
 
     with patch("services.bot.events.handlers.get_db_session") as mock_db_session:
         mock_db = MagicMock()
@@ -212,6 +232,65 @@ async def test_handle_game_updated_message_not_found(
         ):
             data = {"game_id": sample_game.id}
             await event_handlers._handle_game_updated(data)
+
+            # Wait for debounced refresh to complete
+            await asyncio.sleep(2.1)
+
+
+@pytest.mark.asyncio
+async def test_handle_game_updated_debouncing(event_handlers, mock_bot, sample_game, sample_user):
+    """Test adaptive backoff: instant first update, then progressive delays."""
+    mock_discord_channel = MagicMock(spec=discord.TextChannel)
+    mock_message = MagicMock()
+    mock_message.edit = AsyncMock()
+    mock_discord_channel.fetch_message = AsyncMock(return_value=mock_message)
+    mock_bot.fetch_channel = AsyncMock(return_value=mock_discord_channel)
+
+    sample_game.host = sample_user
+    sample_game.participants = []
+
+    # Add mock channel configuration with Discord channel_id
+    mock_channel_config = MagicMock()
+    mock_channel_config.channel_id = "123456789"
+    sample_game.channel = mock_channel_config
+
+    with patch("services.bot.events.handlers.get_db_session") as mock_db_session:
+        mock_db = MagicMock()
+        mock_db.__aenter__ = AsyncMock(return_value=mock_db)
+        mock_db.__aexit__ = AsyncMock()
+        mock_db_session.return_value = mock_db
+
+        with patch(
+            "services.bot.events.handlers.EventHandlers._get_game_with_participants",
+            return_value=sample_game,
+        ):
+            with patch("services.bot.events.handlers.format_game_announcement") as mock_format:
+                mock_embed = MagicMock()
+                mock_view = MagicMock()
+                mock_format.return_value = (mock_embed, mock_view)
+
+                data = {"game_id": sample_game.id}
+
+                # Simulate 5 rapid updates (e.g., 5 users joining quickly)
+                # First schedules refresh (0s delay), rest are skipped as duplicates
+                for i in range(5):
+                    await event_handlers._handle_game_updated(data)
+
+                # Verify refresh is pending (not yet executed)
+                assert sample_game.id in event_handlers._pending_refreshes
+
+                # First update has 0s delay (instant), just yield to event loop
+                await asyncio.sleep(0.01)
+
+                # Verify refresh completed and is no longer pending
+                assert sample_game.id not in event_handlers._pending_refreshes
+
+                # Should only refresh once (first event scheduled, rest skipped)
+                mock_discord_channel.fetch_message.assert_awaited_once_with(
+                    int(sample_game.message_id)
+                )
+                mock_message.edit.assert_awaited_once_with(embed=mock_embed, view=mock_view)
+                mock_message.edit.assert_awaited_once_with(embed=mock_embed, view=mock_view)
 
 
 @pytest.mark.asyncio

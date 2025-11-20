@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, CheckConstraint, ForeignKey, String
+from sqlalchemy import Boolean, CheckConstraint, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, generate_uuid, utc_now
@@ -54,6 +54,11 @@ class GameParticipant(Base):
             "(user_id IS NOT NULL AND display_name IS NULL) OR "
             "(user_id IS NULL AND display_name IS NOT NULL)",
             name="participant_identity_check",
+        ),
+        UniqueConstraint(
+            "game_session_id",
+            "user_id",
+            name="unique_game_participant",
         ),
     )
 
