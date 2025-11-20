@@ -62,7 +62,6 @@ def sample_guild():
     return guild_model.GuildConfiguration(
         id=str(uuid.uuid4()),
         guild_id="123456789",
-        guild_name="Test Guild",
         default_max_players=5,
         default_reminder_minutes=[60],
         default_rules="Guild rules",

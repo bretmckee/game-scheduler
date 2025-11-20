@@ -1,6 +1,8 @@
 """Channel configuration endpoints."""
 
 # ruff: noqa: B008
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,35 +13,48 @@ from shared import database
 from shared.schemas import auth as auth_schemas
 from shared.schemas import channel as channel_schemas
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/channels", tags=["channels"])
 
 
-@router.get("/{channel_discord_id}", response_model=channel_schemas.ChannelConfigResponse)
+@router.get("/{channel_id}", response_model=channel_schemas.ChannelConfigResponse)
 async def get_channel(
-    channel_discord_id: str,
+    channel_id: str,
     current_user: auth_schemas.CurrentUser = Depends(dependencies.auth.get_current_user),
     db: AsyncSession = Depends(database.get_db),
 ) -> channel_schemas.ChannelConfigResponse:
     """
-    Get channel configuration by Discord channel ID.
+    Get channel configuration by database UUID.
 
     Requires user to be member of the parent guild.
     """
-    from services.api.auth import discord_client
+    from services.api.routes import guilds
 
     service = config_service.ConfigurationService(db)
-    channel_config = await service.get_channel_by_discord_id(channel_discord_id)
+    channel_config = await service.get_channel_by_id(channel_id)
 
     if not channel_config:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Channel configuration not found"
         )
 
-    client = discord_client.get_discord_client()
-    user_guilds = await client.get_user_guilds(current_user.access_token)
-    user_guild_ids = {g["id"] for g in user_guilds}
+    user_guild_ids = await guilds.get_user_guilds_cached(
+        current_user.access_token, current_user.user.discord_id
+    )
 
-    if channel_config.guild.guild_id not in user_guild_ids:
+    # channel_config.guild.guild_id is the Discord guild ID (snowflake)
+    discord_guild_id = channel_config.guild.guild_id
+
+    logger.info(
+        f"Channel UUID {channel_id} (Discord ID {channel_config.channel_id}) belongs to Discord guild {discord_guild_id}, "
+        f"User has access to {len(user_guild_ids)} guilds"
+    )
+
+    if discord_guild_id not in user_guild_ids:
+        logger.warning(
+            f"Guild membership check failed: channel's discord_guild_id={discord_guild_id} "
+            f"not in user's guilds: {list(user_guild_ids.keys())[:3]}..."
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not a member of this channel's guild",
@@ -48,6 +63,7 @@ async def get_channel(
     return channel_schemas.ChannelConfigResponse(
         id=channel_config.id,
         guild_id=channel_config.guild_id,
+        guild_discord_id=channel_config.guild.guild_id,
         channel_id=channel_config.channel_id,
         channel_name=channel_config.channel_name,
         is_active=channel_config.is_active,
@@ -98,6 +114,7 @@ async def create_channel_config(
     return channel_schemas.ChannelConfigResponse(
         id=channel_config.id,
         guild_id=channel_config.guild_id,
+        guild_discord_id=channel_config.guild.guild_id,
         channel_id=channel_config.channel_id,
         channel_name=channel_config.channel_name,
         is_active=channel_config.is_active,
@@ -111,9 +128,9 @@ async def create_channel_config(
     )
 
 
-@router.put("/{channel_discord_id}", response_model=channel_schemas.ChannelConfigResponse)
+@router.put("/{channel_id}", response_model=channel_schemas.ChannelConfigResponse)
 async def update_channel_config(
-    channel_discord_id: str,
+    channel_id: str,
     request: channel_schemas.ChannelConfigUpdateRequest,
     current_user: auth_schemas.CurrentUser = Depends(permissions.require_manage_channels),
     db: AsyncSession = Depends(database.get_db),
@@ -125,7 +142,7 @@ async def update_channel_config(
     """
     service = config_service.ConfigurationService(db)
 
-    channel_config = await service.get_channel_by_discord_id(channel_discord_id)
+    channel_config = await service.get_channel_by_id(channel_id)
     if not channel_config:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Channel configuration not found"
@@ -137,6 +154,7 @@ async def update_channel_config(
     return channel_schemas.ChannelConfigResponse(
         id=channel_config.id,
         guild_id=channel_config.guild_id,
+        guild_discord_id=channel_config.guild.guild_id,
         channel_id=channel_config.channel_id,
         channel_name=channel_config.channel_name,
         is_active=channel_config.is_active,
