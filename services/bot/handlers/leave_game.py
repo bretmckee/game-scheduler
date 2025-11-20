@@ -53,6 +53,11 @@ async def handle_leave_game(
 
         game = result["game"]
         participant_count = result["participant_count"]
+        participant = result["participant"]
+
+        # Delete participant from database
+        await db.delete(participant)
+        await db.commit()
 
     await publisher.publish_player_left(
         game_id=game_id, player_id=user_discord_id, player_count=participant_count - 1
@@ -110,4 +115,9 @@ async def _validate_leave_game(db: AsyncSession, game_id: uuid.UUID, user_discor
     )
     participant_count = len(result.scalars().all())
 
-    return {"can_leave": True, "game": game, "participant_count": participant_count}
+    return {
+        "can_leave": True,
+        "game": game,
+        "participant_count": participant_count,
+        "participant": participant,
+    }
