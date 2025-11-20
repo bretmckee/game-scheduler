@@ -77,9 +77,7 @@ async def handle_leave_game(
         await db.delete(participant)
         await db.commit()
 
-    await publisher.publish_player_left(
-        game_id=game_id, player_id=user_discord_id, player_count=participant_count - 1
-    )
+    await publisher.publish_game_updated(game_id=game_id, updated_fields={"participants": True})
 
     await send_success_message(interaction, f"You've left **{game.title}**")
 

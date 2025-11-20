@@ -23,6 +23,7 @@ import uuid
 
 import discord
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.bot.events.publisher import BotEventPublisher
@@ -79,14 +80,14 @@ async def handle_join_game(
             user_id=user.id,
         )
         db.add(participant)
-        await db.commit()
+        try:
+            await db.commit()
+        except IntegrityError:
+            await send_error_message(interaction, "You've already joined this game!")
+            logger.info(f"User {user_discord_id} attempted duplicate join for game {game_id}")
+            return
 
-    await publisher.publish_player_joined(
-        game_id=game_id,
-        player_id=user_discord_id,
-        player_count=participant_count + 1,
-        max_players=game.max_players or 10,
-    )
+    await publisher.publish_game_updated(game_id=game_id, updated_fields={"participants": True})
 
     await send_success_message(interaction, f"You've joined **{game.title}**!")
 
@@ -129,16 +130,7 @@ async def _validate_join_game(db: AsyncSession, game_id: uuid.UUID, user_discord
         db.add(user)
         await db.flush()
 
-    result = await db.execute(
-        select(GameParticipant)
-        .where(GameParticipant.game_session_id == str(game_id))
-        .where(GameParticipant.user_id == user.id)
-    )
-    existing_participant = result.scalar_one_or_none()
-
-    if existing_participant:
-        return {"can_join": False, "error": "You've already joined this game"}
-
+    # Count current participants
     result = await db.execute(
         select(GameParticipant)
         .where(GameParticipant.game_session_id == str(game_id))

@@ -26,6 +26,7 @@ import logging
 import uuid
 
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -428,16 +429,6 @@ class GameService:
         # Get user (create if not exists)
         user = await self.participant_resolver.ensure_user_exists(self.db, user_discord_id)
 
-        # Check if already joined
-        existing = await self.db.execute(
-            select(participant_model.GameParticipant).where(
-                participant_model.GameParticipant.game_session_id == game_id,
-                participant_model.GameParticipant.user_id == user.id,
-            )
-        )
-        if existing.scalar_one_or_none():
-            raise ValueError("Already joined this game")
-
         # Check if game is full (count non-placeholder participants)
         count_result = await self.db.execute(
             select(func.count(participant_model.GameParticipant.id)).where(
@@ -481,11 +472,14 @@ class GameService:
             is_pre_populated=False,
         )
         self.db.add(participant)
-        await self.db.commit()
-        await self.db.refresh(participant)
+        try:
+            await self.db.commit()
+            await self.db.refresh(participant)
+        except IntegrityError:
+            raise ValueError("User has already joined this game") from None
 
-        # Publish player.joined event
-        await self._publish_player_joined(game, user)
+        # Publish game.updated event
+        await self._publish_game_updated(game)
 
         return participant
 
@@ -544,8 +538,8 @@ class GameService:
         await self.db.commit()
         logger.info("Participant deleted and committed")
 
-        # Publish player.left event
-        await self._publish_player_left(game, user)
+        # Publish game.updated event
+        await self._publish_game_updated(game)
 
     async def _publish_game_created(
         self,
@@ -602,65 +596,3 @@ class GameService:
         await self.event_publisher.publish(event=event)
 
         logger.info(f"Published game.cancelled event for game {game.id}")
-
-    async def _publish_player_joined(
-        self,
-        game: game_model.GameSession,
-        user: user_model.User,
-    ) -> None:
-        """Publish player.joined event to RabbitMQ."""
-        # Count current participants
-        count_result = await self.db.execute(
-            select(func.count(participant_model.GameParticipant.id)).where(
-                participant_model.GameParticipant.game_session_id == game.id,
-                participant_model.GameParticipant.user_id.isnot(None),
-            )
-        )
-        player_count = count_result.scalar() or 0
-
-        event_data = messaging_events.PlayerJoinedEvent(
-            game_id=uuid.UUID(game.id),
-            player_id=user.id,
-            player_count=player_count,
-            max_players=game.max_players,
-        )
-
-        event = messaging_events.Event(
-            event_type=messaging_events.EventType.PLAYER_JOINED,
-            data=event_data.model_dump(mode="json"),
-        )
-
-        await self.event_publisher.publish(event=event)
-
-        logger.info(f"Published player.joined event for game {game.id}, user {user.discord_id}")
-
-    async def _publish_player_left(
-        self,
-        game: game_model.GameSession,
-        user: user_model.User,
-    ) -> None:
-        """Publish player.left event to RabbitMQ."""
-        # Count remaining participants
-        count_result = await self.db.execute(
-            select(func.count(participant_model.GameParticipant.id)).where(
-                participant_model.GameParticipant.game_session_id == game.id,
-                participant_model.GameParticipant.user_id.isnot(None),
-            )
-        )
-        player_count = count_result.scalar() or 0
-
-        event_data = messaging_events.PlayerLeftEvent(
-            game_id=uuid.UUID(game.id),
-            player_id=user.id,
-            player_count=player_count,
-            max_players=game.max_players,
-        )
-
-        event = messaging_events.Event(
-            event_type=messaging_events.EventType.PLAYER_LEFT,
-            data=event_data.model_dump(mode="json"),
-        )
-
-        await self.event_publisher.publish(event=event)
-
-        logger.info(f"Published player.left event for game {game.id}, user {user.discord_id}")
