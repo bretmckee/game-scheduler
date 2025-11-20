@@ -156,43 +156,39 @@ Implement a complete Discord game scheduling system with microservices architect
 - [x] Task 5.4: Add game status update tasks
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 419-433)
 
-### [ ] Phase 6: Integration & Testing
+### [ ] Phase 6: Refactor Host from Participants
 
-- [ ] Task 6.1: Integration tests for inter-service communication
+- [ ] Task 6.1: Remove host from participants during game creation
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 536-551)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 691-707)
 
-- [ ] Task 6.2: End-to-end tests for user workflows
+- [ ] Task 6.2: Update API responses to show host separately
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 553-571)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 709-727)
 
-- [ ] Task 6.3: Load testing for concurrent operations
+- [ ] Task 6.3: Update database migration for existing data
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 573-587)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 729-744)
 
-- [ ] Task 6.4: Test display name resolution scenarios
+- [ ] Task 6.4: Update frontend to display host separately
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 746-763)
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 589-607)
+### [ ] Phase 7: Min Players Field Implementation
 
-- [ ] Task 6.5: Test pre-populated participants feature
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 609-629)
+- [ ] Task 7.1: Add min_players field to GameSession model
 
-### [ ] Phase 7: Advanced Features
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 927-943)
 
-- [ ] Task 7.1: Implement waitlist support
+- [ ] Task 7.2: Update schemas to include min_players
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 631-645)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 945-957)
 
-- [ ] Task 7.2: Add game templates for recurring sessions
+- [ ] Task 7.3: Implement validation and service logic
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 647-660)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 959-971)
 
-- [ ] Task 7.3: Build calendar export functionality
-
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 662-674)
-
-- [ ] Task 7.4: Create statistics dashboard
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 676-689)
+- [ ] Task 7.4: Update frontend to handle min_players
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 973-990)
 
 ## Dependencies
 
@@ -227,3 +223,113 @@ Implement a complete Discord game scheduling system with microservices architect
 - Services can be deployed and scaled independently
 - System recovers gracefully from individual service failures
 - Message delivery guaranteed via RabbitMQ acknowledgments
+- Host is stored separately from participants list
+- Host does not appear in participant count
+- API responses clearly separate host from participants
+- Frontend displays host with visual distinction from players
+
+- Min players field validated and stored correctly
+- API prevents min_players > max_players
+- Frontend displays min-max participant count (X/min-max format)
+- Minimum player threshold enforced in game management
+- Description and signup instructions fields stored and displayed correctly
+- Discord messages include truncated description
+- Game cards show description preview with "Read more" option
+- Signup instructions visible near Join button
+
+### [ ] Phase 8: Description and Signup Instructions Fields
+
+- [ ] Task 8.1: Add description and signup_instructions fields to GameSession model
+
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1000-1014)
+
+- [ ] Task 8.2: Update schemas to include description and signup_instructions
+
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1016-1030)
+
+- [ ] Task 8.3: Update service and bot logic to handle new fields
+
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1032-1045)
+
+- [ ] Task 8.4: Update frontend to display and edit new fields
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1047-1065)
+
+### [ ] Phase 9: Bot Managers Role List
+
+- [ ] Task 9.1: Add botManagerRoleIds field to GuildConfiguration model
+
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1077-1092)
+
+- [ ] Task 9.2: Update schemas and permissions middleware
+
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1094-1110)
+
+- [ ] Task 9.3: Implement Bot Manager authorization in game routes
+
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1112-1131)
+
+- [ ] Task 9.4: Update bot commands and frontend for Bot Manager configuration
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1133-1149)
+- Bot Manager roles can be configured by guild admins
+- Bot Managers have permission to edit/delete any game in their guild
+- Authorization correctly distinguishes between hosts, Bot Managers, and admins
+- Permission checks cached and performant
+
+### [ ] Phase 10: Notify Roles Field
+
+- [ ] Task 10.1: Add notifyRoleIds field to GameSession model
+
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1152-1165)
+
+- [ ] Task 10.2: Update schemas to include notifyRoleIds
+
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1167-1183)
+
+- [ ] Task 10.3: Implement role mention formatting in bot announcements
+
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1185-1201)
+
+- [ ] Task 10.4: Update frontend for role selection
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1203-1222)
+- Notify roles field validated and stored correctly
+- Role mentions appear in Discord game announcements
+- Users with mentioned roles receive Discord notifications
+- Frontend allows role selection with visual indicators
+
+### [ ] Phase 11: Integration & Testing
+
+- [ ] Task 11.1: Integration tests for inter-service communication
+
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 536-551)
+
+- [ ] Task 11.2: End-to-end tests for user workflows
+
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 553-571)
+
+- [ ] Task 11.3: Load testing for concurrent operations
+
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 573-587)
+
+- [ ] Task 11.4: Test display name resolution scenarios
+
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 589-607)
+
+- [ ] Task 11.5: Test pre-populated participants feature
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 609-629)
+
+### [ ] Phase 12: Advanced Features
+
+- [ ] Task 12.1: Implement waitlist support
+
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 631-645)
+
+- [ ] Task 12.2: Add game templates for recurring sessions
+
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 647-660)
+
+- [ ] Task 12.3: Build calendar export functionality
+
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 662-674)
+
+- [ ] Task 12.4: Create statistics dashboard
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 676-689)
