@@ -553,10 +553,6 @@ async def test_join_game_success(
     game_result = MagicMock()
     game_result.scalar_one_or_none.return_value = mock_game
 
-    # Mock the existing participant check (user not already joined)
-    existing_result = MagicMock()
-    existing_result.scalar_one_or_none.return_value = None
-
     # Mock the participant count query
     count_result = MagicMock()
     count_result.scalar.return_value = 0
@@ -567,14 +563,13 @@ async def test_join_game_success(
     channel_result = MagicMock()
     channel_result.scalar_one_or_none.return_value = sample_channel
 
-    # Mock the second count query in _publish_player_joined
+    # Mock the second count query in _publish_game_updated
     count_result2 = MagicMock()
     count_result2.scalar.return_value = 1
 
     mock_db.execute = AsyncMock(
         side_effect=[
             game_result,
-            existing_result,
             count_result,
             guild_result,
             channel_result,
@@ -594,11 +589,19 @@ async def test_join_game_success(
 
 @pytest.mark.asyncio
 async def test_join_game_already_joined(
-    game_service, mock_db, mock_participant_resolver, sample_user
+    game_service, mock_db, mock_participant_resolver, sample_user, sample_guild, sample_channel
 ):
-    """Test user joining game they're already in raises ValueError."""
+    """Test joining same game twice raises ValueError due to IntegrityError."""
+    from sqlalchemy.exc import IntegrityError
+
     game_id = str(uuid.uuid4())
-    mock_game = game_model.GameSession(id=game_id, status="SCHEDULED")
+    mock_game = game_model.GameSession(
+        id=game_id,
+        status="SCHEDULED",
+        guild_id=sample_guild.id,
+        channel_id=sample_channel.id,
+        max_players=5,
+    )
     mock_participant = participant_model.GameParticipant(
         user_id=sample_user.id, game_session_id=game_id
     )
@@ -606,11 +609,28 @@ async def test_join_game_already_joined(
 
     game_result = MagicMock()
     game_result.scalar_one_or_none.return_value = mock_game
-    mock_db.execute = AsyncMock(return_value=game_result)
+
+    # Mock the participant count query
+    count_result = MagicMock()
+    count_result.scalar.return_value = 1
+
+    # Mock guild/channel queries
+    guild_result = MagicMock()
+    guild_result.scalar_one_or_none.return_value = sample_guild
+    channel_result = MagicMock()
+    channel_result.scalar_one_or_none.return_value = sample_channel
+
+    mock_db.execute = AsyncMock(
+        side_effect=[game_result, count_result, guild_result, channel_result]
+    )
+
+    # Simulate IntegrityError on commit (duplicate key violation)
+    mock_db.commit = AsyncMock(side_effect=IntegrityError("statement", {}, "orig"))
+    mock_db.add = MagicMock()
 
     mock_participant_resolver.ensure_user_exists = AsyncMock(return_value=sample_user)
 
-    with pytest.raises(ValueError, match="Already joined this game"):
+    with pytest.raises(ValueError, match="User has already joined this game"):
         await game_service.join_game(game_id=game_id, user_discord_id=sample_user.discord_id)
 
 
@@ -629,10 +649,6 @@ async def test_join_game_full(
     game_result = MagicMock()
     game_result.scalar_one_or_none.return_value = mock_game
 
-    # Mock the existing participant check (user not already joined)
-    existing_result = MagicMock()
-    existing_result.scalar_one_or_none.return_value = None
-
     # Mock the participant count query (2 non-placeholder participants)
     count_result = MagicMock()
     count_result.scalar.return_value = 2
@@ -645,7 +661,7 @@ async def test_join_game_full(
     channel_result.scalar_one.return_value = sample_channel
 
     mock_db.execute = AsyncMock(
-        side_effect=[game_result, existing_result, count_result, guild_result, channel_result]
+        side_effect=[game_result, count_result, guild_result, channel_result]
     )
 
     mock_participant_resolver.ensure_user_exists = AsyncMock(return_value=new_user)

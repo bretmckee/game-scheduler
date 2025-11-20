@@ -80,59 +80,6 @@ async def test_disconnect_when_not_connected(bot_publisher, mock_publisher):
 
 
 @pytest.mark.asyncio
-async def test_publish_player_joined(bot_publisher, mock_publisher):
-    """Test publishing player joined event."""
-    game_id = "550e8400-e29b-41d4-a716-446655440000"
-    player_id = "123456789"
-    player_count = 3
-    max_players = 10
-
-    await bot_publisher.publish_player_joined(
-        game_id=game_id,
-        player_id=player_id,
-        player_count=player_count,
-        max_players=max_players,
-    )
-
-    mock_publisher.publish.assert_awaited_once()
-    call_args = mock_publisher.publish.call_args
-
-    event = call_args.kwargs["event"]
-    assert isinstance(event, Event)
-    assert event.event_type == EventType.PLAYER_JOINED
-    assert event.data["game_id"] == UUID(game_id)
-    assert event.data["player_id"] == player_id
-    assert event.data["player_count"] == player_count
-    assert event.data["max_players"] == max_players
-
-    assert call_args.kwargs["routing_key"] == "game.player_joined"
-
-
-@pytest.mark.asyncio
-async def test_publish_player_left(bot_publisher, mock_publisher):
-    """Test publishing player left event."""
-    game_id = "550e8400-e29b-41d4-a716-446655440000"
-    player_id = "123456789"
-    player_count = 2
-
-    await bot_publisher.publish_player_left(
-        game_id=game_id, player_id=player_id, player_count=player_count
-    )
-
-    mock_publisher.publish.assert_awaited_once()
-    call_args = mock_publisher.publish.call_args
-
-    event = call_args.kwargs["event"]
-    assert isinstance(event, Event)
-    assert event.event_type == EventType.PLAYER_LEFT
-    assert event.data["game_id"] == UUID(game_id)
-    assert event.data["player_id"] == player_id
-    assert event.data["player_count"] == player_count
-
-    assert call_args.kwargs["routing_key"] == "game.player_left"
-
-
-@pytest.mark.asyncio
 async def test_publish_game_created(bot_publisher, mock_publisher):
     """Test publishing game created event."""
     game_id = "550e8400-e29b-41d4-a716-446655440000"
