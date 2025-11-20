@@ -129,7 +129,6 @@ class TestGetGuild:
 
             mock_service.create_guild_config.assert_called_once_with(
                 guild_discord_id="987654321",
-                guild_name="Test Guild",
                 default_max_players=10,
                 default_reminder_minutes=[60, 15],
                 default_rules=None,
@@ -322,7 +321,6 @@ class TestCreateGuildConfig:
         """Test successful guild configuration creation."""
         create_request = guild_schemas.GuildConfigCreateRequest(
             guild_id="987654321",
-            guild_name="Test Guild",
             default_max_players=10,
             default_reminder_minutes=[60, 15],
             default_rules="Be respectful",
@@ -352,7 +350,6 @@ class TestCreateGuildConfig:
         """Test error when guild configuration already exists."""
         create_request = guild_schemas.GuildConfigCreateRequest(
             guild_id="987654321",
-            guild_name="Test Guild",
             default_max_players=10,
             default_reminder_minutes=[60, 15],
             default_rules=None,
