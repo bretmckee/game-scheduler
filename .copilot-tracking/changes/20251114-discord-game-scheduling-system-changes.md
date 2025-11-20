@@ -5196,3 +5196,98 @@ All scenarios stay well under Discord's 5 edits/5s limit.
 - **Reliability**: Eliminates rate limit errors that were causing update failures
 - **User Experience**: Instant updates when idle (0s), progressive delays only during bursts
 - **Scalability**: Bounded memory usage even for long-running bots with thousands of games
+
+### Recent Updates (2025-11-20)
+
+**Test Suite Fixes - 100% Pass Rate Achieved**
+
+Fixed all failing unit tests (467/467 tests now passing, 100% pass rate) by updating tests to match current API implementation and fixing outdated test assumptions.
+
+#### 1. Token Management Tests
+
+**Files Modified**: `tests/services/api/auth/test_tokens.py`
+
+- **Updated `test_store_user_tokens`**: Changed assertion to expect UUID-based session token instead of user ID-based key format
+  - Old: `assert session_key == "session:123456789"`
+  - New: `assert isinstance(session_token, str) and len(session_token) == 36`
+- **Updated `test_refresh_user_tokens`**: Fixed function signature to use `session_token` parameter instead of `user_id`
+  - Added proper mocking of existing session data
+  - Updated parameters: `session_token`, `new_access_token`, `new_expires_in`
+
+#### 2. Permission Dependency Tests
+
+**Files Modified**: `tests/services/api/dependencies/test_permissions.py`
+
+- **Updated `mock_current_user` fixture**: Added missing required fields to match `CurrentUser` schema
+  - Added `user` field (mock user object with `discord_id`)
+  - Added `session_token` field for Redis session lookup
+  - Schema now requires: `user`, `access_token`, `session_token`
+
+#### 3. CORS Middleware Test
+
+**Files Modified**: `tests/services/api/middleware/test_cors.py`
+
+- **Fixed `test_configure_cors_allows_all_origins_in_debug`**: Updated assertion to match actual CORS behavior
+  - Wildcard `"*"` cannot be used when `allow_credentials=True`
+  - Debug mode now adds specific localhost variants instead of wildcard
+  - New assertions verify presence of `localhost:5173` and `127.0.0.1:3000`
+
+#### 4. Bot Role Checker Tests
+
+**Files Modified**: `tests/services/bot/auth/test_role_checker.py`, `services/bot/auth/role_checker.py`
+
+- **Replaced `get_guild` with `fetch_guild`**: Updated all test mocks to use async `fetch_guild` method
+  - Changed 6 test methods to use `mock_bot.fetch_guild = AsyncMock(return_value=mock_guild)`
+  - Matches Discord.py API change from cached `get_guild()` to async `fetch_guild()`
+- **Fixed `test_get_user_role_ids_force_refresh`**: Corrected expected role ID from `["789"]` to `["123"]` to match mocked data
+- **Added `api_cache` initialization**: Set `self.api_cache = None` in `RoleChecker.__init__`
+  - Prevents AttributeError when accessing optional cache attribute
+
+#### 5. Configuration Service Test
+
+**Files Modified**: `tests/services/api/services/test_config.py`
+
+- **Fixed `test_update_guild_config`**: Added required `guild_config` parameter
+  - Updated call to: `await service.update_guild_config(sample_guild, default_max_players=15)`
+  - Added assertion to verify returned config matches input
+
+#### 6. Guild Routes Tests - Complete Rewrite
+
+**Files Modified**: `tests/services/api/routes/test_guilds.py` (complete rewrite from 434 lines)
+
+- **Reason**: API signatures changed from Discord ID-based to UUID-based paths
+- **New test coverage** (13 tests total):
+  - `TestListGuilds` (2 tests): Guild listing with and without configurations
+  - `TestGetGuild` (4 tests): Guild retrieval by UUID, not found, not member, no session
+  - `TestCreateGuildConfig` (2 tests): Create success and conflict scenarios
+  - `TestUpdateGuildConfig` (2 tests): Update success and not found scenarios
+  - `TestListGuildChannels` (3 tests): List channels, guild not found, not member
+- **Updated mocking patterns**:
+  - Changed patch paths from `services.api.routes.guilds.*` to correct module paths (`services.api.auth.*`, `services.api.services.config.*`)
+  - Updated to use `guild_id` (UUID) instead of `guild_discord_id` in function calls
+  - Added proper `mock_current_user` fixture with all required fields (`user`, `access_token`, `session_token`)
+  - Mock guild configs now use `str(uuid.uuid4())` for proper UUID formatting
+
+#### Impact Summary
+
+- **Before**: 12 failing tests, 455 passing (97.4% pass rate)
+- **After**: 467 passing tests (100% pass rate)
+- **Test execution time**: ~3.3 seconds for full suite
+
+#### API Changes Reflected in Tests
+
+1. Session tokens now use UUID format instead of user ID-based keys
+2. Guild endpoints use database UUIDs as path parameters instead of Discord IDs
+3. Discord.py API migrated from synchronous cached methods to async fetch methods
+4. `CurrentUser` schema requires user object and session token for proper authentication
+
+#### Files Modified
+
+- `tests/services/api/auth/test_tokens.py`
+- `tests/services/api/dependencies/test_permissions.py`
+- `tests/services/api/middleware/test_cors.py`
+- `tests/services/bot/auth/test_role_checker.py`
+- `tests/services/api/services/test_config.py`
+- `tests/services/api/routes/test_guilds.py` (complete rewrite)
+- `services/bot/auth/role_checker.py`
+
