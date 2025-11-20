@@ -13,7 +13,13 @@ from shared.schemas import auth as auth_schemas
 @pytest.fixture
 def mock_current_user():
     """Create mock current user."""
-    return auth_schemas.CurrentUser(discord_id="user123", access_token="test_token")
+    from unittest.mock import MagicMock
+
+    mock_user = MagicMock()
+    mock_user.discord_id = "user123"
+    return auth_schemas.CurrentUser(
+        user=mock_user, access_token="test_token", session_token="test-session-token"
+    )
 
 
 @pytest.fixture
