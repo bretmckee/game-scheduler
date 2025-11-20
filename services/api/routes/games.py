@@ -268,6 +268,11 @@ async def _build_game_response(game: game_model.GameSession) -> game_schemas.Gam
 
     discord_user_ids = [p.user.discord_id for p in game.participants if p.user is not None]
 
+    # Add host to the list of users to resolve
+    host_discord_id = game.host.discord_id if game.host else None
+    if host_discord_id and host_discord_id not in discord_user_ids:
+        discord_user_ids.append(host_discord_id)
+
     display_name_resolver = await display_names_module.get_display_name_resolver()
     display_names_map = {}
 
@@ -299,6 +304,11 @@ async def _build_game_response(game: game_model.GameSession) -> game_schemas.Gam
             )
         )
 
+    # Resolve host display name
+    host_display_name = None
+    if host_discord_id and host_discord_id in display_names_map:
+        host_display_name = display_names_map[host_discord_id]
+
     return game_schemas.GameResponse(
         id=game.id,
         title=game.title,
@@ -310,6 +320,8 @@ async def _build_game_response(game: game_model.GameSession) -> game_schemas.Gam
         channel_id=game.channel_id,
         message_id=game.message_id,
         host_id=game.host_id,
+        host_discord_id=host_discord_id,
+        host_display_name=host_display_name,
         rules=game.rules,
         reminder_minutes=game.reminder_minutes,
         status=game.status,
