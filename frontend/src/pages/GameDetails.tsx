@@ -206,6 +206,11 @@ export const GameDetails: FC = () => {
           <Typography variant="h6" gutterBottom>
             Game Details
           </Typography>
+          {game.host_display_name && (
+            <Typography variant="body2" paragraph>
+              <strong>Host:</strong> {game.host_display_name}
+            </Typography>
+          )}
           <Typography variant="body2" paragraph>
             <strong>When:</strong> {formatDateTime(game.scheduled_at)}
           </Typography>
