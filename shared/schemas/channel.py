@@ -48,6 +48,8 @@ class ChannelConfigResponse(BaseModel):
 
     id: str = Field(..., description="Internal channel config ID (UUID)")
     guild_id: str = Field(..., description="Parent guild ID (UUID)")
+    guild_discord_id: str = Field(..., description="Discord guild snowflake ID")
+    channel_id: str = Field(..., description="Discord channel snowflake ID")
     channel_id: str = Field(..., description="Discord channel snowflake ID")
     channel_name: str = Field(..., description="Discord channel name")
     is_active: bool = Field(..., description="Whether channel is active for games")

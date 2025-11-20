@@ -57,7 +57,6 @@ def sample_guild_config():
     return GuildConfiguration(
         id=1,
         guild_id="123456789",
-        guild_name="Test Guild",
         default_max_players=10,
         default_reminder_minutes=[60, 15],
         default_rules="Guild rules",
