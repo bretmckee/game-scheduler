@@ -1676,3 +1676,364 @@ _Asynchronous Communication:_
 - System recovers gracefully from individual service failures
 - Message delivery guaranteed via RabbitMQ acknowledgments
 - User role cache updates automatically and permissions refresh correctly
+
+---
+
+## New Requirement: Separate Host Field from Participants
+
+**Requirement**: Game host should be stored separately from the participants list and not appear in the participant list.
+
+**Current Behavior**:
+
+- Host is stored in `GameSession.host_id`
+- Host is ALSO added as a GameParticipant record during game creation
+- Result: Host appears twice conceptually (once as host, once in participant list)
+
+**Desired Behavior**:
+
+- Host is ONLY stored in `GameSession.host_id`
+- Host does NOT appear in the `game_participants` table
+- API responses include host information separately from participant list
+- Web UI displays host distinctly from regular participants
+- Host can join as a regular participant via join endpoint (if desired)
+- Participant count does NOT include the host
+
+**Current Code References**:
+
+- `shared/models/game.py` - Already has `host_id` field correctly defined
+- `shared/models/participant.py` - GameParticipant records are what need updating
+- `services/api/services/games.py:176-184` - Currently adds host as a participant in `create_game()`
+- `shared/schemas/game.py` - GameResponse schema includes participants list
+- `services/api/routes/games.py` - Join/leave endpoints need to handle host separation
+
+**Impact**:
+
+- Cleaner data model (host ≠ participant)
+- More accurate participant count
+- Simpler logic for host-specific operations
+- API responses clearer about role separation
+- Frontend can display host badge separately from participant list
+
+---
+
+## New Requirement: Min Players Field
+
+**Requirement**: Games should have a "Min Players" field to specify the minimum number of participants required for the game to proceed. Default value should be 1.
+
+**Current Behavior**:
+
+- GameSession only has `max_players` field (controls upper limit)
+- No minimum participant requirement tracking
+- Games can proceed with any number of participants (including 0)
+
+**Desired Behavior**:
+
+- Add `min_players` field to GameSession with default value of 1
+- API allows setting min_players when creating or updating games
+- System tracks if game has met minimum player threshold
+- Game status or UI can indicate "Not enough players" when below minimum
+- Host notified if game approaching minimum (e.g., if player drops)
+- Participant count display shows "X/min-max" (e.g., "2/1-4" means 2 players with min 1, max 4)
+- Min players must be ≤ max players (validation requirement)
+- Min players must be ≥ 1 (at least 1 player required)
+
+**Current Code References**:
+
+- `shared/models/game.py` - GameSession model needs `min_players` field added
+- `shared/schemas/game.py` - CreateGameRequest and UpdateGameRequest need `min_players` field (optional, defaults to 1)
+- `shared/schemas/game.py` - GameResponse needs to include `min_players` in response
+- `services/api/services/games.py` - create_game() and update_game() need to handle min_players
+- `services/api/routes/games.py` - POST/PUT endpoints need validation that min_players ≤ max_players
+- Frontend game creation form needs input field for min_players
+
+**Database Migration**:
+
+- Add `min_players` column to `game_sessions` table
+- Set NOT NULL constraint with default value of 1
+- Create Alembic migration to add column to existing games
+
+**Validation Rules**:
+
+- `min_players` must be integer ≥ 1
+- `min_players` must be ≤ `max_players` (or max_players if not set)
+- Error response: "Minimum players cannot be greater than maximum players"
+- Error response: "Minimum players must be at least 1"
+
+**Impact**:
+
+- Hosts can specify games that need minimum threshold before proceeding
+- System can warn hosts if game will be under-populated
+- Better game experience: prevents games with insufficient players
+- Frontend UX shows both min and max in participant displays
+- Simple addition with no breaking changes (defaults to 1 for backward compatibility)
+
+---
+
+## New Requirement: Description and Signup Instructions Fields
+
+**Requirement**: Games should have two additional text fields: "Description" (rich text for game details) and "Signup Instructions" (plain text for any special requirements or instructions for participants).
+
+**Current Behavior**:
+
+- GameSession has only `title` and `rules` text fields
+- No dedicated field for detailed game description
+- No field for signup-specific instructions (e.g., "Must have mic", "New players welcome", "Bring character sheet")
+
+**Desired Behavior**:
+
+- Add `description` field to GameSession for detailed game information
+  - Rich text content describing the game session
+  - Can include adventure synopsis, campaign details, session objectives
+  - Displayed prominently on game cards and detail pages
+- Add `signup_instructions` field to GameSession for participant requirements
+  - Plain text instructions for joining the game
+  - Examples: "Must have microphone and camera", "Character level 5-8", "First-time players welcome"
+  - Displayed near Join button to set expectations before signing up
+- Both fields are optional (nullable)
+- Both fields support reasonable text length (TEXT type in database)
+
+**Current Code References**:
+
+- `shared/models/game.py` - GameSession model needs `description` and `signup_instructions` fields
+- `shared/schemas/game.py` - CreateGameRequest and UpdateGameRequest need both fields (optional)
+- `shared/schemas/game.py` - GameResponse needs to include both fields in response
+- `services/api/services/games.py` - create_game() and update_game() need to handle both fields
+- `services/bot/formatters/` - Discord message formatting needs to include description (truncated if long)
+- Frontend game creation form needs input fields for both (textarea components)
+- Frontend game card and detail pages need to display both fields
+
+**Database Migration**:
+
+- Add `description` column to `game_sessions` table (TEXT, nullable)
+- Add `signup_instructions` column to `game_sessions` table (TEXT, nullable)
+- Create Alembic migration to add both columns to existing games (NULL for existing records)
+
+**Display Guidelines**:
+
+- Description: Show first 200 characters on game cards, full text on detail page
+- Signup Instructions: Show full text near Join/Leave buttons on both card and detail page
+- Discord messages: Include truncated description (first 100 chars) with "..." if longer
+- Both fields support markdown formatting in frontend display
+
+**Validation Rules**:
+
+- `description` is optional, max length 4000 characters
+- `signup_instructions` is optional, max length 1000 characters
+- No special validation required beyond length limits
+
+**Impact**:
+
+- Hosts can provide detailed context about game sessions
+- Participants better understand what they're signing up for
+- Reduces confusion and mismatched expectations
+- Enhances game discovery with richer information
+- Improves participant experience with clear signup requirements
+- No breaking changes (both fields optional and nullable)
+
+---
+
+## New Requirement: Bot Managers Role List
+
+**Requirement**: Add a "Bot Managers" role list to guild configuration, allowing designated users to edit and delete any game on the server, regardless of who created it.
+
+**Current Behavior**:
+
+- Only game hosts can edit or delete their own games
+- Guild admins with MANAGE_GUILD permission have administrative access
+- No middle-tier permission for trusted moderators/managers
+
+**Desired Behavior**:
+
+- Add `botManagerRoleIds` field to GuildConfiguration (JSON array of Discord role IDs)
+- Users with any of these roles can edit ANY game in the guild
+- Users with any of these roles can delete ANY game in the guild
+- Bot Managers can configure guild and channel settings (same as MANAGE_GUILD)
+- Bot Managers can override host decisions for moderation purposes
+- Distinct from "allowed host roles" which only control who can create games
+- Can be configured per guild through web dashboard or Discord bot commands
+
+**Current Code References**:
+
+- `shared/models/guild.py` - GuildConfiguration model needs `botManagerRoleIds` field
+- `shared/schemas/guild.py` - GuildConfigUpdateRequest needs `botManagerRoleIds` field (optional)
+- `services/api/services/games.py` - update_game() and delete_game() need Bot Manager authorization checks
+- `services/api/routes/games.py` - PUT/DELETE endpoints need to check Bot Manager roles
+- `services/api/middleware/permissions.py` - Add has_bot_manager_permission() helper function
+- `services/bot/commands/config_guild.py` - Add bot_managers parameter to guild config command
+- Frontend guild configuration page needs UI for managing Bot Manager roles
+
+**Authorization Logic**:
+
+```python
+async def can_manage_game(user_id: str, game: GameSession, guild_config: GuildConfiguration) -> bool:
+    # Check if user is the host
+    if game.host_id == user_id:
+        return True
+
+    # Check if user has Bot Manager role
+    user_roles = await get_user_roles(user_id, guild_config.guild_id)
+    if guild_config.botManagerRoleIds:
+        if any(role_id in guild_config.botManagerRoleIds for role_id in user_roles):
+            return True
+
+    # Check if user has MANAGE_GUILD permission (admin)
+    if has_manage_guild_permission(user_roles):
+        return True
+
+    return False
+```
+
+**Database Migration**:
+
+- Add `bot_manager_role_ids` column to `guild_configurations` table (JSON array, nullable)
+- Default value is NULL (no Bot Managers configured)
+- Create Alembic migration to add column to existing guilds
+
+**Use Cases**:
+
+- Server moderators who need to clean up abandoned/problematic games
+- Event coordinators managing multiple community game sessions
+- Trusted admins who organize games without MANAGE_GUILD permission
+- Moderation team removing inappropriate game content
+
+**Validation Rules**:
+
+- `botManagerRoleIds` is optional (can be null or empty array)
+- Role IDs must be valid Discord snowflake strings
+- No minimum or maximum number of roles required
+
+**Impact**:
+
+- Provides granular permission control for game management
+- Enables delegation of moderation duties without full admin access
+- Improves community management flexibility
+- Separates "create game" permissions from "manage any game" permissions
+- No breaking changes (field optional and nullable)
+
+---
+
+## New Requirement: Notify Roles Field
+
+**Requirement**: Add a "Notify" field to games that takes a list of Discord role IDs to be notified whenever a new game is created. When a game is created, users with these roles will receive a notification (mention in the announcement message).
+
+**Current Behavior**:
+
+- Game announcement messages are posted to configured channels
+- No automatic role-based notifications when games are created
+- Users must manually monitor channels or rely on Discord's notification settings
+- No way to ping specific roles interested in certain game types
+
+**Desired Behavior**:
+
+- Add `notifyRoleIds` field to GameSession (JSON array of Discord role IDs)
+- When game is created and announcement posted to Discord, include role mentions
+- Discord message format: `<@&role_id>` pings all users with that role
+- Multiple roles can be notified for a single game
+- Field is optional (nullable/empty array = no role notifications)
+- Host can select from guild's available roles when creating game
+- Default: Empty array (no automatic notifications)
+- Can be inherited from channel or guild configuration if desired
+
+**Current Code References**:
+
+- `shared/models/game.py` - GameSession model needs `notifyRoleIds` field (JSON array)
+- `shared/schemas/game.py` - CreateGameRequest and UpdateGameRequest need `notifyRoleIds` field (optional)
+- `shared/schemas/game.py` - GameResponse needs to include `notifyRoleIds` in response
+- `services/api/services/games.py` - create_game() needs to handle notifyRoleIds
+- `services/bot/formatters/` - Discord message formatting needs to include role mentions at top of message
+- `services/bot/events/` - Game creation event handler needs to format role mentions
+- Frontend game creation form needs role selection component (multi-select)
+- Frontend needs to fetch available roles for the selected guild
+
+**Database Migration**:
+
+- Add `notify_role_ids` column to `game_sessions` table (JSON array, nullable)
+- Default value is NULL or empty array `[]`
+- Create Alembic migration to add column to existing games
+
+**Discord Message Format**:
+
+```
+<@&role_id_1> <@&role_id_2>
+🎮 **D&D Campaign Session**
+
+📅 **When:** <t:1731700800:F> (<t:1731700800:R>)
+👥 **Players:** 0/5
+📍 **Channel:** #voice-channel-1
+
+**Description:** Join us for an epic adventure...
+
+[Join Game] [Leave Game]
+```
+
+- Role mentions should appear at the very top of the message
+- Each role mention triggers notification for all users with that role
+- Users can click role mention to see who has the role
+
+**Implementation Pattern**:
+
+```python
+# In bot message formatter
+def format_game_announcement(game: GameSession) -> str:
+    message_parts = []
+
+    # Add role mentions at top if configured
+    if game.notifyRoleIds:
+        role_mentions = " ".join([f"<@&{role_id}>" for role_id in game.notifyRoleIds])
+        message_parts.append(role_mentions)
+        message_parts.append("")  # Blank line after mentions
+
+    # Rest of game announcement
+    message_parts.append(f"🎮 **{game.title}**")
+    # ... rest of formatting
+
+    return "\n".join(message_parts)
+```
+
+**Frontend Role Selection**:
+
+- Fetch guild roles via Discord API: `GET /guilds/{guild_id}/roles`
+- Display as multi-select dropdown in game creation form
+- Show role name and color indicator
+- Filter out @everyone and managed roles (bot roles, integration roles)
+- Allow host to select 0 or more roles to notify
+
+**Use Cases**:
+
+- D&D channel: Notify @RPG-Players role when new campaign posted
+- Event coordinator: Notify @Event-Attendees for official tournaments
+- Board game night: Notify @BoardGamers role for weekly sessions
+- PvP games: Notify @Competitive role for ranked matches
+- Special events: Notify @VIP role for exclusive game sessions
+
+**Validation Rules**:
+
+- `notifyRoleIds` is optional (can be null or empty array)
+- Role IDs must be valid Discord snowflake strings
+- Role IDs should exist in the target guild (validated against guild roles)
+- Maximum of 10 roles per game (prevent spam)
+- Error response: "Cannot notify more than 10 roles per game"
+- Error response: "Role ID {role_id} does not exist in this guild"
+
+**Permission Considerations**:
+
+- Bot must have MENTION_EVERYONE permission to ping roles (if role is not mentionable by everyone)
+- Alternatively, roles must be marked as "Allow anyone to @mention this role"
+- If bot lacks permission, include role mentions but they won't ping (graceful degradation)
+- Guild admins can configure which roles are mentionable via guild settings
+
+**Inheritance (Optional Enhancement)**:
+
+- `GuildConfiguration.defaultNotifyRoleIds` (optional future enhancement)
+- `ChannelConfiguration.defaultNotifyRoleIds` (optional future enhancement)
+- Games can override or merge with channel/guild defaults
+- For initial implementation, game-level only is sufficient
+
+**Impact**:
+
+- Improves game discoverability for interested players
+- Reduces need for manual announcements in multiple channels
+- Enables targeted notifications for specific game types
+- Increases engagement by reaching interested audience
+- Flexible per-game configuration without forcing notifications
+- No breaking changes (field optional and nullable)
