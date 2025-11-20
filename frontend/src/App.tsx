@@ -35,7 +35,7 @@ function App() {
                 <Route path="/guilds" element={<GuildListPage />} />
                 <Route path="/guilds/:guildId" element={<GuildDashboard />} />
                 <Route path="/guilds/:guildId/config" element={<GuildConfig />} />
-                <Route path="/channels/:channelId/config" element={<ChannelConfig />} />
+                <Route path="/channels/:channelUuid/config" element={<ChannelConfig />} />
                 <Route path="/guilds/:guildId/games" element={<BrowseGames />} />
                 <Route path="/guilds/:guildId/games/new" element={<CreateGame />} />
                 <Route path="/games/:gameId" element={<GameDetails />} />
