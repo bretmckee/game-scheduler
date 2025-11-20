@@ -73,14 +73,16 @@ def test_configure_cors_includes_localhost_urls(mock_app, mock_config):
 
 
 def test_configure_cors_allows_all_origins_in_debug(mock_app, mock_config):
-    """Test that CORS allows all origins in debug mode."""
+    """Test that CORS includes additional dev origins in debug mode."""
     mock_config.debug = True
 
     cors.configure_cors(mock_app, mock_config)
 
     call_kwargs = mock_app.add_middleware.call_args[1]
     origins = call_kwargs["allow_origins"]
-    assert "*" in origins
+    # Debug mode adds more localhost variants but not "*" due to allow_credentials=True
+    assert "http://localhost:5173" in origins
+    assert "http://127.0.0.1:3000" in origins
 
 
 def test_configure_cors_restricts_origins_in_production(mock_app, mock_config):

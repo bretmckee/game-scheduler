@@ -79,7 +79,7 @@ async def test_get_user_role_ids_from_discord(role_checker, mock_bot):
     mock_member.roles = [mock_role1, mock_role2]
 
     mock_guild.fetch_member = AsyncMock(return_value=mock_member)
-    mock_bot.get_guild = MagicMock(return_value=mock_guild)
+    mock_bot.fetch_guild = AsyncMock(return_value=mock_guild)
 
     role_checker.cache.set_user_roles = AsyncMock()
 
@@ -93,7 +93,7 @@ async def test_get_user_role_ids_from_discord(role_checker, mock_bot):
 async def test_get_user_role_ids_guild_not_found(role_checker, mock_bot):
     """Test handling guild not found."""
     role_checker.cache.get_user_roles = AsyncMock(return_value=None)
-    mock_bot.get_guild = MagicMock(return_value=None)
+    mock_bot.fetch_guild = AsyncMock(return_value=None)
 
     result = await role_checker.get_user_role_ids("123", "456")
 
@@ -107,7 +107,7 @@ async def test_get_user_role_ids_member_not_found(role_checker, mock_bot):
 
     mock_guild = MagicMock()
     mock_guild.fetch_member = AsyncMock(side_effect=discord.NotFound(MagicMock(), ""))
-    mock_bot.get_guild = MagicMock(return_value=mock_guild)
+    mock_bot.fetch_guild = AsyncMock(return_value=mock_guild)
 
     result = await role_checker.get_user_role_ids("123", "456")
 
@@ -117,25 +117,25 @@ async def test_get_user_role_ids_member_not_found(role_checker, mock_bot):
 @pytest.mark.asyncio
 async def test_get_user_role_ids_force_refresh(role_checker, mock_bot):
     """Test forcing refresh bypasses cache."""
-    role_checker.cache.get_user_roles = AsyncMock(return_value=["old_role"])
+    role_checker.cache.get_user_roles = AsyncMock(return_value=["cached"])
 
     mock_guild = MagicMock()
     mock_guild.id = 456
 
-    mock_role = MagicMock()
-    mock_role.id = 789
+    mock_role1 = MagicMock()
+    mock_role1.id = 123
 
     mock_member = AsyncMock()
-    mock_member.roles = [mock_role]
+    mock_member.roles = [mock_role1]
 
     mock_guild.fetch_member = AsyncMock(return_value=mock_member)
-    mock_bot.get_guild = MagicMock(return_value=mock_guild)
+    mock_bot.fetch_guild = AsyncMock(return_value=mock_guild)
 
     role_checker.cache.set_user_roles = AsyncMock()
 
     result = await role_checker.get_user_role_ids("123", "456", force_refresh=True)
 
-    assert result == ["789"]
+    assert result == ["123"]
     role_checker.cache.get_user_roles.assert_not_called()
 
 
@@ -151,7 +151,7 @@ async def test_check_manage_guild_permission_true(role_checker, mock_bot):
     mock_member.guild_permissions = mock_permissions
 
     mock_guild.fetch_member = AsyncMock(return_value=mock_member)
-    mock_bot.get_guild = MagicMock(return_value=mock_guild)
+    mock_bot.fetch_guild = AsyncMock(return_value=mock_guild)
 
     result = await role_checker.check_manage_guild_permission("123", "456")
 
@@ -170,7 +170,7 @@ async def test_check_manage_guild_permission_false(role_checker, mock_bot):
     mock_member.guild_permissions = mock_permissions
 
     mock_guild.fetch_member = AsyncMock(return_value=mock_member)
-    mock_bot.get_guild = MagicMock(return_value=mock_guild)
+    mock_bot.fetch_guild = AsyncMock(return_value=mock_guild)
 
     result = await role_checker.check_manage_guild_permission("123", "456")
 
@@ -189,7 +189,7 @@ async def test_check_manage_channels_permission_true(role_checker, mock_bot):
     mock_member.guild_permissions = mock_permissions
 
     mock_guild.fetch_member = AsyncMock(return_value=mock_member)
-    mock_bot.get_guild = MagicMock(return_value=mock_guild)
+    mock_bot.fetch_guild = AsyncMock(return_value=mock_guild)
 
     result = await role_checker.check_manage_channels_permission("123", "456")
 
@@ -208,7 +208,7 @@ async def test_check_administrator_permission_true(role_checker, mock_bot):
     mock_member.guild_permissions = mock_permissions
 
     mock_guild.fetch_member = AsyncMock(return_value=mock_member)
-    mock_bot.get_guild = MagicMock(return_value=mock_guild)
+    mock_bot.fetch_guild = AsyncMock(return_value=mock_guild)
 
     result = await role_checker.check_administrator_permission("123", "456")
 
@@ -331,7 +331,7 @@ async def test_get_guild_roles(role_checker, mock_bot):
     mock_guild = MagicMock()
     mock_guild.roles = [mock_role1, mock_role2]
 
-    mock_bot.get_guild = MagicMock(return_value=mock_guild)
+    mock_bot.fetch_guild = AsyncMock(return_value=mock_guild)
 
     result = await role_checker.get_guild_roles("456")
 

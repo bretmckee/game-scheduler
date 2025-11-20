@@ -52,6 +52,7 @@ class RoleChecker:
         self.bot = bot
         self.db = db_session
         self.cache = cache.RoleCache()
+        self.api_cache = None
 
     async def get_user_role_ids(
         self, user_id: str, guild_id: str, force_refresh: bool = False
