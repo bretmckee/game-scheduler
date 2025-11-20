@@ -8,8 +8,6 @@ from shared.messaging.events import (
     Event,
     EventType,
     GameCreatedEvent,
-    PlayerJoinedEvent,
-    PlayerLeftEvent,
 )
 from shared.messaging.publisher import EventPublisher
 
@@ -42,55 +40,6 @@ class BotEventPublisher:
             await self.publisher.close()
             self._connected = False
             logger.info("Bot event publisher disconnected from RabbitMQ")
-
-    async def publish_player_joined(
-        self, game_id: str, player_id: str, player_count: int, max_players: int
-    ) -> None:
-        """
-        Publish player joined event.
-
-        Args:
-            game_id: UUID of the game session
-            player_id: Discord ID of the player
-            player_count: Current number of players
-            max_players: Maximum allowed players
-        """
-        event_data = PlayerJoinedEvent(
-            game_id=UUID(game_id),
-            player_id=player_id,
-            player_count=player_count,
-            max_players=max_players,
-        )
-
-        event = Event(event_type=EventType.PLAYER_JOINED, data=event_data.model_dump())
-
-        await self.publisher.publish(event=event, routing_key="game.player_joined")
-
-        logger.info(
-            f"Published player_joined event: game={game_id}, player={player_id}, "
-            f"count={player_count}/{max_players}"
-        )
-
-    async def publish_player_left(self, game_id: str, player_id: str, player_count: int) -> None:
-        """
-        Publish player left event.
-
-        Args:
-            game_id: UUID of the game session
-            player_id: Discord ID of the player
-            player_count: Current number of players after leaving
-        """
-        event_data = PlayerLeftEvent(
-            game_id=UUID(game_id), player_id=player_id, player_count=player_count
-        )
-
-        event = Event(event_type=EventType.PLAYER_LEFT, data=event_data.model_dump())
-
-        await self.publisher.publish(event=event, routing_key="game.player_left")
-
-        logger.info(
-            f"Published player_left event: game={game_id}, player={player_id}, count={player_count}"
-        )
 
     async def publish_game_created(
         self,
