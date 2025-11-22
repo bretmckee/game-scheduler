@@ -23,7 +23,6 @@ async def config_guild_command(
     interaction: Interaction,
     max_players: int | None = None,
     reminder_minutes: str | None = None,
-    default_rules: str | None = None,
     bot_managers: str | None = None,
 ) -> None:
     """
@@ -33,7 +32,6 @@ async def config_guild_command(
         interaction: Discord interaction object
         max_players: Default max players for games (1-100)
         reminder_minutes: Comma-separated reminder times in minutes (e.g., "60,15")
-        default_rules: Default rules text for all games
         bot_managers: Space-separated role mentions/IDs for Bot Managers (e.g., "@Role1 @Role2")
     """
     await interaction.response.defer(ephemeral=True)
@@ -75,13 +73,6 @@ async def config_guild_command(
                         ephemeral=True,
                     )
                     return
-
-            if default_rules is not None:
-                guild_config.default_rules = default_rules
-                rules_preview = (
-                    default_rules[:50] + "..." if len(default_rules) > 50 else default_rules
-                )
-                updated_fields.append(f"Rules: {rules_preview}")
 
             if bot_managers is not None:
                 try:
@@ -270,19 +261,15 @@ async def setup(bot: "GameSchedulerBot") -> None:
     @app_commands.describe(
         max_players="Default max players for games (1-100)",
         reminder_minutes="Comma-separated reminder times in minutes (e.g., '60,15')",
-        default_rules="Default rules text for all games",
         bot_managers="Role mentions/IDs for Bot Managers (can edit/delete any game), or 'clear'",
     )
     async def config_guild_slash(
         interaction: Interaction,
         max_players: int | None = None,
         reminder_minutes: str | None = None,
-        default_rules: str | None = None,
         bot_managers: str | None = None,
     ) -> None:
-        await config_guild_command(
-            interaction, max_players, reminder_minutes, default_rules, bot_managers
-        )
+        await config_guild_command(interaction, max_players, reminder_minutes, bot_managers)
 
     logger.info("Registered /config-guild command")
 
