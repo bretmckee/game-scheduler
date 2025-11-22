@@ -63,7 +63,17 @@ export const ParticipantList: FC<ParticipantListProps> = ({
     }
   };
 
-  const joinedCount = participants.filter((p) => p.status === 'JOINED').length;
+  // Backend returns participants already sorted (priority participants first, then regular by join time)
+  // Just filter active participants and split by max_players
+  const activeParticipants = participants.filter(
+    (p) => p.status === 'JOINED' || p.status === 'PLACEHOLDER'
+  );
+
+  const maxSlots = maxPlayers || 10;
+  const confirmedParticipants = activeParticipants.slice(0, maxSlots);
+  const waitlistParticipants = activeParticipants.slice(maxSlots);
+
+  const joinedCount = confirmedParticipants.length;
   const playerDisplay = maxPlayers
     ? minPlayers === maxPlayers
       ? `${joinedCount}/${maxPlayers}`
@@ -77,7 +87,7 @@ export const ParticipantList: FC<ParticipantListProps> = ({
       </Typography>
 
       <List>
-        {participants.map((participant) => (
+        {confirmedParticipants.map((participant) => (
           <ListItem key={participant.id}>
             <ListItemAvatar>
               <Avatar>{participant.display_name?.[0]?.toUpperCase() || '?'}</Avatar>
@@ -94,6 +104,28 @@ export const ParticipantList: FC<ParticipantListProps> = ({
           </ListItem>
         ))}
       </List>
+
+      {waitlistParticipants.length > 0 && (
+        <Box sx={{ mt: 2 }}>
+          <Typography variant="body2" sx={{ mb: 1 }}>
+            <strong>🎫 Waitlist ({waitlistParticipants.length})</strong>
+          </Typography>
+          <List>
+            {waitlistParticipants.map((participant, index) => (
+              <ListItem key={participant.id}>
+                <ListItemAvatar>
+                  <Avatar sx={{ bgcolor: 'warning.main' }}>{index + 1}</Avatar>
+                </ListItemAvatar>
+                <ListItemText
+                  primary={participant.display_name || 'Unknown User'}
+                  secondary={participant.is_pre_populated ? 'Pre-populated' : 'Joined via button'}
+                />
+                <Chip label="Waitlist" color="warning" size="small" />
+              </ListItem>
+            ))}
+          </List>
+        </Box>
+      )}
     </Box>
   );
 };

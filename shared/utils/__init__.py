@@ -28,6 +28,7 @@ from shared.utils.discord import (
     has_permission,
     parse_mention,
 )
+from shared.utils.participant_sorting import sort_participants
 from shared.utils.timezone import (
     from_iso_string,
     from_unix_timestamp,
@@ -54,4 +55,6 @@ __all__ = [
     "from_unix_timestamp",
     "to_iso_string",
     "from_iso_string",
+    # Participant utilities
+    "sort_participants",
 ]
