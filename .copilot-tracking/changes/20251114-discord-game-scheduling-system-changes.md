@@ -203,7 +203,7 @@ Modified the bot's join and leave game notifications to send as direct messages 
 - tests/services/bot/formatters/test_game_message.py - Updated test assertions to expect 3-tuple return from format_game_announcement (Task 10.3)
 - frontend/src/types/index.ts - Added minPlayers field to GameSession interface (Task 7.4)
 - frontend/src/types/index.ts - Added notify_role_ids field to GameSession interface and created DiscordRole interface (Task 10.4)
-- frontend/src/pages/CreateGame.tsx - Added min_players input field with client-side validation (Task 7.4); added role multi-select component with role color display and mention notification helper text (Task 10.4)
+- frontend/src/pages/CreateGame.tsx - Added min_players input field with client-side validation (Task 7.4); added role multi-select component with role color display and mention notification helper text (Task 10.4); changed scheduledAt default from null to new Date() for better UX (Task 11.2)
 - frontend/src/pages/EditGame.tsx - Added min_players input field with client-side validation (Task 7.4)
 - frontend/src/components/GameCard.tsx - Updated to display X/min-max participant count format (Task 7.4)
 - shared/models/guild.py - Added bot_manager_role_ids field to GuildConfiguration model for Bot Managers feature (Task 9.1)
@@ -6179,3 +6179,58 @@ Verified and fixed coding standards compliance across the entire Python codebase
 - Reduced friction for hosts creating standard-sized games
 - Users still have full control to customize player counts
 - Better user experience with pre-populated common values
+
+#### Task 11.2: Fix game time default value to use current time
+
+**Date**: 2025-11-21
+
+- frontend/src/pages/CreateGame.tsx - Changed scheduledAt default from null to new Date()
+
+**Issue:**
+
+- Create game form showed empty date/time field when opened
+- Users had to manually select date and time from scratch every time
+- No sensible default even though most games are scheduled for future times
+- Form validation required date selection before submission
+
+**Solution:**
+
+- Initialize scheduledAt with `new Date()` instead of `null`
+- DateTimePicker now shows current date/time as starting point
+- Users can easily adjust forward from current time
+- Maintains proper timezone handling (browser local time, sent to API as UTC)
+- Default updates naturally if user stays on form page
+
+**Implementation:**
+
+```typescript
+const [formData, setFormData] = useState<FormData>({
+  title: "",
+  description: "",
+  signupInstructions: "",
+  scheduledAt: new Date(), // Changed from null
+  channelId: "",
+  minPlayers: "1",
+  maxPlayers: "8",
+  reminderMinutes: "",
+  rules: "",
+  initialParticipants: "",
+  notifyRoleIds: [],
+});
+```
+
+**Verification:**
+
+- Create game form now shows current date/time when opened
+- DateTimePicker properly displays default value
+- Users can still modify to any future date/time
+- Timezone handling remains correct (browser to UTC conversion)
+- Form validation no longer blocks on missing date
+
+**Impact:**
+
+- Improved UX: Form immediately usable with sensible default
+- Faster workflow: Users adjust time forward instead of selecting from scratch
+- Reduced clicks: Default provides good starting point
+- Maintains flexibility: Users retain full control over scheduling
+- Consistent behavior: Form always starts with valid state
