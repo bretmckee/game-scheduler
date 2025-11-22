@@ -152,7 +152,7 @@ class GameService:
                 valid_participants,
                 validation_errors,
             ) = await self.participant_resolver.resolve_initial_participants(
-                channel_config.channel_id,
+                guild_config.guild_id,
                 game_data.initial_participants,
                 access_token,
             )
