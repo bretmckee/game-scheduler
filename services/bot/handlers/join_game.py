@@ -119,9 +119,4 @@ async def _validate_join_game(db: AsyncSession, game_id: uuid.UUID, user_discord
     )
     participant_count = len(result.scalars().all())
 
-    max_players = game.max_players or 10
-
-    if participant_count >= max_players:
-        return {"can_join": False, "error": "Game is full"}
-
     return {"can_join": True, "user": user, "game": game, "participant_count": participant_count}
