@@ -85,7 +85,7 @@ export const CreateGame: FC = () => {
     title: '',
     description: '',
     signupInstructions: '',
-    scheduledAt: null,
+    scheduledAt: new Date(),
     channelId: '',
     minPlayers: '1',
     maxPlayers: '8',
