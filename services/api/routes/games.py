@@ -55,7 +55,15 @@ async def create_game(
 
     Validates @mentions in initial_participants and creates GameParticipant records.
     Returns 422 if any @mentions cannot be resolved with disambiguation suggestions.
+    Validates min_players <= max_players and min_players >= 1.
     """
+    # Validate min_players if max_players is provided
+    if game_data.max_players is not None and game_data.min_players > game_data.max_players:
+        raise HTTPException(
+            status_code=422,
+            detail="Minimum players cannot be greater than maximum players",
+        )
+
     try:
         game = await game_service.create_game(
             game_data=game_data,
@@ -137,6 +145,7 @@ async def update_game(
     Update game session.
 
     Only the game host can update. All fields are optional.
+    Validates min_players <= max_players if both are provided.
     """
     try:
         game = await game_service.update_game(
@@ -148,9 +157,12 @@ async def update_game(
         return await _build_game_response(game)
 
     except ValueError as e:
-        if "not found" in str(e).lower():
-            raise HTTPException(status_code=404, detail=str(e)) from None
-        raise HTTPException(status_code=403, detail=str(e)) from None
+        error_msg = str(e)
+        if "not found" in error_msg.lower():
+            raise HTTPException(status_code=404, detail=error_msg) from None
+        if "minimum players cannot be greater" in error_msg.lower():
+            raise HTTPException(status_code=422, detail=error_msg) from None
+        raise HTTPException(status_code=403, detail=error_msg) from None
 
 
 @router.delete("/{game_id}", status_code=204)
