@@ -308,7 +308,7 @@ Implement a complete Discord game scheduling system with microservices architect
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1036-1052)
 
-- [ ] Task 11.2: Fix game time default value to use current time
+- [x] Task 11.2: Fix game time default value to use current time
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1054-1070)
 
