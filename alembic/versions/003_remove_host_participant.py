@@ -8,8 +8,9 @@ Create Date: 2025-11-20 10:00:00.000000
 
 from collections.abc import Sequence
 
-from alembic import op
 from sqlalchemy import text
+
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "003_remove_host_participant"

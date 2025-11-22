@@ -377,8 +377,12 @@ class GameService:
         if update_data.status is not None:
             game.status = update_data.status
 
-        # Validate min_players <= max_players after updates
-        if game.min_players > game.max_players:
+        # Validate min_players <= max_players after updates (if both are set)
+        if (
+            game.min_players is not None
+            and game.max_players is not None
+            and game.min_players > game.max_players
+        ):
             raise ValueError(
                 "Minimum players cannot be greater than maximum players "
                 f"(min: {game.min_players}, max: {game.max_players})"
