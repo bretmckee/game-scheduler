@@ -6963,3 +6963,69 @@ Completely removed the `rules` field from all layers of the application: databas
 - Better focus on core functionality: description, signup_instructions for game details
 - System consistency: Rules field fully removed from all layers simultaneously
 - No partial implementations or orphaned references remaining
+
+### Phase 11: Bug Fixes (Task 11.11 - 2025-11-22)
+
+**Fix API Crash When Specifying @user Mentions**
+
+Fixed critical bug where the API would crash when processing @user mentions in initial_participants during game creation.
+
+**Root Cause:**
+
+- services/api/services/games.py (Line 137) was passing `channel_config.channel_id` (Discord channel snowflake) to `resolve_initial_participants()`
+- The function expected `guild_discord_id` (Discord guild/server snowflake) for searching guild members
+- This caused member searches to fail against the wrong scope, resulting in API errors
+
+**Changes Made:**
+
+Modified:
+
+- services/api/services/games.py - Changed resolve_initial_participants call to pass guild_config.guild_id instead of channel_config.channel_id
+- services/api/services/participant_resolver.py - Improved exception handling with specific Discord API error handling and better logging
+- tests/services/api/services/test_participant_resolver.py - Added tests for network errors, malformed responses, and updated Discord API error test
+
+**Technical Details:**
+
+1. **Parameter Fix:**
+
+   - OLD: `await self.participant_resolver.resolve_initial_participants(channel_config.channel_id, ...)`
+   - NEW: `await self.participant_resolver.resolve_initial_participants(guild_config.guild_id, ...)`
+
+2. **Exception Handling Improvements:**
+
+   - Added specific catch for `DiscordAPIError` with detailed logging
+   - Generic Exception catch now logs with exc_info=True for full stack traces
+   - Fixed attribute access: Changed `e.status_code` to `e.status` to match DiscordAPIError class
+   - Improved error messages to be user-friendly while preserving debug information in logs
+
+3. **Enhanced Error Handling in \_search_guild_members:**
+   - Parse JSON response before checking status to avoid losing error details
+   - Graceful degradation when JSON parsing fails (use HTTP status code as fallback)
+   - Better error logging with guild ID context
+   - Wrap network exceptions in DiscordAPIError for consistent error handling upstream
+
+**Test Coverage:**
+
+Added three new test cases in test_participant_resolver.py:
+
+- test_discord_api_error_handling: Verifies 403 errors are caught and returned as validation errors
+- test_network_error_handling: Verifies network failures are gracefully handled
+- test_malformed_response_handling: Verifies missing user fields in API response don't crash
+
+All 11 tests in participant resolver test suite now pass.
+
+**Impact:**
+
+- API no longer crashes when @user mentions are provided
+- Invalid @mentions return proper 422 validation errors with clear reasons
+- Discord API errors (permissions, rate limits, etc.) are handled gracefully
+- Network failures don't crash the service
+- Malformed Discord API responses are caught and logged
+- Improved debugging with detailed error logging including guild context
+- Users get clear feedback when mention resolution fails instead of 500 errors
+
+### Modified
+
+- services/api/services/games.py - Fixed guild_id parameter in resolve_initial_participants call
+- services/api/services/participant_resolver.py - Enhanced exception handling and error logging
+- tests/services/api/services/test_participant_resolver.py - Added network error and malformed response tests
