@@ -271,7 +271,6 @@ async def setup(bot: "GameSchedulerBot") -> None:
         channel="Channel to configure (defaults to current channel)",
         max_players="Max players override (1-100)",
         reminder_minutes="Reminder times override (e.g., '60,15')",
-        default_rules="Rules override for this channel",
         game_category="Game category (e.g., 'D&D', 'Board Games')",
         is_active="Enable/disable game posting in this channel",
     )
