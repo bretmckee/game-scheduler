@@ -31,6 +31,7 @@ class GameMessageFormatter:
         scheduled_at: datetime,
         host_id: str,
         participant_ids: list[str],
+        overflow_ids: list[str],
         current_count: int,
         max_players: int,
         status: str,
@@ -44,8 +45,9 @@ class GameMessageFormatter:
             description: Game description
             scheduled_at: When game is scheduled (UTC datetime)
             host_id: Discord ID of the game host
-            participant_ids: List of participant Discord IDs
-            current_count: Current participant count
+            participant_ids: List of confirmed participant Discord IDs (within max_players)
+            overflow_ids: List of overflow participant Discord IDs (beyond max_players)
+            current_count: Current confirmed participant count
             max_players: Maximum allowed participants
             status: Game status
             channel_id: Optional Discord channel ID
@@ -86,6 +88,14 @@ class GameMessageFormatter:
             embed.add_field(
                 name="✅ Participants",
                 value=format_participant_list(participant_ids, max_display=15),
+                inline=False,
+            )
+
+        if overflow_ids:
+            overflow_text = format_participant_list(overflow_ids, max_display=10)
+            embed.add_field(
+                name=f"🎫 Waitlist ({len(overflow_ids)})",
+                value=overflow_text,
                 inline=False,
             )
 
@@ -160,6 +170,7 @@ def format_game_announcement(
     scheduled_at: datetime,
     host_id: str,
     participant_ids: list[str],
+    overflow_ids: list[str],
     current_count: int,
     max_players: int,
     status: str,
@@ -175,8 +186,9 @@ def format_game_announcement(
         description: Game description
         scheduled_at: When game is scheduled (UTC)
         host_id: Discord ID of game host
-        participant_ids: List of participant Discord IDs
-        current_count: Current participant count
+        participant_ids: List of confirmed participant Discord IDs (within max_players)
+        overflow_ids: List of overflow participant Discord IDs (beyond max_players)
+        current_count: Current confirmed participant count
         max_players: Maximum allowed participants
         status: Game status
         channel_id: Optional voice channel ID
@@ -195,6 +207,7 @@ def format_game_announcement(
         scheduled_at=scheduled_at,
         host_id=host_id,
         participant_ids=participant_ids,
+        overflow_ids=overflow_ids,
         current_count=current_count,
         max_players=max_players,
         status=status,

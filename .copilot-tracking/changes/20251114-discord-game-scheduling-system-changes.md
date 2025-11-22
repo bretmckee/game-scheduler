@@ -7153,3 +7153,128 @@ The project has comprehensive testing without E2E tests:
 - **Cache tests** for Redis interaction
 
 This provides excellent coverage for the Discord Game Scheduling System without the complexity and limitations of pseudo-E2E tests.
+
+## Phase 12: Advanced Features
+
+### Task 12.1: Unlimited Participant Joins with Slot Prioritization (Complete)
+
+**Date**: 2025-11-22
+
+Implemented a simpler participant management system that allows unlimited joins while prioritizing slots based on pre-population status and join order:
+
+- **services/bot/handlers/join_game.py**: Removed "game is full" validation check - users can now join even when game reaches max_players
+- **services/bot/events/handlers.py**: Updated both `_handle_game_created` and `_refresh_game_message` to sort participants by priority:
+  - Pre-populated participants get first priority
+  - Then regular participants in join order (joined_at)
+  - First `max_players` participants become "confirmed" and fill the game slots
+  - Remaining participants become "overflow" and display in waitlist section
+- **services/bot/formatters/game_message.py**: Updated `create_game_embed` and `format_game_announcement` to accept `overflow_ids` parameter and display waitlist section when overflow exists
+- **tests/services/bot/formatters/test_game_message.py**: Updated all test calls to include `overflow_ids=[]` parameter
+
+**Implementation Details:**
+
+```python
+# Sorting logic in handlers.py
+all_participants = [p for p in game.participants if p.user_id and p.user]
+sorted_participants = sorted(
+    all_participants, key=lambda p: (not p.is_pre_populated, p.joined_at)
+)
+
+max_players = game.max_players or 10
+confirmed_participants = sorted_participants[:max_players]
+overflow_participants = sorted_participants[max_players:]
+```
+
+**Display Logic:**
+
+- Confirmed participants shown in "✅ Participants" section
+- Overflow participants shown in "🎫 Waitlist (N)" section when present
+- Players automatically promoted when someone leaves (by virtue of re-sorting on every update)
+
+**Design Benefits:**
+
+1. **Simplicity**: No separate waitlist status or button needed
+2. **Automatic Promotion**: When someone leaves, overflow participants automatically move up
+3. **Clear Priority**: Pre-populated participants always get priority, then first-come-first-served
+4. **Flexible**: Can join anytime without "game full" errors
+5. **Transparent**: Users can see their position in the waitlist
+
+**Impact:**
+
+- Users can join games freely without capacity restrictions
+- Pre-populated participants (via @mentions) maintain guaranteed slots
+- No complex waitlist management service needed
+- Automatic slot reassignment on participant changes
+- Clear visual distinction between confirmed players and waitlist
+
+**Frontend Integration:**
+
+- **frontend/src/components/ParticipantList.tsx**: Updated to separate confirmed participants from waitlist:
+  - Sorts all participants by priority (pre-populated first, then by join time)
+  - Splits into confirmed (first max_players slots) and waitlist (overflow)
+  - Displays confirmed participants in main list with ✅ status
+  - Displays waitlist section separately with 🎫 header and position numbers
+  - Waitlist participants shown in order with numbered avatars (1, 2, 3...)
+  - Shows "Waitlist (N)" count in section header
+
+**Display Behavior:**
+
+- GameDetails page automatically shows waitlist when participants exceed max_players
+- Participant count only reflects confirmed players (those in slots)
+- Waitlist clearly separated with visual distinction
+- Position in waitlist clearly indicated by numbered avatar
+- Pre-populated participants always appear first in confirmed section
+
+**Update (2025-11-22):** Refined participant prioritization logic to treat placeholder entries (non-Discord participants) with the same priority as pre-populated Discord users. Both placeholder and pre-populated participants are created at game creation time and should have priority over regular join-button participants.
+
+- Updated sorting in `services/bot/events/handlers.py` (both `_handle_game_created` and `_refresh_game_message`)
+- Updated sorting in `frontend/src/components/ParticipantList.tsx`
+- Priority order now: (1) Pre-populated and placeholders, (2) Regular joins by time
+
+**Update (2025-11-22):** Further refined to preserve the creation order of pre-populated and placeholder participants. Instead of sorting all participants by a single key, we now:
+
+1. Keep pre-populated/placeholder participants in their original creation order (as specified by host)
+2. Sort regular join-button participants by join time
+3. Concatenate: priority participants + regular participants
+
+This ensures that if a host specifies participants as "@Alice, Bob, @Charlie", they will appear in slots 1, 2, 3 regardless of when they were created, maintaining the host's intended order.
+
+**Update (2025-11-22):** Moved participant sorting logic to the backend for consistency and efficiency:
+
+- **services/api/routes/games.py**: Added sorting in `_build_game_response()` so all API responses return participants in the correct order
+- **frontend/src/components/ParticipantList.tsx**: Simplified to just display participants in received order - no frontend sorting needed
+- **Benefits**: 
+  - Single source of truth for sort order (backend)
+  - Consistent ordering across all view paths (web, Discord bot)
+  - More efficient - sorting done once on server instead of in every client
+  - Simpler frontend code - just display what backend sends
+
+Backend now returns participants pre-sorted: priority participants (pre-populated/placeholders) in creation order, followed by regular participants sorted by join time.
+
+**Update (2025-11-22):** Extracted participant sorting logic into a dedicated, testable utility function for better modularity:
+
+- **shared/utils/participant_sorting.py**: Created `sort_participants()` function with clear documentation
+- **tests/shared/utils/test_participant_sorting.py**: Added comprehensive unit tests (16 test cases covering all scenarios)
+- **services/api/routes/games.py**: Updated to use `sort_participants()` utility
+- **services/bot/events/handlers.py**: Updated both handlers to use `sort_participants()` utility
+- **shared/utils/__init__.py**: Exported `sort_participants` for easy importing
+
+**Benefits**:
+- Single, testable function for sorting logic
+- 16 unit tests ensure correctness
+- Easier to modify and maintain
+- Clear documentation of sorting rules
+- Can be reused anywhere in the codebase
+- Type hints for better IDE support
+
+**Update (2025-11-22):** Fixed potential ordering issue - now explicitly sorts priority participants by joined_at:
+
+Previously relied on database insertion order (not guaranteed) to maintain priority participant order. Now explicitly sorts priority participants by `joined_at` timestamp, which represents creation time. Since all participants are created sequentially at game creation time, this preserves the host's intended order while being more robust and database-agnostic.
+
+- **shared/utils/participant_sorting.py**: Added explicit `sorted()` call for priority participants
+- Updated documentation to clarify that all participants are sorted by joined_at within their priority group
+
+**Update (2025-11-22):** Added code comment and unit test to verify sequential timestamp behavior:
+
+- **services/api/services/games.py**: Added comment before participant creation loop explaining that the code depends on sequential creation resulting in incrementing `joined_at` timestamps, which `participant_sorting.py` relies on for maintaining order
+- **tests/services/api/services/test_participant_creation_order.py**: NEW - Unit test that verifies participants created sequentially receive incrementing timestamps and that sorting by `joined_at` preserves creation order. This documents and validates the critical assumption that participant ordering depends on.
