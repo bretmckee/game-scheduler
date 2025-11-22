@@ -222,7 +222,7 @@ class GameService:
 
     async def get_game(self, game_id: str) -> game_model.GameSession | None:
         """
-        Get game session by ID with participants and guild loaded.
+        Get game session by ID with participants, guild, and channel loaded.
 
         Args:
             game_id: Game session UUID
@@ -235,6 +235,7 @@ class GameService:
             .options(
                 selectinload(game_model.GameSession.host),
                 selectinload(game_model.GameSession.guild),
+                selectinload(game_model.GameSession.channel),
                 selectinload(game_model.GameSession.participants).selectinload(
                     participant_model.GameParticipant.user
                 ),
@@ -267,6 +268,7 @@ class GameService:
         query = select(game_model.GameSession).options(
             selectinload(game_model.GameSession.host),
             selectinload(game_model.GameSession.guild),
+            selectinload(game_model.GameSession.channel),
             selectinload(game_model.GameSession.participants).selectinload(
                 participant_model.GameParticipant.user
             ),
