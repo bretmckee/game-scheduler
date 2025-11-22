@@ -44,6 +44,7 @@ interface FormData {
   description: string;
   scheduledAt: Date | null;
   channelId: string;
+  minPlayers: string;
   maxPlayers: string;
   reminderMinutes: string;
   rules: string;
@@ -62,6 +63,7 @@ export const EditGame: FC = () => {
     description: '',
     scheduledAt: null,
     channelId: '',
+    minPlayers: '',
     maxPlayers: '',
     reminderMinutes: '',
     rules: '',
@@ -87,6 +89,7 @@ export const EditGame: FC = () => {
           description: gameData.description,
           scheduledAt: new Date(gameData.scheduled_at),
           channelId: gameData.channel_id,
+          minPlayers: gameData.min_players?.toString() || '',
           maxPlayers: gameData.max_players?.toString() || '',
           reminderMinutes: gameData.reminder_minutes?.join(', ') || '',
           rules: gameData.rules || '',
@@ -125,6 +128,14 @@ export const EditGame: FC = () => {
       return;
     }
 
+    const minPlayers = formData.minPlayers ? parseInt(formData.minPlayers) : null;
+    const maxPlayers = formData.maxPlayers ? parseInt(formData.maxPlayers) : null;
+
+    if (minPlayers && maxPlayers && minPlayers > maxPlayers) {
+      setError('Minimum players cannot be greater than maximum players.');
+      return;
+    }
+
     try {
       setSaving(true);
       setError(null);
@@ -134,7 +145,8 @@ export const EditGame: FC = () => {
         description: formData.description,
         scheduled_at: formData.scheduledAt.toISOString(),
         channel_id: formData.channelId,
-        max_players: formData.maxPlayers ? parseInt(formData.maxPlayers) : null,
+        min_players: minPlayers,
+        max_players: maxPlayers,
         reminder_minutes: formData.reminderMinutes
           ? formData.reminderMinutes.split(',').map((m) => parseInt(m.trim()))
           : null,
@@ -232,6 +244,19 @@ export const EditGame: FC = () => {
                 ))}
               </Select>
             </FormControl>
+
+            <TextField
+              fullWidth
+              label="Min Players"
+              name="minPlayers"
+              type="number"
+              value={formData.minPlayers}
+              onChange={handleChange}
+              margin="normal"
+              helperText="Minimum players required (default: 1)"
+              disabled={saving}
+              inputProps={{ min: 1, max: 100 }}
+            />
 
             <TextField
               fullWidth
