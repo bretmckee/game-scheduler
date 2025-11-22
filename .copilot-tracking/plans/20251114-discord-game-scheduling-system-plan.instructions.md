@@ -362,23 +362,27 @@ Implement a complete Discord game scheduling system with microservices architect
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1358-1376)
 
-- [ ] Task 12.4: Refactor Create/Edit Game Pages with Shared Form Component
+- [x] Task 12.4: Refactor Create/Edit Game Pages with Shared Form Component
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1378-1570)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1378-1602)
 
-- [ ] Task 12.5: Add game templates for recurring sessions
+- [ ] Task 12.5: Integrate EditableParticipantList into GameForm Component
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1398-1415)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1604-1698)
 
-- [ ] Task 12.6: Build calendar export functionality
+- [ ] Task 12.6: Add game templates for recurring sessions
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1417-1434)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1700-1717)
 
-- [ ] Task 12.7: Create statistics dashboard
+- [ ] Task 12.7: Build calendar export functionality
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1436-1456)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1719-1736)
 
-- [ ] Task 12.8: Replace adaptive backoff with Redis-based rate limiting
+- [ ] Task 12.8: Create statistics dashboard
+
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1738-1758)
+
+- [ ] Task 12.9: Replace adaptive backoff with Redis-based rate limiting
 
   - Simplify message update throttling by replacing in-memory state tracking with Redis cache
   - Use Redis key existence check with 1.5s TTL for rate limiting

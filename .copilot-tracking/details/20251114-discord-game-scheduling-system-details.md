@@ -1571,7 +1571,97 @@ Refactor CreateGame and EditGame pages to eliminate code duplication by extracti
 
   - CreateGame.tsx and EditGame.tsx are <100 lines each (thin wrappers)
   - All form logic consolidated in GameForm.tsx component
-  - Both pages show editable participant list
+  - GameForm component created with mode prop (create/edit)
+  - EditableParticipantList component created (standalone)
+  - Backend validation endpoint implemented
+  - No code duplication between create and edit pages
+  - Consistent UX across both workflows
+  - TypeScript compilation successful
+  - All form functionality preserved
+
+- **Research References**:
+
+  - #file:../../frontend/src/pages/CreateGame.tsx (Lines 1-145) - Refactored implementation
+  - #file:../../frontend/src/pages/EditGame.tsx (Lines 1-115) - Refactored implementation
+  - #file:../../frontend/src/components/GameForm.tsx (Lines 1-334) - Shared form component
+  - #file:../../frontend/src/components/EditableParticipantList.tsx (Lines 1-180) - Participant editor
+  - #file:../../frontend/src/components/ParticipantList.tsx (Lines 1-97) - Read-only participant display pattern
+  - #file:../../frontend/src/types/index.ts (Lines 34-70) - GameSession and Participant interfaces
+  - #file:../../shared/models/participant.py (Lines 1-57) - Participant model with pre_filled_position
+  - #file:../../services/api/routes/games.py - Game CRUD endpoints to extend
+  - #file:../../services/api/routes/guilds.py - Added validation endpoint
+  - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 450-510) - Participant management patterns
+
+- **Dependencies**:
+  - Task 4.4 completion (game management interface)
+  - Task 6.4 completion (ParticipantList component)
+  - RabbitMQ events infrastructure (Task 1.3)
+  - Discord bot message formatting (Task 2.3)
+
+### Task 12.5: Integrate EditableParticipantList into GameForm Component
+
+Integrate the EditableParticipantList component into GameForm for inline participant management during game creation and editing.
+
+- **Files**:
+
+  - `frontend/src/components/GameForm.tsx` - Add EditableParticipantList integration
+  - `frontend/src/pages/CreateGame.tsx` - Update to handle participant data in submission
+  - `frontend/src/pages/EditGame.tsx` - Update to load and handle existing participants
+  - `services/api/routes/games.py` - Update POST/PUT endpoints to process participants array
+  - `services/api/services/games.py` - Add participant processing logic
+  - `services/bot/handlers/game_handler.py` - Handle participant.removed events
+  - `shared/messaging/events.py` - Add ParticipantRemovedEvent if needed
+
+- **Implementation Details**:
+
+  **1. Add EditableParticipantList to GameForm:**
+
+  - Import EditableParticipantList component
+  - Add participants state management to GameForm
+  - Place EditableParticipantList below form fields, before submit buttons
+  - Pass participants array and onChange handler
+  - Include participants in form submission data
+
+  **2. Update CreateGame page:**
+
+  - Initialize empty participants array in form submission
+  - Map ParticipantInput to API format (mention + preFillPosition)
+  - Send participants array in POST /api/v1/games payload
+  - Filter out empty mentions before submission
+
+  **3. Update EditGame page:**
+
+  - Load existing participants from game data
+  - Convert to ParticipantInput format with validation state
+  - Detect removed participants by comparing before/after
+  - Send updated participants array in PUT /api/v1/games/{id} payload
+
+  **4. Backend participant processing:**
+
+  - Accept participants array in game create/update requests
+  - Resolve @mentions to user_id or store as display_name placeholders
+  - Create GameParticipant records with pre_filled_position
+  - For updates: detect removed participants and publish events
+  - Validate no duplicate user_ids in participant list
+  - Return error if mention resolution fails
+
+  **5. Discord message updates on participant removal:**
+
+  - Bot subscribes to participant.removed events from RabbitMQ
+  - Update game announcement message with current participant list
+  - Send DM to removed user: "You were removed from [Game Title] on [Date]"
+  - Handle DM failures gracefully (user may have DMs disabled)
+
+  **6. Validation improvements:**
+
+  - Enhance /api/v1/guilds/{guildId}/validate-mention endpoint
+  - Actually query Discord API to verify user exists in guild
+  - Parse mention formats: @username, <@123456>, plain text
+  - Return helpful error messages for invalid mentions
+
+- **Success**:
+
+  - EditableParticipantList visible in both create and edit game forms
   - Participants can be added in create mode (starts empty)
   - Participants can be added/removed/reordered in edit mode
   - Real-time validation provides visual feedback (500ms debounce)
@@ -1584,27 +1674,24 @@ Refactor CreateGame and EditGame pages to eliminate code duplication by extracti
   - Removed participants trigger Discord message update
   - Removed users receive DM notification
   - Discord message always shows current participant state
-  - No code duplication between create and edit pages
-  - Consistent UX across both workflows
+  - Consistent behavior across create and edit workflows
 
 - **Research References**:
 
-  - #file:../../frontend/src/pages/CreateGame.tsx (Lines 1-299) - Current implementation to refactor
-  - #file:../../frontend/src/pages/EditGame.tsx (Lines 1-299) - Current implementation to refactor
-  - #file:../../frontend/src/components/ParticipantList.tsx (Lines 1-97) - Read-only participant display pattern
-  - #file:../../frontend/src/types/index.ts (Lines 34-70) - GameSession and Participant interfaces
-  - #file:../../shared/models/participant.py (Lines 1-57) - Participant model with pre_filled_position
-  - #file:../../services/api/routes/games.py - Game CRUD endpoints to extend
+  - #file:../../frontend/src/components/GameForm.tsx (Lines 1-334) - Form component to modify
+  - #file:../../frontend/src/components/EditableParticipantList.tsx (Lines 1-180) - Component to integrate
+  - #file:../../services/api/routes/games.py - Game endpoints to extend
+  - #file:../../services/api/services/games.py - Game service to extend
   - #file:../../services/bot/handlers/game_handler.py - Discord message update logic
+  - #file:../../shared/messaging/events.py - Event definitions
   - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 450-510) - Participant management patterns
 
 - **Dependencies**:
-  - Task 4.4 completion (game management interface)
-  - Task 6.4 completion (ParticipantList component)
+  - Task 12.4 completion (GameForm and EditableParticipantList components)
   - RabbitMQ events infrastructure (Task 1.3)
   - Discord bot message formatting (Task 2.3)
 
-### Task 12.5: Add game templates for recurring sessions
+### Task 12.6: Add game templates for recurring sessions
 
 Create template system for games that repeat weekly/monthly with same settings.
 
