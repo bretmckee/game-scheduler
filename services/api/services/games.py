@@ -178,6 +178,7 @@ class GameService:
             min_players=resolved_min_players,
             reminder_minutes=resolved_reminder_minutes,
             rules=resolved_rules,
+            notify_role_ids=game_data.notify_role_ids,
             status=game_model.GameStatus.SCHEDULED.value,
         )
 
@@ -369,6 +370,8 @@ class GameService:
             game.reminder_minutes = update_data.reminder_minutes
         if update_data.rules is not None:
             game.rules = update_data.rules
+        if update_data.notify_role_ids is not None:
+            game.notify_role_ids = update_data.notify_role_ids
         if update_data.status is not None:
             game.status = update_data.status
 
@@ -589,6 +592,7 @@ class GameService:
             scheduled_at=game.scheduled_at,
             scheduled_at_unix=int(game.scheduled_at.timestamp()),
             max_players=game.max_players,
+            notify_role_ids=game.notify_role_ids,
         )
 
         event = messaging_events.Event(

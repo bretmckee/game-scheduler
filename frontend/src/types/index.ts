@@ -48,6 +48,7 @@ export interface GameSession {
   host: Participant;
   rules: string | null;
   reminder_minutes: number[] | null;
+  notify_role_ids: string[] | null;
   status: 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
   participant_count: number;
   participants?: Participant[];
@@ -93,4 +94,12 @@ export interface DiscordGuild {
   icon: string | null;
   owner: boolean;
   permissions: string;
+}
+
+export interface DiscordRole {
+  id: string;
+  name: string;
+  color: number;
+  position: number;
+  managed: boolean;
 }

@@ -275,21 +275,21 @@ Implement a complete Discord game scheduling system with microservices architect
 - Authorization correctly distinguishes between hosts, Bot Managers, and admins
 - Permission checks cached and performant
 
-### [ ] Phase 10: Notify Roles Field
+### [x] Phase 10: Notify Roles Field
 
-- [ ] Task 10.1: Add notifyRoleIds field to GameSession model
+- [x] Task 10.1: Add notifyRoleIds field to GameSession model
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 942-956)
 
-- [ ] Task 10.2: Update schemas to include notifyRoleIds
+- [x] Task 10.2: Update schemas to include notifyRoleIds
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 958-975)
 
-- [ ] Task 10.3: Implement role mention formatting in bot announcements
+- [x] Task 10.3: Implement role mention formatting in bot announcements
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 977-994)
 
-- [ ] Task 10.4: Update frontend for role selection
+- [x] Task 10.4: Update frontend for role selection
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 996-1019)
 - Notify roles field validated and stored correctly
 - Role mentions appear in Discord game announcements

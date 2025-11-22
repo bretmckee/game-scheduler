@@ -47,6 +47,7 @@ class GameSession(Base):
     host_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
     rules: Mapped[str | None] = mapped_column(Text, nullable=True)
     reminder_minutes: Mapped[list[int] | None] = mapped_column(JSON, nullable=True)
+    notify_role_ids: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default=GameStatus.SCHEDULED.value, index=True)
     created_at: Mapped[datetime] = mapped_column(default=utc_now, index=True)
     updated_at: Mapped[datetime] = mapped_column(default=utc_now, onupdate=utc_now)
