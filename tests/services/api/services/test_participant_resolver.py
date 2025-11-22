@@ -237,4 +237,55 @@ async def test_discord_api_error_handling(resolver, mock_discord_client):
     assert len(valid) == 0
     assert len(errors) == 1
     assert errors[0]["input"] == "@testuser"
-    assert "403" in errors[0]["reason"] or "Missing Access" in errors[0]["reason"]
+    assert "Discord API error" in errors[0]["reason"]
+    assert errors[0]["suggestions"] == []
+
+
+@pytest.mark.asyncio
+async def test_network_error_handling(resolver, mock_discord_client):
+    """Test handling of network errors during Discord API calls."""
+    mock_session = MagicMock()
+
+    async def raise_network_error(*args, **kwargs):
+        raise Exception("Network connection failed")
+
+    mock_session.get = MagicMock(side_effect=raise_network_error)
+    mock_discord_client._get_session = AsyncMock(return_value=mock_session)
+
+    valid, errors = await resolver.resolve_initial_participants(
+        guild_discord_id="123456789",
+        participant_inputs=["@testuser"],
+        access_token="token",
+    )
+
+    assert len(valid) == 0
+    assert len(errors) == 1
+    assert errors[0]["input"] == "@testuser"
+    assert "error" in errors[0]["reason"].lower()
+    assert errors[0]["suggestions"] == []
+
+
+@pytest.mark.asyncio
+async def test_malformed_response_handling(resolver, mock_discord_client):
+    """Test handling of malformed Discord API responses."""
+    json_data = [
+        {
+            # Missing 'user' field - malformed response
+            "id": "111",
+        }
+    ]
+
+    mock_session = MagicMock()
+    mock_session.get = MagicMock(return_value=create_mock_http_response(200, json_data))
+    mock_discord_client._get_session = AsyncMock(return_value=mock_session)
+
+    valid, errors = await resolver.resolve_initial_participants(
+        guild_discord_id="123456789",
+        participant_inputs=["@testuser"],
+        access_token="token",
+    )
+
+    assert len(valid) == 0
+    assert len(errors) == 1
+    assert errors[0]["input"] == "@testuser"
+    assert "error" in errors[0]["reason"].lower()
