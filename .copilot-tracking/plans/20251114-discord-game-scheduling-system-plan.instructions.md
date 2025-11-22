@@ -344,7 +344,7 @@ Implement a complete Discord game scheduling system with microservices architect
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1241-1281)
 
-- [ ] Task 11.11: Fix API crash when specifying an @user
+- [x] Task 11.11: Fix API crash when specifying an @user
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1283-1320)
 

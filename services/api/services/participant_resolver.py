@@ -139,12 +139,27 @@ class ParticipantResolver:
                             }
                         )
 
-                except Exception as e:
-                    logger.error(f"Error searching guild members: {e}")
+                except discord_client_module.DiscordAPIError as e:
+                    logger.error(
+                        f"Discord API error searching guild {guild_discord_id} "
+                        f"for query '{mention_text}': {e.status} - {e.message}"
+                    )
                     validation_errors.append(
                         {
                             "input": input_text,
-                            "reason": f"API error: {str(e)}",
+                            "reason": f"Discord API error: {e.message}",
+                            "suggestions": [],
+                        }
+                    )
+                except Exception as e:
+                    logger.error(
+                        f"Unexpected error searching guild members for '{mention_text}': {e}",
+                        exc_info=True,
+                    )
+                    validation_errors.append(
+                        {
+                            "input": input_text,
+                            "reason": "Internal error searching for user",
                             "suggestions": [],
                         }
                     )
@@ -191,16 +206,30 @@ class ParticipantResolver:
                 params=params,
                 headers={"Authorization": f"Bot {self.discord_client.bot_token}"},
             ) as response:
-                response_data = await response.json()
-
                 if response.status != 200:
-                    error_msg = response_data.get("message", "Unknown error")
+                    try:
+                        response_data = await response.json()
+                        error_msg = response_data.get("message", "Unknown error")
+                    except Exception:
+                        error_msg = f"HTTP {response.status}"
+
+                    logger.error(
+                        f"Discord API error searching guild {guild_discord_id}: "
+                        f"{response.status} - {error_msg}"
+                    )
                     raise discord_client_module.DiscordAPIError(response.status, error_msg)
 
+                response_data = await response.json()
                 return response_data
-        except Exception as e:
-            logger.error(f"Network error searching guild members: {e}")
+
+        except discord_client_module.DiscordAPIError:
             raise
+        except Exception as e:
+            logger.error(
+                f"Network error searching guild members in {guild_discord_id}: {e}",
+                exc_info=True,
+            )
+            raise discord_client_module.DiscordAPIError(500, f"Network error: {str(e)}") from e
 
     async def ensure_user_exists(
         self,
