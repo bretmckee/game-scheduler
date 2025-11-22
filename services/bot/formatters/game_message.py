@@ -37,6 +37,7 @@ class GameMessageFormatter:
         status: str,
         rules: str | None = None,
         channel_id: str | None = None,
+        signup_instructions: str | None = None,
     ) -> discord.Embed:
         """Create an embed for a game session.
 
@@ -51,14 +52,21 @@ class GameMessageFormatter:
             status: Game status
             rules: Optional game rules
             channel_id: Optional Discord channel ID
+            signup_instructions: Optional signup instructions
 
         Returns:
             Configured Discord embed
         """
         status_emoji = format_game_status_emoji(status)
+
+        # Truncate description to first 100 chars for Discord message
+        truncated_description = description
+        if description and len(description) > 100:
+            truncated_description = description[:97] + "..."
+
         embed = discord.Embed(
             title=f"{status_emoji} {game_title}",
-            description=description,
+            description=truncated_description,
             color=GameMessageFormatter._get_status_color(status),
             timestamp=scheduled_at,
         )
@@ -81,6 +89,15 @@ class GameMessageFormatter:
             embed.add_field(
                 name="✅ Participants",
                 value=format_participant_list(participant_ids, max_display=15),
+                inline=False,
+            )
+
+        if signup_instructions:
+            embed.add_field(
+                name="ℹ️ Signup Instructions",
+                value=signup_instructions[:400]
+                if len(signup_instructions) > 400
+                else signup_instructions,
                 inline=False,
             )
 
@@ -156,6 +173,7 @@ def format_game_announcement(
     status: str,
     rules: str | None = None,
     channel_id: str | None = None,
+    signup_instructions: str | None = None,
 ) -> tuple[discord.Embed, GameView]:
     """Format a complete game announcement with embed and buttons.
 
@@ -171,6 +189,7 @@ def format_game_announcement(
         status: Game status
         rules: Optional game rules
         channel_id: Optional voice channel ID
+        signup_instructions: Optional signup instructions
 
     Returns:
         Tuple of (embed, view) ready to send to Discord
@@ -188,6 +207,7 @@ def format_game_announcement(
         status=status,
         rules=rules,
         channel_id=channel_id,
+        signup_instructions=signup_instructions,
     )
 
     view = GameView.from_game_data(
