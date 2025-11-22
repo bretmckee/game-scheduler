@@ -358,7 +358,7 @@ Implement a complete Discord game scheduling system with microservices architect
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1330-1356)
 
-- [ ] Task 12.3: Fix default_rules related problem in bot
+- [x] Task 12.3: Fix default_rules related problem in bot
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1358-1376)
 
