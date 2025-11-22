@@ -192,6 +192,8 @@ Modified the bot's join and leave game notifications to send as direct messages 
 - alembic.ini - Updated database URL to use correct credentials from .env
 - docker/bot.Dockerfile - Added bot-specific requirements installation and shared package setup
 - shared/models/game.py - Added min_players field to GameSession model with default value of 1
+- services/api/routes/games.py - Added min_players validation in create_game and update_game endpoints (Task 7.3)
+- services/api/services/games.py - Updated create_game and update_game to handle and validate min_players field (Task 7.3)
 
 ### Phase 6: Refactor Host from Participants (Task 6.4 Complete)
 
@@ -5586,3 +5588,47 @@ Verified and fixed coding standards compliance across the entire Python codebase
 - API responses include min_players for all games (backward compatible with default 1)
 - Pydantic validation prevents invalid min_players values (< 1)
 - Prepares for Task 7.3 (service validation logic for min <= max)
+
+### Phase 7: Min Players Field Implementation (Task 7.3 Complete)
+
+**Date**: 2025-11-21
+
+- services/api/routes/games.py - Added min_players validation to POST and PUT endpoints
+- services/api/services/games.py - Updated create_game and update_game methods with validation
+
+**Changes:**
+
+- **POST /api/v1/games (create_game)**:
+  - Added validation check: if max_players is provided, ensure min_players <= max_players
+  - Returns HTTP 422 with clear error message if validation fails
+  - Early validation before service layer processing
+- **PUT /api/v1/games/{game_id} (update_game)**:
+  - Updated error handling to return HTTP 422 for validation errors (min > max)
+  - Distinguishes between validation errors (422), not found (404), and permission errors (403)
+- **GameService.create_game()**:
+  - Added resolved_min_players from game_data.min_players
+  - Validates resolved_min_players <= resolved_max_players after inheritance resolution
+  - Raises ValueError with detailed message including actual min/max values
+  - Stores min_players in GameSession during creation
+- **GameService.update_game()**:
+  - Updates game.min_players if provided in update_data
+  - Validates final min_players <= max_players after all field updates
+  - Raises ValueError if validation fails
+
+**Validation Logic:**
+
+- **Create Flow**: Validates min <= max against resolved max_players (after inheritance)
+- **Update Flow**: Validates min <= max after applying all field updates
+- **Error Messages**: Include actual values in error messages for debugging
+- **HTTP Status Codes**:
+  - 422 Unprocessable Entity for validation errors
+  - 404 Not Found for missing games
+  - 403 Forbidden for permission errors
+
+**Impact:**
+
+- API prevents creation of games with invalid min/max player constraints
+- API prevents updates that would violate min <= max constraint
+- Clear validation errors with actionable messages
+- Validation happens at both route layer (early check) and service layer (after resolution)
+- Database integrity maintained with proper validation
