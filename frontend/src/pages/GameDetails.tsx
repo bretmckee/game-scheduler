@@ -150,7 +150,7 @@ export const GameDetails: FC = () => {
     });
   };
 
-  const isHost = user && game && game.host_id === user.user_uuid;
+  const isHost = user && game && game.host?.user_id === user.user_uuid;
   const isParticipant =
     user &&
     game &&
@@ -206,10 +206,16 @@ export const GameDetails: FC = () => {
           <Typography variant="h6" gutterBottom>
             Game Details
           </Typography>
-          {game.host_display_name && (
-            <Typography variant="body2" paragraph>
-              <strong>Host:</strong> {game.host_display_name}
-            </Typography>
+          {game.host && game.host.display_name && (
+            <Box sx={{ mb: 2 }}>
+              <Chip
+                label={`Host: ${game.host.display_name}`}
+                color="secondary"
+                size="medium"
+                variant="outlined"
+                sx={{ fontWeight: 'bold' }}
+              />
+            </Box>
           )}
           <Typography variant="body2" paragraph>
             <strong>When:</strong> {formatDateTime(game.scheduled_at)}
