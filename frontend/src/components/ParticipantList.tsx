@@ -13,11 +13,13 @@ import { Participant } from '../types';
 
 interface ParticipantListProps {
   participants: Participant[];
+  minPlayers?: number;
   maxPlayers?: number;
 }
 
 export const ParticipantList: FC<ParticipantListProps> = ({
   participants,
+  minPlayers = 1,
   maxPlayers,
 }) => {
   if (!participants || participants.length === 0) {
@@ -43,17 +45,18 @@ export const ParticipantList: FC<ParticipantListProps> = ({
     }
   };
 
+  const joinedCount = participants.filter((p) => p.status === 'JOINED').length;
+  const playerDisplay = maxPlayers
+    ? (minPlayers === maxPlayers
+        ? `${joinedCount}/${maxPlayers}`
+        : `${joinedCount}/${minPlayers}-${maxPlayers}`)
+    : `${joinedCount}`;
+
   return (
     <Box>
-      {maxPlayers && (
-        <Typography variant="body2" sx={{ mb: 1 }}>
-          <strong>
-            {participants.filter((p) => p.status === 'JOINED').length}/
-            {maxPlayers}
-          </strong>{' '}
-          players
-        </Typography>
-      )}
+      <Typography variant="body2" sx={{ mb: 1 }}>
+        <strong>{playerDisplay}</strong> players
+      </Typography>
 
       <List>
         {participants.map((participant) => (
