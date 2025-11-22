@@ -1306,121 +1306,9 @@ The API crashes when a user attempts to create a game with an @mention in the in
   - Phase 3 completion (API endpoints)
   - Phase 4 completion (frontend game management with pre-populated participants)
 
-## Phase 12: Integration & Testing
+## Phase 12: Advanced Features
 
-### Task 12.1: Integration tests for inter-service communication
-
-Test event publishing and consumption between services using test containers.
-
-- **Files**:
-  - `tests/integration/test_event_flow.py` - Event delivery tests
-  - `tests/integration/test_bot_to_api.py` - Bot → API communication
-  - `tests/integration/test_scheduler_notifications.py` - Notification flow
-  - `tests/integration/conftest.py` - Test fixtures
-- **Success**:
-  - Events published by one service received by others
-  - Database changes propagate correctly
-  - Message ordering preserved
-  - No data loss under normal conditions
-- **Research References**:
-  - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 1425-1510) - Message flows
-  - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 1539-1568) - Event schemas
-- **Dependencies**:
-  - pytest 7.4+
-  - testcontainers 3.7+
-  - All Phase 1-5 services
-
-### Task 12.2: End-to-end tests for user workflows
-
-Test complete user journeys from login through game creation, joining, and notifications.
-
-- **Files**:
-  - `tests/e2e/test_create_and_join.py` - Complete game lifecycle
-  - `tests/e2e/test_oauth_flow.py` - Authentication journey
-  - `tests/e2e/test_notifications.py` - Notification delivery
-  - `tests/e2e/test_settings_inheritance.py` - Configuration hierarchy
-- **Success**:
-  - User can log in via OAuth2
-  - Game creation succeeds with all options
-  - Discord button clicks work
-  - Notifications sent at correct times
-  - Settings inherit correctly
-- **Research References**:
-  - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 1425-1538) - Complete flows
-  - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 1569-1612) - Success criteria
-- **Dependencies**:
-  - Playwright or Selenium for browser automation
-  - All services running
-
-### Task 12.3: Load testing for concurrent operations
-
-Test system performance under concurrent Discord button clicks and API requests.
-
-- **Files**:
-  - `tests/load/test_concurrent_joins.py` - Concurrent button clicks
-  - `tests/load/test_api_throughput.py` - API request load
-  - `tests/load/test_message_broker.py` - RabbitMQ throughput
-- **Success**:
-  - 100 concurrent button clicks succeed
-  - No duplicate participant records
-  - Response times < 3 seconds under load
-  - No message loss in RabbitMQ
-  - Database connections pooled correctly
-- **Research References**:
-  - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 1190-1231) - Button interaction requirements
-  - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 1341-1360) - Scalability architecture
-- **Dependencies**:
-  - Locust or k6 for load generation
-  - Monitoring tools
-
-### Task 12.4: Test display name resolution scenarios
-
-Test display name resolution with various user states and edge cases.
-
-- **Files**:
-  - `tests/unit/test_display_name_resolver.py` - Unit tests for resolver
-  - `tests/integration/test_display_names.py` - Integration tests with Discord API
-- **Success**:
-  - Nicknames prioritized over global names
-  - Global names used when no nickname
-  - Username fallback works
-  - Users who left guild show "Unknown User"
-  - Cache hit rate > 90%
-  - Batch resolution efficient
-- **Research References**:
-  - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 125-148) - User identity strategy
-  - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 196-247) - Resolution service
-- **Dependencies**:
-  - Task 3.6 (display name service)
-  - Mock Discord API responses
-
-### Task 12.5: Test pre-populated participants feature
-
-Test all scenarios for pre-populating participants with validation and error handling.
-
-- **Files**:
-  - `tests/unit/test_participant_resolver.py` - Unit tests for resolver
-  - `tests/integration/test_participant_validation.py` - Integration tests
-  - `tests/e2e/test_participant_prepopulation.py` - E2E validation flows
-- **Success**:
-  - Valid @mentions resolve correctly
-  - Invalid mentions return 422 error
-  - Ambiguous mentions show suggestions
-  - Placeholder strings accepted
-  - Form data preserved on error
-  - Disambiguation UI functional
-  - Participant count limits work
-- **Research References**:
-  - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 313-417) - Pre-population design
-  - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 418-614) - Validation implementation
-  - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 615-750) - Error recovery
-- **Dependencies**:
-  - Task 3.5 (game API)
-  - Task 4.5 (frontend validation)
-
-## Phase 13: Advanced Features
-
-### Task 13.1: Implement waitlist support
+### Task 12.1: Implement waitlist support
 
 Add waitlist functionality when games reach maxPlayers capacity.
 
@@ -1439,7 +1327,7 @@ Add waitlist functionality when games reach maxPlayers capacity.
 - **Dependencies**:
   - All Phase 2-5 services
 
-### Task 13.2: Add game templates for recurring sessions
+### Task 12.2: Add game templates for recurring sessions
 
 Create template system for games that repeat weekly/monthly with same settings.
 
@@ -1458,7 +1346,7 @@ Create template system for games that repeat weekly/monthly with same settings.
 - **Dependencies**:
   - Phase 3 and 4 (API and frontend)
 
-### Task 13.3: Build calendar export functionality
+### Task 12.3: Build calendar export functionality
 
 Generate iCal format calendar files for users to import into their calendar apps.
 
@@ -1477,7 +1365,7 @@ Generate iCal format calendar files for users to import into their calendar apps
   - icalendar Python library
   - Task 3.5 (game API)
 
-### Task 13.4: Create statistics dashboard
+### Task 12.4: Create statistics dashboard
 
 Build dashboard showing game history, participation rates, and trends per guild/channel.
 
