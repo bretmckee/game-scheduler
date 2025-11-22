@@ -7029,6 +7029,8 @@ All 11 tests in participant resolver test suite now pass.
 - services/api/services/games.py - Fixed guild_id parameter in resolve_initial_participants call
 - services/api/services/participant_resolver.py - Enhanced exception handling and error logging
 - tests/services/api/services/test_participant_resolver.py - Added network error and malformed response tests
+- services/bot/commands/config_guild.py - Removed default_rules parameter from command (field removed in migration 008)
+- services/bot/commands/config_channel.py - Removed default_rules description from command help text (field removed in migration 008)
 
 ---
 
@@ -7243,7 +7245,7 @@ This ensures that if a host specifies participants as "@Alice, Bob, @Charlie", t
 
 - **services/api/routes/games.py**: Added sorting in `_build_game_response()` so all API responses return participants in the correct order
 - **frontend/src/components/ParticipantList.tsx**: Simplified to just display participants in received order - no frontend sorting needed
-- **Benefits**: 
+- **Benefits**:
   - Single source of truth for sort order (backend)
   - Consistent ordering across all view paths (web, Discord bot)
   - More efficient - sorting done once on server instead of in every client
@@ -7257,9 +7259,10 @@ Backend now returns participants pre-sorted: priority participants (pre-populate
 - **tests/shared/utils/test_participant_sorting.py**: Added comprehensive unit tests (16 test cases covering all scenarios)
 - **services/api/routes/games.py**: Updated to use `sort_participants()` utility
 - **services/bot/events/handlers.py**: Updated both handlers to use `sort_participants()` utility
-- **shared/utils/__init__.py**: Exported `sort_participants` for easy importing
+- **shared/utils/**init**.py**: Exported `sort_participants` for easy importing
 
 **Benefits**:
+
 - Single, testable function for sorting logic
 - 16 unit tests ensure correctness
 - Easier to modify and maintain
@@ -7279,82 +7282,43 @@ Previously relied on database insertion order (not guaranteed) to maintain prior
 - **services/api/services/games.py**: Added comment before participant creation loop explaining that the code depends on sequential creation resulting in incrementing `joined_at` timestamps, which `participant_sorting.py` relies on for maintaining order
 - **tests/services/api/services/test_participant_creation_order.py**: NEW - Unit test that verifies participants created sequentially receive incrementing timestamps and that sorting by `joined_at` preserves creation order. This documents and validates the critical assumption that participant ordering depends on.
 
-### Task 12.2: Explicit Position Field for Pre-filled Participants (Complete)
+---
 
-**Date**: 2025-11-22
+## Phase 12: Advanced Features - Task 12.3 (2025-11-22)
 
-Replaced timestamp-based ordering of pre-populated participants with an explicit integer position field, enabling proper reordering when participant list editing is implemented in future tasks.
+### Task 12.3: Fix default_rules related problem in bot
 
-**Added:**
-- alembic/versions/009_add_pre_filled_position.py - Database migration adding pre_filled_position field to game_participants table
-  - Migrates existing pre-populated participants to have positions based on their joined_at timestamps
-  - Position field is nullable (NULL for regular participants who join via button)
+**Date**: 2025-11-22  
+**Status**: ✅ Complete  
+**Implementation**: Removed deprecated `default_rules` parameter from bot commands
 
-**Modified:**
-- shared/models/participant.py - Added pre_filled_position: int | None field to GameParticipant model
-- shared/schemas/participant.py - Added pre_filled_position field to ParticipantResponse schema
-- services/api/services/games.py - Updated pre-population logic to assign sequential positions (1, 2, 3...) to participants
-  - Removed comment about relying on database timestamps
-  - Now explicitly sets position during creation using enumerate(valid_participants, start=1)
-- shared/utils/participant_sorting.py - Updated sort_participants() to use position field for ordering
-  - Pre-populated/placeholder participants now sorted by pre_filled_position (fallback to joined_at if position is null)
-  - Regular participants still sorted by joined_at as before
-- frontend/src/types/index.ts - Added pre_filled_position: number | null to Participant interface
-- frontend/src/components/ParticipantList.tsx - Added client-side sorting logic using position field
-  - Implements failsafe sorting: priority participants by position, regular participants by joined_at
-  - Handles null position values gracefully with Infinity fallback
+### Changes Made
 
-**Tests Updated:**
-- tests/shared/utils/test_participant_sorting.py - Updated all test cases to include pre_filled_position values
-  - Mock participant fixture now accepts pre_filled_position parameter
-  - Tests verify position-based sorting (not timestamp-based)
-  - All 11 tests passing
+**Problem**: The `default_rules` field was removed from `GuildConfiguration` and `ChannelConfiguration` models in migration 008, but bot commands still referenced this field in their parameters and help text.
 
-**Implementation Details:**
+**Solution**: Removed all references to `default_rules` from bot configuration commands:
 
-Position assignment during game creation:
-```python
-for position, participant_data in enumerate(valid_participants, start=1):
-    if participant_data["type"] == "discord":
-        participant = participant_model.GameParticipant(
-            # ... other fields ...
-            pre_filled_position=position,
-        )
-```
+1. **services/bot/commands/config_guild.py**:
 
-Sorting logic:
-```python
-priority_participants = sorted(
-    [p for p in participants if p.is_pre_populated or p.status == "PLACEHOLDER"],
-    key=lambda p: (
-        p.pre_filled_position if p.pre_filled_position is not None else float("inf"),
-        p.joined_at,
-    ),
-)
-```
+   - Removed `default_rules: str | None = None` parameter from `config_guild_command()`
+   - Removed logic that sets `guild_config.default_rules`
+   - Removed `default_rules` from `@app_commands.describe()` decorator
+   - Removed `default_rules` from `config_guild_slash()` function signature and call
 
-**Benefits:**
-1. **Explicit Ordering**: Position is now a direct property, not inferred from timestamps
-2. **Future-Proof**: Enables drag-and-drop reordering in future UI implementations
-3. **Database Agnostic**: No longer depends on database INSERT timing behavior
-4. **Clear Intent**: Position field explicitly documents participant ordering
-5. **Migration Safe**: Existing pre-populated participants get positions calculated from timestamps
-6. **Backward Compatible**: Regular (non-pre-filled) participants work exactly as before (position=NULL)
+2. **services/bot/commands/config_channel.py**:
+   - Removed `default_rules="Rules override for this channel"` from `@app_commands.describe()` decorator
 
-**Database Migration:**
-- Adds nullable integer column `pre_filled_position` to `game_participants` table
-- Calculates positions for existing pre-populated participants using ROW_NUMBER() window function
-- Downgrade safely removes the column
+### Verification
 
-**Testing:**
-- All participant sorting tests updated and passing
-- Python linting passes (ruff check)
-- TypeScript linting passes (existing warnings unrelated to changes)
-- Database migration executed successfully
+- ✅ Linting passes: `ruff check` shows no errors
+- ✅ All tests pass: 20 tests in test_config_guild.py and test_config_channel.py
+- ✅ No remaining references to `default_rules` in bot service code
+- ✅ Commands now properly reflect database schema without deprecated field
 
-**Impact:**
-- Pre-populated participants now have stable, explicit ordering
-- Future tasks can implement participant reordering by updating position values
-- No breaking changes to API or frontend behavior
-- Frontend displays participants in correct order with client-side failsafe
+### Impact
 
+- Bot commands `/config-guild` and `/config-channel` no longer accept or reference `default_rules` parameter
+- Configuration help text updated to reflect removal
+- Eliminates confusion about non-existent field
+- Aligns bot commands with current database schema (migration 008)
+- No breaking changes to API or frontend (already updated in previous tasks)
