@@ -1188,7 +1188,35 @@ Ensure all Python and TypeScript code passes linting and all unit tests are pass
 - **Dependencies**:
   - All previous phases with code changes
 
-### Task 11.8: Display min players and max players on the same line
+### Task 11.8: Install eslint and prettier and fix any issues found
+
+Install ESLint and Prettier with the recommended configuration for React and TypeScript, configure them with appropriate rules, and fix all linting and formatting issues they identify in the frontend codebase.
+
+- **Files**:
+  - `frontend/package.json` - Add ESLint and related plugins as dev dependencies
+  - `frontend/.eslintrc.cjs` - Create or update ESLint configuration
+  - `frontend/src/**/*.ts` - Fix ESLint errors in TypeScript files
+  - `frontend/src/**/*.tsx` - Fix ESLint errors in React component files
+  - `frontend/.eslintignore` - Configure files to exclude from linting
+  - `frontend/vite.config.ts` - Ensure ESLint plugin integration if needed
+- **Success**:
+  - ESLint installed with appropriate plugins (@typescript-eslint, eslint-plugin-react, eslint-plugin-react-hooks)
+  - ESLint configuration file created with recommended rules for React and TypeScript
+  - `cd frontend && npm run lint` command available in package.json scripts
+  - `cd frontend && npm run lint` passes with 0 errors and 0 warnings
+  - All code follows ESLint configured style guidelines
+  - No ESLint rules disabled without justification
+  - Configuration aligns with project conventions from #file:../../.github/instructions/reactjs.instructions.md
+- **Research References**:
+  - #file:../../.github/instructions/reactjs.instructions.md - React and linting best practices
+  - #file:../../.github/instructions/typescript-5-es2022.instructions.md - TypeScript standards
+  - #file:../../frontend/package.json - Frontend tooling scripts
+  - #fetch:https://eslint.org/docs/latest/use/getting-started - ESLint setup guide
+  - #fetch:https://typescript-eslint.io/getting-started - TypeScript ESLint setup
+- **Dependencies**:
+  - Phase 4 completion (frontend implementation)
+
+### Task 11.9: Display min players and max players on the same line
 
 The Min Players and Max Players fields should be displayed side-by-side on the same line rather than stacked vertically. This creates a more compact layout and visually reinforces that these are related range values.
 
