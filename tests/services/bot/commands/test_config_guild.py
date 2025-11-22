@@ -255,13 +255,15 @@ def test_create_config_display_embed(mock_guild, sample_guild_config):
     embed = _create_config_display_embed(mock_guild, sample_guild_config)
 
     assert "Test Guild" in embed.title
-    assert len(embed.fields) == 3
+    assert len(embed.fields) == 4  # Updated to include Bot Managers field
     assert embed.fields[0].name == "Default Max Players"
     assert "10" in embed.fields[0].value
     assert embed.fields[1].name == "Default Reminders"
     assert "60, 15" in embed.fields[1].value
     assert embed.fields[2].name == "Default Rules"
     assert "Be respectful" in embed.fields[2].value
+    assert embed.fields[3].name == "Bot Managers"
+    assert "Not set" in embed.fields[3].value
 
 
 def test_create_config_display_embed_long_rules(mock_guild, sample_guild_config):
