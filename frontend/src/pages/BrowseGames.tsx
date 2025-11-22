@@ -34,7 +34,7 @@ export const BrowseGames: FC = () => {
         const params: any = {
           status: selectedStatus !== 'ALL' ? selectedStatus : undefined,
         };
-        
+
         if (guildId) {
           params.guild_id = guildId;
         }
@@ -61,9 +61,7 @@ export const BrowseGames: FC = () => {
         setGames(filteredGames);
       } catch (err: any) {
         console.error('Failed to fetch games:', err);
-        setError(
-          err.response?.data?.detail || 'Failed to load games. Please try again.'
-        );
+        setError(err.response?.data?.detail || 'Failed to load games. Please try again.');
       } finally {
         setLoading(false);
       }
