@@ -61,7 +61,11 @@ export const GameCard: FC<GameCardProps> = ({ game, showActions = true }) => {
   };
 
   const participantCount = game.participant_count || 0;
+  const minPlayers = game.min_players || 1;
   const maxPlayers = game.max_players || 10;
+  const playerDisplay = minPlayers === maxPlayers 
+    ? `${participantCount}/${maxPlayers}` 
+    : `${participantCount}/${minPlayers}-${maxPlayers}`;
 
   return (
     <Card sx={{ mb: 2 }}>
@@ -86,7 +90,7 @@ export const GameCard: FC<GameCardProps> = ({ game, showActions = true }) => {
             <strong>When:</strong> {formatDateTime(game.scheduled_at)}
           </Typography>
           <Typography variant="body2">
-            <strong>Players:</strong> {participantCount}/{maxPlayers}
+            <strong>Players:</strong> {playerDisplay}
           </Typography>
         </Box>
 

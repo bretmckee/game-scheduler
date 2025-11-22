@@ -194,6 +194,61 @@ Modified the bot's join and leave game notifications to send as direct messages 
 - shared/models/game.py - Added min_players field to GameSession model with default value of 1
 - services/api/routes/games.py - Added min_players validation in create_game and update_game endpoints (Task 7.3)
 - services/api/services/games.py - Updated create_game and update_game to handle and validate min_players field (Task 7.3)
+- frontend/src/types/index.ts - Added minPlayers field to GameSession interface (Task 7.4)
+- frontend/src/pages/CreateGame.tsx - Added min_players input field with client-side validation (Task 7.4)
+- frontend/src/pages/EditGame.tsx - Added min_players input field with client-side validation (Task 7.4)
+- frontend/src/components/GameCard.tsx - Updated to display X/min-max participant count format (Task 7.4)
+- frontend/src/components/ParticipantList.tsx - Updated to display X/min-max format (Task 7.4)
+- frontend/src/pages/GameDetails.tsx - Passed minPlayers prop to ParticipantList component (Task 7.4)
+
+### Phase 7: Min Players Field Implementation (Task 7.4 Complete)
+
+**Date**: 2025-11-21
+
+- frontend/src/types/index.ts - Added minPlayers field to GameSession interface
+- frontend/src/pages/CreateGame.tsx - Added min_players input field with validation
+- frontend/src/pages/EditGame.tsx - Added min_players input field with validation
+- frontend/src/components/GameCard.tsx - Updated participant count display to X/min-max format
+- frontend/src/components/ParticipantList.tsx - Updated to show min-max range
+- frontend/src/pages/GameDetails.tsx - Passed minPlayers prop to ParticipantList
+
+**Changes:**
+
+- Added `minPlayers` field to GameSession TypeScript interface (nullable number)
+- CreateGame form includes optional Min Players input field (defaults to 1 if not provided)
+- EditGame form includes Min Players field, populated from existing game data
+- Client-side validation prevents submitting when min_players > max_players
+- Clear validation error message: "Minimum players cannot be greater than maximum players."
+- GameCard displays participant count as "X/min-max" (e.g., "3/1-5") when min ≠ max
+- GameCard displays "X/max" (e.g., "3/5") when min = max for cleaner display
+- ParticipantList component updated to show min-max format consistently
+- Helper text on form fields: "Minimum players required (default: 1)"
+
+**Display Logic:**
+
+```typescript
+// When min === max: "3/5"
+// When min !== max: "3/1-5"
+const playerDisplay =
+  minPlayers === maxPlayers
+    ? `${participantCount}/${maxPlayers}`
+    : `${participantCount}/${minPlayers}-${maxPlayers}`;
+```
+
+**Validation:**
+
+- Frontend validates min_players ≤ max_players before API submission
+- API validation handled by Task 7.3 (backend returns 422 if min > max)
+- Input fields have min=1, max=100 HTML attributes for browser validation
+- Error state clears when user corrects validation issues
+
+**Impact:**
+
+- Game hosts can specify minimum player requirements during creation and editing
+- Participant count displays clarify both minimum and maximum player expectations
+- Users can see at a glance if games need more players to meet minimum threshold
+- Consistent min-max format across all game views (cards, details, lists)
+- Backward compatible: existing games without min_players default to 1
 
 ### Phase 6: Refactor Host from Participants (Task 6.4 Complete)
 
