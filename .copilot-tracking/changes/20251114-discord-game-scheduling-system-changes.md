@@ -191,6 +191,7 @@ Modified the bot's join and leave game notifications to send as direct messages 
 
 - alembic.ini - Updated database URL to use correct credentials from .env
 - docker/bot.Dockerfile - Added bot-specific requirements installation and shared package setup
+- shared/models/game.py - Added min_players field to GameSession model with default value of 1
 
 ### Phase 6: Refactor Host from Participants (Task 6.4 Complete)
 
@@ -5526,3 +5527,33 @@ Verified and fixed coding standards compliance across the entire Python codebase
 - Linting errors fixed: 3
 - Test pass rate: 100% (467/467)
 - Code coverage: Comprehensive unit test coverage maintained
+
+### Phase 7: Min Players Field Implementation (Task 7.1 Complete)
+
+**Date**: 2025-11-21
+
+- shared/models/game.py - Added min_players field to GameSession model
+- alembic/versions/004_add_min_players_field.py - Created Alembic migration for min_players
+
+**Changes:**
+
+- Added `min_players: Mapped[int]` field to GameSession model with default value of 1
+- Field positioned before max_players for logical ordering (min before max)
+- Column configured with NOT NULL constraint and server default of 1
+- Migration creates column with server_default="1" for existing records
+- Migration is reversible (downgrade removes column)
+- Applied to database successfully: min_players column exists with NOT NULL and default 1
+
+**Database Verification:**
+
+- Migration `004_add_min_players_field` applied successfully
+- Column definition: `min_players | integer | not null | 1`
+- Existing games automatically updated with min_players=1
+- New games will default to min_players=1 unless specified
+
+**Impact:**
+
+- GameSession model now supports minimum player requirements
+- Database schema updated with backward-compatible default
+- Prepares for Task 7.2 (schema updates) and Task 7.3 (validation logic)
+- No breaking changes to existing code (defaults handle existing games)

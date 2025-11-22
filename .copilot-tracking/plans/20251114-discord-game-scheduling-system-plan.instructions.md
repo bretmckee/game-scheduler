@@ -175,7 +175,7 @@ Implement a complete Discord game scheduling system with microservices architect
 
 ### [ ] Phase 7: Min Players Field Implementation
 
-- [ ] Task 7.1: Add min_players field to GameSession model
+- [x] Task 7.1: Add min_players field to GameSession model
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 713-728)
 
