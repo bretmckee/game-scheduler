@@ -17,39 +17,11 @@
 
 
 import { FC, useState, useEffect } from 'react';
-import {
-  Container,
-  Typography,
-  Box,
-  TextField,
-  Button,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  CircularProgress,
-  Alert,
-  Paper,
-  SelectChangeEvent,
-  Grid,
-} from '@mui/material';
-import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { Container, CircularProgress, Alert } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiClient } from '../api/client';
 import { Channel, GameSession } from '../types';
-
-interface FormData {
-  title: string;
-  description: string;
-  signupInstructions: string;
-  scheduledAt: Date | null;
-  channelId: string;
-  minPlayers: string;
-  maxPlayers: string;
-  reminderMinutes: string;
-}
+import { GameForm, GameFormData } from '../components/GameForm';
 
 export const EditGame: FC = () => {
   const navigate = useNavigate();
@@ -57,18 +29,7 @@ export const EditGame: FC = () => {
   const [game, setGame] = useState<GameSession | null>(null);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [formData, setFormData] = useState<FormData>({
-    title: '',
-    description: '',
-    signupInstructions: '',
-    scheduledAt: null,
-    channelId: '',
-    minPlayers: '',
-    maxPlayers: '',
-    reminderMinutes: '',
-  });
 
   useEffect(() => {
     const fetchGameAndChannels = async () => {
@@ -84,17 +45,6 @@ export const EditGame: FC = () => {
           `/api/v1/guilds/${gameData.guild_id}/channels`
         );
         setChannels(channelsResponse.data);
-
-        setFormData({
-          title: gameData.title,
-          description: gameData.description,
-          signupInstructions: gameData.signup_instructions || '',
-          scheduledAt: new Date(gameData.scheduled_at),
-          channelId: gameData.channel_id,
-          minPlayers: gameData.min_players?.toString() || '',
-          maxPlayers: gameData.max_players?.toString() || '',
-          reminderMinutes: gameData.reminder_minutes?.join(', ') || '',
-        });
       } catch (err: any) {
         console.error('Failed to fetch game:', err);
         setError('Failed to load game. Please try again.');
@@ -106,44 +56,20 @@ export const EditGame: FC = () => {
     fetchGameAndChannels();
   }, [gameId]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleSelectChange = (event: SelectChangeEvent) => {
-    setFormData((prev) => ({ ...prev, channelId: event.target.value }));
-  };
-
-  const handleDateChange = (date: Date | null) => {
-    setFormData((prev) => ({ ...prev, scheduledAt: date }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!gameId || !formData.channelId || !formData.scheduledAt) {
-      setError('Please fill in all required fields.');
-      return;
+  const handleSubmit = async (formData: GameFormData) => {
+    if (!gameId) {
+      throw new Error('Game ID is required');
     }
 
     const minPlayers = formData.minPlayers ? parseInt(formData.minPlayers) : null;
     const maxPlayers = formData.maxPlayers ? parseInt(formData.maxPlayers) : null;
 
-    if (minPlayers && maxPlayers && minPlayers > maxPlayers) {
-      setError('Minimum players cannot be greater than maximum players.');
-      return;
-    }
-
     try {
-      setSaving(true);
-      setError(null);
-
       const payload = {
         title: formData.title,
         description: formData.description,
         signup_instructions: formData.signupInstructions || null,
-        scheduled_at: formData.scheduledAt.toISOString(),
+        scheduled_at: formData.scheduledAt!.toISOString(),
         channel_id: formData.channelId,
         min_players: minPlayers,
         max_players: maxPlayers,
@@ -153,13 +79,10 @@ export const EditGame: FC = () => {
       };
 
       await apiClient.put(`/api/v1/games/${gameId}`, payload);
-
       navigate(`/games/${gameId}`);
     } catch (err: any) {
       console.error('Failed to update game:', err);
-      setError(err.response?.data?.detail || 'Failed to update game. Please try again.');
-    } finally {
-      setSaving(false);
+      throw err;
     }
   };
 
@@ -179,138 +102,25 @@ export const EditGame: FC = () => {
     );
   }
 
-  return (
-    <LocalizationProvider dateAdapter={AdapterDateFns}>
-      <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
-        <Paper elevation={3} sx={{ p: 4 }}>
-          <Typography variant="h4" gutterBottom>
-            Edit Game
-          </Typography>
-
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
-
-          <Box component="form" onSubmit={handleSubmit} sx={{ mt: 3 }}>
-            <DateTimePicker
-              label="Scheduled Time *"
-              value={formData.scheduledAt}
-              onChange={handleDateChange}
-              disabled={saving}
-              sx={{ width: '100%', mt: 2, mb: 1 }}
-            />
-
-            <TextField
-              fullWidth
-              label="Reminder Times (minutes)"
-              name="reminderMinutes"
-              value={formData.reminderMinutes}
-              onChange={handleChange}
-              margin="normal"
-              helperText="Comma-separated (e.g., 60, 15). Leave empty for default"
-              disabled={saving}
-            />
-
-            <FormControl fullWidth margin="normal" required>
-              <InputLabel>Channel</InputLabel>
-              <Select
-                value={formData.channelId}
-                onChange={handleSelectChange}
-                label="Channel"
-                disabled={saving}
-              >
-                {channels.map((channel) => (
-                  <MenuItem key={channel.id} value={channel.id}>
-                    {channel.channel_name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <TextField
-              fullWidth
-              required
-              label="Game Title"
-              name="title"
-              value={formData.title}
-              onChange={handleChange}
-              margin="normal"
-              disabled={saving}
-            />
-
-            <TextField
-              fullWidth
-              required
-              multiline
-              rows={3}
-              label="Description"
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              margin="normal"
-              disabled={saving}
-            />
-
-            <TextField
-              fullWidth
-              multiline
-              rows={2}
-              label="Signup Instructions"
-              name="signupInstructions"
-              value={formData.signupInstructions}
-              onChange={handleChange}
-              margin="normal"
-              helperText="Special requirements or instructions for participants"
-              disabled={saving}
-            />
-
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Min Players"
-                  name="minPlayers"
-                  type="number"
-                  value={formData.minPlayers}
-                  onChange={handleChange}
-                  helperText="Minimum players required (default: 1)"
-                  disabled={saving}
-                  inputProps={{ min: 1, max: 100 }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Max Players"
-                  name="maxPlayers"
-                  type="number"
-                  value={formData.maxPlayers}
-                  onChange={handleChange}
-                  helperText="Leave empty to use channel/guild default"
-                  disabled={saving}
-                  inputProps={{ min: 1, max: 100 }}
-                />
-              </Grid>
-            </Grid>
-
-            <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
-              <Button type="submit" variant="contained" disabled={saving} fullWidth>
-                {saving ? <CircularProgress size={24} /> : 'Save Changes'}
-              </Button>
-              <Button
-                variant="outlined"
-                onClick={() => navigate(`/games/${gameId}`)}
-                disabled={saving}
-                fullWidth
-              >
-                Cancel
-              </Button>
-            </Box>
-          </Box>
-        </Paper>
+  if (error) {
+    return (
+      <Container maxWidth="md" sx={{ mt: 4 }}>
+        <Alert severity="error">{error}</Alert>
       </Container>
-    </LocalizationProvider>
+    );
+  }
+
+  return (
+    <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
+      <GameForm
+        mode="edit"
+        initialData={game}
+        guildId={game.guild_id}
+        channels={channels}
+        roles={[]}
+        onSubmit={handleSubmit}
+        onCancel={() => navigate(`/games/${gameId}`)}
+      />
+    </Container>
   );
 };

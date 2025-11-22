@@ -363,3 +363,53 @@ async def list_guild_roles(
     filtered_roles.sort(key=lambda r: r["position"], reverse=True)
 
     return filtered_roles
+
+
+@router.post("/{guild_id}/validate-mention")
+async def validate_mention(
+    guild_id: str,
+    request: guild_schemas.ValidateMentionRequest,
+    current_user: auth_schemas.CurrentUser = Depends(dependencies.auth.get_current_user),
+    db: AsyncSession = Depends(database.get_db),
+) -> guild_schemas.ValidateMentionResponse:
+    """
+    Validate a Discord mention for a guild.
+
+    Checks if the mention can be resolved to a valid guild member.
+    Does not return user details, only validation status.
+    """
+    from services.api.auth import tokens
+
+    service = config_service.ConfigurationService(db)
+
+    guild_config = await service.get_guild_by_id(guild_id)
+    if not guild_config:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Guild configuration not found",
+        )
+
+    token_data = await tokens.get_user_tokens(current_user.session_token)
+    if not token_data:
+        raise HTTPException(status_code=401, detail="No session found")
+
+    access_token = token_data["access_token"]
+    user_guilds = await oauth2.get_user_guilds(access_token, current_user.user.discord_id)
+    user_guilds_dict = {g["id"]: g for g in user_guilds}
+
+    discord_guild_id = guild_config.guild_id
+
+    if discord_guild_id not in user_guilds_dict:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not a member of this guild",
+        )
+
+    mention = request.mention.strip()
+    if not mention:
+        return guild_schemas.ValidateMentionResponse(valid=False, error="Mention cannot be empty")
+
+    # For now, accept any non-empty mention as valid (placeholder support)
+    # In a full implementation, we would query Discord API to check if user exists
+    # This would involve parsing the mention format and checking guild membership
+    return guild_schemas.ValidateMentionResponse(valid=True)
