@@ -192,6 +192,45 @@ Modified the bot's join and leave game notifications to send as direct messages 
 - alembic.ini - Updated database URL to use correct credentials from .env
 - docker/bot.Dockerfile - Added bot-specific requirements installation and shared package setup
 
+### Phase 6: Refactor Host from Participants (Task 6.4 Complete)
+
+**Date**: 2025-11-21
+
+- frontend/src/types/index.ts - Updated GameSession interface to use host field as Participant object
+- frontend/src/components/GameCard.tsx - Display host as separate Chip component with secondary color
+- frontend/src/pages/GameDetails.tsx - Show host prominently with Chip component, update isHost check
+- frontend/src/pages/MyGames.tsx - Update host filtering to use game.host.user_id
+- frontend/src/pages/**tests**/EditGame.test.tsx - Update test mock data with host as Participant object
+
+**Changes:**
+
+- Replaced old host fields (host_id, host_discord_id, host_display_name) with single `host: Participant` field in GameSession interface
+- GameCard now displays host as outlined secondary Chip: "Host: [display_name]"
+- GameDetails displays host as prominent Chip component separate from game details section
+- Updated isHost check to use `game.host?.user_id === user.user_uuid` instead of `game.host_id`
+- MyGames filters hosted/joined games using `game.host?.user_id` instead of `game.host_id`
+- EditGame test mock updated with complete Participant object for host field
+
+**Testing:**
+
+- All EditGame tests passing (7/7 tests, 100% pass rate)
+- test_loads_and_displays_game_data: Validates game data loading with new host structure
+- test_displays_loading_state_initially: Loading state renders correctly
+- test_displays_error_when_game_not_found: Error handling verified
+- test_handles_save_successfully: Save functionality working with new structure
+- test_handles_cancel_button: Cancel button navigation verified
+- test_has_required_field_validation: Form validation working
+- test_handles_update_error: Update error handling verified
+
+**Impact:**
+
+- Frontend now displays host separately from participants list
+- Host visually distinguished with secondary color Chip component
+- Participant list no longer includes host (matches backend separation)
+- Participant count accurately excludes host
+- Consistent host display across all game views (card, details, my-games)
+- All components use new API structure with host as Participant object
+
 ### Phase 6: Refactor Host from Participants (Task 6.1 Complete)
 
 **Date**: 2025-11-20
