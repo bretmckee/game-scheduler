@@ -4,7 +4,7 @@ from .base import Base
 from .channel import ChannelConfiguration
 from .game import GameSession, GameStatus
 from .guild import GuildConfiguration
-from .participant import GameParticipant, ParticipantStatus
+from .participant import GameParticipant
 from .user import User
 
 __all__ = [
@@ -15,5 +15,4 @@ __all__ = [
     "GameSession",
     "GameStatus",
     "GameParticipant",
-    "ParticipantStatus",
 ]
