@@ -5557,3 +5557,32 @@ Verified and fixed coding standards compliance across the entire Python codebase
 - Database schema updated with backward-compatible default
 - Prepares for Task 7.2 (schema updates) and Task 7.3 (validation logic)
 - No breaking changes to existing code (defaults handle existing games)
+
+### Phase 7: Min Players Field Implementation (Task 7.2 Complete)
+
+**Date**: 2025-11-21
+
+- shared/schemas/game.py - Added min_players field to all game schemas
+
+**Changes:**
+
+- Added `min_players: int` field to GameCreateRequest with default value 1 and validation ge=1
+- Added `min_players: int | None` field to GameUpdateRequest with validation ge=1 (optional)
+- Added `min_players: int` field to GameResponse with default value 1
+- All fields properly documented with Field descriptions
+- Validation ensures min_players must be >= 1
+
+**Schema Updates:**
+
+- **GameCreateRequest**: min_players defaults to 1, must be >= 1 (Pydantic ge=1 validator)
+- **GameUpdateRequest**: min_players is optional for updates, must be >= 1 if provided
+- **GameResponse**: min_players always present in API responses (defaults to 1 if missing)
+- Positioned min_players logically after max_players in all schemas
+
+**Impact:**
+
+- API clients can now specify minimum player requirements when creating games
+- API clients can update min_players via PATCH/PUT endpoints
+- API responses include min_players for all games (backward compatible with default 1)
+- Pydantic validation prevents invalid min_players values (< 1)
+- Prepares for Task 7.3 (service validation logic for min <= max)
