@@ -147,14 +147,17 @@ async def test_handle_game_created_success(event_handlers, mock_bot, sample_game
             return_value=sample_game,
         ):
             with patch("services.bot.events.handlers.format_game_announcement") as mock_format:
+                mock_content = "<@&123456789>"  # Example role mention
                 mock_embed = MagicMock()
                 mock_view = MagicMock()
-                mock_format.return_value = (mock_embed, mock_view)
+                mock_format.return_value = (mock_content, mock_embed, mock_view)
 
                 data = {"game_id": sample_game.id, "channel_id": sample_game.channel_id}
                 await event_handlers._handle_game_created(data)
 
-                mock_channel.send.assert_awaited_once_with(embed=mock_embed, view=mock_view)
+                mock_channel.send.assert_awaited_once_with(
+                    content=mock_content, embed=mock_embed, view=mock_view
+                )
                 assert sample_game.message_id == str(mock_message.id)
                 mock_db.commit.assert_awaited_once()
 
@@ -203,9 +206,10 @@ async def test_handle_game_updated_success(event_handlers, mock_bot, sample_game
             return_value=sample_game,
         ):
             with patch("services.bot.events.handlers.format_game_announcement") as mock_format:
+                mock_content = None  # No role mentions for update
                 mock_embed = MagicMock()
                 mock_view = MagicMock()
-                mock_format.return_value = (mock_embed, mock_view)
+                mock_format.return_value = (mock_content, mock_embed, mock_view)
 
                 data = {"game_id": sample_game.id}
                 await event_handlers._handle_game_updated(data)
@@ -216,7 +220,9 @@ async def test_handle_game_updated_success(event_handlers, mock_bot, sample_game
                 mock_discord_channel.fetch_message.assert_awaited_once_with(
                     int(sample_game.message_id)
                 )
-                mock_message.edit.assert_awaited_once_with(embed=mock_embed, view=mock_view)
+                mock_message.edit.assert_awaited_once_with(
+                    content=mock_content, embed=mock_embed, view=mock_view
+                )
 
 
 @pytest.mark.asyncio
@@ -283,9 +289,10 @@ async def test_handle_game_updated_debouncing(event_handlers, mock_bot, sample_g
             return_value=sample_game,
         ):
             with patch("services.bot.events.handlers.format_game_announcement") as mock_format:
+                mock_content = None  # No role mentions for update
                 mock_embed = MagicMock()
                 mock_view = MagicMock()
-                mock_format.return_value = (mock_embed, mock_view)
+                mock_format.return_value = (mock_content, mock_embed, mock_view)
 
                 data = {"game_id": sample_game.id}
 
@@ -307,8 +314,9 @@ async def test_handle_game_updated_debouncing(event_handlers, mock_bot, sample_g
                 mock_discord_channel.fetch_message.assert_awaited_once_with(
                     int(sample_game.message_id)
                 )
-                mock_message.edit.assert_awaited_once_with(embed=mock_embed, view=mock_view)
-                mock_message.edit.assert_awaited_once_with(embed=mock_embed, view=mock_view)
+                mock_message.edit.assert_awaited_once_with(
+                    content=mock_content, embed=mock_embed, view=mock_view
+                )
 
 
 @pytest.mark.asyncio
