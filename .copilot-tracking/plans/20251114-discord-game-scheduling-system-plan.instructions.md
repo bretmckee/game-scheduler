@@ -344,40 +344,44 @@ Implement a complete Discord game scheduling system with microservices architect
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1241-1281)
 
+- [ ] Task 11.11: Fix API crash when specifying an @user
+
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1283-1320)
+
 ### [ ] Phase 12: Integration & Testing
 
 - [ ] Task 12.1: Integration tests for inter-service communication
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1285-1306)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1312-1333)
 
 - [ ] Task 12.2: End-to-end tests for user workflows
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1307-1327)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1335-1360)
 
 - [ ] Task 12.3: Load testing for concurrent operations
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1329-1348)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1362-1387)
 
 - [ ] Task 12.4: Test display name resolution scenarios
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1350-1369)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1389-1413)
 
 - [ ] Task 12.5: Test pre-populated participants feature
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1371-1393)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1415-1442)
 
 ### [ ] Phase 13: Advanced Features
 
 - [ ] Task 13.1: Implement waitlist support
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1397-1414)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1423-1440)
 
 - [ ] Task 13.2: Add game templates for recurring sessions
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1416-1433)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1442-1459)
 
 - [ ] Task 13.3: Build calendar export functionality
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1435-1452)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1461-1478)
 
 - [ ] Task 13.4: Create statistics dashboard
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1454-1474)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1480-1500)
