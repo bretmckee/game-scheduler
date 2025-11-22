@@ -225,6 +225,14 @@ export const CreateGame: FC = () => {
           )}
 
           <Box component="form" onSubmit={handleSubmit} sx={{ mt: 3 }}>
+            <DateTimePicker
+              label="Scheduled Time *"
+              value={formData.scheduledAt}
+              onChange={handleDateChange}
+              disabled={loading}
+              sx={{ width: '100%', mt: 2, mb: 1 }}
+            />
+
             <TextField
               fullWidth
               required
@@ -260,14 +268,6 @@ export const CreateGame: FC = () => {
               margin="normal"
               helperText="Special requirements or instructions for participants"
               disabled={loading}
-            />
-
-            <DateTimePicker
-              label="Scheduled Time *"
-              value={formData.scheduledAt}
-              onChange={handleDateChange}
-              disabled={loading}
-              sx={{ width: '100%', mt: 2, mb: 1 }}
             />
 
             <FormControl fullWidth margin="normal" required>
