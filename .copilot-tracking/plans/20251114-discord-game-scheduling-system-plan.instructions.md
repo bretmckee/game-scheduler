@@ -350,7 +350,7 @@ Implement a complete Discord game scheduling system with microservices architect
 
 ### [ ] Phase 12: Advanced Features
 
-- [ ] Task 12.1: Implement waitlist support
+- [x] Task 12.1: Implement waitlist support
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1324-1341)
 

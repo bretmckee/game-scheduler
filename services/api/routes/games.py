@@ -22,6 +22,7 @@ from shared.models import game as game_model
 from shared.schemas import auth as auth_schemas
 from shared.schemas import game as game_schemas
 from shared.schemas import participant as participant_schemas
+from shared.utils import participant_sorting
 
 logger = logging.getLogger(__name__)
 
@@ -275,11 +276,13 @@ async def _build_game_response(game: game_model.GameSession) -> game_schemas.Gam
         game: Game session model with participants and guild loaded
 
     Returns:
-        Game response schema with resolved display names
+        Game response schema with resolved display names and sorted participants
     """
     participant_count = sum(1 for p in game.participants if p.user_id is not None)
 
-    discord_user_ids = [p.user.discord_id for p in game.participants if p.user is not None]
+    sorted_participants = participant_sorting.sort_participants(game.participants)
+
+    discord_user_ids = [p.user.discord_id for p in sorted_participants if p.user is not None]
 
     # Add host to the list of users to resolve
     host_discord_id = game.host.discord_id if game.host else None
@@ -297,7 +300,7 @@ async def _build_game_response(game: game_model.GameSession) -> game_schemas.Gam
             )
 
     participant_responses = []
-    for participant in game.participants:
+    for participant in sorted_participants:
         discord_id = participant.user.discord_id if participant.user else None
         display_name = participant.display_name
 
