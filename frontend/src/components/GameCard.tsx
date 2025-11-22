@@ -70,12 +70,18 @@ export const GameCard: FC<GameCardProps> = ({ game, showActions = true }) => {
           <Typography variant="body2">
             <strong>Players:</strong> {participantCount}/{maxPlayers}
           </Typography>
-          {game.host_display_name && (
-            <Typography variant="body2">
-              <strong>Host:</strong> {game.host_display_name}
-            </Typography>
-          )}
         </Box>
+
+        {game.host && game.host.display_name && (
+          <Box sx={{ mb: 1 }}>
+            <Chip
+              label={`Host: ${game.host.display_name}`}
+              color="secondary"
+              size="small"
+              variant="outlined"
+            />
+          </Box>
+        )}
 
         {game.rules && (
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
