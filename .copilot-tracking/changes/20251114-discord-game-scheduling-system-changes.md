@@ -6529,3 +6529,58 @@ Repositioned the Reminder Times field to appear immediately after the Channel fi
 - Enhanced usability: Related fields in proximity reduce mental load
 - Consistent with task 11.4 and 11.5: Scheduled Time and Channel at top
 - Professional UI: Logical progression from temporal to descriptive fields
+
+### Phase 11: Bug Fixes - Task 11.7 Completed (2025-11-21)
+
+**Fix All Unit Test and Lint Messages**
+
+Fixed all Python linting errors and unit test failures to ensure code quality and pass CI/CD requirements.
+
+**Changes:**
+
+- **`alembic/versions/003_remove_host_participant.py`**: Fixed import ordering with ruff --fix
+- **`tests/services/api/services/test_games.py`**: Updated test signatures for update_game and delete_game to use new Bot Manager authorization parameters (current_user, role_service, db)
+- **`tests/services/api/services/test_games.py`**: Added patch import from unittest.mock
+- **`tests/services/api/services/test_games.py`**: Fixed CurrentUser instantiation to use correct schema from shared.schemas.auth
+- **`tests/services/api/services/test_games.py`**: Mocked can_manage_game permission check with patch decorator
+- **`tests/services/bot/events/test_handlers.py`**: Updated test_handle_game_created_success to expect 3-tuple return (content, embed, view) from format_game_announcement
+- **`tests/services/bot/events/test_handlers.py`**: Updated test_handle_game_updated_success to expect 3-tuple and include content parameter in message.edit call
+- **`tests/services/bot/events/test_handlers.py`**: Updated test_handle_game_updated_debouncing to expect 3-tuple and include content parameter
+- **`tests/services/bot/commands/test_config_guild.py`**: Updated test_create_config_display_embed to expect 4 fields including Bot Managers field
+- **`services/api/services/games.py`**: Fixed min_players/max_players validation to check for None values before comparison
+
+**Test Results:**
+
+- **Python Linting**: `uv run ruff check .` - All checks passed (1 error fixed automatically)
+- **Python Tests**: `uv run pytest tests/` - 467 passed, 0 failed, 12 warnings
+- **Frontend Build**: `npm run build` - Successful compilation (TypeScript checks passed)
+- **Frontend Linting**: ESLint configuration missing (task for later setup)
+
+**Fixed Test Failures:**
+
+1. `test_update_game_success`: Updated to use CurrentUser schema with Bot Manager authorization flow
+2. `test_update_game_not_host`: Updated to test new permission denial with Bot Manager checks
+3. `test_delete_game_success`: Updated to use CurrentUser schema with Bot Manager authorization
+4. `test_handle_game_created_success`: Fixed to expect 3-tuple from format_game_announcement with role mention content
+5. `test_handle_game_updated_success`: Fixed to expect 3-tuple and include content in edit call
+6. `test_handle_game_updated_debouncing`: Fixed to expect 3-tuple with content parameter
+7. `test_create_config_display_embed`: Updated to expect 4 embed fields (added Bot Managers field)
+
+**Validation Check Details:**
+
+- min_players/max_players validation now properly handles None values
+- Tests use correct CurrentUser schema from shared.schemas.auth (not services.api.auth.schemas)
+- Bot event handler tests properly mock 3-tuple return from format_game_announcement (content, embed, view)
+- Permission checks properly mocked with patch decorator for can_manage_game
+- All fixtures and mocks correctly structured for new API signatures
+
+**Impact:**
+
+- All Python unit tests passing (100% pass rate)
+- All Python code linted and formatted correctly
+- Frontend builds successfully with no TypeScript errors
+- Tests properly validate new Bot Manager authorization flow
+- Tests properly validate notify roles functionality (3-tuple message format)
+- Code quality maintained across all services
+- Ready for CI/CD pipeline integration
+- Zero test failures, zero linting errors

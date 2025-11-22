@@ -20,7 +20,7 @@
 
 import datetime
 import uuid
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -451,84 +451,131 @@ async def test_list_games_with_filters(game_service, mock_db, sample_guild):
 
 
 @pytest.mark.asyncio
-async def test_update_game_success(game_service, mock_db, sample_user):
+async def test_update_game_success(game_service, mock_db, sample_user, sample_guild):
     """Test updating game by host."""
+    from shared.schemas.auth import CurrentUser
+
     game_id = str(uuid.uuid4())
     mock_game = game_model.GameSession(
         id=game_id,
         title="Old Title",
         host_id=sample_user.id,
-        guild_id=str(uuid.uuid4()),
+        guild_id=sample_guild.id,
         channel_id=str(uuid.uuid4()),
     )
     mock_game.host = sample_user
+    mock_game.guild = sample_guild
 
     game_result = MagicMock()
     game_result.scalar_one_or_none.return_value = mock_game
     mock_db.execute = AsyncMock(return_value=game_result)
     mock_db.commit = AsyncMock()
 
-    updated = await game_service.update_game(
-        game_id=game_id,
-        update_data=game_schemas.GameUpdateRequest(
-            title="New Title",
-            description="Updated description",
-            status="SCHEDULED",
-        ),
-        host_user_id=sample_user.id,
+    # Mock current user
+    current_user = CurrentUser(
+        user=sample_user, access_token="mock_token", session_token="mock_session"
     )
 
-    assert updated.title == "New Title"
-    mock_db.commit.assert_called_once()
+    # Mock role service with can_manage_game patched
+    mock_role_service = MagicMock()
 
-
-@pytest.mark.asyncio
-async def test_update_game_not_host(game_service, mock_db, sample_user):
-    """Test updating game by non-host raises ValueError."""
-    game_id = str(uuid.uuid4())
-    other_user_id = str(uuid.uuid4())
-    other_user = user_model.User(id=other_user_id, discord_id="otheruser123")
-    mock_game = game_model.GameSession(id=game_id, title="Title", host_id=other_user_id)
-    mock_game.host = other_user
-
-    game_result = MagicMock()
-    game_result.scalar_one_or_none.return_value = mock_game
-    mock_db.execute = AsyncMock(return_value=game_result)
-
-    with pytest.raises(ValueError, match="Only the host can update"):
-        await game_service.update_game(
+    with patch("services.api.dependencies.permissions.can_manage_game", return_value=True):
+        updated = await game_service.update_game(
             game_id=game_id,
             update_data=game_schemas.GameUpdateRequest(
                 title="New Title",
                 description="Updated description",
                 status="SCHEDULED",
             ),
-            host_user_id=sample_user.id,
+            current_user=current_user,
+            role_service=mock_role_service,
+            db=mock_db,
         )
+
+    assert updated.title == "New Title"
+    mock_db.commit.assert_called_once()
 
 
 @pytest.mark.asyncio
-async def test_delete_game_success(game_service, mock_db, sample_user):
+async def test_update_game_not_host(game_service, mock_db, sample_user, sample_guild):
+    """Test updating game by non-host raises ValueError."""
+    from shared.schemas.auth import CurrentUser
+
+    game_id = str(uuid.uuid4())
+    other_user_id = str(uuid.uuid4())
+    other_user = user_model.User(id=other_user_id, discord_id="otheruser123")
+    mock_game = game_model.GameSession(
+        id=game_id,
+        title="Title",
+        host_id=other_user_id,
+        guild_id=sample_guild.id,
+        channel_id=str(uuid.uuid4()),
+    )
+    mock_game.host = other_user
+    mock_game.guild = sample_guild
+
+    game_result = MagicMock()
+    game_result.scalar_one_or_none.return_value = mock_game
+    mock_db.execute = AsyncMock(return_value=game_result)
+
+    # Mock current user (not the host)
+    current_user = CurrentUser(
+        user=sample_user, access_token="mock_token", session_token="mock_session"
+    )
+
+    mock_role_service = MagicMock()
+
+    with patch("services.api.dependencies.permissions.can_manage_game", return_value=False):
+        with pytest.raises(ValueError, match="You don't have permission to update"):
+            await game_service.update_game(
+                game_id=game_id,
+                update_data=game_schemas.GameUpdateRequest(
+                    title="New Title",
+                    description="Updated description",
+                    status="SCHEDULED",
+                ),
+                current_user=current_user,
+                role_service=mock_role_service,
+                db=mock_db,
+            )
+
+
+@pytest.mark.asyncio
+async def test_delete_game_success(game_service, mock_db, sample_user, sample_guild):
     """Test deleting game by host."""
+    from shared.schemas.auth import CurrentUser
+
     game_id = str(uuid.uuid4())
     mock_game = game_model.GameSession(
         id=game_id,
         title="Title",
         host_id=sample_user.id,
         status="SCHEDULED",
-        guild_id=str(uuid.uuid4()),
+        guild_id=sample_guild.id,
         channel_id=str(uuid.uuid4()),
     )
     mock_game.host = sample_user
+    mock_game.guild = sample_guild
 
     game_result = MagicMock()
     game_result.scalar_one_or_none.return_value = mock_game
-    user_result = MagicMock()
-    user_result.scalar_one_or_none.return_value = sample_user
-    mock_db.execute = AsyncMock(side_effect=[game_result, user_result])
+    mock_db.execute = AsyncMock(return_value=game_result)
     mock_db.commit = AsyncMock()
 
-    await game_service.delete_game(game_id=game_id, host_user_id=sample_user.id)
+    # Mock current user
+    current_user = CurrentUser(
+        user=sample_user, access_token="mock_token", session_token="mock_session"
+    )
+
+    mock_role_service = MagicMock()
+
+    with patch("services.api.dependencies.permissions.can_manage_game", return_value=True):
+        await game_service.delete_game(
+            game_id=game_id,
+            current_user=current_user,
+            role_service=mock_role_service,
+            db=mock_db,
+        )
 
     assert mock_game.status == "CANCELLED"
     mock_db.commit.assert_called_once()
