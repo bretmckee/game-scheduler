@@ -24,6 +24,7 @@ import { Channel, GameSession } from '../types';
 interface FormData {
   title: string;
   description: string;
+  signupInstructions: string;
   scheduledAt: Date | null;
   channelId: string;
   minPlayers: string;
@@ -43,6 +44,7 @@ export const EditGame: FC = () => {
   const [formData, setFormData] = useState<FormData>({
     title: '',
     description: '',
+    signupInstructions: '',
     scheduledAt: null,
     channelId: '',
     minPlayers: '',
@@ -69,6 +71,7 @@ export const EditGame: FC = () => {
         setFormData({
           title: gameData.title,
           description: gameData.description,
+          signupInstructions: gameData.signup_instructions || '',
           scheduledAt: new Date(gameData.scheduled_at),
           channelId: gameData.channel_id,
           minPlayers: gameData.min_players?.toString() || '',
@@ -125,6 +128,7 @@ export const EditGame: FC = () => {
       const payload = {
         title: formData.title,
         description: formData.description,
+        signup_instructions: formData.signupInstructions || null,
         scheduled_at: formData.scheduledAt.toISOString(),
         channel_id: formData.channelId,
         min_players: minPlayers,
@@ -200,6 +204,19 @@ export const EditGame: FC = () => {
               value={formData.description}
               onChange={handleChange}
               margin="normal"
+              disabled={saving}
+            />
+
+            <TextField
+              fullWidth
+              multiline
+              rows={2}
+              label="Signup Instructions"
+              name="signupInstructions"
+              value={formData.signupInstructions}
+              onChange={handleChange}
+              margin="normal"
+              helperText="Special requirements or instructions for participants"
               disabled={saving}
             />
 
