@@ -34,6 +34,7 @@ class GameCreateRequest(BaseModel):
     max_players: int | None = Field(
         None, description="Max players override (uses channel/guild default if None)"
     )
+    min_players: int = Field(1, description="Minimum players required (default: 1)", ge=1)
     reminder_minutes: list[int] | None = Field(
         None,
         description="Reminder times override (uses channel/guild default if None)",
@@ -54,6 +55,7 @@ class GameUpdateRequest(BaseModel):
     description: str | None = Field(None, min_length=1, max_length=2000)
     scheduled_at: datetime | None = None
     max_players: int | None = None
+    min_players: int | None = Field(None, ge=1)
     reminder_minutes: list[int] | None = None
     rules: str | None = None
     status: str | None = Field(
@@ -71,6 +73,7 @@ class GameResponse(BaseModel):
     scheduled_at: str = Field(..., description="Game start time (ISO 8601 UTC timestamp)")
     scheduled_at_unix: int = Field(..., description="Game start time (Unix timestamp for Discord)")
     max_players: int | None = Field(None, description="Max players (resolved)")
+    min_players: int = Field(1, description="Minimum players required")
     guild_id: str = Field(..., description="Guild ID (UUID)")
     channel_id: str = Field(..., description="Channel ID (UUID)")
     message_id: str | None = Field(None, description="Discord message snowflake ID")
