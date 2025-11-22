@@ -192,7 +192,8 @@ def format_game_announcement(
     rules: str | None = None,
     channel_id: str | None = None,
     signup_instructions: str | None = None,
-) -> tuple[discord.Embed, GameView]:
+    notify_role_ids: list[str] | None = None,
+) -> tuple[str | None, discord.Embed, GameView]:
     """Format a complete game announcement with embed and buttons.
 
     Args:
@@ -208,8 +209,10 @@ def format_game_announcement(
         rules: Optional game rules
         channel_id: Optional voice channel ID
         signup_instructions: Optional signup instructions
+        notify_role_ids: Optional list of Discord role IDs to mention
 
     Returns:
+        Tuple of (content, embed, view) where content contains role mentions if any
         Tuple of (embed, view) ready to send to Discord
     """
     formatter = GameMessageFormatter()
@@ -235,4 +238,10 @@ def format_game_announcement(
         status=status,
     )
 
-    return embed, view
+    # Format role mentions for message content (appears above embed)
+    content = None
+    if notify_role_ids:
+        role_mentions = " ".join([f"<@&{role_id}>" for role_id in notify_role_ids])
+        content = role_mentions
+
+    return content, embed, view

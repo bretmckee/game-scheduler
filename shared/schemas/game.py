@@ -20,7 +20,7 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class GameCreateRequest(BaseModel):
@@ -51,6 +51,24 @@ class GameCreateRequest(BaseModel):
         default_factory=list,
         description="Pre-populated participants (@mentions or placeholder strings)",
     )
+    notify_role_ids: list[str] | None = Field(
+        None,
+        description="Discord role IDs to mention in announcement (max 10)",
+        max_length=10,
+    )
+
+    @field_validator("notify_role_ids")
+    @classmethod
+    def validate_role_ids(cls, v: list[str] | None) -> list[str] | None:
+        """Validate role IDs are valid Discord snowflakes."""
+        if v is None:
+            return v
+        if len(v) > 10:
+            raise ValueError("Maximum 10 roles allowed")
+        for role_id in v:
+            if not role_id.isdigit() or len(role_id) < 17 or len(role_id) > 20:
+                raise ValueError(f"Invalid Discord role ID format: {role_id}")
+        return v
 
 
 class GameUpdateRequest(BaseModel):
@@ -68,6 +86,24 @@ class GameUpdateRequest(BaseModel):
         None,
         description="Game status (SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED)",
     )
+    notify_role_ids: list[str] | None = Field(
+        None,
+        description="Discord role IDs to mention in announcement (max 10)",
+        max_length=10,
+    )
+
+    @field_validator("notify_role_ids")
+    @classmethod
+    def validate_role_ids(cls, v: list[str] | None) -> list[str] | None:
+        """Validate role IDs are valid Discord snowflakes."""
+        if v is None:
+            return v
+        if len(v) > 10:
+            raise ValueError("Maximum 10 roles allowed")
+        for role_id in v:
+            if not role_id.isdigit() or len(role_id) < 17 or len(role_id) > 20:
+                raise ValueError(f"Invalid Discord role ID format: {role_id}")
+        return v
 
 
 class GameResponse(BaseModel):
@@ -93,6 +129,9 @@ class GameResponse(BaseModel):
     participant_count: int = Field(..., description="Current number of participants")
     participants: list["ParticipantResponse"] = Field(
         default_factory=list, description="List of participants"
+    )
+    notify_role_ids: list[str] | None = Field(
+        None, description="Discord role IDs to mention in announcement"
     )
     created_at: str = Field(..., description="Creation timestamp (UTC ISO)")
     updated_at: str = Field(..., description="Last update timestamp (UTC ISO)")

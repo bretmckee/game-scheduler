@@ -162,7 +162,7 @@ class EventHandlers:
                     p.user.discord_id for p in game.participants if p.user_id and p.user
                 ]
 
-                embed, view = format_game_announcement(
+                content, embed, view = format_game_announcement(
                     game_id=str(game.id),
                     game_title=game.title,
                     description=game.description,
@@ -174,9 +174,10 @@ class EventHandlers:
                     status=game.status,
                     rules=game.rules,
                     signup_instructions=game.signup_instructions,
+                    notify_role_ids=game.notify_role_ids,
                 )
 
-                message = await channel.send(embed=embed, view=view)
+                message = await channel.send(content=content, embed=embed, view=view)
 
                 game.message_id = str(message.id)
                 await db.commit()
@@ -297,7 +298,7 @@ class EventHandlers:
                     p.user.discord_id for p in game.participants if p.user_id and p.user
                 ]
 
-                embed, view = format_game_announcement(
+                content, embed, view = format_game_announcement(
                     game_id=str(game.id),
                     game_title=game.title,
                     description=game.description,
@@ -309,9 +310,10 @@ class EventHandlers:
                     status=game.status,
                     rules=game.rules,
                     signup_instructions=game.signup_instructions,
+                    notify_role_ids=game.notify_role_ids,
                 )
 
-                await message.edit(embed=embed, view=view)
+                await message.edit(content=content, embed=embed, view=view)
 
                 logger.info(f"Refreshed game message: game={game_id}, message={game.message_id}")
 

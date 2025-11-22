@@ -31,13 +31,15 @@ import {
   Alert,
   Paper,
   SelectChangeEvent,
+  Chip,
+  OutlinedInput,
 } from '@mui/material';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiClient } from '../api/client';
-import { Channel } from '../types';
+import { Channel, DiscordRole } from '../types';
 import { ValidationErrors } from '../components/ValidationErrors';
 
 interface FormData {
@@ -51,6 +53,7 @@ interface FormData {
   reminderMinutes: string;
   rules: string;
   initialParticipants: string;
+  notifyRoleIds: string[];
 }
 
 interface ValidationError {
@@ -74,6 +77,7 @@ export const CreateGame: FC = () => {
   const navigate = useNavigate();
   const { guildId } = useParams<{ guildId: string }>();
   const [channels, setChannels] = useState<Channel[]>([]);
+  const [roles, setRoles] = useState<DiscordRole[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<ValidationError[] | null>(null);
@@ -88,24 +92,27 @@ export const CreateGame: FC = () => {
     reminderMinutes: '',
     rules: '',
     initialParticipants: '',
+    notifyRoleIds: [],
   });
 
   useEffect(() => {
-    const fetchChannels = async () => {
+    const fetchData = async () => {
       if (!guildId) return;
 
       try {
-        const response = await apiClient.get<Channel[]>(
-          `/api/v1/guilds/${guildId}/channels`
-        );
-        setChannels(response.data);
+        const [channelsResponse, rolesResponse] = await Promise.all([
+          apiClient.get<Channel[]>(`/api/v1/guilds/${guildId}/channels`),
+          apiClient.get<DiscordRole[]>(`/api/v1/guilds/${guildId}/roles`),
+        ]);
+        setChannels(channelsResponse.data);
+        setRoles(rolesResponse.data);
       } catch (err: any) {
-        console.error('Failed to fetch channels:', err);
-        setError('Failed to load channels. Please try again.');
+        console.error('Failed to fetch data:', err);
+        setError('Failed to load guild data. Please try again.');
       }
     };
 
-    fetchChannels();
+    fetchData();
   }, [guildId]);
 
   const handleChange = (
@@ -117,6 +124,14 @@ export const CreateGame: FC = () => {
 
   const handleSelectChange = (event: SelectChangeEvent) => {
     setFormData((prev) => ({ ...prev, channelId: event.target.value }));
+  };
+
+  const handleRoleSelectChange = (event: SelectChangeEvent<string[]>) => {
+    const value = event.target.value;
+    setFormData((prev) => ({
+      ...prev,
+      notifyRoleIds: typeof value === 'string' ? value.split(',') : value,
+    }));
   };
 
   const handleDateChange = (date: Date | null) => {
@@ -157,6 +172,7 @@ export const CreateGame: FC = () => {
           ? formData.reminderMinutes.split(',').map((m) => parseInt(m.trim()))
           : null,
         rules: formData.rules || null,
+        notify_role_ids: formData.notifyRoleIds.length > 0 ? formData.notifyRoleIds : null,
         initial_participants: formData.initialParticipants
           ? formData.initialParticipants
               .split('\n')
@@ -330,6 +346,56 @@ export const CreateGame: FC = () => {
               helperText="Leave empty to use channel/guild default"
               disabled={loading}
             />
+
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Notify Roles</InputLabel>
+              <Select
+                multiple
+                value={formData.notifyRoleIds}
+                onChange={handleRoleSelectChange}
+                input={<OutlinedInput label="Notify Roles" />}
+                renderValue={(selected) => (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {selected.map((roleId) => {
+                      const role = roles.find((r) => r.id === roleId);
+                      return (
+                        <Chip
+                          key={roleId}
+                          label={role?.name || roleId}
+                          size="small"
+                          sx={{
+                            bgcolor: role?.color
+                              ? `#${role.color.toString(16).padStart(6, '0')}`
+                              : 'default',
+                            color: role?.color ? '#fff' : 'default',
+                          }}
+                        />
+                      );
+                    })}
+                  </Box>
+                )}
+                disabled={loading}
+              >
+                {roles.map((role) => (
+                  <MenuItem key={role.id} value={role.id}>
+                    <Chip
+                      label={role.name}
+                      size="small"
+                      sx={{
+                        bgcolor: role.color
+                          ? `#${role.color.toString(16).padStart(6, '0')}`
+                          : 'default',
+                        color: role.color ? '#fff' : 'default',
+                        mr: 1,
+                      }}
+                    />
+                  </MenuItem>
+                ))}
+              </Select>
+              <Typography variant="caption" sx={{ mt: 0.5, color: 'text.secondary' }}>
+                Users with these roles will be mentioned when the game is announced
+              </Typography>
+            </FormControl>
 
             <TextField
               fullWidth

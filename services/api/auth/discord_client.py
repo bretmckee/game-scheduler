@@ -420,6 +420,53 @@ class DiscordAPIClient:
             logger.error(f"Network error fetching guild: {e}")
             raise DiscordAPIError(500, f"Network error: {str(e)}") from e
 
+    async def fetch_guild_roles(self, guild_id: str) -> list[dict[str, Any]]:
+        """
+        Fetch guild roles using bot token with Redis caching.
+
+        Args:
+            guild_id: Discord guild (server) ID
+
+        Returns:
+            List of role objects with id, name, color, position, managed, etc.
+
+        Raises:
+            DiscordAPIError: If fetching roles fails
+        """
+        cache_key = f"discord:guild_roles:{guild_id}"
+        redis = await cache_client.get_redis_client()
+
+        # Check cache first
+        cached = await redis.get(cache_key)
+        if cached:
+            logger.debug(f"Cache hit for guild roles: {guild_id}")
+            return json.loads(cached)
+
+        # Fetch from Discord API
+        session = await self._get_session()
+        url = f"{DISCORD_API_BASE}/guilds/{guild_id}/roles"
+
+        self._log_request("GET", url, "fetch_guild_roles")
+        try:
+            async with session.get(
+                url,
+                headers={"Authorization": f"Bot {self.bot_token}"},
+            ) as response:
+                response_data = await response.json()
+                self._log_response(response)
+
+                if response.status != 200:
+                    error_msg = response_data.get("message", "Unknown error")
+                    raise DiscordAPIError(response.status, error_msg, dict(response.headers))
+
+                # Cache successful result for 5 minutes
+                await redis.set(cache_key, json.dumps(response_data), ttl=300)
+                logger.debug(f"Cached guild roles: {guild_id}")
+                return response_data
+        except aiohttp.ClientError as e:
+            logger.error(f"Network error fetching guild roles: {e}")
+            raise DiscordAPIError(500, f"Network error: {str(e)}") from e
+
     async def fetch_user(self, user_id: str) -> dict[str, Any]:
         """
         Fetch user information using bot token with Redis caching.
