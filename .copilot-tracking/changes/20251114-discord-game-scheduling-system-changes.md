@@ -58,6 +58,7 @@ Modified the bot's join and leave game notifications to send as direct messages 
 - alembic/script.py.mako - Alembic migration template
 - alembic/versions/001_initial_schema.py - Initial database schema migration with all tables and constraints
 - alembic/versions/006_add_bot_manager_roles.py - Database migration for bot_manager_role_ids field (Task 9.1)
+- alembic/versions/007_add_notify_roles.py - Database migration for notify_role_ids field (Task 10.1)
 - .env - Environment configuration file (created from .env.example)
 
 **Database Schema Configured:**
@@ -192,11 +193,17 @@ Modified the bot's join and leave game notifications to send as direct messages 
 
 - alembic.ini - Updated database URL to use correct credentials from .env
 - docker/bot.Dockerfile - Added bot-specific requirements installation and shared package setup
-- shared/models/game.py - Added min_players field to GameSession model with default value of 1
-- services/api/routes/games.py - Added min_players validation in create_game and update_game endpoints (Task 7.3)
-- services/api/services/games.py - Updated create_game and update_game to handle and validate min_players field (Task 7.3)
+- shared/models/game.py - Added min_players field to GameSession model with default value of 1; added notify_role_ids JSON array field for role-based notifications (Task 10.1)
+- services/api/routes/games.py - Added min_players validation in create_game and update_game endpoints (Task 7.3); fixed GameResponse to include all fields including signup_instructions, min_players, and notify_role_ids (Task 10.2)
+- services/api/services/games.py - Updated create_game and update_game to handle and validate min_players field (Task 7.3); added notify_role_ids to create and update operations (Task 10.2); updated \_publish_game_created to include notify_role_ids in event (Task 10.3)
+- services/bot/formatters/game_message.py - Added notify_role_ids parameter to format_game_announcement function; returns 3-tuple (content, embed, view) with role mentions in content (Task 10.3)
+- services/bot/events/handlers.py - Updated \_handle_game_created and \_refresh_game_message to pass notify_role_ids and send role mention content with Discord messages (Task 10.3)
+- services/api/auth/discord_client.py - Added fetch_guild_roles method to fetch guild roles from Discord API with Redis caching (Task 10.4)
+- services/api/routes/guilds.py - Added GET /guilds/{id}/roles endpoint to list guild roles excluding @everyone and managed roles (Task 10.4)
+- tests/services/bot/formatters/test_game_message.py - Updated test assertions to expect 3-tuple return from format_game_announcement (Task 10.3)
 - frontend/src/types/index.ts - Added minPlayers field to GameSession interface (Task 7.4)
-- frontend/src/pages/CreateGame.tsx - Added min_players input field with client-side validation (Task 7.4)
+- frontend/src/types/index.ts - Added notify_role_ids field to GameSession interface and created DiscordRole interface (Task 10.4)
+- frontend/src/pages/CreateGame.tsx - Added min_players input field with client-side validation (Task 7.4); added role multi-select component with role color display and mention notification helper text (Task 10.4)
 - frontend/src/pages/EditGame.tsx - Added min_players input field with client-side validation (Task 7.4)
 - frontend/src/components/GameCard.tsx - Updated to display X/min-max participant count format (Task 7.4)
 - shared/models/guild.py - Added bot_manager_role_ids field to GuildConfiguration model for Bot Managers feature (Task 9.1)
@@ -204,6 +211,8 @@ Modified the bot's join and leave game notifications to send as direct messages 
 - frontend/src/pages/GameDetails.tsx - Passed minPlayers prop to ParticipantList component (Task 7.4)
 - services/api/services/games.py - Added signup_instructions field to create_game and update_game methods (Task 8.3)
 - shared/schemas/guild.py - Added bot_manager_role_ids to GuildConfigUpdateRequest and GuildConfigResponse (Task 9.2)
+- shared/schemas/game.py - Added notify_role_ids field to GameCreateRequest, GameUpdateRequest, and GameResponse with validation for max 10 roles and Discord snowflake format (Task 10.2)
+- shared/messaging/events.py - Added notify_role_ids field to GameCreatedEvent schema for passing role mentions to bot service (Task 10.3)
 - services/api/auth/roles.py - Added check_bot_manager_permission() method to RoleVerificationService (Task 9.2)
 - services/api/dependencies/permissions.py - Added can_manage_game() authorization helper function (Task 9.2)
 - services/bot/formatters/game_message.py - Added signup_instructions parameter to create_game_embed and format_game_announcement functions with description truncation (Task 8.3)

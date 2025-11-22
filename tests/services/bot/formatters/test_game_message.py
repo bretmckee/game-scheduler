@@ -273,7 +273,7 @@ class TestFormatGameAnnouncement:
                 )
 
                 assert isinstance(result, tuple)
-                assert len(result) == 2
+                assert len(result) == 3
 
     def test_creates_view_with_correct_game_id(self):
         """Test that view is created with correct game ID."""
