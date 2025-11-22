@@ -58,3 +58,16 @@ class GuildListResponse(BaseModel):
     """List of guilds for a user."""
 
     guilds: list[GuildConfigResponse] = Field(..., description="List of guild configurations")
+
+
+class ValidateMentionRequest(BaseModel):
+    """Request to validate a Discord mention."""
+
+    mention: str = Field(..., description="Discord mention to validate (@username, <@123>, etc)")
+
+
+class ValidateMentionResponse(BaseModel):
+    """Response from mention validation."""
+
+    valid: bool = Field(..., description="Whether the mention is valid")
+    error: str | None = Field(None, description="Error message if validation failed")
