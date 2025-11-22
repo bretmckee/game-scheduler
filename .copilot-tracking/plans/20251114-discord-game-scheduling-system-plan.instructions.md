@@ -179,7 +179,7 @@ Implement a complete Discord game scheduling system with microservices architect
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 713-728)
 
-- [ ] Task 7.2: Update schemas to include min_players
+- [x] Task 7.2: Update schemas to include min_players
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 730-746)
 
