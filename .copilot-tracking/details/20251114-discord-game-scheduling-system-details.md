@@ -1280,6 +1280,32 @@ The rules field is no longer needed and should be completely removed from the en
   - Phase 3 completion (API endpoints)
   - Phase 4 completion (frontend game management)
 
+### Task 11.11: Fix API crash when specifying an @user
+
+The API crashes when a user attempts to create a game with an @mention in the initial_participants field. Investigate and fix the crash to ensure proper error handling and validation.
+
+- **Files**:
+  - `services/api/services/participant_resolver.py` - Fix exception handling in resolve_initial_participants
+  - `services/api/routes/games.py` - Ensure proper error handling in create_game endpoint
+  - `services/api/services/games.py` - Validate participant resolver error handling
+  - `tests/services/api/services/test_participant_resolver.py` - Add test for crash scenario
+  - `tests/services/api/routes/test_games.py` - Add integration test for @mention error handling
+- **Success**:
+  - API does not crash when processing @mentions
+  - Invalid @mentions return proper 422 error with disambiguation details
+  - Valid @mentions are processed correctly
+  - Exception handling catches all potential errors from Discord API
+  - Logs provide clear information for debugging mention resolution failures
+  - Tests cover crash scenario and verify proper error responses
+  - No unhandled exceptions in participant resolution flow
+- **Research References**:
+  - #file:../../services/api/services/participant_resolver.py (Lines 1-213) - Current participant resolver implementation
+  - #file:../../services/api/routes/games.py (Lines 48-92) - Create game endpoint with validation
+  - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 514-538) - Pre-populated participants feature
+- **Dependencies**:
+  - Phase 3 completion (API endpoints)
+  - Phase 4 completion (frontend game management with pre-populated participants)
+
 ## Phase 12: Integration & Testing
 
 ### Task 12.1: Integration tests for inter-service communication
