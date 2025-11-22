@@ -1014,9 +1014,244 @@ Add role selection UI to game creation form.
 - **Dependencies**:
   - Task 10.3 completion (backend handling works)
 
-## Phase 11: Integration & Testing
+### Task 10.5: Fix compile errors
 
-### Task 11.1: Integration tests for inter-service communication
+Resolve any TypeScript compilation errors and Python type checking issues across the codebase.
+
+- **Files**:
+  - All files with compile/type errors (to be identified)
+- **Success**:
+  - `npm run build` completes without errors in frontend
+  - `mypy` type checking passes on Python services
+  - No TypeScript errors in VS Code
+  - All imports resolve correctly
+  - Type annotations are accurate and complete
+- **Research References**:
+  - Project error logs and compiler output
+- **Dependencies**:
+  - All previous phase implementations
+
+## Phase 11: Bug Fixes
+
+### Task 11.1: Fix missing default values for min/max players in create game form
+
+The create game form does not automatically populate default values for min_players and max_players fields, requiring users to manually enter values every time. Add default values to improve user experience.
+
+- **Files**:
+  - `frontend/src/pages/CreateGame.tsx` - Add default values to form state
+  - `frontend/src/components/GameForm.tsx` - Set default values if component exists
+- **Success**:
+  - Create game form shows default min_players value (e.g., 2)
+  - Create game form shows default max_players value (e.g., 8)
+  - Users can still modify the default values
+  - Form validation still enforces min <= max constraint
+  - Default values consistent with backend GameSession model defaults
+- **Research References**:
+  - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 713-785) - Min/Max players implementation
+  - #file:../../shared/models/game.py - Check model default values
+- **Dependencies**:
+  - Phase 7 completion (min_players field implementation)
+
+### Task 11.2: Fix game time default value to use current time
+
+The create game form does not automatically populate the game time field with the current time, leaving it empty or with an outdated default. Set the default to current time for better user experience.
+
+- **Files**:
+  - `frontend/src/pages/CreateGame.tsx` - Add current time as default value
+  - `frontend/src/components/GameForm.tsx` - Initialize time picker with current time if component exists
+- **Success**:
+  - Create game form shows current date/time as default when opened
+  - Time field properly formatted for datetime-local input or date picker component
+  - Users can still modify the default time
+  - Timezone handling consistent with user's selected timezone or UTC
+  - Default updates if user stays on page and creates multiple games
+- **Research References**:
+  - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 488-512) - Game management interface
+  - #file:../../shared/utils/timezone.py - Timezone handling utilities
+- **Dependencies**:
+  - Phase 4 completion (frontend game management)
+
+### Task 11.3: Auto-select channel when only one is available
+
+When a guild has only one configured channel, the channel selector requires manual selection. Automatically select the channel to improve user experience and reduce unnecessary clicks.
+
+- **Files**:
+  - `frontend/src/pages/CreateGame.tsx` - Add auto-select logic for single channel
+  - `frontend/src/components/ChannelSelector.tsx` - Handle single option auto-select if component exists
+- **Success**:
+  - Channel automatically selected when guild has exactly one channel
+  - Channel selector still displayed (not hidden) for user awareness
+  - User can still change selection if needed
+  - Auto-select triggers on initial load and when guild changes
+  - Does not auto-select when multiple channels available
+  - Does not auto-select when zero channels available (shows appropriate message)
+- **Research References**:
+  - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 465-486) - Guild and channel management
+  - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 488-512) - Game management interface
+- **Dependencies**:
+  - Phase 4 completion (frontend game management)
+
+### Task 11.4: Move Scheduled Time field to top of game display and edit pages
+
+The Scheduled Time field is currently positioned lower in the game information layout, making it harder for users to quickly identify when a game is scheduled. Move this critical field to a more prominent position at the top of both game display and edit pages.
+
+- **Files**:
+  - `frontend/src/pages/GameDetails.tsx` - Reorder display to show scheduled time at top
+  - `frontend/src/pages/EditGame.tsx` - Reorder form fields to show scheduled time at top
+  - `frontend/src/components/GameCard.tsx` - Adjust game card layout if needed
+- **Success**:
+  - Scheduled time appears as first or second field in game details view
+  - Scheduled time appears near top of edit game form
+  - Field remains visually prominent (large font, bold, or highlighted)
+  - Time display includes timezone information for clarity
+  - Changes do not break existing layout or responsive design
+  - All existing functionality preserved
+- **Research References**:
+  - #file:../../frontend/src/pages/GameDetails.tsx - Current game details layout
+  - #file:../../frontend/src/pages/EditGame.tsx - Current edit form layout
+  - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 488-512) - Game management interface
+- **Dependencies**:
+  - Phase 4 completion (frontend game management)
+
+### Task 11.5: Move Channel field under Scheduled Time field on game display and edit pages
+
+The Channel field should be positioned directly under the Scheduled Time field to provide clear context about where and when the game will take place. This logical grouping improves information hierarchy.
+
+- **Files**:
+  - `frontend/src/pages/GameDetails.tsx` - Position channel field under scheduled time
+  - `frontend/src/pages/EditGame.tsx` - Position channel selector under time picker
+  - `frontend/src/components/GameCard.tsx` - Adjust game card layout if needed
+- **Success**:
+  - Channel field appears immediately after Scheduled Time field in game details
+  - Channel selector appears immediately after time picker in edit form
+  - Visual grouping indicates these fields are primary game logistics
+  - Clear separation from other game details (description, rules, etc.)
+  - Responsive layout maintained on all screen sizes
+  - All existing functionality preserved
+- **Research References**:
+  - #file:../../frontend/src/pages/GameDetails.tsx - Current game details layout
+  - #file:../../frontend/src/pages/EditGame.tsx - Current edit form layout
+  - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 488-512) - Game management interface
+- **Dependencies**:
+  - Task 11.4 completion (Scheduled Time field moved to top)
+
+### Task 11.6: Fix all unit test and lint messages for Python and TypeScript
+
+Ensure all Python and TypeScript code passes linting and all unit tests are passing. Fix any errors, warnings, or failures that appear when running pytest, ruff, mypy for Python, and eslint, tsc for TypeScript.
+
+- **Files**:
+  - `services/**/*.py` - Fix Python linting issues
+  - `shared/**/*.py` - Fix shared Python module issues
+  - `tests/**/*.py` - Fix test failures and test file linting
+  - `frontend/src/**/*.ts` - Fix TypeScript linting issues
+  - `frontend/src/**/*.tsx` - Fix React component linting and type issues
+  - `pyproject.toml` - Adjust ruff/mypy configuration if needed
+  - `frontend/.eslintrc.cjs` - Adjust ESLint configuration if needed
+- **Success**:
+  - `uv run ruff check .` passes with 0 errors
+  - `uv run mypy .` passes with 0 errors
+  - `uv run pytest tests/` runs with all tests passing
+  - `cd frontend && npm run lint` passes with 0 errors and 0 warnings
+  - `cd frontend && npm run build` completes successfully with no TypeScript errors
+  - `cd frontend && npm run test` runs with all tests passing
+  - All code follows project conventions and style guidelines
+- **Research References**:
+  - #file:../../.github/instructions/python.instructions.md - Python coding standards
+  - #file:../../.github/instructions/typescript-5-es2022.instructions.md - TypeScript standards
+  - #file:../../pyproject.toml - Python tooling configuration
+  - #file:../../frontend/package.json - Frontend tooling scripts
+- **Dependencies**:
+  - All previous phases with code changes
+
+### Task 11.7: Move reminder box directly below scheduled time box
+
+The Reminder Times field should be positioned immediately after the Scheduled Time field to create a logical grouping of time-related settings. This improves the user experience by keeping all time-related configuration together.
+
+- **Files**:
+  - `frontend/src/pages/CreateGame.tsx` - Reorder form fields to place reminder input after time picker
+  - `frontend/src/pages/EditGame.tsx` - Reorder form fields to place reminder input after time picker
+- **Success**:
+  - Reminder Times field appears immediately after Scheduled Time field in create game form
+  - Reminder Times field appears immediately after Scheduled Time field in edit game form
+  - Visual grouping clearly indicates these fields are related to timing
+  - All existing functionality preserved (validation, helper text, default values)
+  - Responsive layout maintained on all screen sizes
+  - No changes to underlying data flow or API interactions
+- **Research References**:
+  - #file:../../frontend/src/pages/CreateGame.tsx (Lines 1-426) - Current create game form layout
+  - #file:../../frontend/src/pages/EditGame.tsx (Lines 1-321) - Current edit game form layout
+  - #file:../research/20251114-discord-game-scheduling-system-research.md (Lines 488-512) - Game management interface patterns
+- **Dependencies**:
+  - Task 11.4 completion (Scheduled Time moved to top)
+  - Task 11.5 completion (Channel field positioned under Scheduled Time)
+
+### Task 11.8: Display min players and max players on the same line
+
+The Min Players and Max Players fields should be displayed side-by-side on the same line rather than stacked vertically. This creates a more compact layout and visually reinforces that these are related range values.
+
+- **Files**:
+  - `frontend/src/pages/CreateGame.tsx` - Update form layout to display min/max players horizontally
+  - `frontend/src/pages/EditGame.tsx` - Update form layout to display min/max players horizontally
+- **Success**:
+  - Min Players and Max Players fields appear side-by-side on the same line in create game form
+  - Min Players and Max Players fields appear side-by-side on the same line in edit game form
+  - Fields maintain proper spacing and alignment
+  - Both fields remain fully functional with proper validation
+  - Responsive layout works on mobile devices (fields may stack on small screens)
+  - Helper text displays appropriately for both fields
+  - All existing functionality preserved (validation, default values, constraints)
+- **Research References**:
+  - #file:../../frontend/src/pages/CreateGame.tsx (Lines 1-426) - Current create game form layout
+  - #file:../../frontend/src/pages/EditGame.tsx (Lines 1-321) - Current edit game form layout
+  - #file:../../.github/instructions/reactjs.instructions.md - React and Material-UI best practices
+- **Dependencies**:
+  - Phase 4 completion (frontend game management)
+
+### Task 11.9: Remove the rules field
+
+The rules field is no longer needed and should be completely removed from the entire system including database, API, bot, and frontend.
+
+- **Files**:
+  - `frontend/src/pages/CreateGame.tsx` - Remove rules field from form and form data interface
+  - `frontend/src/pages/EditGame.tsx` - Remove rules field from form and form data interface
+  - `frontend/src/pages/GameDetails.tsx` - Remove rules display if present
+  - `frontend/src/components/GameCard.tsx` - Remove rules display if present
+  - `frontend/src/types/index.ts` - Remove rules field from GameSession type
+  - `shared/models/game.py` - Remove rules column from GameSession model
+  - `shared/schemas/game.py` - Remove rules field from all game schemas
+  - `services/api/routes/games.py` - Remove rules field handling from create/update endpoints
+  - `services/api/routes/channels.py` - Remove rules field from channel configuration if present
+  - `services/api/routes/guilds.py` - Remove rules field from guild configuration if present
+  - `services/bot/formatters/game_message.py` - Remove rules from message formatting
+  - `services/bot/commands/*.py` - Remove rules field from bot commands
+  - `alembic/versions/` - Create new migration to drop rules column from game_sessions table
+  - `tests/**/*.py` - Update all tests to remove rules field references
+- **Success**:
+  - Rules column removed from game_sessions table via Alembic migration
+  - Rules field removed from all SQLAlchemy models
+  - Rules field removed from all Pydantic schemas
+  - Rules field removed from all API endpoints (create, update, retrieve)
+  - Rules field removed from all frontend components and types
+  - Rules field removed from Discord bot message formatting
+  - All tests pass without rules field
+  - No references to "rules" field remain in codebase (except migration history)
+  - Database migration runs successfully without errors
+  - Existing deployments can migrate smoothly with downgrade capability
+- **Research References**:
+  - #file:../../frontend/src/pages/CreateGame.tsx (Lines 1-426) - Current create game form with rules field
+  - #file:../../frontend/src/pages/EditGame.tsx (Lines 1-321) - Current edit game form with rules field
+  - #file:../../shared/models/game.py - GameSession model with rules column
+  - #file:../../shared/schemas/game.py - Game schemas with rules field
+  - #file:../../services/api/routes/games.py - API endpoints handling rules
+- **Dependencies**:
+  - Phase 1 completion (database setup)
+  - Phase 2 completion (bot service)
+  - Phase 3 completion (API endpoints)
+  - Phase 4 completion (frontend game management)
+
+## Phase 12: Integration & Testing
+
+### Task 12.1: Integration tests for inter-service communication
 
 Test event publishing and consumption between services using test containers.
 
@@ -1038,7 +1273,7 @@ Test event publishing and consumption between services using test containers.
   - testcontainers 3.7+
   - All Phase 1-5 services
 
-### Task 11.2: End-to-end tests for user workflows
+### Task 12.2: End-to-end tests for user workflows
 
 Test complete user journeys from login through game creation, joining, and notifications.
 
@@ -1060,7 +1295,7 @@ Test complete user journeys from login through game creation, joining, and notif
   - Playwright or Selenium for browser automation
   - All services running
 
-### Task 11.3: Load testing for concurrent operations
+### Task 12.3: Load testing for concurrent operations
 
 Test system performance under concurrent Discord button clicks and API requests.
 
@@ -1081,7 +1316,7 @@ Test system performance under concurrent Discord button clicks and API requests.
   - Locust or k6 for load generation
   - Monitoring tools
 
-### Task 11.4: Test display name resolution scenarios
+### Task 12.4: Test display name resolution scenarios
 
 Test display name resolution with various user states and edge cases.
 
@@ -1102,7 +1337,7 @@ Test display name resolution with various user states and edge cases.
   - Task 3.6 (display name service)
   - Mock Discord API responses
 
-### Task 11.5: Test pre-populated participants feature
+### Task 12.5: Test pre-populated participants feature
 
 Test all scenarios for pre-populating participants with validation and error handling.
 
@@ -1126,9 +1361,9 @@ Test all scenarios for pre-populating participants with validation and error han
   - Task 3.5 (game API)
   - Task 4.5 (frontend validation)
 
-## Phase 12: Advanced Features
+## Phase 13: Advanced Features
 
-### Task 12.1: Implement waitlist support
+### Task 13.1: Implement waitlist support
 
 Add waitlist functionality when games reach maxPlayers capacity.
 
@@ -1147,7 +1382,7 @@ Add waitlist functionality when games reach maxPlayers capacity.
 - **Dependencies**:
   - All Phase 2-5 services
 
-### Task 12.2: Add game templates for recurring sessions
+### Task 13.2: Add game templates for recurring sessions
 
 Create template system for games that repeat weekly/monthly with same settings.
 
@@ -1166,7 +1401,7 @@ Create template system for games that repeat weekly/monthly with same settings.
 - **Dependencies**:
   - Phase 3 and 4 (API and frontend)
 
-### Task 12.3: Build calendar export functionality
+### Task 13.3: Build calendar export functionality
 
 Generate iCal format calendar files for users to import into their calendar apps.
 
@@ -1185,7 +1420,7 @@ Generate iCal format calendar files for users to import into their calendar apps
   - icalendar Python library
   - Task 3.5 (game API)
 
-### Task 12.4: Create statistics dashboard
+### Task 13.4: Create statistics dashboard
 
 Build dashboard showing game history, participation rates, and trends per guild/channel.
 
