@@ -173,7 +173,7 @@ Implement a complete Discord game scheduling system with microservices architect
 - [x] Task 6.4: Update frontend to display host separately
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 680-711)
 
-### [ ] Phase 7: Min Players Field Implementation
+### [x] Phase 7: Min Players Field Implementation
 
 - [x] Task 7.1: Add min_players field to GameSession model
 
@@ -187,7 +187,7 @@ Implement a complete Discord game scheduling system with microservices architect
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 748-764)
 
-- [ ] Task 7.4: Update frontend to handle min_players
+- [x] Task 7.4: Update frontend to handle min_players
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 766-785)
 
 ## Dependencies

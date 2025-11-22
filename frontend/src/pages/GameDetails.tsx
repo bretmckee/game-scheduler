@@ -226,6 +226,7 @@ export const GameDetails: FC = () => {
           </Typography>
           <ParticipantList
             participants={game.participants || []}
+            minPlayers={game.min_players || 1}
             maxPlayers={game.max_players || 10}
           />
         </Box>

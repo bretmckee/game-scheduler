@@ -27,6 +27,7 @@ interface FormData {
   description: string;
   scheduledAt: Date | null;
   channelId: string;
+  minPlayers: string;
   maxPlayers: string;
   reminderMinutes: string;
   rules: string;
@@ -62,6 +63,7 @@ export const CreateGame: FC = () => {
     description: '',
     scheduledAt: null,
     channelId: '',
+    minPlayers: '',
     maxPlayers: '',
     reminderMinutes: '',
     rules: '',
@@ -109,6 +111,14 @@ export const CreateGame: FC = () => {
       return;
     }
 
+    const minPlayers = formData.minPlayers ? parseInt(formData.minPlayers) : null;
+    const maxPlayers = formData.maxPlayers ? parseInt(formData.maxPlayers) : null;
+
+    if (minPlayers && maxPlayers && minPlayers > maxPlayers) {
+      setError('Minimum players cannot be greater than maximum players.');
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -120,7 +130,8 @@ export const CreateGame: FC = () => {
         scheduled_at: formData.scheduledAt.toISOString(),
         guild_id: guildId,
         channel_id: formData.channelId,
-        max_players: formData.maxPlayers ? parseInt(formData.maxPlayers) : null,
+        min_players: minPlayers,
+        max_players: maxPlayers,
         reminder_minutes: formData.reminderMinutes
           ? formData.reminderMinutes.split(',').map((m) => parseInt(m.trim()))
           : null,
@@ -235,6 +246,19 @@ export const CreateGame: FC = () => {
                 ))}
               </Select>
             </FormControl>
+
+            <TextField
+              fullWidth
+              label="Min Players"
+              name="minPlayers"
+              type="number"
+              value={formData.minPlayers}
+              onChange={handleChange}
+              margin="normal"
+              helperText="Minimum players required (default: 1)"
+              disabled={loading}
+              inputProps={{ min: 1, max: 100 }}
+            />
 
             <TextField
               fullWidth
