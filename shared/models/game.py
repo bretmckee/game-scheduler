@@ -56,6 +56,7 @@ class GameSession(Base):
     title: Mapped[str] = mapped_column(String(200))
     description: Mapped[str] = mapped_column(Text)
     scheduled_at: Mapped[datetime] = mapped_column()
+    min_players: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     max_players: Mapped[int | None] = mapped_column(Integer, nullable=True)
     guild_id: Mapped[str] = mapped_column(ForeignKey("guild_configurations.id"))
     channel_id: Mapped[str] = mapped_column(ForeignKey("channel_configurations.id"))
