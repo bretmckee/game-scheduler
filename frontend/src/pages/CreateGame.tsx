@@ -34,7 +34,6 @@ interface FormData {
   minPlayers: string;
   maxPlayers: string;
   reminderMinutes: string;
-  rules: string;
   initialParticipants: string;
   notifyRoleIds: string[];
 }
@@ -73,7 +72,6 @@ export const CreateGame: FC = () => {
     minPlayers: '1',
     maxPlayers: '8',
     reminderMinutes: '',
-    rules: '',
     initialParticipants: '',
     notifyRoleIds: [],
   });
@@ -159,7 +157,6 @@ export const CreateGame: FC = () => {
         reminder_minutes: formData.reminderMinutes
           ? formData.reminderMinutes.split(',').map((m) => parseInt(m.trim()))
           : null,
-        rules: formData.rules || null,
         notify_role_ids: formData.notifyRoleIds.length > 0 ? formData.notifyRoleIds : null,
         initial_participants: formData.initialParticipants
           ? formData.initialParticipants
@@ -317,19 +314,6 @@ export const CreateGame: FC = () => {
                 />
               </Grid>
             </Grid>
-
-            <TextField
-              fullWidth
-              multiline
-              rows={3}
-              label="Rules"
-              name="rules"
-              value={formData.rules}
-              onChange={handleChange}
-              margin="normal"
-              helperText="Leave empty to use channel/guild default"
-              disabled={loading}
-            />
 
             <FormControl fullWidth margin="normal">
               <InputLabel>Notify Roles</InputLabel>
