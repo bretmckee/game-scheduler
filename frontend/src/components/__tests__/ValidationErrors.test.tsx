@@ -8,26 +8,21 @@ describe('ValidationErrors', () => {
     {
       input: '@nonexistent',
       reason: 'User not found in guild',
-      suggestions: []
+      suggestions: [],
     },
     {
       input: '@john',
       reason: 'Multiple matches found',
       suggestions: [
         { discordId: '111', username: 'johndoe', displayName: 'John Doe' },
-        { discordId: '222', username: 'johnny', displayName: 'Johnny' }
-      ]
-    }
+        { discordId: '222', username: 'johnny', displayName: 'Johnny' },
+      ],
+    },
   ];
 
   it('renders all validation errors', () => {
     const onSuggestionClick = vi.fn();
-    render(
-      <ValidationErrors 
-        errors={mockErrors}
-        onSuggestionClick={onSuggestionClick}
-      />
-    );
+    render(<ValidationErrors errors={mockErrors} onSuggestionClick={onSuggestionClick} />);
 
     expect(screen.getByText(/Could not resolve some @mentions/)).toBeInTheDocument();
     expect(screen.getByText(/@nonexistent/)).toBeInTheDocument();
@@ -38,12 +33,7 @@ describe('ValidationErrors', () => {
 
   it('renders suggestion chips when available', () => {
     const onSuggestionClick = vi.fn();
-    render(
-      <ValidationErrors 
-        errors={mockErrors}
-        onSuggestionClick={onSuggestionClick}
-      />
-    );
+    render(<ValidationErrors errors={mockErrors} onSuggestionClick={onSuggestionClick} />);
 
     expect(screen.getByText(/@johndoe \(John Doe\)/)).toBeInTheDocument();
     expect(screen.getByText(/@johnny \(Johnny\)/)).toBeInTheDocument();
@@ -51,12 +41,7 @@ describe('ValidationErrors', () => {
 
   it('does not render suggestions for errors without them', () => {
     const onSuggestionClick = vi.fn();
-    render(
-      <ValidationErrors 
-        errors={mockErrors}
-        onSuggestionClick={onSuggestionClick}
-      />
-    );
+    render(<ValidationErrors errors={mockErrors} onSuggestionClick={onSuggestionClick} />);
 
     const firstError = screen.getByText(/@nonexistent/).parentElement;
     expect(firstError?.textContent).not.toContain('Did you mean:');
@@ -65,13 +50,8 @@ describe('ValidationErrors', () => {
   it('calls onSuggestionClick when suggestion chip is clicked', async () => {
     const onSuggestionClick = vi.fn();
     const user = userEvent.setup();
-    
-    render(
-      <ValidationErrors 
-        errors={mockErrors}
-        onSuggestionClick={onSuggestionClick}
-      />
-    );
+
+    render(<ValidationErrors errors={mockErrors} onSuggestionClick={onSuggestionClick} />);
 
     const suggestion = screen.getByText(/@johndoe \(John Doe\)/);
     await user.click(suggestion);
@@ -81,12 +61,7 @@ describe('ValidationErrors', () => {
 
   it('displays "Did you mean:" text when suggestions exist', () => {
     const onSuggestionClick = vi.fn();
-    render(
-      <ValidationErrors 
-        errors={mockErrors}
-        onSuggestionClick={onSuggestionClick}
-      />
-    );
+    render(<ValidationErrors errors={mockErrors} onSuggestionClick={onSuggestionClick} />);
 
     expect(screen.getByText(/Did you mean:/)).toBeInTheDocument();
   });

@@ -104,9 +104,7 @@ export const CreateGame: FC = () => {
     }
   }, [channels, formData.channelId]);
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
@@ -175,15 +173,13 @@ export const CreateGame: FC = () => {
       navigate(`/games/${response.data.id}`);
     } catch (err: any) {
       console.error('Failed to create game:', err);
-      
+
       if (err.response?.status === 422 && err.response.data?.error === 'invalid_mentions') {
         const errorData = err.response.data as ValidationErrorResponse;
         setValidationErrors(errorData.invalid_mentions);
         setError(errorData.message);
       } else {
-        setError(
-          err.response?.data?.detail || 'Failed to create game. Please try again.'
-        );
+        setError(err.response?.data?.detail || 'Failed to create game. Please try again.');
       }
     } finally {
       setLoading(false);
@@ -192,12 +188,10 @@ export const CreateGame: FC = () => {
 
   const handleSuggestionClick = (originalInput: string, newUsername: string) => {
     const lines = formData.initialParticipants.split('\n');
-    const updatedLines = lines.map(line => 
-      line.trim() === originalInput ? newUsername : line
-    );
-    setFormData(prev => ({
+    const updatedLines = lines.map((line) => (line.trim() === originalInput ? newUsername : line));
+    setFormData((prev) => ({
       ...prev,
-      initialParticipants: updatedLines.join('\n')
+      initialParticipants: updatedLines.join('\n'),
     }));
     setValidationErrors(null);
     setError(null);
@@ -218,10 +212,7 @@ export const CreateGame: FC = () => {
           )}
 
           {validationErrors && (
-            <ValidationErrors 
-              errors={validationErrors}
-              onSuggestionClick={handleSuggestionClick}
-            />
+            <ValidationErrors errors={validationErrors} onSuggestionClick={handleSuggestionClick} />
           )}
 
           <Box component="form" onSubmit={handleSubmit} sx={{ mt: 3 }}>
@@ -400,20 +391,10 @@ export const CreateGame: FC = () => {
             />
 
             <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
-              <Button
-                type="submit"
-                variant="contained"
-                disabled={loading}
-                fullWidth
-              >
+              <Button type="submit" variant="contained" disabled={loading} fullWidth>
                 {loading ? <CircularProgress size={24} /> : 'Create Game'}
               </Button>
-              <Button
-                variant="outlined"
-                onClick={() => navigate(-1)}
-                disabled={loading}
-                fullWidth
-              >
+              <Button variant="outlined" onClick={() => navigate(-1)} disabled={loading} fullWidth>
                 Cancel
               </Button>
             </Box>

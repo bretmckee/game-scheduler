@@ -57,7 +57,9 @@ export const MyGames: FC = () => {
         const response = await apiClient.get<GameListResponse>('/api/v1/games');
         const allGames = response.data.games;
 
-        const hosted = allGames.filter((game: GameSession) => game.host?.user_id === user.user_uuid);
+        const hosted = allGames.filter(
+          (game: GameSession) => game.host?.user_id === user.user_uuid
+        );
         const joined = allGames.filter(
           (game: GameSession) =>
             game.host?.user_id !== user.user_uuid &&
@@ -68,9 +70,7 @@ export const MyGames: FC = () => {
         setJoinedGames(joined);
       } catch (err: any) {
         console.error('Failed to fetch games:', err);
-        setError(
-          err.response?.data?.detail || 'Failed to load games. Please try again.'
-        );
+        setError(err.response?.data?.detail || 'Failed to load games. Please try again.');
       } finally {
         setLoading(false);
       }
@@ -99,10 +99,7 @@ export const MyGames: FC = () => {
         <Typography variant="h4" gutterBottom>
           My Games
         </Typography>
-        <Button
-          variant="contained"
-          onClick={() => navigate('/guilds')}
-        >
+        <Button variant="contained" onClick={() => navigate('/guilds')}>
           Create New Game
         </Button>
       </Box>
@@ -123,7 +120,7 @@ export const MyGames: FC = () => {
       <TabPanel value={tabValue} index={0}>
         {hostedGames.length === 0 ? (
           <Alert severity="info">
-            You haven't hosted any games yet. Create one to get started!
+            You haven&apos;t hosted any games yet. Create one to get started!
           </Alert>
         ) : (
           <Box>
@@ -137,7 +134,7 @@ export const MyGames: FC = () => {
       <TabPanel value={tabValue} index={1}>
         {joinedGames.length === 0 ? (
           <Alert severity="info">
-            You haven't joined any games yet. Browse games to find one to join!
+            You haven&apos;t joined any games yet. Browse games to find one to join!
           </Alert>
         ) : (
           <Box>

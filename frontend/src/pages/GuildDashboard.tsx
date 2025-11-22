@@ -130,10 +130,7 @@ export const GuildDashboard: FC = () => {
                 </Typography>
                 <List>
                   <ListItem>
-                    <ListItemText
-                      primary="Max Players"
-                      secondary={guild.default_max_players}
-                    />
+                    <ListItemText primary="Max Players" secondary={guild.default_max_players} />
                   </ListItem>
                   <ListItem>
                     <ListItemText
@@ -166,10 +163,7 @@ export const GuildDashboard: FC = () => {
                   >
                     Create New Game
                   </Button>
-                  <Button
-                    variant="outlined"
-                    onClick={() => navigate(`/guilds/${guildId}/games`)}
-                  >
+                  <Button variant="outlined" onClick={() => navigate(`/guilds/${guildId}/games`)}>
                     Browse All Games
                   </Button>
                 </Box>
@@ -182,13 +176,16 @@ export const GuildDashboard: FC = () => {
       <TabPanel value={tabValue} index={1}>
         <Card>
           <CardContent>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Box
+              sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}
+            >
               <Typography variant="h6">Configured Channels</Typography>
             </Box>
 
             {channels.length === 0 ? (
               <Alert severity="info">
-                No channels configured yet. Channels will be created automatically when you post your first game.
+                No channels configured yet. Channels will be created automatically when you post
+                your first game.
               </Alert>
             ) : (
               <List>
@@ -216,9 +213,7 @@ export const GuildDashboard: FC = () => {
       </TabPanel>
 
       <TabPanel value={tabValue} index={2}>
-        <Alert severity="info">
-          Game browsing will be implemented in the next task.
-        </Alert>
+        <Alert severity="info">Game browsing will be implemented in the next task.</Alert>
         <Button
           sx={{ mt: 2 }}
           variant="contained"
