@@ -75,10 +75,10 @@ export const MyGames: FC = () => {
         const response = await apiClient.get<GameListResponse>('/api/v1/games');
         const allGames = response.data.games;
 
-        const hosted = allGames.filter((game: GameSession) => game.host_id === user.user_uuid);
+        const hosted = allGames.filter((game: GameSession) => game.host?.user_id === user.user_uuid);
         const joined = allGames.filter(
           (game: GameSession) =>
-            game.host_id !== user.user_uuid &&
+            game.host?.user_id !== user.user_uuid &&
             game.participants?.some((p) => p.user_id === user.user_uuid)
         );
 

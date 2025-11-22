@@ -156,7 +156,7 @@ Implement a complete Discord game scheduling system with microservices architect
 - [x] Task 5.4: Add game status update tasks
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 605-625)
 
-### [ ] Phase 6: Refactor Host from Participants
+### [x] Phase 6: Refactor Host from Participants
 
 - [x] Task 6.1: Remove host from participants during game creation
 
@@ -170,7 +170,7 @@ Implement a complete Discord game scheduling system with microservices architect
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 664-678)
 
-- [ ] Task 6.4: Update frontend to display host separately
+- [x] Task 6.4: Update frontend to display host separately
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 680-711)
 
 ### [ ] Phase 7: Min Players Field Implementation
