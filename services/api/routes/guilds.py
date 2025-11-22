@@ -306,3 +306,65 @@ async def list_guild_channels(
         )
         for channel in channels
     ]
+
+
+@router.get("/{guild_id}/roles")
+async def list_guild_roles(
+    guild_id: str,
+    current_user: auth_schemas.CurrentUser = Depends(dependencies.auth.get_current_user),
+    db: AsyncSession = Depends(database.get_db),
+    discord_client: discord_client_module.DiscordAPIClient = Depends(
+        discord_client_module.get_discord_client
+    ),
+) -> list[dict]:
+    """
+    List all roles for a guild, excluding @everyone and managed roles.
+
+    Returns roles suitable for notification mentions.
+    """
+    from services.api.auth import tokens
+
+    service = config_service.ConfigurationService(db)
+
+    guild_config = await service.get_guild_by_id(guild_id)
+    if not guild_config:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Guild configuration not found",
+        )
+
+    token_data = await tokens.get_user_tokens(current_user.session_token)
+    if not token_data:
+        raise HTTPException(status_code=401, detail="No session found")
+
+    access_token = token_data["access_token"]
+    user_guilds = await oauth2.get_user_guilds(access_token, current_user.user.discord_id)
+    user_guilds_dict = {g["id"]: g for g in user_guilds}
+
+    discord_guild_id = guild_config.guild_id
+
+    if discord_guild_id not in user_guilds_dict:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not a member of this guild",
+        )
+
+    roles = await discord_client.fetch_guild_roles(discord_guild_id)
+
+    # Filter out @everyone and managed roles
+    filtered_roles = [
+        {
+            "id": role["id"],
+            "name": role["name"],
+            "color": role["color"],
+            "position": role["position"],
+            "managed": role.get("managed", False),
+        }
+        for role in roles
+        if role["name"] != "@everyone" and not role.get("managed", False)
+    ]
+
+    # Sort by position (highest first)
+    filtered_roles.sort(key=lambda r: r["position"], reverse=True)
+
+    return filtered_roles
