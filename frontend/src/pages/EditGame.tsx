@@ -90,9 +90,7 @@ export const EditGame: FC = () => {
     fetchGameAndChannels();
   }, [gameId]);
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
@@ -144,9 +142,7 @@ export const EditGame: FC = () => {
       navigate(`/games/${gameId}`);
     } catch (err: any) {
       console.error('Failed to update game:', err);
-      setError(
-        err.response?.data?.detail || 'Failed to update game. Please try again.'
-      );
+      setError(err.response?.data?.detail || 'Failed to update game. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -295,12 +291,7 @@ export const EditGame: FC = () => {
             />
 
             <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
-              <Button
-                type="submit"
-                variant="contained"
-                disabled={saving}
-                fullWidth
-              >
+              <Button type="submit" variant="contained" disabled={saving} fullWidth>
                 {saving ? <CircularProgress size={24} /> : 'Save Changes'}
               </Button>
               <Button
