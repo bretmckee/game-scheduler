@@ -33,6 +33,7 @@ from shared.messaging.consumer import EventConsumer
 from shared.messaging.events import Event, EventType, NotificationSendDMEvent
 from shared.models.game import GameSession
 from shared.models.participant import GameParticipant
+from shared.utils import participant_sorting
 
 logger = logging.getLogger(__name__)
 
@@ -157,10 +158,16 @@ class EventHandlers:
                     logger.error(f"Game not found: {game_id}")
                     return
 
-                # Extract participant Discord IDs
-                participant_ids = [
-                    p.user.discord_id for p in game.participants if p.user_id and p.user
-                ]
+                all_participants = [p for p in game.participants if p.user_id and p.user]
+                sorted_participants = participant_sorting.sort_participants(all_participants)
+
+                max_players = game.max_players or 10
+                confirmed_participants = sorted_participants[:max_players]
+                overflow_participants = sorted_participants[max_players:]
+
+                # Extract Discord IDs for display
+                confirmed_ids = [p.user.discord_id for p in confirmed_participants]
+                overflow_ids = [p.user.discord_id for p in overflow_participants]
 
                 content, embed, view = format_game_announcement(
                     game_id=str(game.id),
@@ -168,9 +175,10 @@ class EventHandlers:
                     description=game.description,
                     scheduled_at=game.scheduled_at,
                     host_id=game.host.discord_id,
-                    participant_ids=participant_ids,
-                    current_count=len([p for p in game.participants if p.user_id]),
-                    max_players=game.max_players or 10,
+                    participant_ids=confirmed_ids,
+                    overflow_ids=overflow_ids,
+                    current_count=len(confirmed_participants),
+                    max_players=max_players,
                     status=game.status,
                     signup_instructions=game.signup_instructions,
                     notify_role_ids=game.notify_role_ids,
@@ -292,10 +300,16 @@ class EventHandlers:
                     logger.warning(f"Message not found: {game.message_id}")
                     return
 
-                # Extract participant Discord IDs
-                participant_ids = [
-                    p.user.discord_id for p in game.participants if p.user_id and p.user
-                ]
+                all_participants = [p for p in game.participants if p.user_id and p.user]
+                sorted_participants = participant_sorting.sort_participants(all_participants)
+
+                max_players = game.max_players or 10
+                confirmed_participants = sorted_participants[:max_players]
+                overflow_participants = sorted_participants[max_players:]
+
+                # Extract Discord IDs for display
+                confirmed_ids = [p.user.discord_id for p in confirmed_participants]
+                overflow_ids = [p.user.discord_id for p in overflow_participants]
 
                 content, embed, view = format_game_announcement(
                     game_id=str(game.id),
@@ -303,9 +317,10 @@ class EventHandlers:
                     description=game.description,
                     scheduled_at=game.scheduled_at,
                     host_id=game.host.discord_id,
-                    participant_ids=participant_ids,
-                    current_count=len([p for p in game.participants if p.user_id]),
-                    max_players=game.max_players or 10,
+                    participant_ids=confirmed_ids,
+                    overflow_ids=overflow_ids,
+                    current_count=len(confirmed_participants),
+                    max_players=max_players,
                     status=game.status,
                     signup_instructions=game.signup_instructions,
                     notify_role_ids=game.notify_role_ids,

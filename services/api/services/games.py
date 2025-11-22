@@ -193,7 +193,9 @@ class GameService:
         self.db.add(game)
         await self.db.flush()
 
-        # Add pre-populated participants (host not included)
+        # IMPORTANT: Sequential creation order determines participant priority.
+        # Database timestamps (joined_at) increment with each INSERT, and the sorting
+        # utility relies on this to preserve the host's specified participant order.
         for participant_data in valid_participants:
             if participant_data["type"] == "discord":
                 user = await self.participant_resolver.ensure_user_exists(
