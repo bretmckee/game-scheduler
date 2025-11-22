@@ -26,20 +26,6 @@ You WILL follow ALL project standards and conventions:
 
 **CRITICAL**: You WILL stop after each Task for user review.
 
-### Step 3: Cleanup
-
-When ALL Phases are checked off (`[x]`) and completed you WILL do the following:
-
-1. You WILL provide a markdown style link and a summary of all changes from #file:../changes/20251114-discord-game-scheduling-system-changes.md to the user:
-
-
-    - You WILL keep the overall summary brief
-    - You WILL add spacing around any lists
-    - You MUST wrap any reference to a file in a markdown style link
-
-2. You WILL provide markdown style links to .copilot-tracking/plans/20251114-discord-game-scheduling-system-plan.instructions.md, .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md, and .copilot-tracking/research/20251114-discord-game-scheduling-system-research.md documents. You WILL recommend cleaning these files up as well.
-3. **MANDATORY**: You WILL attempt to delete .copilot-tracking/prompts/implement-discord-game-scheduling-system.prompt.md
-
 ## Success Criteria
 
 - [ ] Changes tracking file created
