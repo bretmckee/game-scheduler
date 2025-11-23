@@ -423,7 +423,7 @@ Implement a complete Discord game scheduling system with microservices architect
   - Display on My Games summary, game details, and Discord messages
   - Position on same line as Reminder times in create/edit forms
 
-- [ ] Task 12.12: Rename "Allowed Host Role IDs" to "Host Roles" on server configuration
+- [x] Task 12.12: Rename "Allowed Host Role IDs" to "Host Roles" on server configuration
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1853-1873)
 
