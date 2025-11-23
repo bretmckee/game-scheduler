@@ -45,7 +45,7 @@ export const CreateGame: FC = () => {
         setRoles(rolesResponse.data);
       } catch (err: any) {
         console.error('Failed to fetch data:', err);
-        setError('Failed to load guild data. Please try again.');
+        setError('Failed to load server data. Please try again.');
       } finally {
         setLoading(false);
       }
@@ -56,7 +56,7 @@ export const CreateGame: FC = () => {
 
   const handleSubmit = async (formData: GameFormData) => {
     if (!guildId) {
-      throw new Error('Guild ID is required');
+      throw new Error('Server ID is required');
     }
 
     const minPlayers = formData.minPlayers ? parseInt(formData.minPlayers) : null;
