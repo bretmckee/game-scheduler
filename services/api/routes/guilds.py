@@ -391,7 +391,34 @@ async def validate_mention(
     if not mention:
         return guild_schemas.ValidateMentionResponse(valid=False, error="Mention cannot be empty")
 
-    # For now, accept any non-empty mention as valid (placeholder support)
-    # In a full implementation, we would query Discord API to check if user exists
-    # This would involve parsing the mention format and checking guild membership
-    return guild_schemas.ValidateMentionResponse(valid=True)
+    # If it doesn't start with @, it's a placeholder - always valid
+    if not mention.startswith("@"):
+        return guild_schemas.ValidateMentionResponse(valid=True)
+
+    # Query Discord API to validate @mention
+    from services.api.services.participant_resolver import ParticipantResolver
+
+    discord_client_instance = discord_client_module.get_discord_client()
+    resolver = ParticipantResolver(discord_client_instance)
+
+    try:
+        valid_participants, validation_errors = await resolver.resolve_initial_participants(
+            discord_guild_id, [mention], access_token
+        )
+
+        if validation_errors:
+            error_info = validation_errors[0]
+            return guild_schemas.ValidateMentionResponse(
+                valid=False, error=error_info.get("reason", "Invalid mention")
+            )
+
+        if valid_participants:
+            return guild_schemas.ValidateMentionResponse(valid=True)
+
+        return guild_schemas.ValidateMentionResponse(valid=False, error="User not found in guild")
+
+    except Exception as e:
+        logger.error(f"Error validating mention: {e}", exc_info=True)
+        return guild_schemas.ValidateMentionResponse(
+            valid=False, error="Failed to validate mention. Please try again."
+        )

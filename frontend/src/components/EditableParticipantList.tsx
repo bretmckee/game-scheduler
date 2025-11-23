@@ -1,4 +1,4 @@
-import { FC, useState, useEffect, useCallback } from 'react';
+import { FC, useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -22,6 +22,8 @@ export interface ParticipantInput {
   isValid: boolean | null;
   validationError?: string;
   preFillPosition: number;
+  isExplicitlyPositioned?: boolean; // Track if user explicitly moved/added this participant
+  isReadOnly?: boolean; // Joined participants can't be edited, only reordered/removed
 }
 
 interface EditableParticipantListProps {
@@ -36,20 +38,28 @@ export const EditableParticipantList: FC<EditableParticipantListProps> = ({
   onChange,
 }) => {
   const [validationTimers, setValidationTimers] = useState<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const participantsRef = useRef(participants);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+
+  // Keep ref in sync with participants
+  useEffect(() => {
+    participantsRef.current = participants;
+  }, [participants]);
 
   const validateMention = useCallback(
     async (id: string, mention: string) => {
       if (!mention.trim()) {
         onChange(
-          participants.map((p) =>
+          participantsRef.current.map((p) =>
             p.id === id ? { ...p, isValid: null, validationError: undefined } : p
           )
         );
         return;
       }
 
+      // Set to loading state
       onChange(
-        participants.map((p) => (p.id === id ? { ...p, isValid: null, validationError: undefined } : p))
+        participantsRef.current.map((p) => (p.id === id ? { ...p, isValid: null, validationError: undefined } : p))
       );
 
       try {
@@ -58,8 +68,9 @@ export const EditableParticipantList: FC<EditableParticipantListProps> = ({
           { mention }
         );
 
+        // Use the latest participants state from ref
         onChange(
-          participants.map((p) =>
+          participantsRef.current.map((p) =>
             p.id === id
               ? {
                   ...p,
@@ -72,7 +83,7 @@ export const EditableParticipantList: FC<EditableParticipantListProps> = ({
       } catch (error) {
         console.error('Validation failed:', error);
         onChange(
-          participants.map((p) =>
+          participantsRef.current.map((p) =>
             p.id === id
               ? {
                   ...p,
@@ -84,12 +95,14 @@ export const EditableParticipantList: FC<EditableParticipantListProps> = ({
         );
       }
     },
-    [guildId, participants, onChange]
+    [guildId, onChange]
   );
 
   const handleMentionChange = (id: string, newMention: string) => {
+    console.log('[EditableParticipantList] handleMentionChange', { id, newMention });
+    
     onChange(
-      participants.map((p) =>
+      participantsRef.current.map((p) =>
         p.id === id ? { ...p, mention: newMention, isValid: null, validationError: undefined } : p
       )
     );
@@ -97,13 +110,17 @@ export const EditableParticipantList: FC<EditableParticipantListProps> = ({
     const timer = validationTimers.get(id);
     if (timer) {
       clearTimeout(timer);
+      console.log('[EditableParticipantList] Cleared previous timer');
     }
 
     const newTimer = setTimeout(() => {
+      console.log('[EditableParticipantList] Timer fired after 500ms');
       validateMention(id, newMention);
     }, 500);
 
-    setValidationTimers(new Map(validationTimers.set(id, newTimer)));
+    const newTimers = new Map(validationTimers);
+    newTimers.set(id, newTimer);
+    setValidationTimers(newTimers);
   };
 
   useEffect(() => {
@@ -118,6 +135,7 @@ export const EditableParticipantList: FC<EditableParticipantListProps> = ({
       mention: '',
       isValid: null,
       preFillPosition: participants.length + 1,
+      isExplicitlyPositioned: true, // New participants are explicitly positioned
     };
     onChange([...participants, newParticipant]);
   };
@@ -132,10 +150,13 @@ export const EditableParticipantList: FC<EditableParticipantListProps> = ({
     if (index === 0) return;
     const newParticipants = [...participants];
     [newParticipants[index - 1], newParticipants[index]] = [
-      newParticipants[index]!,
-      newParticipants[index - 1]!,
+      { ...newParticipants[index]!, isExplicitlyPositioned: true }, // Mark moved participant
+      newParticipants[index - 1]!, // Other participant keeps its state
     ];
-    const reindexed = newParticipants.map((p, idx) => ({ ...p, preFillPosition: idx + 1 }));
+    const reindexed = newParticipants.map((p, idx) => ({
+      ...p,
+      preFillPosition: idx + 1,
+    }));
     onChange(reindexed);
   };
 
@@ -143,11 +164,52 @@ export const EditableParticipantList: FC<EditableParticipantListProps> = ({
     if (index === participants.length - 1) return;
     const newParticipants = [...participants];
     [newParticipants[index], newParticipants[index + 1]] = [
-      newParticipants[index + 1]!,
-      newParticipants[index]!,
+      newParticipants[index + 1]!, // Other participant keeps its state
+      { ...newParticipants[index]!, isExplicitlyPositioned: true }, // Mark moved participant
     ];
-    const reindexed = newParticipants.map((p, idx) => ({ ...p, preFillPosition: idx + 1 }));
+    const reindexed = newParticipants.map((p, idx) => ({
+      ...p,
+      preFillPosition: idx + 1,
+    }));
     onChange(reindexed);
+  };
+
+  const handleDragStart = (index: number) => {
+    setDraggedIndex(index);
+  };
+
+  const handleDragOver = (e: React.DragEvent, _index: number) => {
+    e.preventDefault(); // Allow drop
+  };
+
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    
+    if (draggedIndex === null || draggedIndex === dropIndex) {
+      setDraggedIndex(null);
+      return;
+    }
+
+    const newParticipants = [...participants];
+    const draggedItem = { ...newParticipants[draggedIndex]!, isExplicitlyPositioned: true };
+    
+    // Remove dragged item
+    newParticipants.splice(draggedIndex, 1);
+    // Insert at new position
+    newParticipants.splice(dropIndex, 0, draggedItem);
+    
+    // Reindex positions
+    const reindexed = newParticipants.map((p, idx) => ({
+      ...p,
+      preFillPosition: idx + 1,
+    }));
+    
+    onChange(reindexed);
+    setDraggedIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
   };
 
   return (
@@ -166,15 +228,35 @@ export const EditableParticipantList: FC<EditableParticipantListProps> = ({
         </Typography>
       ) : (
         participants.map((p, index) => (
-          <Box key={p.id} sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'flex-start' }}>
+          <Box
+            key={p.id}
+            draggable
+            onDragStart={() => handleDragStart(index)}
+            onDragOver={(e) => handleDragOver(e, index)}
+            onDrop={(e) => handleDrop(e, index)}
+            onDragEnd={handleDragEnd}
+            sx={{
+              display: 'flex',
+              gap: 1,
+              mb: 1,
+              alignItems: 'flex-start',
+              cursor: 'move',
+              opacity: draggedIndex === index ? 0.5 : 1,
+              transition: 'opacity 0.2s',
+              '&:hover': {
+                backgroundColor: 'action.hover',
+              },
+            }}
+          >
             <TextField
               value={p.mention}
               onChange={(e) => handleMentionChange(p.id, e.target.value)}
               placeholder="@username or Discord user"
               error={p.isValid === false}
-              helperText={p.validationError}
+              helperText={p.validationError || (p.isReadOnly ? 'Joined player (can reorder or remove)' : undefined)}
               fullWidth
               size="small"
+              disabled={p.isReadOnly}
               InputProps={{
                 endAdornment: p.isValid === null && p.mention.trim() ? (
                   <InputAdornment position="end">
