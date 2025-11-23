@@ -31,7 +31,7 @@ export const InheritancePreview: FC<InheritancePreviewProps> = ({
   label,
   value,
   inherited,
-  inheritedFrom = 'guild',
+  inheritedFrom = 'server',
 }) => {
   const displayValue = Array.isArray(value) ? value.join(', ') : (value ?? 'Not set');
 

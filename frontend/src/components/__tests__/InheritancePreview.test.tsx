@@ -30,10 +30,10 @@ describe('InheritancePreview', () => {
 
   it('displays inherited indicator when inherited is true', () => {
     render(
-      <InheritancePreview label="Max Players" value={10} inherited={true} inheritedFrom="guild" />
+      <InheritancePreview label="Max Players" value={10} inherited={true} inheritedFrom="server" />
     );
 
-    expect(screen.getByText(/Inherited from guild/)).toBeInTheDocument();
+    expect(screen.getByText(/Inherited from server/)).toBeInTheDocument();
   });
 
   it('does not display inherited indicator when inherited is false', () => {
