@@ -28,12 +28,12 @@ async def config_channel_command(
     is_active: bool | None = None,
 ) -> None:
     """
-    Configure channel-level settings that override guild defaults.
+    Configure channel-level settings that override server defaults.
 
     Args:
         interaction: Discord interaction object
         channel: Channel to configure (defaults to current channel)
-        max_players: Max players override (1-100, None to use guild default)
+        max_players: Max players override (1-100, None to use server default)
         reminder_minutes: Reminder times override (comma-separated minutes)
         game_category: Game category for this channel (e.g., "D&D", "Board Games")
         is_active: Enable/disable game posting in this channel
@@ -60,7 +60,7 @@ async def config_channel_command(
             guild_config = await _get_guild_config(db, str(interaction.guild.id))
             if not guild_config:
                 await interaction.followup.send(
-                    "❌ Guild configuration not found. Please run `/config-guild` first.",
+                    "❌ Server configuration not found. Please run `/config-guild` first.",
                     ephemeral=True,
                 )
                 return
@@ -232,7 +232,7 @@ def _create_config_display_embed(
     max_players = (
         str(config.max_players)
         if config.max_players
-        else f"{guild_config.default_max_players} (guild default)"
+        else f"{guild_config.default_max_players} (server default)"
     )
     embed.add_field(
         name="Max Players",
@@ -244,7 +244,7 @@ def _create_config_display_embed(
         reminders_text = ", ".join(map(str, config.reminder_minutes)) + " min"
     else:
         guild_reminders = ", ".join(map(str, guild_config.default_reminder_minutes))
-        reminders_text = f"{guild_reminders} min (guild default)"
+        reminders_text = f"{guild_reminders} min (server default)"
 
     embed.add_field(
         name="Reminders",
