@@ -389,7 +389,7 @@ Implement a complete Discord game scheduling system with microservices architect
   - Update Discord bot message formatters to use "Added by host"
   - Ensure consistent terminology across all user-facing text
 
-- [ ] Task 12.8: Change "Guild" to "Server" on web pages and messages
+- [x] Task 12.8: Change "Guild" to "Server" on web pages and messages
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1732-1754)
 

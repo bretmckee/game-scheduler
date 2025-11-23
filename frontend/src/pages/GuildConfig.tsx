@@ -74,7 +74,7 @@ export const GuildConfig: FC = () => {
         });
       } catch (err: any) {
         console.error('Failed to fetch guild:', err);
-        setError(err.response?.data?.detail || 'Failed to load guild configuration.');
+        setError(err.response?.data?.detail || 'Failed to load server configuration.');
       } finally {
         setLoading(false);
       }
@@ -139,7 +139,7 @@ export const GuildConfig: FC = () => {
       <Container sx={{ mt: 4 }}>
         <Alert severity="error">{error}</Alert>
         <Button sx={{ mt: 2 }} onClick={() => navigate(`/guilds/${guildId}`)}>
-          Back to Guild
+          Back to Server
         </Button>
       </Container>
     );
@@ -151,7 +151,7 @@ export const GuildConfig: FC = () => {
         <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(`/guilds/${guildId}`)}>
           Back
         </Button>
-        <Typography variant="h4">Guild Configuration</Typography>
+        <Typography variant="h4">Server Configuration</Typography>
       </Box>
 
       {error && (
@@ -171,7 +171,7 @@ export const GuildConfig: FC = () => {
             Default Game Settings
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            These settings will be used as defaults for all new games in this guild. Individual
+            These settings will be used as defaults for all new games in this server. Individual
             channels and games can override these values.
           </Typography>
 
@@ -208,7 +208,7 @@ export const GuildConfig: FC = () => {
               label="Bot Manager Role IDs"
               value={formData.botManagerRoleIds}
               onChange={(e) => setFormData({ ...formData, botManagerRoleIds: e.target.value })}
-              helperText="Comma-separated Discord role IDs for Bot Managers (can edit/delete any game in this guild). Leave empty for none."
+              helperText="Comma-separated Discord role IDs for Bot Managers (can edit/delete any game in this server). Leave empty for none."
               fullWidth
             />
 
