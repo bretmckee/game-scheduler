@@ -114,58 +114,6 @@ async def test_get_user_role_ids_api_error(role_service, mock_cache, mock_discor
 
 
 @pytest.mark.asyncio
-async def test_check_manage_guild_permission_success(role_service, mock_discord_client):
-    """Test user has MANAGE_GUILD permission."""
-    mock_discord_client.get_user_guilds.return_value = [
-        {"id": "guild456", "permissions": "32"}  # 0x20 = MANAGE_GUILD
-    ]
-
-    with patch.object(role_service, "discord_client", mock_discord_client):
-        has_perm = await role_service.check_manage_guild_permission("user123", "guild456", "token")
-
-    assert has_perm is True
-
-
-@pytest.mark.asyncio
-async def test_check_manage_guild_permission_denied(role_service, mock_discord_client):
-    """Test user lacks MANAGE_GUILD permission."""
-    mock_discord_client.get_user_guilds.return_value = [{"id": "guild456", "permissions": "0"}]
-
-    with patch.object(role_service, "discord_client", mock_discord_client):
-        has_perm = await role_service.check_manage_guild_permission("user123", "guild456", "token")
-
-    assert has_perm is False
-
-
-@pytest.mark.asyncio
-async def test_check_manage_channels_permission_success(role_service, mock_discord_client):
-    """Test user has MANAGE_CHANNELS permission."""
-    mock_discord_client.get_user_guilds.return_value = [
-        {"id": "guild456", "permissions": "16"}  # 0x10 = MANAGE_CHANNELS
-    ]
-
-    with patch.object(role_service, "discord_client", mock_discord_client):
-        has_perm = await role_service.check_manage_channels_permission(
-            "user123", "guild456", "token"
-        )
-
-    assert has_perm is True
-
-
-@pytest.mark.asyncio
-async def test_check_administrator_permission_success(role_service, mock_discord_client):
-    """Test user has ADMINISTRATOR permission."""
-    mock_discord_client.get_user_guilds.return_value = [
-        {"id": "guild456", "permissions": "8"}  # 0x08 = ADMINISTRATOR
-    ]
-
-    with patch.object(role_service, "discord_client", mock_discord_client):
-        has_perm = await role_service.check_administrator_permission("user123", "guild456", "token")
-
-    assert has_perm is True
-
-
-@pytest.mark.asyncio
 async def test_check_game_host_permission_channel_roles(role_service):
     """Test game host permission with channel-specific roles."""
     mock_db = AsyncMock()

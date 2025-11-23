@@ -431,7 +431,7 @@ Implement a complete Discord game scheduling system with microservices architect
   - Update channel config label from "Allowed Host Role IDs (override)" to "Host Roles (override)"
   - Keep helper text and functionality unchanged
 
-- [ ] Task 12.13: Convert role ID fields to multi-select dropdowns with actual server roles
+- [x] Task 12.13: Convert role ID fields to multi-select dropdowns with actual server roles
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1875-1910)
 
