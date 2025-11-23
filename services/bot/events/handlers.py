@@ -59,6 +59,7 @@ class EventHandlers:
             EventType.GAME_UPDATED: self._handle_game_updated,
             EventType.NOTIFICATION_SEND_DM: self._handle_send_notification,
             EventType.GAME_CREATED: self._handle_game_created,
+            EventType.PLAYER_REMOVED: self._handle_player_removed,
         }
         # Adaptive rate limiting for message refreshes
         self._pending_refreshes: set[str] = set()  # Track games with pending refreshes
@@ -93,6 +94,9 @@ class EventHandlers:
         )
         self.consumer.register_handler(
             EventType.GAME_CREATED, lambda e: self._handle_game_created(e.data)
+        )
+        self.consumer.register_handler(
+            EventType.PLAYER_REMOVED, lambda e: self._handle_player_removed(e.data)
         )
 
         logger.info(f"Started consuming events from queue: {queue_name}")
@@ -367,6 +371,96 @@ class EventHandlers:
                 f"Failed to send notification to {notification.user_id}: {e}",
                 exc_info=True,
             )
+
+    async def _handle_player_removed(self, data: dict[str, Any]) -> None:
+        """
+        Handle game.player_removed event by updating Discord message and notifying user.
+
+        Args:
+            data: Event payload with player removal details
+        """
+        game_id = data.get("game_id")
+        discord_id = data.get("discord_id")
+        message_id = data.get("message_id")
+        channel_id = data.get("channel_id")
+        game_title = data.get("game_title")
+        game_scheduled_at = data.get("game_scheduled_at")
+
+        if not game_id or not message_id or not channel_id:
+            logger.error("Missing required fields in participant.removed event")
+            return
+
+        try:
+            # Update Discord message to reflect removal
+            async with get_db_session() as db:
+                game = await self._get_game_with_participants(db, game_id)
+                if not game:
+                    logger.error(f"Game not found: {game_id}")
+                    return
+
+                channel = await self.bot.fetch_channel(int(channel_id))
+                if not channel or not isinstance(channel, discord.TextChannel):
+                    logger.error(f"Invalid or inaccessible channel: {channel_id}")
+                    return
+
+                try:
+                    message = await channel.fetch_message(int(message_id))
+
+                    all_participants = [p for p in game.participants if p.user_id and p.user]
+                    sorted_participants = participant_sorting.sort_participants(all_participants)
+
+                    max_players = game.max_players or 10
+                    confirmed_participants = sorted_participants[:max_players]
+                    overflow_participants = sorted_participants[max_players:]
+
+                    confirmed_ids = [p.user.discord_id for p in confirmed_participants]
+                    overflow_ids = [p.user.discord_id for p in overflow_participants]
+
+                    embed, view = format_game_announcement(
+                        game_id=game_id,
+                        title=game.title,
+                        description=game.description,
+                        signup_instructions=game.signup_instructions,
+                        scheduled_at_unix=int(game.scheduled_at.timestamp()),
+                        max_players=max_players,
+                        min_players=game.min_players or 1,
+                        confirmed_participant_ids=confirmed_ids,
+                        overflow_participant_ids=overflow_ids,
+                        channel_name=game.channel.channel_name if game.channel else None,
+                        host_discord_id=game.host.discord_id,
+                        notify_role_ids=game.notify_role_ids or [],
+                    )
+
+                    await message.edit(embed=embed, view=view)
+                    logger.info(f"Updated game message after participant removal: {message_id}")
+
+                except discord.NotFound:
+                    logger.warning(f"Game message not found: {message_id}")
+                except Exception as e:
+                    logger.error(f"Failed to update game message: {e}", exc_info=True)
+
+            # Send DM to removed user
+            if discord_id:
+                try:
+                    user = await self.bot.fetch_user(int(discord_id))
+                    if user:
+                        dm_message = f"❌ You were removed from **{game_title}**"
+                        if game_scheduled_at:
+                            dm_message += (
+                                f" scheduled for <t:{int(game.scheduled_at.timestamp())}:F>"
+                            )
+
+                        await user.send(dm_message)
+                        logger.info(f"Sent removal DM to user {discord_id}")
+                    else:
+                        logger.warning(f"User not found for DM: {discord_id}")
+                except discord.Forbidden:
+                    logger.warning(f"Cannot send DM to user {discord_id}: DMs disabled")
+                except Exception as e:
+                    logger.error(f"Failed to send removal DM to {discord_id}: {e}", exc_info=True)
+
+        except Exception as e:
+            logger.error(f"Failed to handle participant removal: {e}", exc_info=True)
 
     async def _get_game_with_participants(
         self, db: AsyncSession, game_id: str
