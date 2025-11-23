@@ -24,3 +24,4 @@ You WILL verify that any new or added code follows:
 - [ ] All new and modified code passes lint
 - [ ] All new and modified code has complete and passing unit tests
 - [ ] Changes file updated to describe any changes made. Do not provide information about this verification step, only about code changes.
+- [ ] All affected docker containers build.
