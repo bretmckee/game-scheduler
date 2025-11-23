@@ -15,6 +15,7 @@ from shared.cache import keys as cache_keys
 from shared.cache import ttl as cache_ttl
 from shared.models import channel as channel_model
 from shared.models import guild as guild_model
+from shared.utils.discord import DiscordPermissions
 
 logger = logging.getLogger(__name__)
 
@@ -69,91 +70,46 @@ class RoleVerificationService:
             logger.error(f"Unexpected error fetching user roles: {e}")
             return []
 
-    async def check_manage_guild_permission(
-        self, user_id: str, guild_id: str, access_token: str
+    async def has_permissions(
+        self, user_id: str, guild_id: str, access_token: str, *permissions: int
     ) -> bool:
         """
-        Check if user has MANAGE_GUILD permission.
+        Check if user has any of the specified permissions in a guild.
+
+        ADMINISTRATOR permission always grants access as it includes all permissions.
 
         Args:
             user_id: Discord user ID
             guild_id: Discord guild ID
             access_token: User's OAuth2 access token
+            *permissions: One or more permission flags to check
+                (e.g., DiscordPermissions.MANAGE_GUILD)
 
         Returns:
-            True if user has MANAGE_GUILD permission
+            True if user has ADMINISTRATOR or any of the specified permissions
         """
         try:
-            guilds = await self.discord_client.get_user_guilds(access_token)
+            guilds = await self.discord_client.get_user_guilds(access_token, user_id)
 
             for guild_data in guilds:
                 if guild_data["id"] == guild_id:
-                    permissions = int(guild_data.get("permissions", 0))
-                    # MANAGE_GUILD permission bit: 0x00000020
-                    return bool(permissions & 0x00000020)
+                    user_permissions = int(guild_data.get("permissions", 0))
+
+                    # ADMINISTRATOR grants all permissions
+                    if user_permissions & DiscordPermissions.ADMINISTRATOR:
+                        return True
+
+                    # Check if user has any of the requested permissions
+                    for permission in permissions:
+                        if user_permissions & permission:
+                            return True
+
+                    return False
 
             return False
 
         except Exception as e:
-            logger.error(f"Error checking MANAGE_GUILD permission: {e}")
-            return False
-
-    async def check_manage_channels_permission(
-        self, user_id: str, guild_id: str, access_token: str
-    ) -> bool:
-        """
-        Check if user has MANAGE_CHANNELS permission.
-
-        Args:
-            user_id: Discord user ID
-            guild_id: Discord guild ID
-            access_token: User's OAuth2 access token
-
-        Returns:
-            True if user has MANAGE_CHANNELS permission
-        """
-        try:
-            guilds = await self.discord_client.get_user_guilds(access_token)
-
-            for guild_data in guilds:
-                if guild_data["id"] == guild_id:
-                    permissions = int(guild_data.get("permissions", 0))
-                    # MANAGE_CHANNELS permission bit: 0x00000010
-                    return bool(permissions & 0x00000010)
-
-            return False
-
-        except Exception as e:
-            logger.error(f"Error checking MANAGE_CHANNELS permission: {e}")
-            return False
-
-    async def check_administrator_permission(
-        self, user_id: str, guild_id: str, access_token: str
-    ) -> bool:
-        """
-        Check if user has ADMINISTRATOR permission.
-
-        Args:
-            user_id: Discord user ID
-            guild_id: Discord guild ID
-            access_token: User's OAuth2 access token
-
-        Returns:
-            True if user has ADMINISTRATOR permission
-        """
-        try:
-            guilds = await self.discord_client.get_user_guilds(access_token)
-
-            for guild_data in guilds:
-                if guild_data["id"] == guild_id:
-                    permissions = int(guild_data.get("permissions", 0))
-                    # ADMINISTRATOR permission bit: 0x00000008
-                    return bool(permissions & 0x00000008)
-
-            return False
-
-        except Exception as e:
-            logger.error(f"Error checking ADMINISTRATOR permission: {e}")
+            logger.error(f"Error checking permissions: {e}")
             return False
 
     async def check_game_host_permission(
@@ -206,25 +162,29 @@ class RoleVerificationService:
             return any(role_id in guild_config.allowed_host_role_ids for role_id in user_role_ids)
 
         if access_token:
-            return await self.check_manage_guild_permission(user_id, guild_id, access_token)
+            return await self.has_permissions(
+                user_id, guild_id, access_token, DiscordPermissions.MANAGE_GUILD
+            )
 
         return False
 
     async def check_bot_manager_permission(
-        self, user_id: str, guild_id: str, db: AsyncSession
+        self, user_id: str, guild_id: str, db: AsyncSession, access_token: str | None = None
     ) -> bool:
         """
         Check if user has Bot Manager role in guild.
 
         Bot Managers can edit/delete any game in the guild.
+        Falls back to MANAGE_GUILD permission if no Bot Manager roles configured.
 
         Args:
             user_id: Discord user ID
             guild_id: Discord guild ID
             db: Database session for configuration queries
+            access_token: User's OAuth2 access token (required if no Bot Manager roles configured)
 
         Returns:
-            True if user has Bot Manager role
+            True if user has Bot Manager role or MANAGE_GUILD permission
         """
         user_role_ids = await self.get_user_role_ids(user_id, guild_id)
 
@@ -236,6 +196,10 @@ class RoleVerificationService:
         guild_config = result.scalar_one_or_none()
 
         if not guild_config or not guild_config.bot_manager_role_ids:
+            if access_token:
+                return await self.has_permissions(
+                    user_id, guild_id, access_token, DiscordPermissions.MANAGE_GUILD
+                )
             return False
 
         return any(role_id in guild_config.bot_manager_role_ids for role_id in user_role_ids)

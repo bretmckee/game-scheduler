@@ -12,11 +12,13 @@ import {
   Alert,
   FormControlLabel,
   Checkbox,
+  Autocomplete,
+  Chip,
 } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { apiClient } from '../api/client';
-import { Guild } from '../types';
+import { Guild, DiscordRole } from '../types';
 
 export const GuildConfig: FC = () => {
   const { guildId } = useParams<{ guildId: string }>();
@@ -25,13 +27,15 @@ export const GuildConfig: FC = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [loadingRoles, setLoadingRoles] = useState(false);
+  const [roles, setRoles] = useState<DiscordRole[]>([]);
 
   const [guild, setGuild] = useState<Guild | null>(null);
   const [formData, setFormData] = useState({
     defaultMaxPlayers: 10,
     defaultReminderMinutes: '60, 15',
-    allowedHostRoleIds: '',
-    botManagerRoleIds: '',
+    allowedHostRoleIds: [] as string[],
+    botManagerRoleIds: [] as string[],
     requireHostRole: false,
   });
 
@@ -50,8 +54,8 @@ export const GuildConfig: FC = () => {
         setFormData({
           defaultMaxPlayers: guildData.default_max_players,
           defaultReminderMinutes: guildData.default_reminder_minutes.join(', '),
-          allowedHostRoleIds: guildData.allowed_host_role_ids.join(', '),
-          botManagerRoleIds: (guildData.bot_manager_role_ids || []).join(', '),
+          allowedHostRoleIds: guildData.allowed_host_role_ids || [],
+          botManagerRoleIds: guildData.bot_manager_role_ids || [],
           requireHostRole: guildData.require_host_role,
         });
       } catch (err: any) {
@@ -63,6 +67,24 @@ export const GuildConfig: FC = () => {
     };
 
     fetchGuild();
+  }, [guildId]);
+
+  useEffect(() => {
+    const fetchRoles = async () => {
+      if (!guildId) return;
+
+      try {
+        setLoadingRoles(true);
+        const response = await apiClient.get<DiscordRole[]>(`/api/v1/guilds/${guildId}/roles`);
+        setRoles(response.data);
+      } catch (err: any) {
+        console.error('Failed to fetch roles:', err);
+      } finally {
+        setLoadingRoles(false);
+      }
+    };
+
+    fetchRoles();
   }, [guildId]);
 
   const handleSave = async () => {
@@ -78,21 +100,12 @@ export const GuildConfig: FC = () => {
         .map((s) => parseInt(s.trim()))
         .filter((n) => !isNaN(n));
 
-      const allowedRoleIds = formData.allowedHostRoleIds
-        .split(',')
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0);
-
-      const botManagerRoleIds = formData.botManagerRoleIds
-        .split(',')
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0);
-
       await apiClient.put(`/api/v1/guilds/${guildId}`, {
         default_max_players: formData.defaultMaxPlayers,
         default_reminder_minutes: reminderMinutes,
-        allowed_host_role_ids: allowedRoleIds,
-        bot_manager_role_ids: botManagerRoleIds.length > 0 ? botManagerRoleIds : null,
+        allowed_host_role_ids: formData.allowedHostRoleIds,
+        bot_manager_role_ids:
+          formData.botManagerRoleIds.length > 0 ? formData.botManagerRoleIds : null,
         require_host_role: formData.requireHostRole,
       });
 
@@ -178,19 +191,85 @@ export const GuildConfig: FC = () => {
               fullWidth
             />
 
-            <TextField
-              label="Host Roles"
-              value={formData.allowedHostRoleIds}
-              onChange={(e) => setFormData({ ...formData, allowedHostRoleIds: e.target.value })}
-              helperText="Comma-separated Discord role IDs that can host games. Leave empty to allow users with MANAGE_GUILD permission."
+            <Autocomplete
+              multiple
+              options={roles}
+              value={roles.filter((role) => formData.allowedHostRoleIds.includes(role.id))}
+              onChange={(_, newValue) =>
+                setFormData({
+                  ...formData,
+                  allowedHostRoleIds: newValue.map((role) => role.id),
+                })
+              }
+              getOptionLabel={(option) => option.name}
+              loading={loadingRoles}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Host Roles"
+                  placeholder="Select roles that can host games"
+                  helperText="Roles that can create games. Leave empty to allow users with MANAGE_GUILD permission."
+                />
+              )}
+              renderTags={(value, getTagProps) =>
+                value.map((option, index) => {
+                  const { key, ...chipProps } = getTagProps({ index });
+                  return (
+                    <Chip
+                      key={key}
+                      label={option.name}
+                      {...chipProps}
+                      sx={{
+                        backgroundColor: option.color
+                          ? `#${option.color.toString(16).padStart(6, '0')}`
+                          : undefined,
+                        color: option.color ? '#ffffff' : undefined,
+                      }}
+                    />
+                  );
+                })
+              }
               fullWidth
             />
 
-            <TextField
-              label="Bot Manager Roles"
-              value={formData.botManagerRoleIds}
-              onChange={(e) => setFormData({ ...formData, botManagerRoleIds: e.target.value })}
-              helperText="Comma-separated Discord role IDs for Bot Managers (can edit/delete any game in this server). Leave empty for none."
+            <Autocomplete
+              multiple
+              options={roles}
+              value={roles.filter((role) => formData.botManagerRoleIds.includes(role.id))}
+              onChange={(_, newValue) =>
+                setFormData({
+                  ...formData,
+                  botManagerRoleIds: newValue.map((role) => role.id),
+                })
+              }
+              getOptionLabel={(option) => option.name}
+              loading={loadingRoles}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Bot Manager Roles"
+                  placeholder="Select Bot Manager roles"
+                  helperText="Roles for Bot Managers (can edit/delete any game in this server). Leave empty for none."
+                />
+              )}
+              renderTags={(value, getTagProps) =>
+                value.map((option, index) => {
+                  const { key, ...chipProps } = getTagProps({ index });
+                  return (
+                    <Chip
+                      key={key}
+                      label={option.name}
+                      {...chipProps}
+                      sx={{
+                        backgroundColor: option.color
+                          ? `#${option.color.toString(16).padStart(6, '0')}`
+                          : undefined,
+                        color: option.color ? '#ffffff' : undefined,
+                      }}
+                    />
+                  );
+                })
+              }
               fullWidth
             />
 
