@@ -11,6 +11,41 @@ Implementation of a complete Discord game scheduling system with microservices a
 
 ### Recent Updates (2025-11-22)
 
+**Rename Role Field Labels for Better User Experience (Task 12.12)**
+
+Simplified role configuration labels on server and channel configuration pages by removing "Allowed" and "IDs" from the labels for better clarity and user experience.
+
+**Implementation Details:**
+
+- **Server Configuration**: Changed label from "Allowed Host Role IDs" to "Host Roles"
+- **Server Configuration**: Changed label from "Bot Manager Role IDs" to "Bot Manager Roles"
+- **Channel Configuration**: Changed label from "Allowed Host Role IDs (override)" to "Host Roles (override)"
+- **Helper Text**: Kept unchanged for clarity (still mentions "Discord role IDs")
+- **Internal Code**: No changes to variable names, API, or database (remains `allowed_host_role_ids` and `bot_manager_role_ids`)
+
+**Files Modified:**
+
+- `frontend/src/pages/GuildConfig.tsx` - Changed TextField labels from "Allowed Host Role IDs" to "Host Roles" and "Bot Manager Role IDs" to "Bot Manager Roles"
+- `frontend/src/pages/ChannelConfig.tsx` - Changed TextField label from "Allowed Host Role IDs (override)" to "Host Roles (override)"
+
+**Test Coverage:**
+
+- ✅ TypeScript compilation successful with no errors
+- ✅ ESLint checks pass (no new warnings introduced)
+- ✅ Prettier formatting applied successfully
+- ✅ Labels verified in both files
+
+**Result:**
+
+- Server configuration page now shows "Host Roles" instead of "Allowed Host Role IDs"
+- Server configuration page now shows "Bot Manager Roles" instead of "Bot Manager Role IDs"
+- Channel configuration page now shows "Host Roles (override)" instead of "Allowed Host Role IDs (override)"
+- Labels are more user-friendly and concise
+- Functionality remains unchanged
+- Helper text still provides clarity about role IDs
+
+---
+
 **Add Play Time Field for Expected Game Duration (Task 12.11)**
 
 Added an optional `expected_duration_minutes` field to track how long the host expects the game session to run. The field displays on My Games summary, game details, and Discord messages.
