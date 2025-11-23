@@ -366,7 +366,7 @@ Implement a complete Discord game scheduling system with microservices architect
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1378-1602)
 
-- [ ] Task 12.5: Integrate EditableParticipantList into GameForm Component
+- [x] Task 12.5: Integrate EditableParticipantList into GameForm Component
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1604-1698)
 

@@ -2,14 +2,23 @@ import { FC, useState, useEffect } from 'react';
 import { Container, CircularProgress, Alert } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiClient } from '../api/client';
-import { Channel, GameSession } from '../types';
+import { Channel, GameSession, Participant } from '../types';
 import { GameForm, GameFormData } from '../components/GameForm';
+
+interface EditGameState {
+  game: GameSession | null;
+  channels: Channel[];
+  initialParticipants: Participant[];
+}
 
 export const EditGame: FC = () => {
   const navigate = useNavigate();
   const { gameId } = useParams<{ gameId: string }>();
-  const [game, setGame] = useState<GameSession | null>(null);
-  const [channels, setChannels] = useState<Channel[]>([]);
+  const [state, setState] = useState<EditGameState>({
+    game: null,
+    channels: [],
+    initialParticipants: [],
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -21,12 +30,16 @@ export const EditGame: FC = () => {
         setLoading(true);
         const gameResponse = await apiClient.get<GameSession>(`/api/v1/games/${gameId}`);
         const gameData = gameResponse.data;
-        setGame(gameData);
 
         const channelsResponse = await apiClient.get<Channel[]>(
           `/api/v1/guilds/${gameData.guild_id}/channels`
         );
-        setChannels(channelsResponse.data);
+
+        setState({
+          game: gameData,
+          channels: channelsResponse.data,
+          initialParticipants: gameData.participants || [],
+        });
       } catch (err: any) {
         console.error('Failed to fetch game:', err);
         setError('Failed to load game. Please try again.');
@@ -46,6 +59,18 @@ export const EditGame: FC = () => {
     const minPlayers = formData.minPlayers ? parseInt(formData.minPlayers) : null;
     const maxPlayers = formData.maxPlayers ? parseInt(formData.maxPlayers) : null;
 
+    // Detect removed participants by comparing initial vs current
+    const currentParticipantIds = new Set(
+      formData.participants.map((p) => {
+        // Extract participant ID if it exists (not a temp ID)
+        return p.id.startsWith('temp-') ? null : p.id;
+      }).filter(Boolean)
+    );
+    
+    const removedParticipantIds = state.initialParticipants
+      .filter((initial) => !currentParticipantIds.has(initial.id))
+      .map((p) => p.id);
+
     try {
       const payload = {
         title: formData.title,
@@ -58,6 +83,13 @@ export const EditGame: FC = () => {
         reminder_minutes: formData.reminderMinutes
           ? formData.reminderMinutes.split(',').map((m) => parseInt(m.trim()))
           : null,
+        participants: formData.participants
+          .filter((p) => p.mention.trim() && p.isExplicitlyPositioned)
+          .map((p) => ({
+            mention: p.mention.trim(),
+            pre_filled_position: p.preFillPosition,
+          })),
+        removed_participant_ids: removedParticipantIds,
       };
 
       await apiClient.put(`/api/v1/games/${gameId}`, payload);
@@ -76,7 +108,7 @@ export const EditGame: FC = () => {
     );
   }
 
-  if (!game) {
+  if (!state.game) {
     return (
       <Container maxWidth="md" sx={{ mt: 4 }}>
         <Alert severity="error">Game not found</Alert>
@@ -96,9 +128,9 @@ export const EditGame: FC = () => {
     <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
       <GameForm
         mode="edit"
-        initialData={game}
-        guildId={game.guild_id}
-        channels={channels}
+        initialData={state.game}
+        guildId={state.game.guild_id}
+        channels={state.channels}
         roles={[]}
         onSubmit={handleSubmit}
         onCancel={() => navigate(`/games/${gameId}`)}
