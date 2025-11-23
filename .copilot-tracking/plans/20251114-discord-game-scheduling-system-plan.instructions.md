@@ -407,7 +407,7 @@ Implement a complete Discord game scheduling system with microservices architect
   - Send DM with game details and confirmation message
   - Update message immediately to reflect promotion
 
-- [ ] Task 12.10: Fix participant count to include placeholder participants
+- [x] Task 12.10: Fix participant count to include placeholder participants
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1787-1812)
 
