@@ -348,7 +348,7 @@ Implement a complete Discord game scheduling system with microservices architect
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1283-1320)
 
-### [ ] Phase 12: Advanced Features
+### [ ] Phase 12: Enhance functionality
 
 - [x] Task 12.1: Implement waitlist support
 
@@ -368,23 +368,90 @@ Implement a complete Discord game scheduling system with microservices architect
 
 - [x] Task 12.5: Integrate EditableParticipantList into GameForm Component
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1604-1698)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1601-1693)
 
-- [ ] Task 12.6: Add game templates for recurring sessions
+- [ ] Task 12.6: Replace adaptive backoff with Redis-based rate limiting
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1700-1717)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1694-1711)
 
-- [ ] Task 12.7: Build calendar export functionality
-
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1719-1736)
-
-- [ ] Task 12.8: Create statistics dashboard
-
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1738-1758)
-
-- [ ] Task 12.9: Replace adaptive backoff with Redis-based rate limiting
-
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1694-1711)
   - Simplify message update throttling by replacing in-memory state tracking with Redis cache
   - Use Redis key existence check with 1.5s TTL for rate limiting
   - Maintains instant updates when idle, simpler code, multi-instance ready
   - Research: .copilot-tracking/research/20251122-redis-rate-limiting-research.md
+
+- [ ] Task 12.7: Change "Pre-Populated" to "Added by host" on web pages and messages
+
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1712-1731)
+
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1712-1731)
+  - Update all frontend components to use "Added by host" terminology
+  - Update Discord bot message formatters to use "Added by host"
+  - Ensure consistent terminology across all user-facing text
+
+- [ ] Task 12.8: Change "Guild" to "Server" on web pages and messages
+
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1732-1754)
+
+  - Update all frontend components to use "Server" instead of "Guild"
+  - Update Discord bot messages to use "Server" terminology
+  - Keep internal code and database models using "guild" for Discord API consistency
+  - Only change user-facing text and UI labels
+
+- [ ] Task 12.9: Send notification of waitlist clearing
+
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1756-1785)
+
+  - Notify users when they move from overflow to confirmed participant list
+  - Triggered by: player removal, max_players increase, or host reordering
+  - Send DM with game details and confirmation message
+  - Update message immediately to reflect promotion
+
+- [ ] Task 12.10: Fix participant count to include placeholder participants
+
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1787-1812)
+
+  - Update participant_count calculation to include both Discord users and placeholder participants
+  - Ensure "My Games" screen shows accurate player counts
+  - Match displayed participant list count in game details
+
+- [ ] Task 12.11: Add play time field for expected game duration
+
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1814-1851)
+
+  - Add expected_duration_minutes field to track how long game will run
+  - Display on My Games summary, game details, and Discord messages
+  - Position on same line as Reminder times in create/edit forms
+
+- [ ] Task 12.12: Rename "Allowed Host Role IDs" to "Host Roles" on server configuration
+
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1853-1873)
+
+  - Simplify label from "Allowed Host Role IDs" to "Host Roles" on server config
+  - Update channel config label from "Allowed Host Role IDs (override)" to "Host Roles (override)"
+  - Keep helper text and functionality unchanged
+
+- [ ] Task 12.13: Convert role ID fields to multi-select dropdowns with actual server roles
+
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1875-1910)
+
+  - Replace text input fields with Material-UI Autocomplete multi-select components
+  - Fetch and display actual role names from the server using existing /roles endpoint
+  - Apply to Host Roles and Bot Manager Roles fields on server configuration page
+  - Apply to Host Roles (override) field on channel configuration page
+
+### [ ] Phase 13: Additional Functionality
+
+- [ ] Task 13.1: Add game templates for recurring sessions
+
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1757-1775)
+
+- [ ] Task 13.2: Build calendar export functionality
+
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1776-1794)
+
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1776-1794)
+
+- [ ] Task 13.3: Create statistics dashboard
+
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1795-1817)

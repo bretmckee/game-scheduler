@@ -1691,7 +1691,241 @@ Integrate the EditableParticipantList component into GameForm for inline partici
   - RabbitMQ events infrastructure (Task 1.3)
   - Discord bot message formatting (Task 2.3)
 
-### Task 12.6: Add game templates for recurring sessions
+### Task 12.6: Replace adaptive backoff with Redis-based rate limiting
+
+Simplify message update throttling by replacing in-memory state tracking with Redis cache.
+
+- **Files**:
+  - `services/bot/handlers/game_handler.py` - Replace adaptive backoff logic
+  - `shared/cache/client.py` - Ensure Redis client supports key operations
+- **Success**:
+  - Redis key existence check with 1.5s TTL for rate limiting
+  - Instant updates when idle, throttled when busy
+  - Simpler code without in-memory state tracking
+  - Multi-instance ready
+- **Research References**:
+  - #file:../research/20251122-redis-rate-limiting-research.md - Redis rate limiting patterns
+- **Dependencies**:
+  - Task 1.4 (Redis configuration)
+  - Task 2.4 (Button interaction handlers)
+
+### Task 12.7: Change "Pre-Populated" to "Added by host" on web pages and messages
+
+Update terminology across all user-facing interfaces for better clarity.
+
+- **Files**:
+  - `frontend/src/components/EditableParticipantList.tsx` - Update UI labels
+  - `frontend/src/components/ParticipantList.tsx` - Update display text
+  - `frontend/src/pages/GameDetails.tsx` - Update participant section labels
+  - `services/bot/formatters/game_formatter.py` - Update Discord message text
+- **Success**:
+  - All instances of "Pre-Populated" changed to "Added by host"
+  - Consistent terminology across frontend and Discord messages
+  - Clear distinction between host-added and user-joined participants
+- **Research References**:
+  - #file:../../frontend/src/components/EditableParticipantList.tsx - Component with pre-populated text
+  - #file:../../services/bot/formatters/game_formatter.py - Discord message formatting
+- **Dependencies**:
+  - Task 4.4 (Game management interface)
+  - Task 2.3 (Game announcement message formatter)
+
+### Task 12.8: Change "Guild" to "Server" on web pages and messages
+
+Update user-facing terminology to match Discord's user interface language.
+
+- **Files**:
+  - `frontend/src/pages/GuildList.tsx` - Update page title and labels
+  - `frontend/src/pages/GuildSettings.tsx` - Update page title and headings
+  - `frontend/src/components/GuildSelector.tsx` - Update dropdown labels
+  - `frontend/src/components/ChannelSettings.tsx` - Update references to guild
+  - `services/bot/commands/*.py` - Update command descriptions and responses
+  - `services/bot/formatters/*.py` - Update message text
+- **Success**:
+  - All user-facing "Guild" text changed to "Server"
+  - Internal code and database models still use "guild" for API consistency
+  - Discord bot messages use "Server" terminology
+  - Navigation and page titles updated
+- **Research References**:
+  - #file:../../frontend/src/pages/GuildList.tsx - Guild list page
+  - #file:../../services/bot/commands/ - Bot command files
+- **Dependencies**:
+  - Task 4.3 (Guild and channel management pages)
+  - Task 2.2 (Slash commands)
+
+### Task 12.9: Send notification of waitlist clearing
+
+Notify users when they are promoted from the overflow/waitlist to confirmed participants.
+
+- **Files**:
+  - `services/api/services/games.py` - Add promotion detection in update_game() method
+  - `services/bot/events/handlers.py` - Handle waitlist promotion notification via existing NOTIFICATION_SEND_DM event
+- **Implementation Approach**:
+  - In `games.py` `update_game()` method, after updating game state:
+    - Fetch current participant lists before and after updates
+    - Compare overflow → confirmed transitions using participant sorting
+    - For each promoted user, publish `NOTIFICATION_SEND_DM` event with promotion message
+  - Promotion occurs when:
+    - A confirmed player is removed (via `removed_participant_ids`)
+    - Host increases `max_players`
+    - Host reorders participants (via `participants` field updates)
+  - Use existing `_handle_send_notification()` in handlers.py (no new event type needed)
+  - Message format: "✅ Good news! A spot opened up in **{game_title}** scheduled for <t:{timestamp}:F>. You've been moved from the waitlist to confirmed participants!"
+- **Success**:
+  - User receives DM when promoted from waitlist to confirmed
+  - DM includes game title, scheduled time, and confirmation message
+  - Notification sent for all three trigger scenarios
+  - Discord message updated immediately via existing `_publish_game_updated()`
+  - No duplicate notifications (track promotions during single update)
+  - Handles edge cases (user DMs disabled via discord.Forbidden)
+  - Works with both Discord users and placeholder participants
+- **Research References**:
+  - #file:../../services/bot/events/handlers.py (Lines 334-368) - Existing notification handler pattern
+  - #file:../../services/api/services/games.py (Lines 370-460) - update_game() method
+  - #file:../../shared/messaging/events.py (Lines 100-110) - NotificationSendDMEvent structure
+  - #file:../../shared/utils/participant_sorting.py - Participant ordering logic
+- **Dependencies**:
+  - Task 12.1 (Waitlist support)
+  - Task 2.5 (RabbitMQ event system)
+  - Existing notification infrastructure (NotificationSendDMEvent)
+
+### Task 12.10: Fix participant count to include placeholder participants
+
+Update the participant_count calculation to include both Discord-linked users and placeholder participants added by the host.
+
+- **Files**:
+  - `services/api/routes/games.py` - Update `_build_game_response()` to count all participants
+  - `shared/schemas/game.py` - Update GameResponse documentation if needed
+- **Problem**:
+  - Currently `participant_count = sum(1 for p in game.participants if p.user_id is not None)` only counts Discord users
+  - This excludes placeholder participants (those added by host without Discord accounts)
+  - Results in confusing display where participant list shows more players than the count indicates
+  - "My Games" screen shows incorrect player counts in GameCard
+- **Solution**:
+  - Change calculation to: `participant_count = len(game.participants)`
+  - This counts all participants regardless of user_id status
+  - Matches the actual visible participant list in game details
+  - Provides accurate count for "X/min-max" display on game cards
+- **Success**:
+  - participant_count includes both Discord users and placeholder participants
+  - GameCard on "My Games" page displays correct total participant count
+  - Count matches number of participants shown in game details view
+  - Min-max display (e.g., "5/4-8") accurately reflects all confirmed players
+- **Research References**:
+  - #file:../../services/api/routes/games.py (Lines 270-290) - Current \_build_game_response() implementation
+  - #file:../../frontend/src/components/GameCard.tsx (Lines 1-100) - GameCard display logic
+  - #file:../../frontend/src/pages/MyGames.tsx (Lines 1-150) - My Games page
+- **Dependencies**:
+  - Task 12.2 (Pre-filled participant positioning) - placeholder participants exist
+
+### Task 12.11: Add play time field for expected game duration
+
+Add an optional field to track how long the host expects the game session to run.
+
+- **Files**:
+  - `shared/models/game.py` - Add `expected_duration_minutes` integer field to GameSession model
+  - `alembic/versions/` - Create migration for new field
+  - `shared/schemas/game.py` - Add field to GameCreate, GameUpdate, GameResponse schemas
+  - `services/api/routes/games.py` - Update \_build_game_response() to include duration
+  - `services/bot/formatters/game_message.py` - Display duration in Discord embed
+  - `frontend/src/types/index.ts` - Add expected_duration_minutes to GameSession interface
+  - `frontend/src/components/GameForm.tsx` - Add duration input on same line as reminder times
+  - `frontend/src/components/GameCard.tsx` - Display duration in game summary
+  - `frontend/src/pages/GameDetails.tsx` - Display duration in game details view
+- **Implementation Details**:
+  - Database: Add nullable `expected_duration_minutes INTEGER` column to game_sessions table
+  - Backend validation: Accept positive integers (15, 30, 60, 90, 120, 180, 240, 300, 360+ minutes)
+  - Frontend input: Number input with common presets (30min, 1hr, 2hr, 3hr, 4hr, 6hr) or custom
+  - Display format: "2h 30m" for values, "Duration: X hours Y minutes" in descriptions
+  - GameForm layout: Place duration input on same horizontal line as Reminder times field
+  - GameCard display: Show "Duration: Xh Ym" below "When" and "Players" info
+  - Discord message: Add to embed fields as "Expected Duration: Xh Ym" (only if set)
+  - Handle null/empty values gracefully (field is optional)
+- **Success**:
+  - expected_duration_minutes field stored in database (nullable)
+  - Migration applies cleanly without errors
+  - Create/edit forms show duration input on same line as reminder times
+  - Duration appears on My Games cards when set
+  - Duration displayed in game details page
+  - Discord announcements show duration in embed when set
+  - Format displays as human-readable (e.g., "2h 30m" not "150 minutes")
+  - Validation prevents negative or invalid values
+  - Field remains optional (can be null/unset)
+- **Research References**:
+  - #file:../../shared/models/game.py - GameSession model structure
+  - #file:../../shared/schemas/game.py - Game schemas
+  - #file:../../services/bot/formatters/game_message.py - Discord message formatting
+  - #file:../../frontend/src/components/GameCard.tsx - Game summary display
+  - #file:../../frontend/src/components/GameForm.tsx - Form layout patterns
+- **Dependencies**:
+  - Phase 3 (Web API Service) - API endpoints exist
+  - Phase 4 (Web Dashboard Frontend) - Frontend components exist
+  - Task 12.4 (GameForm refactor) - Shared form component available
+
+### Task 12.12: Rename "Allowed Host Role IDs" to "Host Roles" on server configuration
+
+Simplify the label on server configuration screens for better user experience.
+
+- **Files**:
+  - `frontend/src/pages/GuildConfig.tsx` - Update server configuration form label
+  - `frontend/src/pages/ChannelConfig.tsx` - Update channel configuration form label
+- **Implementation Details**:
+  - GuildConfig: Change label from "Allowed Host Role IDs" to "Host Roles"
+  - ChannelConfig: Change label from "Allowed Host Role IDs (override)" to "Host Roles (override)"
+  - Keep helper text unchanged (still explains role IDs and inheritance)
+  - No backend changes needed - this is purely a UI label update
+  - Maintain same functionality and validation
+- **Success**:
+  - Server configuration page shows "Host Roles" label
+  - Channel configuration page shows "Host Roles (override)" label
+  - Helper text remains informative and accurate
+  - All existing functionality works unchanged
+- **Research References**:
+  - #file:../../frontend/src/pages/GuildConfig.tsx (Lines 182-186) - Current label implementation
+  - #file:../../frontend/src/pages/ChannelConfig.tsx (Lines 215-219) - Current channel override label
+- **Dependencies**:
+  - Phase 4 (Web Dashboard Frontend) - Configuration pages exist
+
+### Task 12.13: Convert role ID fields to multi-select dropdowns with actual server roles
+
+Replace text input fields for role IDs with user-friendly multi-select dropdowns showing actual role names from the server.
+
+- **Files**:
+  - `frontend/src/pages/GuildConfig.tsx` - Replace Host Roles and Bot Manager Roles text inputs with Autocomplete
+  - `frontend/src/pages/ChannelConfig.tsx` - Replace Host Roles (override) text input with Autocomplete
+- **Implementation Details**:
+  - Fetch available roles on page load using existing `GET /api/v1/guilds/{guild_id}/roles` endpoint
+  - Replace TextField components with Material-UI Autocomplete components (multiple selection enabled)
+  - Display role names in dropdown, but store role IDs in form state
+  - Show selected roles as chips with role names (not IDs)
+  - Sort roles by position (API already returns sorted by position)
+  - Handle loading states while fetching roles
+  - Maintain backward compatibility with existing comma-separated role ID storage format
+  - Convert between array of role IDs and comma-separated string format for API
+  - Show helpful placeholder text (e.g., "Select roles that can host games")
+  - Allow searching/filtering roles by name in dropdown
+  - Display role color indicator if available
+- **Success**:
+  - Server configuration page shows multi-select dropdown for Host Roles
+  - Server configuration page shows multi-select dropdown for Bot Manager Roles
+  - Channel configuration page shows multi-select dropdown for Host Roles (override)
+  - Users can select multiple roles from dropdown showing role names
+  - Selected roles display as chips with role names
+  - Role IDs correctly saved to backend in comma-separated format
+  - Existing role ID configurations load and display correctly as selected role names
+  - Dropdown allows searching/filtering by role name
+  - Empty selection allowed (inherits from defaults or allows all users)
+- **Research References**:
+  - #file:../../services/api/routes/guilds.py (Lines 288-350) - Existing list_guild_roles endpoint
+  - #file:../../frontend/src/pages/GuildConfig.tsx (Lines 182-192) - Current role ID text inputs
+  - #file:../../frontend/src/pages/ChannelConfig.tsx (Lines 215-220) - Current channel role ID override
+  - Material-UI Autocomplete documentation for multi-select with chips
+- **Dependencies**:
+  - Task 12.12 (Rename role fields) - Labels updated to "Host Roles" and "Bot Manager Roles"
+  - Existing `GET /guilds/{guild_id}/roles` API endpoint
+
+## Phase 13: Additional Functionality
+
+### Task 13.1: Add game templates for recurring sessions
 
 Create template system for games that repeat weekly/monthly with same settings.
 
@@ -1710,7 +1944,7 @@ Create template system for games that repeat weekly/monthly with same settings.
 - **Dependencies**:
   - Phase 3 and 4 (API and frontend)
 
-### Task 12.6: Build calendar export functionality
+### Task 13.2: Build calendar export functionality
 
 Generate iCal format calendar files for users to import into their calendar apps.
 
@@ -1729,7 +1963,7 @@ Generate iCal format calendar files for users to import into their calendar apps
   - icalendar Python library
   - Task 3.5 (game API)
 
-### Task 12.7: Create statistics dashboard
+### Task 13.3: Create statistics dashboard
 
 Build dashboard showing game history, participation rates, and trends per guild/channel.
 
