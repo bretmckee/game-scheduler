@@ -61,12 +61,14 @@ export const EditGame: FC = () => {
 
     // Detect removed participants by comparing initial vs current
     const currentParticipantIds = new Set(
-      formData.participants.map((p) => {
-        // Extract participant ID if it exists (not a temp ID)
-        return p.id.startsWith('temp-') ? null : p.id;
-      }).filter(Boolean)
+      formData.participants
+        .map((p) => {
+          // Extract participant ID if it exists (not a temp ID)
+          return p.id.startsWith('temp-') ? null : p.id;
+        })
+        .filter(Boolean)
     );
-    
+
     const removedParticipantIds = state.initialParticipants
       .filter((initial) => !currentParticipantIds.has(initial.id))
       .map((p) => p.id);

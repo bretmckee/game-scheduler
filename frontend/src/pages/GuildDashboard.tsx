@@ -62,7 +62,7 @@ export const GuildDashboard: FC = () => {
         setChannels(channelsResponse.data);
       } catch (err: any) {
         console.error('Failed to fetch guild data:', err);
-        setError(err.response?.data?.detail || 'Failed to load guild data. Please try again.');
+        setError(err.response?.data?.detail || 'Failed to load server data. Please try again.');
       } finally {
         setLoading(false);
       }
@@ -84,7 +84,7 @@ export const GuildDashboard: FC = () => {
       <Container sx={{ mt: 4 }}>
         <Alert severity="error">{error}</Alert>
         <Button sx={{ mt: 2 }} onClick={() => navigate('/guilds')}>
-          Back to Guilds
+          Back to Servers
         </Button>
       </Container>
     );
@@ -95,7 +95,7 @@ export const GuildDashboard: FC = () => {
       <Container sx={{ mt: 4 }}>
         <Alert severity="warning">Guild not found</Alert>
         <Button sx={{ mt: 2 }} onClick={() => navigate('/guilds')}>
-          Back to Guilds
+          Back to Servers
         </Button>
       </Container>
     );
@@ -110,7 +110,7 @@ export const GuildDashboard: FC = () => {
           startIcon={<SettingsIcon />}
           onClick={() => navigate(`/guilds/${guildId}/config`)}
         >
-          Guild Settings
+          Server Settings
         </Button>
       </Box>
 

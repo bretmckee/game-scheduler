@@ -37,7 +37,9 @@ export const EditableParticipantList: FC<EditableParticipantListProps> = ({
   guildId,
   onChange,
 }) => {
-  const [validationTimers, setValidationTimers] = useState<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const [validationTimers, setValidationTimers] = useState<
+    Map<string, ReturnType<typeof setTimeout>>
+  >(new Map());
   const participantsRef = useRef(participants);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
@@ -59,7 +61,9 @@ export const EditableParticipantList: FC<EditableParticipantListProps> = ({
 
       // Set to loading state
       onChange(
-        participantsRef.current.map((p) => (p.id === id ? { ...p, isValid: null, validationError: undefined } : p))
+        participantsRef.current.map((p) =>
+          p.id === id ? { ...p, isValid: null, validationError: undefined } : p
+        )
       );
 
       try {
@@ -100,7 +104,7 @@ export const EditableParticipantList: FC<EditableParticipantListProps> = ({
 
   const handleMentionChange = (id: string, newMention: string) => {
     console.log('[EditableParticipantList] handleMentionChange', { id, newMention });
-    
+
     onChange(
       participantsRef.current.map((p) =>
         p.id === id ? { ...p, mention: newMention, isValid: null, validationError: undefined } : p
@@ -184,7 +188,7 @@ export const EditableParticipantList: FC<EditableParticipantListProps> = ({
 
   const handleDrop = (e: React.DragEvent, dropIndex: number) => {
     e.preventDefault();
-    
+
     if (draggedIndex === null || draggedIndex === dropIndex) {
       setDraggedIndex(null);
       return;
@@ -192,18 +196,18 @@ export const EditableParticipantList: FC<EditableParticipantListProps> = ({
 
     const newParticipants = [...participants];
     const draggedItem = { ...newParticipants[draggedIndex]!, isExplicitlyPositioned: true };
-    
+
     // Remove dragged item
     newParticipants.splice(draggedIndex, 1);
     // Insert at new position
     newParticipants.splice(dropIndex, 0, draggedItem);
-    
+
     // Reindex positions
     const reindexed = newParticipants.map((p, idx) => ({
       ...p,
       preFillPosition: idx + 1,
     }));
-    
+
     onChange(reindexed);
     setDraggedIndex(null);
   };
@@ -253,24 +257,28 @@ export const EditableParticipantList: FC<EditableParticipantListProps> = ({
               onChange={(e) => handleMentionChange(p.id, e.target.value)}
               placeholder="@username or Discord user"
               error={p.isValid === false}
-              helperText={p.validationError || (p.isReadOnly ? 'Joined player (can reorder or remove)' : undefined)}
+              helperText={
+                p.validationError ||
+                (p.isReadOnly ? 'Joined player (can reorder or remove)' : undefined)
+              }
               fullWidth
               size="small"
               disabled={p.isReadOnly}
               InputProps={{
-                endAdornment: p.isValid === null && p.mention.trim() ? (
-                  <InputAdornment position="end">
-                    <CircularProgress size={20} />
-                  </InputAdornment>
-                ) : p.isValid === true ? (
-                  <InputAdornment position="end">
-                    <CheckCircleIcon color="success" fontSize="small" />
-                  </InputAdornment>
-                ) : p.isValid === false ? (
-                  <InputAdornment position="end">
-                    <ErrorIcon color="error" fontSize="small" />
-                  </InputAdornment>
-                ) : null,
+                endAdornment:
+                  p.isValid === null && p.mention.trim() ? (
+                    <InputAdornment position="end">
+                      <CircularProgress size={20} />
+                    </InputAdornment>
+                  ) : p.isValid === true ? (
+                    <InputAdornment position="end">
+                      <CheckCircleIcon color="success" fontSize="small" />
+                    </InputAdornment>
+                  ) : p.isValid === false ? (
+                    <InputAdornment position="end">
+                      <ErrorIcon color="error" fontSize="small" />
+                    </InputAdornment>
+                  ) : null,
               }}
             />
             <IconButton onClick={() => moveUp(index)} disabled={index === 0} size="small">
