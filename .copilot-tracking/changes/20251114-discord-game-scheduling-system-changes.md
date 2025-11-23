@@ -11,6 +11,42 @@ Implementation of a complete Discord game scheduling system with microservices a
 
 ### Recent Updates (2025-11-22)
 
+**Fix Participant Count to Include Placeholder Participants (Task 12.10)**
+
+Updated the participant count calculation in API responses to include both Discord-linked users and placeholder participants added by the host.
+
+**Implementation Details:**
+
+- **Problem Identified**: Previous implementation only counted participants with `user_id is not None`, excluding placeholder participants
+- **Impact**: "My Games" screen showed incorrect player counts that didn't match the displayed participant list
+- **Solution**: Changed calculation from `sum(1 for p in game.participants if p.user_id is not None)` to `len(game.participants)`
+- **Scope**: Only API response builder affected; bot join/leave handlers correctly count Discord users for capacity checks
+
+**Files Modified:**
+
+- `services/api/routes/games.py` - Changed `_build_game_response()` participant_count calculation to include all participants
+- `tests/services/api/routes/test_games_participant_count.py` - Added comprehensive test suite for participant count calculation
+
+**Test Coverage:**
+
+- ✅ All 16 existing API service tests pass
+- ✅ 4 new dedicated tests for participant count scenarios:
+  - Discord users only (2 participants)
+  - Placeholder participants only (3 participants)
+  - Mixed Discord users and placeholders (4 participants: 2 Discord, 2 placeholders)
+  - Empty participant list (0 participants)
+- ✅ All tests verify participant_count matches len(participants)
+- ✅ No linting issues (ruff check passes)
+
+**Result:**
+
+- participant_count in API responses now includes both Discord users and placeholder participants
+- "My Games" page displays accurate total participant count matching the visible list
+- Min-max display (e.g., "5/4-8") accurately reflects all confirmed players including placeholders
+- Bot capacity checking unchanged (correctly counts only Discord users for join validation)
+
+---
+
 **Waitlist Promotion Notifications (Task 12.9)**
 
 Implemented automatic notifications when users are promoted from the waitlist (overflow) to confirmed participant status.
@@ -306,6 +342,7 @@ Modified the bot's join and leave game notifications to send as direct messages 
 
 ### Modified
 
+- services/api/routes/games.py - Changed participant_count calculation in \_build_game_response() to include all participants (both Discord users and placeholders) using len(game.participants) instead of filtering by user_id (Task 12.10)
 - services/api/services/games.py - Added \_detect_and_notify_promotions() method to detect users promoted from overflow to confirmed participants; added \_publish_promotion_notification() method to publish promotion DM events; integrated promotion detection into update_game() to run after database commit
 - alembic.ini - Updated database URL to use correct credentials from .env
 - docker/bot.Dockerfile - Added bot-specific requirements installation and shared package setup

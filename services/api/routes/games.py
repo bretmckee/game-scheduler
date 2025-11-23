@@ -277,7 +277,7 @@ async def _build_game_response(game: game_model.GameSession) -> game_schemas.Gam
     Returns:
         Game response schema with resolved display names and sorted participants
     """
-    participant_count = sum(1 for p in game.participants if p.user_id is not None)
+    participant_count = len(game.participants)
 
     sorted_participants = participant_sorting.sort_participants(game.participants)
 
