@@ -21,6 +21,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { Channel, DiscordRole, GameSession } from '../types';
 import { ValidationErrors } from './ValidationErrors';
+import { EditableParticipantList, ParticipantInput as EditableParticipantInput } from './EditableParticipantList';
 
 export interface GameFormData {
   title: string;
@@ -32,15 +33,7 @@ export interface GameFormData {
   maxPlayers: string;
   reminderMinutes: string;
   notifyRoleIds: string[];
-  participants: ParticipantInput[];
-}
-
-export interface ParticipantInput {
-  id: string;
-  mention: string;
-  isValid: boolean | null;
-  validationError?: string;
-  preFillPosition: number;
+  participants: EditableParticipantInput[];
 }
 
 interface GameFormProps {
@@ -86,7 +79,23 @@ export const GameForm: FC<GameFormProps> = ({
     maxPlayers: initialData?.max_players?.toString() || '8',
     reminderMinutes: initialData?.reminder_minutes?.join(', ') || '',
     notifyRoleIds: initialData?.notify_role_ids || [],
-    participants: [],
+    participants: initialData?.participants
+      ? initialData.participants
+          .sort((a, b) => {
+            // Sort: pre-filled first (by position), then joined (by join time)
+            const aPos = a.pre_filled_position ?? Number.MAX_SAFE_INTEGER;
+            const bPos = b.pre_filled_position ?? Number.MAX_SAFE_INTEGER;
+            return aPos - bPos;
+          })
+          .map((p, index) => ({
+            id: p.id,
+            mention: p.display_name || (p.discord_id ? `<@${p.discord_id}>` : ''),
+            isValid: true,
+            preFillPosition: index + 1,
+            isExplicitlyPositioned: p.pre_filled_position !== null,
+            isReadOnly: p.pre_filled_position === null, // Joined users are read-only
+          }))
+      : [],
   });
 
   // Auto-select channel when only one is available
@@ -115,6 +124,10 @@ export const GameForm: FC<GameFormProps> = ({
 
   const handleDateChange = (date: Date | null) => {
     setFormData((prev) => ({ ...prev, scheduledAt: date }));
+  };
+
+  const handleParticipantsChange = (participants: EditableParticipantInput[]) => {
+    setFormData((prev) => ({ ...prev, participants }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -315,6 +328,12 @@ export const GameForm: FC<GameFormProps> = ({
               </Typography>
             </FormControl>
           )}
+
+          <EditableParticipantList
+            participants={formData.participants}
+            guildId={guildId}
+            onChange={handleParticipantsChange}
+          />
 
           <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
             <Button type="submit" variant="contained" disabled={loading} fullWidth>
