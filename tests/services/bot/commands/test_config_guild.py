@@ -88,7 +88,7 @@ async def test_config_guild_display_current(
 
     mock_interaction.followup.send.assert_called_once()
     call_args = mock_interaction.followup.send.call_args
-    assert "Current guild configuration" in call_args[0][0]
+    assert "Current server configuration" in call_args[0][0]
     assert "embed" in call_args[1]
 
 

@@ -37,7 +37,7 @@ export const GuildListPage: FC = () => {
         setGuilds(response.data.guilds);
       } catch (err) {
         console.error('Failed to fetch guilds:', err);
-        setError('Failed to load guilds. Please try again.');
+        setError('Failed to load servers. Please try again.');
       } finally {
         setLoading(false);
       }
@@ -68,7 +68,7 @@ export const GuildListPage: FC = () => {
     return (
       <Container sx={{ mt: 4 }}>
         <Alert severity="info">
-          No guilds with bot configurations found. Make sure the bot is added to your Discord
+          No servers with bot configurations found. Make sure the bot is added to your Discord
           server.
         </Alert>
       </Container>
@@ -78,10 +78,10 @@ export const GuildListPage: FC = () => {
   return (
     <Container sx={{ mt: 4, mb: 4 }}>
       <Typography variant="h4" gutterBottom>
-        My Guilds
+        My Servers
       </Typography>
       <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-        Select a guild to manage game sessions and configurations.
+        Select a server to manage game sessions and configurations.
       </Typography>
 
       <Grid container spacing={3}>

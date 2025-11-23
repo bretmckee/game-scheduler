@@ -93,7 +93,7 @@ async def config_guild_command(
             if not updated_fields:
                 embed = _create_config_display_embed(interaction.guild, guild_config)
                 await interaction.followup.send(
-                    "Current guild configuration:",
+                    "Current server configuration:",
                     embed=embed,
                     ephemeral=True,
                 )
@@ -102,7 +102,7 @@ async def config_guild_command(
             await db.commit()
 
             embed = _create_config_display_embed(interaction.guild, guild_config)
-            message = "✅ Guild configuration updated:\n" + "\n".join(
+            message = "✅ Server configuration updated:\n" + "\n".join(
                 f"• {field}" for field in updated_fields
             )
             await interaction.followup.send(
@@ -114,7 +114,7 @@ async def config_guild_command(
     except Exception as e:
         logger.exception("Error updating guild configuration")
         await interaction.followup.send(
-            f"❌ An error occurred: {e!s}",
+            f"❌ An error occurred while updating server configuration: {e!s}",
             ephemeral=True,
         )
 
@@ -213,7 +213,7 @@ def _create_config_display_embed(guild: discord.Guild, config: GuildConfiguratio
         Discord embed with configuration details
     """
     embed = discord.Embed(
-        title=f"⚙️ Guild Configuration: {guild.name}",
+        title=f"⚙️ Server Configuration: {guild.name}",
         color=discord.Color.blue(),
     )
 
@@ -256,7 +256,7 @@ async def setup(bot: "GameSchedulerBot") -> None:
 
     @bot.tree.command(
         name="config-guild",
-        description="Configure guild-level default settings (Admin only)",
+        description="Configure server-level default settings (Admin only)",
     )
     @app_commands.describe(
         max_players="Default max players for games (1-100)",
