@@ -7497,3 +7497,219 @@ The EditableParticipantList component is ready to be integrated into the GameFor
 2. Updating GameFormData to include participants array
 3. Handling participant data in submit flows
 4. Testing end-to-end participant creation with validation
+
+---
+
+## Task 12.5: Integrate EditableParticipantList into GameForm Component (2025-11-22)
+
+Successfully integrated the EditableParticipantList component into GameForm, enabling pre-filled participant management during both game creation and editing workflows.
+
+### Modified
+
+- `frontend/src/components/GameForm.tsx` - Integrated EditableParticipantList component into form
+  - Imported EditableParticipantList with alias to avoid type conflict
+  - Removed duplicate ParticipantInput interface (using imported one)
+  - Added handleParticipantsChange handler for participant state management
+  - Placed EditableParticipantList before submit buttons in form
+  - Updated initial data handler to convert API participants to ParticipantInput format
+  - Sorted participants by pre_filled_position and filtered for pre-filled only
+- `frontend/src/pages/EditGame.tsx` - Enhanced to handle participant updates
+
+  - Restructured state management to track initial participants
+  - Added participant removal detection by comparing initial vs current state
+  - Updated handleSubmit to include participants array in PUT payload
+  - Added removed_participant_ids tracking for backend processing
+  - Converted existing participants to mention format for form initialization
+
+- `shared/schemas/game.py` - Extended GameUpdateRequest schema
+
+  - Added `participants` field for updated participant list with positions
+  - Added `removed_participant_ids` field for tracking deletions
+  - Both fields optional to maintain backward compatibility
+
+- `services/api/services/games.py` - Implemented participant update logic
+
+  - Added participant removal handling in update_game method
+  - Deletes specified participants and publishes events before removal
+  - Clears all pre-filled participants before applying updates
+  - Resolves mentions and creates new participant records with positions
+  - Validates participant mentions using ParticipantResolver
+  - Added `_publish_participant_removed` method for event publishing
+
+- `services/bot/events/handlers.py` - Added participant removal handler
+
+  - Registered PARTICIPANT_REMOVED event type in handlers dict
+  - Bound to `participant.*` routing key in consumer
+  - Implemented `_handle_participant_removed` method
+  - Updates Discord message to reflect current participant list
+  - Sends DM notification to removed user with game details
+  - Handles DM failures gracefully (user may have DMs disabled)
+
+- `shared/messaging/events.py` - Added PARTICIPANT_REMOVED event type
+
+  - New event type: `participant.removed` for pre-filled participant deletions
+  - Supports bot notification and message update workflows
+
+- `services/api/routes/guilds.py` - Enhanced validate-mention endpoint
+  - Integrated ParticipantResolver for real Discord API validation
+  - Distinguishes between @mentions and placeholder strings
+  - Returns validation errors with helpful messages for @mentions
+  - Accepts all non-@ strings as valid placeholders
+  - Queries Discord guild member search API for @mention validation
+
+### Success Criteria
+
+- ✅ EditableParticipantList visible in both create and edit game forms
+- ✅ Participants can be added in create mode (starts empty)
+- ✅ Participants can be added/removed/reordered in edit mode
+- ✅ Real-time validation provides visual feedback (500ms debounce)
+- ✅ Validation errors displayed inline per field
+- ✅ Up/down arrows reorder participants correctly
+- ✅ Delete button removes any participant type (pre-filled or joined)
+- ✅ Pre-fill positions auto-calculated from list order
+- ✅ Form submission includes participants array with positions
+- ✅ Backend validates mentions against Discord API
+- ✅ Removed participants trigger Discord message update
+- ✅ Removed users receive DM notification
+- ✅ Discord message always shows current participant state
+- ✅ Consistent behavior across create and edit workflows
+- ✅ TypeScript compilation successful with no errors
+- ✅ Python linting passes with no errors
+
+### Implementation Notes
+
+**Frontend Integration:**
+
+- GameForm now manages participant state via EditableParticipantList
+- CreateGame page sends participants with mentions in API payload
+- EditGame page detects removals by comparing before/after state
+- Participant positions explicitly tracked for ordering
+
+**Backend Processing:**
+
+- Update flow removes all pre-filled participants first, then recreates
+- Ensures clean state and prevents duplicate position conflicts
+- ParticipantResolver validates @mentions against Discord API
+- Placeholder strings (no @) accepted without validation
+
+**Event-Driven Updates:**
+
+- Removed participants trigger `participant.removed` events
+- Bot subscribes to events and updates Discord messages
+- Users notified via DM when removed from games
+- Message updates reflect current participant list immediately
+
+**Validation Enhancement:**
+
+- Real-time validation during typing (500ms debounce)
+- Backend validates @mentions via Discord member search
+- Clear error messages for invalid mentions
+- Placeholders always valid (no @ prefix)
+
+---
+
+## Bug Fixes and Enhancements (2025-11-22)
+
+### Fixed: @Mention Validation Not Working
+
+**Issue**: The @mention validation in EditableParticipantList displayed a spinning loading icon indefinitely without making API calls or showing validation results.
+
+**Root Causes Identified**:
+
+1. **Backend**: `validate-mention` endpoint was creating a `DiscordAPIClient` with empty credentials instead of using the bot token
+2. **Frontend**: React `useCallback` hook included `participants` in dependency array, causing infinite callback recreations
+3. **Frontend**: Map state mutation pattern `new Map(map.set())` returned the mutated original Map instead of a new instance
+
+**Fixed**:
+
+- `services/api/routes/guilds.py` - Changed validate-mention endpoint to use `get_discord_client()` singleton with proper bot_token
+- `frontend/src/components/EditableParticipantList.tsx`:
+  - Replaced `participants` dependency with `useRef` to track latest state without recreating callback
+  - Fixed Map mutation by creating new Map first: `const updated = new Map(map); updated.set(...)`
+  - Removed debug console.log statements after verification
+
+**Result**: @mention validation now works correctly - spinner appears during API call, then shows green checkmark for valid mentions or red X with error message for invalid ones.
+
+### Enhanced: Event Type Naming Consistency
+
+**Issue**: Event type `PARTICIPANT_REMOVED` didn't match the naming pattern of other events like `PLAYER_JOINED` and `PLAYER_LEFT`.
+
+**Fixed**:
+
+- `shared/messaging/events.py` - Renamed `PARTICIPANT_REMOVED` → `PLAYER_REMOVED` with value `game.player_removed`
+- `services/api/services/games.py` - Updated method name `_publish_participant_removed` → `_publish_player_removed`
+- `services/bot/events/handlers.py` - Updated handler method `_handle_participant_removed` → `_handle_player_removed`
+
+**Result**: Consistent naming convention across all game-related events (PLAYER_JOINED, PLAYER_LEFT, PLAYER_REMOVED).
+
+### Enhanced: Show All Participants in Edit Mode
+
+**Issue**: Edit mode initially only showed pre-filled participants, hiding joined users. When users reordered participants, those who joined the game appeared as duplicates.
+
+**Requirements**:
+
+- Show all participants in edit mode (pre-filled + joined)
+- Only assign `pre_filled_position` to participants explicitly reordered by user
+- Prevent duplicate participants in the list
+- Track which participants were intentionally positioned vs just displayed
+
+**Fixed**:
+
+- `frontend/src/components/EditableParticipantList.tsx`:
+  - Added `isExplicitlyPositioned` flag to ParticipantInput type
+  - Marked participants as explicitly positioned only when moved via drag-and-drop or arrow buttons
+  - When swapping positions during reorder, only mark the actively moved item (not the swap partner)
+  - Read-only mode for joined users (no delete button, no validation)
+- `frontend/src/pages/EditGame.tsx`:
+  - Load all participants into form (both pre-filled and joined)
+  - Filter only `isExplicitlyPositioned` participants when submitting
+  - Prevents unintentionally overwriting positions of participants user didn't touch
+
+**Result**: Edit mode shows complete participant list with clear visual distinction. Only participants explicitly repositioned by user get `pre_filled_position` assigned. No duplicate participants appear.
+
+### Added: Drag-and-Drop Participant Reordering
+
+**Feature**: Replaced arrow button reordering with HTML5 drag-and-drop for better UX.
+
+**Implementation**:
+
+- `frontend/src/components/EditableParticipantList.tsx`:
+  - Added `draggable={!readOnly}` attribute to participant Box components
+  - Implemented `handleDragStart` to capture dragged participant ID
+  - Implemented `handleDragOver` to prevent default and allow drop
+  - Implemented `handleDrop` to swap positions of dragged and target participants
+  - Visual feedback: dragging cursor changes to "move"
+  - Marks both dragged and drop target as `isExplicitlyPositioned`
+  - Retained arrow buttons as fallback/alternative method
+
+**Result**: Users can now drag participants to reorder them, providing a more intuitive interface than arrow buttons alone. Both methods work correctly.
+
+### Code Quality Verification
+
+All modified code verified against project coding standards:
+
+**Python Files** (services/api, services/bot, shared):
+
+- ✅ All imports follow PEP 8 and Google style guide conventions
+- ✅ Function/method names use snake_case
+- ✅ Class names use PascalCase
+- ✅ Docstrings present and follow PEP 257 conventions
+- ✅ Type hints present on all function signatures
+- ✅ Line length ≤100 characters (ruff E501)
+- ✅ No unused imports or variables
+- ✅ All linting checks passed: `uv run ruff check` returns "All checks passed!"
+
+**TypeScript Files** (frontend):
+
+- ✅ Functional components with hooks (useState, useCallback, useRef)
+- ✅ TypeScript interfaces for all props and state
+- ✅ Self-documenting code with minimal comments
+- ✅ Comments explain WHY not WHAT for complex logic
+- ✅ No unused parameters (prefixed with \_ when required)
+- ✅ All compilation errors resolved
+- ✅ No linting errors reported by VS Code
+
+**Fixed Issues**:
+
+- Line 419 in `services/api/services/games.py` exceeded 100 chars → extracted `error_reason` variable
+- Unused `_index` parameter in drag handlers → prefixed with underscore per convention
