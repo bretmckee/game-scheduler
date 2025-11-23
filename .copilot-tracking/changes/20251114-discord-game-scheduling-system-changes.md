@@ -11,6 +11,68 @@ Implementation of a complete Discord game scheduling system with microservices a
 
 ### Recent Updates (2025-11-22)
 
+**Bug Fix: Permission Check Rate Limiting (2025-11-23)**
+
+Fixed Discord API rate limit errors (HTTP 429) occurring during guild configuration by enabling proper caching of guild permission data.
+
+**Root Cause**: The `has_permissions()` method was calling `get_user_guilds(access_token)` without the `user_id` parameter, causing the caching layer to be bypassed. This resulted in every permission check hitting Discord's API directly, quickly exhausting rate limits.
+
+**Solution**: Updated `has_permissions()` to pass `user_id` to `get_user_guilds(access_token, user_id)`, enabling the 5-minute cache and preventing redundant API calls.
+
+**Files Modified:**
+
+- `services/api/auth/roles.py` - Added `user_id` parameter to `get_user_guilds()` call
+
+**Testing:**
+
+- ✅ All 9 role verification tests passing
+- ✅ All 11 permission dependency tests passing
+- ✅ API container builds successfully
+- ✅ Linting passes
+
+---
+
+**Convert Role ID Fields to Multi-Select Dropdowns (Task 12.13)**
+
+Replaced text input fields for role IDs with user-friendly multi-select dropdowns showing actual role names from the server. Users can now search, select, and view roles with visual indicators instead of manually entering role IDs.
+
+**Implementation Details:**
+
+- **Server Configuration**: Replaced Host Roles and Bot Manager Roles text inputs with Material-UI Autocomplete components
+- **Channel Configuration**: Replaced Host Roles (override) text input with Material-UI Autocomplete component
+- **Data Fetching**: Added second useEffect hook to fetch roles via existing `/api/v1/guilds/{guild_id}/roles` endpoint
+- **Form State**: Changed from comma-separated strings to arrays of role IDs for cleaner state management
+- **Visual Enhancement**: Chips display role colors from Discord using hex color conversion
+- **Key Handling**: Properly destructured getTagProps to avoid key prop conflicts
+- **Loading States**: Added loading indicators while fetching roles
+- **Search/Filter**: Autocomplete provides built-in search functionality by role name
+
+**Files Modified:**
+
+- `frontend/src/pages/GuildConfig.tsx` - Added Autocomplete and Chip imports, added loadingRoles and roles state, added fetchRoles useEffect, changed formData.allowedHostRoleIds and formData.botManagerRoleIds to arrays, replaced two TextField components with Autocomplete components, updated handleSave to work with arrays
+- `frontend/src/pages/ChannelConfig.tsx` - Added Autocomplete and Chip imports, added loadingRoles and roles state, added fetchRoles useEffect (depends on guild), changed formData.allowedHostRoleIds to array, replaced TextField with Autocomplete component, updated handleSave to work with array
+- `frontend/src/types/index.ts` - Already included DiscordRole interface (no changes needed)
+
+**Test Coverage:**
+
+- ✅ TypeScript compilation successful with no errors
+- ✅ ESLint checks pass (0 errors, only pre-existing warnings)
+- ✅ Prettier formatting applied and verified
+- ✅ Key prop conflicts resolved using proper destructuring pattern
+
+**Result:**
+
+- Server configuration page shows multi-select dropdowns for Host Roles and Bot Manager Roles
+- Channel configuration page shows multi-select dropdown for Host Roles (override)
+- Roles displayed with names instead of IDs (e.g., "Dungeon Master" instead of "123456789")
+- Selected roles shown as colored chips matching Discord role colors
+- Empty selection preserves inheritance behavior (empty array = null in API)
+- Search/filter functionality works out-of-box via Autocomplete
+- Loading states provide visual feedback while fetching roles
+- Backward compatible with existing role ID storage format
+
+---
+
 **Rename Role Field Labels for Better User Experience (Task 12.12)**
 
 Simplified role configuration labels on server and channel configuration pages by removing "Allowed" and "IDs" from the labels for better clarity and user experience.

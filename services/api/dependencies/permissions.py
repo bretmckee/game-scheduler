@@ -12,8 +12,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from services.api.auth import roles as roles_module
 from services.api.auth import tokens
 from services.api.dependencies import auth
+from services.api.services import config as config_service
 from shared import database
 from shared.schemas import auth as auth_schemas
+from shared.utils.discord import DiscordPermissions
 
 logger = logging.getLogger(__name__)
 
@@ -28,19 +30,45 @@ async def get_role_service() -> roles_module.RoleVerificationService:
     return roles_module.get_role_service()
 
 
+async def _resolve_guild_id(guild_id: str, db: AsyncSession) -> str:
+    """
+    Resolve database UUID to Discord guild ID if needed.
+
+    Args:
+        guild_id: Database guild UUID or Discord guild ID
+        db: Database session
+
+    Returns:
+        Discord guild ID (snowflake)
+    """
+    # Check if already a Discord snowflake ID (numeric string, 17-20 chars)
+    if guild_id.isdigit() and 17 <= len(guild_id) <= 20:
+        return guild_id
+
+    # Otherwise treat as UUID and look up
+    service = config_service.ConfigurationService(db)
+    guild_config = await service.get_guild_by_id(guild_id)
+    if not guild_config:
+        raise HTTPException(status_code=404, detail="Guild not found")
+
+    return guild_config.guild_id
+
+
 async def require_manage_guild(
     guild_id: str,
     # B008: FastAPI dependency injection requires Depends() in default arguments
     current_user: auth_schemas.CurrentUser = Depends(auth.get_current_user),  # noqa: B008
     role_service: roles_module.RoleVerificationService = Depends(get_role_service),  # noqa: B008
+    db: AsyncSession = Depends(database.get_db),  # noqa: B008
 ) -> auth_schemas.CurrentUser:
     """
     Require user to have MANAGE_GUILD permission for guild.
 
     Args:
-        guild_id: Discord guild ID
+        guild_id: Database guild UUID or Discord guild ID
         current_user: Current authenticated user
         role_service: Role verification service
+        db: Database session
 
     Returns:
         Current user if authorized
@@ -54,15 +82,20 @@ async def require_manage_guild(
 
     access_token = token_data["access_token"]
 
-    has_permission = await role_service.check_manage_guild_permission(
+    # Resolve Discord guild_id from database UUID if needed
+    discord_guild_id = await _resolve_guild_id(guild_id, db)
+
+    has_permission = await role_service.has_permissions(
         current_user.user.discord_id,
-        guild_id,
+        discord_guild_id,
         access_token,
+        DiscordPermissions.MANAGE_GUILD,
     )
 
     if not has_permission:
         logger.warning(
-            f"User {current_user.user.discord_id} lacks MANAGE_GUILD permission in guild {guild_id}"
+            f"User {current_user.user.discord_id} lacks MANAGE_GUILD permission "
+            f"in guild {discord_guild_id}"
         )
         raise HTTPException(
             status_code=403,
@@ -77,14 +110,16 @@ async def require_manage_channels(
     # B008: FastAPI dependency injection requires Depends() in default arguments
     current_user: auth_schemas.CurrentUser = Depends(auth.get_current_user),  # noqa: B008
     role_service: roles_module.RoleVerificationService = Depends(get_role_service),  # noqa: B008
+    db: AsyncSession = Depends(database.get_db),  # noqa: B008
 ) -> auth_schemas.CurrentUser:
     """
     Require user to have MANAGE_CHANNELS permission for guild.
 
     Args:
-        guild_id: Discord guild ID
+        guild_id: Database guild UUID or Discord guild ID
         current_user: Current authenticated user
         role_service: Role verification service
+        db: Database session
 
     Returns:
         Current user if authorized
@@ -98,16 +133,20 @@ async def require_manage_channels(
 
     access_token = token_data["access_token"]
 
-    has_permission = await role_service.check_manage_channels_permission(
+    # Resolve Discord guild_id from database UUID if needed
+    discord_guild_id = await _resolve_guild_id(guild_id, db)
+
+    has_permission = await role_service.has_permissions(
         current_user.user.discord_id,
-        guild_id,
+        discord_guild_id,
         access_token,
+        DiscordPermissions.MANAGE_CHANNELS,
     )
 
     if not has_permission:
         logger.warning(
             f"User {current_user.user.discord_id} lacks MANAGE_CHANNELS permission "
-            f"in guild {guild_id}"
+            f"in guild {discord_guild_id}"
         )
         raise HTTPException(
             status_code=403,
@@ -210,8 +249,8 @@ async def can_manage_game(
         return False
 
     access_token = token_data["access_token"]
-    is_admin = await role_service.check_manage_guild_permission(
-        current_user.user.discord_id, guild_id, access_token
+    is_admin = await role_service.has_permissions(
+        current_user.user.discord_id, guild_id, access_token, DiscordPermissions.MANAGE_GUILD
     )
 
     return is_admin
@@ -243,10 +282,11 @@ async def require_administrator(
 
     access_token = token_data["access_token"]
 
-    has_permission = await role_service.check_administrator_permission(
+    has_permission = await role_service.has_permissions(
         current_user.user.discord_id,
         guild_id,
         access_token,
+        DiscordPermissions.ADMINISTRATOR,
     )
 
     if not has_permission:
