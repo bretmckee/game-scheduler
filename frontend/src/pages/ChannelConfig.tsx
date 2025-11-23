@@ -30,11 +30,13 @@ import {
   Alert,
   FormControlLabel,
   Checkbox,
+  Autocomplete,
+  Chip,
 } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { apiClient } from '../api/client';
-import { Channel, Guild } from '../types';
+import { Channel, Guild, DiscordRole } from '../types';
 import { InheritancePreview } from '../components/InheritancePreview';
 
 export const ChannelConfig: FC = () => {
@@ -44,6 +46,8 @@ export const ChannelConfig: FC = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [loadingRoles, setLoadingRoles] = useState(false);
+  const [roles, setRoles] = useState<DiscordRole[]>([]);
 
   const [channel, setChannel] = useState<Channel | null>(null);
   const [guild, setGuild] = useState<Guild | null>(null);
@@ -51,7 +55,7 @@ export const ChannelConfig: FC = () => {
     isActive: true,
     maxPlayers: '',
     reminderMinutes: '',
-    allowedHostRoleIds: '',
+    allowedHostRoleIds: [] as string[],
     gameCategory: '',
   });
 
@@ -75,7 +79,7 @@ export const ChannelConfig: FC = () => {
           isActive: channelData.is_active,
           maxPlayers: channelData.max_players?.toString() || '',
           reminderMinutes: channelData.reminder_minutes?.join(', ') || '',
-          allowedHostRoleIds: channelData.allowed_host_role_ids?.join(', ') || '',
+          allowedHostRoleIds: channelData.allowed_host_role_ids || [],
           gameCategory: channelData.game_category || '',
         });
       } catch (err: any) {
@@ -88,6 +92,26 @@ export const ChannelConfig: FC = () => {
 
     fetchData();
   }, [channelUuid]);
+
+  useEffect(() => {
+    const fetchRoles = async () => {
+      if (!guild?.guild_id) return;
+
+      try {
+        setLoadingRoles(true);
+        const response = await apiClient.get<DiscordRole[]>(
+          `/api/v1/guilds/${guild.guild_id}/roles`
+        );
+        setRoles(response.data);
+      } catch (err: any) {
+        console.error('Failed to fetch roles:', err);
+      } finally {
+        setLoadingRoles(false);
+      }
+    };
+
+    fetchRoles();
+  }, [guild]);
 
   const handleSave = async () => {
     if (!channelUuid) return;
@@ -104,18 +128,12 @@ export const ChannelConfig: FC = () => {
             .filter((n) => !isNaN(n))
         : null;
 
-      const allowedRoleIds = formData.allowedHostRoleIds
-        ? formData.allowedHostRoleIds
-            .split(',')
-            .map((s) => s.trim())
-            .filter((s) => s.length > 0)
-        : null;
-
       await apiClient.put(`/api/v1/channels/${channelUuid}`, {
         is_active: formData.isActive,
         max_players: formData.maxPlayers ? parseInt(formData.maxPlayers) : null,
         reminder_minutes: reminderMinutes,
-        allowed_host_role_ids: allowedRoleIds,
+        allowed_host_role_ids:
+          formData.allowedHostRoleIds.length > 0 ? formData.allowedHostRoleIds : null,
         game_category: formData.gameCategory || null,
       });
 
@@ -229,11 +247,44 @@ export const ChannelConfig: FC = () => {
               fullWidth
             />
 
-            <TextField
-              label="Host Roles (override)"
-              value={formData.allowedHostRoleIds}
-              onChange={(e) => setFormData({ ...formData, allowedHostRoleIds: e.target.value })}
-              helperText="Comma-separated role IDs. Leave empty to inherit guild default."
+            <Autocomplete
+              multiple
+              options={roles}
+              value={roles.filter((role) => formData.allowedHostRoleIds.includes(role.id))}
+              onChange={(_, newValue) =>
+                setFormData({
+                  ...formData,
+                  allowedHostRoleIds: newValue.map((role) => role.id),
+                })
+              }
+              getOptionLabel={(option) => option.name}
+              loading={loadingRoles}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Host Roles (override)"
+                  placeholder="Select roles that can host games"
+                  helperText="Roles that can create games in this channel. Leave empty to inherit guild default."
+                />
+              )}
+              renderTags={(value, getTagProps) =>
+                value.map((option, index) => {
+                  const { key, ...chipProps } = getTagProps({ index });
+                  return (
+                    <Chip
+                      key={key}
+                      label={option.name}
+                      {...chipProps}
+                      sx={{
+                        backgroundColor: option.color
+                          ? `#${option.color.toString(16).padStart(6, '0')}`
+                          : undefined,
+                        color: option.color ? '#ffffff' : undefined,
+                      }}
+                    />
+                  );
+                })
+              }
               fullWidth
             />
 

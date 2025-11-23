@@ -44,9 +44,7 @@ def mock_current_user():
 def mock_role_service():
     """Create mock role verification service."""
     service = AsyncMock()
-    service.check_manage_guild_permission = AsyncMock()
-    service.check_manage_channels_permission = AsyncMock()
-    service.check_administrator_permission = AsyncMock()
+    service.has_permissions = AsyncMock()
     service.check_game_host_permission = AsyncMock()
     return service
 
@@ -71,28 +69,34 @@ async def test_get_role_service():
 @pytest.mark.asyncio
 async def test_require_manage_guild_success(mock_current_user, mock_role_service, mock_tokens):
     """Test require_manage_guild with permission."""
-    mock_role_service.check_manage_guild_permission.return_value = True
+    mock_role_service.has_permissions.return_value = True
+    mock_db = AsyncMock()
 
     with patch("services.api.auth.tokens.get_user_tokens", return_value=mock_tokens):
+        # Use a Discord snowflake format ID to skip UUID resolution
         result = await permissions.require_manage_guild(
-            "guild456",
+            "123456789012345678",  # Discord snowflake format
             mock_current_user,
             mock_role_service,
+            mock_db,
         )
 
     assert result == mock_current_user
-    mock_role_service.check_manage_guild_permission.assert_called_once()
+    mock_role_service.has_permissions.assert_called_once()
 
 
 @pytest.mark.asyncio
 async def test_require_manage_guild_no_session(mock_current_user, mock_role_service):
     """Test require_manage_guild with no session."""
+    mock_db = AsyncMock()
+
     with patch("services.api.auth.tokens.get_user_tokens", return_value=None):
         with pytest.raises(HTTPException) as exc_info:
             await permissions.require_manage_guild(
-                "guild456",
+                "123456789012345678",
                 mock_current_user,
                 mock_role_service,
+                mock_db,
             )
 
     assert exc_info.value.status_code == 401
@@ -104,14 +108,16 @@ async def test_require_manage_guild_no_permission(
     mock_current_user, mock_role_service, mock_tokens
 ):
     """Test require_manage_guild without permission."""
-    mock_role_service.check_manage_guild_permission.return_value = False
+    mock_role_service.has_permissions.return_value = False
+    mock_db = AsyncMock()
 
     with patch("services.api.auth.tokens.get_user_tokens", return_value=mock_tokens):
         with pytest.raises(HTTPException) as exc_info:
             await permissions.require_manage_guild(
-                "guild456",
+                "123456789012345678",
                 mock_current_user,
                 mock_role_service,
+                mock_db,
             )
 
     assert exc_info.value.status_code == 403
@@ -121,17 +127,20 @@ async def test_require_manage_guild_no_permission(
 @pytest.mark.asyncio
 async def test_require_manage_channels_success(mock_current_user, mock_role_service, mock_tokens):
     """Test require_manage_channels with permission."""
-    mock_role_service.check_manage_channels_permission.return_value = True
+    mock_role_service.has_permissions.return_value = True
+    mock_db = AsyncMock()
 
     with patch("services.api.auth.tokens.get_user_tokens", return_value=mock_tokens):
+        # Use a Discord snowflake format ID to skip UUID resolution
         result = await permissions.require_manage_channels(
-            "guild456",
+            "123456789012345678",
             mock_current_user,
             mock_role_service,
+            mock_db,
         )
 
     assert result == mock_current_user
-    mock_role_service.check_manage_channels_permission.assert_called_once()
+    mock_role_service.has_permissions.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -139,14 +148,16 @@ async def test_require_manage_channels_no_permission(
     mock_current_user, mock_role_service, mock_tokens
 ):
     """Test require_manage_channels without permission."""
-    mock_role_service.check_manage_channels_permission.return_value = False
+    mock_role_service.has_permissions.return_value = False
+    mock_db = AsyncMock()
 
     with patch("services.api.auth.tokens.get_user_tokens", return_value=mock_tokens):
         with pytest.raises(HTTPException) as exc_info:
             await permissions.require_manage_channels(
-                "guild456",
+                "123456789012345678",
                 mock_current_user,
                 mock_role_service,
+                mock_db,
             )
 
     assert exc_info.value.status_code == 403
@@ -226,7 +237,7 @@ async def test_require_game_host_no_channel(mock_current_user, mock_role_service
 @pytest.mark.asyncio
 async def test_require_administrator_success(mock_current_user, mock_role_service, mock_tokens):
     """Test require_administrator with permission."""
-    mock_role_service.check_administrator_permission.return_value = True
+    mock_role_service.has_permissions.return_value = True
 
     with patch("services.api.auth.tokens.get_user_tokens", return_value=mock_tokens):
         result = await permissions.require_administrator(
@@ -236,7 +247,7 @@ async def test_require_administrator_success(mock_current_user, mock_role_servic
         )
 
     assert result == mock_current_user
-    mock_role_service.check_administrator_permission.assert_called_once()
+    mock_role_service.has_permissions.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -244,7 +255,7 @@ async def test_require_administrator_no_permission(
     mock_current_user, mock_role_service, mock_tokens
 ):
     """Test require_administrator without permission."""
-    mock_role_service.check_administrator_permission.return_value = False
+    mock_role_service.has_permissions.return_value = False
 
     with patch("services.api.auth.tokens.get_user_tokens", return_value=mock_tokens):
         with pytest.raises(HTTPException) as exc_info:
