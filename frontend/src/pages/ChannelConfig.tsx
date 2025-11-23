@@ -230,7 +230,7 @@ export const ChannelConfig: FC = () => {
             />
 
             <TextField
-              label="Allowed Host Role IDs (override)"
+              label="Host Roles (override)"
               value={formData.allowedHostRoleIds}
               onChange={(e) => setFormData({ ...formData, allowedHostRoleIds: e.target.value })}
               helperText="Comma-separated role IDs. Leave empty to inherit guild default."
