@@ -11,6 +11,42 @@ Implementation of a complete Discord game scheduling system with microservices a
 
 ### Recent Updates (2025-11-22)
 
+**Changed User-Facing "Guild" Terminology to "Server" (Task 12.8)**
+
+Updated all user-facing text and UI labels to use "Server" instead of "Guild" to match Discord's standard user interface terminology. Internal code, database models, and API paths remain unchanged for consistency with Discord API.
+
+**Changes Made:**
+
+- **Frontend Pages**: Updated GuildListPage, GuildConfig, GuildDashboard, CreateGame titles, labels, and error messages
+- **Frontend Components**: Updated Layout navigation, InheritancePreview default values, GameForm helper text
+- **Frontend Tests**: Updated InheritancePreview test cases
+- **Bot Commands**: Updated config_guild and config_channel command descriptions, messages, and embed titles
+- **Terminology**: All instances of "guild" → "server" in user-facing text only
+
+**Files Modified:**
+
+- `frontend/src/pages/GuildListPage.tsx` - Page title and alert messages
+- `frontend/src/pages/GuildConfig.tsx` - Page title, button labels, error messages, helper text (fixed syntax error with extra closing parenthesis)
+- `frontend/src/pages/GuildDashboard.tsx` - Button labels, error messages
+- `frontend/src/pages/CreateGame.tsx` - Error messages
+- `frontend/src/components/Layout.tsx` - Navigation button label
+- `frontend/src/components/InheritancePreview.tsx` - Default inheritedFrom value
+- `frontend/src/components/GameForm.tsx` - Helper text
+- `frontend/src/components/__tests__/InheritancePreview.test.tsx` - Test assertions
+- `services/bot/commands/config_guild.py` - Command description, embed title, success/error messages
+- `services/bot/commands/config_channel.py` - Docstring, error messages, display text
+- `tests/services/bot/commands/test_config_guild.py` - Updated test assertion from "guild configuration" to "server configuration"
+
+**Result:**
+
+- Users now see "Server" terminology throughout the application (matching Discord's UI)
+- Internal code remains consistent with Discord API (uses "guild")
+- No breaking changes to API or database schema
+- All linting checks pass (Python: ruff, TypeScript: ESLint + Prettier)
+- All unit tests pass (20/20 Python tests, 5/5 React tests)
+
+---
+
 **Redis-Based Rate Limiting with Trailing Edge Refresh (v2 - Improved)**
 
 Implemented Redis-based rate limiting for Discord message updates with critical fixes:
@@ -270,6 +306,17 @@ Modified the bot's join and leave game notifications to send as direct messages 
 - frontend/src/pages/**tests**/EditGame.test.tsx - Updated mock data to include signup_instructions and min_players fields, updated test assertions (Task 8.4)
 - frontend/src/components/EditableParticipantList.tsx - Changed empty state message from "No pre-populated participants" to "No participants added by host" (Task 12.7)
 - frontend/src/components/ParticipantList.tsx - Changed participant secondary text from "Pre-populated" to "Added by host" in both confirmed and waitlist sections (Task 12.7)
+- frontend/src/pages/GuildListPage.tsx - Changed user-facing "Guild" terminology to "Server" in page title, descriptions, and error messages (Task 12.8)
+- frontend/src/pages/GuildConfig.tsx - Changed user-facing "Guild" terminology to "Server" in page title, buttons, error messages, and helper text (Task 12.8)
+- frontend/src/pages/GuildDashboard.tsx - Changed user-facing "Guild" terminology to "Server" in button labels and error messages (Task 12.8)
+- frontend/src/pages/CreateGame.tsx - Changed user-facing "Guild" terminology to "Server" in error messages (Task 12.8)
+- frontend/src/components/Layout.tsx - Changed navigation button label from "My Guilds" to "My Servers" (Task 12.8)
+- frontend/src/components/InheritancePreview.tsx - Changed default inheritedFrom prop from "guild" to "server" (Task 12.8)
+- frontend/src/components/GameForm.tsx - Changed helper text from "guild" to "server" (Task 12.8)
+- frontend/src/components/**tests**/InheritancePreview.test.tsx - Updated test assertions from "guild" to "server" (Task 12.8)
+- services/bot/commands/config_guild.py - Changed command description from "guild-level" to "server-level", updated all user-facing messages to use "server" instead of "guild" (Task 12.8)
+- services/bot/commands/config_channel.py - Changed docstring from "guild defaults" to "server defaults", updated error messages and display text to use "server" instead of "guild" (Task 12.8)
+- tests/services/bot/commands/test_config_guild.py - Updated test assertion to expect "Current server configuration" instead of "Current guild configuration" (Task 12.8)
 
 ### Phase 8: Description and Signup Instructions Fields (Task 8.3 Complete)
 

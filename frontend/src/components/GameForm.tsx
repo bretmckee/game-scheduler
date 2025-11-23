@@ -21,7 +21,10 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { Channel, DiscordRole, GameSession } from '../types';
 import { ValidationErrors } from './ValidationErrors';
-import { EditableParticipantList, ParticipantInput as EditableParticipantInput } from './EditableParticipantList';
+import {
+  EditableParticipantList,
+  ParticipantInput as EditableParticipantInput,
+} from './EditableParticipantList';
 
 export interface GameFormData {
   title: string;
@@ -270,7 +273,7 @@ export const GameForm: FC<GameFormProps> = ({
                 type="number"
                 value={formData.maxPlayers}
                 onChange={handleChange}
-                helperText="Leave empty to use channel/guild default"
+                helperText="Leave empty to use channel/server default"
                 disabled={loading}
                 inputProps={{ min: 1, max: 100 }}
               />
@@ -337,7 +340,13 @@ export const GameForm: FC<GameFormProps> = ({
 
           <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
             <Button type="submit" variant="contained" disabled={loading} fullWidth>
-              {loading ? <CircularProgress size={24} /> : mode === 'create' ? 'Create Game' : 'Save Changes'}
+              {loading ? (
+                <CircularProgress size={24} />
+              ) : mode === 'create' ? (
+                'Create Game'
+              ) : (
+                'Save Changes'
+              )}
             </Button>
             <Button variant="outlined" onClick={onCancel} disabled={loading} fullWidth>
               Cancel
