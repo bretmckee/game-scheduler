@@ -44,6 +44,7 @@ class EventType(str, Enum):
     # Participant events
     PLAYER_JOINED = "game.player_joined"
     PLAYER_LEFT = "game.player_left"
+    PLAYER_REMOVED = "game.player_removed"
     WAITLIST_ADDED = "game.waitlist_added"
     WAITLIST_REMOVED = "game.waitlist_removed"
 

@@ -87,6 +87,14 @@ class GameUpdateRequest(BaseModel):
         description="Discord role IDs to mention in announcement (max 10)",
         max_length=10,
     )
+    participants: list[dict[str, str | int]] | None = Field(
+        None,
+        description="Updated participants list with mention and pre_filled_position",
+    )
+    removed_participant_ids: list[str] | None = Field(
+        None,
+        description="List of participant IDs to remove",
+    )
 
     @field_validator("notify_role_ids")
     @classmethod

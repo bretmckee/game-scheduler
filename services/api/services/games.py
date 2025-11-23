@@ -382,6 +382,84 @@ class GameService:
         if update_data.status is not None:
             game.status = update_data.status
 
+        # Handle participant updates
+        if update_data.removed_participant_ids:
+            # Remove specified participants
+            for participant_id in update_data.removed_participant_ids:
+                result = await self.db.execute(
+                    select(participant_model.GameParticipant).where(
+                        participant_model.GameParticipant.id == participant_id,
+                        participant_model.GameParticipant.game_session_id == game.id,
+                    )
+                )
+                participant = result.scalar_one_or_none()
+                if participant:
+                    # Publish player removed event before deleting
+                    await self._publish_player_removed(game, participant)
+                    await self.db.delete(participant)
+            await self.db.flush()
+
+        if update_data.participants is not None:
+            # Get current pre-filled participants
+            current_prefilled = await self.db.execute(
+                select(participant_model.GameParticipant).where(
+                    participant_model.GameParticipant.game_session_id == game.id,
+                    participant_model.GameParticipant.pre_filled_position.isnot(None),
+                )
+            )
+            current_participants = current_prefilled.scalars().all()
+
+            # Remove all pre-filled participants
+            for p in current_participants:
+                await self.db.delete(p)
+            await self.db.flush()
+
+            # Add new pre-filled participants
+            for participant_data in update_data.participants:
+                mention = participant_data.get("mention", "")
+                position = participant_data.get("pre_filled_position", 0)
+
+                if not mention.strip():
+                    continue
+
+                # Resolve participant
+                (
+                    valid_participants,
+                    validation_errors,
+                ) = await self.participant_resolver.resolve_initial_participants(
+                    game.guild.guild_id,
+                    [mention],
+                    "",  # No access token needed for bot search
+                )
+
+                if validation_errors:
+                    error_reason = validation_errors[0].get("reason", "Unknown error")
+                    raise ValueError(f"Invalid participant mention: {mention} - {error_reason}")
+
+                # Create participant record using same pattern as create_game
+                if valid_participants:
+                    p_data = valid_participants[0]
+                    if p_data["type"] == "discord":
+                        user = await self.participant_resolver.ensure_user_exists(
+                            self.db, p_data["discord_id"]
+                        )
+                        new_participant = participant_model.GameParticipant(
+                            game_session_id=game.id,
+                            user_id=user.id,
+                            display_name=None,
+                            pre_filled_position=position,
+                        )
+                    else:  # placeholder
+                        new_participant = participant_model.GameParticipant(
+                            game_session_id=game.id,
+                            user_id=None,
+                            display_name=p_data["display_name"],
+                            pre_filled_position=position,
+                        )
+                    self.db.add(new_participant)
+
+            await self.db.flush()
+
         # Validate min_players <= max_players after updates (if both are set)
         if (
             game.min_players is not None
@@ -642,3 +720,31 @@ class GameService:
         await self.event_publisher.publish(event=event)
 
         logger.info(f"Published game.cancelled event for game {game.id}")
+
+    async def _publish_player_removed(
+        self,
+        game: game_model.GameSession,
+        participant: participant_model.GameParticipant,
+    ) -> None:
+        """Publish game.player_removed event to RabbitMQ."""
+        event = messaging_events.Event(
+            event_type=messaging_events.EventType.PLAYER_REMOVED,
+            data={
+                "game_id": game.id,
+                "participant_id": participant.id,
+                "user_id": participant.user_id,
+                "discord_id": participant.user.discord_id if participant.user else None,
+                "display_name": participant.display_name,
+                "message_id": game.message_id or "",
+                "channel_id": game.channel_id,
+                "game_title": game.title,
+                "game_scheduled_at": game.scheduled_at.isoformat() if game.scheduled_at else None,
+            },
+        )
+
+        await self.event_publisher.publish(event=event)
+
+        logger.info(
+            f"Published game.player_removed event for participant {participant.id} "
+            f"from game {game.id}"
+        )
