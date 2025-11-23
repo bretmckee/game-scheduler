@@ -179,7 +179,7 @@ export const GuildConfig: FC = () => {
             />
 
             <TextField
-              label="Allowed Host Role IDs"
+              label="Host Roles"
               value={formData.allowedHostRoleIds}
               onChange={(e) => setFormData({ ...formData, allowedHostRoleIds: e.target.value })}
               helperText="Comma-separated Discord role IDs that can host games. Leave empty to allow users with MANAGE_GUILD permission."
@@ -187,7 +187,7 @@ export const GuildConfig: FC = () => {
             />
 
             <TextField
-              label="Bot Manager Role IDs"
+              label="Bot Manager Roles"
               value={formData.botManagerRoleIds}
               onChange={(e) => setFormData({ ...formData, botManagerRoleIds: e.target.value })}
               helperText="Comma-separated Discord role IDs for Bot Managers (can edit/delete any game in this server). Leave empty for none."
