@@ -1924,29 +1924,111 @@ Replace text input fields for role IDs with user-friendly multi-select dropdowns
 
 ### Task 12.14: Upgrade Docker Compose for multi-architecture builds
 
-Configure Docker Compose and Dockerfiles to support building images for both ARM64 and AMD64 architectures, enabling deployment across different hardware platforms (e.g., Apple Silicon Macs, AWS Graviton, traditional x86 servers).
+Configure Docker Compose and Dockerfiles to support building images for both ARM64 and AMD64 architectures using Docker Bake, enabling deployment across different hardware platforms (e.g., Apple Silicon Macs, AWS Graviton, traditional x86 servers). Add image tagging with environment variable-based registry URL prefix and tag configuration.
 
 - **Files**:
-  - docker-compose.yml - Add platform specifications and buildx configuration
+  - docker-compose.yml - Add x-bake configuration, tags, and image naming
   - docker/api.Dockerfile - Verify multi-arch base image compatibility
   - docker/bot.Dockerfile - Verify multi-arch base image compatibility
   - docker/scheduler.Dockerfile - Verify multi-arch base image compatibility
   - docker/frontend.Dockerfile - Verify multi-arch base image compatibility
-  - .env.example (optional) - Document DOCKER_DEFAULT_PLATFORM if needed
+  - .env.example - Document IMAGE_REGISTRY and IMAGE_TAG variables
+  - .env - Add IMAGE_REGISTRY and IMAGE_TAG variables (not committed to git)
+  - README.md - Document docker buildx bake workflow
 - **Implementation**:
-  - Add `platform: linux/amd64` or `platform: linux/arm64` to service definitions as appropriate
-  - Add `platforms: [linux/amd64, linux/arm64]` under build configuration for custom services
-  - Ensure all base images (python:3.11-slim, node:18-alpine, nginx:alpine) support both architectures
-  - Use `docker buildx` for building multi-platform images
-  - Consider adding a separate docker-compose.build.yml for multi-arch builds if needed
+
+  - Add `x-bake` section to each custom service's build configuration with platforms list:
+    ```yaml
+    api:
+      container_name: game-scheduler-api
+      image: ${IMAGE_REGISTRY:-}game-scheduler-api:${IMAGE_TAG:-latest}
+      build:
+        context: .
+        dockerfile: docker/api.Dockerfile
+        tags:
+          - ${IMAGE_REGISTRY:-}game-scheduler-api:${IMAGE_TAG:-latest}
+        x-bake:
+          platforms:
+            - linux/amd64
+            - linux/arm64
+    ```
+  - Add same x-bake configuration to bot, scheduler, and frontend services
+  - Ensure `image:` and `tags:` fields use same naming pattern with environment variables
+  - Create IMAGE_REGISTRY environment variable with default value "172-16-1-24.xip.boneheads.us:5050/"
+  - Create IMAGE_TAG environment variable with default value "latest"
+  - Verify all base images (python:3.11-slim, node:18-alpine, nginx:alpine) support both architectures (they do)
   - Verify all dependencies in Dockerfiles are architecture-agnostic
+  - Document Docker Bake workflow in .env.example:
+
+    ```bash
+    # Docker registry URL prefix (include trailing slash)
+    # Examples: 172-16-1-24.xip.boneheads.us:5050/, docker.io/myorg/, empty for local
+    IMAGE_REGISTRY=172-16-1-24.xip.boneheads.us:5050/
+
+    # Image tag for built containers (default: latest)
+    # Examples: latest, v1.0.0, dev, staging
+    IMAGE_TAG=latest
+    ```
+
+  - Document build commands in README.md:
+
+    ```bash
+    # Create buildx builder if needed (one-time setup)
+    docker buildx ls  # Check existing builders
+    docker buildx create --use  # Create multi-platform builder
+
+    # Build for multiple architectures and push to registry
+    docker buildx bake --push
+
+    # Build specific service(s)
+    docker buildx bake --push api bot
+
+    # Build with custom registry and tag
+    IMAGE_REGISTRY=myregistry.com/ IMAGE_TAG=v1.2.3 docker buildx bake --push
+
+    # Build without pushing (local only, single platform)
+    docker compose build
+
+    # Build for local use with specific platform
+    docker compose build --build-arg BUILDPLATFORM=linux/amd64
+    ```
+
+- **Success**:
+  - x-bake configuration added to all custom services (api, bot, scheduler, frontend)
+  - `docker buildx bake --push` successfully builds and pushes multi-arch images
+  - Images contain both linux/amd64 and linux/arm64 manifests in registry
+  - Environment variables control registry prefix and image tags
+  - Build commands documented in README.md
+  - .env.example includes all necessary variables with examples
+  - Regular `docker compose build` still works for local single-platform builds
+- **Research References**:
+  - #fetch:https://medium.com/womenintechnology/multi-architecture-builds-are-possible-with-docker-compose-kind-of-2a4e8d166c56 - Docker Bake with docker-compose.yml
+  - #fetch:https://docs.docker.com/build/bake/ - Docker Bake reference documentation
+  - #file:../../docker-compose.yml - Current compose configuration
+  - #file:../../docker/api.Dockerfile - API service Dockerfile
+  - #file:../../docker/bot.Dockerfile - Bot service Dockerfile
+  - #file:../../docker/scheduler.Dockerfile - Scheduler service Dockerfile
+  - #file:../../docker/frontend.Dockerfile - Frontend service Dockerfile
+- **Dependencies**:
+  - Docker Desktop or Docker Engine with BuildKit support
+  - docker buildx CLI plugin (included with modern Docker installations)
+  - Multi-platform builder created via `docker buildx create --use`
+  - Authentication to target container registry (e.g., `docker login`)
 - **Success**:
   - docker-compose.yml includes platform specifications for all services
   - Custom service builds explicitly declare support for linux/amd64 and linux/arm64
+  - Each custom service has image field with ${IMAGE_REGISTRY:-} prefix and ${IMAGE_TAG:-latest} variable
+  - IMAGE_REGISTRY environment variable documented in .env.example with default value
+  - IMAGE_TAG environment variable documented in .env.example
+  - Images built with registry prefix: `172-16-1-24.xip.boneheads.us:5050/game-scheduler-api:latest`
+  - Images can be built with custom tags: `IMAGE_TAG=v1.0.0 docker-compose build`
+  - Images can be built without registry prefix by setting IMAGE_REGISTRY to empty string
+  - Default registry prefix "172-16-1-24.xip.boneheads.us:5050/" used when IMAGE_REGISTRY not specified
   - Images can be built successfully on both ARM64 and AMD64 hosts
   - All services start and run correctly on both architectures
   - No architecture-specific dependencies cause build failures
   - BuildKit multi-platform build process documented
+  - Tagged images can be pushed to registry: `docker-compose push`
 - **Research References**:
   - #file:../../docker-compose.yml (Lines 1-164) - Current compose configuration
   - #file:../../.github/instructions/containerization-docker-best-practices.instructions.md - Docker best practices

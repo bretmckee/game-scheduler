@@ -440,18 +440,19 @@ Implement a complete Discord game scheduling system with microservices architect
   - Apply to Host Roles and Bot Manager Roles fields on server configuration page
   - Apply to Host Roles (override) field on channel configuration page
 
-- [ ] Task 12.14: Upgrade Docker Compose for multi-architecture builds
+- [ ] Task 12.14: Upgrade Docker Compose for multi-architecture builds with Docker Bake
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1922-1955)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1925-2035)
 
-  - Configure docker-compose.yml to support building for linux/arm64 and linux/amd64
-  - Add platform specifications to all custom service builds
-  - Update Dockerfiles to use multi-arch base images where needed
-  - Enable BuildKit for efficient multi-platform builds
+  - Configure docker-compose.yml with x-bake sections for multi-architecture support
+  - Add tags and platforms configuration for linux/arm64 and linux/amd64
+  - Use `docker buildx bake --push` command for building and pushing multi-arch images
+  - Support environment variables for registry prefix and image tags
+  - Document Docker Bake workflow in README.md
 
 - [x] Task 12.15: Fix bot manager role changes not saving in API responses
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1960-1987)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 2037-2064)
 
   - Add bot_manager_role_ids field to all GuildConfigResponse constructions in guilds.py
   - Ensure bot manager roles are returned when fetching guild configuration
