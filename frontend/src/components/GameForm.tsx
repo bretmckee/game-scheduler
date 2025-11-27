@@ -21,6 +21,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { Channel, DiscordRole, GameSession } from '../types';
 import { ValidationErrors } from './ValidationErrors';
+import { formatParticipantDisplay } from '../utils/formatParticipant';
 import {
   EditableParticipantList,
   ParticipantInput as EditableParticipantInput,
@@ -55,8 +56,9 @@ interface GameFormProps {
       discordId: string;
       username: string;
       displayName: string;
-    }>;
+    }>
   }> | null;
+  validParticipants?: string[] | null;
   onValidationErrorClick?: (originalInput: string, newUsername: string) => void;
 }
 
@@ -118,6 +120,7 @@ export const GameForm: FC<GameFormProps> = ({
   onSubmit,
   onCancel,
   validationErrors,
+  validParticipants,
   onValidationErrorClick,
 }) => {
   const [loading, setLoading] = useState(false);
@@ -145,11 +148,12 @@ export const GameForm: FC<GameFormProps> = ({
           })
           .map((p, index) => ({
             id: p.id,
-            mention: p.display_name || (p.discord_id ? `<@${p.discord_id}>` : ''),
+            mention: formatParticipantDisplay(p.display_name, p.discord_id),
             isValid: true,
             preFillPosition: index + 1,
             isExplicitlyPositioned: p.pre_filled_position !== null,
             isReadOnly: p.pre_filled_position === null, // Joined users are read-only
+            validationStatus: 'valid' as const, // From server, so validated
           }))
       : [],
   });
@@ -179,11 +183,12 @@ export const GameForm: FC<GameFormProps> = ({
               })
               .map((p, index) => ({
                 id: p.id,
-                mention: p.display_name || (p.discord_id ? `<@${p.discord_id}>` : ''),
+                mention: formatParticipantDisplay(p.display_name, p.discord_id),
                 isValid: true,
                 preFillPosition: index + 1,
                 isExplicitlyPositioned: p.pre_filled_position !== null,
                 isReadOnly: p.pre_filled_position === null,
+                validationStatus: 'valid' as const,
               }))
           : [],
       });
@@ -196,6 +201,29 @@ export const GameForm: FC<GameFormProps> = ({
       setFormData((prev) => ({ ...prev, channelId: channels[0]!.id }));
     }
   }, [channels, formData.channelId]);
+
+  // Update participant validation status when validationErrors change
+  useEffect(() => {
+    if (!validationErrors && !validParticipants) return;
+
+    const invalidInputs = new Set(validationErrors?.map(err => err.input.trim()) || []);
+    const validInputs = new Set(validParticipants?.map(input => input.trim()) || []);
+    
+    setFormData((prev) => ({
+      ...prev,
+      participants: prev.participants.map((p) => {
+        const mention = p.mention.trim();
+        if (invalidInputs.has(mention)) {
+          return { ...p, validationStatus: 'invalid' as const };
+        }
+        if (validInputs.has(mention)) {
+          return { ...p, validationStatus: 'valid' as const };
+        }
+        // Don't change status for other participants
+        return p;
+      }),
+    }));
+  }, [validationErrors, validParticipants]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -224,7 +252,9 @@ export const GameForm: FC<GameFormProps> = ({
 
   const handleSuggestionClick = (originalInput: string, newUsername: string) => {
     const updatedParticipants = formData.participants.map((p) =>
-      p.mention.trim() === originalInput.trim() ? { ...p, mention: newUsername } : p
+      p.mention.trim() === originalInput.trim() 
+        ? { ...p, mention: newUsername, validationStatus: 'unknown' as const } 
+        : p
     );
     setFormData((prev) => ({ ...prev, participants: updatedParticipants }));
     
@@ -255,7 +285,14 @@ export const GameForm: FC<GameFormProps> = ({
       await onSubmit(formData);
     } catch (err: any) {
       console.error('Failed to submit form:', err);
-      setError(err.response?.data?.detail || 'Failed to submit. Please try again.');
+      // Don't set error here if validation errors exist - parent handles those
+      if (!validationErrors) {
+        const errorDetail = err.response?.data?.detail;
+        const errorMessage = typeof errorDetail === 'string' 
+          ? errorDetail 
+          : errorDetail?.message || 'Failed to submit. Please try again.';
+        setError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
