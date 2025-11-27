@@ -330,28 +330,45 @@ class EventHandlers:
         Args:
             data: Event payload with notification details
         """
+        logger.info(f"=== Received notification.send_dm event: {data} ===")
+
         try:
             notification = NotificationSendDMEvent(**data)
+            logger.info(
+                f"Parsed notification event: user_id={notification.user_id}, "
+                f"game_id={notification.game_id}, type={notification.notification_type}"
+            )
         except Exception as e:
-            logger.error(f"Invalid notification event data: {e}")
+            logger.error(f"Invalid notification event data: {e}", exc_info=True)
             return
 
         try:
+            logger.info(f"Fetching Discord user with ID: {notification.user_id}")
             user = await self.bot.fetch_user(int(notification.user_id))
 
             if not user:
-                logger.error(f"User not found: {notification.user_id}")
+                logger.error(f"User not found in Discord: {notification.user_id}")
                 return
+
+            logger.info(f"Found user: {user.name}#{user.discriminator}")
+            logger.info(f"Sending DM with message: {notification.message}")
 
             await user.send(notification.message)
 
             logger.info(
-                f"Sent notification DM: user={notification.user_id}, "
+                f"✓ Successfully sent notification DM: user={notification.user_id}, "
                 f"game={notification.game_id}, type={notification.notification_type}"
             )
 
         except discord.Forbidden:
-            logger.warning(f"Cannot send DM to user {notification.user_id}: DMs disabled")
+            logger.warning(
+                f"Cannot send DM to user {notification.user_id}: DMs disabled or bot blocked"
+            )
+        except discord.HTTPException as e:
+            logger.error(
+                f"Discord HTTP error sending notification to {notification.user_id}: {e}",
+                exc_info=True,
+            )
         except Exception as e:
             logger.error(
                 f"Failed to send notification to {notification.user_id}: {e}",
