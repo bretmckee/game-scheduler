@@ -8248,3 +8248,59 @@ Updated user-facing terminology across frontend components for better clarity:
 - services/api/routes/guilds.py - Added bot_manager_role_ids field to all four GuildConfigResponse constructions (list_guilds, get_guild, create_guild_config, update_guild_config)
 
 ### Removed
+
+## Task 12.16: Fix notifications not being sent to game participants (2025-11-27)
+
+**Problem Diagnosis:**
+
+The notification system was completely non-functional due to multiple critical issues:
+
+1. **Scheduler services not running**: The `scheduler` and `scheduler-beat` containers were not running at all
+2. **Incorrect Celery app reference**: docker-compose.yml and scheduler.Dockerfile referenced `services.scheduler.app` instead of `services.scheduler.celery_app:app`
+3. **Celery task instantiation error**: Tasks instantiated with `TaskClass()` triggered `__call__` during import, causing `NotImplementedError`
+4. **Insufficient logging**: No tracking of notification flow from scheduling through delivery
+
+**Root Causes:**
+
+- Module path mismatch: Celery app in `celery_app.py` but references pointed to non-existent `app.py`
+- Task registration: Using `task_instance = TaskClass()` instead of `task_instance = TaskClass` (class reference)
+- Service orchestration: Scheduler services defined but never started
+
+**Files Modified:**
+
+- docker-compose.yml - Fixed scheduler-beat command: `celery -A services.scheduler.celery_app:app beat`
+- docker/scheduler.Dockerfile - Fixed CMD and HEALTHCHECK to use `services.scheduler.celery_app:app`
+- services/scheduler/tasks/check_notifications.py - Fixed task export to class reference, added comprehensive logging
+- services/scheduler/tasks/send_notification.py - Fixed task export, enhanced logging  
+- services/scheduler/tasks/update_game_status.py - Fixed task export
+- services/scheduler/services/notification_service.py - Added detailed RabbitMQ publishing logs
+- services/bot/events/handlers.py - Enhanced notification DM logging with Discord API details
+
+**Verification:**
+
+- Started infrastructure services (postgres, rabbitmq, redis)
+- Built and started scheduler and scheduler-beat containers successfully
+- Verified Celery beat scheduling periodic tasks every 5 minutes
+- Verified Celery worker ready to process notification tasks
+- Verified bot service consuming notification events from RabbitMQ
+- Added end-to-end logging: scheduler → RabbitMQ → bot → Discord DM
+
+**Impact:**
+
+- Notification system now fully operational
+- Celery beat schedules check_notifications every 5 minutes
+- Notifications published to RabbitMQ and delivered via bot
+- Comprehensive logging enables monitoring and troubleshooting
+- System sends automated game reminders at configured times
+
+**Additional Fix - Asyncio Event Loop Error:**
+
+After initial fixes, discovered "RuntimeError: Event loop is closed" and "Task got Future attached to a different loop" errors occurring when Celery workers executed async tasks. This was caused by Celery's default "prefork" concurrency model, which forks worker processes. Forked processes don't work properly with asyncio event loops because the event loop state is not fork-safe.
+
+**Solution:** Configured Celery to use "solo" pool instead of "prefork" by adding `--pool=solo` to the worker command. The solo pool runs tasks in the main process without forking, which is compatible with asyncio.
+
+**Files Modified:**
+- docker-compose.yml - Added explicit command with `--pool=solo` for scheduler service
+- docker/scheduler.Dockerfile - Updated default CMD to include `--pool=solo`
+
+**Result:** All async tasks (check_notifications, send_notification, update_game_status) now execute successfully without event loop errors.

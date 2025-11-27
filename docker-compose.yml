@@ -125,6 +125,7 @@ services:
     container_name: gamebot-scheduler
     env_file:
       - .env
+    command: celery -A services.scheduler.celery_app:app worker --loglevel=info --pool=solo
     depends_on:
       postgres:
         condition: service_healthy
@@ -150,7 +151,7 @@ services:
     container_name: gamebot-scheduler-beat
     env_file:
       - .env
-    command: celery -A services.scheduler.app beat --loglevel=info
+    command: celery -A services.scheduler.celery_app:app beat --loglevel=info
     depends_on:
       postgres:
         condition: service_healthy
