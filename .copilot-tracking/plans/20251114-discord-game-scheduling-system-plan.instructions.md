@@ -440,7 +440,7 @@ Implement a complete Discord game scheduling system with microservices architect
   - Apply to Host Roles and Bot Manager Roles fields on server configuration page
   - Apply to Host Roles (override) field on channel configuration page
 
-- [ ] Task 12.14: Upgrade Docker Compose for multi-architecture builds with Docker Bake
+- [x] Task 12.14: Upgrade Docker Compose for multi-architecture builds with Docker Bake
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1925-2035)
 
