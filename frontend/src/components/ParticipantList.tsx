@@ -35,6 +35,11 @@ interface ParticipantListProps {
   maxPlayers?: number;
 }
 
+const formatDisplayName = (displayName: string | null): string => {
+  if (!displayName) return 'Unknown User';
+  return displayName.startsWith('@') ? displayName : `@${displayName}`;
+};
+
 export const ParticipantList: FC<ParticipantListProps> = ({
   participants,
   minPlayers = 1,
@@ -74,7 +79,7 @@ export const ParticipantList: FC<ParticipantListProps> = ({
               <Avatar>{participant.display_name?.[0]?.toUpperCase() || '?'}</Avatar>
             </ListItemAvatar>
             <ListItemText
-              primary={participant.display_name || 'Unknown User'}
+              primary={formatDisplayName(participant.display_name)}
               secondary={
                 participant.pre_filled_position !== null ? 'Added by host' : 'Joined via button'
               }
@@ -95,7 +100,7 @@ export const ParticipantList: FC<ParticipantListProps> = ({
                   <Avatar sx={{ bgcolor: 'warning.main' }}>{index + 1}</Avatar>
                 </ListItemAvatar>
                 <ListItemText
-                  primary={participant.display_name || 'Unknown User'}
+                  primary={formatDisplayName(participant.display_name)}
                   secondary={
                     participant.pre_filled_position !== null ? 'Added by host' : 'Joined via button'
                   }

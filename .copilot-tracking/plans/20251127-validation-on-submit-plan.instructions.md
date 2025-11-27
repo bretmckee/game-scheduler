@@ -41,49 +41,55 @@ Move participant mention validation from real-time (as-you-type) to submit-only,
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Frontend - Remove Real-time Validation
+### [x] Phase 1: Frontend - Remove Real-time Validation
 
-- [ ] Task 1.1: Simplify ParticipantInput interface
+- [x] Task 1.1: Simplify ParticipantInput interface
   - Details: .copilot-tracking/details/20251127-validation-on-submit-details.md (Lines 15-28)
 
-- [ ] Task 1.2: Remove validation state and timers from EditableParticipantList
+- [x] Task 1.2: Remove validation state and timers from EditableParticipantList
   - Details: .copilot-tracking/details/20251127-validation-on-submit-details.md (Lines 30-48)
 
-- [ ] Task 1.3: Simplify handleMentionChange to only update mention text
+- [x] Task 1.3: Simplify handleMentionChange to only update mention text
   - Details: .copilot-tracking/details/20251127-validation-on-submit-details.md (Lines 50-63)
 
-- [ ] Task 1.4: Remove validation visual indicators from TextField
+- [x] Task 1.4: Remove validation visual indicators from TextField
   - Details: .copilot-tracking/details/20251127-validation-on-submit-details.md (Lines 65-78)
 
-### [ ] Phase 2: Frontend - Add Disambiguation UI
+### [x] Phase 2: Frontend - Add Disambiguation UI
 
-- [ ] Task 2.1: Create DisambiguationChip component
+- [x] Task 2.1: Create DisambiguationChip component
   - Details: .copilot-tracking/details/20251127-validation-on-submit-details.md (Lines 80-101)
+  - Note: Component already exists as MentionChip.tsx
 
-- [ ] Task 2.2: Create ValidationErrors component
+- [x] Task 2.2: Create ValidationErrors component
   - Details: .copilot-tracking/details/20251127-validation-on-submit-details.md (Lines 103-129)
+  - Note: Component already exists with full implementation
 
-- [ ] Task 2.3: Integrate ValidationErrors in CreateGame
+- [x] Task 2.3: Integrate ValidationErrors in CreateGame
   - Details: .copilot-tracking/details/20251127-validation-on-submit-details.md (Lines 131-147)
+  - Note: Integration already existed, added handleSuggestionClick to GameForm
 
-- [ ] Task 2.4: Integrate ValidationErrors in EditGame
+- [x] Task 2.4: Integrate ValidationErrors in EditGame
   - Details: .copilot-tracking/details/20251127-validation-on-submit-details.md (Lines 149-165)
 
-### [ ] Phase 3: Frontend - Enhance @ Display
+### [x] Phase 3: Frontend - Enhance @ Display
 
-- [ ] Task 3.1: Add @ prepending logic to ParticipantList display
+- [x] Task 3.1: Add @ prepending logic to ParticipantList display
   - Details: .copilot-tracking/details/20251127-validation-on-submit-details.md (Lines 167-185)
 
-- [ ] Task 3.2: Ensure @ handling in EditableParticipantList display
+- [x] Task 3.2: Ensure @ handling in EditableParticipantList display
   - Details: .copilot-tracking/details/20251127-validation-on-submit-details.md (Lines 187-202)
+  - Note: TextField already preserves user input without modification
 
-### [ ] Phase 4: Backend - Enhance Validation Response
+### [x] Phase 4: Backend - Enhance Validation Response
 
-- [ ] Task 4.1: Verify validation error response format
+- [x] Task 4.1: Verify validation error response format
   - Details: .copilot-tracking/details/20251127-validation-on-submit-details.md (Lines 204-224)
+  - Note: Backend already returns proper format with error, message, invalid_mentions, valid_participants
 
-- [ ] Task 4.2: Ensure form_data preservation in error response
+- [x] Task 4.2: Ensure form_data preservation in error response
   - Details: .copilot-tracking/details/20251127-validation-on-submit-details.md (Lines 226-239)
+  - Note: Added ValidationError handling to update_game endpoint with form_data preservation
 
 ### [ ] Phase 5: Testing and Validation
 

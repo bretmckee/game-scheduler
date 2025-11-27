@@ -16,29 +16,22 @@
 // with Game_Scheduler If not, see <https://www.gnu.org/licenses/>.
 
 
-import { FC, useState, useEffect, useCallback, useRef } from 'react';
+import { FC, useState } from 'react';
 import {
   Box,
   Typography,
   TextField,
   IconButton,
   Button,
-  CircularProgress,
-  InputAdornment,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import ErrorIcon from '@mui/icons-material/Error';
-import { apiClient } from '../api/client';
 
 export interface ParticipantInput {
   id: string;
   mention: string;
-  isValid: boolean | null;
-  validationError?: string;
   preFillPosition: number;
   isExplicitlyPositioned?: boolean; // Track if user explicitly moved/added this participant
   isReadOnly?: boolean; // Joined participants can't be edited, only reordered/removed
@@ -46,116 +39,27 @@ export interface ParticipantInput {
 
 interface EditableParticipantListProps {
   participants: ParticipantInput[];
-  guildId: string;
   onChange: (participants: ParticipantInput[]) => void;
 }
 
 export const EditableParticipantList: FC<EditableParticipantListProps> = ({
   participants,
-  guildId,
   onChange,
 }) => {
-  const [validationTimers, setValidationTimers] = useState<
-    Map<string, ReturnType<typeof setTimeout>>
-  >(new Map());
-  const participantsRef = useRef(participants);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
-  // Keep ref in sync with participants
-  useEffect(() => {
-    participantsRef.current = participants;
-  }, [participants]);
-
-  const validateMention = useCallback(
-    async (id: string, mention: string) => {
-      if (!mention.trim()) {
-        onChange(
-          participantsRef.current.map((p) =>
-            p.id === id ? { ...p, isValid: null, validationError: undefined } : p
-          )
-        );
-        return;
-      }
-
-      // Set to loading state
-      onChange(
-        participantsRef.current.map((p) =>
-          p.id === id ? { ...p, isValid: null, validationError: undefined } : p
-        )
-      );
-
-      try {
-        const response = await apiClient.post<{ valid: boolean; error?: string }>(
-          `/api/v1/guilds/${guildId}/validate-mention`,
-          { mention }
-        );
-
-        // Use the latest participants state from ref
-        onChange(
-          participantsRef.current.map((p) =>
-            p.id === id
-              ? {
-                  ...p,
-                  isValid: response.data.valid,
-                  validationError: response.data.error,
-                }
-              : p
-          )
-        );
-      } catch (error) {
-        console.error('Validation failed:', error);
-        onChange(
-          participantsRef.current.map((p) =>
-            p.id === id
-              ? {
-                  ...p,
-                  isValid: false,
-                  validationError: 'Validation failed. Please try again.',
-                }
-              : p
-          )
-        );
-      }
-    },
-    [guildId, onChange]
-  );
-
   const handleMentionChange = (id: string, newMention: string) => {
-    console.log('[EditableParticipantList] handleMentionChange', { id, newMention });
-
     onChange(
-      participantsRef.current.map((p) =>
-        p.id === id ? { ...p, mention: newMention, isValid: null, validationError: undefined } : p
+      participants.map((p) =>
+        p.id === id ? { ...p, mention: newMention } : p
       )
     );
-
-    const timer = validationTimers.get(id);
-    if (timer) {
-      clearTimeout(timer);
-      console.log('[EditableParticipantList] Cleared previous timer');
-    }
-
-    const newTimer = setTimeout(() => {
-      console.log('[EditableParticipantList] Timer fired after 500ms');
-      validateMention(id, newMention);
-    }, 500);
-
-    const newTimers = new Map(validationTimers);
-    newTimers.set(id, newTimer);
-    setValidationTimers(newTimers);
   };
-
-  useEffect(() => {
-    return () => {
-      validationTimers.forEach((timer) => clearTimeout(timer));
-    };
-  }, [validationTimers]);
 
   const addParticipant = () => {
     const newParticipant: ParticipantInput = {
       id: `temp-${Date.now()}-${Math.random()}`,
       mention: '',
-      isValid: null,
       preFillPosition: participants.length + 1,
       isExplicitlyPositioned: true, // New participants are explicitly positioned
     };
@@ -274,30 +178,10 @@ export const EditableParticipantList: FC<EditableParticipantListProps> = ({
               value={p.mention}
               onChange={(e) => handleMentionChange(p.id, e.target.value)}
               placeholder="@username or Discord user"
-              error={p.isValid === false}
-              helperText={
-                p.validationError ||
-                (p.isReadOnly ? 'Joined player (can reorder or remove)' : undefined)
-              }
+              helperText={p.isReadOnly ? 'Joined player (can reorder or remove)' : undefined}
               fullWidth
               size="small"
               disabled={p.isReadOnly}
-              InputProps={{
-                endAdornment:
-                  p.isValid === null && p.mention.trim() ? (
-                    <InputAdornment position="end">
-                      <CircularProgress size={20} />
-                    </InputAdornment>
-                  ) : p.isValid === true ? (
-                    <InputAdornment position="end">
-                      <CheckCircleIcon color="success" fontSize="small" />
-                    </InputAdornment>
-                  ) : p.isValid === false ? (
-                    <InputAdornment position="end">
-                      <ErrorIcon color="error" fontSize="small" />
-                    </InputAdornment>
-                  ) : null,
-              }}
             />
             <IconButton onClick={() => moveUp(index)} disabled={index === 0} size="small">
               <ArrowUpwardIcon />
