@@ -15,7 +15,7 @@ from shared.cache.keys import CacheKeys
 from shared.cache.ttl import CacheTTL
 from shared.database import get_db_session
 from shared.messaging.consumer import EventConsumer
-from shared.messaging.events import Event, EventType, NotificationSendDMEvent
+from shared.messaging.events import Event, EventType, GameReminderDueEvent, NotificationSendDMEvent
 from shared.models.game import GameSession
 from shared.models.participant import GameParticipant
 from shared.utils import participant_sorting
@@ -42,6 +42,7 @@ class EventHandlers:
         self.consumer: EventConsumer | None = None
         self._handlers: dict[EventType, Callable] = {
             EventType.GAME_UPDATED: self._handle_game_updated,
+            EventType.GAME_REMINDER_DUE: self._handle_game_reminder_due,
             EventType.NOTIFICATION_SEND_DM: self._handle_send_notification,
             EventType.GAME_CREATED: self._handle_game_created,
             EventType.PLAYER_REMOVED: self._handle_player_removed,
@@ -66,6 +67,10 @@ class EventHandlers:
         # Register handlers
         self.consumer.register_handler(
             EventType.GAME_UPDATED, lambda e: self._handle_game_updated(e.data)
+        )
+        self.consumer.register_handler(
+            EventType.GAME_REMINDER_DUE,
+            lambda e: self._handle_game_reminder_due(e.data),
         )
         self.consumer.register_handler(
             EventType.NOTIFICATION_SEND_DM,
@@ -304,6 +309,167 @@ class EventHandlers:
 
         except Exception as e:
             logger.error(f"Failed to refresh game message: {e}", exc_info=True)
+
+    async def _handle_game_reminder_due(self, data: dict[str, Any]) -> None:
+        """
+        Handle game.reminder_due event by sending DMs to all eligible participants.
+
+        Processes participants according to game rules:
+        - Filters to only real participants (user_id IS NOT NULL)
+        - Sorts by pre_filled_position then joined_at
+        - Determines active vs waitlist based on max_players
+        - Sends DM to each eligible participant
+
+        Args:
+            data: Event payload with game_id and reminder_minutes
+        """
+        logger.info(f"=== Received game.reminder_due event: {data} ===")
+
+        try:
+            reminder_event = GameReminderDueEvent(**data)
+            logger.info(
+                f"Parsed game reminder event: game_id={reminder_event.game_id}, "
+                f"reminder_minutes={reminder_event.reminder_minutes}"
+            )
+        except Exception as e:
+            logger.error(f"Invalid game reminder event data: {e}", exc_info=True)
+            return
+
+        try:
+            async with get_db_session() as db:
+                game = await self._get_game_with_participants(db, str(reminder_event.game_id))
+
+                if not game:
+                    logger.error(f"Game not found: {reminder_event.game_id}")
+                    return
+
+                if game.status != "SCHEDULED":
+                    logger.info(
+                        f"Game {reminder_event.game_id} status is {game.status}, "
+                        f"skipping notifications"
+                    )
+                    return
+
+                # Filter to real participants only (exclude placeholders)
+                real_participants = [p for p in game.participants if p.user_id and p.user]
+
+                if not real_participants:
+                    logger.info(f"No real participants found for game {reminder_event.game_id}")
+                    return
+
+                # Sort participants by position and join time
+                sorted_participants = participant_sorting.sort_participants(real_participants)
+
+                # Determine max players for active roster
+                max_players = game.max_players or 10
+
+                # Split into confirmed (active) and overflow (waitlist)
+                confirmed_participants = sorted_participants[:max_players]
+                overflow_participants = sorted_participants[max_players:]
+
+                logger.info(
+                    f"Game {reminder_event.game_id}: {len(confirmed_participants)} confirmed, "
+                    f"{len(overflow_participants)} waitlist participants"
+                )
+
+                # Calculate game time for message
+                game_time_unix = int(game.scheduled_at.timestamp())
+
+                # Send notifications to confirmed participants
+                for participant in confirmed_participants:
+                    try:
+                        await self._send_reminder_dm(
+                            user_discord_id=participant.user.discord_id,
+                            game_title=game.title,
+                            game_time_unix=game_time_unix,
+                            reminder_minutes=reminder_event.reminder_minutes,
+                            is_waitlist=False,
+                        )
+                    except Exception as e:
+                        logger.error(
+                            f"Failed to send reminder to participant {participant.user_id}: {e}",
+                            exc_info=True,
+                        )
+
+                # Send notifications to waitlist participants
+                for participant in overflow_participants:
+                    try:
+                        await self._send_reminder_dm(
+                            user_discord_id=participant.user.discord_id,
+                            game_title=game.title,
+                            game_time_unix=game_time_unix,
+                            reminder_minutes=reminder_event.reminder_minutes,
+                            is_waitlist=True,
+                        )
+                    except Exception as e:
+                        logger.error(
+                            f"Failed to send reminder to waitlist participant "
+                            f"{participant.user_id}: {e}",
+                            exc_info=True,
+                        )
+
+                logger.info(
+                    f"✓ Completed reminder notifications for game {reminder_event.game_id}: "
+                    f"{len(confirmed_participants)} confirmed, "
+                    f"{len(overflow_participants)} waitlist"
+                )
+
+        except Exception as e:
+            logger.error(
+                f"Failed to handle game reminder due event: {e}",
+                exc_info=True,
+            )
+
+    async def _send_reminder_dm(
+        self,
+        user_discord_id: str,
+        game_title: str,
+        game_time_unix: int,
+        reminder_minutes: int,
+        is_waitlist: bool,
+    ) -> None:
+        """
+        Send reminder DM to a single participant.
+
+        Args:
+            user_discord_id: Discord user ID (snowflake string)
+            game_title: Title of the game
+            game_time_unix: Unix timestamp of game start time
+            reminder_minutes: Minutes before game
+            is_waitlist: Whether participant is on waitlist
+        """
+        try:
+            logger.debug(f"Fetching Discord user: {user_discord_id}")
+            user = await self.bot.fetch_user(int(user_discord_id))
+
+            if not user:
+                logger.error(f"User not found in Discord: {user_discord_id}")
+                return
+
+            # Format message with waitlist indicator if applicable
+            waitlist_prefix = "🎫 **[Waitlist]** " if is_waitlist else ""
+            message = (
+                f"{waitlist_prefix}Your game '{game_title}' starts <t:{game_time_unix}:R> "
+                f"(in {reminder_minutes} minutes)"
+            )
+
+            logger.debug(f"Sending DM to {user.name}: {message}")
+            await user.send(message)
+
+            logger.debug(f"✓ Sent reminder DM to {user_discord_id}")
+
+        except discord.Forbidden:
+            logger.warning(f"Cannot send DM to user {user_discord_id}: DMs disabled or bot blocked")
+        except discord.HTTPException as e:
+            logger.error(
+                f"Discord HTTP error sending notification to {user_discord_id}: {e}",
+                exc_info=True,
+            )
+        except Exception as e:
+            logger.error(
+                f"Failed to send notification to {user_discord_id}: {e}",
+                exc_info=True,
+            )
 
     async def _handle_send_notification(self, data: dict[str, Any]) -> None:
         """

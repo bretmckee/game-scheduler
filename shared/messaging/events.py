@@ -31,6 +31,7 @@ class EventType(str, Enum):
     WAITLIST_REMOVED = "game.waitlist_removed"
 
     # Notification events
+    GAME_REMINDER_DUE = "game.reminder_due"
     NOTIFICATION_SEND_DM = "notification.send_dm"
     NOTIFICATION_SENT = "notification.sent"
     NOTIFICATION_FAILED = "notification.failed"
@@ -89,6 +90,13 @@ class PlayerLeftEvent(BaseModel):
     player_id: str
     player_count: int
     max_players: int | None = None
+
+
+class GameReminderDueEvent(BaseModel):
+    """Payload for game.reminder_due event."""
+
+    game_id: UUID
+    reminder_minutes: int
 
 
 class NotificationSendDMEvent(BaseModel):
