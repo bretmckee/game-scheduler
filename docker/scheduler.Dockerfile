@@ -44,6 +44,6 @@ USER appuser
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD celery -A services.scheduler.app inspect ping || exit 1
+    CMD celery -A services.scheduler.celery_app:app inspect ping || exit 1
 
-CMD ["celery", "-A", "services.scheduler.app", "worker", "--loglevel=info"]
+CMD ["celery", "-A", "services.scheduler.celery_app:app", "worker", "--loglevel=info", "--pool=solo"]
