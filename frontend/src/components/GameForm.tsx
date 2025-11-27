@@ -240,6 +240,17 @@ export const GameForm: FC<GameFormProps> = ({
     setFormData((prev) => ({ ...prev, participants }));
   };
 
+  const handleSuggestionClick = (originalInput: string, newUsername: string) => {
+    const updatedParticipants = formData.participants.map((p) =>
+      p.mention.trim() === originalInput.trim() ? { ...p, mention: newUsername } : p
+    );
+    setFormData((prev) => ({ ...prev, participants: updatedParticipants }));
+    
+    if (onValidationErrorClick) {
+      onValidationErrorClick(originalInput, newUsername);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -281,8 +292,8 @@ export const GameForm: FC<GameFormProps> = ({
           </Alert>
         )}
 
-        {validationErrors && onValidationErrorClick && (
-          <ValidationErrors errors={validationErrors} onSuggestionClick={onValidationErrorClick} />
+        {validationErrors && (
+          <ValidationErrors errors={validationErrors} onSuggestionClick={handleSuggestionClick} />
         )}
 
         <Box component="form" onSubmit={handleSubmit} sx={{ mt: 3 }}>
@@ -453,7 +464,6 @@ export const GameForm: FC<GameFormProps> = ({
 
           <EditableParticipantList
             participants={formData.participants}
-            guildId={guildId}
             onChange={handleParticipantsChange}
           />
 

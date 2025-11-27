@@ -1,0 +1,70 @@
+<!-- markdownlint-disable-file -->
+
+# Release Changes: Validation on Submit with @ Display Enhancement
+
+**Related Plan**: 20251127-validation-on-submit-plan.instructions.md
+**Implementation Date**: 2025-11-27
+
+## Summary
+
+Moved participant mention validation from real-time (as-you-type) to submit-only, eliminating redundant API calls and adding disambiguation UI. Enhanced display to prepend @ to validated users for visual consistency.
+
+## Changes
+
+### Added
+
+### Modified
+
+- frontend/src/components/EditableParticipantList.tsx - Removed real-time validation, simplified ParticipantInput interface, removed validation state/timers/callbacks, simplified mention change handler, removed validation visual indicators, removed unused imports and guildId prop
+- frontend/src/components/GameForm.tsx - Added handleSuggestionClick to update participants when disambiguation suggestion clicked, removed guildId prop from EditableParticipantList usage
+- frontend/src/pages/EditGame.tsx - Added validation error state, error handling on submit for 422 responses, and handleSuggestionClick handler
+- frontend/src/components/ParticipantList.tsx - Added formatDisplayName helper function to prepend @ to participant display names for visual consistency
+- services/api/routes/games.py - Added ValidationError handling to update_game endpoint with proper error response format including form_data preservation
+
+### Removed
+
+## Release Summary
+
+**Total Files Affected**: 5
+
+### Files Created (0)
+
+None
+
+### Files Modified (5)
+
+- frontend/src/components/EditableParticipantList.tsx - Removed real-time validation infrastructure completely, simplifying component to only handle user input without API calls
+- frontend/src/components/GameForm.tsx - Added handleSuggestionClick to enable clicking disambiguation suggestions to update participant mentions
+- frontend/src/pages/EditGame.tsx - Added full validation error handling with state, 422 error catching, and suggestion click handler
+- frontend/src/components/ParticipantList.tsx - Enhanced display with formatDisplayName helper to prepend @ to all participant names
+- services/api/routes/games.py - Added ValidationError exception handling to update_game endpoint with form_data preservation
+
+### Files Removed (0)
+
+None
+
+### Dependencies & Infrastructure
+
+- **New Dependencies**: None
+- **Updated Dependencies**: None
+- **Infrastructure Changes**: None
+- **Configuration Updates**: None
+
+### Deployment Notes
+
+This is a breaking change for the participant validation flow:
+- Real-time validation API endpoint `/api/v1/guilds/{guildId}/validate-mention` is no longer called by the frontend
+- All validation now happens at form submission via create/update game endpoints
+- Frontend displays validation errors with clickable disambiguation suggestions
+- Backend endpoints return enhanced error responses with invalid_mentions array and suggestions
+- Participant display names now consistently show @ prefix in game detail views
+
+### Testing Requirements
+
+Manual testing required (Phase 5):
+1. Test single valid mention submission
+2. Test multiple valid mentions submission  
+3. Test invalid mention with disambiguation UI
+4. Test mixed valid/invalid mentions
+5. Verify @ display enhancement in game details
+6. Verify no API calls during typing (check browser DevTools Network tab)

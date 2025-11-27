@@ -29,6 +29,22 @@ interface EditGameState {
   initialParticipants: Participant[];
 }
 
+interface ValidationError {
+  input: string;
+  reason: string;
+  suggestions: Array<{
+    discordId: string;
+    username: string;
+    displayName: string;
+  }>;}
+
+interface ValidationErrorResponse {
+  error: string;
+  message: string;
+  invalid_mentions: ValidationError[];
+  valid_participants: string[];
+}
+
 export const EditGame: FC = () => {
   const navigate = useNavigate();
   const { gameId } = useParams<{ gameId: string }>();
@@ -39,6 +55,7 @@ export const EditGame: FC = () => {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<ValidationError[] | null>(null);
 
   useEffect(() => {
     const fetchGameAndChannels = async () => {
@@ -92,6 +109,9 @@ export const EditGame: FC = () => {
       .map((p) => p.id);
 
     try {
+      setValidationErrors(null);
+      setError(null);
+
       const payload = {
         title: formData.title,
         description: formData.description,
@@ -117,8 +137,21 @@ export const EditGame: FC = () => {
       navigate(`/games/${gameId}`);
     } catch (err: any) {
       console.error('Failed to update game:', err);
+
+      if (err.response?.status === 422 && err.response.data?.error === 'invalid_mentions') {
+        const errorData = err.response.data as ValidationErrorResponse;
+        setValidationErrors(errorData.invalid_mentions);
+        setError(errorData.message);
+      } else {
+        setError(err.response?.data?.detail || 'Failed to update game. Please try again.');
+      }
       throw err;
     }
+  };
+
+  const handleSuggestionClick = (_originalInput: string, _newUsername: string) => {
+    setValidationErrors(null);
+    setError(null);
   };
 
   if (loading) {
@@ -155,6 +188,8 @@ export const EditGame: FC = () => {
         roles={[]}
         onSubmit={handleSubmit}
         onCancel={() => navigate(`/games/${gameId}`)}
+        validationErrors={validationErrors}
+        onValidationErrorClick={handleSuggestionClick}
       />
     </Container>
   );
