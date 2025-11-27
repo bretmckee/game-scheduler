@@ -16,14 +16,9 @@
 # with Game_Scheduler If not, see <https://www.gnu.org/licenses/>.
 
 
-"""Celery tasks for scheduler service."""
+"""
+Celery tasks for scheduler service.
 
-from services.scheduler.tasks.check_notifications import check_upcoming_notifications
-from services.scheduler.tasks.send_notification import send_game_notification
-from services.scheduler.tasks.update_game_status import update_game_statuses
-
-__all__ = [
-    "check_upcoming_notifications",
-    "send_game_notification",
-    "update_game_statuses",
-]
+Tasks are autodiscovered by Celery from the include list in celery_app.py.
+No explicit imports needed here.
+"""
