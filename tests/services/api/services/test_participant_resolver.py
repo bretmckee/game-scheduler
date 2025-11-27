@@ -307,3 +307,95 @@ async def test_malformed_response_handling(resolver, mock_discord_client):
     assert len(errors) == 1
     assert errors[0]["input"] == "@testuser"
     assert "error" in errors[0]["reason"].lower()
+
+
+@pytest.mark.asyncio
+async def test_resolve_discord_mention_format(resolver):
+    """Test resolving Discord internal mention format <@discord_id>."""
+    valid, errors = await resolver.resolve_initial_participants(
+        guild_discord_id="123456789",
+        participant_inputs=["<@987654321012345678>"],
+        access_token="token",
+    )
+
+    assert len(valid) == 1
+    assert len(errors) == 0
+    assert valid[0]["type"] == "discord"
+    assert valid[0]["discord_id"] == "987654321012345678"
+    assert valid[0]["original_input"] == "<@987654321012345678>"
+
+
+@pytest.mark.asyncio
+async def test_resolve_mixed_mention_formats(resolver, mock_discord_client):
+    """Test resolving mix of @username and <@discord_id> formats."""
+    json_data = [
+        {
+            "user": {
+                "id": "111222333444555666",
+                "username": "testuser",
+                "global_name": "Test User",
+            }
+        }
+    ]
+
+    mock_session = MagicMock()
+    mock_session.get = MagicMock(return_value=create_mock_http_response(200, json_data))
+    mock_discord_client._get_session = AsyncMock(return_value=mock_session)
+
+    valid, errors = await resolver.resolve_initial_participants(
+        guild_discord_id="123456789",
+        participant_inputs=[
+            "@testuser",
+            "<@987654321012345678>",
+            "PlaceholderName",
+        ],
+        access_token="token",
+    )
+
+    assert len(valid) == 3
+    assert len(errors) == 0
+    assert valid[0]["type"] == "discord"
+    assert valid[0]["discord_id"] == "111222333444555666"
+    assert valid[1]["type"] == "discord"
+    assert valid[1]["discord_id"] == "987654321012345678"
+    assert valid[2]["type"] == "placeholder"
+    assert valid[2]["display_name"] == "PlaceholderName"
+
+
+@pytest.mark.asyncio
+async def test_reject_invalid_discord_mention_format(resolver):
+    """Test that invalid Discord mention formats are treated as placeholders."""
+    valid, errors = await resolver.resolve_initial_participants(
+        guild_discord_id="123456789",
+        participant_inputs=[
+            "<@123>",  # Too short - treated as placeholder
+            "<@abcdef>",  # Not numeric - treated as placeholder
+            "<@12345678901234567890123>",  # Too long - treated as placeholder
+        ],
+        access_token="token",
+    )
+
+    assert len(valid) == 3
+    assert len(errors) == 0
+    # All invalid Discord mention formats should be treated as placeholders
+    assert all(p["type"] == "placeholder" for p in valid)
+    assert valid[0]["display_name"] == "<@123>"
+    assert valid[1]["display_name"] == "<@abcdef>"
+    assert valid[2]["display_name"] == "<@12345678901234567890123>"
+
+
+@pytest.mark.asyncio
+async def test_discord_mention_format_with_whitespace(resolver):
+    """Test Discord mention format handles whitespace correctly."""
+    valid, errors = await resolver.resolve_initial_participants(
+        guild_discord_id="123456789",
+        participant_inputs=[
+            "  <@987654321012345678>  ",  # Leading/trailing spaces
+        ],
+        access_token="token",
+    )
+
+    assert len(valid) == 1
+    assert len(errors) == 0
+    assert valid[0]["type"] == "discord"
+    assert valid[0]["discord_id"] == "987654321012345678"

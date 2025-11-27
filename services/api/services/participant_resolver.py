@@ -24,6 +24,7 @@ pre-populating game participant lists.
 """
 
 import logging
+import re
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -71,9 +72,11 @@ class ParticipantResolver:
         """
         Resolve initial participant list from @mentions and placeholders.
 
+        Accepts both user-friendly format (@username) and Discord internal format (<@discord_id>).
+
         Args:
             guild_discord_id: Discord guild snowflake ID
-            participant_inputs: List of @mentions or placeholder strings
+            participant_inputs: List of @mentions, <@discord_id>, or placeholder strings
             access_token: User's access token for Discord API calls
 
         Returns:
@@ -84,10 +87,26 @@ class ParticipantResolver:
         valid_participants = []
         validation_errors = []
 
+        # Pattern to match Discord mention format: <@123456789012345678>
+        discord_mention_pattern = re.compile(r"^<@(\d{17,20})>$")
+
         for input_text in participant_inputs:
             input_text = input_text.strip()
 
             if not input_text:
+                continue
+
+            # Check for Discord internal mention format: <@discord_id>
+            mention_match = discord_mention_pattern.match(input_text)
+            if mention_match:
+                discord_id = mention_match.group(1)
+                valid_participants.append(
+                    {
+                        "type": "discord",
+                        "discord_id": discord_id,
+                        "original_input": input_text,
+                    }
+                )
                 continue
 
             if input_text.startswith("@"):
