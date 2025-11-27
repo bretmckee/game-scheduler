@@ -34,30 +34,24 @@ class NotificationService:
         """Initialize notification service with event publisher."""
         self.event_publisher = SyncEventPublisher()
 
-    def send_game_reminder(
+    def send_game_reminder_due(
         self,
         game_id: uuid.UUID,
-        user_id: uuid.UUID,
-        game_title: str,
-        game_time_unix: int,
         reminder_minutes: int,
     ) -> bool:
         """
-        Send game reminder notification to user via Discord DM.
+        Publish game reminder due event for bot service to handle.
 
         Args:
             game_id: Game session UUID
-            user_id: User UUID
-            game_title: Title of the game
-            game_time_unix: Unix timestamp of game start time
             reminder_minutes: Minutes before game this reminder is for
 
         Returns:
-            True if notification published successfully
+            True if event published successfully
         """
         logger.info(
-            f"=== NotificationService.send_game_reminder called: "
-            f"game={game_id}, user={user_id}, reminder={reminder_minutes}min ==="
+            f"=== NotificationService.send_game_reminder_due called: "
+            f"game={game_id}, reminder={reminder_minutes}min ==="
         )
 
         try:
@@ -65,33 +59,24 @@ class NotificationService:
             self.event_publisher.connect()
             logger.info("Successfully connected to RabbitMQ")
 
-            message = (
-                f"Your game '{game_title}' starts <t:{game_time_unix}:R> "
-                f"(in {reminder_minutes} minutes)"
-            )
-
-            notification_event = events.NotificationSendDMEvent(
-                user_id=str(user_id),
+            reminder_event = events.GameReminderDueEvent(
                 game_id=game_id,
-                game_title=game_title,
-                game_time_unix=game_time_unix,
-                notification_type=f"{reminder_minutes}_minutes_before",
-                message=message,
+                reminder_minutes=reminder_minutes,
             )
 
-            logger.info(f"Created notification event: {notification_event.model_dump()}")
+            logger.info(f"Created game reminder event: {reminder_event.model_dump()}")
 
             event_wrapper = events.Event(
-                event_type=events.EventType.NOTIFICATION_SEND_DM,
-                data=notification_event.model_dump(),
+                event_type=events.EventType.GAME_REMINDER_DUE,
+                data=reminder_event.model_dump(),
             )
 
-            logger.info("Publishing event to RabbitMQ with routing key: notification.send_dm")
+            logger.info("Publishing event to RabbitMQ with routing key: game.reminder_due")
             self.event_publisher.publish(event_wrapper)
             logger.info("Event published successfully to RabbitMQ")
 
             logger.info(
-                f"Successfully published notification for user {user_id} game {game_id} "
+                f"Successfully published game reminder for game {game_id} "
                 f"({reminder_minutes} min before)"
             )
 
@@ -99,7 +84,7 @@ class NotificationService:
 
         except Exception as e:
             logger.error(
-                f"Failed to publish notification for user {user_id} game {game_id}: {e}",
+                f"Failed to publish game reminder for game {game_id}: {e}",
                 exc_info=True,
             )
             return False
