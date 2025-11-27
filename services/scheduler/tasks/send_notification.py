@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from services.scheduler.celery_app import app
 from services.scheduler.services import notification_service as notif_service
 from shared import database
-from shared.models import game, user
+from shared.models import game
 
 logger = logging.getLogger(__name__)
 
@@ -17,23 +17,20 @@ logger = logging.getLogger(__name__)
 @app.task(
     bind=True,
     max_retries=3,
-    name="services.scheduler.tasks.send_notification.send_game_notification",
+    name="services.scheduler.tasks.send_notification.send_game_reminder_due",
 )
-def send_game_notification(self, game_id_str: str, user_id_str: str, reminder_minutes: int):
+def send_game_reminder_due(self, game_id_str: str, reminder_minutes: int):
     """
-    Send notification to user about upcoming game.
+    Publish game reminder due event for bot service to handle participant notifications.
 
     Args:
         game_id_str: Game session UUID as string
-        user_id_str: User UUID as string
         reminder_minutes: Minutes before game this reminder is for
     """
     game_id = uuid.UUID(game_id_str)
-    user_id = uuid.UUID(user_id_str)
 
     logger.info(
-        f"=== Executing notification task: game={game_id}, user={user_id}, "
-        f"reminder={reminder_minutes}min ==="
+        f"=== Executing game reminder task: game={game_id}, reminder={reminder_minutes}min ==="
     )
 
     with database.get_sync_db_session() as db:
@@ -49,43 +46,28 @@ def send_game_notification(self, game_id_str: str, user_id_str: str, reminder_mi
                 )
                 return {"status": "skipped", "reason": "game_not_scheduled"}
 
-            user_record = _get_user(db, user_id)
-            if not user_record:
-                logger.error(f"User {user_id} not found in database")
-                return {"status": "error", "reason": "user_not_found"}
-
-            logger.info(f"User found: discord_id={user_record.discord_id}")
-
             notification_srv = notif_service.get_notification_service()
 
-            game_time_unix = int(game_session.scheduled_at.timestamp())
             logger.info(
-                f"Publishing notification event: game_time_unix={game_time_unix}, "
-                f"discord_id={user_record.discord_id}"
+                f"Publishing game reminder due event: game={game_id}, "
+                f"reminder={reminder_minutes}min"
             )
 
-            success = notification_srv.send_game_reminder(
+            success = notification_srv.send_game_reminder_due(
                 game_id=game_id,
-                user_id=user_id,
-                game_title=game_session.title,
-                game_time_unix=game_time_unix,
                 reminder_minutes=reminder_minutes,
             )
 
             if success:
-                logger.info(
-                    f"Successfully published notification event for user {user_id}, game {game_id}"
-                )
+                logger.info(f"Successfully published game reminder event for game {game_id}")
                 return {"status": "success"}
             else:
-                logger.error(
-                    f"Failed to publish notification event for user {user_id}, game {game_id}"
-                )
-                raise Exception("Failed to publish notification event")
+                logger.error(f"Failed to publish game reminder event for game {game_id}")
+                raise Exception("Failed to publish game reminder event")
 
         except Exception as e:
             logger.error(
-                f"Error in notification task: game={game_id}, user={user_id}, error={e}",
+                f"Error in game reminder task: game={game_id}, error={e}",
                 exc_info=True,
             )
             if self.request.retries < self.max_retries:
@@ -98,12 +80,5 @@ def send_game_notification(self, game_id_str: str, user_id_str: str, reminder_mi
 def _get_game(db: Session, game_id: uuid.UUID) -> game.GameSession | None:
     """Get game session by ID."""
     stmt = select(game.GameSession).where(game.GameSession.id == str(game_id))
-    result = db.execute(stmt)
-    return result.scalar_one_or_none()
-
-
-def _get_user(db: Session, user_id: uuid.UUID) -> user.User | None:
-    """Get user by ID."""
-    stmt = select(user.User).where(user.User.id == str(user_id))
     result = db.execute(stmt)
     return result.scalar_one_or_none()

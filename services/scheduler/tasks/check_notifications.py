@@ -70,7 +70,6 @@ def _get_upcoming_games(
         .where(game.GameSession.scheduled_at <= end_time)
         .where(game.GameSession.status == "SCHEDULED")
         .options(
-            selectinload(game.GameSession.participants),
             selectinload(game.GameSession.channel).selectinload(channel.ChannelConfiguration.guild),
         )
     )
@@ -84,10 +83,7 @@ def _schedule_game_notifications(db: Session, game_session: game.GameSession) ->
     reminder_minutes = _resolve_reminder_minutes(game_session)
     now = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
 
-    logger.info(
-        f"Game {game_session.id}: reminder_minutes={reminder_minutes}, "
-        f"participants={len(game_session.participants)}"
-    )
+    logger.info(f"Game {game_session.id}: reminder_minutes={reminder_minutes}")
 
     notification_count = 0
 
@@ -102,38 +98,28 @@ def _schedule_game_notifications(db: Session, game_session: game.GameSession) ->
         )
 
         if should_send:
-            # All participants with user_id are active (no status field needed)
-            participants = [p for p in game_session.participants if p.user_id is not None]
-            logger.info(
-                f"Scheduling {reminder_min}min reminder for {len(participants)} participants"
-            )
+            notification_key = f"{game_session.id}_{reminder_min}"
 
-            for participant_record in participants:
-                notification_key = f"{game_session.id}_{participant_record.user_id}_{reminder_min}"
+            already_sent = _notification_already_sent(db, notification_key)
+            logger.debug(f"Notification key {notification_key}: already_sent={already_sent}")
 
-                already_sent = _notification_already_sent(db, notification_key)
-                logger.debug(f"Notification key {notification_key}: already_sent={already_sent}")
-
-                if not already_sent:
-                    logger.info(
-                        f"Scheduling notification: game={game_session.id}, "
-                        f"user={participant_record.user_id}, reminder={reminder_min}min, "
-                        f"eta={notification_time}"
-                    )
-                    # Use send_task with the full task name
-                    celery_app.send_task(
-                        "services.scheduler.tasks.send_notification.send_game_notification",
-                        args=[
-                            str(game_session.id),
-                            str(participant_record.user_id),
-                            reminder_min,
-                        ],
-                        eta=notification_time,
-                    )
-                    _mark_notification_sent(db, notification_key)
-                    notification_count += 1
-                else:
-                    logger.debug(f"Skipping already sent notification: {notification_key}")
+            if not already_sent:
+                logger.info(
+                    f"Scheduling notification: game={game_session.id}, "
+                    f"reminder={reminder_min}min, eta={notification_time}"
+                )
+                celery_app.send_task(
+                    "services.scheduler.tasks.send_notification.send_game_reminder_due",
+                    args=[
+                        str(game_session.id),
+                        reminder_min,
+                    ],
+                    eta=notification_time,
+                )
+                _mark_notification_sent(db, notification_key)
+                notification_count += 1
+            else:
+                logger.debug(f"Skipping already sent notification: {notification_key}")
 
     return notification_count
 

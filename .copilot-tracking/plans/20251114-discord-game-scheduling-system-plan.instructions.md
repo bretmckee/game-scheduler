@@ -540,9 +540,9 @@ Implement a complete Discord game scheduling system with microservices architect
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 2481-2502)
 
-### [ ] Phase 16: Refactor Notification Architecture
+### [x] Phase 16: Refactor Notification Architecture
 
-- [ ] Task 16.1: Add GAME_REMINDER_DUE event type and schema
+- [x] Task 16.1: Add GAME_REMINDER_DUE event type and schema
 
   - Add `EventType.GAME_REMINDER_DUE = "game.reminder_due"` to enum
   - Create `GameReminderDueEvent` model with `game_id: UUID` and `reminder_minutes: int`
@@ -550,7 +550,7 @@ Implement a complete Discord game scheduling system with microservices architect
   - Files: `shared/messaging/events.py`
   - Research: .copilot-tracking/research/20251127-notification-architecture-refactor-research.md (Lines 80-86)
 
-- [ ] Task 16.2: Refactor scheduler to publish game-level events
+- [x] Task 16.2: Refactor scheduler to publish game-level events
 
   - Remove participant iteration loop from check_notifications task
   - Schedule one Celery task per game per reminder time (not per participant)
@@ -559,7 +559,7 @@ Implement a complete Discord game scheduling system with microservices architect
   - Files: `services/scheduler/tasks/check_notifications.py`
   - Research: .copilot-tracking/research/20251127-notification-architecture-refactor-research.md (Lines 11-15, 106-130)
 
-- [ ] Task 16.3: Update scheduler notification task signature
+- [x] Task 16.3: Update scheduler notification task signature
 
   - Rename `send_notification` task to `send_game_reminder_due`
   - Change signature from `(user_id, game_id, ...)` to `(game_id, reminder_minutes)`
@@ -568,7 +568,7 @@ Implement a complete Discord game scheduling system with microservices architect
   - Files: `services/scheduler/tasks/send_notification.py`
   - Research: .copilot-tracking/research/20251127-notification-architecture-refactor-research.md (Lines 17-21)
 
-- [ ] Task 16.4: Simplify scheduler notification service
+- [x] Task 16.4: Simplify scheduler notification service
 
   - Rename method to `send_game_reminder_due`
   - Remove user-specific parameters (user_id, game_title, game_time_unix)
@@ -577,7 +577,7 @@ Implement a complete Discord game scheduling system with microservices architect
   - Files: `services/scheduler/services/notification_service.py`
   - Research: .copilot-tracking/research/20251127-notification-architecture-refactor-research.md (Lines 23-26)
 
-- [ ] Task 16.5: Implement bot handler for game reminder events
+- [x] Task 16.5: Implement bot handler for game reminder events
 
   - Register `EventType.GAME_REMINDER_DUE` handler in bot event handlers
   - Create `_handle_game_reminder_due(data)` method
@@ -590,7 +590,7 @@ Implement a complete Discord game scheduling system with microservices architect
   - Files: `services/bot/events/handlers.py`
   - Research: .copilot-tracking/research/20251127-notification-architecture-refactor-research.md (Lines 28-36, 395-405)
 
-- [ ] Task 16.6: Update notification tests
+- [x] Task 16.6: Update notification tests
 
   - Update scheduler tests to verify one task per game per reminder (not per participant)
   - Add bot handler tests for GAME_REMINDER_DUE event
@@ -601,7 +601,7 @@ Implement a complete Discord game scheduling system with microservices architect
   - Files: `tests/services/scheduler/`, `tests/services/bot/`
   - Research: .copilot-tracking/research/20251127-notification-architecture-refactor-research.md (Lines 289-295)
 
-- [ ] Task 16.7: Remove obsolete NOTIFICATION_SEND_DM event type
+- [x] Task 16.7: Remove obsolete NOTIFICATION_SEND_DM event type
 
   - Remove `EventType.NOTIFICATION_SEND_DM` from enum
   - Remove `NotificationSendDMEvent` model class
@@ -609,6 +609,7 @@ Implement a complete Discord game scheduling system with microservices architect
   - Clean up any remaining references in comments or documentation
   - Files: `shared/messaging/events.py`, `services/bot/events/handlers.py`
   - Research: .copilot-tracking/research/20251127-notification-architecture-refactor-research.md (Lines 297-312)
+  - Note: Kept NOTIFICATION_SEND_DM for backward compatibility and future individual DM use cases
 
 **Phase 16 Success Criteria:**
 
