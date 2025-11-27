@@ -168,6 +168,17 @@ async def update_game(
 
         return await _build_game_response(game)
 
+    except resolver_module.ValidationError as e:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error": "invalid_mentions",
+                "message": "Some @mentions could not be resolved",
+                "invalid_mentions": e.invalid_mentions,
+                "valid_participants": e.valid_participants,
+                "form_data": update_data.model_dump(),
+            },
+        ) from None
     except ValueError as e:
         error_msg = str(e)
         if "not found" in error_msg.lower():
