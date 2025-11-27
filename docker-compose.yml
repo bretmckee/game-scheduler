@@ -55,9 +55,16 @@ services:
       - gamebot-network
 
   bot:
+    image: ${IMAGE_REGISTRY:-}game-scheduler-bot:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: docker/bot.Dockerfile
+      tags:
+        - ${IMAGE_REGISTRY:-}game-scheduler-bot:${IMAGE_TAG:-latest}
+      x-bake:
+        platforms:
+          - linux/amd64
+          - linux/arm64
     container_name: gamebot-bot
     env_file:
       - .env
@@ -73,9 +80,16 @@ services:
       - gamebot-network
 
   api:
+    image: ${IMAGE_REGISTRY:-}game-scheduler-api:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: docker/api.Dockerfile
+      tags:
+        - ${IMAGE_REGISTRY:-}game-scheduler-api:${IMAGE_TAG:-latest}
+      x-bake:
+        platforms:
+          - linux/amd64
+          - linux/arm64
     container_name: gamebot-api
     env_file:
       - .env
@@ -98,9 +112,16 @@ services:
       retries: 3
 
   scheduler:
+    image: ${IMAGE_REGISTRY:-}game-scheduler-scheduler:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: docker/scheduler.Dockerfile
+      tags:
+        - ${IMAGE_REGISTRY:-}game-scheduler-scheduler:${IMAGE_TAG:-latest}
+      x-bake:
+        platforms:
+          - linux/amd64
+          - linux/arm64
     container_name: gamebot-scheduler
     env_file:
       - .env
@@ -116,9 +137,16 @@ services:
       - gamebot-network
 
   scheduler-beat:
+    image: ${IMAGE_REGISTRY:-}game-scheduler-scheduler:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: docker/scheduler.Dockerfile
+      tags:
+        - ${IMAGE_REGISTRY:-}game-scheduler-scheduler:${IMAGE_TAG:-latest}
+      x-bake:
+        platforms:
+          - linux/amd64
+          - linux/arm64
     container_name: gamebot-scheduler-beat
     env_file:
       - .env
@@ -135,9 +163,16 @@ services:
       - gamebot-network
 
   frontend:
+    image: ${IMAGE_REGISTRY:-}game-scheduler-frontend:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: docker/frontend.Dockerfile
+      tags:
+        - ${IMAGE_REGISTRY:-}game-scheduler-frontend:${IMAGE_TAG:-latest}
+      x-bake:
+        platforms:
+          - linux/amd64
+          - linux/arm64
     container_name: gamebot-frontend
     ports:
       - "3000:80"
