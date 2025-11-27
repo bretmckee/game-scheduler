@@ -8699,12 +8699,107 @@ Updated user-facing terminology across frontend components for better clarity:
 
 **Technical Note**: Internal code and database fields retain "pre_filled" naming for consistency with existing implementation. Only user-facing display text changed.
 
+---
+
+**Phase 16: Refactor Notification Architecture (2025-11-27) - COMPLETE**
+
+Successfully refactored the notification system from participant-level to game-level event processing, reducing message volume by 90%+ and centralizing participant logic in the bot service where it belongs.
+
+**Summary of Changes:**
+
+- 7 tasks completed (16.1 through 16.7)
+- Added new GAME_REMINDER_DUE event type for game-level notifications
+- Refactored scheduler to publish one event per game per reminder time (instead of per participant)
+- Simplified Redis tracking from per-participant keys to per-game keys
+- Moved participant filtering, sorting, and notification logic to bot service
+- Reduced RabbitMQ message volume from 10-20+ messages per game to 2 messages per game
+- Kept NOTIFICATION_SEND_DM for backward compatibility and future individual DM use cases
+- All existing tests continue to pass
+
+**Key Architectural Changes:**
+
+1. **Scheduler Service (Simplified)**:
+
+   - No longer loads or iterates through participants
+   - Publishes one GAME_REMINDER_DUE event per game per reminder time
+   - Uses simplified Redis keys: `notification_sent:{game_id}_{reminder_min}`
+   - Task renamed: send_game_notification → send_game_reminder_due
+
+2. **Bot Service (Enhanced)**:
+
+   - New handler: \_handle_game_reminder_due() processes game-level notifications
+   - Queries game with participants (reuses existing \_get_game_with_participants)
+   - Filters to real participants only (user_id IS NOT NULL, excludes placeholders)
+   - Sorts participants using existing participant_sorting.sort_participants()
+   - Splits into confirmed vs overflow (waitlist) based on max_players
+   - Sends individual DMs with proper Discord error handling
+   - Adds waitlist indicator to messages: "🎫 **[Waitlist]**" prefix
+
+3. **Message Volume Reduction**:
+   - Example: Game with 10 participants, 2 reminder times (60min, 15min)
+   - Old: 20 Celery tasks + 20 RabbitMQ messages
+   - New: 2 Celery tasks + 2 RabbitMQ messages
+   - Reduction: 90% fewer messages, much simpler tracking
+
+**Files Modified:**
+
+- `shared/messaging/events.py` - Added EventType.GAME_REMINDER_DUE and GameReminderDueEvent schema
+- `services/scheduler/tasks/check_notifications.py` - Removed participant iteration, simplified to game-level
+- `services/scheduler/tasks/send_notification.py` - Renamed task, removed user_id parameter
+- `services/scheduler/services/notification_service.py` - Simplified to publish game-level events
+- `services/bot/events/handlers.py` - Added \_handle_game_reminder_due() and \_send_reminder_dm() methods
+
+**Benefits:**
+
+- **90%+ reduction in RabbitMQ messages** - Fewer network calls, lower latency
+- **Simpler Redis tracking** - One key per game/reminder instead of per participant
+- **Better separation of concerns** - Scheduler schedules, bot handles Discord interactions
+- **Centralized participant logic** - All filtering, sorting, and roster management in bot
+- **Easier to maintain** - Less duplicated business logic across services
+- **More scalable** - Fewer messages to process, better performance at scale
+- **Backward compatible** - Existing notification tests still pass
+
+**Test Results:**
+
+- ✅ All 24 scheduler service tests passing
+- ✅ All 3 bot notification handler tests passing
+- ✅ No regressions in existing functionality
+- ✅ Linting passes (ruff check with F,E selectors)
+
+**Result:**
+
+- ✅ Scheduler publishes one event per game per reminder time
+- ✅ Bot correctly processes game reminders and sends to participants
+- ✅ Real participants receive notifications, placeholders excluded
+- ✅ Participants sorted correctly by pre_filled_position then joined_at
+- ✅ Active vs waitlist determined correctly based on max_players
+- ✅ Redis keys simplified to game-level tracking
+- ✅ Message volume reduced by 90%+
+- ✅ All tests pass
+- ✅ NOTIFICATION_SEND_DM kept for backward compatibility
+
 ## Changes
 
 ### Added
 
+- shared/messaging/events.py - Added EventType.GAME_REMINDER_DUE enum value
+- shared/messaging/events.py - Added GameReminderDueEvent schema class with game_id and reminder_minutes fields
+- services/bot/events/handlers.py - Added \_handle_game_reminder_due() method to process game-level reminder events
+- services/bot/events/handlers.py - Added \_send_reminder_dm() helper method to send notifications to individual participants
+
 ### Modified
 
+- shared/messaging/events.py - Added GAME_REMINDER_DUE import to GameReminderDueEvent in handlers
+- services/scheduler/tasks/check_notifications.py - Removed participant loading from \_get_upcoming_games query (removed selectinload)
+- services/scheduler/tasks/check_notifications.py - Simplified \_schedule_game_notifications to publish one event per game per reminder
+- services/scheduler/tasks/check*notifications.py - Updated Redis keys from {game_id}*{user*id}*{reminder*min} to {game_id}*{reminder_min}
+- services/scheduler/tasks/send_notification.py - Renamed send_game_notification task to send_game_reminder_due
+- services/scheduler/tasks/send_notification.py - Changed task signature from (game_id, user_id, reminder_minutes) to (game_id, reminder_minutes)
+- services/scheduler/tasks/send_notification.py - Removed user lookup logic (\_get_user function removed)
+- services/scheduler/services/notification_service.py - Renamed send_game_reminder to send_game_reminder_due
+- services/scheduler/services/notification_service.py - Removed user_id, game_title, and game_time_unix parameters
+- services/scheduler/services/notification_service.py - Changed to publish GAME_REMINDER_DUE event instead of NOTIFICATION_SEND_DM
+- services/bot/events/handlers.py - Added GAME_REMINDER_DUE to event handler registration in **init** and start_consuming
 - services/api/routes/guilds.py - Added bot_manager_role_ids field to all four GuildConfigResponse constructions (list_guilds, get_guild, create_guild_config, update_guild_config)
 
 ### Removed
