@@ -45,6 +45,63 @@ docker-compose up
 - API Docs: http://localhost:8000/docs
 - RabbitMQ Management: http://localhost:15672
 
+## Building Multi-Architecture Images
+
+The project supports building images for both ARM64 (Apple Silicon, AWS Graviton) and AMD64 (traditional x86) architectures using Docker Bake.
+
+### Setup
+
+Create a multi-platform builder (one-time setup):
+
+```bash
+# Check existing builders
+docker buildx ls
+
+# Create and use multi-platform builder
+docker buildx create --use
+```
+
+### Building and Pushing Images
+
+Build for multiple architectures and push to registry:
+
+```bash
+# Build all services for both architectures and push
+docker buildx bake --push
+
+# Build specific service(s)
+docker buildx bake --push api bot
+
+# Build with custom registry and tag
+IMAGE_REGISTRY=myregistry.com/ IMAGE_TAG=v1.2.3 docker buildx bake --push
+
+# Build without registry prefix (empty string)
+IMAGE_REGISTRY= IMAGE_TAG=dev docker buildx bake --push
+```
+
+### Local Development Builds
+
+For local development (single platform, no push):
+
+```bash
+# Regular docker-compose build (single platform)
+docker compose build
+
+# Build for specific platform
+docker compose build --build-arg BUILDPLATFORM=linux/amd64
+```
+
+### Environment Variables
+
+Configure in `.env` file:
+
+- `IMAGE_REGISTRY`: Docker registry URL prefix (include trailing slash)
+  - Default: `172-16-1-24.xip.boneheads.us:5050/`
+  - Examples: `docker.io/myorg/`, empty for local
+- `IMAGE_TAG`: Image tag for built containers
+  - Default: `latest`
+  - Examples: `v1.0.0`, `dev`, `staging`
+
 ## Project Structure
 
 ```
