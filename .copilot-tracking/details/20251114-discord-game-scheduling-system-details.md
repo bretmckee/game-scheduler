@@ -2300,7 +2300,39 @@ Update pyproject.toml dependencies and run comprehensive tests to verify synchro
 
 ## Phase 14: Additional Functionality
 
-### Task 14.1: Add game templates for recurring sessions
+### Task 14.1: Fix game display timezone issue in API responses
+
+Fix timezone handling when serializing game scheduled_at field in API responses.
+
+- **Files**:
+  - services/api/routes/games.py - Fix game response serialization
+  - tests/services/api/routes/test_games.py - Add timezone test cases
+- **Problem Diagnosis**:
+  - Database stores scheduled_at as naive datetime in UTC (TIMESTAMP WITHOUT TIME ZONE)
+  - When calling .isoformat() on naive datetime, no 'Z' suffix is added
+  - When calling .timestamp() on naive datetime, Python interprets it as local time, not UTC
+  - This causes 8-hour offset (or server's timezone offset) in displayed times
+  - Frontend receives incorrect Unix timestamp and ambiguous ISO string
+- **Implementation**:
+  - Replace naive datetime in UTC timezone before serialization
+  - Use datetime.replace(tzinfo=datetime.UTC) to mark it as UTC
+  - This makes .isoformat() return '...Z' suffix and .timestamp() use UTC
+  - Apply fix to all game response constructions in games.py
+  - Locate all instances of `scheduled_at=game.scheduled_at.isoformat()` and `scheduled_at_unix=int(game.scheduled_at.timestamp())`
+  - Change to use UTC-aware datetime: `scheduled_at_utc = game.scheduled_at.replace(tzinfo=datetime.UTC)`
+- **Success**:
+  - Game times display correctly in user's local timezone
+  - ISO format includes 'Z' suffix (e.g., '2025-11-27T00:15:00Z')
+  - Unix timestamp calculated correctly as UTC
+  - No timezone offset errors in frontend display
+  - Test with game scheduled at 12:15 AM displays as 12:15 AM (not 8:15 AM)
+- **Research References**:
+  - #file:../../../services/api/routes/games.py (Lines 341-342) - Current problematic serialization
+  - #file:../../../alembic/versions/9eb33bf3186b_change_timestamps_to_timezone_naive.py (Lines 1-50) - Database timezone migration
+- **Dependencies**:
+  - None
+
+### Task 14.2: Add game templates for recurring sessions
 
 Create template system for games that repeat weekly/monthly with same settings.
 
@@ -2319,7 +2351,7 @@ Create template system for games that repeat weekly/monthly with same settings.
 - **Dependencies**:
   - Phase 3 and 4 (API and frontend)
 
-### Task 14.2: Build calendar export functionality
+### Task 14.3: Build calendar export functionality
 
 Generate iCal format calendar files for users to import into their calendar apps.
 
@@ -2338,7 +2370,7 @@ Generate iCal format calendar files for users to import into their calendar apps
   - icalendar Python library
   - Task 3.5 (game API)
 
-### Task 14.3: Create statistics dashboard
+### Task 14.4: Create statistics dashboard
 
 Build dashboard showing game history, participation rates, and trends per guild/channel.
 

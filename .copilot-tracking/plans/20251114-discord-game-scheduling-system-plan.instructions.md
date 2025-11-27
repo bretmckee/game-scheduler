@@ -502,14 +502,18 @@ Implement a complete Discord game scheduling system with microservices architect
 
 ### [ ] Phase 14: Additional Functionality
 
-- [ ] Task 14.1: Add game templates for recurring sessions
+- [ ] Task 14.1: Fix game display timezone issue in API responses
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 1989-2007)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 2303-2330)
 
-- [ ] Task 14.2: Build calendar export functionality
+- [ ] Task 14.2: Add game templates for recurring sessions
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 2009-2027)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 2332-2350)
 
-- [ ] Task 14.3: Create statistics dashboard
+- [ ] Task 14.3: Build calendar export functionality
 
-  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 2029-2044)
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 2352-2370)
+
+- [ ] Task 14.4: Create statistics dashboard
+
+  - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 2372-2387)
