@@ -11,6 +11,56 @@ Implementation of a complete Discord game scheduling system with microservices a
 
 ### Recent Updates (2025-11-22)
 
+**Docker Multi-Architecture Build Support (Task 12.14) (2025-11-23)**
+
+Configured Docker Compose for multi-architecture builds supporting both ARM64 and AMD64 platforms using Docker Bake. This enables deployment across different hardware platforms including Apple Silicon Macs, AWS Graviton, and traditional x86 servers.
+
+**Implementation Details:**
+
+- Added `x-bake` configuration to all custom service builds (bot, api, scheduler, scheduler-beat, frontend)
+- Each service configured to build for `linux/amd64` and `linux/arm64` platforms
+- Added `image:` field with `${IMAGE_REGISTRY:-}` prefix and `${IMAGE_TAG:-latest}` variable to all custom services
+- Added `tags:` field matching image naming pattern for Docker Bake tagging
+- Created IMAGE_REGISTRY environment variable (default: `172-16-1-24.xip.boneheads.us:5050/`)
+- Created IMAGE_TAG environment variable (default: `latest`)
+- All base images verified as multi-arch compatible (python:3.11-slim, node:20-alpine, nginx:1.25-alpine)
+
+**Files Modified:**
+
+- docker-compose.yml - Added image, tags, and x-bake configuration to bot, api, scheduler, scheduler-beat, and frontend services
+- .env.example - Added IMAGE_REGISTRY and IMAGE_TAG documentation with examples
+- README.md - Added comprehensive Docker Bake documentation including setup, build commands, and environment variable configuration
+
+**Build Commands:**
+
+```bash
+# Create buildx builder (one-time setup)
+docker buildx create --use
+
+# Build all services for both architectures and push
+docker buildx bake --push
+
+# Build specific services
+docker buildx bake --push api bot
+
+# Build with custom registry and tag
+IMAGE_REGISTRY=myregistry.com/ IMAGE_TAG=v1.2.3 docker buildx bake --push
+
+# Local development (single platform)
+docker compose build
+```
+
+**Result:**
+
+- Images can now be built for both ARM64 and AMD64 architectures simultaneously
+- Registry prefix and image tags configurable via environment variables
+- Default registry set to project's private registry (172-16-1-24.xip.boneheads.us:5050/)
+- Docker Bake workflow fully documented in README
+- Local development builds remain unchanged (docker compose build)
+- Multi-platform deployment enabled for heterogeneous infrastructure
+
+---
+
 **Bug Fix: Bot Manager Role Changes Not Persisting (Task 12.15) (2025-11-23)**
 
 Fixed issue where bot manager role selections appeared to save but were lost on page refresh. The `bot_manager_role_ids` field was missing from all API response constructions in the guild routes.
@@ -18,6 +68,7 @@ Fixed issue where bot manager role selections appeared to save but were lost on 
 **Root Cause**: While the database model, schema, and frontend all correctly handled `bot_manager_role_ids`, the API routes were not including this field when constructing `GuildConfigResponse` objects. This caused the field to be omitted from API responses, making it appear as if the data wasn't saved.
 
 **Solution**: Added `bot_manager_role_ids=guild_config.bot_manager_role_ids` to all four `GuildConfigResponse` constructions in `services/api/routes/guilds.py`:
+
 - list_guilds endpoint (line ~55)
 - get_guild endpoint (line ~121)
 - create_guild_config endpoint (line ~173)
@@ -521,6 +572,9 @@ Modified the bot's join and leave game notifications to send as direct messages 
 
 ### Modified
 
+- docker-compose.yml - Added image, tags, and x-bake configuration to bot, api, scheduler, scheduler-beat, and frontend services with ${IMAGE_REGISTRY:-} and ${IMAGE_TAG:-latest} variables for multi-architecture builds (Task 12.14)
+- .env.example - Added IMAGE_REGISTRY and IMAGE_TAG environment variables with documentation and examples (Task 12.14)
+- README.md - Added comprehensive Docker Bake multi-architecture build documentation including setup, build commands, and environment variable configuration (Task 12.14)
 - services/api/routes/games.py - Changed participant_count calculation in \_build_game_response() to include all participants (both Discord users and placeholders) using len(game.participants) instead of filtering by user_id (Task 12.10)
 - services/api/services/games.py - Added \_detect_and_notify_promotions() method to detect users promoted from overflow to confirmed participants; added \_publish_promotion_notification() method to publish promotion DM events; integrated promotion detection into update_game() to run after database commit
 - alembic.ini - Updated database URL to use correct credentials from .env
@@ -8185,7 +8239,6 @@ Updated user-facing terminology across frontend components for better clarity:
 
 **Technical Note**: Internal code and database fields retain "pre_filled" naming for consistency with existing implementation. Only user-facing display text changed.
 
-
 ## Changes
 
 ### Added
@@ -8195,4 +8248,3 @@ Updated user-facing terminology across frontend components for better clarity:
 - services/api/routes/guilds.py - Added bot_manager_role_ids field to all four GuildConfigResponse constructions (list_guilds, get_guild, create_guild_config, update_guild_config)
 
 ### Removed
-
