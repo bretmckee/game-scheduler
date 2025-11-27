@@ -9,7 +9,60 @@
 
 Implementation of a complete Discord game scheduling system with microservices architecture, featuring Discord bot with button interactions, web dashboard with OAuth2 authentication, role-based authorization, multi-channel support with settings inheritance, and automated notifications.
 
-### Recent Updates (2025-11-22)
+### Recent Updates (2025-11-27)
+
+**Bug Fix: Discord User to Placeholder Conversion on Edit (2025-11-27) - COMPLETE**
+
+Fixed critical bug where Discord users added by host using @mentions were incorrectly converted to placeholder participants when editing a game. The frontend was sending participants in Discord's internal `<@discord_id>` format, but the backend only recognized the user-friendly `@username` format, causing Discord users to be treated as placeholder text.
+
+**Root Cause:**
+
+- Frontend (GameForm.tsx) populates edit form with `<@123456789012345678>` format
+- Backend (participant_resolver.py) only recognized mentions starting with `@`
+- Discord mention format `<@discord_id>` was treated as placeholder string
+- Result: Discord users became placeholders after game edit
+
+**Solution Implemented:**
+
+- Updated participant_resolver to accept both `@username` and `<@discord_id>` formats
+- Added regex pattern `^<@(\d{17,20})>$` to detect and extract Discord IDs
+- Discord IDs are now recognized directly without username search
+- More reliable than username matching (IDs never change)
+
+**Files Modified:**
+
+- `services/api/services/participant_resolver.py`
+  - Added `import re` for pattern matching
+  - Updated `resolve_initial_participants()` to handle Discord mention format
+  - Added validation for 17-20 digit Discord snowflake IDs
+- `tests/services/api/services/test_participant_resolver.py`
+  - Added 4 new test cases for Discord mention format support
+  - Tests cover: valid format, mixed formats, invalid formats, whitespace handling
+- `tests/services/api/services/test_games_edit_participants.py` (new file)
+  - Created 2 integration tests for edit flow
+  - Verifies Discord users remain Discord users after edit
+
+**Test Results:**
+
+- ✅ All 182 API tests passing
+- ✅ 15 participant resolver tests passing (4 new)
+- ✅ 2 new integration tests passing
+- ✅ No regressions in create flow or existing functionality
+
+**Benefits:**
+
+- Discord users correctly preserved during game edits
+- More reliable participant resolution (IDs vs usernames)
+- Backwards compatible with existing `@username` format
+- No database schema changes required
+- Better handling of Discord's internal mention format
+
+**Research Documentation:**
+
+- Complete analysis in `.copilot-tracking/research/20251127-participant-mention-edit-bug-research.md`
+- Documents root cause, alternative solutions, and implementation rationale
+
+---
 
 **Phase 15: Remove Unix Timestamp Redundancy (2025-11-27) - COMPLETE**
 
