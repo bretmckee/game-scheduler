@@ -11,7 +11,7 @@ model: Claude Sonnet 4.5
 
 ### Step 1: Verify new and modified code.
 
-You WILL verify that any new or added code follows:
+You WILL verify that any new or added code follows all rules and conventions as specified in these instruction files:
 
 - #file:../../.github/instructions/python.instructions.md for all Python code
 - #file:../../.github/instructions/reactjs.instructions.md for all ReactJS code
@@ -20,7 +20,8 @@ You WILL verify that any new or added code follows:
 ## Success Criteria
 
 - [ ] Project conventions followed
-- [ ] All relevant coding conventions followed
+- [ ] All coding conventions followed
+- All relevant import, commenting and documentation conventions followed
 - [ ] All new and modified code passes lint
 - [ ] All new and modified code has complete and passing unit tests
 - [ ] Changes file updated to describe any changes made. Do not provide information about this verification step, only about code changes.
