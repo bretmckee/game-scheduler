@@ -42,16 +42,19 @@ applyTo: "**/*.py"
 - Place function and class docstrings immediately after the `def` or `class` keyword.
 - Use blank lines to separate functions, classes, and code blocks where
   appropriate.
-- Put imports at the top of the file, not in functions, arranged by isort.
+- Imports must be at the top of the file, never inside functions.
+- Imports must be arranged by isort.
 - Follow the recommendations for these sections from the Google style guide:
 
 ## Imports
+
 Inspired by the Google Python Style Guide section 2.2.4:
-- Use import only for importing packages and modules, for package and modules use them with their prefix.
-  Do no import module contents (e.g. functions/classes/etc. directly) except for
+
+- Use import only for packages and modules.
+- Do no import package or module contents (e.g. functions/classes/etc. directly) except for
   testing and typing.
 - Use from x import y where x is the package prefix and y is the module name with no prefix.
-- Use from x import y as z in only in the of the following circumstances:
+- Use from x import y as z in only in one of the following circumstances:
   - Two modules named y are to be imported.
   - y conflicts with a top-level name defined in the current module.
   - y conflicts with a common parameter name that is part of the public API (e.g., features).
@@ -59,12 +62,12 @@ Inspired by the Google Python Style Guide section 2.2.4:
   - y is too generic in the context of your code (e.g., from storage.file_system import options as fs_options).
   - If import y as z is a standard abbreviation (e.g., import numpy as np).
 
-
 ### Examples of Imports
 
 #### Good
 
 ```python
+  # Good: Imports a module
   from a.b import c
   ...
   c.DoSomething(input, output)
@@ -73,6 +76,7 @@ Inspired by the Google Python Style Guide section 2.2.4:
 #### Bad
 
 ```python
+  # Bad: Imports something other than a module or package
   from a.b import c
   ...
   c(input, output)
@@ -86,18 +90,19 @@ Inspired by the Google Python Style Guide section 2.2.4:
 
   ```
 
-
 ### Naming Conventions
-  - Name modules, packages, methods, functions, global variables, instance
-    variables, function parameters, local variables with snake_case.
-  - Name  classes and exceptions using pascal case (camel case with the first letter
-    capitalized).
-  - Name global constants in all upper caps snake case.
 
-  These names are all self describing (i.e. module_name shows how to name modules)
-  ```python
-  module_name, package_name, ClassName, method_name, ExceptionName, function_name, GLOBAL_CONSTANT_NAME, global_var_name, instance_var_name, function_parameter_name, local_var_name, query_proper_noun_for_thing, send_acronym_via_https.
-  ```
+- Name modules, packages, methods, functions, global variables, instance
+  variables, function parameters, local variables with snake_case.
+- Name classes and exceptions using pascal case (camel case with the first letter
+  capitalized).
+- Name global constants in all upper caps snake case.
+
+These names are all self describing (i.e. module_name shows how to name modules)
+
+```python
+module_name, package_name, ClassName, method_name, ExceptionName, function_name, GLOBAL_CONSTANT_NAME, global_var_name, instance_var_name, function_parameter_name, local_var_name, query_proper_noun_for_thing, send_acronym_via_https.
+```
 
 ### Comments and Docstrings
 
@@ -105,7 +110,6 @@ Inspired by the Google Python Style Guide section 2.2.4:
 - Provide docstrings following PEP 257 conventions.
 - For libraries or external dependencies, mention their usage and purpose in comments.
 - Follow the recommendations for these sections from the Google style guide:
-- 3.8 Comments and Docstrings
 
   ```
   3.8.1 Docstrings
@@ -142,7 +146,7 @@ Inspired by the Google Python Style Guide section 2.2.4:
   Certain aspects of a function should be documented in special sections, listed below. Each section begins with a heading line, which ends with a colon. All sections other than the heading should maintain a hanging indent of two or four spaces (be consistent within a file). These sections can be omitted in cases where the function’s name and signature are informative enough that it can be aptly described using a one-line docstring.
 
   Args:
-  List each parameter by name. A description should follow the name, and be separated by a colon followed by either a space or newline. If the description is too long to fit on a single 80-character line, use a hanging indent of 2 or 4 spaces more than the parameter name (be consistent with the rest of the docstrings in the file). The description should include required type(s) if the code does not contain a corresponding type annotation. If a function accepts *foo (variable length argument lists) and/or **bar (arbitrary keyword arguments), they should be listed as *foo and **bar.
+  List each parameter by name. A description should follow the name, and be separated by a colon followed by either a space or newline. If the description is too long to fit on a single 80-character line, use a hanging indent of 2 or 4 spaces more than the parameter name (be consistent with the rest of the docstrings in the file). The description should include required type(s) if the code does not contain a corresponding type annotation. If a function accepts *foo (variable length argument lists) and/or \*\*bar (arbitrary keyword arguments), they should be listed as *foo and \*\*bar.
   Returns: (or Yields: for generators)
   Describe the semantics of the return value, including any type information that the type annotation does not provide. If the function only returns None, this section is not required. It may also be omitted if the docstring starts with “Return”, “Returns”, “Yield”, or “Yields” (e.g. """Returns row from Bigtable as a tuple of strings.""") and the opening sentence is sufficient to describe the return value. Do not imitate older ‘NumPy style’ (example), which frequently documented a tuple return value as if it were multiple return values with individual names (never mentioning the tuple). Instead, describe such a return value as: “Returns: A tuple (mat_a, mat_b), where mat_a is …, and …”. The auxiliary names in the docstring need not necessarily correspond to any internal names used in the function body (as those are not part of the API). If the function uses yield (is a generator), the Yields: section should document the object returned by next(), instead of the generator object itself that the call evaluates to.
   Raises:
@@ -161,6 +165,19 @@ Inspired by the Google Python Style Guide section 2.2.4:
   3.8.5 Block and Inline Comments
 
   The final place to have comments is in tricky parts of the code. If you’re going to have to explain it at the next code review, you should comment it now. Complicated operations get a few lines of comments before the operations commence. Non-obvious ones get comments at the end of the line.
+  ```
+
+### Docstring Anti-Patterns
+
+- Do not mention users or callers in doc strings. The purpose of doc strings is to explain the code. The callers and users can change over time, rendering the docstring obsolete.
+
+  ```python
+  // Bad: Never name users or callers in doc strings
+  def sync_get_data():
+  """
+  Provides data for Celery and other async systems.
+  """
+  ...
   ```
 
 ## Edge Cases and Testing
