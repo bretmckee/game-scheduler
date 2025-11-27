@@ -167,6 +167,20 @@ function processData() {
 //=====================================
 ```
 
+### Naming users and callers
+
+```python
+// Bad: Do not name users or callers for exported objects
+
+// Used by admin panel to set page size
+PAGE_SIZE = 42
+
+// Bad: Do not name users or callers in function comments
+def fetch_data():
+  # Called by main.py to get user data
+  # ... implementation
+```
+
 ## Quality Checklist
 
 Before committing, ensure your comments:
@@ -181,3 +195,7 @@ Before committing, ensure your comments:
 ## Summary
 
 Remember: **The best comment is the one you don't need to write because the code is self-documenting.**
+
+```
+
+```
