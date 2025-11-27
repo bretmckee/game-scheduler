@@ -2390,3 +2390,101 @@ Build dashboard showing game history, participation rates, and trends per guild/
 - **Dependencies**:
   - Chart library (recharts or chart.js)
   - Task 3.5 (game API)
+
+## Phase 15: Remove Unix Timestamp Redundancy
+
+### Task 15.1: Update API layer to compute timestamps at point of use
+
+Update API services and routes to stop setting `scheduled_at_unix` but continue to include it in schemas (for backward compatibility during migration).
+
+- **Files**:
+  - `services/api/services/games.py` - Compute `scheduled_at_unix` inline for Discord formatting only, stop passing to events/responses
+  - `services/api/routes/games.py` - Continue constructing responses with `scheduled_at_unix=int(scheduled_at_utc.timestamp())` for now
+- **Success**:
+  - Unix timestamps computed inline where needed for Discord message formatting
+  - API responses still include `scheduled_at_unix` (backward compatible)
+  - Discord timestamp formatting works: `<t:{unix}:F>`
+  - System continues to function normally
+- **Research References**:
+  - #file:../research/20251127-scheduled-at-unix-redundancy-research.md (Lines 52-90) - Usage patterns and conversion points
+- **Dependencies**:
+  - None
+
+### Task 15.2: Update bot layer to compute timestamps at point of use
+
+Update bot event handlers to compute Unix timestamps from datetime objects while keeping publisher parameter for backward compatibility.
+
+- **Files**:
+  - `services/bot/events/handlers.py` - Compute Unix timestamp inline from `event.scheduled_at` where needed for Discord formatting
+  - `services/bot/events/publisher.py` - Keep `scheduled_at_unix` parameter for now but mark as optional
+- **Success**:
+  - Event handlers compute Unix timestamp from `scheduled_at` datetime when needed
+  - Bot continues to receive and handle events normally
+  - Discord message formatting computes Unix timestamp inline from datetime
+  - System continues to function at all steps
+- **Research References**:
+  - #file:../research/20251127-scheduled-at-unix-redundancy-research.md (Lines 111-140) - Implementation strategy
+- **Dependencies**:
+  - None (can run in parallel with Task 15.1)
+
+### Task 15.3: Update frontend TypeScript types
+
+Make `scheduled_at_unix` optional in TypeScript interfaces and stop using it in code.
+
+- **Files**:
+  - `frontend/src/types/index.ts` - Change `scheduled_at_unix` to optional field `scheduled_at_unix?: number`
+  - `frontend/src/pages/__tests__/EditGame.test.tsx` - Remove from test fixture
+- **Success**:
+  - TypeScript `Game` interface has optional `scheduled_at_unix?` field
+  - No code depends on the field
+  - No TypeScript compilation errors
+  - Frontend continues to work with `scheduled_at` ISO 8601 string
+- **Research References**:
+  - #file:../research/20251127-scheduled-at-unix-redundancy-research.md (Lines 35-48) - Frontend usage analysis
+- **Dependencies**:
+  - None (frontend never uses the field)
+
+### Task 15.4: Update all test fixtures and assertions
+
+Update Python test files to compute `scheduled_at_unix` in assertions rather than hardcoding values.
+
+- **Files**:
+  - `tests/shared/messaging/test_events.py` - Compute Unix timestamp in test expectations
+  - `tests/services/bot/events/test_publisher.py` - Compute Unix timestamp from datetime fixtures
+  - `tests/services/api/routes/test_games_timezone.py` - Keep computing expected Unix timestamp (already doing this)
+- **Success**:
+  - Test assertions compute expected Unix timestamps from datetime objects
+  - Tests remain robust against timezone changes
+  - All tests pass
+  - Tests prepared for schema field removal
+- **Research References**:
+  - #file:../research/20251127-scheduled-at-unix-redundancy-research.md (Lines 24-48) - Test file locations
+- **Dependencies**:
+  - Task 15.1 completion
+  - Task 15.2 completion
+
+### Task 15.5: Remove scheduled_at_unix from schemas
+
+Remove redundant `scheduled_at_unix` field from data schemas after all code has been updated to compute it inline.
+
+- **Files**:
+  - `shared/schemas/game.py` - Remove `scheduled_at_unix` field from `GameResponse`
+  - `shared/messaging/events.py` - Remove `scheduled_at_unix` field from `GameCreatedEvent`
+  - `services/api/routes/games.py` - Remove `scheduled_at_unix` parameter from response construction
+  - `services/api/services/games.py` - Remove `scheduled_at_unix` from event construction
+  - `services/bot/events/publisher.py` - Remove `scheduled_at_unix` parameter completely
+  - `services/bot/events/handlers.py` - Remove any remaining `scheduled_at_unix` references
+  - `frontend/src/types/index.ts` - Remove `scheduled_at_unix` field completely
+- **Success**:
+  - `scheduled_at_unix` field removed from all schemas
+  - API responses no longer include redundant Unix timestamp
+  - Smaller JSON payload sizes
+  - All tests pass
+  - System continues to work correctly
+- **Research References**:
+  - #file:../research/20251127-scheduled-at-unix-redundancy-research.md (Lines 1-200) - Complete redundancy analysis
+- **Dependencies**:
+  - Task 15.1 completion
+  - Task 15.2 completion
+  - Task 15.3 completion
+  - Task 15.4 completion
