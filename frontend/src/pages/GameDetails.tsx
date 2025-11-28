@@ -52,9 +52,9 @@ export const GameDetails: FC = () => {
         setError(null);
         const response = await apiClient.get<GameSession>(`/api/v1/games/${gameId}`);
         setGame(response.data);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Failed to fetch game:', err);
-        setError(err.response?.data?.detail || 'Failed to load game. Please try again.');
+        setError((err as any).response?.data?.detail || 'Failed to load game. Please try again.');
       } finally {
         setLoading(false);
       }
@@ -73,9 +73,9 @@ export const GameDetails: FC = () => {
 
       const response = await apiClient.get<GameSession>(`/api/v1/games/${gameId}`);
       setGame(response.data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to join game:', err);
-      setError(err.response?.data?.detail || 'Failed to join game. Please try again.');
+      setError((err as any).response?.data?.detail || 'Failed to join game. Please try again.');
     } finally {
       setActionLoading(false);
     }
@@ -91,9 +91,9 @@ export const GameDetails: FC = () => {
 
       const response = await apiClient.get<GameSession>(`/api/v1/games/${gameId}`);
       setGame(response.data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to leave game:', err);
-      setError(err.response?.data?.detail || 'Failed to leave game. Please try again.');
+      setError((err as any).response?.data?.detail || 'Failed to leave game. Please try again.');
     } finally {
       setActionLoading(false);
     }
@@ -107,9 +107,9 @@ export const GameDetails: FC = () => {
       setError(null);
       await apiClient.delete(`/api/v1/games/${gameId}`);
       navigate('/my-games');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to cancel game:', err);
-      setError(err.response?.data?.detail || 'Failed to cancel game. Please try again.');
+      setError((err as any).response?.data?.detail || 'Failed to cancel game. Please try again.');
       setActionLoading(false);
     }
   };
