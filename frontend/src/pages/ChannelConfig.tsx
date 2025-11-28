@@ -64,9 +64,9 @@ export const ChannelConfig: FC = () => {
           allowedHostRoleIds: channelData.allowed_host_role_ids || [],
           gameCategory: channelData.game_category || '',
         });
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Failed to fetch channel:', err);
-        setError(err.response?.data?.detail || 'Failed to load channel configuration.');
+        setError((err as any).response?.data?.detail || 'Failed to load channel configuration.');
       } finally {
         setLoading(false);
       }
@@ -85,7 +85,7 @@ export const ChannelConfig: FC = () => {
           `/api/v1/guilds/${guild.guild_id}/roles`
         );
         setRoles(response.data);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Failed to fetch roles:', err);
       } finally {
         setLoadingRoles(false);
@@ -123,9 +123,11 @@ export const ChannelConfig: FC = () => {
       setTimeout(() => {
         navigate(`/guilds/${channel?.guild_id}`);
       }, 1500);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to save channel config:', err);
-      setError(err.response?.data?.detail || 'Failed to save configuration. Please try again.');
+      setError(
+        (err as any).response?.data?.detail || 'Failed to save configuration. Please try again.'
+      );
     } finally {
       setSaving(false);
     }

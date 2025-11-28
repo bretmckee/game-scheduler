@@ -58,9 +58,9 @@ export const GuildConfig: FC = () => {
           botManagerRoleIds: guildData.bot_manager_role_ids || [],
           requireHostRole: guildData.require_host_role,
         });
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Failed to fetch guild:', err);
-        setError(err.response?.data?.detail || 'Failed to load server configuration.');
+        setError((err as any).response?.data?.detail || 'Failed to load server configuration.');
       } finally {
         setLoading(false);
       }
@@ -77,7 +77,7 @@ export const GuildConfig: FC = () => {
         setLoadingRoles(true);
         const response = await apiClient.get<DiscordRole[]>(`/api/v1/guilds/${guildId}/roles`);
         setRoles(response.data);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Failed to fetch roles:', err);
       } finally {
         setLoadingRoles(false);
@@ -113,9 +113,11 @@ export const GuildConfig: FC = () => {
       setTimeout(() => {
         navigate(`/guilds/${guildId}`);
       }, 1500);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to save guild config:', err);
-      setError(err.response?.data?.detail || 'Failed to save configuration. Please try again.');
+      setError(
+        (err as any).response?.data?.detail || 'Failed to save configuration. Please try again.'
+      );
     } finally {
       setSaving(false);
     }
