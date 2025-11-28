@@ -36,7 +36,8 @@ interface ValidationError {
     discordId: string;
     username: string;
     displayName: string;
-  }>;}
+  }>;
+}
 
 interface ValidationErrorResponse {
   error: string;
@@ -75,7 +76,7 @@ export const EditGame: FC = () => {
           channels: channelsResponse.data,
           initialParticipants: gameData.participants || [],
         });
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Failed to fetch game:', err);
         // GameForm will display the error
       } finally {
@@ -145,17 +146,20 @@ export const EditGame: FC = () => {
 
       await apiClient.put(`/api/v1/games/${gameId}`, payload);
       navigate(`/games/${gameId}`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to update game:', err);
 
-      if (err.response?.status === 422 && err.response.data?.detail?.error === 'invalid_mentions') {
-        const errorData = err.response.data.detail as ValidationErrorResponse;
+      if (
+        (err as any).response?.status === 422 &&
+        (err as any).response.data?.detail?.error === 'invalid_mentions'
+      ) {
+        const errorData = (err as any).response.data.detail as ValidationErrorResponse;
         setValidationErrors(errorData.invalid_mentions);
         setValidParticipants(errorData.valid_participants);
         // Don't throw - let form stay open for corrections
         return;
       }
-      
+
       // For other errors, let GameForm handle display
       throw err;
     }
