@@ -36,6 +36,7 @@ env/
 # Environment variables
 .env
 .env.local
+.env.test
 
 # Database
 *.db
@@ -60,3 +61,6 @@ docker-compose.override.yml
 
 # Alembic
 alembic/versions/*.pyc
+
+# Files with credentials
+.env.e2e
