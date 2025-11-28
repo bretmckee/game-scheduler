@@ -77,9 +77,9 @@ export const BrowseGames: FC = () => {
         }
 
         setGames(filteredGames);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Failed to fetch games:', err);
-        setError(err.response?.data?.detail || 'Failed to load games. Please try again.');
+        setError((err as any).response?.data?.detail || 'Failed to load games. Please try again.');
       } finally {
         setLoading(false);
       }

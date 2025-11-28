@@ -62,7 +62,7 @@ export const CreateGame: FC = () => {
         ]);
         setChannels(channelsResponse.data);
         setRoles(rolesResponse.data);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Failed to fetch data:', err);
         setError('Failed to load server data. Please try again.');
       } finally {
@@ -106,23 +106,27 @@ export const CreateGame: FC = () => {
 
       const response = await apiClient.post('/api/v1/games', payload);
       navigate(`/games/${response.data.id}`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to create game:', err);
 
-      if (err.response?.status === 422 && err.response.data?.detail?.error === 'invalid_mentions') {
-        const errorData = err.response.data.detail as ValidationErrorResponse;
+      if (
+        (err as any).response?.status === 422 &&
+        (err as any).response.data?.detail?.error === 'invalid_mentions'
+      ) {
+        const errorData = (err as any).response.data.detail as ValidationErrorResponse;
         setValidationErrors(errorData.invalid_mentions);
         setValidParticipants(errorData.valid_participants);
         setError(errorData.message);
         // Don't throw - let form stay open for corrections
         return;
       }
-      
+
       // Handle string detail or extract message from object
-      const errorDetail = err.response?.data?.detail;
-      const errorMessage = typeof errorDetail === 'string' 
-        ? errorDetail 
-        : errorDetail?.message || 'Failed to create game. Please try again.';
+      const errorDetail = (err as any).response?.data?.detail;
+      const errorMessage =
+        typeof errorDetail === 'string'
+          ? errorDetail
+          : errorDetail?.message || 'Failed to create game. Please try again.';
       setError(errorMessage);
       throw err;
     }

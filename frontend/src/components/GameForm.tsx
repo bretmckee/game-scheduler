@@ -74,7 +74,7 @@ interface GameFormProps {
       discordId: string;
       username: string;
       displayName: string;
-    }>
+    }>;
   }> | null;
   validParticipants?: string[] | null;
   onValidationErrorClick?: (originalInput: string, newUsername: string) => void;
@@ -224,9 +224,9 @@ export const GameForm: FC<GameFormProps> = ({
   useEffect(() => {
     if (!validationErrors && !validParticipants) return;
 
-    const invalidInputs = new Set(validationErrors?.map(err => err.input.trim()) || []);
-    const validInputs = new Set(validParticipants?.map(input => input.trim()) || []);
-    
+    const invalidInputs = new Set(validationErrors?.map((err) => err.input.trim()) || []);
+    const validInputs = new Set(validParticipants?.map((input) => input.trim()) || []);
+
     setFormData((prev) => ({
       ...prev,
       participants: prev.participants.map((p) => {
@@ -270,12 +270,12 @@ export const GameForm: FC<GameFormProps> = ({
 
   const handleSuggestionClick = (originalInput: string, newUsername: string) => {
     const updatedParticipants = formData.participants.map((p) =>
-      p.mention.trim() === originalInput.trim() 
-        ? { ...p, mention: newUsername, validationStatus: 'unknown' as const } 
+      p.mention.trim() === originalInput.trim()
+        ? { ...p, mention: newUsername, validationStatus: 'unknown' as const }
         : p
     );
     setFormData((prev) => ({ ...prev, participants: updatedParticipants }));
-    
+
     if (onValidationErrorClick) {
       onValidationErrorClick(originalInput, newUsername);
     }
@@ -301,14 +301,15 @@ export const GameForm: FC<GameFormProps> = ({
       setLoading(true);
       setError(null);
       await onSubmit(formData);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to submit form:', err);
       // Don't set error here if validation errors exist - parent handles those
       if (!validationErrors) {
-        const errorDetail = err.response?.data?.detail;
-        const errorMessage = typeof errorDetail === 'string' 
-          ? errorDetail 
-          : errorDetail?.message || 'Failed to submit. Please try again.';
+        const errorDetail = (err as any).response?.data?.detail;
+        const errorMessage =
+          typeof errorDetail === 'string'
+            ? errorDetail
+            : errorDetail?.message || 'Failed to submit. Please try again.';
         setError(errorMessage);
       }
     } finally {

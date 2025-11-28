@@ -92,9 +92,10 @@ export const AuthCallback: FC = () => {
           setError(data.detail || 'Failed to complete authentication');
           setTimeout(() => navigate('/login'), 3000);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('OAuth callback error:', err);
-        const errorMessage = err.response?.data?.detail || 'Failed to complete authentication';
+        const errorMessage =
+          (err as any).response?.data?.detail || 'Failed to complete authentication';
         setError(errorMessage);
         setTimeout(() => navigate('/login'), 3000);
       }
