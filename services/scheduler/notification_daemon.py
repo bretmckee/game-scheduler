@@ -13,7 +13,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from shared.database import SYNC_DATABASE_URL, SyncSessionLocal
+from shared.database import SyncSessionLocal
 from shared.messaging.events import EventType, GameReminderDueEvent
 from shared.messaging.sync_publisher import SyncEventPublisher
 from shared.models import NotificationSchedule
@@ -206,8 +206,11 @@ def main() -> None:
 
     rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://guest:guest@rabbitmq:5672/")
 
+    # Use base database URL for raw psycopg2 connection (no driver specifier)
+    from shared.database import BASE_DATABASE_URL
+
     daemon = NotificationDaemon(
-        database_url=SYNC_DATABASE_URL,
+        database_url=BASE_DATABASE_URL,
         rabbitmq_url=rabbitmq_url,
     )
 
