@@ -60,9 +60,11 @@ export const GuildDashboard: FC = () => {
 
         setGuild(guildResponse.data);
         setChannels(channelsResponse.data);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Failed to fetch guild data:', err);
-        setError(err.response?.data?.detail || 'Failed to load server data. Please try again.');
+        setError(
+          (err as any).response?.data?.detail || 'Failed to load server data. Please try again.'
+        );
       } finally {
         setLoading(false);
       }

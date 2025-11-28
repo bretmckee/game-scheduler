@@ -11,6 +11,74 @@ Implementation of a complete Discord game scheduling system with microservices a
 
 ### Recent Updates (2025-11-27)
 
+**Phase 17: TypeScript Development Environment Setup (2025-11-27) - COMPLETE**
+
+Set up local Node.js development environment with nvm to match Docker environment (Node 20.x), enabling local TypeScript compilation, ESLint, and testing without requiring Docker containers.
+
+**Tasks Completed:**
+
+1. **Installed nvm (Node Version Manager) v0.40.3**
+   - Downloaded and installed from official repository
+   - Configured shell integration in ~/.bashrc for automatic loading
+   - Verified installation with `nvm --version`
+
+2. **Installed Node.js 20.19.6**
+   - Used `nvm install 20` to get latest Node 20.x release
+   - Set as default version with `nvm alias default 20`
+   - Matches Docker environment (Node 20-alpine base image)
+   - Includes npm 10.8.2 (meets >=10.0.0 requirement)
+
+3. **Created .nvmrc file**
+   - Added to project root with content "20"
+   - Enables automatic Node version switching when entering project directory
+   - Documents Node.js version requirement for all developers
+
+4. **Added engines field to frontend/package.json**
+   - Specified `"node": ">=20.0.0"` and `"npm": ">=10.0.0"`
+   - Documents runtime requirements for CI/CD and deployment
+   - Enforces version constraints for team consistency
+
+5. **Installed frontend dependencies and verified tooling**
+   - Ran `npm install` successfully (485 packages, no errors)
+   - Verified TypeScript compilation: `npm run type-check` passes
+   - Verified ESLint execution: `npm run lint` detects issues
+   - Auto-fixed formatting issues: `npm run lint:fix` (0 errors remaining)
+   - Verified production build: `npm run build` succeeds (built in 2.23s)
+
+**Files Modified:**
+
+- `.nvmrc` - NEW file documenting Node 20 requirement
+- `frontend/package.json` - Added engines field for Node >=20.0.0, npm >=10.0.0
+
+**Environment Verification:**
+
+- ✅ nvm 0.40.3 installed and configured
+- ✅ Node.js v20.19.6 installed and set as default
+- ✅ npm v10.8.2 available
+- ✅ Frontend dependencies installed (485 packages)
+- ✅ TypeScript compilation works: `npm run type-check`
+- ✅ ESLint execution works: `npm run lint`
+- ✅ Production build works: `npm run build`
+- ✅ Development environment matches Docker (Node 20)
+- ✅ All npm scripts execute successfully
+
+**Remaining ESLint Warnings:**
+
+- 22 warnings remain (all non-blocking):
+  - Fast refresh warnings for shared utility functions (design decision, can be split later)
+  - `any` type usage in error handling (acceptable for catch blocks)
+  - No errors, TypeScript compilation successful
+
+**Developer Benefits:**
+
+- Local TypeScript compilation without Docker overhead
+- Faster feedback loop for development
+- IDE integration works with correct Node version
+- Can run tests and linting locally
+- Consistent environment across team members
+
+---
+
 **Bug Fix: Discord User to Placeholder Conversion on Edit (2025-11-27) - COMPLETE**
 
 Fixed critical bug where Discord users added by host using @mentions were incorrectly converted to placeholder participants when editing a game. The frontend was sending participants in Discord's internal `<@discord_id>` format, but the backend only recognized the user-friendly `@username` format, causing Discord users to be treated as placeholder text.

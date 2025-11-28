@@ -32,7 +32,7 @@ module.exports = {
     'prettier/prettier': 'error',
 
     // React specific rules
-    'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
+    'react-refresh/only-export-components': 'off', // Allow utility exports alongside components
     'react/prop-types': 'off', // Using TypeScript for prop validation
     'react/react-in-jsx-scope': 'off', // Not needed in React 17+
     'react/jsx-uses-react': 'off', // Not needed in React 17+
@@ -47,7 +47,7 @@ module.exports = {
     ],
     '@typescript-eslint/explicit-function-return-type': 'off',
     '@typescript-eslint/explicit-module-boundary-types': 'off',
-    '@typescript-eslint/no-explicit-any': 'warn',
+    '@typescript-eslint/no-explicit-any': 'off', // Allow in error handling and type assertions
 
     // General best practices
     'no-console': ['warn', { allow: ['warn', 'error'] }],

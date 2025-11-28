@@ -78,7 +78,10 @@ export const ParticipantList: FC<ParticipantListProps> = ({
                   <Avatar sx={{ bgcolor: 'warning.main' }}>{index + 1}</Avatar>
                 </ListItemAvatar>
                 <ListItemText
-                  primary={formatParticipantDisplay(participant.display_name, participant.discord_id)}
+                  primary={formatParticipantDisplay(
+                    participant.display_name,
+                    participant.discord_id
+                  )}
                   secondary={
                     participant.pre_filled_position !== null ? 'Added by host' : 'Joined via button'
                   }
