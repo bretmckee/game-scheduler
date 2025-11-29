@@ -29,8 +29,6 @@ app = Celery(
     broker=config.CELERY_BROKER_URL,
     backend=config.CELERY_RESULT_BACKEND,
     include=[
-        "services.scheduler.tasks.check_notifications",
-        "services.scheduler.tasks.send_notification",
         "services.scheduler.tasks.update_game_status",
     ],
 )
@@ -46,10 +44,6 @@ app.conf.update(
     task_default_retry_delay=config.CELERY_TASK_DEFAULT_RETRY_DELAY,
     task_max_retries=config.CELERY_TASK_MAX_RETRIES,
     beat_schedule={
-        "check-notifications-every-5-minutes": {
-            "task": "services.scheduler.tasks.check_notifications.check_upcoming_notifications",
-            "schedule": config.NOTIFICATION_CHECK_INTERVAL_SECONDS,
-        },
         "update-game-status-every-minute": {
             "task": "services.scheduler.tasks.update_game_status.update_game_statuses",
             "schedule": config.STATUS_UPDATE_INTERVAL_SECONDS,

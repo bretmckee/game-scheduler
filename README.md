@@ -16,12 +16,31 @@ A Discord game scheduling system with microservices architecture, featuring Disc
 
 Microservices architecture with:
 
-- **Discord Bot Service**: Handles Discord Gateway interactions
-- **Web API Service**: FastAPI REST API for web dashboard
-- **Scheduler Service**: Celery workers for background jobs and notifications
-- **PostgreSQL**: Primary data store
+- **Discord Bot Service**: Handles Discord Gateway interactions and sends notifications to participants
+- **Web API Service**: FastAPI REST API for web dashboard and game management
+- **Notification Daemon**: Database-backed event-driven scheduler for game reminders
+- **Scheduler Service**: Celery workers for periodic background jobs (game status updates)
+- **PostgreSQL**: Primary data store with LISTEN/NOTIFY for real-time events
 - **RabbitMQ**: Message broker for inter-service communication
 - **Redis**: Caching and session storage
+
+### Notification System
+
+The notification system uses a database-backed event-driven architecture for reliable, scalable game reminders:
+
+1. **Schedule Population**: When games are created or updated, notification schedules are stored in the `notification_schedule` table
+2. **Event-Driven Wake-ups**: PostgreSQL LISTEN/NOTIFY triggers instant scheduler wake-ups when schedules change
+3. **MIN() Query Pattern**: Daemon queries for the next due notification using an optimized O(1) query with partial index
+4. **RabbitMQ Events**: When notifications are due, events are published to RabbitMQ for the bot service to process
+5. **Persistence**: All scheduled notifications survive service restarts via database storage
+
+**Key Features**:
+
+- Unlimited notification windows (supports scheduling weeks/months in advance)
+- Sub-10 second notification latency with event-driven wake-ups
+- Zero data loss on restarts - all state persisted in database
+- Self-healing - single MIN() query resumes processing after restart
+- Scalable - O(1) query performance regardless of total scheduled games
 
 ## Development Setup
 
@@ -44,6 +63,37 @@ docker compose --env-file .env up
 - API: http://localhost:8000
 - API Docs: http://localhost:8000/docs
 - RabbitMQ Management: http://localhost:15672
+
+5. Monitor notification daemon:
+
+```bash
+# View notification daemon logs
+docker compose logs -f notification-daemon
+
+# Restart notification daemon
+docker compose restart notification-daemon
+```
+
+## Running Services Individually
+
+Start specific services for development:
+
+```bash
+# Start infrastructure only
+docker compose up -d postgres rabbitmq redis
+
+# Run database migrations
+docker compose run --rm api alembic upgrade head
+
+# Start notification daemon
+docker compose up -d notification-daemon
+
+# Start API service
+docker compose up -d api
+
+# Start Discord bot
+docker compose up -d bot
+```
 
 ## Building Multi-Architecture Images
 
@@ -109,9 +159,16 @@ Configure in `.env` file:
 ├── services/
 │   ├── bot/                    # Discord bot service
 │   ├── api/                    # FastAPI web service
-│   └── scheduler/              # Celery scheduler service
+│   └── scheduler/              # Background jobs and notification daemon
+│       ├── notification_daemon.py   # Event-driven notification scheduler
+│       ├── postgres_listener.py     # PostgreSQL LISTEN/NOTIFY client
+│       ├── schedule_queries.py      # Notification schedule queries
+│       └── tasks/              # Celery periodic tasks
 ├── shared/                     # Shared models and utilities
+│   └── models/
+│       └── notification_schedule.py # Notification schedule model
 ├── docker/                     # Dockerfiles for each service
+├── alembic/                    # Database migrations
 ├── docker-compose.base.yml     # Shared service definitions
 ├── docker-compose.yml          # Development environment
 ├── docker-compose.integration.yml  # Integration test environment
