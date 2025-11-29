@@ -36,6 +36,16 @@ class EventPublisher:
 
     async def connect(self) -> None:
         """Establish connection and declare exchange."""
+        # Close existing connection if present
+        if self._connection and not self._connection.is_closed:
+            try:
+                await self._connection.close()
+            except Exception:
+                logger.warning("Error closing existing connection during reconnect", exc_info=True)
+
+        self._connection = None
+        self._channel = None
+
         if self._connection is None:
             self._connection = await get_rabbitmq_connection()
 
@@ -65,7 +75,8 @@ class EventPublisher:
         Raises:
             RuntimeError: If not connected.
         """
-        if self._channel is None:
+        if self._channel is None or self._channel.is_closed:
+            logger.warning("Channel not open, reconnecting...")
             await self.connect()
 
         if routing_key is None:
