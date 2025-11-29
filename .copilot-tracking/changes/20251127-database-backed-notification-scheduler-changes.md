@@ -57,11 +57,17 @@ Replacing polling-based notification scheduler with database-backed event-driven
 - .env.e2e - Removed problematic REDIS_COMMAND variable that caused bash parsing errors when sourcing file
 - docker-compose.e2e.yml - Added init service dependency and API_BASE_URL environment variable, added api service dependency for e2e tests
 - tests/e2e/test_game_notification_api_flow.py - Created API-based e2e tests using httpx to test complete flow through REST endpoints (POST /games → schedule populated, daemon processes → RabbitMQ events, PUT /games → schedule updated, DELETE /games → schedule cleaned), replacing direct SQL insert approach with proper API integration testing
+- README.md - Updated Architecture section to document database-backed event-driven notification scheduler with detailed explanation of MIN() query pattern, PostgreSQL LISTEN/NOTIFY mechanism, and unlimited notification window capability; updated Project Structure to show notification daemon components; added instructions for monitoring and running notification daemon individually
 
 ### Removed
 
 - docker/notification-daemon-entrypoint.sh - Removed unnecessary entrypoint script (migrations handled separately, daemon starts directly via CMD)
 - tests/integration/test_notification_flow_e2e.py - Removed redundant integration-level tests that duplicated existing coverage in test_notification_daemon.py (game CRUD operations at SQL level don't qualify as true e2e tests)
+- services/scheduler/tasks/check_notifications.py - Removed old polling-based notification task that queried all games every 5 minutes
+- services/scheduler/tasks/send_notification.py - Removed old Celery task that published notifications (replaced by direct publish in notification daemon)
+- services/scheduler/utils/notification_windows.py - Removed notification window calculation utility (only used by deleted check_notifications.py)
+- tests/services/scheduler/test_notification_windows.py - Removed tests for deleted notification_windows utility
+- services/scheduler/celery_app.py - Removed check_notifications task from include list and removed check-notifications-every-5-minutes beat schedule entry
 
 ## Testing
 

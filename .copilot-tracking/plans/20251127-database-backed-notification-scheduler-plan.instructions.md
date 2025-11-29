@@ -124,17 +124,17 @@ Replace polling-based notification scheduler with database-backed event-driven d
 - [ ] Task 5.3: Create end-to-end notification flow tests
   - Details: .copilot-tracking/details/20251127-database-backed-notification-scheduler-details.md (Lines 304-323)
 
-### [ ] Phase 6: Cleanup and Documentation
+### [x] Phase 6: Cleanup and Documentation
 
-- [ ] Task 6.1: Remove old Celery notification tasks
+- [x] Task 6.1: Remove old Celery notification tasks
 
-  - Details: .copilot-tracking/details/20251127-database-backed-notification-scheduler-details.md (Lines 325-342)
+  - Details: .copilot-tracking/details/20251127-database-backed-notification-scheduler-details.md (Lines 304-323)
 
-- [ ] Task 6.2: Remove Redis deduplication code
+- [x] Task 6.2: Remove Redis deduplication code
 
   - Details: .copilot-tracking/details/20251127-database-backed-notification-scheduler-details.md (Lines 344-358)
 
-- [ ] Task 6.3: Update documentation and README
+- [x] Task 6.3: Update documentation and README
   - Details: .copilot-tracking/details/20251127-database-backed-notification-scheduler-details.md (Lines 360-375)
 
 ## Dependencies
