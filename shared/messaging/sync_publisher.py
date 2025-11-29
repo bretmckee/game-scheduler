@@ -35,6 +35,16 @@ class SyncEventPublisher:
 
     def connect(self) -> None:
         """Establish connection and declare exchange."""
+        # Close existing connection if present
+        if self._connection and self._connection.is_open:
+            try:
+                self._connection.close()
+            except Exception:
+                logger.warning("Error closing existing connection during reconnect", exc_info=True)
+
+        self._connection = None
+        self._channel = None
+
         rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
 
         parameters = pika.URLParameters(rabbitmq_url)
@@ -69,7 +79,8 @@ class SyncEventPublisher:
         Raises:
             RuntimeError: If not connected.
         """
-        if self._channel is None:
+        if self._channel is None or not self._channel.is_open:
+            logger.warning("Channel not open, reconnecting...")
             self.connect()
 
         if routing_key is None:
