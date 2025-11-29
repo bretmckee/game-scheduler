@@ -518,25 +518,25 @@ Implement a complete Discord game scheduling system with microservices architect
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 2372-2387)
 
-### [ ] Phase 15: Remove Unix Timestamp Redundancy
+### [x] Phase 15: Remove Unix Timestamp Redundancy
 
-- [ ] Task 15.1: Update API layer to compute timestamps at point of use
+- [x] Task 15.1: Update API layer to compute timestamps at point of use
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 2389-2410)
 
-- [ ] Task 15.2: Update bot layer to compute timestamps at point of use
+- [x] Task 15.2: Update bot layer to compute timestamps at point of use
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 2412-2433)
 
-- [ ] Task 15.3: Update frontend TypeScript types
+- [x] Task 15.3: Update frontend TypeScript types
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 2435-2456)
 
-- [ ] Task 15.4: Update all test fixtures and assertions
+- [x] Task 15.4: Update all test fixtures and assertions
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 2458-2479)
 
-- [ ] Task 15.5: Remove scheduled_at_unix from schemas
+- [x] Task 15.5: Remove scheduled_at_unix from schemas
 
   - Details: .copilot-tracking/details/20251114-discord-game-scheduling-system-details.md (Lines 2481-2502)
 

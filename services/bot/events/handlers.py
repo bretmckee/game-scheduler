@@ -564,22 +564,24 @@ class EventHandlers:
                     confirmed_ids = [p.user.discord_id for p in confirmed_participants]
                     overflow_ids = [p.user.discord_id for p in overflow_participants]
 
-                    embed, view = format_game_announcement(
+                    content, embed, view = format_game_announcement(
                         game_id=game_id,
-                        title=game.title,
+                        game_title=game.title,
                         description=game.description,
-                        signup_instructions=game.signup_instructions,
-                        scheduled_at_unix=int(game.scheduled_at.timestamp()),
+                        scheduled_at=game.scheduled_at,
+                        host_id=game.host.discord_id,
+                        participant_ids=confirmed_ids,
+                        overflow_ids=overflow_ids,
+                        current_count=len(confirmed_participants),
                         max_players=max_players,
-                        min_players=game.min_players or 1,
-                        confirmed_participant_ids=confirmed_ids,
-                        overflow_participant_ids=overflow_ids,
-                        channel_name=game.channel.channel_name if game.channel else None,
-                        host_discord_id=game.host.discord_id,
+                        status=game.status,
+                        channel_id=None,
+                        signup_instructions=game.signup_instructions,
+                        expected_duration_minutes=game.expected_duration_minutes,
                         notify_role_ids=game.notify_role_ids or [],
                     )
 
-                    await message.edit(embed=embed, view=view)
+                    await message.edit(content=content, embed=embed, view=view)
                     logger.info(f"Updated game message after participant removal: {message_id}")
 
                 except discord.NotFound:
