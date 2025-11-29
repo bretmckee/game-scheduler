@@ -37,8 +37,7 @@ class GameView(View):
             style=discord.ButtonStyle.success,
             label="Join Game",
             custom_id=f"join_game_{game_id}",
-            disabled=is_full or is_started,
-            emoji="✅",
+            disabled=is_started,
         )
         self.join_button.callback = self._join_button_callback
 
@@ -47,7 +46,6 @@ class GameView(View):
             label="Leave Game",
             custom_id=f"leave_game_{game_id}",
             disabled=is_started,
-            emoji="❌",
         )
         self.leave_button.callback = self._leave_button_callback
 
@@ -74,12 +72,12 @@ class GameView(View):
         """Update button enabled/disabled states.
 
         Args:
-            is_full: Whether game is at capacity
+            is_full: Whether game is at capacity (unused since waitlists are supported)
             is_started: Whether game has started
         """
         self.is_full = is_full
         self.is_started = is_started
-        self.join_button.disabled = is_full or is_started
+        self.join_button.disabled = is_started
         self.leave_button.disabled = is_started
 
     @classmethod
