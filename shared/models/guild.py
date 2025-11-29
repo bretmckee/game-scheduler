@@ -42,6 +42,7 @@ class GuildConfiguration(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
     guild_id: Mapped[str] = mapped_column(String(20), unique=True, index=True)
+    guild_name: Mapped[str] = mapped_column(String(100), nullable=False)
     default_max_players: Mapped[int | None] = mapped_column(Integer, nullable=True)
     default_reminder_minutes: Mapped[list[int]] = mapped_column(JSON, default=lambda: [60, 15])
     allowed_host_role_ids: Mapped[list[str]] = mapped_column(JSON, default=list)

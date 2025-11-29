@@ -99,6 +99,14 @@ services:
     image: ${IMAGE_REGISTRY:-}game-scheduler-bot:${IMAGE_TAG:-latest}
     container_name: ${CONTAINER_PREFIX:-gamebot}-bot
     restart: ${RESTART_POLICY:-unless-stopped}
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      RABBITMQ_URL: ${RABBITMQ_URL}
+      REDIS_URL: ${REDIS_URL}
+      DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN:-}
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:-}
+      DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET:-}
+      DISCORD_REDIRECT_URI: ${DISCORD_REDIRECT_URI:-}
     depends_on:
       init:
         condition: service_completed_successfully
@@ -118,6 +126,10 @@ services:
     image: ${IMAGE_REGISTRY:-}game-scheduler-api:${IMAGE_TAG:-latest}
     container_name: ${CONTAINER_PREFIX:-gamebot}-api
     restart: ${RESTART_POLICY:-unless-stopped}
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      RABBITMQ_URL: ${RABBITMQ_URL}
+      REDIS_URL: ${REDIS_URL}
     ports:
       - "${API_HOST_PORT:-8000}:8000"
     depends_on:
@@ -144,6 +156,10 @@ services:
     image: ${IMAGE_REGISTRY:-}game-scheduler-scheduler:${IMAGE_TAG:-latest}
     container_name: ${CONTAINER_PREFIX:-gamebot}-scheduler
     restart: ${RESTART_POLICY:-unless-stopped}
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      RABBITMQ_URL: ${RABBITMQ_URL}
+      REDIS_URL: ${REDIS_URL}
     command: celery -A services.scheduler.celery_app:app worker --loglevel=info --pool=solo
     depends_on:
       init:
@@ -164,6 +180,10 @@ services:
     image: ${IMAGE_REGISTRY:-}game-scheduler-scheduler:${IMAGE_TAG:-latest}
     container_name: ${CONTAINER_PREFIX:-gamebot}-scheduler-beat
     restart: ${RESTART_POLICY:-unless-stopped}
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      RABBITMQ_URL: ${RABBITMQ_URL}
+      REDIS_URL: ${REDIS_URL}
     command: celery -A services.scheduler.celery_app:app beat --loglevel=info
     depends_on:
       init:
@@ -184,6 +204,9 @@ services:
     image: ${IMAGE_REGISTRY:-}game-scheduler-notification-daemon:${IMAGE_TAG:-latest}
     container_name: ${CONTAINER_PREFIX:-gamebot}-notification-daemon
     restart: ${RESTART_POLICY:-unless-stopped}
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      RABBITMQ_URL: ${RABBITMQ_URL}
     depends_on:
       init:
         condition: service_completed_successfully
