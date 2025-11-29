@@ -4,13 +4,14 @@
 
 set -e
 
-echo "Starting integration test environment..."
-docker compose -f docker-compose.integration.yml --env-file .env.integration up \
-  --build \
-  --abort-on-container-exit \
-  --exit-code-from integration-tests
+cleanup() {
+  echo "Cleaning up integration test environment..."
+  docker compose -f docker-compose.integration.yml --env-file .env.integration down -v
+}
 
-echo "Cleaning up integration test environment..."
-docker compose -f docker-compose.integration.yml --env-file .env.integration down -v
+trap cleanup EXIT
 
-echo "Integration tests complete!"
+echo "Running integration tests..."
+docker compose -f docker-compose.integration.yml --env-file .env.integration run --rm integration-tests
+
+echo "Integration tests passed!"

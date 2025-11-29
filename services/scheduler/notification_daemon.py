@@ -121,6 +121,8 @@ class NotificationDaemon:
                 break
             except Exception:
                 logger.exception("Unexpected error in daemon loop")
+                if self.db:
+                    self.db.rollback()
                 time.sleep(5)
 
         logger.info("Notification daemon shutting down")

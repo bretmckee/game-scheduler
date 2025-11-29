@@ -29,13 +29,14 @@ if [ -z "$TEST_DISCORD_GUILD_ID" ] || [ -z "$TEST_DISCORD_CHANNEL_ID" ]; then
   echo "Tests may fail without these. See TESTING_E2E.md for setup instructions"
 fi
 
-echo "Starting end-to-end test environment..."
-docker compose -f docker-compose.e2e.yml --env-file .env.e2e up \
-  --build \
-  --abort-on-container-exit \
-  --exit-code-from e2e-tests
+cleanup() {
+  echo "Cleaning up end-to-end test environment..."
+  docker compose -f docker-compose.e2e.yml --env-file .env.e2e down -v
+}
 
-echo "Cleaning up end-to-end test environment..."
-docker compose -f docker-compose.e2e.yml --env-file .env.e2e down -v
+trap cleanup EXIT
 
-echo "End-to-end tests complete!"
+echo "Running end-to-end tests..."
+docker compose -f docker-compose.e2e.yml --env-file .env.e2e run --rm e2e-tests
+
+echo "End-to-end tests passed!"
