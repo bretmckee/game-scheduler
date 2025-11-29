@@ -32,6 +32,13 @@ async def main() -> None:
     setup_logging(config.log_level)
     logger = logging.getLogger(__name__)
 
+    # Check if running in test environment without Discord credentials
+    if not config.discord_bot_token or not config.discord_client_id:
+        logger.warning(
+            "Discord credentials not configured. Bot will not start (integration test mode)."
+        )
+        return
+
     logger.info("Starting Discord Game Scheduler Bot")
     logger.info(f"Environment: {config.environment}")
 
