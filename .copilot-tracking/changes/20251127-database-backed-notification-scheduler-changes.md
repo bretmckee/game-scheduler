@@ -44,6 +44,16 @@ Replacing polling-based notification scheduler with database-backed event-driven
 - scripts/run-e2e-tests.sh - Helper script to run end-to-end tests requiring test Discord bot and guild setup with validation of required environment variables
 - TESTING_E2E.md - Comprehensive guide for setting up test Discord bot and guild for end-to-end notification tests with step-by-step instructions, environment variable configuration, troubleshooting tips, and CI/CD integration guidance
 - .gitignore - Added .env.test to prevent committing test Discord credentials
+- docker-compose.base.yml - Added environment variable pass-through (DATABASE_URL, RABBITMQ_URL, REDIS_URL, DISCORD_BOT_TOKEN, DISCORD_CLIENT_ID) to bot, api, scheduler, scheduler-beat, and notification-daemon services to fix localhost connection issues
+- docker-compose.integration.yml - Added PostgreSQL connection environment variables (POSTGRES_HOST, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB) to integration-tests service and added dependency on init service completion
+- services/scheduler/notification_daemon.py - Added db.rollback() in exception handler (line ~103) to prevent PendingRollbackError when query fails mid-transaction
+- services/bot/config.py - Changed discord_bot_token and discord_client_id from required to optional fields (default=None) to support integration test mode without Discord credentials
+- services/bot/main.py - Added early return when Discord tokens not configured (test mode) to prevent bot startup without credentials
+- shared/models/guild.py - Added guild_name field (Mapped[str], String(100), nullable=False) to match database schema from migration 001_initial_schema.py
+- tests/integration/test_notification_daemon.py - Added guild_name="Test Guild" to test fixture INSERT statement to satisfy NOT NULL constraint
+- scripts/run-integration-tests.sh - Replaced `docker compose up --abort-on-container-exit` with `docker compose run` to avoid init container triggering premature shutdown (docker compose run starts dependencies automatically), added trap handler for guaranteed cleanup on success or failure
+- scripts/run-e2e-tests.sh - Replaced `docker compose up --abort-on-container-exit` with `docker compose run`, added trap handler for cleanup consistency
+- docker/test-entrypoint.sh - Removed redundant database wait and migration steps (now handled by init container), simplified to only execute tests directly
 
 ### Removed
 
@@ -64,7 +74,18 @@ Replacing polling-based notification scheduler with database-backed event-driven
 - 3 tests for schedule queries with real database ✅
 - 3 tests for daemon integration with PostgreSQL and RabbitMQ ✅
 
-**Test Execution**: `docker compose --profile test run --rm integration-tests`
+**Test Execution**: `docker compose -f docker-compose.integration.yml --env-file .env.integration up integration-tests --abort-on-container-exit`
+
+**Test Results**: All 10 integration tests passing as of 2025-11-28
+
+**Debugging Summary**: Fixed 6 critical issues discovered during integration test setup:
+
+1. Services couldn't connect to infrastructure (environment variables not propagated from base compose file)
+2. Notification daemon PendingRollbackError (missing db.rollback() in exception handler)
+3. Bot validation errors in test mode (Discord tokens required but not available)
+4. Test container couldn't connect to database (missing PostgreSQL connection parameters)
+5. Schema mismatch causing NULL constraint violations (guild_name field missing from model)
+6. Test execution reliability (init container completion triggered `--abort-on-container-exit`, killing tests mid-execution due to timing race - resolved by using profiles + `docker compose run`)
 
 ## Deployment Notes
 
