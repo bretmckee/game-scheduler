@@ -18,22 +18,26 @@ Set up local Node.js development environment with nvm to match Docker environmen
 **Tasks Completed:**
 
 1. **Installed nvm (Node Version Manager) v0.40.3**
+
    - Downloaded and installed from official repository
    - Configured shell integration in ~/.bashrc for automatic loading
    - Verified installation with `nvm --version`
 
 2. **Installed Node.js 20.19.6**
+
    - Used `nvm install 20` to get latest Node 20.x release
    - Set as default version with `nvm alias default 20`
    - Matches Docker environment (Node 20-alpine base image)
    - Includes npm 10.8.2 (meets >=10.0.0 requirement)
 
 3. **Created .nvmrc file**
+
    - Added to project root with content "20"
    - Enables automatic Node version switching when entering project directory
    - Documents Node.js version requirement for all developers
 
 4. **Added engines field to frontend/package.json**
+
    - Specified `"node": ">=20.0.0"` and `"npm": ">=10.0.0"`
    - Documents runtime requirements for CI/CD and deployment
    - Enforces version constraints for team consistency
@@ -8922,6 +8926,7 @@ Successfully refactored the notification system from participant-level to game-l
 - services/scheduler/services/notification_service.py - Changed to publish GAME_REMINDER_DUE event instead of NOTIFICATION_SEND_DM
 - services/bot/events/handlers.py - Added GAME_REMINDER_DUE to event handler registration in **init** and start_consuming
 - services/api/routes/guilds.py - Added bot_manager_role_ids field to all four GuildConfigResponse constructions (list_guilds, get_guild, create_guild_config, update_guild_config)
+- services/bot/events/handlers.py - Fixed format_game_announcement call to use correct function signature with datetime instead of Unix timestamp (Phase 15 Task 15.5)
 
 ### Removed
 
@@ -9123,32 +9128,38 @@ Updated Python test files to compute `scheduled_at_unix` from datetime objects r
 
 ---
 
-### Task 15.5: Remove scheduled_at_unix from schemas (2025-11-27)
+### Task 15.5: Remove scheduled_at_unix from schemas (2025-11-28)
 
-Removed redundant `scheduled_at_unix` field from all schemas after verifying all code computes it inline where needed.
+Removed redundant `scheduled_at_unix` field from all schemas after verifying all code computes it inline where needed. Fixed remaining bot handler call that was using obsolete function signature.
 
 **Implementation Details:**
 
-- Removed `scheduled_at_unix` from `GameResponse` schema in shared/schemas/game.py
-- Removed `scheduled_at_unix` from `GameCreatedEvent` schema in shared/messaging/events.py
-- Removed `scheduled_at_unix` parameter from API response construction in services/api/routes/games.py
-- Removed `scheduled_at_unix` parameter from bot publisher in services/bot/events/publisher.py
-- Removed `scheduled_at_unix` from all test files:
+- Removed `scheduled_at_unix` from `GameResponse` schema in shared/schemas/game.py (previously done)
+- Removed `scheduled_at_unix` from `GameCreatedEvent` schema in shared/messaging/events.py (previously done)
+- Removed `scheduled_at_unix` parameter from API response construction in services/api/routes/games.py (previously done)
+- Removed `scheduled_at_unix` parameter from bot publisher in services/bot/events/publisher.py (previously done)
+- Fixed bot handler call to `format_game_announcement()` in services/bot/events/handlers.py (line 567):
+  - Changed from old signature with `title`, `scheduled_at_unix`, `min_players`, `confirmed_participant_ids`, `overflow_participant_ids`, `channel_name`, `host_discord_id`
+  - Updated to new signature with `game_title`, `scheduled_at`, `participant_ids`, `overflow_ids`, `current_count`, `status`, `channel_id`, `host_id`
+  - Fixed return value unpacking from 2-tuple to 3-tuple (content, embed, view)
+  - Now passes datetime object instead of Unix timestamp - formatting function handles conversion internally
+- Removed `scheduled_at_unix` from all test files (previously done):
   - tests/shared/messaging/test_events.py (2 occurrences)
   - tests/services/bot/events/test_publisher.py (1 occurrence)
   - tests/services/api/routes/test_games_timezone.py (3 occurrences - updated to compute from ISO)
-- Removed `scheduled_at_unix` from frontend TypeScript interface completely
+- Removed `scheduled_at_unix` from frontend TypeScript interface completely (previously done)
 
 **Files Modified:**
 
-- `shared/schemas/game.py` - Removed field from GameResponse
-- `shared/messaging/events.py` - Removed field from GameCreatedEvent
-- `services/api/routes/games.py` - Removed from response construction
-- `services/bot/events/publisher.py` - Removed parameter, compute internally
-- `tests/shared/messaging/test_events.py` - Removed from fixtures
-- `tests/services/bot/events/test_publisher.py` - Removed from test call
-- `tests/services/api/routes/test_games_timezone.py` - Updated to compute from ISO string
-- `frontend/src/types/index.ts` - Removed field completely
+- `shared/schemas/game.py` - Removed field from GameResponse (previously done)
+- `shared/messaging/events.py` - Removed field from GameCreatedEvent (previously done)
+- `services/api/routes/games.py` - Removed from response construction (previously done)
+- `services/bot/events/publisher.py` - Removed parameter, compute internally (previously done)
+- `services/bot/events/handlers.py` - Fixed format_game_announcement call in \_handle_player_removed (NEW FIX)
+- `tests/shared/messaging/test_events.py` - Removed from fixtures (previously done)
+- `tests/services/bot/events/test_publisher.py` - Removed from test call (previously done)
+- `tests/services/api/routes/test_games_timezone.py` - Updated to compute from ISO string (previously done)
+- `frontend/src/types/index.ts` - Removed field completely (previously done)
 
 **Benefits:**
 
