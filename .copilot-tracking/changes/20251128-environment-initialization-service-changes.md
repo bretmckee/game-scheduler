@@ -26,6 +26,7 @@ Additionally fixed multiple issues discovered during testing: Docker Compose OAu
 - docker-compose.base.yml - Updated bot, api, scheduler, scheduler-beat, and notification-daemon services to depend on init completion; added missing environment variables to api and frontend services for OAuth authentication
 - docker/frontend.Dockerfile - Added ARG directives for VITE_DISCORD_CLIENT_ID and VITE_API_URL to support build-time environment variable injection
 - services/bot/commands/config_guild.py - Fixed /config-guild command to pass guild_name parameter when creating GuildConfiguration
+- services/bot/events/handlers.py - Removed redundant notification interval from game reminder DMs (Discord timestamp already shows relative time)
 - shared/models/notification_schedule.py - Changed id column from UUID(as_uuid=False) to String(36) for consistency with other tables
 - shared/messaging/sync_publisher.py - Added automatic reconnection logic for closed RabbitMQ channels to prevent ChannelWrongStateError
 - shared/messaging/publisher.py - Added automatic reconnection logic for closed RabbitMQ channels in async publisher
@@ -50,6 +51,7 @@ Additionally fixed multiple issues discovered during testing: Docker Compose OAu
 - docker-compose.base.yml - Added init service that depends only on postgres health check. Added missing environment variables to api service (DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, DISCORD_BOT_TOKEN, FRONTEND_URL, API_URL, JWT_SECRET, ENVIRONMENT, LOG_LEVEL). Added build args to frontend service (VITE_DISCORD_CLIENT_ID, VITE_API_URL). Updated all application services (bot, api, scheduler, scheduler-beat, notification-daemon) to depend on init service completion. Updated to reference docker/init.Dockerfile
 - docker/frontend.Dockerfile - Added ARG directives for VITE_DISCORD_CLIENT_ID and VITE_API_URL before npm build step to support build-time environment variable injection required by Vite
 - services/bot/commands/config_guild.py - Fixed \_get_or_create_guild_config() to accept and use guild_name parameter; updated /config-guild command to pass interaction.guild.name when creating GuildConfiguration
+- services/bot/events/handlers.py - Removed redundant "(in X minutes)" suffix from game reminder DM messages since Discord's `<t:timestamp:R>` format already displays relative time automatically
 - shared/models/notification_schedule.py - Changed id column type from UUID(as_uuid=False) to String(36) for consistency with all other tables in the schema
 - shared/messaging/sync_publisher.py - Added channel state checking (`not self._channel.is_open`) and automatic reconnection before publishing; added cleanup of stale connections to prevent ChannelWrongStateError in notification daemon
 - shared/messaging/publisher.py - Added channel state checking (`self._channel.is_closed`) and automatic reconnection before publishing in async EventPublisher; added cleanup of stale connections for bot and API services

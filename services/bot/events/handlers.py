@@ -466,10 +466,7 @@ class EventHandlers:
 
             # Format message with waitlist indicator if applicable
             waitlist_prefix = "🎫 **[Waitlist]** " if is_waitlist else ""
-            message = (
-                f"{waitlist_prefix}Your game '{game_title}' starts <t:{game_time_unix}:R> "
-                f"(in {reminder_minutes} minutes)"
-            )
+            message = f"{waitlist_prefix}Your game '{game_title}' starts <t:{game_time_unix}:R>"
 
             logger.debug(f"Sending DM to {user.name}: {message}")
             await user.send(message)
