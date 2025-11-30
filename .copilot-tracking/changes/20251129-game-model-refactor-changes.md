@@ -225,6 +225,51 @@ All EditGame tests pass successfully:
 - Test expectations updated to match new API structure
 - Code follows React/TypeScript best practices
 
+### Phase 7: Remove min_players from Database ✓
+
+### Added
+
+- alembic/versions/015_remove_min_players_field.py - Migration to drop min_players column from database
+
+### Modified
+
+- shared/models/game.py - Removed min_players field from GameSession model
+  - Removed `min_players: Mapped[int] = mapped_column(Integer, default=1, nullable=False)` line
+  - Model now has only max_players for participant limit tracking
+
+### Database Changes
+
+- game_sessions table no longer contains min_players column
+- Migration 015_remove_min_players_field executed successfully
+- All existing game records preserved with all other data intact
+- Database schema now matches model definition
+
+### Test Results
+
+All integration tests pass successfully:
+
+- `tests/integration/test_notification_daemon.py`: 10 tests passed
+- All tests verify database operations work correctly
+- No errors related to missing min_players column
+- where field properly stored and retrieved
+- System fully functional with updated schema
+
+### Code Quality
+
+- Migration follows project patterns and conventions
+- Migration is reversible (downgrade restores min_players with default value)
+- All Python files pass ruff linting (ruff check and ruff format)
+- Database schema properly synchronized with SQLAlchemy models
+- Docker containers rebuilt and verified (init, api, bot, scheduler, notification-daemon)
+- Code follows Python instructions:
+  - Proper copyright headers
+  - Type hints throughout
+  - Docstrings for functions and classes
+  - Proper import organization
+  - snake_case naming conventions
+  - Self-explanatory code with minimal comments
+- All code references to min_players removed (only exists in migration history)
+
 ## Release Summary
 
 _Will be completed after all phases are implemented_

@@ -156,21 +156,21 @@ Refactor the game data model to remove the unused min_players field and add a wh
 - [x] Task 6.6: Run frontend tests to verify min_players removal
   - Details: .copilot-tracking/details/20251129-game-model-refactor-details.md (Lines 399-408)
 
-### [ ] Phase 7: Remove min_players from Database (with tests)
+### [x] Phase 7: Remove min_players from Database (with tests)
 
-- [ ] Task 7.1: Remove min_players from GameSession model
+- [x] Task 7.1: Remove min_players from GameSession model
 
   - Details: .copilot-tracking/details/20251129-game-model-refactor-details.md (Lines 410-422)
 
-- [ ] Task 7.2: Create migration to drop min_players column
+- [x] Task 7.2: Create migration to drop min_players column
 
   - Details: .copilot-tracking/details/20251129-game-model-refactor-details.md (Lines 424-439)
 
-- [ ] Task 7.3: Run migration to drop min_players column
+- [x] Task 7.3: Run migration to drop min_players column
 
   - Details: .copilot-tracking/details/20251129-game-model-refactor-details.md (Lines 441-451)
 
-- [ ] Task 7.4: Run integration tests to verify database changes
+- [x] Task 7.4: Run integration tests to verify database changes
   - Details: .copilot-tracking/details/20251129-game-model-refactor-details.md (Lines 453-463)
 
 ### [ ] Phase 8: Final Verification

@@ -58,7 +58,6 @@ class GameSession(Base):
     signup_instructions: Mapped[str | None] = mapped_column(Text, nullable=True)
     scheduled_at: Mapped[datetime] = mapped_column()
     where: Mapped[str | None] = mapped_column(Text, nullable=True)
-    min_players: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     max_players: Mapped[int | None] = mapped_column(Integer, nullable=True)
     guild_id: Mapped[str] = mapped_column(ForeignKey("guild_configurations.id"))
     channel_id: Mapped[str] = mapped_column(ForeignKey("channel_configurations.id"))
