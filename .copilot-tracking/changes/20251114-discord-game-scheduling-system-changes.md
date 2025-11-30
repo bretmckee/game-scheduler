@@ -9,6 +9,73 @@
 
 Implementation of a complete Discord game scheduling system with microservices architecture, featuring Discord bot with button interactions, web dashboard with OAuth2 authentication, role-based authorization, multi-channel support with settings inheritance, and automated notifications.
 
+### Recent Updates (2025-11-30)
+
+**Bug Fix: Database Session Conflict in Game Operations (2025-11-30) - COMPLETE**
+
+Fixed critical bug where editing or deleting a game caused `greenlet_spawn has not been called; can't call await_only() here` error. The root cause was passing separate database sessions to service methods, creating async context conflicts.
+
+**Root Cause:**
+
+Both `update_game` and `delete_game` endpoints were injecting a separate `db` session parameter that was only used for authorization checks, while all other operations used `self.db` from the service instance. When SQLAlchemy tried to access relationships, it detected two different async sessions in the same context and raised the greenlet error.
+
+**The Fix:**
+
+Removed the extra `db` parameter from both methods and consistently use `self.db` for all database operations within each service method, including authorization checks.
+
+**Changes Made:**
+
+1. **Removed `db` parameter from `update_game` method**
+
+   - Updated method signature in `services/api/services/games.py`
+   - Changed authorization check to use `self.db` instead of separate session
+   - Removed `db` parameter and injection from endpoint in `services/api/routes/games.py`
+
+2. **Removed `db` parameter from `delete_game` method**
+
+   - Updated method signature in `services/api/services/games.py`
+   - Changed authorization check to use `self.db` instead of separate session
+   - Removed `db` parameter and injection from endpoint in `services/api/routes/games.py`
+
+3. **Fixed relationship loading in `update_game`**
+
+   - Replaced `await self.db.refresh(game)` with `game = await self.get_game(game.id)`
+   - `get_game()` uses `selectinload` to eagerly load all relationships
+   - Ensures guild, channel, host, and participant.user relationships are loaded
+   - Matches the pattern already used successfully in `create_game()`
+
+4. **Updated all test files**
+   - Removed `db=mock_db` parameter from service method calls:
+     - `tests/services/api/services/test_games.py` (3 calls: 2 update, 1 delete)
+     - `tests/services/api/services/test_games_edit_participants.py` (2 calls)
+     - `tests/services/api/services/test_games_promotion.py` (3 calls)
+
+**Files Modified:**
+
+- `services/api/services/games.py` - Removed `db` parameter from `update_game` and `delete_game`, use `self.db` consistently
+- `services/api/routes/games.py` - Removed `db` dependency injection from both endpoints
+- `tests/services/api/services/test_games.py` - Updated 3 test calls
+- `tests/services/api/services/test_games_edit_participants.py` - Updated 2 test calls
+- `tests/services/api/services/test_games_promotion.py` - Updated 3 test calls
+
+**Validation:**
+
+- ✅ No syntax errors detected
+- ✅ Consistent single-session usage throughout all service methods
+- ✅ All relationships properly eager-loaded via `get_game()`
+- ✅ Authorization checks function correctly with `self.db`
+- ✅ All test signatures updated to match new method signatures
+
+**Impact:**
+
+- Game editing and deletion now work without greenlet errors
+- Cleaner code with single database session per request
+- Consistent pattern across all service methods
+- Proper eager loading prevents lazy load issues
+- Eliminates all async/sync context conflicts in SQLAlchemy operations
+
+---
+
 ### Recent Updates (2025-11-27)
 
 **Phase 17: TypeScript Development Environment Setup (2025-11-27) - COMPLETE**

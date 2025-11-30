@@ -163,7 +163,6 @@ async def update_game(
     current_user: auth_schemas.CurrentUser = Depends(auth_deps.get_current_user),
     game_service: games_service.GameService = Depends(_get_game_service),
     role_service: roles_module.RoleVerificationService = Depends(permissions_deps.get_role_service),
-    db: AsyncSession = Depends(database.get_db),
 ) -> game_schemas.GameResponse:
     """
     Update game session.
@@ -181,7 +180,6 @@ async def update_game(
             update_data=update_data,
             current_user=current_user,
             role_service=role_service,
-            db=db,
         )
 
         return await _build_game_response(game)
@@ -212,7 +210,6 @@ async def delete_game(
     current_user: auth_schemas.CurrentUser = Depends(auth_deps.get_current_user),
     game_service: games_service.GameService = Depends(_get_game_service),
     role_service: roles_module.RoleVerificationService = Depends(permissions_deps.get_role_service),
-    db: AsyncSession = Depends(database.get_db),
 ) -> None:
     """
     Cancel game session.
@@ -229,7 +226,6 @@ async def delete_game(
             game_id=game_id,
             current_user=current_user,
             role_service=role_service,
-            db=db,
         )
     except ValueError as e:
         if "not found" in str(e).lower():

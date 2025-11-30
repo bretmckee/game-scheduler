@@ -486,7 +486,6 @@ async def test_update_game_success(game_service, mock_db, sample_user, sample_gu
             ),
             current_user=current_user,
             role_service=mock_role_service,
-            db=mock_db,
         )
 
     assert updated.title == "New Title"
@@ -533,7 +532,6 @@ async def test_update_game_not_host(game_service, mock_db, sample_user, sample_g
                 ),
                 current_user=current_user,
                 role_service=mock_role_service,
-                db=mock_db,
             )
 
 
@@ -571,7 +569,6 @@ async def test_delete_game_success(game_service, mock_db, sample_user, sample_gu
             game_id=game_id,
             current_user=current_user,
             role_service=mock_role_service,
-            db=mock_db,
         )
 
     assert mock_game.status == "CANCELLED"

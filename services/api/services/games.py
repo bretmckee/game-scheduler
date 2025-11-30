@@ -322,7 +322,6 @@ class GameService:
         update_data: game_schemas.GameUpdateRequest,
         current_user,
         role_service,
-        db: AsyncSession,
     ) -> game_model.GameSession:
         """
         Update game session with Bot Manager authorization.
@@ -332,7 +331,6 @@ class GameService:
             update_data: Update data
             current_user: Current authenticated user (CurrentUser schema)
             role_service: Role verification service
-            db: Database session for authorization queries
 
         Returns:
             Updated game session
@@ -353,7 +351,7 @@ class GameService:
             guild_id=game.guild.guild_id,
             current_user=current_user,
             role_service=role_service,
-            db=db,
+            db=self.db,
         )
 
         if not can_manage:
@@ -540,7 +538,11 @@ class GameService:
             await schedule_service.update_schedule(game, reminder_minutes)
 
         await self.db.commit()
-        await self.db.refresh(game)
+
+        # Reload game with all relationships
+        game = await self.get_game(game.id)
+        if game is None:
+            raise ValueError("Failed to reload updated game")
 
         # Detect promotions from overflow to confirmed participants
         await self._detect_and_notify_promotions(
@@ -558,7 +560,6 @@ class GameService:
         game_id: str,
         current_user,
         role_service,
-        db: AsyncSession,
     ) -> None:
         """
         Cancel game session with Bot Manager authorization.
@@ -567,7 +568,6 @@ class GameService:
             game_id: Game session UUID
             current_user: Current authenticated user (CurrentUser schema)
             role_service: Role verification service
-            db: Database session for authorization queries
 
         Raises:
             ValueError: If game not found or user lacks permission
@@ -585,7 +585,7 @@ class GameService:
             guild_id=game.guild.guild_id,
             current_user=current_user,
             role_service=role_service,
-            db=db,
+            db=self.db,
         )
 
         if not can_manage:

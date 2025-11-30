@@ -194,7 +194,6 @@ async def test_update_game_with_discord_mention_format(
             update_data=update_data,
             current_user=mock_current_user,
             role_service=mock_role_service,
-            db=mock_db,
         )
     
     # Verify that resolve_initial_participants was called with Discord mention format
@@ -280,7 +279,6 @@ async def test_update_game_preserves_discord_users_not_placeholders(
             update_data=update_data,
             current_user=mock_current_user,
             role_service=mock_role_service,
-            db=mock_db,
         )
     
     # Verify the resolver was called and recognized the Discord mention format

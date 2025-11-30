@@ -174,7 +174,6 @@ async def test_promotion_when_max_players_increased(
                 update_data=update_request,
                 current_user=mock_current_user,
                 role_service=mock_role_service,
-                db=mock_db,
             )
 
     # Verify promotion notifications were published
@@ -247,7 +246,6 @@ async def test_promotion_when_participant_removed(
                 update_data=update_request,
                 current_user=mock_current_user,
                 role_service=mock_role_service,
-                db=mock_db,
             )
 
     # Verify promotion notification was published
@@ -299,7 +297,6 @@ async def test_no_promotion_when_no_overflow(
                 update_data=update_request,
                 current_user=mock_current_user,
                 role_service=mock_role_service,
-                db=mock_db,
             )
 
     # Verify no promotion notifications were published
