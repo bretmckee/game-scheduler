@@ -41,17 +41,17 @@ Refactor the game data model to remove the unused min_players field and add a wh
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Add where Field to Database (Safe - Optional Column)
+### [x] Phase 1: Add where Field to Database (Safe - Optional Column)
 
-- [ ] Task 1.1: Create migration to add where column
+- [x] Task 1.1: Create migration to add where column
 
   - Details: .copilot-tracking/details/20251129-game-model-refactor-details.md (Lines 18-34)
 
-- [ ] Task 1.2: Add where field to GameSession model
+- [x] Task 1.2: Add where field to GameSession model
 
   - Details: .copilot-tracking/details/20251129-game-model-refactor-details.md (Lines 36-49)
 
-- [ ] Task 1.3: Run migration to add where column
+- [x] Task 1.3: Run migration to add where column
   - Details: .copilot-tracking/details/20251129-game-model-refactor-details.md (Lines 51-61)
 
 ### [ ] Phase 2: Add where Field to API Layer (with tests)
