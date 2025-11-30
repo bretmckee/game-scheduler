@@ -156,7 +156,7 @@ async def test_resolve_no_match(resolver, mock_discord_client):
     assert len(valid) == 0
     assert len(errors) == 1
     assert errors[0]["input"] == "@nonexistent"
-    assert errors[0]["reason"] == "User not found in guild"
+    assert errors[0]["reason"] == "User not found in server"
     assert errors[0]["suggestions"] == []
 
 
@@ -264,10 +264,9 @@ async def test_network_error_handling(resolver, mock_discord_client):
     """Test handling of network errors during Discord API calls."""
     mock_session = MagicMock()
 
-    async def raise_network_error(*args, **kwargs):
-        raise Exception("Network connection failed")
-
-    mock_session.get = MagicMock(side_effect=raise_network_error)
+    mock_context_manager = AsyncMock()
+    mock_context_manager.__aenter__.side_effect = Exception("Network connection failed")
+    mock_session.get = MagicMock(return_value=mock_context_manager)
     mock_discord_client._get_session = AsyncMock(return_value=mock_session)
 
     valid, errors = await resolver.resolve_initial_participants(

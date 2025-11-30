@@ -203,6 +203,7 @@ async def test_my_games_creates_new_user(mock_interaction):
     """Test my_games_command creates user if not exists."""
     with patch("services.bot.commands.my_games.get_db_session") as mock_db:
         mock_session = AsyncMock()
+        mock_session.add = MagicMock()
         mock_db.return_value.__aenter__.return_value = mock_session
 
         mock_user_result = MagicMock()

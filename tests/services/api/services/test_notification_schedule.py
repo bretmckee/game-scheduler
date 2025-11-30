@@ -33,6 +33,7 @@ async def test_populate_schedule_creates_future_notifications():
     """Test that populate_schedule creates notification records for future reminders."""
     # Mock database session
     mock_db = AsyncMock()
+    mock_db.add = MagicMock()
     service = NotificationScheduleService(mock_db)
 
     # Game scheduled 2 hours in the future
@@ -66,6 +67,7 @@ async def test_populate_schedule_skips_past_notifications():
     """Test that populate_schedule skips notifications in the past."""
     # Mock database session
     mock_db = AsyncMock()
+    mock_db.add = MagicMock()
     service = NotificationScheduleService(mock_db)
 
     # Game scheduled 30 minutes in the future
@@ -90,6 +92,7 @@ async def test_update_schedule_deletes_and_creates():
     """Test that update_schedule deletes old and creates new notifications."""
     # Mock database session
     mock_db = AsyncMock()
+    mock_db.add = MagicMock()
     service = NotificationScheduleService(mock_db)
 
     # Game scheduled 3 hours in the future

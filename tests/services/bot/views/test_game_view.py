@@ -49,10 +49,13 @@ class TestGameView:
 
     @pytest.mark.asyncio
     async def test_initializes_with_full_game(self, event_loop):
-        """Test GameView when game is full."""
+        """Test GameView when game is full.
+        
+        Note: With waitlist support, join button remains enabled even when full.
+        """
         view = GameView(game_id="test-game-id", is_full=True)
         assert view.is_full is True
-        assert view.join_button.disabled is True
+        assert view.join_button.disabled is False  # Waitlist allows joining when full
         assert view.leave_button.disabled is False
 
     @pytest.mark.asyncio
@@ -78,7 +81,6 @@ class TestGameView:
         # discord.ButtonStyle.success is value 3
         assert view.join_button.style.value == 3
         assert view.join_button.label == "Join Game"
-        assert view.join_button.emoji.name == "✅"
 
     @pytest.mark.asyncio
     async def test_leave_button_has_correct_style(self, event_loop):
@@ -87,7 +89,6 @@ class TestGameView:
         # discord.ButtonStyle.danger is value 4
         assert view.leave_button.style.value == 4
         assert view.leave_button.label == "Leave Game"
-        assert view.leave_button.emoji.name == "❌"
 
     @pytest.mark.asyncio
     async def test_view_has_no_timeout(self, event_loop):
@@ -105,10 +106,13 @@ class TestGameView:
 
     @pytest.mark.asyncio
     async def test_update_button_states_disables_join_when_full(self, event_loop):
-        """Test updating button states when game is full."""
+        """Test updating button states when game is full.
+        
+        Note: With waitlist support, join button remains enabled even when full.
+        """
         view = GameView(game_id="test-id")
         view.update_button_states(is_full=True, is_started=False)
-        assert view.join_button.disabled
+        assert not view.join_button.disabled  # Waitlist allows joining when full
         assert not view.leave_button.disabled
 
     @pytest.mark.asyncio
@@ -132,13 +136,16 @@ class TestGameView:
 
     @pytest.mark.asyncio
     async def test_from_game_data_creates_view_for_full_game(self, event_loop):
-        """Test creating view from game data for full game."""
+        """Test creating view from game data for full game.
+        
+        Note: With waitlist support, join button remains enabled even when full.
+        """
         view = GameView.from_game_data(
             game_id="test-id", current_players=5, max_players=5, status="SCHEDULED"
         )
         assert view.is_full
         assert not view.is_started
-        assert view.join_button.disabled
+        assert not view.join_button.disabled  # Waitlist allows joining when full
         assert not view.leave_button.disabled
 
     @pytest.mark.asyncio

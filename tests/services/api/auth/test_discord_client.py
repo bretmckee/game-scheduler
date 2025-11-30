@@ -55,6 +55,8 @@ class TestDiscordAPIClient:
         """Test successful authorization code exchange."""
         mock_response = AsyncMock()
         mock_response.status = 200
+        mock_response.headers = MagicMock()
+        mock_response.headers.get = MagicMock(return_value="N/A")
         mock_response.json = AsyncMock(
             return_value={
                 "access_token": "test_access_token",
@@ -84,6 +86,8 @@ class TestDiscordAPIClient:
         """Test authorization code exchange failure."""
         mock_response = AsyncMock()
         mock_response.status = 400
+        mock_response.headers = MagicMock()
+        mock_response.headers.get = MagicMock(return_value="N/A")
         mock_response.json = AsyncMock(return_value={"error_description": "Invalid code"})
 
         mock_session = MagicMock()
@@ -127,6 +131,8 @@ class TestDiscordAPIClient:
         """Test successful token refresh."""
         mock_response = AsyncMock()
         mock_response.status = 200
+        mock_response.headers = MagicMock()
+        mock_response.headers.get = MagicMock(return_value="N/A")
         mock_response.json = AsyncMock(
             return_value={
                 "access_token": "new_access_token",
@@ -153,6 +159,8 @@ class TestDiscordAPIClient:
         """Test successful user info fetch."""
         mock_response = AsyncMock()
         mock_response.status = 200
+        mock_response.headers = MagicMock()
+        mock_response.headers.get = MagicMock(return_value="N/A")
         mock_response.json = AsyncMock(
             return_value={
                 "id": "123456789",
@@ -179,6 +187,8 @@ class TestDiscordAPIClient:
         """Test successful guilds fetch."""
         mock_response = AsyncMock()
         mock_response.status = 200
+        mock_response.headers = MagicMock()
+        mock_response.headers.get = MagicMock(return_value="N/A")
         mock_response.json = AsyncMock(
             return_value=[
                 {"id": "guild1", "name": "Test Guild 1"},
@@ -204,6 +214,8 @@ class TestDiscordAPIClient:
         """Test successful guild member fetch."""
         mock_response = AsyncMock()
         mock_response.status = 200
+        mock_response.headers = MagicMock()
+        mock_response.headers.get = MagicMock(return_value="N/A")
         mock_response.json = AsyncMock(
             return_value={
                 "user": {"id": "123456789"},

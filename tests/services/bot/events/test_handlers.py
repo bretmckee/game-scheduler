@@ -100,7 +100,7 @@ async def test_start_consuming(event_handlers):
         assert mock_consumer.bind.await_count == 2
         mock_consumer.bind.assert_any_await("game.*")
         mock_consumer.bind.assert_any_await("notification.*")
-        assert mock_consumer.register_handler.call_count == 3
+        assert mock_consumer.register_handler.call_count == 5
         mock_consumer.start_consuming.assert_awaited_once()
 
 
@@ -284,39 +284,44 @@ async def test_handle_game_updated_debouncing(event_handlers, mock_bot, sample_g
         mock_db.__aexit__ = AsyncMock()
         mock_db_session.return_value = mock_db
 
-        with patch(
-            "services.bot.events.handlers.EventHandlers._get_game_with_participants",
-            return_value=sample_game,
-        ):
-            with patch("services.bot.events.handlers.format_game_announcement") as mock_format:
-                mock_content = None  # No role mentions for update
-                mock_embed = MagicMock()
-                mock_view = MagicMock()
-                mock_format.return_value = (mock_content, mock_embed, mock_view)
+        # Mock Redis client to enable throttle tracking
+        mock_redis = AsyncMock()
+        mock_redis.exists = AsyncMock(return_value=True)  # Simulate throttled state
 
-                data = {"game_id": sample_game.id}
+        with patch("services.bot.events.handlers.get_redis_client", return_value=mock_redis):
+            with patch(
+                "services.bot.events.handlers.EventHandlers._get_game_with_participants",
+                return_value=sample_game,
+            ):
+                with patch("services.bot.events.handlers.format_game_announcement") as mock_format:
+                    mock_content = None  # No role mentions for update
+                    mock_embed = MagicMock()
+                    mock_view = MagicMock()
+                    mock_format.return_value = (mock_content, mock_embed, mock_view)
 
-                # Simulate 5 rapid updates (e.g., 5 users joining quickly)
-                # First schedules refresh (0s delay), rest are skipped as duplicates
-                for _i in range(5):
-                    await event_handlers._handle_game_updated(data)
+                    data = {"game_id": sample_game.id}
 
-                # Verify refresh is pending (not yet executed)
-                assert sample_game.id in event_handlers._pending_refreshes
+                    # Simulate 5 rapid updates (e.g., 5 users joining quickly)
+                    # First schedules refresh (0s delay), rest are skipped as duplicates
+                    for _i in range(5):
+                        await event_handlers._handle_game_updated(data)
 
-                # First update has 0s delay (instant), just yield to event loop
-                await asyncio.sleep(0.01)
+                    # Verify refresh is pending (not yet executed)
+                    assert sample_game.id in event_handlers._pending_refreshes
 
-                # Verify refresh completed and is no longer pending
-                assert sample_game.id not in event_handlers._pending_refreshes
+                    # Wait for the delayed refresh to complete (CacheTTL.MESSAGE_UPDATE_THROTTLE = 2s)
+                    await asyncio.sleep(2.1)
 
-                # Should only refresh once (first event scheduled, rest skipped)
-                mock_discord_channel.fetch_message.assert_awaited_once_with(
-                    int(sample_game.message_id)
-                )
-                mock_message.edit.assert_awaited_once_with(
-                    content=mock_content, embed=mock_embed, view=mock_view
-                )
+                    # Verify refresh completed and is no longer pending
+                    assert sample_game.id not in event_handlers._pending_refreshes
+
+                    # Should only refresh once (first event scheduled, rest skipped)
+                    mock_discord_channel.fetch_message.assert_awaited_once_with(
+                        int(sample_game.message_id)
+                    )
+                    mock_message.edit.assert_awaited_once_with(
+                        content=mock_content, embed=mock_embed, view=mock_view
+                    )
 
 
 @pytest.mark.asyncio

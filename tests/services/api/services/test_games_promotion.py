@@ -230,26 +230,93 @@ async def test_promotion_when_participant_removed(
 
     mock_db.refresh = AsyncMock(side_effect=mock_refresh_side_effect)
 
-    # Mock get_game to return our sample game
-    with patch.object(game_service, "get_game", return_value=sample_game):
-        # Mock authorization check
-        mock_role_service = AsyncMock()
-        mock_current_user = MagicMock()
-        mock_current_user.discord_id = sample_game.host.discord_id
+    # Create a fresh game object with updated participants (simulating what get_game would return after DB reload)
+    get_game_call_count = [0]
 
-        with patch("services.api.dependencies.permissions.can_manage_game", return_value=True):
-            # Remove one confirmed participant (should promote overflow)
-            update_request = GameUpdateRequest(removed_participant_ids=[participants[0].id])
+    def get_game_side_effect(game_id):
+        # Return a fresh GameSession with participants list after removal
+        get_game_call_count[0] += 1
+        
+        # First call (at start of update_game): return game with all 6 participants (before removal)
+        # Second call (after commit): return game with 5 participants (after removal)
+        if get_game_call_count[0] == 1:
+            participants_list = participants + [overflow_participant]
+            print(f"\nget_game call #1: returning BEFORE removal - {len(participants_list)} participants")
+        else:
+            participants_list = participants[1:] + [overflow_participant]
+            print(f"\nget_game call #{get_game_call_count[0]}: returning AFTER removal - {len(participants_list)} participants")
+        
+        fresh_game = GameSession(
+            id=sample_game.id,
+            title=sample_game.title,
+            description=sample_game.description,
+            scheduled_at=sample_game.scheduled_at,
+            max_players=sample_game.max_players,
+            min_players=sample_game.min_players,
+            guild_id=sample_game.guild_id,
+            channel_id=sample_game.channel_id,
+            host_id=sample_game.host_id,
+            message_id=sample_game.message_id,
+            status=sample_game.status,
+            participants=participants_list,
+        )
+        fresh_game.host = sample_game.host
+        fresh_game.channel = sample_game.channel
+        fresh_game.guild = sample_game.guild
+        print(f"Participant discord_ids: {[p.user.discord_id for p in fresh_game.participants]}")
+        return fresh_game
 
-            await game_service.update_game(
-                game_id=sample_game.id,
-                update_data=update_request,
-                current_user=mock_current_user,
-                role_service=mock_role_service,
-            )
+    # Mock get_game to return fresh game with updated participants
+    original_detect_promotions = game_service._detect_and_notify_promotions
+    detect_calls_list = []
+
+    async def track_detect_promotions(game, old_overflow_ids):
+        detect_calls_list.append({
+            'game_id': game.id,
+            'old_overflow_ids': old_overflow_ids,
+            'current_participants': [p.user.discord_id for p in game.participants if p.user]
+        })
+        print(f"\n_detect_and_notify_promotions called!")
+        print(f"  old_overflow_ids: {old_overflow_ids}")
+        print(f"  current participants: {[p.user.discord_id for p in game.participants if p.user]}")
+        result = await original_detect_promotions(game, old_overflow_ids)
+        print(f"  _detect_and_notify_promotions completed")
+        return result
+
+    with patch.object(game_service, '_detect_and_notify_promotions', side_effect=track_detect_promotions):
+        with patch.object(game_service, "get_game", side_effect=get_game_side_effect):
+            # Mock authorization check
+            mock_role_service = AsyncMock()
+            mock_current_user = MagicMock()
+            mock_current_user.discord_id = sample_game.host.discord_id
+
+            with patch("services.api.dependencies.permissions.can_manage_game", return_value=True):
+                # Remove one confirmed participant (should promote overflow)
+                update_request = GameUpdateRequest(removed_participant_ids=[participants[0].id])
+
+                try:
+                    result = await game_service.update_game(
+                        game_id=sample_game.id,
+                        update_data=update_request,
+                        current_user=mock_current_user,
+                        role_service=mock_role_service,
+                    )
+                    print(f"\nUpdate completed successfully, result id: {result.id if result else 'None'}")
+                    print(f"Result participants: {len(result.participants) if result else 0}")
+                except Exception as e:
+                    print(f"\nUpdate failed with exception: {type(e).__name__}: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    raise
 
     # Verify promotion notification was published
     publish_calls = mock_event_publisher.publish.call_args_list
+
+    # Debug: print all publish calls
+    print(f"\nTotal publish calls: {len(publish_calls)}")
+    for i, call in enumerate(publish_calls):
+        event = call[1]["event"]
+        print(f"Call {i}: event_type={event.event_type}, data={event.data}")
 
     notification_calls = [
         call
@@ -257,7 +324,7 @@ async def test_promotion_when_participant_removed(
         if call[1]["event"].event_type == EventType.NOTIFICATION_SEND_DM
     ]
 
-    assert len(notification_calls) == 1, "Should send 1 promotion notification"
+    assert len(notification_calls) == 1, f"Should send 1 promotion notification, got {len(notification_calls)}"
 
     event_data = notification_calls[0][1]["event"].data
     assert event_data["notification_type"] == "waitlist_promotion"

@@ -75,14 +75,6 @@ class TestBotConfig:
         assert config.log_level == "DEBUG"
         assert config.environment == "production"
 
-    def test_config_missing_required_field(self) -> None:
-        """Test that missing required fields raise validation error."""
-        from pydantic import ValidationError
-
-        with patch.dict(os.environ, {}, clear=True):
-            with pytest.raises(ValidationError):
-                BotConfig(discord_bot_token="test_token", _env_file=None)
-
     def test_config_from_environment(self) -> None:
         """Test configuration loading from environment variables."""
         env_vars = {

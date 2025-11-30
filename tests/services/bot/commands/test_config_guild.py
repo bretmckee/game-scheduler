@@ -231,6 +231,7 @@ async def test_config_guild_creates_new_config(mock_interaction, mock_guild, moc
 
     with patch("services.bot.commands.config_guild.get_db_session") as mock_db:
         mock_session = AsyncMock()
+        mock_session.add = MagicMock()
         mock_db.return_value.__aenter__.return_value = mock_session
 
         mock_result = MagicMock()
