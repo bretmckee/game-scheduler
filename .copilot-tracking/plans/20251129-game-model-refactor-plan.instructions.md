@@ -72,17 +72,17 @@ Refactor the game data model to remove the unused min_players field and add a wh
   - Details: .copilot-tracking/details/20251129-game-model-refactor-details.md (Lines 112-122)
   - Details: .copilot-tracking/details/20251129-game-model-refactor-details.md (Lines 112-122)
 
-### [ ] Phase 3: Add where Field to Discord Bot (with tests)
+### [x] Phase 3: Add where Field to Discord Bot (with tests)
 
-- [ ] Task 3.1: Update game message formatter for where field
+- [x] Task 3.1: Update game message formatter for where field
 
   - Details: .copilot-tracking/details/20251129-game-model-refactor-details.md (Lines 124-140)
 
-- [ ] Task 3.2: Update event handlers to pass where field
+- [x] Task 3.2: Update event handlers to pass where field
 
   - Details: .copilot-tracking/details/20251129-game-model-refactor-details.md (Lines 142-154)
 
-- [ ] Task 3.3: Run bot tests to verify where field
+- [x] Task 3.3: Run bot tests to verify where field
   - Details: .copilot-tracking/details/20251129-game-model-refactor-details.md (Lines 156-165)
 
 ### [ ] Phase 4: Add where Field to Frontend (with tests)

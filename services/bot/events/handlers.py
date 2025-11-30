@@ -590,6 +590,7 @@ class EventHandlers:
             signup_instructions=game.signup_instructions,
             expected_duration_minutes=game.expected_duration_minutes,
             notify_role_ids=game.notify_role_ids or [],
+            where=game.where,
         )
 
     async def _get_game_with_participants(

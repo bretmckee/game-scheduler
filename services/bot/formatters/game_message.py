@@ -57,6 +57,7 @@ class GameMessageFormatter:
         channel_id: str | None = None,
         signup_instructions: str | None = None,
         expected_duration_minutes: int | None = None,
+        where: str | None = None,
     ) -> discord.Embed:
         """Create an embed for a game session.
 
@@ -73,6 +74,7 @@ class GameMessageFormatter:
             channel_id: Optional Discord channel ID
             signup_instructions: Optional signup instructions
             expected_duration_minutes: Optional expected game duration in minutes
+            where: Optional game location
 
         Returns:
             Configured Discord embed
@@ -97,6 +99,9 @@ class GameMessageFormatter:
             f"({format_discord_timestamp(scheduled_at, 'R')})",
             inline=False,
         )
+
+        if where:
+            embed.add_field(name="Where", value=where, inline=False)
 
         embed.add_field(name="Players", value=f"{current_count}/{max_players}", inline=True)
 
@@ -203,6 +208,7 @@ def format_game_announcement(
     signup_instructions: str | None = None,
     expected_duration_minutes: int | None = None,
     notify_role_ids: list[str] | None = None,
+    where: str | None = None,
 ) -> tuple[str | None, discord.Embed, GameView]:
     """Format a complete game announcement with embed and buttons.
 
@@ -221,6 +227,7 @@ def format_game_announcement(
         signup_instructions: Optional signup instructions
         expected_duration_minutes: Optional expected game duration in minutes
         notify_role_ids: Optional list of Discord role IDs to mention
+        where: Optional game location
 
     Returns:
         Tuple of (content, embed, view) where content contains role mentions if any
@@ -241,6 +248,7 @@ def format_game_announcement(
         channel_id=channel_id,
         signup_instructions=signup_instructions,
         expected_duration_minutes=expected_duration_minutes,
+        where=where,
     )
 
     view = GameView.from_game_data(

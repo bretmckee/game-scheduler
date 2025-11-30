@@ -61,6 +61,36 @@ All backend tests pass successfully:
 - Self-documenting code with appropriate docstrings
 - All Docker containers build successfully (API, test)
 
+### Phase 3: Add where Field to Discord Bot ✓
+
+### Modified
+
+- services/bot/formatters/game_message.py - Added where field support to Discord embeds
+  - Added where parameter to create_game_embed() method (optional, positioned after expected_duration_minutes)
+  - Added where parameter to format_game_announcement() function (optional)
+  - Where field displayed immediately after "When" field using `embed.add_field(name="Where", value=where, inline=False)`
+  - Where field only displayed when value is provided (not None)
+- services/bot/events/handlers.py - Updated event handler to pass where field
+  - Updated \_create_game_announcement() to pass where=game.where to format_game_announcement()
+- tests/services/bot/formatters/test_game_message.py - Added tests for where field
+  - test_embed_includes_where_when_provided: Verifies where field is displayed when provided
+  - test_embed_excludes_where_when_not_provided: Verifies where field is not displayed when not provided
+
+### Test Results
+
+All bot tests pass successfully:
+
+- `tests/services/bot/formatters/test_game_message.py`: 19 tests passed (including 2 new where field tests)
+- All existing tests continue to pass
+- New tests verify where field is properly displayed in Discord embeds
+
+### Code Quality
+
+- All modified Python files follow Python 3.11+ conventions
+- Self-documenting code with appropriate docstrings
+- Field order matches specification: When → Where → Players → Host
+- Note: Pre-existing unused variable `status_emoji` detected in game_message.py (line 82) - not fixed as out of scope for this task
+
 ## Release Summary
 
 _Will be completed after all phases are implemented_

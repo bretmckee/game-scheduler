@@ -151,6 +151,57 @@ class TestGameMessageFormatter:
             calls = [str(call) for call in mock_embed.add_field.call_args_list]
             assert any("Channel" in str(call) and "<#987654321>" in str(call) for call in calls)
 
+    def test_embed_includes_where_when_provided(self):
+        """Test that embed includes where field when provided."""
+        scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
+
+        with patch("services.bot.formatters.game_message.discord.Embed") as mock_embed_class:
+            mock_embed = MagicMock()
+            mock_embed_class.return_value = mock_embed
+
+            formatter = GameMessageFormatter()
+            formatter.create_game_embed(
+                game_title="Game",
+                description="Desc",
+                scheduled_at=scheduled_at,
+                host_id="123",
+                participant_ids=[],
+                overflow_ids=[],
+                current_count=0,
+                max_players=5,
+                status="SCHEDULED",
+                where="Local Game Store, 123 Main St",
+            )
+
+            calls = [str(call) for call in mock_embed.add_field.call_args_list]
+            assert any(
+                "Where" in str(call) and "Local Game Store" in str(call) for call in calls
+            )
+
+    def test_embed_excludes_where_when_not_provided(self):
+        """Test that embed does not include where field when not provided."""
+        scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
+
+        with patch("services.bot.formatters.game_message.discord.Embed") as mock_embed_class:
+            mock_embed = MagicMock()
+            mock_embed_class.return_value = mock_embed
+
+            formatter = GameMessageFormatter()
+            formatter.create_game_embed(
+                game_title="Game",
+                description="Desc",
+                scheduled_at=scheduled_at,
+                host_id="123",
+                participant_ids=[],
+                overflow_ids=[],
+                current_count=0,
+                max_players=5,
+                status="SCHEDULED",
+            )
+
+            calls = [str(call) for call in mock_embed.add_field.call_args_list]
+            assert not any("Where" in str(call) for call in calls)
+
     def test_embed_includes_participants_when_present(self):
         """Test that embed includes participant list when there are participants."""
         scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
