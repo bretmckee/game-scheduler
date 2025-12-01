@@ -354,8 +354,117 @@ Successfully completed refactoring of game data model to remove the unused `min_
 #### Lint Results
 
 All 29 ESLint/prettier errors automatically fixed:
-- App.tsx, api/client.ts, components/*.tsx, contexts/*.tsx
-- hooks/useAuth.ts, index.tsx, pages/*.tsx, test/setup.ts
-- theme.ts, utils/*.ts, vite-env.d.ts
+
+- App.tsx, api/client.ts, components/_.tsx, contexts/_.tsx
+- hooks/useAuth.ts, index.tsx, pages/\*.tsx, test/setup.ts
+- theme.ts, utils/\*.ts, vite-env.d.ts
 
 **Status**: All TypeScript lint errors resolved, codebase now passes linting
+
+### Phase 8: Final Verification ✓
+
+#### Task 8.2: Where Field Display Verification
+
+**Status**: Verified where field is already properly implemented in all game display pages
+
+#### Files Verified
+
+- frontend/src/pages/GameDetails.tsx - Where field displayed under When line
+  - Displays with label "Where:" in Typography body1 variant
+  - Only shown when game.where is populated (conditional rendering)
+  - Positioned immediately after "When:" field
+- frontend/src/components/GameCard.tsx - Where field displayed in game cards
+  - Displays with label "Where:" in Typography body2 variant
+  - Only shown when game.where is populated (conditional rendering)
+  - Positioned immediately after "When:" field in details section
+
+#### Success Criteria Met
+
+- ✅ Where field displays on GameCard (My Games page) under the When line
+- ✅ Where field displays on GameDetails page under the When line
+- ✅ Label is "Where:"
+- ✅ Field only displays when where value exists
+- ✅ Styling is consistent with When field
+
+#### Task 8.3: Add where Field to Discord Bot Embed
+
+**Status**: Verified where field is already implemented in Discord bot
+
+#### Files Verified
+
+- services/bot/formatters/game_message.py - Where field in create_game_embed() method
+  - where parameter added as optional (after expected_duration_minutes)
+  - Displays with label "Where:" using embed.add_field()
+  - Only shown when where value is provided (conditional rendering)
+  - Positioned immediately after "When" field
+- services/bot/formatters/game_message.py - Where field in format_game_announcement() function
+  - where parameter passed through to create_game_embed()
+- services/bot/events/handlers.py - Where field in \_create_game_announcement() method
+  - where=game.where passed to format_game_announcement()
+
+#### Success Criteria Met
+
+- ✅ Where field displays in Discord embed under When field
+- ✅ Label is "Where:"
+- ✅ Field only displays when where value exists
+- ✅ Formatting matches existing When field style
+
+#### Task 8.4: Reorder where Field on Create/Edit Game Pages
+
+**Status**: Completed - Form field order updated
+
+#### Modified
+
+- frontend/src/components/GameForm.tsx - Reordered form fields
+  - Moved Game Title to first position (after form header)
+  - Location (where) field moved to second position (immediately after Game Title)
+  - Scheduled Time moved to third position
+  - All other fields follow in logical order
+  - New order: Game Title → Location (where) → Scheduled Time → Duration → Reminders → Channel → Description → Signup Instructions → Max Players/Notify Roles → Participants
+
+#### Success Criteria Met
+
+- ✅ Where field appears immediately after Game Title field
+- ✅ Form flow is: Game Title → Where → When → other fields
+- ✅ Field validation and behavior unchanged
+- ✅ TypeScript compilation passes
+
+#### Task 8.5: Display Max Players and Notify Roles on Same Line
+
+**Status**: Completed - Fields displayed side-by-side
+
+#### Modified
+
+- frontend/src/components/GameForm.tsx - Updated layout for Max Players and Notify Roles
+  - Added Grid import from @mui/material
+  - Wrapped Max Players and Notify Roles in Grid container with 2 columns
+  - Max Players in Grid item xs={12} md={6} (left column)
+  - Notify Roles in Grid item xs={12} md={6} (right column, create mode only)
+  - Removed margin="normal" from Max Players (using Grid spacing instead)
+  - Grid spacing={2} for proper horizontal spacing
+  - Responsive: Fields stack vertically on small screens (xs=12), side-by-side on medium+ screens (md=6)
+
+#### Success Criteria Met
+
+- ✅ Max Players and Notify Roles fields appear on same row
+- ✅ Fields are appropriately sized for horizontal layout (50/50 split on desktop)
+- ✅ Form remains responsive on smaller screens (stacks vertically on mobile)
+- ✅ Field functionality unchanged
+- ✅ TypeScript compilation passes
+
+### Infrastructure Changes
+
+#### Modified
+
+- docker-compose.base.yml - Added missing fields to init service
+  - Added `tags` field with proper image tagging pattern: `${IMAGE_REGISTRY:-}game-scheduler-init:${IMAGE_TAG:-latest}`
+  - Added `x-bake` configuration for multi-platform builds (linux/amd64, linux/arm64)
+  - Added `image` field to specify the image name to use/create
+  - init service now matches the structure of other built services (bot, api, scheduler, notification-daemon, frontend)
+
+#### Success Criteria Met
+
+- ✅ init service has consistent structure with other services
+- ✅ Multi-platform build support enabled for init service
+- ✅ Image tagging follows project conventions
+- ✅ Registry and tag variables properly supported

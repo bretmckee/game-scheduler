@@ -31,6 +31,7 @@ import {
   SelectChangeEvent,
   Chip,
   OutlinedInput,
+  Grid,
 } from '@mui/material';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -325,12 +326,15 @@ export const GameForm: FC<GameFormProps> = ({
         )}
 
         <Box component="form" onSubmit={handleSubmit} sx={{ mt: 3 }}>
-          <DateTimePicker
-            label="Scheduled Time *"
-            value={formData.scheduledAt}
-            onChange={handleDateChange}
+          <TextField
+            fullWidth
+            required
+            label="Game Title"
+            name="title"
+            value={formData.title}
+            onChange={handleChange}
+            margin="normal"
             disabled={loading}
-            sx={{ width: '100%', mt: 2, mb: 1 }}
           />
 
           <TextField
@@ -345,6 +349,14 @@ export const GameForm: FC<GameFormProps> = ({
             helperText="Game location (optional, up to 500 characters)"
             disabled={loading}
             inputProps={{ maxLength: 500 }}
+          />
+
+          <DateTimePicker
+            label="Scheduled Time *"
+            value={formData.scheduledAt}
+            onChange={handleDateChange}
+            disabled={loading}
+            sx={{ width: '100%', mt: 2, mb: 1 }}
           />
 
           <TextField
@@ -389,17 +401,6 @@ export const GameForm: FC<GameFormProps> = ({
           <TextField
             fullWidth
             required
-            label="Game Title"
-            name="title"
-            value={formData.title}
-            onChange={handleChange}
-            margin="normal"
-            disabled={loading}
-          />
-
-          <TextField
-            fullWidth
-            required
             multiline
             rows={3}
             label="Description"
@@ -423,70 +424,73 @@ export const GameForm: FC<GameFormProps> = ({
             disabled={loading}
           />
 
-          <TextField
-            fullWidth
-            label="Max Players"
-            name="maxPlayers"
-            type="number"
-            value={formData.maxPlayers}
-            onChange={handleChange}
-            margin="normal"
-            helperText="Leave empty to use channel/server default"
-            disabled={loading}
-            inputProps={{ min: 1, max: 100 }}
-          />
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Max Players"
+                name="maxPlayers"
+                type="number"
+                value={formData.maxPlayers}
+                onChange={handleChange}
+                helperText="Leave empty to use channel/server default"
+                disabled={loading}
+                inputProps={{ min: 1, max: 100 }}
+              />
+            </Grid>
 
-          {mode === 'create' && (
-            <FormControl fullWidth margin="normal">
-              <InputLabel>Notify Roles</InputLabel>
-              <Select
-                multiple
-                value={formData.notifyRoleIds}
-                onChange={handleRoleSelectChange}
-                input={<OutlinedInput label="Notify Roles" />}
-                renderValue={(selected) => (
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                    {selected.map((roleId) => {
-                      const role = roles.find((r) => r.id === roleId);
-                      return (
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                  <InputLabel>Notify Roles</InputLabel>
+                  <Select
+                    multiple
+                    value={formData.notifyRoleIds}
+                    onChange={handleRoleSelectChange}
+                    input={<OutlinedInput label="Notify Roles" />}
+                    renderValue={(selected) => (
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                        {selected.map((roleId) => {
+                          const role = roles.find((r) => r.id === roleId);
+                          return (
+                            <Chip
+                              key={roleId}
+                              label={role?.name || roleId}
+                              size="small"
+                              sx={{
+                                bgcolor: role?.color
+                                  ? `#${role.color.toString(16).padStart(6, '0')}`
+                                  : 'default',
+                                color: role?.color ? '#fff' : 'default',
+                              }}
+                            />
+                          );
+                        })}
+                      </Box>
+                    )}
+                    disabled={loading}
+                  >
+                    {roles.map((role) => (
+                      <MenuItem key={role.id} value={role.id}>
                         <Chip
-                          key={roleId}
-                          label={role?.name || roleId}
+                          label={role.name}
                           size="small"
                           sx={{
-                            bgcolor: role?.color
+                            bgcolor: role.color
                               ? `#${role.color.toString(16).padStart(6, '0')}`
                               : 'default',
-                            color: role?.color ? '#fff' : 'default',
+                            color: role.color ? '#fff' : 'default',
+                            mr: 1,
                           }}
                         />
-                      );
-                    })}
-                  </Box>
-                )}
-                disabled={loading}
-              >
-                {roles.map((role) => (
-                  <MenuItem key={role.id} value={role.id}>
-                    <Chip
-                      label={role.name}
-                      size="small"
-                      sx={{
-                        bgcolor: role.color
-                          ? `#${role.color.toString(16).padStart(6, '0')}`
-                          : 'default',
-                        color: role.color ? '#fff' : 'default',
-                        mr: 1,
-                      }}
-                    />
-                  </MenuItem>
-                ))}
-              </Select>
-              <Typography variant="caption" sx={{ mt: 0.5, color: 'text.secondary' }}>
-                Users with these roles will be mentioned when the game is announced
-              </Typography>
-            </FormControl>
-          )}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                  <Typography variant="caption" sx={{ mt: 0.5, color: 'text.secondary' }}>
+                    Users with these roles will be mentioned when the game is announced
+                  </Typography>
+                </FormControl>
+              </Grid>
+            </Grid>
 
           <EditableParticipantList
             participants={formData.participants}

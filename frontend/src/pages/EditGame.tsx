@@ -19,12 +19,13 @@ import { FC, useState, useEffect } from 'react';
 import { Container, CircularProgress, Alert } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiClient } from '../api/client';
-import { Channel, GameSession, Participant } from '../types';
+import { Channel, DiscordRole, GameSession, Participant } from '../types';
 import { GameForm, GameFormData, parseDurationString } from '../components/GameForm';
 
 interface EditGameState {
   game: GameSession | null;
   channels: Channel[];
+  roles: DiscordRole[];
   initialParticipants: Participant[];
 }
 
@@ -51,6 +52,7 @@ export const EditGame: FC = () => {
   const [state, setState] = useState<EditGameState>({
     game: null,
     channels: [],
+    roles: [],
     initialParticipants: [],
   });
   const [loading, setLoading] = useState(true);
@@ -70,9 +72,14 @@ export const EditGame: FC = () => {
           `/api/v1/guilds/${gameData.guild_id}/channels`
         );
 
+        const rolesResponse = await apiClient.get<DiscordRole[]>(
+          `/api/v1/guilds/${gameData.guild_id}/roles`
+        );
+
         setState({
           game: gameData,
           channels: channelsResponse.data,
+          roles: rolesResponse.data,
           initialParticipants: gameData.participants || [],
         });
       } catch (err: unknown) {
@@ -122,6 +129,7 @@ export const EditGame: FC = () => {
           ? formData.reminderMinutes.split(',').map((m) => parseInt(m.trim()))
           : null,
         expected_duration_minutes: parseDurationString(formData.expectedDurationMinutes),
+        notify_role_ids: formData.notifyRoleIds.length > 0 ? formData.notifyRoleIds : null,
         participants: formData.participants
           .filter((p) => p.mention.trim() && p.isExplicitlyPositioned)
           .map((p) => {
@@ -191,7 +199,7 @@ export const EditGame: FC = () => {
         initialData={state.game}
         guildId={state.game.guild_id}
         channels={state.channels}
-        roles={[]}
+        roles={state.roles}
         onSubmit={handleSubmit}
         onCancel={() => navigate(`/games/${gameId}`)}
         validationErrors={validationErrors}

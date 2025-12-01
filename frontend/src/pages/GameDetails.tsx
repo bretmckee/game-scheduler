@@ -291,7 +291,7 @@ export const GameDetails: FC = () => {
             </Button>
           )}
 
-          {isHost && game.status === 'SCHEDULED' && (
+          {isHost && (
             <>
               <Button
                 variant="outlined"
@@ -300,14 +300,16 @@ export const GameDetails: FC = () => {
               >
                 Edit Game
               </Button>
-              <Button
-                variant="outlined"
-                color="error"
-                onClick={() => setCancelDialogOpen(true)}
-                disabled={actionLoading}
-              >
-                Cancel Game
-              </Button>
+              {(game.status === 'SCHEDULED' || game.status === 'IN_PROGRESS') && (
+                <Button
+                  variant="outlined"
+                  color="error"
+                  onClick={() => setCancelDialogOpen(true)}
+                  disabled={actionLoading}
+                >
+                  Cancel Game
+                </Button>
+              )}
             </>
           )}
 
