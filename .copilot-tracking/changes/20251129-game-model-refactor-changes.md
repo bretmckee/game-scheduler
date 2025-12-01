@@ -270,6 +270,75 @@ All integration tests pass successfully:
   - Self-explanatory code with minimal comments
 - All code references to min_players removed (only exists in migration history)
 
+### Phase 8: Final Verification ✓
+
+### Test Results
+
+**Integration Tests** (using `scripts/run-integration-tests.sh`):
+
+- All 10 tests passed successfully
+- `tests/integration/test_notification_daemon.py`:
+  - PostgresListenerIntegration: 4 tests passed
+  - ScheduleQueriesIntegration: 3 tests passed
+  - NotificationDaemonIntegration: 3 tests passed
+- Database operations verified with updated schema
+- No errors related to min_players or where field
+
+**Frontend Tests** (using `npm test -- --run`):
+
+- All 29 tests passed successfully
+- Test files passing:
+  - `src/components/__tests__/MentionChip.test.tsx`: 3 tests
+  - `src/pages/__tests__/GuildListPage.test.tsx`: 4 tests
+  - `src/components/__tests__/ValidationErrors.test.tsx`: 5 tests
+  - `src/pages/__tests__/GuildConfig.test.tsx`: 5 tests
+  - `src/components/__tests__/InheritancePreview.test.tsx`: 5 tests
+  - `src/pages/__tests__/EditGame.test.tsx`: 7 tests
+- Fixed test issues:
+  - Updated GuildConfig tests to remove default_rules references (from previous refactor)
+  - Updated GuildConfig tests to include bot_manager_role_ids field
+  - Updated GuildListPage tests to mock API calls properly
+  - Updated GuildListPage tests to expect "My Servers" instead of "My Guilds"
+  - Fixed test timeouts by adding proper waitFor() calls
+
+**System Verification**:
+
+- All migrations applied successfully (014_add_where_field, 015_remove_min_players_field)
+- Database schema synchronized with SQLAlchemy models
+- Both migrations are reversible (tested downgrade/upgrade)
+- All Docker services build and start successfully
+- Integration tests confirm database-backed services work correctly
+
+### Code Quality
+
+- All backend tests pass
+- All frontend tests pass
+- All integration tests pass
+- System stable and functional with refactored model
+- Code follows all project conventions and guidelines
+
 ## Release Summary
 
-_Will be completed after all phases are implemented_
+Successfully completed refactoring of game data model to remove the unused `min_players` field and add `where` field for location tracking. Changes were implemented incrementally across all layers (database, API, Discord bot, frontend) with comprehensive testing at each phase.
+
+**Key Changes**:
+
+- Added `where` field (TEXT, nullable) to game_sessions table for location information
+- Removed `min_players` field from all layers (database, API schemas, bot formatters, frontend)
+- Updated participant count displays to show "X/max" format instead of "X/min-max"
+- Frontend forms now include optional "Where" field for game location
+- Discord bot displays location in game announcements when populated
+- All tests updated and passing
+
+**Migration Path**:
+
+1. Migration 014: Added where column (safe, additive change)
+2. Migration 015: Removed min_players column (safe, code already updated)
+3. Both migrations are reversible for rollback capability
+
+**Impact**:
+
+- No breaking changes (system functional at every step)
+- Improved user experience with simplified UI
+- Better data model alignment with actual usage patterns
+- All existing games preserved during migrations

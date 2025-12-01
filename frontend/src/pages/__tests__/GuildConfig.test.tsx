@@ -15,7 +15,6 @@
 // You should have received a copy of the GNU Affero General Public License along
 // with Game_Scheduler If not, see <https://www.gnu.org/licenses/>.
 
-
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -68,7 +67,6 @@ describe('GuildConfig', () => {
     await waitFor(() => {
       expect(screen.getByDisplayValue('10')).toBeInTheDocument();
       expect(screen.getByDisplayValue('60, 15')).toBeInTheDocument();
-      expect(screen.getByDisplayValue('Be respectful')).toBeInTheDocument();
     });
   });
 
@@ -107,8 +105,8 @@ describe('GuildConfig', () => {
       expect(apiClient.put).toHaveBeenCalledWith('/api/v1/guilds/guild123', {
         default_max_players: 10,
         default_reminder_minutes: [60, 15],
-        default_rules: 'Be respectful',
         allowed_host_role_ids: ['role1', 'role2'],
+        bot_manager_role_ids: null,
         require_host_role: true,
       });
     });
@@ -145,10 +143,8 @@ describe('GuildConfig', () => {
 
     const maxPlayersInput = screen.getByLabelText(/Default Max Players/) as HTMLInputElement;
     const reminderInput = screen.getByLabelText(/Default Reminder Times/) as HTMLInputElement;
-    const rulesInput = screen.getByLabelText(/Default Rules/) as HTMLTextAreaElement;
 
     expect(maxPlayersInput.value).toBe('10');
     expect(reminderInput.value).toBe('60, 15');
-    expect(rulesInput.value).toBe('Be respectful');
   });
 });

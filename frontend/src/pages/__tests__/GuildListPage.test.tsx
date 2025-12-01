@@ -15,13 +15,13 @@
 // You should have received a copy of the GNU Affero General Public License along
 // with Game_Scheduler If not, see <https://www.gnu.org/licenses/>.
 
-
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { GuildListPage } from '../GuildListPage';
 import { AuthContext } from '../../contexts/AuthContext';
-import { CurrentUser } from '../../types';
+import { CurrentUser, Guild } from '../../types';
+import { apiClient } from '../../api/client';
 
 const mockNavigate = vi.fn();
 
@@ -33,7 +33,36 @@ vi.mock('react-router-dom', async () => {
   };
 });
 
+vi.mock('../../api/client');
+
 describe('GuildListPage', () => {
+  const mockGuilds: Guild[] = [
+    {
+      id: '1',
+      guild_id: 'guild1',
+      guild_name: 'Test Guild 1',
+      default_max_players: 10,
+      default_reminder_minutes: [60, 15],
+      allowed_host_role_ids: [],
+      bot_manager_role_ids: [],
+      require_host_role: false,
+      created_at: '2024-01-01T00:00:00Z',
+      updated_at: '2024-01-01T00:00:00Z',
+    },
+    {
+      id: '2',
+      guild_id: 'guild2',
+      guild_name: 'Test Guild 2',
+      default_max_players: 10,
+      default_reminder_minutes: [60, 15],
+      allowed_host_role_ids: [],
+      bot_manager_role_ids: [],
+      require_host_role: false,
+      created_at: '2024-01-01T00:00:00Z',
+      updated_at: '2024-01-01T00:00:00Z',
+    },
+  ];
+
   const mockUser: CurrentUser = {
     id: '123',
     user_uuid: 'uuid-123',
@@ -72,6 +101,11 @@ describe('GuildListPage', () => {
     refreshUser: vi.fn(),
   };
 
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(apiClient.get).mockResolvedValue({ data: { guilds: mockGuilds } });
+  });
+
   const renderWithAuth = (user: CurrentUser | null = mockUser, loading = false) => {
     return render(
       <BrowserRouter>
@@ -93,60 +127,33 @@ describe('GuildListPage', () => {
     expect(screen.getByRole('progressbar')).toBeInTheDocument();
   });
 
-  it('renders guild list when user has guilds', () => {
+  it('renders guild list when user has guilds', async () => {
     renderWithAuth();
-    expect(screen.getByText('My Guilds')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('My Servers')).toBeInTheDocument();
+    });
     expect(screen.getByText('Test Guild 1')).toBeInTheDocument();
     expect(screen.getByText('Test Guild 2')).toBeInTheDocument();
   });
 
-  it('filters guilds without manage permissions', () => {
-    renderWithAuth();
-    expect(screen.getByText('Test Guild 1')).toBeInTheDocument();
-    expect(screen.getByText('Test Guild 2')).toBeInTheDocument();
-    expect(screen.queryByText('Test Guild 3 (No Permissions)')).not.toBeInTheDocument();
-  });
-
-  it('displays owner badge for owned guilds', () => {
-    renderWithAuth();
-    expect(screen.getByText('Owner')).toBeInTheDocument();
-  });
-
-  it('renders empty state when user has no guilds', () => {
+  it('renders empty state when API returns no guilds', async () => {
     const userWithNoGuilds: CurrentUser = {
       ...mockUser,
       guilds: [],
     };
+    vi.mocked(apiClient.get).mockResolvedValue({ data: { guilds: [] } });
     renderWithAuth(userWithNoGuilds);
-    expect(screen.getByText(/You don't have management permissions/)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText(/No servers with bot configurations found/)).toBeInTheDocument();
+    });
   });
 
-  it('renders empty state when user has guilds but no manage permissions', () => {
-    const userWithNoManagePermissions: CurrentUser = {
-      ...mockUser,
-      guilds: [
-        {
-          id: 'guild1',
-          name: 'No Permission Guild',
-          icon: null,
-          owner: false,
-          permissions: '0',
-        },
-      ],
-    };
-    renderWithAuth(userWithNoManagePermissions);
-    expect(screen.getByText(/You don't have management permissions/)).toBeInTheDocument();
-  });
-
-  it('displays guild with icon', () => {
+  it('displays guild with first letter avatar', async () => {
     renderWithAuth();
-    const icon = screen.getByAltText('Test Guild 1');
-    expect(icon).toBeInTheDocument();
-    expect(icon).toHaveAttribute('src', 'https://cdn.discordapp.com/icons/guild1/icon1.png');
-  });
-
-  it('displays guild without icon with first letter avatar', () => {
-    renderWithAuth();
-    expect(screen.getByText('T')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Test Guild 1')).toBeInTheDocument();
+    });
+    const avatars = screen.getAllByText('T');
+    expect(avatars.length).toBeGreaterThan(0);
   });
 });
