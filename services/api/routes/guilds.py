@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from services.api import dependencies
 from services.api.auth import discord_client as discord_client_module
 from services.api.auth import oauth2
+from services.api.auth.discord_client import fetch_channel_name_safe
 from services.api.dependencies import permissions
 from services.api.services import config as config_service
 from shared import database
@@ -288,23 +289,28 @@ async def list_guild_channels(
 
     channels = await service.get_channels_by_guild(guild_config.id)
 
-    return [
-        channel_schemas.ChannelConfigResponse(
-            id=channel.id,
-            guild_id=channel.guild_id,
-            guild_discord_id=guild_config.guild_id,
-            channel_id=channel.channel_id,
-            channel_name=channel.channel_name,
-            is_active=channel.is_active,
-            max_players=channel.max_players,
-            reminder_minutes=channel.reminder_minutes,
-            allowed_host_role_ids=channel.allowed_host_role_ids,
-            game_category=channel.game_category,
-            created_at=channel.created_at.isoformat(),
-            updated_at=channel.updated_at.isoformat(),
+    channel_responses = []
+    for channel in channels:
+        channel_name = await fetch_channel_name_safe(channel.channel_id)
+
+        channel_responses.append(
+            channel_schemas.ChannelConfigResponse(
+                id=channel.id,
+                guild_id=channel.guild_id,
+                guild_discord_id=guild_config.guild_id,
+                channel_id=channel.channel_id,
+                channel_name=channel_name,
+                is_active=channel.is_active,
+                max_players=channel.max_players,
+                reminder_minutes=channel.reminder_minutes,
+                allowed_host_role_ids=channel.allowed_host_role_ids,
+                game_category=channel.game_category,
+                created_at=channel.created_at.isoformat(),
+                updated_at=channel.updated_at.isoformat(),
+            )
         )
-        for channel in channels
-    ]
+
+    return channel_responses
 
 
 @router.get("/{guild_id}/roles")

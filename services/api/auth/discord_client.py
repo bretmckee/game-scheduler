@@ -585,6 +585,28 @@ class DiscordAPIClient:
         return members
 
 
+async def fetch_channel_name_safe(channel_id: str) -> str:
+    """
+    Fetch channel name from Discord API with error handling.
+
+    This is a convenience wrapper around fetch_channel that handles errors
+    gracefully and returns "Unknown Channel" if the fetch fails.
+
+    Args:
+        channel_id: Discord channel ID
+
+    Returns:
+        Channel name or "Unknown Channel" if fetch fails
+    """
+    client = get_discord_client()
+    try:
+        channel_data = await client.fetch_channel(channel_id)
+        return channel_data.get("name", "Unknown Channel")
+    except DiscordAPIError as e:
+        logger.warning(f"Could not fetch channel name for {channel_id}: {e}")
+        return "Unknown Channel"
+
+
 _discord_client_instance: DiscordAPIClient | None = None
 
 

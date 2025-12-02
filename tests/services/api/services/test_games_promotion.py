@@ -89,7 +89,6 @@ def sample_channel(sample_guild):
         id=str(uuid4()),
         guild_id=sample_guild.id,
         channel_id="987654321",
-        channel_name="test-channel",
         is_active=True,
     )
 

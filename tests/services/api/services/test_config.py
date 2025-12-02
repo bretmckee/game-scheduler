@@ -268,7 +268,7 @@ class TestConfigurationService:
         service = config.ConfigurationService(mock_db)
 
         await service.update_channel_config(
-            sample_channel, channel_name="Updated Channel", is_active=False
+            sample_channel, is_active=False, max_players=10
         )
 
         assert mock_db.commit.called

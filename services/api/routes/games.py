@@ -28,8 +28,9 @@ from datetime import UTC
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.api.auth import discord_client as discord_client_module
 from services.api.auth import roles as roles_module
+from services.api.auth import discord_client as discord_client_module
+from services.api.auth.discord_client import fetch_channel_name_safe
 from services.api.dependencies import auth as auth_deps
 from services.api.dependencies import permissions as permissions_deps
 from services.api.services import display_names as display_names_module
@@ -314,6 +315,11 @@ async def _build_game_response(game: game_model.GameSession) -> game_schemas.Gam
                 guild_discord_id, discord_user_ids
             )
 
+    # Fetch channel name from Discord API with caching
+    channel_name = None
+    if game.channel:
+        channel_name = await fetch_channel_name_safe(game.channel.channel_id)
+
     participant_responses = []
     for participant in sorted_participants:
         discord_id = participant.user.discord_id if participant.user else None
@@ -364,7 +370,7 @@ async def _build_game_response(game: game_model.GameSession) -> game_schemas.Gam
         max_players=game.max_players,
         guild_id=game.guild_id,
         channel_id=game.channel_id,
-        channel_name=game.channel.channel_name if game.channel else None,
+        channel_name=channel_name,
         message_id=game.message_id,
         host=host_response,
         reminder_minutes=game.reminder_minutes,

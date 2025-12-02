@@ -30,7 +30,6 @@ from services.bot.utils.discord_format import (
     format_discord_mention,
     format_discord_timestamp,
     format_duration,
-    format_game_status_emoji,
     format_participant_list,
 )
 from services.bot.views.game_view import GameView
@@ -79,8 +78,6 @@ class GameMessageFormatter:
         Returns:
             Configured Discord embed
         """
-        status_emoji = format_game_status_emoji(status)
-
         # Truncate description to first 100 chars for Discord message
         truncated_description = description
         if description and len(description) > 100:

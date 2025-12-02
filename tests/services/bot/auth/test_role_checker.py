@@ -225,7 +225,6 @@ async def test_check_game_host_permission_with_channel_roles(role_checker, mock_
         id="ch1",
         guild_id="g1",
         channel_id="789",
-        channel_name="test",
         allowed_host_role_ids=["role123"],
     )
 

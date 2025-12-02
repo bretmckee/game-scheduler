@@ -25,9 +25,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.api import dependencies
-from services.api.auth import discord_client as discord_client_module
 from services.api.auth import oauth2
-from services.api.auth.discord_client import DiscordAPIError
+from services.api.auth.discord_client import fetch_channel_name_safe
 from services.api.dependencies import permissions
 from services.api.services import config as config_service
 from shared import database
@@ -82,14 +81,7 @@ async def get_channel(
             detail="You are not a member of this channel's guild",
         )
 
-    # Fetch channel name from Discord API with caching
-    discord_client = discord_client_module.get_discord_client()
-    try:
-        discord_channel = await discord_client.fetch_channel(channel_config.channel_id)
-        channel_name = discord_channel.get("name", "Unknown Channel")
-    except DiscordAPIError:
-        logger.warning(f"Could not fetch channel name for {channel_config.channel_id}")
-        channel_name = "Unknown Channel"
+    channel_name = await fetch_channel_name_safe(channel_config.channel_id)
 
     return channel_schemas.ChannelConfigResponse(
         id=channel_config.id,
@@ -139,14 +131,7 @@ async def create_channel_config(
         game_category=request.game_category,
     )
 
-    # Fetch channel name from Discord API with caching
-    discord_client = discord_client_module.get_discord_client()
-    try:
-        discord_channel = await discord_client.fetch_channel(channel_config.channel_id)
-        channel_name = discord_channel.get("name", "Unknown Channel")
-    except DiscordAPIError:
-        logger.warning(f"Could not fetch channel name for {channel_config.channel_id}")
-        channel_name = "Unknown Channel"
+    channel_name = await fetch_channel_name_safe(channel_config.channel_id)
 
     return channel_schemas.ChannelConfigResponse(
         id=channel_config.id,
@@ -187,14 +172,7 @@ async def update_channel_config(
     updates = request.model_dump(exclude_unset=True)
     channel_config = await service.update_channel_config(channel_config, **updates)
 
-    # Fetch channel name from Discord API with caching
-    discord_client = discord_client_module.get_discord_client()
-    try:
-        discord_channel = await discord_client.fetch_channel(channel_config.channel_id)
-        channel_name = discord_channel.get("name", "Unknown Channel")
-    except DiscordAPIError:
-        logger.warning(f"Could not fetch channel name for {channel_config.channel_id}")
-        channel_name = "Unknown Channel"
+    channel_name = await fetch_channel_name_safe(channel_config.channel_id)
 
     return channel_schemas.ChannelConfigResponse(
         id=channel_config.id,

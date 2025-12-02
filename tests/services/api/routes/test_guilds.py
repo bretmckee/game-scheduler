@@ -373,15 +373,16 @@ class TestListGuildChannels:
             patch("services.api.auth.tokens.get_user_tokens") as mock_get_tokens,
             patch("services.api.auth.oauth2.get_user_guilds") as mock_get_guilds,
             patch("services.api.services.config.ConfigurationService") as mock_service_class,
+            patch("services.api.routes.guilds.fetch_channel_name_safe") as mock_fetch_name,
         ):
             mock_get_tokens.return_value = {"access_token": "test_token"}
             mock_get_guilds.return_value = mock_user_guilds
+            mock_fetch_name.return_value = "Test Channel"
 
             mock_channel = MagicMock()
             mock_channel.id = str(uuid.uuid4())
             mock_channel.guild_id = mock_guild_config.id
             mock_channel.channel_id = "channel_123"
-            mock_channel.channel_name = "Test Channel"
             mock_channel.is_active = True
             mock_channel.max_players = None
             mock_channel.reminder_minutes = None
@@ -404,6 +405,7 @@ class TestListGuildChannels:
             assert len(result) == 1
             assert result[0].channel_id == "channel_123"
             assert result[0].channel_name == "Test Channel"
+            mock_fetch_name.assert_called_once_with("channel_123")
 
     @pytest.mark.asyncio
     async def test_list_channels_guild_not_found(self, mock_db, mock_current_user):

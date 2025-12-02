@@ -21,8 +21,6 @@
 import os
 from unittest.mock import patch
 
-import pytest
-
 from services.bot.config import BotConfig, get_config
 
 

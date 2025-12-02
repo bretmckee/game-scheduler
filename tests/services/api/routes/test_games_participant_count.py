@@ -40,8 +40,18 @@ def mock_display_name_resolver():
     return resolver
 
 
+@pytest.fixture
+def mock_discord_client():
+    """Create mock Discord client."""
+    client = AsyncMock()
+    client.fetch_channel = AsyncMock(return_value={"name": "test-channel"})
+    return client
+
+
 @pytest.mark.asyncio
-async def test_participant_count_includes_discord_users_only(mock_display_name_resolver):
+async def test_participant_count_includes_discord_users_only(
+    mock_display_name_resolver, mock_discord_client
+):
     """Test participant count with only Discord-linked users."""
     game_id = str(uuid.uuid4())
     host_id = str(uuid.uuid4())
@@ -58,7 +68,6 @@ async def test_participant_count_includes_discord_users_only(mock_display_name_r
     channel = channel_model.ChannelConfiguration(
         id=str(uuid.uuid4()),
         channel_id="888888888",
-        channel_name="test-channel",
         guild_id=guild.id,
     )
 
@@ -96,9 +105,15 @@ async def test_participant_count_includes_discord_users_only(mock_display_name_r
         ),
     ]
 
-    with patch(
-        "services.api.routes.games.display_names_module.get_display_name_resolver",
-        return_value=mock_display_name_resolver,
+    with (
+        patch(
+            "services.api.routes.games.display_names_module.get_display_name_resolver",
+            return_value=mock_display_name_resolver,
+        ),
+        patch(
+            "services.api.routes.games.discord_client_module.get_discord_client",
+            return_value=mock_discord_client,
+        ),
     ):
         response = await games_routes._build_game_response(game)
 
@@ -107,7 +122,9 @@ async def test_participant_count_includes_discord_users_only(mock_display_name_r
 
 
 @pytest.mark.asyncio
-async def test_participant_count_includes_placeholder_participants(mock_display_name_resolver):
+async def test_participant_count_includes_placeholder_participants(
+    mock_display_name_resolver, mock_discord_client
+):
     """Test participant count includes placeholder participants (no Discord user_id)."""
     game_id = str(uuid.uuid4())
     host_id = str(uuid.uuid4())
@@ -120,7 +137,6 @@ async def test_participant_count_includes_placeholder_participants(mock_display_
     channel = channel_model.ChannelConfiguration(
         id=str(uuid.uuid4()),
         channel_id="888888888",
-        channel_name="test-channel",
         guild_id=guild.id,
     )
 
@@ -168,9 +184,15 @@ async def test_participant_count_includes_placeholder_participants(mock_display_
         ),
     ]
 
-    with patch(
-        "services.api.routes.games.display_names_module.get_display_name_resolver",
-        return_value=mock_display_name_resolver,
+    with (
+        patch(
+            "services.api.routes.games.display_names_module.get_display_name_resolver",
+            return_value=mock_display_name_resolver,
+        ),
+        patch(
+            "services.api.routes.games.discord_client_module.get_discord_client",
+            return_value=mock_discord_client,
+        ),
     ):
         response = await games_routes._build_game_response(game)
 
@@ -180,7 +202,9 @@ async def test_participant_count_includes_placeholder_participants(mock_display_
 
 
 @pytest.mark.asyncio
-async def test_participant_count_includes_mixed_participants(mock_display_name_resolver):
+async def test_participant_count_includes_mixed_participants(
+    mock_display_name_resolver, mock_discord_client
+):
     """Test participant count with mix of Discord users and placeholders."""
     game_id = str(uuid.uuid4())
     host_id = str(uuid.uuid4())
@@ -197,7 +221,6 @@ async def test_participant_count_includes_mixed_participants(mock_display_name_r
     channel = channel_model.ChannelConfiguration(
         id=str(uuid.uuid4()),
         channel_id="888888888",
-        channel_name="test-channel",
         guild_id=guild.id,
     )
 
@@ -251,9 +274,15 @@ async def test_participant_count_includes_mixed_participants(mock_display_name_r
         ),
     ]
 
-    with patch(
-        "services.api.routes.games.display_names_module.get_display_name_resolver",
-        return_value=mock_display_name_resolver,
+    with (
+        patch(
+            "services.api.routes.games.display_names_module.get_display_name_resolver",
+            return_value=mock_display_name_resolver,
+        ),
+        patch(
+            "services.api.routes.games.discord_client_module.get_discord_client",
+            return_value=mock_discord_client,
+        ),
     ):
         response = await games_routes._build_game_response(game)
 
@@ -266,7 +295,9 @@ async def test_participant_count_includes_mixed_participants(mock_display_name_r
 
 
 @pytest.mark.asyncio
-async def test_participant_count_with_empty_participants(mock_display_name_resolver):
+async def test_participant_count_with_empty_participants(
+    mock_display_name_resolver, mock_discord_client
+):
     """Test participant count with no participants."""
     game_id = str(uuid.uuid4())
     host_id = str(uuid.uuid4())
@@ -279,7 +310,6 @@ async def test_participant_count_with_empty_participants(mock_display_name_resol
     channel = channel_model.ChannelConfiguration(
         id=str(uuid.uuid4()),
         channel_id="888888888",
-        channel_name="test-channel",
         guild_id=guild.id,
     )
 
@@ -302,9 +332,15 @@ async def test_participant_count_with_empty_participants(mock_display_name_resol
     game.channel = channel
     game.participants = []
 
-    with patch(
-        "services.api.routes.games.display_names_module.get_display_name_resolver",
-        return_value=mock_display_name_resolver,
+    with (
+        patch(
+            "services.api.routes.games.display_names_module.get_display_name_resolver",
+            return_value=mock_display_name_resolver,
+        ),
+        patch(
+            "services.api.routes.games.discord_client_module.get_discord_client",
+            return_value=mock_discord_client,
+        ),
     ):
         response = await games_routes._build_game_response(game)
 

@@ -309,7 +309,7 @@ async def test_handle_game_updated_debouncing(event_handlers, mock_bot, sample_g
                     # Verify refresh is pending (not yet executed)
                     assert sample_game.id in event_handlers._pending_refreshes
 
-                    # Wait for the delayed refresh to complete (CacheTTL.MESSAGE_UPDATE_THROTTLE = 2s)
+                    # Wait for delayed refresh (CacheTTL.MESSAGE_UPDATE_THROTTLE = 2s)
                     await asyncio.sleep(2.1)
 
                     # Verify refresh completed and is no longer pending

@@ -91,7 +91,6 @@ def sample_channel(sample_guild):
     return channel_model.ChannelConfiguration(
         id=str(uuid.uuid4()),
         channel_id="987654321",
-        channel_name="test-channel",
         guild_id=sample_guild.id,
         max_players=4,
         reminder_minutes=[30],
