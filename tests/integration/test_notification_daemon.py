@@ -92,13 +92,12 @@ def test_game_session(db_session):
     db_session.execute(
         text(
             "INSERT INTO guild_configurations "
-            "(id, guild_id, guild_name, created_at, updated_at) "
-            "VALUES (:id, :guild_id, :guild_name, :created_at, :updated_at)"
+            "(id, guild_id, created_at, updated_at) "
+            "VALUES (:id, :guild_id, :created_at, :updated_at)"
         ),
         {
             "id": guild_id,
             "guild_id": "123456789",
-            "guild_name": "Test Guild",
             "created_at": now,
             "updated_at": now,
         },

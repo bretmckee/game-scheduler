@@ -40,50 +40,50 @@ Remove `guild_name` column from `guild_configurations` table and rely on dynamic
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Database Migration
+### [x] Phase 1: Database Migration
 
-- [ ] Task 1.1: Create Alembic migration to drop guild_name column
+- [x] Task 1.1: Create Alembic migration to drop guild_name column
 
   - Details: .copilot-tracking/details/20251130-remove-guild-name-from-database-details.md (Lines 10-32)
 
-### [ ] Phase 2: Update Models and Schemas
+### [x] Phase 2: Update Models and Schemas
 
-- [ ] Task 2.1: Remove guild_name field from SQLAlchemy model
+- [x] Task 2.1: Remove guild_name field from SQLAlchemy model
 
   - Details: .copilot-tracking/details/20251130-remove-guild-name-from-database-details.md (Lines 34-47)
 
-- [ ] Task 2.2: Verify Pydantic schemas are correct
+- [x] Task 2.2: Verify Pydantic schemas are correct
   - Details: .copilot-tracking/details/20251130-remove-guild-name-from-database-details.md (Lines 49-62)
 
-### [ ] Phase 3: Update Bot Commands
+### [x] Phase 3: Update Bot Commands
 
-- [ ] Task 3.1: Remove guild_name logic from /config-guild command
+- [x] Task 3.1: Remove guild_name logic from /config-guild command
 
   - Details: .copilot-tracking/details/20251130-remove-guild-name-from-database-details.md (Lines 64-88)
 
-- [ ] Task 3.2: Update _get_or_create_guild_config helper
+- [x] Task 3.2: Update \_get_or_create_guild_config helper
   - Details: .copilot-tracking/details/20251130-remove-guild-name-from-database-details.md (Lines 90-109)
 
-### [ ] Phase 4: Update Test Fixtures
+### [x] Phase 4: Update Test Fixtures
 
-- [ ] Task 4.1: Remove guild_name from integration test SQL INSERT
+- [x] Task 4.1: Remove guild_name from integration test SQL INSERT
 
   - Details: .copilot-tracking/details/20251130-remove-guild-name-from-database-details.md (Lines 111-128)
 
-- [ ] Task 4.2: Remove guild_name from e2e test SQL INSERT
+- [x] Task 4.2: Remove guild_name from e2e test SQL INSERT
   - Details: .copilot-tracking/details/20251130-remove-guild-name-from-database-details.md (Lines 130-148)
 
-### [ ] Phase 5: Validation and Testing
+### [x] Phase 5: Validation and Testing
 
-- [ ] Task 5.1: Run database migration
+- [x] Task 5.1: Run database migration
 
   - Details: .copilot-tracking/details/20251130-remove-guild-name-from-database-details.md (Lines 150-162)
 
-- [ ] Task 5.2: Run all tests and verify passing
+- [x] Task 5.2: Run all tests and verify passing
 
   - Details: .copilot-tracking/details/20251130-remove-guild-name-from-database-details.md (Lines 164-181)
 
-- [ ] Task 5.3: Manual testing - verify guild names display correctly
+- [x] Task 5.3: Manual testing - verify guild names display correctly
   - Details: .copilot-tracking/details/20251130-remove-guild-name-from-database-details.md (Lines 183-198)
 
 ## Dependencies

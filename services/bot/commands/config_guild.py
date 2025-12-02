@@ -64,7 +64,7 @@ async def config_guild_command(
 
         async with get_db_session() as db:
             guild_config = await _get_or_create_guild_config(
-                db, str(interaction.guild.id), interaction.guild.name
+                db, str(interaction.guild.id)
             )
 
             updated_fields = []
@@ -140,7 +140,7 @@ async def config_guild_command(
 
 
 async def _get_or_create_guild_config(
-    db: AsyncSession, guild_id: str, guild_name: str
+    db: AsyncSession, guild_id: str
 ) -> GuildConfiguration:
     """
     Get existing guild config or create new one.
@@ -148,7 +148,6 @@ async def _get_or_create_guild_config(
     Args:
         db: Database session
         guild_id: Discord guild ID
-        guild_name: Discord guild name
 
     Returns:
         Guild configuration record
@@ -161,7 +160,6 @@ async def _get_or_create_guild_config(
     if not config:
         config = GuildConfiguration(
             guild_id=guild_id,
-            guild_name=guild_name,
             default_max_players=10,
             default_reminder_minutes=[60, 15],
             allowed_host_role_ids=[],

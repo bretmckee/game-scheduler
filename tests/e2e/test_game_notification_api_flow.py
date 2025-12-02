@@ -115,15 +115,14 @@ def test_guild_data(db_session, clean_test_data):
     db_session.execute(
         text(
             "INSERT INTO guild_configurations "
-            "(id, guild_id, guild_name, created_at, updated_at, "
+            "(id, guild_id, created_at, updated_at, "
             "default_reminder_minutes) "
-            "VALUES (:id, :guild_id, :guild_name, :created_at, :updated_at, "
+            "VALUES (:id, :guild_id, :created_at, :updated_at, "
             ":default_reminder_minutes::jsonb)"
         ),
         {
             "id": guild_id,
             "guild_id": "123456789",
-            "guild_name": "Test Guild",
             "created_at": now,
             "updated_at": now,
             "default_reminder_minutes": json.dumps([60, 30, 15]),
