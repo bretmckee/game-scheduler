@@ -25,9 +25,13 @@ message acknowledgment, and error handling.
 
 import logging
 from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING
 
 from aio_pika import ExchangeType
 from aio_pika.abc import AbstractIncomingMessage, AbstractRobustConnection
+
+if TYPE_CHECKING:
+    from aio_pika.abc import AbstractChannel
 
 from shared.messaging.config import get_rabbitmq_connection
 from shared.messaging.events import Event, EventType
@@ -54,7 +58,7 @@ class EventConsumer:
         self.queue_name = queue_name
         self.exchange_name = exchange_name
         self._connection = connection
-        self._channel = None
+        self._channel: AbstractChannel | None = None
         self._queue = None
         self._handlers: dict[str, list[EventHandler]] = {}
 
@@ -78,7 +82,7 @@ class EventConsumer:
             arguments={
                 "x-dead-letter-exchange": f"{self.exchange_name}.dlx",
             },
-        )
+        )  # type: ignore[assignment]
 
         logger.info(f"Consumer connected to queue: {self.queue_name}")
 
@@ -92,6 +96,7 @@ class EventConsumer:
         if self._queue is None:
             await self.connect()
 
+        assert self._queue is not None
         await self._queue.bind(self._exchange, routing_key=routing_key)
         logger.info(f"Queue {self.queue_name} bound to routing key: {routing_key}")
 
@@ -142,6 +147,7 @@ class EventConsumer:
         if self._queue is None:
             await self.connect()
 
+        assert self._queue is not None
         logger.info(f"Starting consumer for queue: {self.queue_name}")
         await self._queue.consume(self._process_message)
 

@@ -121,6 +121,10 @@ def format_rules_section(rules: str | None, max_length: int = 500) -> str:
     if not rules or not rules.strip():
         return "No rules specified"
 
+    if len(rules) > max_length:
+        return rules[: max_length - 3] + "..."
+    return rules
+
 
 def format_duration(minutes: int | None) -> str:
     """Format duration in minutes to human-readable string.

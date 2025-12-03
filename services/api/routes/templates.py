@@ -103,7 +103,7 @@ async def get_template(
 ) -> template_schemas.TemplateResponse:
     """Get template details by ID."""
     template_svc = template_service_module.TemplateService(db)
-    template = await template_svc.get_template(template_id)
+    template = await template_svc.get_template_by_id(template_id)
 
     if not template:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Template not found")
@@ -214,7 +214,7 @@ async def update_template(
 ) -> template_schemas.TemplateResponse:
     """Update template (requires bot manager role)."""
     template_svc = template_service_module.TemplateService(db)
-    template = await template_svc.get_template(template_id)
+    template = await template_svc.get_template_by_id(template_id)
 
     if not template:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Template not found")
@@ -277,7 +277,7 @@ async def delete_template(
 ) -> None:
     """Delete template (requires bot manager role, cannot delete is_default)."""
     template_svc = template_service_module.TemplateService(db)
-    template = await template_svc.get_template(template_id)
+    template = await template_svc.get_template_by_id(template_id)
 
     if not template:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Template not found")
@@ -319,7 +319,7 @@ async def set_default_template(
 ) -> template_schemas.TemplateResponse:
     """Set template as default (requires bot manager role)."""
     template_svc = template_service_module.TemplateService(db)
-    template = await template_svc.get_template(template_id)
+    template = await template_svc.get_template_by_id(template_id)
 
     if not template:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Template not found")
@@ -377,12 +377,15 @@ async def reorder_templates(
     db: AsyncSession = Depends(database.get_db),
 ) -> None:
     """Bulk reorder templates (requires bot manager role)."""
-    if not request.template_ids:
+    if not request.template_orders:
         return
+
+    # Extract template IDs from template_orders
+    template_ids = [list(item.keys())[0] for item in request.template_orders]
 
     # Get first template to check guild and permissions
     template_svc = template_service_module.TemplateService(db)
-    first_template = await template_svc.get_template(request.template_ids[0])
+    first_template = await template_svc.get_template_by_id(template_ids[0])
 
     if not first_template:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Template not found")
@@ -404,4 +407,4 @@ async def reorder_templates(
             detail="Bot manager role required to reorder templates",
         )
 
-    await template_svc.reorder_templates(request.template_ids)
+    await template_svc.reorder_templates(request.template_orders)

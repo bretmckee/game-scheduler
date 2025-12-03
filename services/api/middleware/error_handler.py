@@ -121,7 +121,7 @@ def configure_error_handlers(app: FastAPI) -> None:
     Args:
         app: FastAPI application instance
     """
-    app.add_exception_handler(RequestValidationError, validation_exception_handler)
-    app.add_exception_handler(ValidationError, validation_exception_handler)
-    app.add_exception_handler(SQLAlchemyError, database_exception_handler)
+    app.add_exception_handler(RequestValidationError, validation_exception_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(ValidationError, validation_exception_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(SQLAlchemyError, database_exception_handler)  # type: ignore[arg-type]
     app.add_exception_handler(Exception, general_exception_handler)

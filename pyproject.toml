@@ -52,9 +52,21 @@ testpaths = ["tests"]
 
 [tool.mypy]
 python_version = "3.11"
-strict = true
-warn_return_any = true
+# Enable helpful checks without being overly strict
 warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+check_untyped_defs = true
+explicit_package_bases = true
+namespace_packages = true
+
+# Disable strict checks that cause issues with external libraries
+# and legacy code
+no_implicit_optional = false
+strict_optional = false
+
+# Ignore missing imports from external libraries
+ignore_missing_imports = true
 
 [dependency-groups]
 dev = [

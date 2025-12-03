@@ -28,6 +28,13 @@ from services.bot.config import BotConfig
 logger = logging.getLogger(__name__)
 
 
+# Forward declarations to avoid circular imports
+if False:  # TYPE_CHECKING equivalent
+    from services.bot.events.handlers import EventHandlers
+    from services.bot.events.publisher import BotEventPublisher
+    from services.bot.handlers import ButtonHandler
+
+
 class GameSchedulerBot(commands.Bot):
     """
     Discord bot for game scheduling with Gateway connection and auto-reconnect.
@@ -47,9 +54,9 @@ class GameSchedulerBot(commands.Bot):
             config: Bot configuration with Discord credentials
         """
         self.config = config
-        self.button_handler = None
-        self.event_handlers = None
-        self.event_publisher = None
+        self.button_handler: ButtonHandler | None = None
+        self.event_handlers: EventHandlers | None = None
+        self.event_publisher: BotEventPublisher | None = None
         self.api_cache = None
 
         intents = discord.Intents.none()
@@ -57,7 +64,7 @@ class GameSchedulerBot(commands.Bot):
         super().__init__(
             command_prefix="!",
             intents=intents,
-            application_id=config.discord_client_id,
+            application_id=int(config.discord_client_id),
         )
 
     async def setup_hook(self) -> None:
@@ -74,6 +81,7 @@ class GameSchedulerBot(commands.Bot):
 
         # Initialize event publisher
         self.event_publisher = BotEventPublisher()
+        assert self.event_publisher is not None
         await self.event_publisher.connect()
         logger.info("Event publisher connected")
 
@@ -154,7 +162,7 @@ class GameSchedulerBot(commands.Bot):
             await self.event_handlers.stop_consuming()
 
         if self.event_publisher:
-            await self.event_publisher.close()
+            await self.event_publisher.disconnect()
 
         await super().close()
 

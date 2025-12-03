@@ -32,16 +32,12 @@ async def setup_commands(bot: "GameSchedulerBot") -> None:
         bot: Bot instance to register commands with
     """
     from services.bot.commands import (
-        config_channel,
-        config_guild,
         list_games,
         my_games,
     )
 
     await list_games.setup(bot)
     await my_games.setup(bot)
-    await config_guild.setup(bot)
-    await config_channel.setup(bot)
 
 
 __all__ = ["setup_commands"]

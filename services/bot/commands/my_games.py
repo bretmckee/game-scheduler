@@ -49,8 +49,8 @@ async def my_games_command(interaction: Interaction) -> None:
         async with get_db_session() as db:
             user = await _get_or_create_user(db, str(interaction.user.id))
 
-            hosted_games = await _get_hosted_games(db, user.id)
-            participating_games = await _get_participating_games(db, user.id)
+            hosted_games = await _get_hosted_games(db, str(user.id))
+            participating_games = await _get_participating_games(db, str(user.id))
 
             if not hosted_games and not participating_games:
                 await interaction.followup.send(
@@ -110,7 +110,7 @@ async def _get_or_create_user(db: AsyncSession, discord_id: str) -> User:
     return user
 
 
-async def _get_hosted_games(db: AsyncSession, user_id: int) -> list[GameSession]:
+async def _get_hosted_games(db: AsyncSession, user_id: str) -> list[GameSession]:
     """
     Fetch games hosted by user.
 
@@ -130,7 +130,7 @@ async def _get_hosted_games(db: AsyncSession, user_id: int) -> list[GameSession]
     return list(result.scalars().all())
 
 
-async def _get_participating_games(db: AsyncSession, user_id: int) -> list[GameSession]:
+async def _get_participating_games(db: AsyncSession, user_id: str) -> list[GameSession]:
     """
     Fetch games user is participating in (excluding hosted games).
 

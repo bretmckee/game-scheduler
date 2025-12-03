@@ -138,7 +138,7 @@ class ParticipantResolver:
                         )
                     else:
                         # Multiple matches - disambiguation needed
-                        suggestions = [
+                        suggestions: list[dict[str, str]] = [
                             {
                                 "discordId": m["user"]["id"],
                                 "username": m["user"]["username"],
@@ -154,7 +154,7 @@ class ParticipantResolver:
                             {
                                 "input": input_text,
                                 "reason": "Multiple matches found",
-                                "suggestions": suggestions,
+                                "suggestions": suggestions,  # type: ignore[dict-item]
                             }
                         )
 
@@ -215,7 +215,7 @@ class ParticipantResolver:
             DiscordAPIError: If API call fails
         """
         url = f"https://discord.com/api/v10/guilds/{guild_discord_id}/members/search"
-        params = {"query": query, "limit": 10}
+        params: dict[str, str | int] = {"query": query, "limit": 10}
 
         session = await self.discord_client._get_session()
 

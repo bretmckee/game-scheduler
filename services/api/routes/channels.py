@@ -74,7 +74,7 @@ async def get_channel(
     if discord_guild_id not in user_guild_ids:
         logger.warning(
             f"Guild membership check failed: channel's discord_guild_id={discord_guild_id} "
-            f"not in user's guilds: {list(user_guild_ids.keys())[:3]}..."
+            f"not in user's guilds: {list(user_guild_ids)[:3]}..."
         )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

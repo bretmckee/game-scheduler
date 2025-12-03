@@ -51,21 +51,23 @@ class GameView(View):
         self.is_full = is_full
         self.is_started = is_started
 
-        self.join_button = Button(
+        self.join_button: Button[GameView] = Button(
             style=discord.ButtonStyle.success,
             label="Join Game",
             custom_id=f"join_game_{game_id}",
             disabled=is_started,
         )
-        self.join_button.callback = self._join_button_callback
+        # Type ignore: discord.py's callback assignment pattern not fully typed
+        self.join_button.callback = self._join_button_callback  # type: ignore[method-assign]
 
-        self.leave_button = Button(
+        self.leave_button: Button[GameView] = Button(
             style=discord.ButtonStyle.danger,
             label="Leave Game",
             custom_id=f"leave_game_{game_id}",
             disabled=is_started,
         )
-        self.leave_button.callback = self._leave_button_callback
+        # Type ignore: discord.py's callback assignment pattern not fully typed
+        self.leave_button.callback = self._leave_button_callback  # type: ignore[method-assign]
 
         self.add_item(self.join_button)
         self.add_item(self.leave_button)

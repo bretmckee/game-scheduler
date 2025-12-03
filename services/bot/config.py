@@ -18,8 +18,8 @@
 
 """Bot configuration management."""
 
-from pydantic import ConfigDict, Field
-from pydantic_settings import BaseSettings
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class BotConfig(BaseSettings):
@@ -36,7 +36,7 @@ class BotConfig(BaseSettings):
         environment: Environment name (development, staging, production)
     """
 
-    model_config = ConfigDict(
+    model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=False,
         extra="ignore",

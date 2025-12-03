@@ -24,6 +24,7 @@ Handles game CRUD operations, participant management, and event publishing.
 import datetime
 import logging
 import uuid
+from typing import Any
 
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
@@ -154,7 +155,7 @@ class GameService:
         allowed_player_role_ids = template.allowed_player_role_ids
 
         # Resolve initial participants if provided
-        valid_participants = []
+        valid_participants: list[dict[str, Any]] = []
         if game_data.initial_participants:
             (
                 valid_participants,
@@ -447,12 +448,12 @@ class GameService:
                 if participant_data.get("participant_id"):
                     # Existing participant - keep track of it
                     existing_participant_ids.add(participant_data["participant_id"])
-                elif participant_data.get("mention", "").strip():
+                elif str(participant_data.get("mention", "")).strip():
                     # New mention - needs validation
                     mentions_with_positions.append(
                         (
-                            participant_data["mention"],
-                            participant_data.get("pre_filled_position", 0),
+                            str(participant_data["mention"]),
+                            int(participant_data.get("pre_filled_position", 0)),
                         )
                     )
 
@@ -464,8 +465,8 @@ class GameService:
             # Update positions for existing participants
             for participant_data in update_data.participants:
                 if participant_data.get("participant_id"):
-                    participant_id = participant_data["participant_id"]
-                    position = participant_data.get("pre_filled_position", 0)
+                    participant_id = str(participant_data["participant_id"])
+                    position = int(participant_data.get("pre_filled_position", 0))
                     # Find and update this participant's position
                     for p in current_participants:
                         if p.id == participant_id:
@@ -479,6 +480,8 @@ class GameService:
                 mentions = [mention for mention, _ in mentions_with_positions]
 
                 # Resolve all participants at once
+                valid_participants: list[dict[str, Any]]
+                validation_errors: list[dict[str, Any]]
                 (
                     valid_participants,
                     validation_errors,

@@ -359,11 +359,10 @@ async def sync_guilds(
 
     Returns count of new guilds and channels created.
     """
-    from services.api.auth import tokens
+    access_token = current_user.access_token
+    user_discord_id = current_user.user.discord_id
 
-    access_token = await tokens.get_valid_token_for_user(current_user.user_id, db)
-
-    result = await guild_service.sync_user_guilds(db, access_token, current_user.user_id)
+    result = await guild_service.sync_user_guilds(db, access_token, user_discord_id)
 
     return guild_schemas.GuildSyncResponse(
         new_guilds=result["new_guilds"],
@@ -415,7 +414,7 @@ async def validate_mention(
 
     # If it doesn't start with @, it's a placeholder - always valid
     if not mention.startswith("@"):
-        return guild_schemas.ValidateMentionResponse(valid=True)
+        return guild_schemas.ValidateMentionResponse(valid=True, error=None)
 
     # Query Discord API to validate @mention
     from services.api.services.participant_resolver import ParticipantResolver
@@ -435,7 +434,7 @@ async def validate_mention(
             )
 
         if valid_participants:
-            return guild_schemas.ValidateMentionResponse(valid=True)
+            return guild_schemas.ValidateMentionResponse(valid=True, error=None)
 
         return guild_schemas.ValidateMentionResponse(valid=False, error="User not found in guild")
 

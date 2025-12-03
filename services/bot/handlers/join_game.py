@@ -71,13 +71,13 @@ async def handle_join_game(
             return
 
         game = result["game"]
-        user = result["user"]
+        user_result = result["user"]
         participant_count = result["participant_count"]
 
         # Create participant in database
         participant = GameParticipant(
             game_session_id=str(game_id),
-            user_id=user.id,
+            user_id=user_result.id,
         )
         db.add(participant)
         try:
@@ -112,8 +112,8 @@ async def _validate_join_game(db: AsyncSession, game_id: uuid.UUID, user_discord
         - game: GameSession
         - participant_count: int
     """
-    result = await db.execute(select(GameSession).where(GameSession.id == str(game_id)))
-    game = result.scalar_one_or_none()
+    result_game = await db.execute(select(GameSession).where(GameSession.id == str(game_id)))
+    game = result_game.scalar_one_or_none()
 
     if not game:
         return {"can_join": False, "error": "Game not found"}
@@ -121,12 +121,12 @@ async def _validate_join_game(db: AsyncSession, game_id: uuid.UUID, user_discord
     if game.status != "SCHEDULED":
         return {"can_join": False, "error": "Game has already started or is completed"}
 
-    result = await db.execute(select(User).where(User.discord_id == user_discord_id))
-    user = result.scalar_one_or_none()
+    result_user = await db.execute(select(User).where(User.discord_id == user_discord_id))
+    user_result = result_user.scalar_one_or_none()
 
-    if not user:
-        user = User(discord_id=user_discord_id)
-        db.add(user)
+    if not user_result:
+        user_result = User(discord_id=user_discord_id)
+        db.add(user_result)
         await db.flush()
 
     # Count current participants
@@ -137,4 +137,9 @@ async def _validate_join_game(db: AsyncSession, game_id: uuid.UUID, user_discord
     )
     participant_count = len(result.scalars().all())
 
-    return {"can_join": True, "user": user, "game": game, "participant_count": participant_count}
+    return {
+        "can_join": True,
+        "user": user_result,
+        "game": game,
+        "participant_count": participant_count,
+    }

@@ -147,12 +147,12 @@ class NotificationDaemon:
                 return
 
             # Notification is in the future, wait for it
-            wait_time = max(0, time_until_due - self.buffer_seconds)
-            wait_time = min(wait_time, self.max_timeout)
+            wait_time_float = max(0.0, time_until_due - self.buffer_seconds)
+            wait_time = int(min(wait_time_float, float(self.max_timeout)))
 
             logger.debug(
                 f"Next notification due in {time_until_due:.1f}s, "
-                f"waiting {wait_time:.1f}s (buffer: {self.buffer_seconds}s)"
+                f"waiting {wait_time}s (buffer: {self.buffer_seconds}s)"
             )
 
         received, payload = self.listener.wait_for_notification(timeout=wait_time)

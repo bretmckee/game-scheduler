@@ -53,7 +53,7 @@ class ButtonHandler:
             logger.warning("Interaction missing custom_id")
             return
 
-        custom_id = interaction.data["custom_id"]
+        custom_id = str(interaction.data.get("custom_id", ""))
 
         if not custom_id.startswith(("join_game_", "leave_game_")):
             logger.debug(f"Ignoring non-game button: {custom_id}")
