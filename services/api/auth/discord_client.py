@@ -316,6 +316,81 @@ class DiscordAPIClient:
             logger.error(f"Network error fetching guilds: {e}")
             raise DiscordAPIError(500, f"Network error: {str(e)}") from e
 
+    async def get_bot_guilds(self) -> list[dict[str, Any]]:
+        """
+        Fetch guilds the bot is a member of using bot token.
+
+        Returns:
+            List of guild objects with id, name, icon, etc.
+
+        Raises:
+            DiscordAPIError: If fetching bot guilds fails
+        """
+        session = await self._get_session()
+        url = f"{DISCORD_API_BASE}/users/@me/guilds"
+
+        self._log_request("GET", url, "get_bot_guilds")
+        try:
+            async with session.get(
+                url,
+                headers={"Authorization": f"Bot {self.bot_token}"},
+            ) as response:
+                response_data = await response.json()
+                guild_count = len(response_data) if isinstance(response_data, list) else "N/A"
+                self._log_response(response, f"Returned {guild_count} bot guilds")
+
+                if response.status != 200:
+                    error_msg = (
+                        response_data.get("message", "Unknown error")
+                        if isinstance(response_data, dict)
+                        else "Unknown error"
+                    )
+                    raise DiscordAPIError(response.status, error_msg, dict(response.headers))
+
+                return response_data
+        except aiohttp.ClientError as e:
+            logger.error(f"Network error fetching bot guilds: {e}")
+            raise DiscordAPIError(500, f"Network error: {str(e)}") from e
+
+    async def get_guild_channels(self, guild_id: str) -> list[dict[str, Any]]:
+        """
+        Fetch all channels in a guild using bot token.
+
+        Args:
+            guild_id: Discord guild (server) ID
+
+        Returns:
+            List of channel objects with id, name, type, etc.
+
+        Raises:
+            DiscordAPIError: If fetching channels fails
+        """
+        session = await self._get_session()
+        url = f"{DISCORD_API_BASE}/guilds/{guild_id}/channels"
+
+        self._log_request("GET", url, "get_guild_channels")
+        try:
+            async with session.get(
+                url,
+                headers={"Authorization": f"Bot {self.bot_token}"},
+            ) as response:
+                response_data = await response.json()
+                channel_count = len(response_data) if isinstance(response_data, list) else "N/A"
+                self._log_response(response, f"Returned {channel_count} channels")
+
+                if response.status != 200:
+                    error_msg = (
+                        response_data.get("message", "Unknown error")
+                        if isinstance(response_data, dict)
+                        else "Unknown error"
+                    )
+                    raise DiscordAPIError(response.status, error_msg, dict(response.headers))
+
+                return response_data
+        except aiohttp.ClientError as e:
+            logger.error(f"Network error fetching guild channels: {e}")
+            raise DiscordAPIError(500, f"Network error: {str(e)}") from e
+
     async def fetch_channel(self, channel_id: str) -> dict[str, Any]:
         """
         Fetch channel information using bot token with Redis caching.

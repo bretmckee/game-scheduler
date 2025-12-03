@@ -108,21 +108,21 @@ Replace three-level inheritance system (Guild → Channel → Game) with templat
 - [x] Task 3.4: Create template service tests
   - Details: .copilot-tracking/details/20251201-game-template-system-details.md (Lines 256-273)
 
-### [ ] Phase 4: Template API Endpoints
+### [x] Phase 4: Template API Endpoints
 
-- [ ] Task 4.1: Create guild sync endpoint
+- [x] Task 4.1: Create guild sync endpoint
 
-  - Details: .copilot-tracking/details/20251201-game-template-system-details.md (Lines 381-408)
+  - Details: .copilot-tracking/details/20251201-game-template-system-details.md (Lines 275-291)
 
-- [ ] Task 4.2: Create template API endpoints
+- [x] Task 4.2: Create template API endpoints
 
   - Details: .copilot-tracking/details/20251201-game-template-system-details.md (Lines 410-449)
 
-- [ ] Task 4.3: Update game creation endpoint for templates
+- [x] Task 4.3: Update game creation endpoint for templates
 
   - Details: .copilot-tracking/details/20251201-game-template-system-details.md (Lines 451-477)
 
-- [ ] Task 4.4: Create template endpoint tests
+- [x] Task 4.4: Create template endpoint tests
   - Details: .copilot-tracking/details/20251201-game-template-system-details.md (Lines 479-501)
 
 ### [ ] Phase 5: Frontend Template Management

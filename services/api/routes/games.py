@@ -28,8 +28,8 @@ from datetime import UTC
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.api.auth import roles as roles_module
 from services.api.auth import discord_client as discord_client_module
+from services.api.auth import roles as roles_module
 from services.api.auth.discord_client import fetch_channel_name_safe
 from services.api.dependencies import auth as auth_deps
 from services.api.dependencies import permissions as permissions_deps

@@ -48,7 +48,7 @@ def upgrade() -> None:
     # Calculate positions based on joined_at timestamp within each game
     op.execute("""
         WITH numbered_participants AS (
-            SELECT 
+            SELECT
                 id,
                 ROW_NUMBER() OVER (PARTITION BY game_session_id ORDER BY joined_at) as position
             FROM game_participants

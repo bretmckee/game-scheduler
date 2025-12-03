@@ -336,7 +336,7 @@ class TestListGuildChannels:
             patch("services.api.auth.oauth2.get_user_guilds") as mock_get_guilds,
             patch("services.api.database.queries.get_guild_by_id") as mock_get_guild,
             patch("services.api.database.queries.get_channels_by_guild") as mock_get_channels,
-            patch("services.api.routes.guilds.fetch_channel_name_safe") as mock_fetch_name,
+            patch("services.api.auth.discord_client.fetch_channel_name_safe") as mock_fetch_name,
         ):
             mock_get_tokens.return_value = {"access_token": "test_token"}
             mock_get_guilds.return_value = mock_user_guilds

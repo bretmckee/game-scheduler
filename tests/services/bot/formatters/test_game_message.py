@@ -174,9 +174,7 @@ class TestGameMessageFormatter:
             )
 
             calls = [str(call) for call in mock_embed.add_field.call_args_list]
-            assert any(
-                "Where" in str(call) and "Local Game Store" in str(call) for call in calls
-            )
+            assert any("Where" in str(call) and "Local Game Store" in str(call) for call in calls)
 
     def test_embed_excludes_where_when_not_provided(self):
         """Test that embed does not include where field when not provided."""

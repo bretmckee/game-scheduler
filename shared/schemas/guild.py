@@ -71,3 +71,10 @@ class ValidateMentionResponse(BaseModel):
 
     valid: bool = Field(..., description="Whether the mention is valid")
     error: str | None = Field(None, description="Error message if validation failed")
+
+
+class GuildSyncResponse(BaseModel):
+    """Response from guild sync operation."""
+
+    new_guilds: int = Field(..., description="Number of new guilds created")
+    new_channels: int = Field(..., description="Number of new channels created")

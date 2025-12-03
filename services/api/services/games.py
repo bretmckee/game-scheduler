@@ -40,6 +40,7 @@ from shared.models import channel as channel_model
 from shared.models import game as game_model
 from shared.models import guild as guild_model
 from shared.models import participant as participant_model
+from shared.models import template as template_model
 from shared.models import user as user_model
 from shared.schemas import game as game_schemas
 from shared.utils import participant_sorting
@@ -78,10 +79,10 @@ class GameService:
         access_token: str,
     ) -> game_model.GameSession:
         """
-        Create new game session with optional pre-populated participants.
+        Create new game session from template with optional pre-populated participants.
 
         Args:
-            game_data: Game creation data
+            game_data: Game creation data with template_id
             host_user_id: Host's database user ID (UUID)
             access_token: User's access token for Discord API
 
@@ -90,25 +91,45 @@ class GameService:
 
         Raises:
             ValidationError: If @mentions cannot be resolved
+            ValueError: If template not found or user unauthorized
         """
-        # Get guild and channel configurations
+        # Get template
+        template_result = await self.db.execute(
+            select(template_model.GameTemplate).where(
+                template_model.GameTemplate.id == game_data.template_id
+            )
+        )
+        template = template_result.scalar_one_or_none()
+        if template is None:
+            raise ValueError(f"Template not found for ID: {game_data.template_id}")
+
+        # Get guild config for permission checks
         guild_result = await self.db.execute(
             select(guild_model.GuildConfiguration).where(
-                guild_model.GuildConfiguration.id == game_data.guild_id
+                guild_model.GuildConfiguration.id == template.guild_id
             )
         )
         guild_config = guild_result.scalar_one_or_none()
         if guild_config is None:
-            raise ValueError(f"Guild configuration not found for ID: {game_data.guild_id}")
+            raise ValueError(f"Guild configuration not found for ID: {template.guild_id}")
 
+        # Verify user can use this template
+        if template.allowed_host_role_ids:
+            discord_client = discord_client_module.get_discord_client()
+            member = await discord_client.get_guild_member(guild_config.guild_id, host_user_id)
+            user_role_ids = member.get("roles", [])
+            if not any(role_id in template.allowed_host_role_ids for role_id in user_role_ids):
+                raise ValueError("User does not have required role to use this template")
+
+        # Get channel config
         channel_result = await self.db.execute(
             select(channel_model.ChannelConfiguration).where(
-                channel_model.ChannelConfiguration.id == game_data.channel_id
+                channel_model.ChannelConfiguration.id == template.channel_id
             )
         )
         channel_config = channel_result.scalar_one_or_none()
         if channel_config is None:
-            raise ValueError(f"Channel configuration not found for ID: {game_data.channel_id}")
+            raise ValueError(f"Channel configuration not found for ID: {template.channel_id}")
 
         # Get host user from database
         host_result = await self.db.execute(
@@ -118,25 +139,19 @@ class GameService:
         if host_user is None:
             raise ValueError(f"Host user not found for ID: {host_user_id}")
 
-        # Resolve settings with inheritance
-        resolved_max_players = (
-            game_data.max_players
-            if game_data.max_players is not None
-            else channel_config.max_players
-            if channel_config.max_players is not None
-            else guild_config.default_max_players
-            if guild_config.default_max_players is not None
-            else 10
+        # Use template defaults for optional fields
+        max_players = game_data.max_players or template.max_players or 10
+        reminder_minutes = game_data.reminder_minutes or template.reminder_minutes or [60, 15]
+        expected_duration_minutes = (
+            game_data.expected_duration_minutes or template.expected_duration_minutes
         )
-        resolved_reminder_minutes = (
-            game_data.reminder_minutes
-            if game_data.reminder_minutes is not None
-            else channel_config.reminder_minutes
-            if channel_config.reminder_minutes is not None
-            else guild_config.default_reminder_minutes
-            if guild_config.default_reminder_minutes is not None
-            else [60, 15]
-        )
+        where = game_data.where or template.where
+        signup_instructions = game_data.signup_instructions or template.signup_instructions
+
+        # Locked fields from template
+        channel_id = template.channel_id
+        notify_role_ids = template.notify_role_ids
+        allowed_player_role_ids = template.allowed_player_role_ids
 
         # Resolve initial participants if provided
         valid_participants = []
@@ -171,16 +186,18 @@ class GameService:
             id=game_model.generate_uuid(),
             title=game_data.title,
             description=game_data.description,
-            signup_instructions=game_data.signup_instructions,
+            signup_instructions=signup_instructions,
             scheduled_at=scheduled_at_naive,
-            where=game_data.where,
+            where=where,
+            template_id=template.id,
             guild_id=guild_config.id,
-            channel_id=channel_config.id,
+            channel_id=channel_id,
             host_id=host_user.id,
-            max_players=resolved_max_players,
-            reminder_minutes=resolved_reminder_minutes,
-            expected_duration_minutes=game_data.expected_duration_minutes,
-            notify_role_ids=game_data.notify_role_ids,
+            max_players=max_players,
+            reminder_minutes=reminder_minutes,
+            expected_duration_minutes=expected_duration_minutes,
+            notify_role_ids=notify_role_ids,
+            allowed_player_role_ids=allowed_player_role_ids,
             status=game_model.GameStatus.SCHEDULED.value,
         )
 
@@ -211,7 +228,7 @@ class GameService:
 
         # Populate notification schedule
         schedule_service = notification_schedule_service.NotificationScheduleService(self.db)
-        await schedule_service.populate_schedule(game, resolved_reminder_minutes)
+        await schedule_service.populate_schedule(game, reminder_minutes)
 
         await self.db.commit()
 

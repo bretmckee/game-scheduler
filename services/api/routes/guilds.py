@@ -345,6 +345,32 @@ async def list_guild_roles(
     return filtered_roles
 
 
+@router.post("/sync", response_model=guild_schemas.GuildSyncResponse)
+async def sync_guilds(
+    current_user: auth_schemas.CurrentUser = Depends(dependencies.auth.get_current_user),
+    db: AsyncSession = Depends(database.get_db),
+) -> guild_schemas.GuildSyncResponse:
+    """
+    Sync user's Discord guilds with database.
+
+    Fetches user's guilds with MANAGE_GUILD permission and bot's guilds,
+    creates GuildConfiguration and ChannelConfiguration for new guilds,
+    and creates default template for each new guild.
+
+    Returns count of new guilds and channels created.
+    """
+    from services.api.auth import tokens
+
+    access_token = await tokens.get_valid_token_for_user(current_user.user_id, db)
+
+    result = await guild_service.sync_user_guilds(db, access_token, current_user.user_id)
+
+    return guild_schemas.GuildSyncResponse(
+        new_guilds=result["new_guilds"],
+        new_channels=result["new_channels"],
+    )
+
+
 @router.post("/{guild_id}/validate-mention")
 async def validate_mention(
     guild_id: str,

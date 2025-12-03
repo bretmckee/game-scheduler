@@ -108,9 +108,7 @@ async def test_created_updated_have_utc_marker(mock_get_resolver, mock_get_disco
     guild = GuildConfiguration(guild_id="test-guild")
     guild.id = "1"
 
-    channel = ChannelConfiguration(
-        guild_id="1", channel_id="test-channel", is_active=True
-    )
+    channel = ChannelConfiguration(guild_id="1", channel_id="test-channel", is_active=True)
     channel.id = "1"
 
     host = User(discord_id="host-123")
@@ -167,9 +165,7 @@ async def test_midnight_utc_not_offset(mock_get_resolver, mock_get_discord_clien
     guild = GuildConfiguration(guild_id="test-guild")
     guild.id = "1"
 
-    channel = ChannelConfiguration(
-        guild_id="1", channel_id="test-channel", is_active=True
-    )
+    channel = ChannelConfiguration(guild_id="1", channel_id="test-channel", is_active=True)
     channel.id = "1"
 
     host = User(discord_id="host-123")
@@ -232,9 +228,7 @@ async def test_various_times_consistent(mock_get_resolver, mock_get_discord_clie
     guild = GuildConfiguration(guild_id="test-guild")
     guild.id = "1"
 
-    channel = ChannelConfiguration(
-        guild_id="1", channel_id="test-channel", is_active=True
-    )
+    channel = ChannelConfiguration(guild_id="1", channel_id="test-channel", is_active=True)
     channel.id = "1"
 
     host = User(discord_id="host-123")
