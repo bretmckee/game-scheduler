@@ -88,9 +88,6 @@ Replace three-level inheritance system (Guild → Channel → Game) with templat
 
   - Details: .copilot-tracking/details/20251201-game-template-system-details.md (Lines 241-266)
 
-- [ ] Task 2.5: Create default template data migration script
-  - Details: .copilot-tracking/details/20251201-game-template-system-details.md (Lines 241-266)
-
 ### [x] Phase 3: Template Service & Schemas
 
 - [x] Task 3.1: Create template schemas
@@ -125,25 +122,26 @@ Replace three-level inheritance system (Guild → Channel → Game) with templat
 - [x] Task 4.4: Create template endpoint tests
   - Details: .copilot-tracking/details/20251201-game-template-system-details.md (Lines 479-501)
 
-### [ ] Phase 5: Frontend Template Management
+### [x] Phase 5: Frontend Template Management
 
-- [ ] Task 5.1: Create template management components
+- [x] Task 5.1: Create template management components
 
   - Details: .copilot-tracking/details/20251201-game-template-system-details.md (Lines 503-532)
 
-- [ ] Task 5.2: Add guild sync functionality
+- [x] Task 5.2: Add guild sync functionality
 
   - Details: .copilot-tracking/details/20251201-game-template-system-details.md (Lines 534-555)
 
-- [ ] Task 5.3: Update game creation form for templates
+- [x] Task 5.3: Update game creation form for templates
 
   - Details: .copilot-tracking/details/20251201-game-template-system-details.md (Lines 557-578)
 
-- [ ] Task 5.4: Remove inheritance UI components
+- [x] Task 5.4: Remove inheritance UI components
 
   - Details: .copilot-tracking/details/20251201-game-template-system-details.md (Lines 580-596)
+  - Note: Already completed in Phase 1
 
-- [ ] Task 5.5: Create frontend template tests
+- [x] Task 5.5: Create frontend template tests
   - Details: .copilot-tracking/details/20251201-game-template-system-details.md (Lines 598-616)
 
 ### [ ] Phase 6: Bot Command Cleanup

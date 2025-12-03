@@ -16,10 +16,21 @@
 // with Game_Scheduler If not, see <https://www.gnu.org/licenses/>.
 
 import { FC, useState, useEffect } from 'react';
-import { Container, CircularProgress, Alert } from '@mui/material';
+import {
+  Container,
+  CircularProgress,
+  Alert,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Box,
+  Typography,
+} from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiClient } from '../api/client';
-import { Channel, DiscordRole } from '../types';
+import { getTemplates } from '../api/templates';
+import { GameTemplate, DiscordRole } from '../types';
 import { GameForm, GameFormData, parseDurationString } from '../components/GameForm';
 
 interface ValidationError {
@@ -42,7 +53,8 @@ interface ValidationErrorResponse {
 export const CreateGame: FC = () => {
   const navigate = useNavigate();
   const { guildId } = useParams<{ guildId: string }>();
-  const [channels, setChannels] = useState<Channel[]>([]);
+  const [templates, setTemplates] = useState<GameTemplate[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<GameTemplate | null>(null);
   const [roles, setRoles] = useState<DiscordRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -55,12 +67,20 @@ export const CreateGame: FC = () => {
 
       try {
         setLoading(true);
-        const [channelsResponse, rolesResponse] = await Promise.all([
-          apiClient.get<Channel[]>(`/api/v1/guilds/${guildId}/channels`),
+        const [templatesResponse, rolesResponse] = await Promise.all([
+          getTemplates(guildId),
           apiClient.get<DiscordRole[]>(`/api/v1/guilds/${guildId}/roles`),
         ]);
-        setChannels(channelsResponse.data);
+        setTemplates(templatesResponse);
         setRoles(rolesResponse.data);
+
+        // Auto-select default template
+        const defaultTemplate = templatesResponse.find((t) => t.is_default);
+        if (defaultTemplate) {
+          setSelectedTemplate(defaultTemplate);
+        } else if (templatesResponse.length > 0) {
+          setSelectedTemplate(templatesResponse[0]!);
+        }
       } catch (err: unknown) {
         console.error('Failed to fetch data:', err);
         setError('Failed to load server data. Please try again.');
@@ -73,8 +93,8 @@ export const CreateGame: FC = () => {
   }, [guildId]);
 
   const handleSubmit = async (formData: GameFormData) => {
-    if (!guildId) {
-      throw new Error('Server ID is required');
+    if (!guildId || !selectedTemplate) {
+      throw new Error('Server ID and template are required');
     }
 
     const maxPlayers = formData.maxPlayers ? parseInt(formData.maxPlayers) : null;
@@ -84,19 +104,17 @@ export const CreateGame: FC = () => {
       setError(null);
 
       const payload = {
+        template_id: selectedTemplate.id,
         title: formData.title,
         description: formData.description,
         signup_instructions: formData.signupInstructions || null,
         scheduled_at: formData.scheduledAt!.toISOString(),
         where: formData.where || null,
-        guild_id: guildId,
-        channel_id: formData.channelId,
         max_players: maxPlayers,
         reminder_minutes: formData.reminderMinutes
           ? formData.reminderMinutes.split(',').map((m) => parseInt(m.trim()))
           : null,
         expected_duration_minutes: parseDurationString(formData.expectedDurationMinutes),
-        notify_role_ids: formData.notifyRoleIds.length > 0 ? formData.notifyRoleIds : null,
         initial_participants: formData.participants
           .filter((p) => p.mention.trim())
           .map((p) => p.mention.trim()),
@@ -154,17 +172,71 @@ export const CreateGame: FC = () => {
 
   return (
     <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
-      <GameForm
-        mode="create"
-        guildId={guildId!}
-        channels={channels}
-        roles={roles}
-        onSubmit={handleSubmit}
-        onCancel={() => navigate(-1)}
-        validationErrors={validationErrors}
-        validParticipants={validParticipants}
-        onValidationErrorClick={handleSuggestionClick}
-      />
+      {templates.length === 0 ? (
+        <Alert severity="warning">
+          No templates available. Please create a template first in the server settings.
+        </Alert>
+      ) : (
+        <>
+          <Box sx={{ mb: 3 }}>
+            <FormControl fullWidth>
+              <InputLabel>Game Template</InputLabel>
+              <Select
+                value={selectedTemplate?.id || ''}
+                onChange={(e) => {
+                  const template = templates.find((t) => t.id === e.target.value);
+                  setSelectedTemplate(template || null);
+                }}
+                label="Game Template"
+              >
+                {templates.map((template) => (
+                  <MenuItem key={template.id} value={template.id}>
+                    {template.name}
+                    {template.is_default && ' (Default)'}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            {selectedTemplate?.description && (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                {selectedTemplate.description}
+              </Typography>
+            )}
+          </Box>
+
+          {selectedTemplate && (
+            <GameForm
+              mode="create"
+              guildId={guildId!}
+              channels={[
+                {
+                  id: selectedTemplate.channel_id,
+                  guild_id: guildId!,
+                  channel_id: selectedTemplate.channel_id,
+                  channel_name: selectedTemplate.channel_name,
+                  is_active: true,
+                  created_at: '',
+                  updated_at: '',
+                },
+              ]}
+              roles={roles}
+              initialData={{
+                max_players: selectedTemplate.max_players,
+                expected_duration_minutes: selectedTemplate.expected_duration_minutes,
+                reminder_minutes: selectedTemplate.reminder_minutes,
+                where: selectedTemplate.where,
+                signup_instructions: selectedTemplate.signup_instructions,
+                channel_id: selectedTemplate.channel_id,
+              }}
+              onSubmit={handleSubmit}
+              onCancel={() => navigate(-1)}
+              validationErrors={validationErrors}
+              validParticipants={validParticipants}
+              onValidationErrorClick={handleSuggestionClick}
+            />
+          )}
+        </>
+      )}
     </Container>
   );
 };

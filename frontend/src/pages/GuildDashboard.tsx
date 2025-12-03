@@ -35,7 +35,10 @@ import {
 } from '@mui/material';
 import SettingsIcon from '@mui/icons-material/Settings';
 import AddIcon from '@mui/icons-material/Add';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import CategoryIcon from '@mui/icons-material/Category';
 import { apiClient } from '../api/client';
+import { syncUserGuilds, GuildSyncResponse } from '../api/guilds';
 import { Guild, Channel } from '../types';
 
 interface TabPanelProps {
@@ -60,6 +63,8 @@ export const GuildDashboard: FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tabValue, setTabValue] = useState(0);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
     if (newValue === 2) {
@@ -67,6 +72,31 @@ export const GuildDashboard: FC = () => {
       navigate(`/guilds/${guildId}/games`);
     } else {
       setTabValue(newValue);
+    }
+  };
+
+  const handleSyncGuilds = async () => {
+    try {
+      setSyncing(true);
+      setSyncMessage(null);
+      setError(null);
+
+      const result: GuildSyncResponse = await syncUserGuilds();
+
+      if (result.guilds_created > 0 || result.channels_created > 0) {
+        setSyncMessage(
+          `Synced ${result.guilds_created} new server(s) and ${result.channels_created} new channel(s)`
+        );
+        // Refresh the page data to show newly synced guilds/channels
+        window.location.reload();
+      } else {
+        setSyncMessage('All servers are already synced');
+      }
+    } catch (err: any) {
+      console.error('Failed to sync guilds:', err);
+      setError(err.response?.data?.detail || 'Failed to sync servers. Please try again.');
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -132,14 +162,37 @@ export const GuildDashboard: FC = () => {
     <Container sx={{ mt: 4, mb: 4 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4">{guild.guild_name}</Typography>
-        <Button
-          variant="outlined"
-          startIcon={<SettingsIcon />}
-          onClick={() => navigate(`/guilds/${guildId}/config`)}
-        >
-          Server Settings
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            variant="outlined"
+            startIcon={<RefreshIcon />}
+            onClick={handleSyncGuilds}
+            disabled={syncing}
+          >
+            {syncing ? 'Syncing...' : 'Refresh Servers'}
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<CategoryIcon />}
+            onClick={() => navigate(`/guilds/${guildId}/templates`)}
+          >
+            Templates
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<SettingsIcon />}
+            onClick={() => navigate(`/guilds/${guildId}/config`)}
+          >
+            Settings
+          </Button>
+        </Box>
       </Box>
+
+      {syncMessage && (
+        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSyncMessage(null)}>
+          {syncMessage}
+        </Alert>
+      )}
 
       <Tabs value={tabValue} onChange={handleTabChange} sx={{ mb: 2 }}>
         <Tab label="Overview" />

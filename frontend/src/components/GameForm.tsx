@@ -79,7 +79,7 @@ interface GameFormProps {
   onValidationErrorClick?: (originalInput: string, newUsername: string) => void;
 }
 
-const formatDurationForDisplay = (minutes: number | null): string => {
+export const formatDurationForDisplay = (minutes: number | null): string => {
   if (!minutes) return '';
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
@@ -441,56 +441,56 @@ export const GameForm: FC<GameFormProps> = ({
 
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
-                  <InputLabel>Notify Roles</InputLabel>
-                  <Select
-                    multiple
-                    value={formData.notifyRoleIds}
-                    onChange={handleRoleSelectChange}
-                    input={<OutlinedInput label="Notify Roles" />}
-                    renderValue={(selected) => (
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                        {selected.map((roleId) => {
-                          const role = roles.find((r) => r.id === roleId);
-                          return (
-                            <Chip
-                              key={roleId}
-                              label={role?.name || roleId}
-                              size="small"
-                              sx={{
-                                bgcolor: role?.color
-                                  ? `#${role.color.toString(16).padStart(6, '0')}`
-                                  : 'default',
-                                color: role?.color ? '#fff' : 'default',
-                              }}
-                            />
-                          );
-                        })}
-                      </Box>
-                    )}
-                    disabled={loading}
-                  >
-                    {roles.map((role) => (
-                      <MenuItem key={role.id} value={role.id}>
-                        <Chip
-                          label={role.name}
-                          size="small"
-                          sx={{
-                            bgcolor: role.color
-                              ? `#${role.color.toString(16).padStart(6, '0')}`
-                              : 'default',
-                            color: role.color ? '#fff' : 'default',
-                            mr: 1,
-                          }}
-                        />
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  <Typography variant="caption" sx={{ mt: 0.5, color: 'text.secondary' }}>
-                    Users with these roles will be mentioned when the game is announced
-                  </Typography>
-                </FormControl>
-              </Grid>
+                <InputLabel>Notify Roles</InputLabel>
+                <Select
+                  multiple
+                  value={formData.notifyRoleIds}
+                  onChange={handleRoleSelectChange}
+                  input={<OutlinedInput label="Notify Roles" />}
+                  renderValue={(selected) => (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {selected.map((roleId) => {
+                        const role = roles.find((r) => r.id === roleId);
+                        return (
+                          <Chip
+                            key={roleId}
+                            label={role?.name || roleId}
+                            size="small"
+                            sx={{
+                              bgcolor: role?.color
+                                ? `#${role.color.toString(16).padStart(6, '0')}`
+                                : 'default',
+                              color: role?.color ? '#fff' : 'default',
+                            }}
+                          />
+                        );
+                      })}
+                    </Box>
+                  )}
+                  disabled={loading}
+                >
+                  {roles.map((role) => (
+                    <MenuItem key={role.id} value={role.id}>
+                      <Chip
+                        label={role.name}
+                        size="small"
+                        sx={{
+                          bgcolor: role.color
+                            ? `#${role.color.toString(16).padStart(6, '0')}`
+                            : 'default',
+                          color: role.color ? '#fff' : 'default',
+                          mr: 1,
+                        }}
+                      />
+                    </MenuItem>
+                  ))}
+                </Select>
+                <Typography variant="caption" sx={{ mt: 0.5, color: 'text.secondary' }}>
+                  Users with these roles will be mentioned when the game is announced
+                </Typography>
+              </FormControl>
             </Grid>
+          </Grid>
 
           <EditableParticipantList
             participants={formData.participants}

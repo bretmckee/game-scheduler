@@ -32,6 +32,7 @@ import { GameDetails } from './pages/GameDetails';
 import { CreateGame } from './pages/CreateGame';
 import { EditGame } from './pages/EditGame';
 import { MyGames } from './pages/MyGames';
+import { TemplateManagement } from './pages/TemplateManagement';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
@@ -52,6 +53,7 @@ function App() {
                 <Route path="/guilds" element={<GuildListPage />} />
                 <Route path="/guilds/:guildId" element={<GuildDashboard />} />
                 <Route path="/guilds/:guildId/config" element={<GuildConfig />} />
+                <Route path="/guilds/:guildId/templates" element={<TemplateManagement />} />
                 <Route path="/channels/:channelUuid/config" element={<ChannelConfig />} />
                 <Route path="/guilds/:guildId/games" element={<BrowseGames />} />
                 <Route path="/guilds/:guildId/games/new" element={<CreateGame />} />

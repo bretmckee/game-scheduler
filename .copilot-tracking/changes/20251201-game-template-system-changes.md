@@ -32,6 +32,14 @@ Replace three-level inheritance system (Guild → Channel → Game) with templat
 - services/api/routes/templates.py - Complete template CRUD router with 7 endpoints (list, get, create, update, delete, set-default, reorder) with role-based authorization
 - tests/services/api/routes/test_templates.py - Template endpoint tests covering list, get, create, and delete operations with role filtering and authorization (7 tests, all passing)
 - tests/e2e/test_guild_template_api.py - E2E tests for guild sync and template API endpoints (6 tests for future full-stack e2e test suite)
+- frontend/src/api/templates.ts - Template API client functions (getTemplates, getTemplate, createTemplate, updateTemplate, deleteTemplate, setDefaultTemplate, reorderTemplates)
+- frontend/src/api/guilds.ts - Guild API client with syncUserGuilds function for manual guild synchronization
+- frontend/src/components/TemplateCard.tsx - Template card component with edit, delete, set default actions and drag handle
+- frontend/src/components/TemplateForm.tsx - Template create/edit form with locked and pre-populated field sections
+- frontend/src/components/TemplateList.tsx - Template list component with drag-and-drop reordering
+- frontend/src/pages/TemplateManagement.tsx - Main template management page with CRUD operations
+- frontend/src/components/**tests**/TemplateCard.test.tsx - Unit tests for TemplateCard component (7 tests)
+- frontend/src/components/**tests**/TemplateList.test.tsx - Unit tests for TemplateList component (3 tests)
 
 ### Modified
 
@@ -74,6 +82,10 @@ Replace three-level inheritance system (Guild → Channel → Game) with templat
 - tests/services/api/routes/test_templates.py - Fixed to remove token mocking and use direct current_user.access_token pattern; fixed get_template tests to use correct method name get_template_by_id
 - tests/services/api/routes/test_guilds.py - Fixed fetch_channel_name_safe patch path to use correct import location
 - tests/services/api/services/test_games.py - Added sample_template fixture using template_model.GameTemplate; updated 5 game creation tests to include template_result in mock db.execute side_effect (test_create_game_without_participants, test_create_game_with_where_field, test_create_game_with_valid_participants, test_create_game_with_invalid_participants, test_create_game_timezone_conversion)
+- frontend/src/types/index.ts - Added GameTemplate, TemplateListItem, TemplateCreateRequest, TemplateUpdateRequest interfaces
+- frontend/src/App.tsx - Added /guilds/:guildId/templates route for template management page
+- frontend/src/pages/GuildDashboard.tsx - Added "Refresh Servers" button for manual guild sync, added "Templates" button to navigate to template management
+- frontend/src/pages/CreateGame.tsx - Updated to use template selection dropdown instead of channel selection, pre-populates form fields from selected template
 
 ### Removed
 

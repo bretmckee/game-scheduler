@@ -110,3 +110,65 @@ export interface DiscordRole {
   position: number;
   managed: boolean;
 }
+
+export interface GameTemplate {
+  id: string;
+  guild_id: string;
+  name: string;
+  description: string | null;
+  order: number;
+  is_default: boolean;
+  channel_id: string;
+  channel_name: string;
+  notify_role_ids: string[] | null;
+  allowed_player_role_ids: string[] | null;
+  allowed_host_role_ids: string[] | null;
+  max_players: number | null;
+  expected_duration_minutes: number | null;
+  reminder_minutes: number[] | null;
+  where: string | null;
+  signup_instructions: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TemplateListItem {
+  id: string;
+  name: string;
+  description: string | null;
+  is_default: boolean;
+  channel_name: string;
+}
+
+export interface TemplateCreateRequest {
+  guild_id: string;
+  name: string;
+  description?: string | null;
+  order?: number;
+  is_default?: boolean;
+  channel_id: string;
+  notify_role_ids?: string[] | null;
+  allowed_player_role_ids?: string[] | null;
+  allowed_host_role_ids?: string[] | null;
+  max_players?: number | null;
+  expected_duration_minutes?: number | null;
+  reminder_minutes?: number[] | null;
+  where?: string | null;
+  signup_instructions?: string | null;
+}
+
+export interface TemplateUpdateRequest {
+  name?: string;
+  description?: string | null;
+  order?: number;
+  is_default?: boolean;
+  channel_id?: string;
+  notify_role_ids?: string[] | null;
+  allowed_player_role_ids?: string[] | null;
+  allowed_host_role_ids?: string[] | null;
+  max_players?: number | null;
+  expected_duration_minutes?: number | null;
+  reminder_minutes?: number[] | null;
+  where?: string | null;
+  signup_instructions?: string | null;
+}
