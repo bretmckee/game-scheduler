@@ -39,19 +39,13 @@ describe('GuildListPage', () => {
   const mockGuilds: Guild[] = [
     {
       id: '1',
-      guild_id: 'guild1',
       guild_name: 'Test Guild 1',
-      bot_manager_role_ids: [],
-      require_host_role: false,
       created_at: '2024-01-01T00:00:00Z',
       updated_at: '2024-01-01T00:00:00Z',
     },
     {
       id: '2',
-      guild_id: 'guild2',
       guild_name: 'Test Guild 2',
-      bot_manager_role_ids: [],
-      require_host_role: false,
       created_at: '2024-01-01T00:00:00Z',
       updated_at: '2024-01-01T00:00:00Z',
     },

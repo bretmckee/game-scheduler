@@ -40,10 +40,7 @@ vi.mock('../../api/client');
 describe('GuildConfig', () => {
   const mockGuild: Guild = {
     id: '1',
-    guild_id: 'guild123',
     guild_name: 'Test Guild',
-    bot_manager_role_ids: [],
-    require_host_role: true,
     created_at: '2024-01-01T00:00:00Z',
     updated_at: '2024-01-01T00:00:00Z',
   };
