@@ -38,18 +38,26 @@ class GuildConfigUpdateRequest(BaseModel):
     require_host_role: bool | None = None
 
 
-class GuildConfigResponse(BaseModel):
-    """Guild configuration response."""
+class GuildBasicInfoResponse(BaseModel):
+    """Basic guild information response (no sensitive config data)."""
 
     id: str = Field(..., description="Internal guild config ID (UUID)")
-    guild_id: str = Field(..., description="Discord guild snowflake ID")
+    guild_name: str = Field(..., description="Discord guild name")
+    created_at: str = Field(..., description="When guild was added to database")
+    updated_at: str = Field(..., description="When guild config was last updated")
+
+
+class GuildConfigResponse(BaseModel):
+    """Guild configuration response (includes sensitive config data)."""
+
+    id: str = Field(..., description="Internal guild config ID (UUID)")
     guild_name: str = Field(..., description="Discord guild name")
     bot_manager_role_ids: list[str] | None = Field(
         None, description="Role IDs with Bot Manager permissions (can edit/delete any game)"
     )
     require_host_role: bool = Field(..., description="Whether host role is required")
-    created_at: str = Field(..., description="Creation timestamp (UTC ISO)")
-    updated_at: str = Field(..., description="Last update timestamp (UTC ISO)")
+    created_at: str = Field(..., description="When guild was added to database")
+    updated_at: str = Field(..., description="When guild config was last updated")
 
     model_config = {"from_attributes": True}
 
@@ -57,7 +65,7 @@ class GuildConfigResponse(BaseModel):
 class GuildListResponse(BaseModel):
     """List of guilds for a user."""
 
-    guilds: list[GuildConfigResponse] = Field(..., description="List of guild configurations")
+    guilds: list[GuildBasicInfoResponse] = Field(..., description="List of guilds")
 
 
 class ValidateMentionRequest(BaseModel):

@@ -62,12 +62,9 @@ async def list_guilds(
             guild_name = discord_guild_data.get("name", "Unknown Guild")
 
             guild_configs.append(
-                guild_schemas.GuildConfigResponse(
+                guild_schemas.GuildBasicInfoResponse(
                     id=guild_config.id,
-                    guild_id=guild_config.guild_id,
                     guild_name=guild_name,
-                    bot_manager_role_ids=guild_config.bot_manager_role_ids,
-                    require_host_role=guild_config.require_host_role,
                     created_at=guild_config.created_at.isoformat(),
                     updated_at=guild_config.updated_at.isoformat(),
                 )
@@ -76,15 +73,16 @@ async def list_guilds(
     return guild_schemas.GuildListResponse(guilds=guild_configs)
 
 
-@router.get("/{guild_id}", response_model=guild_schemas.GuildConfigResponse)
+@router.get("/{guild_id}", response_model=guild_schemas.GuildBasicInfoResponse)
 async def get_guild(
     guild_id: str,
     current_user: auth_schemas.CurrentUser = Depends(dependencies.auth.get_current_user),
     db: AsyncSession = Depends(database.get_db),
-) -> guild_schemas.GuildConfigResponse:
+) -> guild_schemas.GuildBasicInfoResponse:
     """
-    Get guild configuration by database UUID.
+    Get basic guild information by database UUID.
 
+    Returns guild name and metadata without sensitive configuration data.
     Requires user to be member of the guild.
     """
     from services.api.auth import tokens
@@ -123,9 +121,45 @@ async def get_guild(
 
     guild_name = user_guilds_dict[discord_guild_id].get("name", "Unknown Guild")
 
+    return guild_schemas.GuildBasicInfoResponse(
+        id=guild_config.id,
+        guild_name=guild_name,
+        created_at=guild_config.created_at.isoformat(),
+        updated_at=guild_config.updated_at.isoformat(),
+    )
+
+
+@router.get("/{guild_id}/config", response_model=guild_schemas.GuildConfigResponse)
+async def get_guild_config(
+    guild_id: str,
+    current_user: auth_schemas.CurrentUser = Depends(permissions.require_manage_guild),
+    db: AsyncSession = Depends(database.get_db),
+) -> guild_schemas.GuildConfigResponse:
+    """
+    Get guild configuration including sensitive settings.
+
+    Requires MANAGE_GUILD permission in the guild.
+    """
+    from services.api.auth import tokens
+
+    guild_config = await queries.get_guild_by_id(db, guild_id)
+    if not guild_config:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Guild configuration not found",
+        )
+
+    token_data = await tokens.get_user_tokens(current_user.session_token)
+    if not token_data:
+        raise HTTPException(status_code=401, detail="No session found")
+
+    access_token = token_data["access_token"]
+    user_guilds = await oauth2.get_user_guilds(access_token, current_user.user.discord_id)
+    user_guilds_dict = {g["id"]: g for g in user_guilds}
+    guild_name = user_guilds_dict.get(guild_config.guild_id, {}).get("name", "Unknown Guild")
+
     return guild_schemas.GuildConfigResponse(
         id=guild_config.id,
-        guild_id=guild_config.guild_id,
         guild_name=guild_name,
         bot_manager_role_ids=guild_config.bot_manager_role_ids,
         require_host_role=guild_config.require_host_role,
@@ -206,7 +240,6 @@ async def update_guild_config(
 
     return guild_schemas.GuildConfigResponse(
         id=guild_config.id,
-        guild_id=guild_config.guild_id,
         guild_name=guild_name,
         bot_manager_role_ids=guild_config.bot_manager_role_ids,
         require_host_role=guild_config.require_host_role,
