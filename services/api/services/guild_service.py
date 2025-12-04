@@ -58,14 +58,13 @@ async def update_guild_config(
     Args:
         db: Database session
         guild_config: Existing guild configuration
-        **updates: Fields to update (only non-None values are applied)
+        **updates: Fields to update
 
     Returns:
         Updated guild configuration
     """
     for key, value in updates.items():
-        if value is not None:
-            setattr(guild_config, key, value)
+        setattr(guild_config, key, value)
 
     await db.commit()
     await db.refresh(guild_config)
