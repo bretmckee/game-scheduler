@@ -77,6 +77,11 @@ class RoleVerificationService:
             member_data = await self.discord_client.get_guild_member(guild_id, user_id)
             role_ids = member_data.get("roles", [])
 
+            # Add @everyone role (which has the same ID as the guild)
+            # Discord doesn't include it in the roles array but every member has it
+            if guild_id not in role_ids:
+                role_ids.append(guild_id)
+
             await cache.set_json(cache_key, role_ids, ttl=cache_ttl.CacheTTL.USER_ROLES)
             return role_ids
 
@@ -134,31 +139,39 @@ class RoleVerificationService:
         user_id: str,
         guild_id: str,
         db: AsyncSession,
-        channel_id: str | None = None,
+        allowed_host_role_ids: list[str] | None = None,
         access_token: str | None = None,
     ) -> bool:
         """
-        Check if user can host games.
+        Check if user can host games with optional template role restrictions.
 
-        Currently checks MANAGE_GUILD permission only.
-        Template-based role restrictions will be added in Phase 2.
+        Checks both bot manager permissions (MANAGE_GUILD or bot_manager_role_ids)
+        and template-specific role requirements.
 
         Args:
             user_id: Discord user ID
             guild_id: Discord guild ID
-            db: Database session (for future template checks)
-            channel_id: Discord channel ID (unused, kept for compatibility)
+            db: Database session for configuration queries
+            allowed_host_role_ids: Template's allowed host role IDs (None or [] = managers only)
             access_token: User's OAuth2 access token
 
         Returns:
-            True if user can host games
+            True if user can host games with this template
         """
-        if access_token:
-            return await self.has_permissions(
-                user_id, guild_id, access_token, DiscordPermissions.MANAGE_GUILD
-            )
+        # Bot managers can always host
+        is_bot_manager = await self.check_bot_manager_permission(
+            user_id, guild_id, db, access_token
+        )
+        if is_bot_manager:
+            return True
 
-        return False
+        # If no roles specified (None or empty list), only managers can host
+        if not allowed_host_role_ids:
+            return False
+
+        # Check if user has one of the required roles
+        user_role_ids = await self.get_user_role_ids(user_id, guild_id)
+        return any(role_id in allowed_host_role_ids for role_id in user_role_ids)
 
     async def check_bot_manager_permission(
         self, user_id: str, guild_id: str, db: AsyncSession, access_token: str | None = None

@@ -40,8 +40,10 @@ class TemplateService:
     async def get_templates_for_user(
         self,
         guild_id: str,
-        user_role_ids: list[str],
-        is_admin: bool = False,
+        user_id: str,
+        discord_guild_id: str,
+        role_service,
+        access_token: str | None = None,
     ) -> list[GameTemplate]:
         """
         Get templates user can access, sorted for dropdown.
@@ -51,9 +53,11 @@ class TemplateService:
         allowed_host_role_ids.
 
         Args:
-            guild_id: Guild UUID
-            user_role_ids: User's Discord role IDs
-            is_admin: Whether user is admin (bypasses role filtering)
+            guild_id: Guild UUID (database ID)
+            user_id: Discord user ID
+            discord_guild_id: Discord guild ID (snowflake)
+            role_service: Role service for permission checking
+            access_token: User's Discord access token
 
         Returns:
             List of accessible templates
@@ -67,15 +71,20 @@ class TemplateService:
                 GameTemplate.order.asc(),
             )
         )
-        templates = list(result.scalars().all())
+        all_templates = list(result.scalars().all())
 
-        if not is_admin:
-            templates = [
-                t
-                for t in templates
-                if not t.allowed_host_role_ids
-                or any(role_id in t.allowed_host_role_ids for role_id in user_role_ids)
-            ]
+        # Filter templates using centralized permission check
+        templates = []
+        for template in all_templates:
+            can_host = await role_service.check_game_host_permission(
+                user_id,
+                discord_guild_id,
+                self.db,
+                template.allowed_host_role_ids,
+                access_token,
+            )
+            if can_host:
+                templates.append(template)
 
         return templates
 

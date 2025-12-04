@@ -33,6 +33,7 @@ from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
 from services.api.auth import discord_client as discord_client_module
+from services.api.auth import roles as roles_module
 from services.api.services import notification_schedule as notification_schedule_service
 from services.api.services import participant_resolver as resolver_module
 from shared.messaging import events as messaging_events
@@ -115,13 +116,25 @@ class GameService:
         if guild_config is None:
             raise ValueError(f"Guild configuration not found for ID: {template.guild_id}")
 
-        # Verify user can use this template
-        if template.allowed_host_role_ids:
-            discord_client = discord_client_module.get_discord_client()
-            member = await discord_client.get_guild_member(guild_config.guild_id, host_user_id)
-            user_role_ids = member.get("roles", [])
-            if not any(role_id in template.allowed_host_role_ids for role_id in user_role_ids):
-                raise ValueError("User does not have required role to use this template")
+        # Get host user from database
+        host_result = await self.db.execute(
+            select(user_model.User).where(user_model.User.id == host_user_id)
+        )
+        host_user = host_result.scalar_one_or_none()
+        if host_user is None:
+            raise ValueError(f"Host user not found for ID: {host_user_id}")
+
+        # Check if user can host games with this template
+        role_service = roles_module.get_role_service()
+        can_host = await role_service.check_game_host_permission(
+            host_user.discord_id,
+            guild_config.guild_id,
+            self.db,
+            template.allowed_host_role_ids,
+            access_token,
+        )
+        if not can_host:
+            raise ValueError("User does not have permission to create games with this template")
 
         # Get channel config
         channel_result = await self.db.execute(
@@ -132,14 +145,6 @@ class GameService:
         channel_config = channel_result.scalar_one_or_none()
         if channel_config is None:
             raise ValueError(f"Channel configuration not found for ID: {template.channel_id}")
-
-        # Get host user from database
-        host_result = await self.db.execute(
-            select(user_model.User).where(user_model.User.id == host_user_id)
-        )
-        host_user = host_result.scalar_one_or_none()
-        if host_user is None:
-            raise ValueError(f"Host user not found for ID: {host_user_id}")
 
         # Use template defaults for optional fields
         max_players = game_data.max_players or template.max_players or 10

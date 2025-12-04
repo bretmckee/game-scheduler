@@ -239,8 +239,7 @@ async def can_manage_game(
 
     User can manage game if they are:
     1. The game host
-    2. A Bot Manager (has bot_manager_role_ids)
-    3. An administrator (MANAGE_GUILD permission)
+    2. A Bot Manager (has bot_manager_role_ids or MANAGE_GUILD permission)
 
     Args:
         game_host_id: Discord ID of the game host
@@ -255,22 +254,14 @@ async def can_manage_game(
     if current_user.user.discord_id == game_host_id:
         return True
 
-    is_bot_manager = await role_service.check_bot_manager_permission(
-        current_user.user.discord_id, guild_id, db
-    )
-    if is_bot_manager:
-        return True
-
     token_data = await tokens.get_user_tokens(current_user.session_token)
-    if not token_data:
-        return False
+    access_token = token_data["access_token"] if token_data else None
 
-    access_token = token_data["access_token"]
-    is_admin = await role_service.has_permissions(
-        current_user.user.discord_id, guild_id, access_token, DiscordPermissions.MANAGE_GUILD
+    is_bot_manager = await role_service.check_bot_manager_permission(
+        current_user.user.discord_id, guild_id, db, access_token
     )
 
-    return is_admin
+    return is_bot_manager
 
 
 async def can_export_game(
