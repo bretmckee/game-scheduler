@@ -38,15 +38,15 @@ Eliminate Celery completely from the codebase by migrating game status transitio
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Create game_status_schedule Table
+### [x] Phase 1: Create game_status_schedule Table
 
-- [ ] Task 1.1: Create Alembic migration for game_status_schedule table
+- [x] Task 1.1: Create Alembic migration for game_status_schedule table
   - Details: .copilot-tracking/details/20251203-celery-elimination-notification-consolidation-details.md (Lines 11-30)
 
-- [ ] Task 1.2: Create PostgreSQL trigger for LISTEN/NOTIFY on status schedule changes
+- [x] Task 1.2: Create PostgreSQL trigger for LISTEN/NOTIFY on status schedule changes
   - Details: .copilot-tracking/details/20251203-celery-elimination-notification-consolidation-details.md (Lines 32-50)
 
-- [ ] Task 1.3: Add GameStatusSchedule SQLAlchemy model
+- [x] Task 1.3: Add GameStatusSchedule SQLAlchemy model
   - Details: .copilot-tracking/details/20251203-celery-elimination-notification-consolidation-details.md (Lines 52-70)
 
 ### [ ] Phase 2: Implement Status Transition Daemon

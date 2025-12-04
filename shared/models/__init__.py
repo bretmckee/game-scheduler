@@ -21,6 +21,7 @@
 from .base import Base
 from .channel import ChannelConfiguration
 from .game import GameSession, GameStatus
+from .game_status_schedule import GameStatusSchedule
 from .guild import GuildConfiguration
 from .notification_schedule import NotificationSchedule
 from .participant import GameParticipant
@@ -36,5 +37,6 @@ __all__ = [
     "GameStatus",
     "GameParticipant",
     "NotificationSchedule",
+    "GameStatusSchedule",
     "GameTemplate",
 ]
