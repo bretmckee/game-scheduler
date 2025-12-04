@@ -117,6 +117,15 @@ class GameReminderDueEvent(BaseModel):
     reminder_minutes: int
 
 
+class GameStartedEvent(BaseModel):
+    """Payload for game.started event."""
+
+    game_id: UUID
+    title: str
+    guild_id: str | None
+    channel_id: str | None
+
+
 class NotificationSendDMEvent(BaseModel):
     """Payload for notification.send_dm event."""
 

@@ -14,11 +14,17 @@ Eliminated Celery completely from the codebase by migrating game status transiti
 ### Added
 
 - alembic/versions/020_add_game_status_schedule.py - Database migration creating game_status_schedule table with PostgreSQL LISTEN/NOTIFY trigger for status transition scheduling
-- shared/models/game_status_schedule.py - SQLAlchemy model for game_status_schedule table
+- shared/models/game_status_schedule.py - SQLAlchemy model for game_status_schedule table (100% test coverage)
+- services/scheduler/status_transition_daemon.py - Event-driven daemon for processing game status transitions using PostgreSQL LISTEN/NOTIFY pattern
+- services/scheduler/status_schedule_queries.py - Database query functions for retrieving and updating game status schedule records (100% test coverage)
+- tests/shared/models/test_game_status_schedule.py - Unit tests for GameStatusSchedule model (7 tests)
+- tests/services/scheduler/test_status_schedule_queries.py - Unit tests for status schedule query functions (8 tests)
 
 ### Modified
 
 - shared/models/__init__.py - Added GameStatusSchedule model import and export
+- shared/messaging/events.py - Added GameStartedEvent model for game.started event publishing
+- shared/messaging/__init__.py - Added GameStartedEvent export
 
 ### Removed
 
