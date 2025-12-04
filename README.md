@@ -19,25 +19,33 @@ Microservices architecture with:
 - **Discord Bot Service**: Handles Discord Gateway interactions and sends notifications to participants
 - **Web API Service**: FastAPI REST API for web dashboard and game management
 - **Notification Daemon**: Database-backed event-driven scheduler for game reminders
-- **Scheduler Service**: Celery workers for periodic background jobs (game status updates)
+- **Status Transition Daemon**: Database-backed event-driven scheduler for game status transitions
 - **PostgreSQL**: Primary data store with LISTEN/NOTIFY for real-time events
 - **RabbitMQ**: Message broker for inter-service communication
 - **Redis**: Caching and session storage
 
-### Notification System
+### Event-Driven Scheduling System
 
-The notification system uses a database-backed event-driven architecture for reliable, scalable game reminders:
+The system uses a database-backed event-driven architecture for reliable, scalable scheduling:
+
+#### Game Reminders (Notification Daemon)
 
 1. **Schedule Population**: When games are created or updated, notification schedules are stored in the `notification_schedule` table
-2. **Event-Driven Wake-ups**: PostgreSQL LISTEN/NOTIFY triggers instant scheduler wake-ups when schedules change
+2. **Event-Driven Wake-ups**: PostgreSQL LISTEN/NOTIFY triggers instant daemon wake-ups when schedules change
 3. **MIN() Query Pattern**: Daemon queries for the next due notification using an optimized O(1) query with partial index
 4. **RabbitMQ Events**: When notifications are due, events are published to RabbitMQ for the bot service to process
-5. **Persistence**: All scheduled notifications survive service restarts via database storage
+
+#### Game Status Transitions (Status Transition Daemon)
+
+1. **Schedule Population**: When games are created or scheduled_at updated, status transitions are stored in the `game_status_schedule` table
+2. **Event-Driven Wake-ups**: PostgreSQL LISTEN/NOTIFY triggers instant daemon wake-ups when schedules change
+3. **MIN() Query Pattern**: Daemon queries for the next due transition using an optimized O(1) query with partial index
+4. **Status Updates**: When transitions are due, game status is updated and GAME_STARTED events published to RabbitMQ
 
 **Key Features**:
 
-- Unlimited notification windows (supports scheduling weeks/months in advance)
-- Sub-10 second notification latency with event-driven wake-ups
+- Unlimited scheduling windows (supports scheduling weeks/months in advance)
+- Sub-10 second latency with event-driven wake-ups
 - Zero data loss on restarts - all state persisted in database
 - Self-healing - single MIN() query resumes processing after restart
 - Scalable - O(1) query performance regardless of total scheduled games
@@ -159,14 +167,16 @@ Configure in `.env` file:
 ├── services/
 │   ├── bot/                    # Discord bot service
 │   ├── api/                    # FastAPI web service
-│   └── scheduler/              # Background jobs and notification daemon
-│       ├── notification_daemon.py   # Event-driven notification scheduler
-│       ├── postgres_listener.py     # PostgreSQL LISTEN/NOTIFY client
-│       ├── schedule_queries.py      # Notification schedule queries
-│       └── tasks/              # Celery periodic tasks
+│   └── scheduler/              # Event-driven scheduling daemons
+│       ├── notification_daemon.py          # Game reminder scheduler
+│       ├── status_transition_daemon.py     # Game status transition scheduler
+│       ├── postgres_listener.py            # PostgreSQL LISTEN/NOTIFY client
+│       ├── schedule_queries.py             # Notification schedule queries
+│       └── status_schedule_queries.py      # Status schedule queries
 ├── shared/                     # Shared models and utilities
 │   └── models/
-│       └── notification_schedule.py # Notification schedule model
+│       ├── notification_schedule.py        # Notification schedule model
+│       └── game_status_schedule.py         # Status schedule model
 ├── docker/                     # Dockerfiles for each service
 ├── alembic/                    # Database migrations
 ├── docker-compose.base.yml     # Shared service definitions

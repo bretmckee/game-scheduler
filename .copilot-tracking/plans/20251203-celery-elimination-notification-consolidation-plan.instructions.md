@@ -82,18 +82,18 @@ Eliminate Celery completely from the codebase by migrating game status transitio
 - [x] Task 4.3: Test status transitions end-to-end
   - Details: .copilot-tracking/details/20251203-celery-elimination-notification-consolidation-details.md (Lines 247-270)
 
-### [ ] Phase 5: Remove Celery Infrastructure
+### [x] Phase 5: Remove Celery Infrastructure
 
-- [ ] Task 5.1: Remove Celery application and task files
+- [x] Task 5.1: Remove Celery application and task files
   - Details: .copilot-tracking/details/20251203-celery-elimination-notification-consolidation-details.md (Lines 272-285)
 
-- [ ] Task 5.2: Remove scheduler and scheduler-beat services from docker-compose
+- [x] Task 5.2: Remove scheduler and scheduler-beat services from docker-compose
   - Details: .copilot-tracking/details/20251203-celery-elimination-notification-consolidation-details.md (Lines 287-300)
 
-- [ ] Task 5.3: Remove Celery dependencies from pyproject.toml
+- [x] Task 5.3: Remove Celery dependencies from pyproject.toml
   - Details: .copilot-tracking/details/20251203-celery-elimination-notification-consolidation-details.md (Lines 302-315)
 
-- [ ] Task 5.4: Update documentation to reflect architecture change
+- [x] Task 5.4: Update documentation to reflect architecture change
   - Details: .copilot-tracking/details/20251203-celery-elimination-notification-consolidation-details.md (Lines 317-335)
 
 ## Dependencies

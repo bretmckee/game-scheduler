@@ -158,54 +158,6 @@ services:
     networks:
       - app-network
 
-  scheduler:
-    build:
-      context: .
-      dockerfile: docker/scheduler.Dockerfile
-      tags:
-        - ${IMAGE_REGISTRY:-}game-scheduler-scheduler:${IMAGE_TAG:-latest}
-      x-bake:
-        platforms:
-          - linux/amd64
-          - linux/arm64
-    image: ${IMAGE_REGISTRY:-}game-scheduler-scheduler:${IMAGE_TAG:-latest}
-    container_name: ${CONTAINER_PREFIX:-gamebot}-scheduler
-    restart: ${RESTART_POLICY:-unless-stopped}
-    environment:
-      DATABASE_URL: ${DATABASE_URL}
-      RABBITMQ_URL: ${RABBITMQ_URL}
-      REDIS_URL: ${REDIS_URL}
-    command: celery -A services.scheduler.celery_app:app worker --loglevel=info --pool=solo
-    depends_on:
-      init:
-        condition: service_completed_successfully
-    networks:
-      - app-network
-
-  scheduler-beat:
-    build:
-      context: .
-      dockerfile: docker/scheduler.Dockerfile
-      tags:
-        - ${IMAGE_REGISTRY:-}game-scheduler-scheduler:${IMAGE_TAG:-latest}
-      x-bake:
-        platforms:
-          - linux/amd64
-          - linux/arm64
-    image: ${IMAGE_REGISTRY:-}game-scheduler-scheduler:${IMAGE_TAG:-latest}
-    container_name: ${CONTAINER_PREFIX:-gamebot}-scheduler-beat
-    restart: ${RESTART_POLICY:-unless-stopped}
-    environment:
-      DATABASE_URL: ${DATABASE_URL}
-      RABBITMQ_URL: ${RABBITMQ_URL}
-      REDIS_URL: ${REDIS_URL}
-    command: celery -A services.scheduler.celery_app:app beat --loglevel=info
-    depends_on:
-      init:
-        condition: service_completed_successfully
-    networks:
-      - app-network
-
   notification-daemon:
     build:
       context: .
