@@ -28,9 +28,11 @@ import {
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../api/client';
-import { GameSession, GameListResponse } from '../types';
+import { GameSession, GameListResponse, Guild } from '../types';
 import { GameCard } from '../components/GameCard';
 import { useAuth } from '../hooks/useAuth';
+import { ServerSelectionDialog } from '../components/ServerSelectionDialog';
+import { canUserCreateGames } from '../utils/permissions';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -59,9 +61,12 @@ export const MyGames: FC = () => {
   const { user } = useAuth();
   const [hostedGames, setHostedGames] = useState<GameSession[]>([]);
   const [joinedGames, setJoinedGames] = useState<GameSession[]>([]);
+  const [guilds, setGuilds] = useState<Guild[]>([]);
+  const [guildsWithTemplates, setGuildsWithTemplates] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tabValue, setTabValue] = useState(0);
+  const [serverDialogOpen, setServerDialogOpen] = useState(false);
 
   useEffect(() => {
     const fetchGames = async () => {
@@ -71,8 +76,12 @@ export const MyGames: FC = () => {
         setLoading(true);
         setError(null);
 
-        const response = await apiClient.get<GameListResponse>('/api/v1/games');
-        const allGames = response.data.games;
+        const [gamesResponse, guildsResponse] = await Promise.all([
+          apiClient.get<GameListResponse>('/api/v1/games'),
+          apiClient.get<{ guilds: Guild[] }>('/api/v1/guilds'),
+        ]);
+
+        const allGames = gamesResponse.data.games;
 
         const hosted = allGames.filter(
           (game: GameSession) => game.host?.user_id === user.user_uuid
@@ -85,6 +94,18 @@ export const MyGames: FC = () => {
 
         setHostedGames(hosted);
         setJoinedGames(joined);
+        setGuilds(guildsResponse.data.guilds);
+
+        // Check which guilds have accessible templates
+        const guildsWithAccess = new Set<string>();
+        await Promise.all(
+          guildsResponse.data.guilds.map(async (guild) => {
+            if (await canUserCreateGames(guild.id)) {
+              guildsWithAccess.add(guild.id);
+            }
+          })
+        );
+        setGuildsWithTemplates(guildsWithAccess);
       } catch (err: unknown) {
         console.error('Failed to fetch games:', err);
         setError((err as any).response?.data?.detail || 'Failed to load games. Please try again.');
@@ -99,6 +120,24 @@ export const MyGames: FC = () => {
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
+
+  const handleCreateGame = () => {
+    const availableGuilds = guilds.filter((guild) => guildsWithTemplates.has(guild.id));
+
+    if (availableGuilds.length === 1 && availableGuilds[0]) {
+      navigate(`/guilds/${availableGuilds[0].id}/games/new`);
+    } else {
+      setServerDialogOpen(true);
+    }
+  };
+
+  const handleServerSelect = (guild: Guild) => {
+    setServerDialogOpen(false);
+    navigate(`/guilds/${guild.id}/games/new`);
+  };
+
+  const availableGuilds = guilds.filter((guild) => guildsWithTemplates.has(guild.id));
+  const canCreateGames = availableGuilds.length > 0;
 
   if (loading) {
     return (
@@ -116,9 +155,11 @@ export const MyGames: FC = () => {
         <Typography variant="h4" gutterBottom>
           My Games
         </Typography>
-        <Button variant="contained" onClick={() => navigate('/guilds')}>
-          Create New Game
-        </Button>
+        {canCreateGames && (
+          <Button variant="contained" onClick={handleCreateGame}>
+            Create New Game
+          </Button>
+        )}
       </Box>
 
       {error && (
@@ -127,40 +168,62 @@ export const MyGames: FC = () => {
         </Alert>
       )}
 
-      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Tabs value={tabValue} onChange={handleTabChange} aria-label="game tabs">
-          <Tab label={`Hosting (${hostedGames.length})`} />
-          <Tab label={`Joined (${joinedGames.length})`} />
-        </Tabs>
-      </Box>
-
-      <TabPanel value={tabValue} index={0}>
-        {hostedGames.length === 0 ? (
-          <Alert severity="info">
-            You haven&apos;t hosted any games yet. Create one to get started!
-          </Alert>
-        ) : (
-          <Box>
-            {hostedGames.map((game) => (
-              <GameCard key={game.id} game={game} />
-            ))}
+      {hostedGames.length > 0 ? (
+        <>
+          <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+            <Tabs value={tabValue} onChange={handleTabChange} aria-label="game tabs">
+              <Tab label={`Hosting (${hostedGames.length})`} />
+              <Tab label={`Joined (${joinedGames.length})`} />
+            </Tabs>
           </Box>
-        )}
-      </TabPanel>
 
-      <TabPanel value={tabValue} index={1}>
-        {joinedGames.length === 0 ? (
-          <Alert severity="info">
-            You haven&apos;t joined any games yet. Browse games to find one to join!
-          </Alert>
-        ) : (
-          <Box>
-            {joinedGames.map((game) => (
-              <GameCard key={game.id} game={game} />
-            ))}
-          </Box>
-        )}
-      </TabPanel>
+          <TabPanel value={tabValue} index={0}>
+            <Box>
+              {hostedGames.map((game) => (
+                <GameCard key={game.id} game={game} />
+              ))}
+            </Box>
+          </TabPanel>
+
+          <TabPanel value={tabValue} index={1}>
+            {joinedGames.length === 0 ? (
+              <Alert severity="info">
+                You haven&apos;t joined any games yet. Browse games to find one to join!
+              </Alert>
+            ) : (
+              <Box>
+                {joinedGames.map((game) => (
+                  <GameCard key={game.id} game={game} />
+                ))}
+              </Box>
+            )}
+          </TabPanel>
+        </>
+      ) : (
+        <Box>
+          {joinedGames.length === 0 ? (
+            <Alert severity="info">
+              No games to show
+            </Alert>
+          ) : (
+            <Box>
+              <Typography variant="h6" sx={{ mb: 2 }}>
+                Joined Games
+              </Typography>
+              {joinedGames.map((game) => (
+                <GameCard key={game.id} game={game} />
+              ))}
+            </Box>
+          )}
+        </Box>
+      )}
+
+      <ServerSelectionDialog
+        open={serverDialogOpen}
+        onClose={() => setServerDialogOpen(false)}
+        guilds={availableGuilds}
+        onSelect={handleServerSelect}
+      />
     </Container>
   );
 };

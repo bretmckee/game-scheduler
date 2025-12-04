@@ -38,6 +38,7 @@ import AddIcon from '@mui/icons-material/Add';
 import CategoryIcon from '@mui/icons-material/Category';
 import { apiClient } from '../api/client';
 import { Guild, Channel } from '../types';
+import { canUserCreateGames } from '../utils/permissions';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -61,6 +62,8 @@ export const GuildDashboard: FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tabValue, setTabValue] = useState(0);
+  const [isManager, setIsManager] = useState(false);
+  const [canCreateGames, setCanCreateGames] = useState(false);
 
   const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
     if (newValue === 2) {
@@ -86,6 +89,18 @@ export const GuildDashboard: FC = () => {
 
         setGuild(guildResponse.data);
         setChannels(channelsResponse.data);
+
+        // Try to fetch config to determine if user is a manager
+        try {
+          await apiClient.get(`/api/v1/guilds/${guildId}/config`);
+          setIsManager(true);
+        } catch {
+          // User is not a manager (403) or other error
+          setIsManager(false);
+        }
+
+        // Check if user can create games by fetching templates
+        setCanCreateGames(await canUserCreateGames(guildId));
       } catch (err: unknown) {
         console.error('Failed to fetch guild data:', err);
         setError(
@@ -134,20 +149,24 @@ export const GuildDashboard: FC = () => {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4">{guild.guild_name}</Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button
-            variant="outlined"
-            startIcon={<CategoryIcon />}
-            onClick={() => navigate(`/guilds/${guildId}/templates`)}
-          >
-            Templates
-          </Button>
-          <Button
-            variant="outlined"
-            startIcon={<SettingsIcon />}
-            onClick={() => navigate(`/guilds/${guildId}/config`)}
-          >
-            Settings
-          </Button>
+          {isManager && (
+            <>
+              <Button
+                variant="outlined"
+                startIcon={<CategoryIcon />}
+                onClick={() => navigate(`/guilds/${guildId}/templates`)}
+              >
+                Templates
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<SettingsIcon />}
+                onClick={() => navigate(`/guilds/${guildId}/config`)}
+              >
+                Settings
+              </Button>
+            </>
+          )}
         </Box>
       </Box>
 
@@ -166,13 +185,15 @@ export const GuildDashboard: FC = () => {
                   Quick Actions
                 </Typography>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <Button
-                    variant="contained"
-                    startIcon={<AddIcon />}
-                    onClick={() => navigate(`/guilds/${guildId}/games/new`)}
-                  >
-                    Create New Game
-                  </Button>
+                  {canCreateGames && (
+                    <Button
+                      variant="contained"
+                      startIcon={<AddIcon />}
+                      onClick={() => navigate(`/guilds/${guildId}/games/new`)}
+                    >
+                      Create New Game
+                    </Button>
+                  )}
                   <Button variant="outlined" onClick={() => navigate(`/guilds/${guildId}/games`)}>
                     Browse All Games
                   </Button>
