@@ -65,7 +65,7 @@ class NotificationDaemon:
         self,
         database_url: str,
         rabbitmq_url: str,
-        max_timeout: int = 300,
+        max_timeout: int = 900,
         buffer_seconds: int = 10,
     ):
         """
@@ -74,7 +74,7 @@ class NotificationDaemon:
         Args:
             database_url: PostgreSQL connection string (psycopg2 format)
             rabbitmq_url: RabbitMQ connection string
-            max_timeout: Maximum seconds to wait between checks (default: 5 min)
+            max_timeout: Maximum seconds to wait between checks (default: 15 min)
             buffer_seconds: Wake up this many seconds before due time
         """
         self.database_url = database_url
@@ -133,7 +133,13 @@ class NotificationDaemon:
         if self.listener is None or self.db is None:
             raise RuntimeError("Daemon not properly initialized")
 
-        next_notification = get_next_due_notification(self.db)
+        try:
+            next_notification = get_next_due_notification(self.db)
+        except Exception as e:
+            logger.warning(f"Database query failed ({e}), recreating session")
+            self.db.close()
+            self.db = SyncSessionLocal()
+            next_notification = get_next_due_notification(self.db)
 
         if not next_notification:
             wait_time = self.max_timeout
@@ -147,12 +153,12 @@ class NotificationDaemon:
                 return
 
             # Notification is in the future, wait for it
-            wait_time_float = max(0.0, time_until_due - self.buffer_seconds)
-            wait_time = int(min(wait_time_float, float(self.max_timeout)))
+            # Pass float directly to wait_for_notification to preserve fractional seconds
+            wait_time = min(max(0.0, time_until_due - self.buffer_seconds), float(self.max_timeout))
 
             logger.debug(
                 f"Next notification due in {time_until_due:.1f}s, "
-                f"waiting {wait_time}s (buffer: {self.buffer_seconds}s)"
+                f"waiting {wait_time:.1f}s (buffer: {self.buffer_seconds}s)"
             )
 
         received, payload = self.listener.wait_for_notification(timeout=wait_time)
@@ -180,11 +186,15 @@ class NotificationDaemon:
                 reminder_minutes=notification.reminder_minutes,
             )
 
+            # Publish event before commit
+            # GAME_REMINDER_DUE events are idempotent, so duplicate publishes are safe
+            # This ensures we can retry on publish failure without losing the notification
             self.publisher.publish_dict(
                 event_type=EventType.GAME_REMINDER_DUE.value,
                 data=event_data.model_dump(),
             )
 
+            # Mark notification as sent and commit after successful publish
             mark_notification_sent(self.db, notification.id)
             self.db.commit()
 

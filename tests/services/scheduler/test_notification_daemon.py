@@ -49,7 +49,7 @@ class TestNotificationDaemon:
             rabbitmq_url="amqp://user:pass@host:5672/",
         )
 
-        assert daemon.max_timeout == 300  # 5 minutes default
+        assert daemon.max_timeout == 900  # 15 minutes default
         assert daemon.buffer_seconds == 10  # 10 seconds default
 
     @patch("services.scheduler.notification_daemon.PostgresNotificationListener")

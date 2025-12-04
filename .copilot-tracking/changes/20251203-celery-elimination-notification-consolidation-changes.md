@@ -31,7 +31,9 @@ Eliminated Celery completely from the codebase by migrating game status transiti
 - docker-compose.base.yml - Added status-transition-daemon service definition with healthcheck and dependency configuration
 - docker/test.Dockerfile - Updated uv pip install command to use --group dev for dependency groups
 - scripts/run-integration-tests.sh - Added build step and argument passing with "$@" for selective test execution
-- services/scheduler/status_transition_daemon.py - Removed buffer_seconds parameter and fixed NOTIFY channel name (bug fixes during Phase 4 validation)
+- services/scheduler/status_transition_daemon.py - Removed buffer_seconds parameter, fixed NOTIFY channel name, removed RabbitMQ dependencies (simplified to database-only updates), added database session recovery for connection failures, increased max_timeout from 300s to 900s, changed wait_time from int to float to preserve fractional seconds and prevent busy loops
+- services/scheduler/notification_daemon.py - Added database session recovery for connection failures after long LISTEN waits, increased max_timeout from 300s to 900s, changed wait_time from int to float to preserve fractional seconds and prevent busy loops
+- tests/services/scheduler/test_notification_daemon.py - Updated test_init_uses_default_values to expect max_timeout=900 instead of 300
 - alembic/versions/020_add_game_status_schedule.py - Fixed trigger to always send NOTIFY regardless of time window, enabling true event-driven architecture
 - pyproject.toml - Removed celery>=5.3.0 dependency (Task 5.3)
 - README.md - Updated architecture section to document status-transition-daemon, expanded notification system section to cover both daemons, updated project structure to reflect new daemon architecture (Task 5.4)
@@ -71,6 +73,14 @@ Bug fixes applied during Phase 4 validation:
 - Fixed trigger to always send NOTIFY (removed 10-minute window restriction) enabling true event-driven architecture without polling
 - Updated logging levels from DEBUG to INFO for better monitoring visibility
 
+Post-deployment fixes (database connection stability):
+- Added database session recovery in status_transition_daemon.py to handle PostgreSQL connection closures during long LISTEN waits
+- Added database session recovery in notification_daemon.py to handle PostgreSQL connection closures during long LISTEN waits
+- Both daemons now catch database query exceptions, close stale sessions, create fresh sessions, and retry queries
+- Prevents OperationalError crashes when PostgreSQL closes idle connections after extended LISTEN/NOTIFY wait periods
+- Increased max_timeout from 300s (5 min) to 900s (15 min) in both daemons to reduce polling frequency and align with RabbitMQ heartbeat-disabled configuration
+- Fixed busy loop issue by changing wait_time calculation from int() to float in both daemons - int() truncation was discarding fractional seconds (e.g., 165.6s → 165s), causing immediate re-loops on remaining 0.6s instead of proper waiting
+
 Phase 5 (Remove Celery Infrastructure) is complete:
 - Task 5.1 ✅: Removed all Celery application files (celery_app.py, beat.py, worker.py, tasks/update_game_status.py)
 - Task 5.2 ✅: Removed scheduler and scheduler-beat services from docker-compose.base.yml
@@ -90,7 +100,7 @@ Phase 5 (Remove Celery Infrastructure) is complete:
 
 ## Release Summary
 
-**Total Files Affected**: 23
+**Total Files Affected**: 25
 
 ### Files Created (8)
 
@@ -103,12 +113,15 @@ Phase 5 (Remove Celery Infrastructure) is complete:
 - docker/status-transition-daemon.Dockerfile - Multi-stage Docker build for daemon
 - tests/integration/test_status_transitions.py - Integration tests for status transition system
 
-### Files Modified (9)
+### Files Modified (11)
 
 - shared/models/__init__.py - Added GameStatusSchedule model export
 - shared/messaging/events.py - Added GameStartedEvent model
 - shared/messaging/__init__.py - Added GameStartedEvent export
 - services/api/services/games.py - Integrated status schedule with game CRUD operations
+- services/scheduler/status_transition_daemon.py - Removed RabbitMQ, added session recovery
+- services/scheduler/notification_daemon.py - Added session recovery for connection stability
+- tests/services/scheduler/test_notification_daemon.py - Updated max_timeout expectation
 - docker-compose.base.yml - Added status-transition-daemon service, removed scheduler/scheduler-beat
 - docker/test.Dockerfile - Updated for new uv dependency group syntax
 - scripts/run-integration-tests.sh - Enhanced with build step and argument passing

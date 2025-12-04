@@ -66,7 +66,9 @@ class SyncEventPublisher:
         rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
 
         parameters = pika.URLParameters(rabbitmq_url)
-        parameters.heartbeat = 60
+        # Disable heartbeats since daemons block on PostgreSQL LISTEN
+        # and don't process RabbitMQ frames during long waits
+        parameters.heartbeat = 0
         parameters.connection_attempts = 3
         parameters.retry_delay = 2
 
@@ -106,15 +108,29 @@ class SyncEventPublisher:
 
         message_body = event.model_dump_json().encode()
 
-        self._channel.basic_publish(
-            exchange=self.exchange_name,
-            routing_key=routing_key,
-            body=message_body,
-            properties=pika.BasicProperties(
-                delivery_mode=pika.DeliveryMode.Persistent,
-                content_type="application/json",
-            ),
-        )
+        try:
+            self._channel.basic_publish(
+                exchange=self.exchange_name,
+                routing_key=routing_key,
+                body=message_body,
+                properties=pika.BasicProperties(
+                    delivery_mode=pika.DeliveryMode.Persistent,
+                    content_type="application/json",
+                ),
+            )
+        except (pika.exceptions.StreamLostError, pika.exceptions.ConnectionClosed) as e:
+            logger.warning(f"Connection lost during publish, reconnecting and retrying: {e}")
+            self.connect()
+
+            self._channel.basic_publish(
+                exchange=self.exchange_name,
+                routing_key=routing_key,
+                body=message_body,
+                properties=pika.BasicProperties(
+                    delivery_mode=pika.DeliveryMode.Persistent,
+                    content_type="application/json",
+                ),
+            )
 
         logger.debug(f"Published event: {event.event_type} with routing key: {routing_key}")
 

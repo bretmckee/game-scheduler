@@ -27,13 +27,10 @@ import logging
 import os
 import signal
 import time
-from uuid import UUID
 
 from sqlalchemy.orm import Session
 
 from shared.database import SyncSessionLocal
-from shared.messaging.events import EventType, GameStartedEvent
-from shared.messaging.sync_publisher import SyncEventPublisher
 from shared.models import GameSession, GameStatusSchedule
 from shared.models.base import utc_now
 
@@ -64,33 +61,26 @@ class StatusTransitionDaemon:
     def __init__(
         self,
         database_url: str,
-        rabbitmq_url: str,
-        max_timeout: int = 300,
+        max_timeout: int = 900,
     ):
         """
         Initialize status transition daemon.
 
         Args:
             database_url: PostgreSQL connection string (psycopg2 format)
-            rabbitmq_url: RabbitMQ connection string
-            max_timeout: Maximum seconds to wait between checks (default: 5 min)
+            max_timeout: Maximum seconds to wait between checks (default: 15 min)
         """
         self.database_url = database_url
-        self.rabbitmq_url = rabbitmq_url
         self.max_timeout = max_timeout
 
         self.listener: PostgresNotificationListener | None = None
-        self.publisher: SyncEventPublisher | None = None
         self.db: Session | None = None
 
     def connect(self) -> None:
-        """Establish connections to PostgreSQL and RabbitMQ."""
+        """Establish connections to PostgreSQL."""
         self.listener = PostgresNotificationListener(self.database_url)
         self.listener.connect()
         self.listener.listen("game_status_schedule_changed")
-
-        self.publisher = SyncEventPublisher()
-        self.publisher.connect()
 
         self.db = SyncSessionLocal()
 
@@ -130,7 +120,13 @@ class StatusTransitionDaemon:
         if self.listener is None or self.db is None:
             raise RuntimeError("Daemon not properly initialized")
 
-        next_transition = get_next_due_transition(self.db)
+        try:
+            next_transition = get_next_due_transition(self.db)
+        except Exception as e:
+            logger.warning(f"Database query failed ({e}), recreating session")
+            self.db.close()
+            self.db = SyncSessionLocal()
+            next_transition = get_next_due_transition(self.db)
 
         if not next_transition:
             wait_time = self.max_timeout
@@ -144,9 +140,10 @@ class StatusTransitionDaemon:
                 return
 
             # Transition is in the future, wait until due time
-            wait_time = int(min(time_until_due, float(self.max_timeout)))
+            # Pass float directly to wait_for_notification to preserve fractional seconds
+            wait_time = min(time_until_due, float(self.max_timeout))
 
-            logger.info(f"Next transition due in {time_until_due:.1f}s, waiting {wait_time}s")
+            logger.info(f"Next transition due in {time_until_due:.1f}s, waiting {wait_time:.1f}s")
 
         received, payload = self.listener.wait_for_notification(timeout=wait_time)
 
@@ -161,12 +158,12 @@ class StatusTransitionDaemon:
         """
         Process a single status transition.
 
-        Updates game status in database and publishes GAME_STARTED event.
+        Updates game status in database.
 
         Args:
             transition: Transition to process
         """
-        if self.publisher is None or self.db is None:
+        if self.db is None:
             raise RuntimeError("Daemon not properly initialized")
 
         try:
@@ -201,23 +198,7 @@ class StatusTransitionDaemon:
             # Commit database changes
             self.db.commit()
 
-            # Publish GAME_STARTED event after successful commit
-            event_data = GameStartedEvent(
-                game_id=UUID(game.id),
-                title=game.title,
-                guild_id=game.guild.guild_id if game.guild else None,
-                channel_id=game.channel.channel_id if game.channel else None,
-            )
-
-            self.publisher.publish_dict(
-                event_type=EventType.GAME_STARTED.value,
-                data=event_data.model_dump(),
-            )
-
-            logger.info(
-                f"Transitioned game {game.id} to {transition.target_status} "
-                f"and published GAME_STARTED event"
-            )
+            logger.info(f"Transitioned game {game.id} to {transition.target_status}")
 
         except Exception:
             logger.exception(
@@ -230,9 +211,6 @@ class StatusTransitionDaemon:
         """Clean up connections."""
         if self.listener:
             self.listener.close()
-
-        if self.publisher:
-            self.publisher.close()
 
         if self.db:
             self.db.close()
@@ -251,15 +229,10 @@ def main() -> None:
     signal.signal(signal.SIGTERM, signal_handler)
     signal.signal(signal.SIGINT, signal_handler)
 
-    rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://guest:guest@rabbitmq:5672/")
-
     # Use base database URL for raw psycopg2 connection (no driver specifier)
     from shared.database import BASE_DATABASE_URL
 
-    daemon = StatusTransitionDaemon(
-        database_url=BASE_DATABASE_URL,
-        rabbitmq_url=rabbitmq_url,
-    )
+    daemon = StatusTransitionDaemon(database_url=BASE_DATABASE_URL)
 
     daemon.run()
 
