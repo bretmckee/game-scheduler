@@ -43,15 +43,15 @@ Complete terminology consistency by changing remaining "Guild" user-facing text 
 - [x] Task 1.2: Update GuildDashboard error message
   - Details: .copilot-tracking/details/20251203-ui-cleanup-details.md (Lines 27-36)
 
-### [ ] Phase 2: Reorganize Home Screen Navigation
+### [x] Phase 2: Reorganize Home Screen Navigation
 
-- [ ] Task 2.1: Update App.tsx routing configuration
+- [x] Task 2.1: Update App.tsx routing configuration
   - Details: .copilot-tracking/details/20251203-ui-cleanup-details.md (Lines 40-58)
 
-- [ ] Task 2.2: Remove HomePage component
+- [x] Task 2.2: Remove HomePage component
   - Details: .copilot-tracking/details/20251203-ui-cleanup-details.md (Lines 60-68)
 
-- [ ] Task 2.3: Update Layout navigation
+- [x] Task 2.3: Update Layout navigation
   - Details: .copilot-tracking/details/20251203-ui-cleanup-details.md (Lines 70-80)
 
 ### [ ] Phase 3: Streamline Game Creation Flow

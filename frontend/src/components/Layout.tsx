@@ -47,9 +47,6 @@ export const Layout: FC = () => {
               <Button color="inherit" onClick={() => navigate('/guilds')}>
                 My Servers
               </Button>
-              <Button color="inherit" onClick={() => navigate('/my-games')}>
-                My Games
-              </Button>
               <Button color="inherit" onClick={handleLogout}>
                 Logout
               </Button>

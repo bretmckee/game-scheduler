@@ -20,9 +20,9 @@ import { ThemeProvider } from '@mui/material/styles';
 import { CssBaseline } from '@mui/material';
 import { theme } from './theme';
 import { Layout } from './components/Layout';
-import { HomePage } from './pages/HomePage';
 import { LoginPage } from './pages/LoginPage';
 import { AuthCallback } from './pages/AuthCallback';
+import { MyGames } from './pages/MyGames';
 import { GuildListPage } from './pages/GuildListPage';
 import { GuildDashboard } from './pages/GuildDashboard';
 import { GuildConfig } from './pages/GuildConfig';
@@ -31,7 +31,6 @@ import { BrowseGames } from './pages/BrowseGames';
 import { GameDetails } from './pages/GameDetails';
 import { CreateGame } from './pages/CreateGame';
 import { EditGame } from './pages/EditGame';
-import { MyGames } from './pages/MyGames';
 import { TemplateManagement } from './pages/TemplateManagement';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -47,9 +46,8 @@ function App() {
             <Route path="/auth/callback" element={<AuthCallback />} />
 
             <Route element={<Layout />}>
-              <Route path="/" element={<HomePage />} />
-
               <Route element={<ProtectedRoute />}>
+                <Route path="/" element={<MyGames />} />
                 <Route path="/guilds" element={<GuildListPage />} />
                 <Route path="/guilds/:guildId" element={<GuildDashboard />} />
                 <Route path="/guilds/:guildId/config" element={<GuildConfig />} />
