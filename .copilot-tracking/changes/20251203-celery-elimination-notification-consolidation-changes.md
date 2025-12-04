@@ -25,6 +25,7 @@ Eliminated Celery completely from the codebase by migrating game status transiti
 - shared/models/__init__.py - Added GameStatusSchedule model import and export
 - shared/messaging/events.py - Added GameStartedEvent model for game.started event publishing
 - shared/messaging/__init__.py - Added GameStartedEvent export
+- services/api/services/games.py - Integrated game_status_schedule with game creation, updates, and cancellation (Task 3.1, 3.2, 3.3)
 
 ### Removed
 

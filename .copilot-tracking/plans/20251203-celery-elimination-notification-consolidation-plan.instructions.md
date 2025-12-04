@@ -60,16 +60,16 @@ Eliminate Celery completely from the codebase by migrating game status transitio
 - [x] Task 2.3: Add error handling and logging for status transitions
   - Details: .copilot-tracking/details/20251203-celery-elimination-notification-consolidation-details.md (Lines 122-140)
 
-### [ ] Phase 3: Integrate with API Layer
+### [x] Phase 3: Integrate with API Layer
 
-- [ ] Task 3.1: Update game creation to populate game_status_schedule
+- [x] Task 3.1: Update game creation to populate game_status_schedule
+  - Details: .copilot-tracking/details/20251203-celery-elimination-notification-consolidation-details.md (Lines 122-141)
+
+- [x] Task 3.2: Update game scheduled_at changes to update status schedule
   - Details: .copilot-tracking/details/20251203-celery-elimination-notification-consolidation-details.md (Lines 142-165)
 
-- [ ] Task 3.2: Update game scheduled_at changes to update status schedule
+- [x] Task 3.3: Delete status schedule on game cancellation/deletion
   - Details: .copilot-tracking/details/20251203-celery-elimination-notification-consolidation-details.md (Lines 167-185)
-
-- [ ] Task 3.3: Delete status schedule on game cancellation/deletion
-  - Details: .copilot-tracking/details/20251203-celery-elimination-notification-consolidation-details.md (Lines 187-200)
 
 ### [ ] Phase 4: Deploy and Validate
 

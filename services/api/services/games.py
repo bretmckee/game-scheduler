@@ -39,6 +39,7 @@ from shared.messaging import events as messaging_events
 from shared.messaging import publisher as messaging_publisher
 from shared.models import channel as channel_model
 from shared.models import game as game_model
+from shared.models import game_status_schedule as game_status_schedule_model
 from shared.models import guild as guild_model
 from shared.models import participant as participant_model
 from shared.models import template as template_model
@@ -231,6 +232,17 @@ class GameService:
         schedule_service = notification_schedule_service.NotificationScheduleService(self.db)
         await schedule_service.populate_schedule(game, reminder_minutes)
 
+        # Populate status transition schedule for SCHEDULED games
+        if game.status == game_model.GameStatus.SCHEDULED.value:
+            status_schedule = game_status_schedule_model.GameStatusSchedule(
+                id=str(uuid.uuid4()),
+                game_id=game.id,
+                target_status=game_model.GameStatus.IN_PROGRESS.value,
+                transition_time=game.scheduled_at,
+                executed=False,
+            )
+            self.db.add(status_schedule)
+
         await self.db.commit()
 
         # Reload game with relationships
@@ -381,6 +393,8 @@ class GameService:
 
         # Track if notification schedule needs updating
         schedule_needs_update = False
+        # Track if status schedule needs updating
+        status_schedule_needs_update = False
 
         # Update fields
         if update_data.title is not None:
@@ -399,6 +413,7 @@ class GameService:
                 # Already naive, assume UTC
                 game.scheduled_at = update_data.scheduled_at
             schedule_needs_update = True
+            status_schedule_needs_update = True
         if update_data.where is not None:
             game.where = update_data.where
         if update_data.max_players is not None:
@@ -412,6 +427,7 @@ class GameService:
             game.notify_role_ids = update_data.notify_role_ids
         if update_data.status is not None:
             game.status = update_data.status
+            status_schedule_needs_update = True
 
         # Handle participant updates
         if update_data.removed_participant_ids:
@@ -532,6 +548,37 @@ class GameService:
             schedule_service = notification_schedule_service.NotificationScheduleService(self.db)
             await schedule_service.update_schedule(game, reminder_minutes)
 
+        # Update status transition schedule if scheduled_at or status changed
+        if status_schedule_needs_update:
+            # Get existing status schedule
+            status_schedule_result = await self.db.execute(
+                select(game_status_schedule_model.GameStatusSchedule).where(
+                    game_status_schedule_model.GameStatusSchedule.game_id == game.id
+                )
+            )
+            status_schedule = status_schedule_result.scalar_one_or_none()
+
+            if game.status == game_model.GameStatus.SCHEDULED.value:
+                # Game is SCHEDULED - ensure schedule exists and is up to date
+                if status_schedule:
+                    # Update existing schedule
+                    status_schedule.transition_time = game.scheduled_at
+                    status_schedule.executed = False
+                else:
+                    # Create new schedule
+                    status_schedule = game_status_schedule_model.GameStatusSchedule(
+                        id=str(uuid.uuid4()),
+                        game_id=game.id,
+                        target_status=game_model.GameStatus.IN_PROGRESS.value,
+                        transition_time=game.scheduled_at,
+                        executed=False,
+                    )
+                    self.db.add(status_schedule)
+            else:
+                # Game is not SCHEDULED - delete schedule if it exists
+                if status_schedule:
+                    await self.db.delete(status_schedule)
+
         await self.db.commit()
 
         # Reload game with all relationships
@@ -588,6 +635,16 @@ class GameService:
                 "You don't have permission to cancel this game. "
                 "Only the host, Bot Managers, or guild admins can cancel games."
             )
+
+        # Delete status schedule if it exists (CASCADE will handle game deletion)
+        status_schedule_result = await self.db.execute(
+            select(game_status_schedule_model.GameStatusSchedule).where(
+                game_status_schedule_model.GameStatusSchedule.game_id == game.id
+            )
+        )
+        status_schedule = status_schedule_result.scalar_one_or_none()
+        if status_schedule:
+            await self.db.delete(status_schedule)
 
         game.status = game_model.GameStatus.CANCELLED.value
         await self.db.commit()
