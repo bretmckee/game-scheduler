@@ -136,9 +136,10 @@ def process_user_data(user_id: str) -> UserData:
 - **Test behavior, not implementation**: Focus on what the code does, not how
 
 ### Test Levels
+Different types of tests serve different purposes, all are important but are not interchangeable:
 
-- **Unit tests**: Test individual functions/methods in isolation
-- **Integration tests**: Test interactions between components
+- **Unit tests**: Test individual functions/methods in isolation. They should be fast and cover all code paths.
+- **Integration tests**: Test interactions between components covering  common workflows
 - **End-to-end tests**: Test complete user workflows
 - **Performance tests**: Verify performance requirements are met
 
