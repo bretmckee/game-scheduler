@@ -35,9 +35,10 @@ COPY --from=base /usr/local/bin /usr/local/bin
 
 # Copy application code
 COPY shared/ ./shared/
-COPY services/scheduler/status_transition_daemon.py ./services/scheduler/status_transition_daemon.py
+COPY services/scheduler/generic_scheduler_daemon.py ./services/scheduler/generic_scheduler_daemon.py
+COPY services/scheduler/event_builders.py ./services/scheduler/event_builders.py
+COPY services/scheduler/status_transition_daemon_wrapper.py ./services/scheduler/status_transition_daemon_wrapper.py
 COPY services/scheduler/postgres_listener.py ./services/scheduler/postgres_listener.py
-COPY services/scheduler/status_schedule_queries.py ./services/scheduler/status_schedule_queries.py
 COPY services/scheduler/__init__.py ./services/scheduler/__init__.py
 COPY alembic/ ./alembic/
 COPY alembic.ini ./
@@ -48,4 +49,4 @@ RUN chown -R appuser:appgroup /app
 
 USER appuser
 
-CMD ["python", "-m", "services.scheduler.status_transition_daemon"]
+CMD ["python", "-m", "services.scheduler.status_transition_daemon_wrapper"]

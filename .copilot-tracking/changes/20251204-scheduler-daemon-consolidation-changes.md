@@ -16,12 +16,16 @@ Consolidate duplicate daemon implementations into a single generic scheduler, mo
 - services/scheduler/generic_scheduler_daemon.py - Generic parameterized scheduler daemon eliminating code duplication
 - services/scheduler/event_builders.py - Event builder functions for notification and status transition events
 - shared/schemas/events.py - Event payload schemas for scheduler system with GameStatusTransitionDueEvent
+- services/scheduler/notification_daemon_wrapper.py - Thin wrapper instantiating generic daemon for notifications
+- services/scheduler/status_transition_daemon_wrapper.py - Thin wrapper instantiating generic daemon for status transitions
 
 ### Modified
 
 - shared/messaging/events.py - Added GAME_STATUS_TRANSITION_DUE event type to EventType enum
 - services/bot/events/handlers.py - Added _handle_status_transition_due method to update game status and refresh Discord message, registered GAME_STATUS_TRANSITION_DUE handler in event consumer
 - tests/services/bot/events/test_handlers.py - Added tests for status transition handler and updated handler count assertion
+- docker/notification-daemon.Dockerfile - Updated to use notification_daemon_wrapper and copy generic daemon files
+- docker/status-transition-daemon.Dockerfile - Updated to use status_transition_daemon_wrapper and copy generic daemon files
 
 ### Removed
 
