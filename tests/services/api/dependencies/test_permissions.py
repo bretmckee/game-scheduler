@@ -267,3 +267,260 @@ async def test_require_administrator_no_permission(
 
     assert exc_info.value.status_code == 403
     assert "ADMINISTRATOR" in exc_info.value.detail
+
+
+@pytest.mark.asyncio
+async def test_require_bot_manager_success(mock_current_user, mock_role_service, mock_tokens):
+    """Test require_bot_manager with permission."""
+    mock_role_service.check_bot_manager_permission.return_value = True
+    mock_db = AsyncMock()
+
+    with patch("services.api.auth.tokens.get_user_tokens", return_value=mock_tokens):
+        result = await permissions.require_bot_manager(
+            "123456789012345678",
+            mock_current_user,
+            mock_role_service,
+            mock_db,
+        )
+
+    assert result == mock_current_user
+    mock_role_service.check_bot_manager_permission.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_require_bot_manager_no_permission(mock_current_user, mock_role_service, mock_tokens):
+    """Test require_bot_manager without permission."""
+    mock_role_service.check_bot_manager_permission.return_value = False
+    mock_db = AsyncMock()
+
+    with patch("services.api.auth.tokens.get_user_tokens", return_value=mock_tokens):
+        with pytest.raises(HTTPException) as exc_info:
+            await permissions.require_bot_manager(
+                "123456789012345678",
+                mock_current_user,
+                mock_role_service,
+                mock_db,
+            )
+
+    assert exc_info.value.status_code == 403
+    assert "Bot manager role required" in exc_info.value.detail
+
+
+@pytest.mark.asyncio
+async def test_verify_guild_membership_success():
+    """Test verify_guild_membership with member."""
+    user_guilds = [{"id": "guild123"}, {"id": "guild456"}]
+
+    with patch("services.api.auth.oauth2.get_user_guilds", return_value=user_guilds):
+        result = await permissions.verify_guild_membership("user123", "guild123", "test_token")
+
+    assert result is True
+
+
+@pytest.mark.asyncio
+async def test_verify_guild_membership_not_member():
+    """Test verify_guild_membership with non-member."""
+    user_guilds = [{"id": "guild456"}, {"id": "guild789"}]
+
+    with patch("services.api.auth.oauth2.get_user_guilds", return_value=user_guilds):
+        result = await permissions.verify_guild_membership("user123", "guild123", "test_token")
+
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_verify_guild_membership_api_error():
+    """Test verify_guild_membership with API error."""
+    with patch("services.api.auth.oauth2.get_user_guilds", side_effect=Exception("API error")):
+        result = await permissions.verify_guild_membership("user123", "guild123", "test_token")
+
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_verify_template_access_success():
+    """Test verify_template_access with authorized user."""
+    from unittest.mock import MagicMock
+
+    mock_template = MagicMock()
+    mock_template.id = "template123"
+    mock_template.guild_id = "db-guild-uuid"
+
+    mock_guild_config = MagicMock()
+    mock_guild_config.guild_id = "guild123"
+
+    mock_db = AsyncMock()
+
+    with (
+        patch("services.api.database.queries.get_guild_by_id", return_value=mock_guild_config),
+        patch("services.api.dependencies.permissions.verify_guild_membership", return_value=True),
+    ):
+        result = await permissions.verify_template_access(
+            mock_template, "user123", "test_token", mock_db
+        )
+
+    assert result == mock_template
+
+
+@pytest.mark.asyncio
+async def test_verify_template_access_not_member():
+    """Test verify_template_access returns 404 for non-member."""
+    from unittest.mock import MagicMock
+
+    mock_template = MagicMock()
+    mock_template.id = "template123"
+    mock_template.guild_id = "db-guild-uuid"
+
+    mock_guild_config = MagicMock()
+    mock_guild_config.guild_id = "guild123"
+
+    mock_db = AsyncMock()
+
+    with (
+        patch("services.api.database.queries.get_guild_by_id", return_value=mock_guild_config),
+        patch("services.api.dependencies.permissions.verify_guild_membership", return_value=False),
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            await permissions.verify_template_access(
+                mock_template, "user123", "test_token", mock_db
+            )
+
+    assert exc_info.value.status_code == 404
+    assert "Template not found" in exc_info.value.detail
+
+
+@pytest.mark.asyncio
+async def test_verify_template_access_guild_not_found():
+    """Test verify_template_access with missing guild."""
+    from unittest.mock import MagicMock
+
+    mock_template = MagicMock()
+    mock_template.id = "template123"
+    mock_template.guild_id = "db-guild-uuid"
+
+    mock_db = AsyncMock()
+
+    with patch("services.api.database.queries.get_guild_by_id", return_value=None):
+        with pytest.raises(HTTPException) as exc_info:
+            await permissions.verify_template_access(
+                mock_template, "user123", "test_token", mock_db
+            )
+
+    assert exc_info.value.status_code == 404
+    assert "Template not found" in exc_info.value.detail
+
+
+@pytest.mark.asyncio
+async def test_verify_game_access_success():
+    """Test verify_game_access with authorized user."""
+    from unittest.mock import MagicMock
+
+    mock_game = MagicMock()
+    mock_game.id = "game123"
+    mock_game.guild_id = "db-guild-uuid"
+    mock_game.allowed_player_role_ids = None
+
+    mock_guild_config = MagicMock()
+    mock_guild_config.guild_id = "guild123"
+
+    mock_db = AsyncMock()
+    mock_role_service = AsyncMock()
+
+    with (
+        patch("services.api.database.queries.get_guild_by_id", return_value=mock_guild_config),
+        patch("services.api.dependencies.permissions.verify_guild_membership", return_value=True),
+    ):
+        result = await permissions.verify_game_access(
+            mock_game, "user123", "test_token", mock_db, mock_role_service
+        )
+
+    assert result == mock_game
+
+
+@pytest.mark.asyncio
+async def test_verify_game_access_not_member():
+    """Test verify_game_access returns 404 for non-member."""
+    from unittest.mock import MagicMock
+
+    mock_game = MagicMock()
+    mock_game.id = "game123"
+    mock_game.guild_id = "db-guild-uuid"
+
+    mock_guild_config = MagicMock()
+    mock_guild_config.guild_id = "guild123"
+
+    mock_db = AsyncMock()
+    mock_role_service = AsyncMock()
+
+    with (
+        patch("services.api.database.queries.get_guild_by_id", return_value=mock_guild_config),
+        patch("services.api.dependencies.permissions.verify_guild_membership", return_value=False),
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            await permissions.verify_game_access(
+                mock_game, "user123", "test_token", mock_db, mock_role_service
+            )
+
+    assert exc_info.value.status_code == 404
+    assert "Game not found" in exc_info.value.detail
+
+
+@pytest.mark.asyncio
+async def test_verify_game_access_role_check_success():
+    """Test verify_game_access with player role restrictions passes."""
+    from unittest.mock import MagicMock
+
+    mock_game = MagicMock()
+    mock_game.id = "game123"
+    mock_game.guild_id = "db-guild-uuid"
+    mock_game.allowed_player_role_ids = ["role1", "role2"]
+
+    mock_guild_config = MagicMock()
+    mock_guild_config.guild_id = "guild123"
+
+    mock_db = AsyncMock()
+    mock_role_service = AsyncMock()
+    mock_role_service.has_any_role.return_value = True
+
+    with (
+        patch("services.api.database.queries.get_guild_by_id", return_value=mock_guild_config),
+        patch("services.api.dependencies.permissions.verify_guild_membership", return_value=True),
+    ):
+        result = await permissions.verify_game_access(
+            mock_game, "user123", "test_token", mock_db, mock_role_service
+        )
+
+    assert result == mock_game
+    mock_role_service.has_any_role.assert_called_once_with(
+        "user123", "guild123", "test_token", ["role1", "role2"]
+    )
+
+
+@pytest.mark.asyncio
+async def test_verify_game_access_role_check_fails():
+    """Test verify_game_access returns 403 when user lacks player roles."""
+    from unittest.mock import MagicMock
+
+    mock_game = MagicMock()
+    mock_game.id = "game123"
+    mock_game.guild_id = "db-guild-uuid"
+    mock_game.allowed_player_role_ids = ["role1", "role2"]
+
+    mock_guild_config = MagicMock()
+    mock_guild_config.guild_id = "guild123"
+
+    mock_db = AsyncMock()
+    mock_role_service = AsyncMock()
+    mock_role_service.has_any_role.return_value = False
+
+    with (
+        patch("services.api.database.queries.get_guild_by_id", return_value=mock_guild_config),
+        patch("services.api.dependencies.permissions.verify_guild_membership", return_value=True),
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            await permissions.verify_game_access(
+                mock_game, "user123", "test_token", mock_db, mock_role_service
+            )
+
+    assert exc_info.value.status_code == 403
+    assert "required role" in exc_info.value.detail

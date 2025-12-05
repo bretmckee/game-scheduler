@@ -27,15 +27,142 @@ import logging
 from fastapi import Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from services.api.auth import oauth2, tokens
 from services.api.auth import roles as roles_module
-from services.api.auth import tokens
 from services.api.database import queries
 from services.api.dependencies import auth
 from shared import database
+from shared.models.game import GameSession
+from shared.models.template import GameTemplate
 from shared.schemas import auth as auth_schemas
 from shared.utils.discord import DiscordPermissions
 
 logger = logging.getLogger(__name__)
+
+
+async def verify_guild_membership(user_discord_id: str, guild_id: str, access_token: str) -> bool:
+    """
+    Verify user is a member of the specified Discord guild.
+
+    This helper function checks guild membership without raising exceptions,
+    allowing callers to decide on appropriate response codes (404 vs 403).
+    Results are cached via the OAuth2 API for performance.
+
+    Args:
+        user_discord_id: Discord ID of the user
+        guild_id: Discord guild ID (snowflake)
+        access_token: User's OAuth2 access token
+
+    Returns:
+        True if user is a member of the guild, False otherwise
+    """
+    try:
+        user_guilds = await oauth2.get_user_guilds(access_token, user_discord_id)
+        return any(guild["id"] == guild_id for guild in user_guilds)
+    except Exception as e:
+        logger.error(f"Failed to verify guild membership for user {user_discord_id}: {e}")
+        return False
+
+
+async def verify_template_access(
+    template: GameTemplate, user_discord_id: str, access_token: str, db: AsyncSession
+) -> GameTemplate:
+    """
+    Verify user can access a template based on guild membership.
+
+    Returns 404 (not 403) if user is not a guild member to prevent information
+    disclosure about guilds the user doesn't belong to.
+
+    Args:
+        template: Template to check access for
+        user_discord_id: Discord ID of the user
+        access_token: User's OAuth2 access token
+        db: Database session
+
+    Returns:
+        Template if user is authorized
+
+    Raises:
+        HTTPException(404): If user is not a member of template's guild
+    """
+    # Get guild configuration to resolve Discord guild ID
+    guild_config = await queries.get_guild_by_id(db, template.guild_id)
+    if not guild_config:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    # Check guild membership
+    is_member = await verify_guild_membership(user_discord_id, guild_config.guild_id, access_token)
+
+    if not is_member:
+        logger.warning(
+            f"User {user_discord_id} attempted to access template {template.id} "
+            f"in guild {guild_config.guild_id} where they are not a member"
+        )
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    return template
+
+
+async def verify_game_access(
+    game: GameSession,
+    user_discord_id: str,
+    access_token: str,
+    db: AsyncSession,
+    role_service: roles_module.RoleVerificationService,
+) -> GameSession:
+    """
+    Verify user can access a game based on guild membership and template player roles.
+
+    Returns 404 (not 403) if user is not a guild member to prevent information
+    disclosure about guilds the user doesn't belong to. If user is a guild member
+    but lacks required player roles, raises 403.
+
+    Args:
+        game: Game to check access for
+        user_discord_id: Discord ID of the user
+        access_token: User's OAuth2 access token
+        db: Database session
+        role_service: Role verification service
+
+    Returns:
+        Game if user is authorized
+
+    Raises:
+        HTTPException(404): If user is not a member of game's guild
+        HTTPException(403): If user lacks required player roles
+    """
+    # Get guild configuration to resolve Discord guild ID
+    guild_config = await queries.get_guild_by_id(db, game.guild_id)
+    if not guild_config:
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    # Check guild membership first - return 404 if not member to prevent info disclosure
+    is_member = await verify_guild_membership(user_discord_id, guild_config.guild_id, access_token)
+
+    if not is_member:
+        logger.warning(
+            f"User {user_discord_id} attempted to access game {game.id} "
+            f"in guild {guild_config.guild_id} where they are not a member"
+        )
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    # Check player role restrictions from template (if configured)
+    if game.allowed_player_role_ids:
+        has_role = await role_service.has_any_role(
+            user_discord_id,
+            guild_config.guild_id,
+            access_token,
+            game.allowed_player_role_ids,
+        )
+
+        if not has_role:
+            logger.warning(f"User {user_discord_id} lacks required player roles for game {game.id}")
+            raise HTTPException(
+                status_code=403,
+                detail="You don't have the required role to access this game",
+            )
+
+    return game
 
 
 async def get_role_service() -> roles_module.RoleVerificationService:
@@ -168,6 +295,58 @@ async def require_manage_channels(
         raise HTTPException(
             status_code=403,
             detail="You need MANAGE_CHANNELS permission to perform this action",
+        )
+
+    return current_user
+
+
+async def require_bot_manager(
+    guild_id: str,
+    # B008: FastAPI dependency injection requires Depends() in default arguments
+    current_user: auth_schemas.CurrentUser = Depends(auth.get_current_user),  # noqa: B008
+    role_service: roles_module.RoleVerificationService = Depends(get_role_service),  # noqa: B008
+    db: AsyncSession = Depends(database.get_db),  # noqa: B008
+) -> auth_schemas.CurrentUser:
+    """
+    Require user to have bot manager role for guild.
+
+    Bot manager permission is determined by:
+    1. Guild's bot_manager_role_ids configuration
+    2. MANAGE_GUILD Discord permission as fallback
+
+    Args:
+        guild_id: Database guild UUID or Discord guild ID
+        current_user: Current authenticated user
+        role_service: Role verification service
+        db: Database session
+
+    Returns:
+        Current user if authorized
+
+    Raises:
+        HTTPException: If user lacks bot manager role
+    """
+    token_data = await tokens.get_user_tokens(current_user.session_token)
+    if not token_data:
+        raise HTTPException(status_code=401, detail="Session expired")
+
+    access_token = token_data["access_token"]
+
+    # Resolve Discord guild_id from database UUID if needed
+    discord_guild_id = await _resolve_guild_id(guild_id, db)
+
+    has_permission = await role_service.check_bot_manager_permission(
+        current_user.user.discord_id, discord_guild_id, db, access_token
+    )
+
+    if not has_permission:
+        logger.warning(
+            f"User {current_user.user.discord_id} lacks bot manager permission "
+            f"in guild {discord_guild_id}"
+        )
+        raise HTTPException(
+            status_code=403,
+            detail="Bot manager role required to perform this action",
         )
 
     return current_user
