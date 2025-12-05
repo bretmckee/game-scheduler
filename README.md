@@ -168,11 +168,11 @@ Configure in `.env` file:
 │   ├── bot/                    # Discord bot service
 │   ├── api/                    # FastAPI web service
 │   └── scheduler/              # Event-driven scheduling daemons
-│       ├── notification_daemon.py          # Game reminder scheduler
-│       ├── status_transition_daemon.py     # Game status transition scheduler
-│       ├── postgres_listener.py            # PostgreSQL LISTEN/NOTIFY client
-│       ├── schedule_queries.py             # Notification schedule queries
-│       └── status_schedule_queries.py      # Status schedule queries
+│       ├── generic_scheduler_daemon.py     # Generic parameterized scheduler daemon
+│       ├── notification_daemon_wrapper.py  # Game reminder scheduler wrapper
+│       ├── status_transition_daemon_wrapper.py  # Game status transition scheduler wrapper
+│       ├── event_builders.py               # Event builder functions
+│       └── postgres_listener.py            # PostgreSQL LISTEN/NOTIFY client
 ├── shared/                     # Shared models and utilities
 │   └── models/
 │       ├── notification_schedule.py        # Notification schedule model

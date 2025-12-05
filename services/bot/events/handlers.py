@@ -38,7 +38,6 @@ from shared.models.game import GameSession
 from shared.models.participant import GameParticipant
 from shared.schemas.events import GameStatusTransitionDueEvent
 from shared.utils import participant_sorting
-from shared.utils.timezone import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -578,7 +577,7 @@ class EventHandlers:
                     return
 
                 game.status = transition_event.target_status
-                game.updated_at = utcnow()
+                # updated_at handled automatically by SQLAlchemy onupdate
                 await db.commit()
 
                 logger.info(

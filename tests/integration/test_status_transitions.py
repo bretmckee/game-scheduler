@@ -36,10 +36,6 @@ import services.scheduler.status_transition_daemon_wrapper as daemon_module
 from services.scheduler.event_builders import build_status_transition_event
 from services.scheduler.generic_scheduler_daemon import SchedulerDaemon
 from services.scheduler.postgres_listener import PostgresNotificationListener
-from services.scheduler.status_schedule_queries import (
-    get_next_due_transition,
-    mark_transition_executed,
-)
 from shared.models import GameStatusSchedule
 
 
@@ -225,79 +221,6 @@ class TestPostgresListenerIntegration:
 
         finally:
             listener.close()
-
-
-class TestStatusScheduleQueries:
-    """Integration tests for status schedule query functions."""
-
-    def test_get_next_due_status_transition_with_due_transition(
-        self, db_url, db_session, clean_game_status_schedule, test_game_session
-    ):
-        """get_next_due_transition returns transition when due."""
-        game_id = test_game_session
-        transition_time = datetime.now(UTC).replace(tzinfo=None) - timedelta(minutes=1)
-
-        db_session.execute(
-            text(
-                """
-                INSERT INTO game_status_schedule
-                    (id, game_id, target_status, transition_time, executed)
-                VALUES (:id, :game_id, :target_status, :transition_time, :executed)
-                """
-            ),
-            {
-                "id": str(uuid4()),
-                "game_id": game_id,
-                "target_status": "IN_PROGRESS",
-                "transition_time": transition_time,
-                "executed": False,
-            },
-        )
-        db_session.commit()
-
-        result = get_next_due_transition(db_session)
-
-        assert result is not None
-        assert result.game_id == game_id
-        assert result.target_status == "IN_PROGRESS"
-        assert result.executed is False
-
-    def test_mark_status_transition_executed(
-        self, db_url, db_session, clean_game_status_schedule, test_game_session
-    ):
-        """mark_transition_executed marks transition as executed."""
-        game_id = test_game_session
-        schedule_id = str(uuid4())
-        transition_time = datetime.now(UTC).replace(tzinfo=None) - timedelta(minutes=1)
-
-        db_session.execute(
-            text(
-                """
-                INSERT INTO game_status_schedule
-                    (id, game_id, target_status, transition_time, executed)
-                VALUES (:id, :game_id, :target_status, :transition_time, :executed)
-                """
-            ),
-            {
-                "id": schedule_id,
-                "game_id": game_id,
-                "target_status": "IN_PROGRESS",
-                "transition_time": transition_time,
-                "executed": False,
-            },
-        )
-        db_session.commit()
-
-        mark_transition_executed(db_session, schedule_id)
-
-        result = db_session.execute(
-            text("SELECT executed FROM game_status_schedule WHERE id = :id"),
-            {"id": schedule_id},
-        )
-        row = result.fetchone()
-
-        assert row is not None
-        assert row[0] is True
 
 
 class TestStatusTransitionDaemonIntegration:

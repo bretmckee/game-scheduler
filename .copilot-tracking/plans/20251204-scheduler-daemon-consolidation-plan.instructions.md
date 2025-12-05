@@ -78,12 +78,12 @@ Consolidate duplicate daemon implementations into a single generic scheduler, mo
 - [x] Task 4.3: Add bot handler tests for status transitions
   - Details: .copilot-tracking/details/20251204-scheduler-daemon-consolidation-details.md (Lines 330-360)
 
-### [ ] Phase 5: Clean Up Old Implementations
+### [x] Phase 5: Clean Up Old Implementations
 
-- [ ] Task 5.1: Remove old daemon implementations
+- [x] Task 5.1: Remove old daemon implementations
   - Details: .copilot-tracking/details/20251204-scheduler-daemon-consolidation-details.md (Lines 362-383)
 
-- [ ] Task 5.2: Verify all tests pass
+- [x] Task 5.2: Verify all tests pass
   - Details: .copilot-tracking/details/20251204-scheduler-daemon-consolidation-details.md (Lines 385-404)
 
 ## Dependencies
