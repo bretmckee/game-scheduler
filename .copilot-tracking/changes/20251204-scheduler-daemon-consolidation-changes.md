@@ -1,0 +1,45 @@
+<!-- markdownlint-disable-file -->
+
+# Release Changes: Scheduler Daemon Consolidation and Bot Status Updates
+
+**Related Plan**: 20251204-scheduler-daemon-consolidation-plan.instructions.md
+**Implementation Date**: 2025-12-04
+
+## Summary
+
+Consolidate duplicate daemon implementations into a single generic scheduler, move status update logic to bot event handlers, and fix integration test failures. This eliminates 95% code duplication and reduces total scheduler daemon code from 494 lines to ~150 lines.
+
+## Changes
+
+### Added
+
+- services/scheduler/generic_scheduler_daemon.py - Generic parameterized scheduler daemon eliminating code duplication
+- services/scheduler/event_builders.py - Event builder functions for notification and status transition events
+- shared/schemas/events.py - Event payload schemas for scheduler system with GameStatusTransitionDueEvent
+
+### Modified
+
+- shared/messaging/events.py - Added GAME_STATUS_TRANSITION_DUE event type to EventType enum
+
+### Removed
+
+## Release Summary
+
+**Total Files Affected**: TBD
+
+### Files Created (TBD)
+
+### Files Modified (TBD)
+
+### Files Removed (TBD)
+
+### Dependencies & Infrastructure
+
+- **New Dependencies**: None
+- **Updated Dependencies**: None
+- **Infrastructure Changes**: None
+- **Configuration Updates**: None
+
+### Deployment Notes
+
+TBD

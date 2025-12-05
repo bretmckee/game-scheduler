@@ -50,6 +50,7 @@ class EventType(str, Enum):
 
     # Notification events
     GAME_REMINDER_DUE = "game.reminder_due"
+    GAME_STATUS_TRANSITION_DUE = "game.status_transition_due"
     NOTIFICATION_SEND_DM = "notification.send_dm"
     NOTIFICATION_SENT = "notification.sent"
     NOTIFICATION_FAILED = "notification.failed"
