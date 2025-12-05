@@ -31,12 +31,14 @@ import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
-from services.scheduler.notification_daemon import NotificationDaemon
+from services.scheduler.event_builders import build_game_reminder_event
+from services.scheduler.generic_scheduler_daemon import SchedulerDaemon
 from services.scheduler.postgres_listener import PostgresNotificationListener
 from services.scheduler.schedule_queries import (
     get_next_due_notification,
     mark_notification_sent,
 )
+from shared.models import NotificationSchedule
 
 
 @pytest.fixture(scope="module")
@@ -416,9 +418,14 @@ class TestNotificationDaemonIntegration:
 
     def test_daemon_connects_to_database(self, db_url, rabbitmq_url):
         """Daemon can establish database connections."""
-        daemon = NotificationDaemon(
+        daemon = SchedulerDaemon(
             database_url=db_url,
             rabbitmq_url=rabbitmq_url,
+            notify_channel="notification_schedule_changed",
+            model_class=NotificationSchedule,
+            time_field="notification_time",
+            status_field="sent",
+            event_builder=build_game_reminder_event,
         )
 
         try:
@@ -459,9 +466,14 @@ class TestNotificationDaemonIntegration:
         )
         db_session.commit()
 
-        daemon = NotificationDaemon(
+        daemon = SchedulerDaemon(
             database_url=db_url,
             rabbitmq_url="amqp://guest:guest@localhost:5672/",
+            notify_channel="notification_schedule_changed",
+            model_class=NotificationSchedule,
+            time_field="notification_time",
+            status_field="sent",
+            event_builder=build_game_reminder_event,
         )
 
         try:
@@ -510,9 +522,14 @@ class TestNotificationDaemonIntegration:
         )
         db_session.commit()
 
-        daemon = NotificationDaemon(
+        daemon = SchedulerDaemon(
             database_url=db_url,
             rabbitmq_url="amqp://guest:guest@localhost:5672/",
+            notify_channel="notification_schedule_changed",
+            model_class=NotificationSchedule,
+            time_field="notification_time",
+            status_field="sent",
+            event_builder=build_game_reminder_event,
             max_timeout=2,  # Short timeout for test
         )
 

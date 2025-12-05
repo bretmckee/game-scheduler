@@ -32,13 +32,15 @@ import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
-import services.scheduler.status_transition_daemon as daemon_module
+import services.scheduler.status_transition_daemon_wrapper as daemon_module
+from services.scheduler.event_builders import build_status_transition_event
+from services.scheduler.generic_scheduler_daemon import SchedulerDaemon
 from services.scheduler.postgres_listener import PostgresNotificationListener
 from services.scheduler.status_schedule_queries import (
     get_next_due_transition,
     mark_transition_executed,
 )
-from services.scheduler.status_transition_daemon import StatusTransitionDaemon
+from shared.models import GameStatusSchedule
 
 
 @pytest.fixture(scope="module")
@@ -304,7 +306,7 @@ class TestStatusTransitionDaemonIntegration:
     def test_daemon_transitions_game_status_when_due(
         self, db_url, db_session, rabbitmq_url, clean_game_status_schedule, test_game_session
     ):
-        """Daemon updates game status and publishes event when transition is due."""
+        """Daemon marks transition executed and publishes event when transition is due."""
         game_id = test_game_session
         schedule_id = str(uuid4())
         transition_time = datetime.now(UTC).replace(tzinfo=None) - timedelta(seconds=5)
@@ -328,24 +330,25 @@ class TestStatusTransitionDaemonIntegration:
         )
         db_session.commit()
 
-        daemon = StatusTransitionDaemon(db_url, rabbitmq_url)
+        daemon = SchedulerDaemon(
+            database_url=db_url,
+            rabbitmq_url=rabbitmq_url,
+            notify_channel="game_status_schedule_changed",
+            model_class=GameStatusSchedule,
+            time_field="transition_time",
+            status_field="executed",
+            event_builder=build_status_transition_event,
+        )
 
         try:
             # Run daemon in background thread
-            daemon_thread = threading.Thread(target=daemon.run, daemon=True)
+            daemon_thread = threading.Thread(
+                target=daemon.run, args=(lambda: daemon_module.shutdown_requested,), daemon=True
+            )
             daemon_thread.start()
 
             # Wait for daemon to process transition
             time.sleep(3)
-
-            # Verify game status updated
-            result = db_session.execute(
-                text("SELECT status FROM game_sessions WHERE id = :id"),
-                {"id": game_id},
-            )
-            row = result.fetchone()
-            assert row is not None
-            assert row[0] == "IN_PROGRESS"
 
             # Verify schedule marked executed
             result = db_session.execute(
@@ -364,7 +367,7 @@ class TestStatusTransitionDaemonIntegration:
     def test_daemon_handles_multiple_due_transitions(
         self, db_url, db_session, rabbitmq_url, clean_game_status_schedule
     ):
-        """Daemon processes multiple due transitions correctly."""
+        """Daemon marks multiple due transitions as executed and publishes events."""
         # Create multiple games
         game_ids = []
         schedule_ids = []
@@ -462,25 +465,25 @@ class TestStatusTransitionDaemonIntegration:
 
         db_session.commit()
 
-        daemon = StatusTransitionDaemon(db_url, rabbitmq_url)
+        daemon = SchedulerDaemon(
+            database_url=db_url,
+            rabbitmq_url=rabbitmq_url,
+            notify_channel="game_status_schedule_changed",
+            model_class=GameStatusSchedule,
+            time_field="transition_time",
+            status_field="executed",
+            event_builder=build_status_transition_event,
+        )
 
         try:
             # Run daemon in background thread
-            daemon_thread = threading.Thread(target=daemon.run, daemon=True)
+            daemon_thread = threading.Thread(
+                target=daemon.run, args=(lambda: daemon_module.shutdown_requested,), daemon=True
+            )
             daemon_thread.start()
 
             # Wait for daemon to process all transitions
             time.sleep(5)
-
-            # Verify all games transitioned
-            for game_id in game_ids:
-                result = db_session.execute(
-                    text("SELECT status FROM game_sessions WHERE id = :id"),
-                    {"id": game_id},
-                )
-                row = result.fetchone()
-                assert row is not None
-                assert row[0] == "IN_PROGRESS"
 
             # Verify all schedules marked executed
             for schedule_id in schedule_ids:
@@ -494,8 +497,6 @@ class TestStatusTransitionDaemonIntegration:
 
         finally:
             # Stop daemon using shutdown flag
-            import services.scheduler.status_transition_daemon as daemon_module
-
             daemon_module.shutdown_requested = True
             if daemon_thread.is_alive():
                 daemon_thread.join(timeout=2)
@@ -514,7 +515,7 @@ class TestStatusTransitionDaemonIntegration:
     def test_daemon_waits_for_future_transition(
         self, db_url, db_session, rabbitmq_url, clean_game_status_schedule, test_game_session
     ):
-        """Daemon waits and processes transition when time arrives."""
+        """Daemon waits and marks transition executed when time arrives."""
         game_id = test_game_session
         schedule_id = str(uuid4())
         # Set transition 3 seconds in the future
@@ -538,29 +539,37 @@ class TestStatusTransitionDaemonIntegration:
         )
         db_session.commit()
 
-        daemon = StatusTransitionDaemon(db_url, rabbitmq_url)
+        daemon = SchedulerDaemon(
+            database_url=db_url,
+            rabbitmq_url=rabbitmq_url,
+            notify_channel="game_status_schedule_changed",
+            model_class=GameStatusSchedule,
+            time_field="transition_time",
+            status_field="executed",
+            event_builder=build_status_transition_event,
+        )
 
         try:
             # Run daemon in background thread
-            daemon_thread = threading.Thread(target=daemon.run, daemon=True)
+            daemon_thread = threading.Thread(
+                target=daemon.run, args=(lambda: daemon_module.shutdown_requested,), daemon=True
+            )
             daemon_thread.start()
 
             # Wait for transition time to pass
             time.sleep(5)
 
-            # Verify game status updated
+            # Verify schedule marked executed
             result = db_session.execute(
-                text("SELECT status FROM game_sessions WHERE id = :id"),
-                {"id": game_id},
+                text("SELECT executed FROM game_status_schedule WHERE id = :id"),
+                {"id": schedule_id},
             )
             row = result.fetchone()
             assert row is not None
-            assert row[0] == "IN_PROGRESS"
+            assert row[0] is True
 
         finally:
             # Stop daemon using shutdown flag
-            import services.scheduler.status_transition_daemon as daemon_module
-
             daemon_module.shutdown_requested = True
             if daemon_thread.is_alive():
                 daemon_thread.join(timeout=2)

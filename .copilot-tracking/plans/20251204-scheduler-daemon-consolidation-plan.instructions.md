@@ -67,15 +67,15 @@ Consolidate duplicate daemon implementations into a single generic scheduler, mo
 - [x] Task 3.3: Update Docker configurations
   - Details: .copilot-tracking/details/20251204-scheduler-daemon-consolidation-details.md (Lines 247-269)
 
-### [ ] Phase 4: Update Integration Tests
+### [x] Phase 4: Update Integration Tests
 
-- [ ] Task 4.1: Fix status transition daemon test constructor calls
+- [x] Task 4.1: Fix status transition daemon test constructor calls
   - Details: .copilot-tracking/details/20251204-scheduler-daemon-consolidation-details.md (Lines 271-297)
 
-- [ ] Task 4.2: Add generic scheduler daemon tests
+- [x] Task 4.2: Add generic scheduler daemon tests
   - Details: .copilot-tracking/details/20251204-scheduler-daemon-consolidation-details.md (Lines 299-328)
 
-- [ ] Task 4.3: Add bot handler tests for status transitions
+- [x] Task 4.3: Add bot handler tests for status transitions
   - Details: .copilot-tracking/details/20251204-scheduler-daemon-consolidation-details.md (Lines 330-360)
 
 ### [ ] Phase 5: Clean Up Old Implementations

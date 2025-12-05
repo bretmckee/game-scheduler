@@ -228,12 +228,21 @@ class SchedulerDaemon:
     def _cleanup(self) -> None:
         """Clean up connections."""
         if self.listener:
-            self.listener.close()
+            try:
+                self.listener.close()
+            except Exception as e:
+                logger.error(f"Error closing listener: {e}")
 
         if self.publisher:
-            self.publisher.close()
+            try:
+                self.publisher.close()
+            except Exception as e:
+                logger.error(f"Error closing publisher: {e}")
 
         if self.db:
-            self.db.close()
+            try:
+                self.db.close()
+            except Exception as e:
+                logger.error(f"Error closing database: {e}")
 
         logger.info("Scheduler daemon cleanup complete")
