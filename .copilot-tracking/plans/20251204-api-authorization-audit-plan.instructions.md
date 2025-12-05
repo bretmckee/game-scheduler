@@ -61,18 +61,18 @@ Fix critical authorization vulnerabilities in REST API endpoints to prevent unau
 - [x] Task 2.3: Add integration tests for template authorization
   - Details: .copilot-tracking/details/20251204-api-authorization-audit-details.md (Lines 162-176)
 
-### [ ] Phase 3: Fix Game Authorization Using Helpers
+### [x] Phase 3: Fix Game Authorization Using Helpers
 
-- [ ] Task 3.1: Fix game list filtering with helper functions
+- [x] Task 3.1: Fix game list filtering with helper functions
   - Details: .copilot-tracking/details/20251204-api-authorization-audit-details.md (Lines 180-200)
 
-- [ ] Task 3.2: Fix game detail authorization with helper functions
+- [x] Task 3.2: Fix game detail authorization with helper functions
   - Details: .copilot-tracking/details/20251204-api-authorization-audit-details.md (Lines 202-220)
 
-- [ ] Task 3.3: Fix game join authorization with helper functions
+- [x] Task 3.3: Fix game join authorization with helper functions
   - Details: .copilot-tracking/details/20251204-api-authorization-audit-details.md (Lines 222-242)
 
-- [ ] Task 3.4: Add integration tests for game authorization
+- [x] Task 3.4: Add integration tests for game authorization
   - Details: .copilot-tracking/details/20251204-api-authorization-audit-details.md (Lines 244-262)
 
 ### [ ] Phase 4: Migrate All Remaining Endpoints to Use Helpers

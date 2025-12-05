@@ -45,7 +45,7 @@ Execute verification steps **in order**. Fix issues immediately when found befor
 **For each modified file:**
 
 - [ ] **Update Comments and Documentation:**
-  - Ensure that comments and docstrings are accurate and reflect updated code behavior
+  - Ensure that comments and docstrings are still accurate after modifications
 
 **For each modified/new file:**
 

@@ -112,11 +112,13 @@ async def list_games(
     offset: int = Query(0, ge=0, description="Results offset"),
     current_user: auth_schemas.CurrentUser = Depends(auth_deps.get_current_user),
     game_service: games_service.GameService = Depends(_get_game_service),
+    role_service: roles_module.RoleVerificationService = Depends(permissions_deps.get_role_service),
 ) -> game_schemas.GameListResponse:
     """
     List games with optional filters.
 
     Supports filtering by guild, channel, and status with pagination.
+    Games are filtered by guild membership and template player role restrictions.
     """
     games, total = await game_service.list_games(
         guild_id=guild_id,
@@ -126,11 +128,28 @@ async def list_games(
         offset=offset,
     )
 
-    game_responses = [await _build_game_response(game) for game in games]
+    # Filter games by guild membership and player role restrictions
+    authorized_games = []
+    for game in games:
+        try:
+            # Use verify_game_access helper to check authorization
+            await permissions_deps.verify_game_access(
+                game=game,
+                user_discord_id=current_user.user.discord_id,
+                access_token=current_user.access_token,
+                db=game_service.db,
+                role_service=role_service,
+            )
+            authorized_games.append(game)
+        except HTTPException:
+            # User not authorized to see this game - skip it
+            continue
+
+    game_responses = [await _build_game_response(game) for game in authorized_games]
 
     return game_schemas.GameListResponse(
         games=game_responses,
-        total=total,
+        total=len(authorized_games),
     )
 
 
@@ -139,12 +158,22 @@ async def get_game(
     game_id: str,
     current_user: auth_schemas.CurrentUser = Depends(auth_deps.get_current_user),
     game_service: games_service.GameService = Depends(_get_game_service),
+    role_service: roles_module.RoleVerificationService = Depends(permissions_deps.get_role_service),
 ) -> game_schemas.GameResponse:
-    """Get game session by ID."""
+    """Get game session by ID with guild membership and role verification."""
     game = await game_service.get_game(game_id)
 
     if game is None:
         raise HTTPException(status_code=404, detail="Game not found") from None
+
+    # Verify user has access (guild membership + player roles)
+    await permissions_deps.verify_game_access(
+        game=game,
+        user_discord_id=current_user.user.discord_id,
+        access_token=current_user.access_token,
+        db=game_service.db,
+        role_service=role_service,
+    )
 
     return await _build_game_response(game)
 
@@ -229,12 +258,28 @@ async def join_game(
     game_id: str,
     current_user: auth_schemas.CurrentUser = Depends(auth_deps.get_current_user),
     game_service: games_service.GameService = Depends(_get_game_service),
+    role_service: roles_module.RoleVerificationService = Depends(permissions_deps.get_role_service),
 ) -> participant_schemas.ParticipantResponse:
     """
     Join game as participant.
 
     Validates game is open, user not already joined, and game not full.
+    Verifies guild membership and required player roles before allowing join.
     """
+    # Fetch game to verify authorization
+    game = await game_service.get_game(game_id)
+    if game is None:
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    # Verify user has access (guild membership + player roles)
+    await permissions_deps.verify_game_access(
+        game=game,
+        user_discord_id=current_user.user.discord_id,
+        access_token=current_user.access_token,
+        db=game_service.db,
+        role_service=role_service,
+    )
+
     try:
         participant = await game_service.join_game(
             game_id=game_id,
