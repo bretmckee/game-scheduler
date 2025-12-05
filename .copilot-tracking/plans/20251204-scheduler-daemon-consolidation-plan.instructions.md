@@ -45,15 +45,15 @@ Consolidate duplicate daemon implementations into a single generic scheduler, mo
 - [x] Task 1.3: Implement event builder pattern
   - Details: .copilot-tracking/details/20251204-scheduler-daemon-consolidation-details.md (Lines 80-107)
 
-### [ ] Phase 2: Add Status Transition Event Support
+### [x] Phase 2: Add Status Transition Event Support
 
-- [ ] Task 2.1: Add GAME_STATUS_TRANSITION_DUE event type and schema
+- [x] Task 2.1: Add GAME_STATUS_TRANSITION_DUE event type and schema
   - Details: .copilot-tracking/details/20251204-scheduler-daemon-consolidation-details.md (Lines 109-133)
 
-- [ ] Task 2.2: Implement bot handler for status transitions
+- [x] Task 2.2: Implement bot handler for status transitions
   - Details: .copilot-tracking/details/20251204-scheduler-daemon-consolidation-details.md (Lines 135-167)
 
-- [ ] Task 2.3: Register status transition handler in bot
+- [x] Task 2.3: Register status transition handler in bot
   - Details: .copilot-tracking/details/20251204-scheduler-daemon-consolidation-details.md (Lines 169-185)
 
 ### [ ] Phase 3: Create Daemon Wrappers and Update Docker

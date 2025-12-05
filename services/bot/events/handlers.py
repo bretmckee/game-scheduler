@@ -36,7 +36,9 @@ from shared.messaging.consumer import EventConsumer
 from shared.messaging.events import Event, EventType, GameReminderDueEvent, NotificationSendDMEvent
 from shared.models.game import GameSession
 from shared.models.participant import GameParticipant
+from shared.schemas.events import GameStatusTransitionDueEvent
 from shared.utils import participant_sorting
+from shared.utils.timezone import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +63,7 @@ class EventHandlers:
         self._handlers: dict[EventType, Callable] = {
             EventType.GAME_UPDATED: self._handle_game_updated,
             EventType.GAME_REMINDER_DUE: self._handle_game_reminder_due,
+            EventType.GAME_STATUS_TRANSITION_DUE: self._handle_status_transition_due,
             EventType.NOTIFICATION_SEND_DM: self._handle_send_notification,
             EventType.GAME_CREATED: self._handle_game_created,
             EventType.PLAYER_REMOVED: self._handle_player_removed,
@@ -99,6 +102,10 @@ class EventHandlers:
         )
         self.consumer.register_handler(
             EventType.PLAYER_REMOVED, lambda e: self._handle_player_removed(e.data)
+        )
+        self.consumer.register_handler(
+            EventType.GAME_STATUS_TRANSITION_DUE,
+            lambda e: self._handle_status_transition_due(e.data),
         )
 
         logger.info(f"Started consuming events from queue: {queue_name}")
@@ -531,6 +538,62 @@ class EventHandlers:
 
         except Exception as e:
             logger.error(f"Failed to handle participant removal: {e}", exc_info=True)
+
+    async def _handle_status_transition_due(self, data: dict[str, Any]) -> None:
+        """
+        Handle game.status_transition_due event by updating game status.
+
+        Transitions game status from SCHEDULED to the target status and
+        refreshes the Discord message to reflect the change.
+
+        Args:
+            data: Event payload with game_id, target_status, and transition_time
+        """
+        logger.info(f"=== Received game.status_transition_due event: {data} ===")
+
+        try:
+            transition_event = GameStatusTransitionDueEvent(**data)
+            logger.info(
+                f"Parsed status transition event: game_id={transition_event.game_id}, "
+                f"target_status={transition_event.target_status}"
+            )
+        except Exception as e:
+            logger.error(f"Invalid status transition event data: {e}", exc_info=True)
+            return
+
+        game_id = str(transition_event.game_id)
+
+        try:
+            async with get_db_session() as db:
+                game = await self._get_game_with_participants(db, game_id)
+                if not game:
+                    logger.error(f"Game {game_id} not found for status transition")
+                    return
+
+                if game.status != "SCHEDULED":
+                    logger.warning(
+                        f"Game {game_id} status is {game.status}, expected SCHEDULED. "
+                        f"Skipping transition to {transition_event.target_status}"
+                    )
+                    return
+
+                game.status = transition_event.target_status
+                game.updated_at = utcnow()
+                await db.commit()
+
+                logger.info(
+                    f"✓ Transitioned game {game_id} from SCHEDULED to "
+                    f"{transition_event.target_status}"
+                )
+
+            # Refresh Discord message to reflect new status
+            await self._refresh_game_message(game_id)
+
+        except Exception as e:
+            logger.error(
+                f"Failed to handle status transition for game {game_id}: {e}",
+                exc_info=True,
+            )
 
     def _format_participants_for_display(self, game: GameSession) -> tuple[list[str], list[str]]:
         """

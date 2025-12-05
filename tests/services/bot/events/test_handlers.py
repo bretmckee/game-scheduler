@@ -76,6 +76,7 @@ def test_event_handlers_initialization(event_handlers, mock_bot):
     assert event_handlers.bot is mock_bot
     assert event_handlers.consumer is None
     assert EventType.GAME_UPDATED in event_handlers._handlers
+    assert EventType.GAME_STATUS_TRANSITION_DUE in event_handlers._handlers
     assert EventType.NOTIFICATION_SEND_DM in event_handlers._handlers
     assert EventType.GAME_CREATED in event_handlers._handlers
     assert EventType.PLAYER_JOINED not in event_handlers._handlers
@@ -100,7 +101,7 @@ async def test_start_consuming(event_handlers):
         assert mock_consumer.bind.await_count == 2
         mock_consumer.bind.assert_any_await("game.*")
         mock_consumer.bind.assert_any_await("notification.*")
-        assert mock_consumer.register_handler.call_count == 5
+        assert mock_consumer.register_handler.call_count == 6
         mock_consumer.start_consuming.assert_awaited_once()
 
 
@@ -406,3 +407,117 @@ async def test_get_game_with_participants_not_found(event_handlers):
         result = await event_handlers._get_game_with_participants(mock_db, str(uuid4()))
 
         assert result is None
+
+
+@pytest.mark.asyncio
+async def test_handle_status_transition_due_success(event_handlers, sample_game, sample_user):
+    """Test successful handling of game.status_transition_due event."""
+    game_id = sample_game.id
+    target_status = "IN_PROGRESS"
+
+    sample_game.host = sample_user
+    sample_game.participants = []
+    sample_game.status = GameStatus.SCHEDULED.value
+
+    mock_channel_config = MagicMock()
+    mock_channel_config.channel_id = "123456789"
+    sample_game.channel = mock_channel_config
+
+    with patch("services.bot.events.handlers.get_db_session") as mock_db_session:
+        mock_db = MagicMock()
+        mock_db.commit = AsyncMock()
+        mock_db.__aenter__ = AsyncMock(return_value=mock_db)
+        mock_db.__aexit__ = AsyncMock()
+        mock_db_session.return_value = mock_db
+
+        with patch(
+            "services.bot.events.handlers.EventHandlers._get_game_with_participants",
+            return_value=sample_game,
+        ):
+            with patch(
+                "services.bot.events.handlers.EventHandlers._refresh_game_message"
+            ) as mock_refresh:
+                mock_refresh.return_value = AsyncMock()
+
+                data = {
+                    "game_id": game_id,
+                    "target_status": target_status,
+                    "transition_time": datetime(2025, 11, 20, 18, 0, 0, tzinfo=UTC),
+                }
+                await event_handlers._handle_status_transition_due(data)
+
+                assert sample_game.status == target_status
+                mock_db.commit.assert_awaited_once()
+                mock_refresh.assert_called_once_with(game_id)
+
+
+@pytest.mark.asyncio
+async def test_handle_status_transition_due_game_not_found(event_handlers):
+    """Test status transition when game not found."""
+    game_id = str(uuid4())
+
+    with patch("services.bot.events.handlers.get_db_session") as mock_db_session:
+        mock_db = MagicMock()
+        mock_db.__aenter__ = AsyncMock(return_value=mock_db)
+        mock_db.__aexit__ = AsyncMock()
+        mock_db_session.return_value = mock_db
+
+        with patch(
+            "services.bot.events.handlers.EventHandlers._get_game_with_participants",
+            return_value=None,
+        ):
+            data = {
+                "game_id": game_id,
+                "target_status": "IN_PROGRESS",
+                "transition_time": datetime(2025, 11, 20, 18, 0, 0, tzinfo=UTC),
+            }
+            await event_handlers._handle_status_transition_due(data)
+
+
+@pytest.mark.asyncio
+async def test_handle_status_transition_due_already_transitioned(
+    event_handlers, sample_game, sample_user
+):
+    """Test status transition when game already transitioned."""
+    game_id = sample_game.id
+    target_status = "COMPLETED"
+
+    sample_game.host = sample_user
+    sample_game.participants = []
+    sample_game.status = "IN_PROGRESS"
+
+    mock_channel_config = MagicMock()
+    mock_channel_config.channel_id = "123456789"
+    sample_game.channel = mock_channel_config
+
+    with patch("services.bot.events.handlers.get_db_session") as mock_db_session:
+        mock_db = MagicMock()
+        mock_db.commit = AsyncMock()
+        mock_db.__aenter__ = AsyncMock(return_value=mock_db)
+        mock_db.__aexit__ = AsyncMock()
+        mock_db_session.return_value = mock_db
+
+        with patch(
+            "services.bot.events.handlers.EventHandlers._get_game_with_participants",
+            return_value=sample_game,
+        ):
+            with patch(
+                "services.bot.events.handlers.EventHandlers._refresh_game_message"
+            ) as mock_refresh:
+                data = {
+                    "game_id": game_id,
+                    "target_status": target_status,
+                    "transition_time": datetime(2025, 11, 20, 18, 0, 0, tzinfo=UTC),
+                }
+                await event_handlers._handle_status_transition_due(data)
+
+                assert sample_game.status == "IN_PROGRESS"
+                mock_db.commit.assert_not_awaited()
+                mock_refresh.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_handle_status_transition_due_invalid_data(event_handlers):
+    """Test status transition with invalid event data."""
+    data = {"invalid": "data"}
+    await event_handlers._handle_status_transition_due(data)

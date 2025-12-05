@@ -20,6 +20,8 @@ Consolidate duplicate daemon implementations into a single generic scheduler, mo
 ### Modified
 
 - shared/messaging/events.py - Added GAME_STATUS_TRANSITION_DUE event type to EventType enum
+- services/bot/events/handlers.py - Added _handle_status_transition_due method to update game status and refresh Discord message, registered GAME_STATUS_TRANSITION_DUE handler in event consumer
+- tests/services/bot/events/test_handlers.py - Added tests for status transition handler and updated handler count assertion
 
 ### Removed
 
