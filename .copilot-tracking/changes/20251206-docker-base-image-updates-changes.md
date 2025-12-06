@@ -7,7 +7,10 @@
 
 ## Summary
 
-Updating all Docker base images to their most recent stable LTS versions to ensure long-term support, security patches, and maintain best practices for containerization. This includes Python 3.11→3.13, Nginx 1.25→1.28, Redis 7→7.4, PostgreSQL 15→17, and optionally Node.js 20→22.
+Updating all Docker base images to their most recent stable LTS versions to
+ensure long-term support, security patches, and maintain best practices for
+containerization. This includes Python 3.11→3.13, Nginx 1.25→1.28, Redis 7→7.4,
+PostgreSQL 15→17, and optionally Node.js 20→22.
 
 ## Changes
 
@@ -15,12 +18,15 @@ Updating all Docker base images to their most recent stable LTS versions to ensu
 
 ### Modified
 
-- docker/api.Dockerfile - Updated Python base image from 3.11-slim to 3.13-slim in both base and production stages
-- docker/bot.Dockerfile - Updated Python base image from 3.11-slim to 3.13-slim in both base and production stages
+- docker/api.Dockerfile - Updated Python base image from 3.11-slim to 3.13-slim
+  in both base and production stages
+- docker/bot.Dockerfile - Updated Python base image from 3.11-slim to 3.13-slim
+  in both base and production stages
 - docker/init.Dockerfile - Updated Python base image from 3.11-slim to 3.13-slim
-- docker/notification-daemon.Dockerfile - Updated Python base image from 3.11-slim to 3.13-slim in both base and production stages
-- docker/status-transition-daemon.Dockerfile - Updated Python base image from 3.11-slim to 3.13-slim in both base and production stages
+- docker/notification-daemon.Dockerfile - Updated Python base image from
+  3.11-slim to 3.13-slim in both base and production stages
+- docker/status-transition-daemon.Dockerfile - Updated Python base image from
+  3.11-slim to 3.13-slim in both base and production stages
 - docker/test.Dockerfile - Updated Python base image from 3.11-slim to 3.13-slim
 
 ### Removed
-

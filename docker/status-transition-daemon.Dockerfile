@@ -1,5 +1,5 @@
 # Multi-stage build for Status Transition Daemon Service
-FROM python:3.11-slim AS base
+FROM python:3.13-slim AS base
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -19,7 +19,7 @@ COPY pyproject.toml ./
 RUN uv pip install --system .
 
 # Production stage
-FROM python:3.11-slim AS production
+FROM python:3.13-slim AS production
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
@@ -30,7 +30,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copy Python packages from base stage
-COPY --from=base /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=base /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages
 COPY --from=base /usr/local/bin /usr/local/bin
 
 # Copy application code
