@@ -1,5 +1,5 @@
 # Multi-stage build for production-ready React frontend
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
@@ -23,7 +23,7 @@ ARG VITE_API_URL
 RUN npm run build
 
 # Production stage using nginx
-FROM nginx:1.25-alpine
+FROM nginx:1.28-alpine
 
 # Install curl for healthcheck
 RUN apk add --no-cache curl
