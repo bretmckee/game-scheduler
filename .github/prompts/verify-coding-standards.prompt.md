@@ -11,7 +11,8 @@ Comprehensive verification and quality assurance for code changes.
 
 ## Objective
 
-Systematically verify that all new and modified code meets project standards, conventions, and quality requirements before finalizing changes.
+Systematically verify that all new and modified code meets project standards,
+conventions, and quality requirements before finalizing changes.
 
 ## Preparation Phase
 
@@ -19,17 +20,23 @@ Systematically verify that all new and modified code meets project standards, co
 
 1. **Identify scope of changes:**
 
-   - Use `get_changed_files` to identify all modified, added, and deleted files. If that does not find any, use `git show --name-only HEAD`.
+   - Use `get_changed_files` to identify all modified, added, and deleted files.
+     If that does not find any, use `git show --name-only HEAD`.
    - Review git diff to understand extent of changes
-   - Identify which languages and frameworks are affected (Python, React, Docker, etc.)
+   - Identify which languages and frameworks are affected (Python, React,
+     Docker, etc.)
 
 2. **Load applicable coding standards:**
 
-   - #file:../../.github/instructions/coding-best-practices.instructions.md for all code
+   - #file:../../.github/instructions/coding-best-practices.instructions.md for
+     all code
    - #file:../../.github/instructions/python.instructions.md for Python files
-   - #file:../../.github/instructions/reactjs.instructions.md for React/TypeScript files
-   - #file:../../.github/instructions/self-explanatory-code-commenting.instructions.md for commenting style
-   - #file:../../.github/instructions/containerization-docker-best-practices.instructions.md for Docker files
+   - #file:../../.github/instructions/reactjs.instructions.md for
+     React/TypeScript files
+   - #file:../../.github/instructions/self-explanatory-code-commenting.instructions.md
+     for commenting style
+   - #file:../../.github/instructions/containerization-docker-best-practices.instructions.md
+     for Docker files
 
 3. **Review current state:**
    - Check if changes file exists in `.copilot-tracking/changes/`
@@ -38,7 +45,8 @@ Systematically verify that all new and modified code meets project standards, co
 
 ## Verification Process
 
-Execute verification steps **in order**. Fix issues immediately when found before proceeding.
+Execute verification steps **in order**. Fix issues immediately when found
+before proceeding.
 
 ### 1. Code Convention Compliance
 
@@ -53,7 +61,8 @@ Execute verification steps **in order**. Fix issues immediately when found befor
 
   - Functions use type hints (Python 3.11+)
   - Imports follow Google Style Guide conventions (modules only, at top of file)
-  - Naming: `snake_case` for functions/variables, `PascalCase` for classes, `UPPER_SNAKE_CASE` for constants
+  - Naming: `snake_case` for functions/variables, `PascalCase` for classes,
+    `UPPER_SNAKE_CASE` for constants
   - Docstrings present for all public functions/classes (PEP 257)
   - No obvious comments that state what code does (self-documenting code)
   - Uses `uv` for dependency management where applicable
@@ -121,8 +130,14 @@ Execute verification steps **in order**. Fix issues immediately when found befor
   - Mocks used appropriately for external dependencies
 
 - [ ] **Coverage verification:**
+
   - Run coverage tools for affected code
-  - Aim for minimum 80% coverage on new code
+
+  - Aim for minimum 80% coverage on new code.
+
+  - To run coverage on individual functions, use dot notation not slashes (i.e.
+    services.scheduler.generic_scheduler_daemon not
+    services/scheduler/generic_scheduler_daemon)
   - **Document coverage numbers in changes file**
 
 ### 5. Build and Integration Verification
@@ -163,7 +178,8 @@ Execute verification steps **in order**. Fix issues immediately when found befor
   - Add entries to Added/Modified/Removed sections
   - Use relative file paths
   - One-sentence summary per file
-  - **Do NOT document verification activities** (e.g., "Fixed lint issues", "Added tests")
+  - **Do NOT document verification activities** (e.g., "Fixed lint issues",
+    "Added tests")
   - Only document functional/feature changes
 
 ## Completion Checklist
