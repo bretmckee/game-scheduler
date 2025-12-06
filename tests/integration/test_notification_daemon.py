@@ -213,8 +213,10 @@ class TestPostgresListenerIntegration:
                 text(
                     """
                     INSERT INTO notification_schedule
-                        (id, game_id, reminder_minutes, notification_time, sent)
-                    VALUES (:id, :game_id, :reminder_minutes, :notification_time, :sent)
+                        (id, game_id, reminder_minutes, notification_time,
+                         game_scheduled_at, sent)
+                    VALUES (:id, :game_id, :reminder_minutes,
+                            :notification_time, :game_scheduled_at, :sent)
                     """
                 ),
                 {
@@ -222,6 +224,7 @@ class TestPostgresListenerIntegration:
                     "game_id": game_id,
                     "reminder_minutes": 60,
                     "notification_time": notification_time,
+                    "game_scheduled_at": notification_time + timedelta(minutes=60),
                     "sent": False,
                 },
             )
@@ -298,8 +301,10 @@ class TestNotificationDaemonIntegration:
             text(
                 """
                 INSERT INTO notification_schedule
-                    (id, game_id, reminder_minutes, notification_time, sent)
-                VALUES (:id, :game_id, :reminder_minutes, :notification_time, :sent)
+                    (id, game_id, reminder_minutes, notification_time,
+                     game_scheduled_at, sent)
+                VALUES (:id, :game_id, :reminder_minutes,
+                        :notification_time, :game_scheduled_at, :sent)
                 """
             ),
             {
@@ -307,6 +312,7 @@ class TestNotificationDaemonIntegration:
                 "game_id": game_id,
                 "reminder_minutes": 60,
                 "notification_time": notification_time,
+                "game_scheduled_at": notification_time + timedelta(minutes=60),
                 "sent": False,
             },
         )
@@ -354,8 +360,10 @@ class TestNotificationDaemonIntegration:
             text(
                 """
                 INSERT INTO notification_schedule
-                    (id, game_id, reminder_minutes, notification_time, sent)
-                VALUES (:id, :game_id, :reminder_minutes, :notification_time, :sent)
+                    (id, game_id, reminder_minutes, notification_time,
+                     game_scheduled_at, sent)
+                VALUES (:id, :game_id, :reminder_minutes,
+                        :notification_time, :game_scheduled_at, :sent)
                 """
             ),
             {
@@ -363,6 +371,7 @@ class TestNotificationDaemonIntegration:
                 "game_id": game_id,
                 "reminder_minutes": 60,
                 "notification_time": notification_time,
+                "game_scheduled_at": notification_time + timedelta(minutes=60),
                 "sent": False,
             },
         )

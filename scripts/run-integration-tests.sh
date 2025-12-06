@@ -5,7 +5,7 @@
 set -e
 
 echo "Building integration test container..."
-docker compose -f docker-compose.integration.yml build integration-tests
+docker compose -f docker-compose.integration.yml build integration-tests init
 
 cleanup() {
   echo "Cleaning up integration test environment..."

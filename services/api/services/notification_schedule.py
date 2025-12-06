@@ -75,6 +75,7 @@ class NotificationScheduleService:
                     game_id=game.id,
                     reminder_minutes=reminder_min,
                     notification_time=notification_time,
+                    game_scheduled_at=game.scheduled_at,
                     sent=False,
                 )
                 self.db.add(schedule_entry)

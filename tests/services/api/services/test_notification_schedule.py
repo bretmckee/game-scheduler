@@ -55,10 +55,12 @@ async def test_populate_schedule_creates_future_notifications():
     assert all(isinstance(s, NotificationSchedule) for s in added_schedules)
     assert added_schedules[0].game_id == "test-game-id"
     assert added_schedules[0].reminder_minutes == 60
+    assert added_schedules[0].game_scheduled_at == scheduled_at
     assert added_schedules[0].sent is False
 
     assert added_schedules[1].game_id == "test-game-id"
     assert added_schedules[1].reminder_minutes == 15
+    assert added_schedules[1].game_scheduled_at == scheduled_at
     assert added_schedules[1].sent is False
 
 

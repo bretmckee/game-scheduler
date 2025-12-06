@@ -47,6 +47,7 @@ class NotificationSchedule(Base):
     )
     reminder_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
     notification_time: Mapped[datetime] = mapped_column(nullable=False, index=True)
+    game_scheduled_at: Mapped[datetime] = mapped_column(nullable=False)
     sent: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(default=utc_now)
 
