@@ -16,6 +16,10 @@ PostgreSQL 15→17, and optionally Node.js 20→22.
 
 ### Added
 
+- scripts/migrate_postgres_15_to_17.sh - Migration script for safely upgrading
+  PostgreSQL from version 15 to 17 using pg_dump/pg_restore with automatic
+  backup and rollback support
+
 ### Modified
 
 - docker/api.Dockerfile - Updated Python base image from 3.11-slim to 3.13-slim
@@ -32,5 +36,9 @@ PostgreSQL 15→17, and optionally Node.js 20→22.
   22-alpine in builder stage for longer LTS support
 - docker/frontend.Dockerfile - Updated Nginx base image from 1.25-alpine to
   1.28-alpine in production stage for current stable branch
+- docker-compose.base.yml - Updated Redis image from redis:7-alpine to
+  redis:7.4-alpine for latest patches in 7.x line
+- docker-compose.base.yml - Updated PostgreSQL image from postgres:15-alpine to
+  postgres:17-alpine for latest stable version with extended support
 
 ### Removed

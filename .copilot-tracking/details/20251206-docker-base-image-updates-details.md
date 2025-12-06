@@ -1,9 +1,11 @@
 <!-- markdownlint-disable-file -->
+
 # Task Details: Docker Base Image Version Updates
 
 ## Research Reference
 
-**Source Research**: #file:../research/20251206-docker-base-image-versions-research.md
+**Source Research**:
+#file:../research/20251206-docker-base-image-versions-research.md
 
 ## Phase 1: Update Python Base Images
 
@@ -17,7 +19,8 @@ Update both base and production stage FROM statements from Python 3.11 to 3.13.
   - Both stages use `python:3.13-slim`
   - Dockerfile builds without errors
 - **Research References**:
-  - #file:../research/20251206-docker-base-image-versions-research.md (Lines 66-75) - Python version recommendations
+  - #file:../research/20251206-docker-base-image-versions-research.md (Lines
+    66-75) - Python version recommendations
 - **Dependencies**: None
 
 ### Task 1.2: Update bot.Dockerfile Python version
@@ -30,7 +33,8 @@ Update FROM statement from Python 3.11 to 3.13.
   - Uses `python:3.13-slim`
   - Dockerfile builds without errors
 - **Research References**:
-  - #file:../research/20251206-docker-base-image-versions-research.md (Lines 66-75) - Python version recommendations
+  - #file:../research/20251206-docker-base-image-versions-research.md (Lines
+    66-75) - Python version recommendations
 - **Dependencies**: None
 
 ### Task 1.3: Update init.Dockerfile Python version
@@ -43,7 +47,8 @@ Update FROM statement from Python 3.11 to 3.13.
   - Uses `python:3.13-slim`
   - Dockerfile builds without errors
 - **Research References**:
-  - #file:../research/20251206-docker-base-image-versions-research.md (Lines 66-75) - Python version recommendations
+  - #file:../research/20251206-docker-base-image-versions-research.md (Lines
+    66-75) - Python version recommendations
 - **Dependencies**: None
 
 ### Task 1.4: Update notification-daemon.Dockerfile Python version
@@ -56,7 +61,8 @@ Update FROM statement from Python 3.11 to 3.13.
   - Uses `python:3.13-slim`
   - Dockerfile builds without errors
 - **Research References**:
-  - #file:../research/20251206-docker-base-image-versions-research.md (Lines 66-75) - Python version recommendations
+  - #file:../research/20251206-docker-base-image-versions-research.md (Lines
+    66-75) - Python version recommendations
 - **Dependencies**: None
 
 ### Task 1.5: Update status-transition-daemon.Dockerfile Python version
@@ -69,7 +75,8 @@ Update FROM statement from Python 3.11 to 3.13.
   - Uses `python:3.13-slim`
   - Dockerfile builds without errors
 - **Research References**:
-  - #file:../research/20251206-docker-base-image-versions-research.md (Lines 66-75) - Python version recommendations
+  - #file:../research/20251206-docker-base-image-versions-research.md (Lines
+    66-75) - Python version recommendations
 - **Dependencies**: None
 
 ### Task 1.6: Update test.Dockerfile Python version
@@ -82,7 +89,8 @@ Update FROM statement from Python 3.11 to 3.13.
   - Uses `python:3.13-slim`
   - Dockerfile builds without errors
 - **Research References**:
-  - #file:../research/20251206-docker-base-image-versions-research.md (Lines 66-75) - Python version recommendations
+  - #file:../research/20251206-docker-base-image-versions-research.md (Lines
+    66-75) - Python version recommendations
 - **Dependencies**: None
 
 ## Phase 2: Update Frontend Base Images
@@ -98,7 +106,8 @@ Update Node.js from version 20 to 22 for longer LTS support window.
   - Frontend builds successfully
   - Application functions correctly
 - **Research References**:
-  - #file:../research/20251206-docker-base-image-versions-research.md (Lines 77-81) - Node.js version recommendations
+  - #file:../research/20251206-docker-base-image-versions-research.md (Lines
+    77-81) - Node.js version recommendations
 - **Dependencies**: None
 
 ### Task 2.2: Update Nginx version in frontend.Dockerfile
@@ -112,7 +121,8 @@ Update Nginx from version 1.25 to 1.28 (current stable branch).
   - Nginx configuration remains compatible
   - Frontend serves correctly
 - **Research References**:
-  - #file:../research/20251206-docker-base-image-versions-research.md (Lines 83-88) - Nginx version recommendations
+  - #file:../research/20251206-docker-base-image-versions-research.md (Lines
+    83-88) - Nginx version recommendations
 - **Dependencies**: None
 
 ## Phase 3: Update Service Images in docker-compose.base.yml
@@ -128,22 +138,34 @@ Update Redis from generic version 7 tag to specific 7.4 tag for latest patches.
   - Service starts successfully
   - Cache functionality works correctly
 - **Research References**:
-  - #file:../research/20251206-docker-base-image-versions-research.md (Lines 90-95) - Redis version recommendations
+  - #file:../research/20251206-docker-base-image-versions-research.md (Lines
+    90-95) - Redis version recommendations
 - **Dependencies**: None
 
 ### Task 3.2: Update PostgreSQL version specification
 
-Update PostgreSQL from version 15 to 17 (major version upgrade requiring migration strategy).
+Update PostgreSQL from version 15 to 17 (major version upgrade requiring
+migration strategy).
 
 - **Files**:
   - docker-compose.base.yml - PostgreSQL service image specification
+  - scripts/migrate_postgres_15_to_17.sh - Migration script for safe upgrade
 - **Success**:
   - PostgreSQL service uses `postgres:17-alpine`
+  - Migration script created with backup and rollback support
+  - Script uses pg_dump/pg_restore for data compatibility
   - Database starts successfully
   - All migrations apply correctly
   - Data integrity maintained
+- **Migration Process**:
+  - Script backs up PostgreSQL 15 data using pg_dump
+  - Preserves old data volume as backup
+  - Initializes PostgreSQL 17 with clean data directory
+  - Restores data from backup using psql
+  - Provides verification and rollback instructions
 - **Research References**:
-  - #file:../research/20251206-docker-base-image-versions-research.md (Lines 90-95) - PostgreSQL version recommendations
+  - #file:../research/20251206-docker-base-image-versions-research.md (Lines
+    90-95) - PostgreSQL version recommendations
 - **Dependencies**:
   - PostgreSQL data backup before upgrade
   - Migration testing in non-production environment
@@ -153,7 +175,8 @@ Update PostgreSQL from version 15 to 17 (major version upgrade requiring migrati
 
 ### Task 4.1: Rebuild all Docker images
 
-Rebuild all Docker images with updated base versions to verify successful builds.
+Rebuild all Docker images with updated base versions to verify successful
+builds.
 
 - **Files**:
   - All Dockerfiles in docker/ directory
@@ -163,12 +186,14 @@ Rebuild all Docker images with updated base versions to verify successful builds
   - No dependency conflicts
   - Image sizes remain reasonable
 - **Research References**:
-  - #file:../research/20251206-docker-base-image-versions-research.md (Lines 139-156) - Implementation guidance
+  - #file:../research/20251206-docker-base-image-versions-research.md (Lines
+    139-156) - Implementation guidance
 - **Dependencies**: All previous tasks completed
 
 ### Task 4.2: Run integration tests
 
-Execute integration test suite to verify application functionality with updated images.
+Execute integration test suite to verify application functionality with updated
+images.
 
 - **Files**:
   - tests/integration/ - All integration tests
@@ -177,7 +202,8 @@ Execute integration test suite to verify application functionality with updated 
   - No regressions introduced
   - Services communicate correctly
 - **Research References**:
-  - #file:../research/20251206-docker-base-image-versions-research.md (Lines 164-173) - Success criteria
+  - #file:../research/20251206-docker-base-image-versions-research.md (Lines
+    164-173) - Success criteria
 - **Dependencies**: Task 4.1 completion
 
 ### Task 4.3: Verify PostgreSQL migration compatibility
@@ -193,7 +219,8 @@ Test PostgreSQL upgrade path and data migration from version 15 to 17.
   - No SQL compatibility issues
   - Performance remains acceptable
 - **Research References**:
-  - #file:../research/20251206-docker-base-image-versions-research.md (Lines 90-95) - PostgreSQL major version upgrade considerations
+  - #file:../research/20251206-docker-base-image-versions-research.md (Lines
+    90-95) - PostgreSQL major version upgrade considerations
 - **Dependencies**:
   - Task 3.2 completion
   - Database backup available
@@ -214,7 +241,8 @@ Update all documentation files to reflect new Docker base image versions.
   - Documentation accurately reflects current state
   - No outdated version information
 - **Research References**:
-  - #file:../research/20251206-docker-base-image-versions-research.md (Lines 158-162) - Key tasks including documentation
+  - #file:../research/20251206-docker-base-image-versions-research.md (Lines
+    158-162) - Key tasks including documentation
 - **Dependencies**: All implementation tasks completed
 
 ## Dependencies
