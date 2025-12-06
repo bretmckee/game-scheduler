@@ -42,6 +42,33 @@ import {
   ParticipantInput as EditableParticipantInput,
 } from './EditableParticipantList';
 
+/**
+ * Round time up to the next half hour (e.g., 5:13 -> 5:30, 5:30 -> 5:30, 5:31 -> 6:00)
+ */
+function getNextHalfHour(): Date {
+  const now = new Date();
+  const minutes = now.getMinutes();
+  const seconds = now.getSeconds();
+  const milliseconds = now.getMilliseconds();
+
+  // If already on the half hour exactly, keep it
+  if (minutes === 0 || minutes === 30) {
+    if (seconds === 0 && milliseconds === 0) {
+      return now;
+    }
+  }
+
+  // Round up to next half hour
+  const nextHalfHour = new Date(now);
+  if (minutes < 30) {
+    nextHalfHour.setMinutes(30, 0, 0);
+  } else {
+    nextHalfHour.setHours(now.getHours() + 1, 0, 0, 0);
+  }
+
+  return nextHalfHour;
+}
+
 export interface GameFormData {
   title: string;
   description: string;
@@ -141,7 +168,7 @@ export const GameForm: FC<GameFormProps> = ({
     title: initialData?.title || '',
     description: initialData?.description || '',
     signupInstructions: initialData?.signup_instructions || '',
-    scheduledAt: initialData?.scheduled_at ? new Date(initialData.scheduled_at) : new Date(),
+    scheduledAt: initialData?.scheduled_at ? new Date(initialData.scheduled_at) : getNextHalfHour(),
     where: initialData?.where || '',
     channelId: initialData?.channel_id || '',
     maxPlayers: initialData?.max_players?.toString() || '8',
@@ -176,7 +203,9 @@ export const GameForm: FC<GameFormProps> = ({
         title: initialData.title || '',
         description: initialData.description || '',
         signupInstructions: initialData.signup_instructions || '',
-        scheduledAt: initialData.scheduled_at ? new Date(initialData.scheduled_at) : new Date(),
+        scheduledAt: initialData.scheduled_at
+          ? new Date(initialData.scheduled_at)
+          : getNextHalfHour(),
         where: initialData.where || '',
         channelId: initialData.channel_id || '',
         maxPlayers: initialData.max_players?.toString() || '8',
