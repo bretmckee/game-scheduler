@@ -1,11 +1,11 @@
 # Base service definitions shared between dev and test environments
 # Included by docker-compose.yml and docker-compose.test.yml via the 'include' directive
-# 
+#
 # This file maximizes sharing by using:
 # - Environment variables for configuration (POSTGRES_USER, POSTGRES_DB, etc.)
 # - Named volumes/networks (implementations provided by including files)
 # - Container names via ${CONTAINER_PREFIX} environment variable
-# 
+#
 # Environment-specific files only need to provide:
 # - Network and volume definitions (persistent vs tmpfs)
 # - Environment variable values (credentials, database names)
@@ -33,7 +33,7 @@ services:
       - app-network
 
   rabbitmq:
-    image: rabbitmq:3.12-management-alpine
+    image: rabbitmq:4.2-management-alpine
     container_name: ${CONTAINER_PREFIX:-gamebot}-rabbitmq
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
@@ -44,6 +44,7 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
       - ./rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
+      - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/conf.d/99-custom.conf:ro
     healthcheck:
       test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping"]
       interval: 10s
@@ -178,7 +179,11 @@ services:
       init:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD-SHELL", "pgrep -f 'python -m services.scheduler.notification_daemon' || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "pgrep -f 'python -m services.scheduler.notification_daemon' || exit 1",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -205,7 +210,12 @@ services:
       init:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD-SHELL", "pgrep -f 'python -m services.scheduler.status_transition_daemon' || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "pgrep -f 'python -m services.scheduler.status_transition_daemon' ||
+          exit 1",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
