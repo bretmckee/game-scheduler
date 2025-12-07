@@ -32,5 +32,9 @@ source code.
   python -m execution for status transition daemon
 - docker/frontend.Dockerfile - Added development stage with Vite dev server for
   hot module replacement
+- README.md - Added comprehensive development workflow section with hot-reload
+  instructions and production build guidance
+- DEPLOYMENT_QUICKSTART.md - Updated with production deployment workflow using
+  compose.production.yaml
 
 ### Removed

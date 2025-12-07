@@ -35,10 +35,32 @@ RABBITMQ_URL=amqp://gamebot:change_me@rabbitmq:5672/
 
 ### 2. Build and Start
 
+**Important:** For production, use the production compose configuration:
+
 ```bash
-docker compose build
-docker compose up -d
+# Build production images (targets production stage)
+docker compose -f compose.yml -f compose.production.yaml build
+
+# Start production services
+docker compose -f compose.yml -f compose.production.yaml up -d
 ```
+
+**Production vs Development:**
+
+- **Production** (`compose.production.yaml`):
+
+  - Uses `production` stage from Dockerfiles
+  - Source code baked into images
+  - Optimized production commands
+  - Includes restart policies
+  - No volume mounts for code
+
+- **Development** (`compose.override.yaml` - auto-loaded):
+  - Uses `development` stage from Dockerfiles
+  - Source code mounted as volumes
+  - Hot-reload enabled
+  - No restart policies
+  - Instant code changes without rebuilds
 
 The init container will:
 
@@ -56,6 +78,42 @@ docker compose ps
 
 Access the frontend at `http://your-server-ip:3000`
 
+## Managing Production Deployment
+
+### Updating Code
+
+For production deployments, rebuild images after code changes:
+
+```bash
+# Pull latest code
+git pull
+
+# Rebuild and restart services
+docker compose -f compose.yml -f compose.production.yaml build
+docker compose -f compose.yml -f compose.production.yaml up -d
+```
+
+### Viewing Logs
+
+```bash
+# View all service logs
+docker compose logs -f
+
+# View specific service logs
+docker compose logs -f api
+docker compose logs -f bot
+```
+
+### Restarting Services
+
+```bash
+# Restart all services
+docker compose restart
+
+# Restart specific service
+docker compose restart api
+```
+
 ## Changing the API URL Later
 
 No rebuild needed! Just update `.env` and restart the frontend:
@@ -64,7 +122,7 @@ No rebuild needed! Just update `.env` and restart the frontend:
 # Edit .env and change API_URL
 nano .env
 
-# Restart only the frontend container
+# Restart only the frontend container (works for both dev and production)
 docker compose restart frontend
 ```
 

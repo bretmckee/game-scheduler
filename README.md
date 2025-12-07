@@ -1,6 +1,8 @@
 # Game Scheduler
 
-A Discord game scheduling system with microservices architecture, featuring Discord bot with button interactions, web dashboard with OAuth2 authentication, role-based authorization, multi-channel support, and automated notifications.
+A Discord game scheduling system with microservices architecture, featuring
+Discord bot with button interactions, web dashboard with OAuth2 authentication,
+role-based authorization, multi-channel support, and automated notifications.
 
 ## Features
 
@@ -16,31 +18,43 @@ A Discord game scheduling system with microservices architecture, featuring Disc
 
 Microservices architecture with:
 
-- **Discord Bot Service**: Handles Discord Gateway interactions and sends notifications to participants
+- **Discord Bot Service**: Handles Discord Gateway interactions and sends
+  notifications to participants
 - **Web API Service**: FastAPI REST API for web dashboard and game management
-- **Notification Daemon**: Database-backed event-driven scheduler for game reminders
-- **Status Transition Daemon**: Database-backed event-driven scheduler for game status transitions
+- **Notification Daemon**: Database-backed event-driven scheduler for game
+  reminders
+- **Status Transition Daemon**: Database-backed event-driven scheduler for game
+  status transitions
 - **PostgreSQL**: Primary data store with LISTEN/NOTIFY for real-time events
 - **RabbitMQ**: Message broker for inter-service communication
 - **Redis**: Caching and session storage
 
 ### Event-Driven Scheduling System
 
-The system uses a database-backed event-driven architecture for reliable, scalable scheduling:
+The system uses a database-backed event-driven architecture for reliable,
+scalable scheduling:
 
 #### Game Reminders (Notification Daemon)
 
-1. **Schedule Population**: When games are created or updated, notification schedules are stored in the `notification_schedule` table
-2. **Event-Driven Wake-ups**: PostgreSQL LISTEN/NOTIFY triggers instant daemon wake-ups when schedules change
-3. **MIN() Query Pattern**: Daemon queries for the next due notification using an optimized O(1) query with partial index
-4. **RabbitMQ Events**: When notifications are due, events are published to RabbitMQ for the bot service to process
+1. **Schedule Population**: When games are created or updated, notification
+   schedules are stored in the `notification_schedule` table
+2. **Event-Driven Wake-ups**: PostgreSQL LISTEN/NOTIFY triggers instant daemon
+   wake-ups when schedules change
+3. **MIN() Query Pattern**: Daemon queries for the next due notification using
+   an optimized O(1) query with partial index
+4. **RabbitMQ Events**: When notifications are due, events are published to
+   RabbitMQ for the bot service to process
 
 #### Game Status Transitions (Status Transition Daemon)
 
-1. **Schedule Population**: When games are created or scheduled_at updated, status transitions are stored in the `game_status_schedule` table
-2. **Event-Driven Wake-ups**: PostgreSQL LISTEN/NOTIFY triggers instant daemon wake-ups when schedules change
-3. **MIN() Query Pattern**: Daemon queries for the next due transition using an optimized O(1) query with partial index
-4. **Status Updates**: When transitions are due, game status is updated and GAME_STARTED events published to RabbitMQ
+1. **Schedule Population**: When games are created or scheduled_at updated,
+   status transitions are stored in the `game_status_schedule` table
+2. **Event-Driven Wake-ups**: PostgreSQL LISTEN/NOTIFY triggers instant daemon
+   wake-ups when schedules change
+3. **MIN() Query Pattern**: Daemon queries for the next due transition using an
+   optimized O(1) query with partial index
+4. **Status Updates**: When transitions are due, game status is updated and
+   GAME_STARTED events published to RabbitMQ
 
 **Key Features**:
 
@@ -51,6 +65,8 @@ The system uses a database-backed event-driven architecture for reliable, scalab
 - Scalable - O(1) query performance regardless of total scheduled games
 
 ## Development Setup
+
+### Quick Start
 
 1. Copy environment template:
 
@@ -66,20 +82,64 @@ cp .env.example .env
 docker compose --env-file .env up
 ```
 
-4. Access services:
+The development environment automatically:
 
-- API: http://localhost:8000
-- API Docs: http://localhost:8000/docs
-- RabbitMQ Management: http://localhost:15672
+- **Mounts your source code** as volumes (no rebuilds needed!)
+- **Enables hot-reload** for instant code changes
+- **Uses development stages** from Dockerfiles
 
-5. Monitor notification daemon:
+### Development Workflow
+
+**Making code changes:**
+
+1. Edit files in `shared/`, `services/`, or `frontend/src/`
+2. Changes appear **instantly** in running containers
+3. No rebuild or restart required!
+
+**Python services** (API, bot, daemons) use:
+
+- `uvicorn --reload` (API) or `python -m` (bot, daemons)
+- Auto-detects file changes and reloads
+
+**Frontend** uses:
+
+- Vite dev server with hot module replacement
+- Changes appear instantly in browser
+
+**When you need to rebuild:**
+
+- Dependency changes (`package.json`, `pyproject.toml`)
+- Dockerfile modifications
+- New files added that need to be included
 
 ```bash
-# View notification daemon logs
+# Rebuild specific service
+docker compose build api
+
+# Rebuild all services
+docker compose build
+```
+
+### Access Services
+
+- **Frontend**: http://localhost:3000
+- **API**: http://localhost:8000
+- **API Docs**: http://localhost:8000/docs
+- **RabbitMQ Management**: http://localhost:15672
+
+### Monitoring Services
+
+```bash
+# View all logs
+docker compose logs -f
+
+# View specific service logs
+docker compose logs -f api
+docker compose logs -f bot
 docker compose logs -f notification-daemon
 
-# Restart notification daemon
-docker compose restart notification-daemon
+# Restart specific service
+docker compose restart api
 ```
 
 ## Running Services Individually
@@ -105,7 +165,27 @@ docker compose up -d bot
 
 ## Building Multi-Architecture Images
 
-The project supports building images for both ARM64 (Apple Silicon, AWS Graviton) and AMD64 (traditional x86) architectures using Docker Bake.
+The project supports building images for both ARM64 (Apple Silicon, AWS
+Graviton) and AMD64 (traditional x86) architectures using Docker Bake.
+
+### Production Builds
+
+For production deployments, use the production compose configuration:
+
+```bash
+# Build production images
+docker compose -f compose.yml -f compose.production.yaml build
+
+# Start production services
+docker compose -f compose.yml -f compose.production.yaml up -d
+```
+
+Production builds:
+
+- Target `production` stage in Dockerfiles
+- Copy all source code into images (no volume mounts)
+- Use optimized production commands
+- Include restart policies for reliability
 
 ### Setup
 
@@ -139,14 +219,14 @@ IMAGE_REGISTRY= IMAGE_TAG=dev docker buildx bake --push
 
 ### Local Development Builds
 
-For local development (single platform, no push):
+Development uses `compose.override.yaml` automatically:
 
 ```bash
-# Regular docker compose build (single platform)
-docker compose --env-file .env build
+# Development build (single platform, volume mounts)
+docker compose build
 
-# Build for specific platform
-docker compose --env-file .env build --build-arg BUILDPLATFORM=linux/amd64
+# Force rebuild after dependency changes
+docker compose build --no-cache
 ```
 
 ### Environment Variables
@@ -189,19 +269,25 @@ Configure in `.env` file:
 
 The project uses a layered Docker Compose structure to minimize duplication:
 
-- **`docker-compose.base.yml`**: Shared service definitions (images, healthchecks, dependencies)
-- **`docker-compose.yml`**: Development environment overrides (persistent volumes, exposed ports)
-- **`docker-compose.integration.yml`**: Integration test environment (postgres, rabbitmq, redis only)
-- **`docker-compose.e2e.yml`**: E2E test environment (full stack with Discord bot)
+- **`docker-compose.base.yml`**: Shared service definitions (images,
+  healthchecks, dependencies)
+- **`docker-compose.yml`**: Development environment overrides (persistent
+  volumes, exposed ports)
+- **`docker-compose.integration.yml`**: Integration test environment (postgres,
+  rabbitmq, redis only)
+- **`docker-compose.e2e.yml`**: E2E test environment (full stack with Discord
+  bot)
 
-This design ensures all environments stay in sync while allowing environment-specific configurations. See [TESTING_E2E.md](TESTING_E2E.md) for testing details.
+This design ensures all environments stay in sync while allowing
+environment-specific configurations. See [TESTING_E2E.md](TESTING_E2E.md) for
+testing details.
 
 ## License
 
 Copyright 2025 Bret McKee (bret.mckee@gmail.com)
 
 Game Scheduler is available as open source software, see COPYING.txt for
-information on the license. 
+information on the license.
 
 Please contact the author if you are interested in obtaining it under other
 terms.
