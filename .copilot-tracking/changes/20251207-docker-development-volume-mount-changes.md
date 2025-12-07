@@ -15,6 +15,11 @@ source code.
 
 ### Added
 
+- compose.override.yaml - Development overrides with volume mounts and
+  hot-reload commands for all services
+- compose.production.yaml - Production overrides with explicit production
+  targets and restart policies
+
 ### Modified
 
 - docker/api.Dockerfile - Added development stage with hot-reload support using

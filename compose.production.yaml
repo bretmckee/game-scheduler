@@ -1,0 +1,36 @@
+# Production overrides - use with explicit -f flag
+# This file ensures production build targets are used with code baked into images
+#
+# Usage: docker compose -f compose.yml -f compose.production.yaml up -d
+#
+# Features:
+# - Targets production stages in Dockerfiles
+# - No source code volume mounts (code copied into images)
+# - Restart policies for production resilience
+# - Optimized, minimal images with security hardening
+
+services:
+  api:
+    build:
+      target: production
+    restart: always
+
+  bot:
+    build:
+      target: production
+    restart: always
+
+  notification-daemon:
+    build:
+      target: production
+    restart: always
+
+  status-transition-daemon:
+    build:
+      target: production
+    restart: always
+
+  frontend:
+    build:
+      target: production
+    restart: always
