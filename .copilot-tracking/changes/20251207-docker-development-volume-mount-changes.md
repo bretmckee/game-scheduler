@@ -25,5 +25,7 @@ source code.
   execution for notification daemon
 - docker/status-transition-daemon.Dockerfile - Added development stage with
   python -m execution for status transition daemon
+- docker/frontend.Dockerfile - Added development stage with Vite dev server for
+  hot module replacement
 
 ### Removed

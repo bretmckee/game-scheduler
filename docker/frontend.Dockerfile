@@ -1,11 +1,30 @@
 # Multi-stage build for production-ready React frontend
-FROM node:22-alpine AS builder
+FROM node:22-alpine AS base
 
 WORKDIR /app
 
 # Install dependencies first (better layer caching)
 COPY frontend/package*.json ./
 RUN npm ci --only=production=false
+
+# Development stage with Vite dev server
+FROM base AS development
+
+# Copy configuration files needed for Vite dev server
+COPY frontend/vite.config.ts ./
+COPY frontend/tsconfig.json ./
+COPY frontend/tsconfig.node.json ./
+
+# Source code NOT copied - will be mounted via volume in compose.override.yaml
+
+# Expose Vite dev server port
+EXPOSE 5173
+
+# Run Vite dev server with host binding for external access
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+
+# Builder stage for production compilation
+FROM base AS builder
 
 # Copy source code and configuration files
 COPY frontend/src ./src
