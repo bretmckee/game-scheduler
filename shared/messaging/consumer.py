@@ -35,6 +35,7 @@ if TYPE_CHECKING:
 
 from shared.messaging.config import get_rabbitmq_connection
 from shared.messaging.events import Event, EventType
+from shared.messaging.infrastructure import PRIMARY_QUEUE_ARGUMENTS
 
 logger = logging.getLogger(__name__)
 
@@ -79,9 +80,7 @@ class EventConsumer:
         self._queue = await self._channel.declare_queue(
             self.queue_name,
             durable=True,
-            arguments={
-                "x-dead-letter-exchange": f"{self.exchange_name}.dlx",
-            },
+            arguments=PRIMARY_QUEUE_ARGUMENTS,
         )  # type: ignore[assignment]
 
         logger.info(f"Consumer connected to queue: {self.queue_name}")

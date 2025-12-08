@@ -26,6 +26,15 @@ import time
 import pika
 from pika.exceptions import AMQPConnectionError
 
+from shared.messaging.infrastructure import (
+    DLX_EXCHANGE,
+    MAIN_EXCHANGE,
+    PRIMARY_QUEUE_ARGUMENTS,
+    PRIMARY_QUEUES,
+    QUEUE_BINDINGS,
+    QUEUE_DLQ,
+)
+
 
 def wait_for_rabbitmq(rabbitmq_url: str, max_retries: int = 30) -> None:
     """
@@ -66,52 +75,30 @@ def create_infrastructure(rabbitmq_url: str) -> None:
     channel = connection.channel()
 
     # Declare main exchange
-    channel.exchange_declare(exchange="game_scheduler", exchange_type="topic", durable=True)
-    print("  ✓ Exchange 'game_scheduler' declared")
+    channel.exchange_declare(exchange=MAIN_EXCHANGE, exchange_type="topic", durable=True)
+    print(f"  ✓ Exchange '{MAIN_EXCHANGE}' declared")
 
     # Declare dead letter exchange
-    channel.exchange_declare(exchange="game_scheduler.dlx", exchange_type="topic", durable=True)
-    print("  ✓ Exchange 'game_scheduler.dlx' declared")
+    channel.exchange_declare(exchange=DLX_EXCHANGE, exchange_type="topic", durable=True)
+    print(f"  ✓ Exchange '{DLX_EXCHANGE}' declared")
 
-    # Queue configuration with dead letter exchange and TTL
-    queue_args = {
-        "x-dead-letter-exchange": "game_scheduler.dlx",
-        "x-message-ttl": 3600000,  # 1 hour in milliseconds
-    }
-
-    # Declare queues with TTL and DLX
-    queues = ["bot_events", "api_events", "scheduler_events", "notification_queue"]
-    for queue_name in queues:
-        channel.queue_declare(queue=queue_name, durable=True, arguments=queue_args)
+    # Declare primary queues with TTL and DLX
+    for queue_name in PRIMARY_QUEUES:
+        channel.queue_declare(queue=queue_name, durable=True, arguments=PRIMARY_QUEUE_ARGUMENTS)
         print(f"  ✓ Queue '{queue_name}' declared")
 
     # Declare dead letter queue (no TTL - infinite retention)
-    channel.queue_declare(queue="DLQ", durable=True)
-    print("  ✓ Queue 'DLQ' declared (infinite TTL)")
+    channel.queue_declare(queue=QUEUE_DLQ, durable=True)
+    print(f"  ✓ Queue '{QUEUE_DLQ}' declared (infinite TTL)")
 
-    # Create bindings (matching original definitions.json.template)
-    bindings = [
-        # bot_events receives game, guild, and channel events
-        ("bot_events", "game.*"),
-        ("bot_events", "guild.*"),
-        ("bot_events", "channel.*"),
-        # api_events receives game events for API updates
-        ("api_events", "game.*"),
-        # scheduler_events receives specific game lifecycle events
-        ("scheduler_events", "game.created"),
-        ("scheduler_events", "game.updated"),
-        ("scheduler_events", "game.cancelled"),
-        # notification_queue receives DM notifications
-        ("notification_queue", "notification.send_dm"),
-    ]
-
-    for queue_name, routing_key in bindings:
-        channel.queue_bind(exchange="game_scheduler", queue=queue_name, routing_key=routing_key)
+    # Create bindings from shared configuration
+    for queue_name, routing_key in QUEUE_BINDINGS:
+        channel.queue_bind(exchange=MAIN_EXCHANGE, queue=queue_name, routing_key=routing_key)
         print(f"  ✓ Binding '{queue_name}' -> '{routing_key}'")
 
     # Bind DLQ to dead letter exchange (catch-all)
-    channel.queue_bind(exchange="game_scheduler.dlx", queue="DLQ", routing_key="#")
-    print("  ✓ Binding 'DLQ' -> 'game_scheduler.dlx' (catch-all)")
+    channel.queue_bind(exchange=DLX_EXCHANGE, queue=QUEUE_DLQ, routing_key="#")
+    print(f"  ✓ Binding '{QUEUE_DLQ}' -> '{DLX_EXCHANGE}' (catch-all)")
 
     connection.close()
 
