@@ -104,15 +104,15 @@ aggregation using OpenTelemetry with Grafana Cloud as the observability backend.
     .copilot-tracking/details/20251206-opentelemetry-observability-details.md
     (Lines 227-240)
 
-### [ ] Phase 3: Redis Metrics Collection
+### [x] Phase 3: Redis Metrics Collection
 
-- [ ] Task 3.1: Configure Redis exporter scraping in Alloy
+- [x] Task 3.1: Configure Redis exporter scraping in Alloy
 
   - Details:
     .copilot-tracking/details/20251206-opentelemetry-observability-details.md
     (Lines 242-270)
 
-- [ ] Task 3.2: Verify Redis metrics in Grafana Cloud
+- [x] Task 3.2: Verify Redis metrics in Grafana Cloud
   - Details:
     .copilot-tracking/details/20251206-opentelemetry-observability-details.md
     (Lines 272-285)

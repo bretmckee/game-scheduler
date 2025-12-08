@@ -109,6 +109,34 @@ prometheus.scrape "integrations_postgres_exporter" {
 }
 
 // ========================================
+// Redis Metrics Collection
+// ========================================
+// Built-in Redis exporter for cache metrics
+
+prometheus.exporter.redis "integrations_redis_exporter" {
+  redis_addr = "redis:6379"
+}
+
+// Metric Filtering for Redis (cost optimization)
+prometheus.relabel "integrations_redis_exporter" {
+  forward_to = [prometheus.remote_write.grafana_cloud_mimir.receiver]
+
+  rule {
+    source_labels = ["__name__"]
+    regex = "redis_up|redis_memory_.*|redis_commands_.*|redis_connected_clients|redis_blocked_clients|redis_keyspace_.*|up"
+    action = "keep"
+  }
+}
+
+// Scrape Redis Exporter
+prometheus.scrape "integrations_redis_exporter" {
+  targets         = prometheus.exporter.redis.integrations_redis_exporter.targets
+  forward_to      = [prometheus.relabel.integrations_redis_exporter.receiver]
+  job_name        = "integrations/redis_exporter"
+  scrape_interval = "60s"
+}
+
+// ========================================
 // Prometheus Remote Write to Grafana Cloud Mimir
 // ========================================
 // Sends infrastructure metrics to Grafana Cloud Mimir

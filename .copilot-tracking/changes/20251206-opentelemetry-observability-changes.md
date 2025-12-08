@@ -22,6 +22,8 @@ aggregation using OpenTelemetry with Grafana Cloud as the observability backend.
   connection verification
 - grafana-alloy/TESTING_PHASE2.md - Step-by-step testing guide for Phase 2
   PostgreSQL metrics verification
+- grafana-alloy/TESTING_PHASE3.md - Step-by-step testing guide for Phase 3 Redis
+  metrics verification
 
 ### Modified
 
@@ -45,7 +47,13 @@ aggregation using OpenTelemetry with Grafana Cloud as the observability backend.
 - grafana-alloy/SETUP_GRAFANA_CLOUD.md - Added Step 3.5 for Loki instance ID
   collection
 - .copilot-tracking/plans/20251206-opentelemetry-observability-plan.instructions.md -
-  Marked Phase 1 tasks as complete; Marked Phase 2 tasks as complete
+  Marked Phase 1 tasks as complete; Marked Phase 2 tasks as complete; Marked
+  Phase 3 tasks as complete
+- grafana-alloy/config.alloy - Added Redis metrics collection with
+  prometheus.exporter.redis built-in component connecting to redis:6379,
+  prometheus.relabel for metric filtering (cost optimization), and
+  prometheus.scrape using exported targets with 60s interval; Uses in-memory
+  traffic for efficient scraping without external container
 
 ### Removed
 
