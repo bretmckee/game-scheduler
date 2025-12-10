@@ -24,6 +24,7 @@ import sys
 
 from services.bot.bot import create_bot
 from services.bot.config import get_config
+from shared.telemetry import init_telemetry
 
 
 def setup_logging(log_level: str) -> None:
@@ -49,6 +50,9 @@ async def main() -> None:
 
     setup_logging(config.log_level)
     logger = logging.getLogger(__name__)
+
+    # Initialize OpenTelemetry
+    init_telemetry("bot-service")
 
     # Check if running in test environment without Discord credentials
     if not config.discord_bot_token or not config.discord_client_id:

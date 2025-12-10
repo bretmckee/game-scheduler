@@ -148,27 +148,27 @@ aggregation using OpenTelemetry with Grafana Cloud as the observability backend.
     .copilot-tracking/details/20251206-opentelemetry-observability-details.md
     (Lines 412-435)
 
-### [ ] Phase 5: Bot Service Instrumentation
+### [x] Phase 5: Bot Service Instrumentation
 
-- [ ] Task 5.1: Instrument bot service startup
+- [x] Task 5.1: Instrument bot service startup
 
   - Details:
     .copilot-tracking/details/20251206-opentelemetry-observability-details.md
     (Lines 437-465)
 
-- [ ] Task 5.2: Add manual spans for Discord event handlers
+- [x] Task 5.2: Add manual spans for Discord event handlers
 
   - Details:
     .copilot-tracking/details/20251206-opentelemetry-observability-details.md
     (Lines 467-505)
 
-- [ ] Task 5.3: Configure bot service environment variables
+- [x] Task 5.3: Configure bot service environment variables
 
   - Details:
     .copilot-tracking/details/20251206-opentelemetry-observability-details.md
     (Lines 507-525)
 
-- [ ] Task 5.4: Verify bot traces
+- [x] Task 5.4: Verify bot traces
   - Details:
     .copilot-tracking/details/20251206-opentelemetry-observability-details.md
     (Lines 527-545)

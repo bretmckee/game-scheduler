@@ -22,10 +22,12 @@ import logging
 
 import discord
 from discord.ext import commands
+from opentelemetry import trace
 
 from services.bot.config import BotConfig
 
 logger = logging.getLogger(__name__)
+tracer = trace.get_tracer(__name__)
 
 
 # Forward declarations to avoid circular imports
@@ -99,14 +101,22 @@ class GameSchedulerBot(commands.Bot):
 
     async def on_ready(self) -> None:
         """Handle bot ready event after successful Gateway connection."""
-        logger.info(f"Bot connected as {self.user} (ID: {self.user.id})")
-        logger.info(f"Connected to {len(self.guilds)} guilds")
-        logger.info("Bot is ready to receive events")
+        with tracer.start_as_current_span(
+            "discord.on_ready",
+            attributes={
+                "discord.bot_id": str(self.user.id) if self.user else None,
+                "discord.bot_name": str(self.user) if self.user else None,
+                "discord.guild_count": len(self.guilds),
+            },
+        ):
+            logger.info(f"Bot connected as {self.user} (ID: {self.user.id})")
+            logger.info(f"Connected to {len(self.guilds)} guilds")
+            logger.info("Bot is ready to receive events")
 
-        if self.event_handlers and not hasattr(self, "_event_consumer_started"):
-            self._event_consumer_started = True
-            self.loop.create_task(self.event_handlers.start_consuming())
-            logger.info("Started event consumer task")
+            if self.event_handlers and not hasattr(self, "_event_consumer_started"):
+                self._event_consumer_started = True
+                self.loop.create_task(self.event_handlers.start_consuming())
+                logger.info("Started event consumer task")
 
     async def on_disconnect(self) -> None:
         """Handle Gateway disconnection."""
@@ -123,9 +133,20 @@ class GameSchedulerBot(commands.Bot):
         Args:
             interaction: Discord interaction event
         """
-        if interaction.type == discord.InteractionType.component:
-            if self.button_handler:
-                await self.button_handler.handle_interaction(interaction)
+        with tracer.start_as_current_span(
+            "discord.on_interaction",
+            attributes={
+                "discord.interaction_type": interaction.type.name,
+                "discord.user_id": str(interaction.user.id),
+                "discord.channel_id": str(interaction.channel_id)
+                if interaction.channel_id
+                else None,
+                "discord.guild_id": str(interaction.guild_id) if interaction.guild_id else None,
+            },
+        ):
+            if interaction.type == discord.InteractionType.component:
+                if self.button_handler:
+                    await self.button_handler.handle_interaction(interaction)
 
     async def on_error(self, event_method: str, *args, **kwargs) -> None:
         """
@@ -143,7 +164,14 @@ class GameSchedulerBot(commands.Bot):
         Args:
             guild: The guild that was joined
         """
-        logger.info(f"Bot added to guild: {guild.name} (ID: {guild.id})")
+        with tracer.start_as_current_span(
+            "discord.on_guild_join",
+            attributes={
+                "discord.guild_id": str(guild.id),
+                "discord.guild_name": guild.name,
+            },
+        ):
+            logger.info(f"Bot added to guild: {guild.name} (ID: {guild.id})")
 
     async def on_guild_remove(self, guild: discord.Guild) -> None:
         """
@@ -152,7 +180,14 @@ class GameSchedulerBot(commands.Bot):
         Args:
             guild: The guild that was left
         """
-        logger.info(f"Bot removed from guild: {guild.name} (ID: {guild.id})")
+        with tracer.start_as_current_span(
+            "discord.on_guild_remove",
+            attributes={
+                "discord.guild_id": str(guild.id),
+                "discord.guild_name": guild.name,
+            },
+        ):
+            logger.info(f"Bot removed from guild: {guild.name} (ID: {guild.id})")
 
     async def close(self) -> None:
         """Cleanup resources before bot shutdown."""

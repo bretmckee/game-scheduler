@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING
 
 import discord
 from discord import Interaction, app_commands
+from opentelemetry import trace
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -34,6 +35,7 @@ if TYPE_CHECKING:
     from services.bot.bot import GameSchedulerBot
 
 logger = logging.getLogger(__name__)
+tracer = trace.get_tracer(__name__)
 
 
 async def list_games_command(
@@ -49,51 +51,62 @@ async def list_games_command(
         channel: Specific channel to list games from (optional)
         show_all: Whether to show games from all channels in guild
     """
-    await interaction.response.defer(ephemeral=True)
+    with tracer.start_as_current_span(
+        "discord.command.list_games",
+        attributes={
+            "discord.command": "list-games",
+            "discord.user_id": str(interaction.user.id),
+            "discord.guild_id": str(interaction.guild.id) if interaction.guild else None,
+            "discord.channel_id": str(interaction.channel_id) if interaction.channel_id else None,
+            "command.show_all": show_all,
+            "command.channel": str(channel.id) if channel else None,
+        },
+    ):
+        await interaction.response.defer(ephemeral=True)
 
-    try:
-        if not interaction.guild:
-            await interaction.followup.send(
-                "❌ This command can only be used in a server.",
-                ephemeral=True,
-            )
-            return
-
-        async with get_db_session() as db:
-            if show_all:
-                games = await _get_all_guild_games(db, str(interaction.guild.id))
-                title = f"📅 All Scheduled Games in {interaction.guild.name}"
-            elif channel:
-                games = await _get_channel_games(db, str(channel.id))
-                title = f"📅 Scheduled Games in #{channel.name}"
-            else:
-                if not interaction.channel or not isinstance(
-                    interaction.channel, discord.TextChannel
-                ):
-                    await interaction.followup.send(
-                        "❌ Could not determine the current channel.",
-                        ephemeral=True,
-                    )
-                    return
-                games = await _get_channel_games(db, str(interaction.channel.id))
-                title = f"📅 Scheduled Games in #{interaction.channel.name}"
-
-            if not games:
+        try:
+            if not interaction.guild:
                 await interaction.followup.send(
-                    "No scheduled games found.",
+                    "❌ This command can only be used in a server.",
                     ephemeral=True,
                 )
                 return
 
-            embed = _create_games_list_embed(title, games)
-            await interaction.followup.send(embed=embed, ephemeral=True)
+            async with get_db_session() as db:
+                if show_all:
+                    games = await _get_all_guild_games(db, str(interaction.guild.id))
+                    title = f"📅 All Scheduled Games in {interaction.guild.name}"
+                elif channel:
+                    games = await _get_channel_games(db, str(channel.id))
+                    title = f"📅 Scheduled Games in #{channel.name}"
+                else:
+                    if not interaction.channel or not isinstance(
+                        interaction.channel, discord.TextChannel
+                    ):
+                        await interaction.followup.send(
+                            "❌ Could not determine the current channel.",
+                            ephemeral=True,
+                        )
+                        return
+                    games = await _get_channel_games(db, str(interaction.channel.id))
+                    title = f"📅 Scheduled Games in #{interaction.channel.name}"
 
-    except Exception as e:
-        logger.exception("Error listing games")
-        await interaction.followup.send(
-            f"❌ An error occurred: {e!s}",
-            ephemeral=True,
-        )
+                if not games:
+                    await interaction.followup.send(
+                        "No scheduled games found.",
+                        ephemeral=True,
+                    )
+                    return
+
+                embed = _create_games_list_embed(title, games)
+                await interaction.followup.send(embed=embed, ephemeral=True)
+
+        except Exception as e:
+            logger.exception("Error listing games")
+            await interaction.followup.send(
+                f"❌ An error occurred: {e!s}",
+                ephemeral=True,
+            )
 
 
 async def _get_channel_games(db: AsyncSession, channel_id: str) -> list[GameSession]:

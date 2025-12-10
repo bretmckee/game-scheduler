@@ -27,6 +27,7 @@ aggregation using OpenTelemetry with Grafana Cloud as the observability backend.
 - shared/telemetry.py - Centralized OpenTelemetry initialization module with TracerProvider, MeterProvider, LoggingInstrumentor configuration and auto-instrumentation for FastAPI, SQLAlchemy, asyncpg, Redis, and aio-pika
 - grafana-alloy/TESTING_PHASE4.md - Step-by-step testing guide for Phase 4 API service instrumentation verification
 - shared/telemetry.py - Fixed import paths for OTLP exporters (metric_exporter instead of metric_export, removed LoggingInstrumentor dependency); Added proper log export with LoggerProvider, BatchLogRecordProcessor, and LoggingHandler for trace correlation
+- grafana-alloy/TESTING_PHASE5.md - Step-by-step testing guide for Phase 5 bot service instrumentation verification with Discord command trace validation
 
 ### Modified
 
@@ -62,8 +63,13 @@ aggregation using OpenTelemetry with Grafana Cloud as the observability backend.
 - docker-compose.base.yml - Added OpenTelemetry environment variables to API service (OTEL_SERVICE_NAME, OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_EXPORTER_OTLP_PROTOCOL, OTEL_TRACES_EXPORTER, OTEL_METRICS_EXPORTER, OTEL_LOGS_EXPORTER)
 - grafana-alloy/config.alloy - Added otelcol.exporter.otlphttp for application metrics with basic auth using OTLP gateway instance ID (1461503); Fixed authentication issue where Prometheus instance ID (2847239) was incorrectly used instead of OTLP gateway ID; Updated batch processor to route metrics separately from traces/logs; Updated logs routing to send through OTLP gateway (same as metrics) instead of direct Loki connection, as OTLP gateway handles all three signals (traces, metrics, logs) and routes them appropriately
 - .env.example - Added GRAFANA_CLOUD_OTLP_INSTANCE_ID with documentation explaining it differs from Prometheus instance ID and how to find it from OTLP gateway authorization header; Added GRAFANA_CLOUD_LOKI_ENDPOINT for reference
-- docker-compose.base.yml - Added GRAFANA_CLOUD_LOKI_ENDPOINT environment variable to Alloy service
+- docker-compose.base.yml - Added GRAFANA_CLOUD_LOKI_ENDPOINT environment variable to Alloy service; Added OpenTelemetry environment variables to bot service (OTEL_SERVICE_NAME, OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_EXPORTER_OTLP_PROTOCOL, OTEL_TRACES_EXPORTER, OTEL_METRICS_EXPORTER, OTEL_LOGS_EXPORTER)
 - grafana-alloy/TESTING_PHASE4.md - Added verification results section documenting authentication fix, instance ID reference table, and successful test results; Added troubleshooting section for HTTP 401 authentication errors with complete solution
+- .copilot-tracking/plans/20251206-opentelemetry-observability-plan.instructions.md - Marked Phase 5 tasks as complete
+- services/bot/main.py - Added init_telemetry("bot-service") call for OpenTelemetry initialization at bot startup
+- services/bot/bot.py - Added OpenTelemetry tracer and manual spans for Discord event handlers (on_ready, on_interaction, on_guild_join, on_guild_remove) with Discord-specific attributes (user_id, channel_id, guild_id, interaction_type)
+- services/bot/commands/list_games.py - Added OpenTelemetry tracer and manual span for list_games command with Discord command attributes
+- services/bot/commands/my_games.py - Added OpenTelemetry tracer and manual span for my_games command with Discord command attributes
 
 ### Removed
 

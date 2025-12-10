@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING
 
 import discord
 from discord import Interaction
+from opentelemetry import trace
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -34,6 +35,7 @@ if TYPE_CHECKING:
     from services.bot.bot import GameSchedulerBot
 
 logger = logging.getLogger(__name__)
+tracer = trace.get_tracer(__name__)
 
 
 async def my_games_command(interaction: Interaction) -> None:
@@ -43,48 +45,57 @@ async def my_games_command(interaction: Interaction) -> None:
     Args:
         interaction: Discord interaction object
     """
-    await interaction.response.defer(ephemeral=True)
+    with tracer.start_as_current_span(
+        "discord.command.my_games",
+        attributes={
+            "discord.command": "my-games",
+            "discord.user_id": str(interaction.user.id),
+            "discord.guild_id": str(interaction.guild.id) if interaction.guild else None,
+            "discord.channel_id": str(interaction.channel_id) if interaction.channel_id else None,
+        },
+    ):
+        await interaction.response.defer(ephemeral=True)
 
-    try:
-        async with get_db_session() as db:
-            user = await _get_or_create_user(db, str(interaction.user.id))
+        try:
+            async with get_db_session() as db:
+                user = await _get_or_create_user(db, str(interaction.user.id))
 
-            hosted_games = await _get_hosted_games(db, str(user.id))
-            participating_games = await _get_participating_games(db, str(user.id))
+                hosted_games = await _get_hosted_games(db, str(user.id))
+                participating_games = await _get_participating_games(db, str(user.id))
 
-            if not hosted_games and not participating_games:
-                await interaction.followup.send(
-                    "You are not hosting or participating in any scheduled games.",
-                    ephemeral=True,
-                )
-                return
+                if not hosted_games and not participating_games:
+                    await interaction.followup.send(
+                        "You are not hosting or participating in any scheduled games.",
+                        ephemeral=True,
+                    )
+                    return
 
-            embeds = []
+                embeds = []
 
-            if hosted_games:
-                embed = _create_games_embed(
-                    "🎮 Games You're Hosting",
-                    hosted_games,
-                    discord.Color.green(),
-                )
-                embeds.append(embed)
+                if hosted_games:
+                    embed = _create_games_embed(
+                        "🎮 Games You're Hosting",
+                        hosted_games,
+                        discord.Color.green(),
+                    )
+                    embeds.append(embed)
 
-            if participating_games:
-                embed = _create_games_embed(
-                    "👥 Games You've Joined",
-                    participating_games,
-                    discord.Color.blue(),
-                )
-                embeds.append(embed)
+                if participating_games:
+                    embed = _create_games_embed(
+                        "👥 Games You've Joined",
+                        participating_games,
+                        discord.Color.blue(),
+                    )
+                    embeds.append(embed)
 
-            await interaction.followup.send(embeds=embeds, ephemeral=True)
+                await interaction.followup.send(embeds=embeds, ephemeral=True)
 
-    except Exception as e:
-        logger.exception("Error fetching user's games")
-        await interaction.followup.send(
-            f"❌ An error occurred: {e!s}",
-            ephemeral=True,
-        )
+        except Exception as e:
+            logger.exception("Error fetching user's games")
+            await interaction.followup.send(
+                f"❌ An error occurred: {e!s}",
+                ephemeral=True,
+            )
 
 
 async def _get_or_create_user(db: AsyncSession, discord_id: str) -> User:
