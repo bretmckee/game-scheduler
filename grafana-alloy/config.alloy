@@ -2,7 +2,7 @@
 // 
 // Architecture:
 // 1. Application telemetry (traces/metrics/logs) → OTLP Gateway → Tempo/Mimir/Loki
-// 2. Infrastructure metrics (PostgreSQL/Redis) → Prometheus Remote Write → Mimir
+// 2. Infrastructure metrics (PostgreSQL/Redis/RabbitMQ) → Prometheus Remote Write → Mimir
 //
 // Key Learning: OTLP Gateway instance ID differs from Prometheus instance ID
 
@@ -71,7 +71,7 @@ otelcol.auth.basic "grafana_cloud_otlp" {
 
 otelcol.exporter.otlphttp "grafana_cloud_otlp" {
   client {
-    endpoint = "https://otlp-gateway-prod-us-west-0.grafana.net/otlp"
+    endpoint = env("GRAFANA_CLOUD_OTLP_ENDPOINT")
     auth     = otelcol.auth.basic.grafana_cloud_otlp.handler
   }
 }

@@ -14,7 +14,7 @@ This guide provides step-by-step verification that the API service is properly i
 Grafana Cloud uses **different instance IDs for different services**. The most common mistake is using the Prometheus instance ID for OTLP metrics:
 
 - **Tempo (traces via OTLP):** Use Tempo instance ID
-- **Prometheus (infrastructure metrics):** Use Prometheus instance ID  
+- **Prometheus (infrastructure metrics):** Use Prometheus instance ID
 - **Loki (logs):** Use Loki instance ID
 - **OTLP Gateway (application metrics):** Use OTLP instance ID (NOT Prometheus ID!)
 
@@ -299,13 +299,13 @@ All of the following should be true:
 ## Verification Results (2025-12-09)
 
 ### Authentication Fix
-**Issue:** Metrics failing with HTTP 401 Unauthenticated errors  
-**Root Cause:** Used Prometheus instance ID (2847239) instead of OTLP gateway instance ID (1461503)  
+**Issue:** Metrics failing with HTTP 401 Unauthenticated errors
+**Root Cause:** Used Prometheus instance ID instead of OTLP gateway instance ID
 **Solution:** Updated `grafana-alloy/config.alloy` to use correct instance ID in `otelcol.auth.basic`
 
 ```alloy
 otelcol.auth.basic "grafana_cloud_otlp" {
-  username = "1461503"  // OTLP gateway instance ID, not Prometheus ID
+  username = env("GRAFANA_CLOUD_OTLP_INSTANCE_ID")  // OTLP gateway instance ID, not Prometheus ID
   password = env("GRAFANA_CLOUD_API_KEY")
 }
 ```
@@ -320,9 +320,9 @@ otelcol.auth.basic "grafana_cloud_otlp" {
 ### Instance ID Reference
 Different Grafana Cloud services use different instance IDs:
 - **Tempo (traces):** 1413606
-- **Prometheus (metrics via remote_write):** 2847239  
+- **Prometheus (metrics via remote_write):** (7-digit ID from Prometheus connection)
 - **Loki (logs):** 1419296
-- **OTLP Gateway (metrics via OTLP/HTTP):** 1461503 ← Critical for Phase 4
+- **OTLP Gateway (metrics via OTLP/HTTP):** (7-digit ID from OTLP endpoint) ← Critical for Phase 4
 
 ### Verification Queries
 Access metrics in Grafana Cloud:

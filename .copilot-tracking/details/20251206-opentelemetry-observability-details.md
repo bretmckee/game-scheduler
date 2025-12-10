@@ -125,7 +125,7 @@ Configure Prometheus remote_write to send PostgreSQL metrics to Grafana Cloud Mi
 - **Success**:
   - prometheus.remote_write configured with Grafana Cloud Mimir endpoint
   - Basic authentication uses Prometheus instance ID (NOT OTLP instance ID)
-  - Username set to Prometheus-specific instance ID (e.g., "2847239")
+  - Username set to Prometheus-specific instance ID (e.g., "XXXX-PROM-ID")
   - Password uses same Grafana Cloud API key
   - prometheus.relabel forwards to prometheus.remote_write
 - **Research References**:

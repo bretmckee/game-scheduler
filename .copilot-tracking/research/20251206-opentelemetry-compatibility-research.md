@@ -823,13 +823,13 @@ Grafana Cloud has **separate instance IDs** for different services. You
 1. **OTLP Gateway Instance ID** (for traces, metrics, logs via OTLP)
 
    - Found in: Grafana Cloud Portal → Connections → "OTLP" section
-   - Format: 7-digit number (e.g., `1461503`)
+   - Format: 7-digit number (e.g., `XXXX-OTLP-ID`)
    - Used for: OTLP HTTP/gRPC authentication
 
 2. **Prometheus/Mimir Instance ID** (for direct Prometheus remote_write)
 
    - Found in: Grafana Cloud Portal → Connections → "Prometheus" section
-   - Format: 7-digit number (e.g., `2847239`)
+   - Format: 7-digit number (e.g., `XXXX-PROM-ID`)
    - Used for: Infrastructure metrics via prometheus.remote_write
 
 3. **Loki Instance ID** (for direct log ingestion)
@@ -847,7 +847,7 @@ account. Using the wrong instance ID results in **401 Unauthorized** errors.
 ```bash
 # Create Basic Auth token for OTLP
 # Format: base64(instance_id:api_key)
-echo -n "1461503:glc_xxxxx" | base64
+echo -n "XXXX-OTLP-ID:glc_xxxxx" | base64
 # Result: MTQ2MTUwMzpnbGNfZXh4eHh4...
 
 # Use in Alloy config:
@@ -861,7 +861,7 @@ headers = {
 ```hcl
 # Uses separate instance ID and API key
 basic_auth {
-  username = "2847239"  # Prometheus instance ID (NOT OTLP instance ID)
+  username = "XXXX-PROM-ID"  # Prometheus instance ID (NOT OTLP instance ID)
   password = "glc_xxxxx"  # Same API key works across services
 }
 ```
@@ -993,7 +993,7 @@ prometheus.remote_write "grafana_cloud_mimir" {
   endpoint {
     url = env("GRAFANA_CLOUD_PROMETHEUS_ENDPOINT")
     basic_auth {
-      username = "2847239"  // Hardcoded Prometheus instance ID
+      username = "XXXX-PROM-ID"  // Hardcoded Prometheus instance ID
       password = env("GRAFANA_CLOUD_API_KEY")
     }
   }
@@ -1004,14 +1004,14 @@ prometheus.remote_write "grafana_cloud_mimir" {
 
 ```bash
 # OTLP Gateway Configuration
-GRAFANA_CLOUD_INSTANCE_ID=1461503  # OTLP instance ID
+GRAFANA_CLOUD_INSTANCE_ID=XXXX-OTLP-ID  # OTLP instance ID
 GRAFANA_CLOUD_API_KEY=glc_xxxxx    # Cloud API key
-GRAFANA_CLOUD_AUTH_TOKEN="MTQ2MTUwMzpnbGNfZXh4eHh4..."  # base64(1461503:glc_xxxxx)
+GRAFANA_CLOUD_AUTH_TOKEN="MTQ2MTUwMzpnbGNfZXh4eHh4..."  # base64(XXXX-OTLP-ID:glc_xxxxx)
 GRAFANA_CLOUD_OTLP_ENDPOINT="otlp-gateway-prod-us-west-0.grafana.net/otlp"
 
 # Prometheus Remote Write Configuration
 GRAFANA_CLOUD_PROMETHEUS_ENDPOINT=https://prometheus-prod-36-prod-us-west-0.grafana.net/api/prom/push
-# Uses hardcoded instance 2847239 in Alloy config
+# Uses hardcoded instance XXXX-PROM-ID in Alloy config
 
 # Python Service Configuration
 OTEL_EXPORTER_OTLP_ENDPOINT=http://grafana-alloy:4318
@@ -1149,7 +1149,7 @@ docker logs gamebot-grafana-alloy --since 1m | grep -i "batch"
 
 1. Add prometheus.exporter.postgres to Alloy config
 2. Add discovery.relabel and prometheus.relabel
-3. Add prometheus.remote_write with Prometheus instance ID (2847239)
+3. Add prometheus.remote_write with Prometheus instance ID (XXXX-PROM-ID)
 4. Restart Alloy, check for connection success
 5. Verify metrics in Grafana Cloud Prometheus/Mimir
 6. **Do not proceed until pg\_\* metrics visible**
@@ -1409,7 +1409,7 @@ async def check_upcoming_games():
 
 1. Add prometheus.exporter.postgres to Alloy config with correct DSN
 2. Add discovery.relabel and prometheus.relabel (metric filtering)
-3. Configure prometheus.remote_write with Prometheus instance ID (2847239)
+3. Configure prometheus.remote_write with Prometheus instance ID (XXXX-PROM-ID)
 4. Restart Alloy, verify no authentication errors
 5. Wait 60 seconds for scrape, query metrics in Grafana Cloud
 6. **Success Criteria**: `pg_up`, `pg_stat_database_*` metrics visible in Mimir

@@ -36,7 +36,7 @@ instructions carefully.
 2. Look for **"Prometheus/Mimir"** configuration
 3. Note the following:
 
-   **Prometheus Instance ID** (7-digit number, e.g., `2847239`)
+   **Prometheus Instance ID** (7-digit number, e.g., `1234567`)
 
    - This is DIFFERENT from OTLP instance ID
    - Found in the remote_write configuration
@@ -86,7 +86,7 @@ GRAFANA_CLOUD_API_KEY=glc_xxxxx          # Your API key (same for all services)
 GRAFANA_CLOUD_TEMPO_ENDPOINT=tempo-prod-15-prod-us-west-0.grafana.net:443
 
 # Prometheus Configuration (for infrastructure metrics)
-GRAFANA_CLOUD_PROMETHEUS_INSTANCE_ID=2847239  # Your Prometheus instance ID (DIFFERENT from OTLP!)
+GRAFANA_CLOUD_PROMETHEUS_INSTANCE_ID=1234567  # Your Prometheus instance ID (DIFFERENT from OTLP!)
 GRAFANA_CLOUD_PROMETHEUS_ENDPOINT=https://prometheus-prod-36-prod-us-west-0.grafana.net/api/prom/push
 
 # Loki Configuration (for log aggregation)
