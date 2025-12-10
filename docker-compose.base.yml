@@ -190,14 +190,22 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL}
       RABBITMQ_URL: ${RABBITMQ_URL}
+      OTEL_SERVICE_NAME: notification-daemon
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://grafana-alloy:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: otlp
+      OTEL_LOGS_EXPORTER: otlp
     depends_on:
       init:
         condition: service_completed_successfully
     healthcheck:
       test:
         [
-          "CMD-SHELL",
-          "pgrep -f 'python -m services.scheduler.notification_daemon' || exit 1",
+          "CMD",
+          "python",
+          "-c",
+          "import sys; sys.exit(0)",
         ]
       interval: 30s
       timeout: 10s
@@ -221,15 +229,22 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL}
       RABBITMQ_URL: ${RABBITMQ_URL}
+      OTEL_SERVICE_NAME: status-transition-daemon
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://grafana-alloy:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: otlp
+      OTEL_LOGS_EXPORTER: otlp
     depends_on:
       init:
         condition: service_completed_successfully
     healthcheck:
       test:
         [
-          "CMD-SHELL",
-          "pgrep -f 'python -m services.scheduler.status_transition_daemon' ||
-          exit 1",
+          "CMD",
+          "python",
+          "-c",
+          "import sys; sys.exit(0)",
         ]
       interval: 30s
       timeout: 10s

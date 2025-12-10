@@ -27,8 +27,13 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.orm import Session, sessionmaker
 
 # Base PostgreSQL URL without driver specification
-BASE_DATABASE_URL = os.getenv(
+_raw_database_url = os.getenv(
     "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/game_scheduler"
+)
+
+# Strip any driver specification to get base URL
+BASE_DATABASE_URL = _raw_database_url.replace("postgresql+asyncpg://", "postgresql://").replace(
+    "postgresql+psycopg2://", "postgresql://"
 )
 
 # Build driver-specific URLs by adding driver to base URL

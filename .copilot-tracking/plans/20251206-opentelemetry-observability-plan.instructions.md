@@ -173,27 +173,27 @@ aggregation using OpenTelemetry with Grafana Cloud as the observability backend.
     .copilot-tracking/details/20251206-opentelemetry-observability-details.md
     (Lines 527-545)
 
-### [ ] Phase 6: Daemon Services Instrumentation
+### [x] Phase 6: Daemon Services Instrumentation
 
-- [ ] Task 6.1: Instrument notification daemon
+- [x] Task 6.1: Instrument notification daemon
 
   - Details:
     .copilot-tracking/details/20251206-opentelemetry-observability-details.md
     (Lines 547-585)
 
-- [ ] Task 6.2: Instrument status transition daemon
+- [x] Task 6.2: Instrument status transition daemon
 
   - Details:
     .copilot-tracking/details/20251206-opentelemetry-observability-details.md
     (Lines 587-625)
 
-- [ ] Task 6.3: Configure daemon environment variables
+- [x] Task 6.3: Configure daemon environment variables
 
   - Details:
     .copilot-tracking/details/20251206-opentelemetry-observability-details.md
     (Lines 627-650)
 
-- [ ] Task 6.4: Verify daemon traces and message context propagation
+- [x] Task 6.4: Verify daemon traces and message context propagation
   - Details:
     .copilot-tracking/details/20251206-opentelemetry-observability-details.md
     (Lines 652-675)

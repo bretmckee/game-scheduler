@@ -28,6 +28,7 @@ import time
 from collections.abc import Callable
 
 import pika
+from opentelemetry import trace
 from sqlalchemy.orm import Session
 
 from shared.database import SyncSessionLocal
@@ -38,6 +39,7 @@ from shared.models.base import utc_now
 from .postgres_listener import PostgresNotificationListener
 
 logger = logging.getLogger(__name__)
+tracer = trace.get_tracer(__name__)
 
 
 class SchedulerDaemon:
@@ -226,27 +228,36 @@ class SchedulerDaemon:
         if self.publisher is None or self.db is None:
             raise RuntimeError("Daemon not properly initialized")
 
-        try:
-            result = self.event_builder(item)
+        with tracer.start_as_current_span(
+            f"scheduled.{self.model_class.__name__}",
+            attributes={
+                "scheduler.job_id": str(item.id),
+                "scheduler.model": self.model_class.__name__,
+                "scheduler.time_field": self.time_field,
+            },
+        ):
+            try:
+                result = self.event_builder(item)
 
-            if isinstance(result, tuple):
-                event, expiration_ms = result
-            else:
-                event, expiration_ms = result, None
+                if isinstance(result, tuple):
+                    event, expiration_ms = result
+                else:
+                    event, expiration_ms = result, None
 
-            self.publisher.publish(
-                event=event,
-                expiration_ms=expiration_ms,
-            )
+                self.publisher.publish(
+                    event=event,
+                    expiration_ms=expiration_ms,
+                )
 
-            self._mark_item_processed(item.id)
-            self.db.commit()
+                self._mark_item_processed(item.id)
+                self.db.commit()
 
-            logger.info(f"Processed scheduled item {item.id} for {self.model_class.__name__}")
+                logger.info(f"Processed scheduled item {item.id} for {self.model_class.__name__}")
 
-        except Exception:
-            logger.exception(f"Failed to process scheduled item {item.id}")
-            self.db.rollback()
+            except Exception:
+                logger.exception(f"Failed to process scheduled item {item.id}")
+                self.db.rollback()
+                raise
 
     def _process_dlq_messages(self) -> None:
         """
@@ -260,50 +271,58 @@ class SchedulerDaemon:
         The bot handler performs defensive staleness checks, so republishing
         without TTL is safe - stale notifications will be skipped.
         """
-        try:
-            connection = pika.BlockingConnection(pika.URLParameters(self.rabbitmq_url))
-            channel = connection.channel()
+        with tracer.start_as_current_span(
+            "scheduled.process_dlq",
+            attributes={
+                "scheduler.model": self.model_class.__name__,
+                "scheduler.dlq_check_interval": self.dlq_check_interval,
+            },
+        ):
+            try:
+                connection = pika.BlockingConnection(pika.URLParameters(self.rabbitmq_url))
+                channel = connection.channel()
 
-            queue_state = channel.queue_declare(queue="DLQ", durable=True)
-            message_count = queue_state.method.message_count
+                queue_state = channel.queue_declare(queue="DLQ", durable=True)
+                message_count = queue_state.method.message_count
 
-            if message_count == 0:
-                logger.debug("DLQ is empty, nothing to process")
+                if message_count == 0:
+                    logger.debug("DLQ is empty, nothing to process")
+                    connection.close()
+                    return
+
+                logger.info(f"Processing {message_count} messages from DLQ")
+
+                processed = 0
+                republished = 0
+
+                for method, _properties, body in channel.consume("DLQ", auto_ack=False):
+                    try:
+                        event = Event.model_validate_json(body)
+
+                        if self.publisher is None:
+                            raise RuntimeError("Publisher not initialized")
+
+                        self.publisher.publish(event, expiration_ms=None)
+                        republished += 1
+
+                        channel.basic_ack(method.delivery_tag)
+                        processed += 1
+
+                        if processed >= message_count:
+                            break
+
+                    except Exception as e:
+                        logger.error(f"Error processing DLQ message: {e}")
+                        channel.basic_nack(method.delivery_tag, requeue=False)
+
+                channel.cancel()
                 connection.close()
-                return
 
-            logger.info(f"Processing {message_count} messages from DLQ")
+                logger.info(f"DLQ processing: {republished} messages republished")
 
-            processed = 0
-            republished = 0
-
-            for method, _properties, body in channel.consume("DLQ", auto_ack=False):
-                try:
-                    event = Event.model_validate_json(body)
-
-                    if self.publisher is None:
-                        raise RuntimeError("Publisher not initialized")
-
-                    self.publisher.publish(event, expiration_ms=None)
-                    republished += 1
-
-                    channel.basic_ack(method.delivery_tag)
-                    processed += 1
-
-                    if processed >= message_count:
-                        break
-
-                except Exception as e:
-                    logger.error(f"Error processing DLQ message: {e}")
-                    channel.basic_nack(method.delivery_tag, requeue=False)
-
-            channel.cancel()
-            connection.close()
-
-            logger.info(f"DLQ processing: {republished} messages republished")
-
-        except Exception as e:
-            logger.error(f"Error during DLQ processing: {e}", exc_info=True)
+            except Exception as e:
+                logger.error(f"Error during DLQ processing: {e}", exc_info=True)
+                raise
 
     def _cleanup(self) -> None:
         """Clean up connections."""

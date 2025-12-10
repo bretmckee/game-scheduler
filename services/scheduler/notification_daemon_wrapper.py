@@ -29,6 +29,7 @@ import signal
 
 from shared.database import BASE_DATABASE_URL
 from shared.models import NotificationSchedule
+from shared.telemetry import init_telemetry
 
 from .event_builders import build_game_reminder_event
 from .generic_scheduler_daemon import SchedulerDaemon
@@ -53,6 +54,8 @@ def main() -> None:
         level=getattr(logging, log_level),
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
+
+    init_telemetry("notification-daemon")
 
     signal.signal(signal.SIGTERM, signal_handler)
     signal.signal(signal.SIGINT, signal_handler)

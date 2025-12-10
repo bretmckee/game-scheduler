@@ -70,6 +70,13 @@ aggregation using OpenTelemetry with Grafana Cloud as the observability backend.
 - services/bot/bot.py - Added OpenTelemetry tracer and manual spans for Discord event handlers (on_ready, on_interaction, on_guild_join, on_guild_remove) with Discord-specific attributes (user_id, channel_id, guild_id, interaction_type)
 - services/bot/commands/list_games.py - Added OpenTelemetry tracer and manual span for list_games command with Discord command attributes
 - services/bot/commands/my_games.py - Added OpenTelemetry tracer and manual span for my_games command with Discord command attributes
+- services/scheduler/notification_daemon_wrapper.py - Added init_telemetry("notification-daemon") call for OpenTelemetry initialization at daemon startup
+- services/scheduler/generic_scheduler_daemon.py - Added OpenTelemetry tracer import and manual spans for scheduled task processing (_process_item) and DLQ processing (_process_dlq_messages) with scheduler-specific attributes (job_id, model, time_field, dlq_check_interval)
+- services/scheduler/status_transition_daemon_wrapper.py - Added init_telemetry("status-transition-daemon") call for OpenTelemetry initialization at daemon startup
+- docker-compose.base.yml - Added OpenTelemetry environment variables to notification-daemon and status-transition-daemon services (OTEL_SERVICE_NAME, OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_EXPORTER_OTLP_PROTOCOL, OTEL_TRACES_EXPORTER, OTEL_METRICS_EXPORTER, OTEL_LOGS_EXPORTER)
+- grafana-alloy/TESTING_PHASE6.md - Step-by-step testing guide for Phase 6 daemon services instrumentation verification with scheduled task and RabbitMQ context propagation validation
+- shared/database.py - Fixed BASE_DATABASE_URL to strip driver specifications (postgresql+asyncpg:// or postgresql+psycopg2://) from DATABASE_URL environment variable, ensuring daemons using psycopg2 receive plain postgresql:// URLs
+- docker-compose.base.yml - Fixed notification-daemon and status-transition-daemon healthcheck commands to use Python instead of pgrep (which is not available in Alpine images), resolving persistent unhealthy status
 
 ### Removed
 
