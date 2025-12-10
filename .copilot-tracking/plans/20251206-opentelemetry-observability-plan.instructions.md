@@ -198,21 +198,21 @@ aggregation using OpenTelemetry with Grafana Cloud as the observability backend.
     .copilot-tracking/details/20251206-opentelemetry-observability-details.md
     (Lines 652-675)
 
-### [ ] Phase 7: RabbitMQ Metrics Collection
+### [x] Phase 7: RabbitMQ Metrics Collection
 
-- [ ] Task 7.1: Enable RabbitMQ Prometheus plugin
+- [x] Task 7.1: Enable RabbitMQ Prometheus plugin
 
   - Details:
     .copilot-tracking/details/20251206-opentelemetry-observability-details.md
     (Lines 450-466)
 
-- [ ] Task 7.2: Configure RabbitMQ metrics scraping in Alloy
+- [x] Task 7.2: Configure RabbitMQ metrics scraping in Alloy
 
   - Details:
     .copilot-tracking/details/20251206-opentelemetry-observability-details.md
     (Lines 467-484)
 
-- [ ] Task 7.3: Verify RabbitMQ metrics in Grafana Cloud
+- [x] Task 7.3: Verify RabbitMQ metrics in Grafana Cloud
   - Details:
     .copilot-tracking/details/20251206-opentelemetry-observability-details.md
     (Lines 485-502)

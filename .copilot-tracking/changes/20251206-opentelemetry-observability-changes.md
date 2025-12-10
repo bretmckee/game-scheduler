@@ -28,6 +28,7 @@ aggregation using OpenTelemetry with Grafana Cloud as the observability backend.
 - grafana-alloy/TESTING_PHASE4.md - Step-by-step testing guide for Phase 4 API service instrumentation verification
 - shared/telemetry.py - Fixed import paths for OTLP exporters (metric_exporter instead of metric_export, removed LoggingInstrumentor dependency); Added proper log export with LoggerProvider, BatchLogRecordProcessor, and LoggingHandler for trace correlation
 - grafana-alloy/TESTING_PHASE5.md - Step-by-step testing guide for Phase 5 bot service instrumentation verification with Discord command trace validation
+- grafana-alloy/TESTING_PHASE7.md - Step-by-step testing guide for Phase 7 RabbitMQ metrics verification with queue metrics and message rate validation
 
 ### Modified
 
@@ -77,6 +78,10 @@ aggregation using OpenTelemetry with Grafana Cloud as the observability backend.
 - grafana-alloy/TESTING_PHASE6.md - Step-by-step testing guide for Phase 6 daemon services instrumentation verification with scheduled task and RabbitMQ context propagation validation
 - shared/database.py - Fixed BASE_DATABASE_URL to strip driver specifications (postgresql+asyncpg:// or postgresql+psycopg2://) from DATABASE_URL environment variable, ensuring daemons using psycopg2 receive plain postgresql:// URLs
 - docker-compose.base.yml - Fixed notification-daemon and status-transition-daemon healthcheck commands to use Python instead of pgrep (which is not available in Alpine images), resolving persistent unhealthy status
+- rabbitmq/rabbitmq.conf - Added prometheus.return_per_object_metrics configuration to enable detailed per-queue metrics export
+- docker-compose.base.yml - Added port mapping for RabbitMQ Prometheus metrics endpoint (15692:15692) and mounted rabbitmq.conf for Prometheus plugin configuration
+- grafana-alloy/config.alloy - Added RabbitMQ metrics collection with discovery.static for endpoint discovery, discovery.relabel for job/instance labels, and prometheus.scrape with 60s interval; Removed cost optimization filtering for PostgreSQL, Redis, and RabbitMQ metrics as all exporters have reasonable defaults with high-cardinality collectors disabled
+- .copilot-tracking/plans/20251206-opentelemetry-observability-plan.instructions.md - Marked Phase 7 tasks as complete
 
 ### Removed
 

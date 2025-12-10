@@ -79,6 +79,8 @@ otelcol.exporter.otlphttp "grafana_cloud_otlp" {
 // ========================================
 // PostgreSQL Metrics - Infrastructure Monitoring
 // ========================================
+// Uses built-in postgres_exporter with reasonable defaults
+// High-cardinality collectors (stat_statements, per-table stats) disabled by default
 
 prometheus.exporter.postgres "integrations_postgres_exporter" {
   data_source_names = [format("postgresql://%s:%s@postgres:5432/%s?sslmode=disable", env("POSTGRES_USER"), env("POSTGRES_PASSWORD"), env("POSTGRES_DB"))]
@@ -97,20 +99,9 @@ discovery.relabel "integrations_postgres_exporter" {
   }
 }
 
-// Cost optimization: Keep only essential metrics
-prometheus.relabel "integrations_postgres_exporter" {
-  forward_to = [prometheus.remote_write.grafana_cloud_mimir.receiver]
-
-  rule {
-    source_labels = ["__name__"]
-    regex = "pg_settings_.*|pg_stat_activity_.*|pg_stat_bgwriter_.*|pg_stat_database_.*|pg_up|up"
-    action = "keep"
-  }
-}
-
 prometheus.scrape "integrations_postgres_exporter" {
   targets         = discovery.relabel.integrations_postgres_exporter.output
-  forward_to      = [prometheus.relabel.integrations_postgres_exporter.receiver]
+  forward_to      = [prometheus.remote_write.grafana_cloud_mimir.receiver]
   job_name        = "integrations/postgres_exporter"
   scrape_interval = "60s"
 }
@@ -118,33 +109,40 @@ prometheus.scrape "integrations_postgres_exporter" {
 // ========================================
 // Redis Metrics - Infrastructure Monitoring
 // ========================================
+// Uses built-in redis_exporter with default configuration
+// High-cardinality options (client_list, per-key stats) disabled by default
 
 prometheus.exporter.redis "integrations_redis_exporter" {
   redis_addr = "redis:6379"
 }
 
-// Cost optimization: Keep only essential metrics
-prometheus.relabel "integrations_redis_exporter" {
-  forward_to = [prometheus.remote_write.grafana_cloud_mimir.receiver]
-
-  rule {
-    source_labels = ["__name__"]
-    regex = "redis_up|redis_memory_.*|redis_commands_.*|redis_connected_clients|redis_blocked_clients|redis_keyspace_.*|up"
-    action = "keep"
-  }
-}
-
 prometheus.scrape "integrations_redis_exporter" {
   targets         = prometheus.exporter.redis.integrations_redis_exporter.targets
-  forward_to      = [prometheus.relabel.integrations_redis_exporter.receiver]
+  forward_to      = [prometheus.remote_write.grafana_cloud_mimir.receiver]
   job_name        = "integrations/redis_exporter"
+  scrape_interval = "60s"
+}
+
+// ========================================
+// RabbitMQ Metrics - Infrastructure Monitoring
+// ========================================
+// Scrapes RabbitMQ's built-in Prometheus endpoint
+// Per-object metrics enabled via rabbitmq.conf for queue-level visibility
+
+prometheus.scrape "integrations_rabbitmq" {
+  targets = [{
+    __address__ = "rabbitmq:15692",
+    job         = "integrations/rabbitmq",
+    instance    = "rabbitmq",
+  }]
+  forward_to      = [prometheus.remote_write.grafana_cloud_mimir.receiver]
   scrape_interval = "60s"
 }
 
 // ========================================
 // Prometheus Remote Write - Infrastructure Metrics Only
 // ========================================
-// Sends PostgreSQL and Redis metrics to Mimir
+// Sends PostgreSQL, Redis, and RabbitMQ metrics to Mimir
 // Uses separate Prometheus instance ID (different from OTLP Gateway)
 
 prometheus.remote_write "grafana_cloud_mimir" {
