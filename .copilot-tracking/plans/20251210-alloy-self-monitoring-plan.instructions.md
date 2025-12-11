@@ -59,20 +59,20 @@ Enable comprehensive self-monitoring for Grafana Alloy collector to export its o
 - [x] Task 2.3: Add Loki environment variables to docker-compose
   - Details: .copilot-tracking/details/20251210-alloy-self-monitoring-details.md (Lines 93-105)
 
-### [ ] Phase 3: Enable Alloy Trace Sampling
+### [x] Phase 3: Enable Alloy Trace Sampling
 
-- [ ] Task 3.1: Add tracing block with sampling configuration
+- [x] Task 3.1: Add tracing block with sampling configuration
   - Details: .copilot-tracking/details/20251210-alloy-self-monitoring-details.md (Lines 109-121)
 
-### [ ] Phase 4: Documentation and Validation
+### [x] Phase 4: Documentation and Validation
 
-- [ ] Task 4.1: Update Alloy configuration comments
+- [x] Task 4.1: Update Alloy configuration comments
   - Details: .copilot-tracking/details/20251210-alloy-self-monitoring-details.md (Lines 125-135)
 
-- [ ] Task 4.2: Document required environment variables
+- [x] Task 4.2: Document required environment variables
   - Details: .copilot-tracking/details/20251210-alloy-self-monitoring-details.md (Lines 137-150)
 
-- [ ] Task 4.3: Verify Alloy self-monitoring in Grafana Cloud
+- [x] Task 4.3: Verify Alloy self-monitoring in Grafana Cloud
   - Details: .copilot-tracking/details/20251210-alloy-self-monitoring-details.md (Lines 152-165)
 
 ## Dependencies
