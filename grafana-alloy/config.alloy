@@ -173,6 +173,15 @@ otelcol.receiver.prometheus "alloy_metrics" {
 }
 
 // ========================================
+// Alloy Self-Monitoring - Traces
+// ========================================
+// Export Alloy's internal traces for operational visibility
+tracing {
+  sampling_fraction = 1.0
+  write_to          = [otelcol.exporter.otlphttp.grafana_cloud_otlp.input]
+}
+
+// ========================================
 // Prometheus Remote Write - Infrastructure Metrics Only
 // ========================================
 // Sends PostgreSQL, Redis, and RabbitMQ metrics to Mimir
