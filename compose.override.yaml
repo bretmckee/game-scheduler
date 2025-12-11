@@ -21,7 +21,7 @@ services:
       - ./services/api:/app/services/api:ro
     command: uvicorn services.api.main:app --host 0.0.0.0 --port 8000 --reload
     environment:
-      LOG_LEVEL: DEBUG
+      LOG_LEVEL: ${API_LOG_LEVEL:-INFO}
       PYTHONUNBUFFERED: "1"
 
   bot:
@@ -31,7 +31,7 @@ services:
       - ./shared:/app/shared:ro
       - ./services/bot:/app/services/bot:ro
     environment:
-      LOG_LEVEL: DEBUG
+      LOG_LEVEL: ${BOT_LOG_LEVEL:-INFO}
       PYTHONUNBUFFERED: "1"
 
   notification-daemon:
@@ -41,7 +41,7 @@ services:
       - ./shared:/app/shared:ro
       - ./services/scheduler:/app/services/scheduler:ro
     environment:
-      LOG_LEVEL: DEBUG
+      LOG_LEVEL: ${NOTIFICATION_DAEMON_LOG_LEVEL:-INFO}
       PYTHONUNBUFFERED: "1"
 
   status-transition-daemon:
@@ -51,7 +51,7 @@ services:
       - ./shared:/app/shared:ro
       - ./services/scheduler:/app/services/scheduler:ro
     environment:
-      LOG_LEVEL: DEBUG
+      LOG_LEVEL: ${STATUS_TRANSITION_DAEMON_LOG_LEVEL:-INFO}
       PYTHONUNBUFFERED: "1"
 
   frontend:

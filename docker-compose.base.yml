@@ -16,6 +16,10 @@ services:
   postgres:
     image: postgres:17-alpine
     container_name: ${CONTAINER_PREFIX:-gamebot}-postgres
+    command: [
+      "postgres",
+      "-c", "log_min_messages=${POSTGRES_LOG_LEVEL:-info}"
+    ]
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -39,6 +43,7 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: -rabbit log_levels [{connection,${RABBITMQ_LOG_LEVEL:-info}}]
     ports:
       - "${RABBITMQ_HOST_PORT:-5672}:5672"
       - "${RABBITMQ_MGMT_HOST_PORT:-15672}:15672"
@@ -58,7 +63,7 @@ services:
   redis:
     image: redis:7.4-alpine
     container_name: ${CONTAINER_PREFIX:-gamebot}-redis
-    command: ${REDIS_COMMAND:-redis-server --appendonly yes}
+    command: ${REDIS_COMMAND:-redis-server --appendonly yes --loglevel ${REDIS_LOG_LEVEL:-verbose}}
     ports:
       - "${REDIS_HOST_PORT:-6379}:6379"
     volumes:
@@ -120,6 +125,7 @@ services:
       DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:-}
       DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET:-}
       DISCORD_REDIRECT_URI: ${DISCORD_REDIRECT_URI:-}
+      LOG_LEVEL: ${BOT_LOG_LEVEL:-INFO}
       OTEL_SERVICE_NAME: bot-service
       OTEL_EXPORTER_OTLP_ENDPOINT: http://grafana-alloy:4318
       OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
@@ -156,7 +162,7 @@ services:
       API_URL: ${API_URL:-http://localhost:8000}
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
       ENVIRONMENT: ${ENVIRONMENT:-development}
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_LEVEL: ${API_LOG_LEVEL:-INFO}
       OTEL_SERVICE_NAME: api-service
       OTEL_EXPORTER_OTLP_ENDPOINT: http://grafana-alloy:4318
       OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
@@ -192,6 +198,7 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL}
       RABBITMQ_URL: ${RABBITMQ_URL}
+      LOG_LEVEL: ${NOTIFICATION_DAEMON_LOG_LEVEL:-INFO}
       OTEL_SERVICE_NAME: notification-daemon
       OTEL_EXPORTER_OTLP_ENDPOINT: http://grafana-alloy:4318
       OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
@@ -231,6 +238,7 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL}
       RABBITMQ_URL: ${RABBITMQ_URL}
+      LOG_LEVEL: ${STATUS_TRANSITION_DAEMON_LOG_LEVEL:-INFO}
       OTEL_SERVICE_NAME: status-transition-daemon
       OTEL_EXPORTER_OTLP_ENDPOINT: http://grafana-alloy:4318
       OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
@@ -272,6 +280,7 @@ services:
     restart: ${RESTART_POLICY:-unless-stopped}
     environment:
       API_URL: ${API_URL:-}
+      NGINX_LOG_LEVEL: ${NGINX_LOG_LEVEL:-info}
     ports:
       - "${FRONTEND_HOST_PORT:-3000}:80"
     depends_on:
@@ -296,6 +305,7 @@ services:
       - "${ALLOY_OTLP_HTTP_PORT:-4318}:4318"
       - "12345:12345"
     environment:
+      ALLOY_LOG_LEVEL: ${ALLOY_LOG_LEVEL:-info}
       GRAFANA_CLOUD_OTLP_INSTANCE_ID: ${GRAFANA_CLOUD_OTLP_INSTANCE_ID:-}
       GRAFANA_CLOUD_OTLP_ENDPOINT: ${GRAFANA_CLOUD_OTLP_ENDPOINT:-}
       GRAFANA_CLOUD_PROMETHEUS_INSTANCE_ID: ${GRAFANA_CLOUD_PROMETHEUS_INSTANCE_ID:-}

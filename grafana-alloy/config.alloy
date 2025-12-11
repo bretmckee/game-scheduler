@@ -10,8 +10,9 @@
 // Logging Configuration
 // ========================================
 // Alloy self-monitoring: Export logs to Grafana Cloud Loki
+// Log level configurable via ALLOY_LOG_LEVEL environment variable
 logging {
-  level    = "info"
+  level    = coalesce(env("ALLOY_LOG_LEVEL"), "info")
   format   = "json"
   write_to = [loki.write.grafana_cloud_loki.receiver]
 }
