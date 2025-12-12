@@ -38,8 +38,15 @@ Fix DLQ exponential growth bug and remove unused RabbitMQ queues by implementing
 - docker-compose.integration.yml - Added retry-daemon dependency, fixed command, updated documentation for pytest entrypoint
 - docker/test.Dockerfile - Added comments clarifying pytest ENTRYPOINT usage
 - .env.integration - Added RETRY_INTERVAL_SECONDS=5 for fast integration testing
+- services/scheduler/notification_daemon_wrapper.py - Set process_dlq=False and removed dlq_check_interval parameter
+- services/scheduler/status_transition_daemon_wrapper.py - Set process_dlq=False and removed dlq_check_interval parameter
+- services/scheduler/generic_scheduler_daemon.py - Removed process_dlq and dlq_check_interval parameters from __init__ (kept process_dlq as deprecated for backwards compatibility)
+- services/scheduler/generic_scheduler_daemon.py - Removed last_dlq_check instance variable and DLQ check logic from main loop
+- services/scheduler/generic_scheduler_daemon.py - Removed _process_dlq_messages method and pika import
+- tests/services/scheduler/test_generic_scheduler_daemon.py - Removed TestSchedulerDaemonDLQProcessing test class
 
 ### Removed
 
 - tests/integration/test_rabbitmq_dlq.py - Removed tests for shared DLQ (will be replaced with per-queue DLQ tests in Phase 2)
+- tests/services/scheduler/test_dlq_processing.py - Removed unit tests for DLQ processing (functionality moved to dedicated retry service)
 

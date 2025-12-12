@@ -88,18 +88,18 @@ Fix DLQ exponential growth bug and remove unused RabbitMQ queues by implementing
 - [x] Task 3.7: Create integration tests for retry daemon
   - Details: .copilot-tracking/details/20251211-rabbitmq-messaging-cleanup-details.md (Lines 347-380)
 
-### [ ] Phase 4: Remove DLQ Processing from Scheduler Daemons
+### [x] Phase 4: Remove DLQ Processing from Scheduler Daemons
 
-- [ ] Task 4.1: Remove process_dlq parameter from notification_daemon_wrapper.py
+- [x] Task 4.1: Remove process_dlq parameter from notification_daemon_wrapper.py
   - Details: .copilot-tracking/details/20251211-rabbitmq-messaging-cleanup-details.md (Lines 307-325)
 
-- [ ] Task 4.2: Remove process_dlq parameter from status_transition_daemon_wrapper.py
+- [x] Task 4.2: Remove process_dlq parameter from status_transition_daemon_wrapper.py
   - Details: .copilot-tracking/details/20251211-rabbitmq-messaging-cleanup-details.md (Lines 327-345)
 
-- [ ] Task 4.3: Remove DLQ processing code from generic_scheduler_daemon.py
+- [x] Task 4.3: Remove DLQ processing code from generic_scheduler_daemon.py
   - Details: .copilot-tracking/details/20251211-rabbitmq-messaging-cleanup-details.md (Lines 347-380)
 
-- [ ] Task 4.4: Update daemon tests to remove DLQ expectations
+- [x] Task 4.4: Update daemon tests to remove DLQ expectations
   - Details: .copilot-tracking/details/20251211-rabbitmq-messaging-cleanup-details.md (Lines 382-405)
 
 ### [ ] Phase 5: Testing and Validation
