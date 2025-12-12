@@ -32,7 +32,6 @@ from shared.messaging.infrastructure import (
     PRIMARY_QUEUE_ARGUMENTS,
     PRIMARY_QUEUES,
     QUEUE_BINDINGS,
-    QUEUE_DLQ,
 )
 
 
@@ -87,18 +86,10 @@ def create_infrastructure(rabbitmq_url: str) -> None:
         channel.queue_declare(queue=queue_name, durable=True, arguments=PRIMARY_QUEUE_ARGUMENTS)
         print(f"  ✓ Queue '{queue_name}' declared")
 
-    # Declare dead letter queue (no TTL - infinite retention)
-    channel.queue_declare(queue=QUEUE_DLQ, durable=True)
-    print(f"  ✓ Queue '{QUEUE_DLQ}' declared (infinite TTL)")
-
     # Create bindings from shared configuration
     for queue_name, routing_key in QUEUE_BINDINGS:
         channel.queue_bind(exchange=MAIN_EXCHANGE, queue=queue_name, routing_key=routing_key)
         print(f"  ✓ Binding '{queue_name}' -> '{routing_key}'")
-
-    # Bind DLQ to dead letter exchange (catch-all)
-    channel.queue_bind(exchange=DLX_EXCHANGE, queue=QUEUE_DLQ, routing_key="#")
-    print(f"  ✓ Binding '{QUEUE_DLQ}' -> '{DLX_EXCHANGE}' (catch-all)")
 
     connection.close()
 
