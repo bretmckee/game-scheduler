@@ -18,6 +18,8 @@ Fix DLQ exponential growth bug and remove unused RabbitMQ queues by implementing
 - services/retry/retry_daemon_wrapper.py - Created entry point with signal handling and config loading
 - docker/retry.Dockerfile - Created multi-stage Dockerfile for retry service container
 - tests/integration/test_retry_daemon.py - Created end-to-end integration tests verifying DLQ exponential growth bug fix (3/5 passing including critical bug fix test)
+- tests/services/retry/__init__.py - Created unit test package for retry service
+- tests/services/retry/test_retry_daemon.py - Created comprehensive unit tests for RetryDaemon class (18/18 passing with 100% coverage)
 
 ### Modified
 
@@ -43,6 +45,7 @@ Fix DLQ exponential growth bug and remove unused RabbitMQ queues by implementing
 - services/scheduler/generic_scheduler_daemon.py - Removed process_dlq and dlq_check_interval parameters from __init__ (kept process_dlq as deprecated for backwards compatibility)
 - services/scheduler/generic_scheduler_daemon.py - Removed last_dlq_check instance variable and DLQ check logic from main loop
 - services/scheduler/generic_scheduler_daemon.py - Removed _process_dlq_messages method and pika import
+- services/scheduler/generic_scheduler_daemon.py - Fixed _process_item to not re-raise exceptions after rollback (maintain daemon stability)
 - tests/services/scheduler/test_generic_scheduler_daemon.py - Removed TestSchedulerDaemonDLQProcessing test class
 
 ### Removed

@@ -242,7 +242,7 @@ class SchedulerDaemon:
             except Exception:
                 logger.exception(f"Failed to process scheduled item {item.id}")
                 self.db.rollback()
-                raise
+                # Do not re-raise - let daemon continue processing other items
 
     def _cleanup(self) -> None:
         """Clean up connections."""
