@@ -262,6 +262,46 @@ services:
     networks:
       - app-network
 
+  retry-daemon:
+    build:
+      context: .
+      dockerfile: docker/retry.Dockerfile
+      tags:
+        - ${IMAGE_REGISTRY:-}game-scheduler-retry-daemon:${IMAGE_TAG:-latest}
+      x-bake:
+        platforms:
+          - linux/amd64
+          - linux/arm64
+    image: ${IMAGE_REGISTRY:-}game-scheduler-retry-daemon:${IMAGE_TAG:-latest}
+    container_name: ${CONTAINER_PREFIX:-gamebot}-retry-daemon
+    restart: ${RESTART_POLICY:-unless-stopped}
+    environment:
+      RABBITMQ_URL: ${RABBITMQ_URL}
+      RETRY_INTERVAL_SECONDS: ${RETRY_INTERVAL_SECONDS:-900}
+      LOG_LEVEL: ${RETRY_DAEMON_LOG_LEVEL:-INFO}
+      OTEL_SERVICE_NAME: retry-daemon
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://grafana-alloy:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: otlp
+      OTEL_LOGS_EXPORTER: otlp
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "pgrep",
+          "-f",
+          "retry_daemon_wrapper",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - app-network
+
   frontend:
     build:
       context: .

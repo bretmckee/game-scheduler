@@ -65,19 +65,28 @@ Fix DLQ exponential growth bug and remove unused RabbitMQ queues by implementing
 - [x] Task 2.3: Remove shared "DLQ" queue declaration
   - Details: .copilot-tracking/details/20251211-rabbitmq-messaging-cleanup-details.md (Lines 147-160)
 
-### [ ] Phase 3: Create Dedicated Retry Service
+### [x] Phase 3: Create Dedicated Retry Service
 
-- [ ] Task 3.1: Create retry_daemon.py with RetryDaemon class
+- [x] Task 3.1: Create retry_daemon.py with RetryDaemon class
   - Details: .copilot-tracking/details/20251211-rabbitmq-messaging-cleanup-details.md (Lines 162-230)
 
-- [ ] Task 3.2: Create retry_daemon_wrapper.py entry point
+- [x] Task 3.2: Create retry_daemon_wrapper.py entry point
   - Details: .copilot-tracking/details/20251211-rabbitmq-messaging-cleanup-details.md (Lines 232-250)
 
-- [ ] Task 3.3: Create retry.Dockerfile
+- [x] Task 3.3: Create retry.Dockerfile
   - Details: .copilot-tracking/details/20251211-rabbitmq-messaging-cleanup-details.md (Lines 252-275)
 
-- [ ] Task 3.4: Add retry-daemon service to docker-compose.base.yml
+- [x] Task 3.4: Add retry-daemon service to docker-compose.base.yml
   - Details: .copilot-tracking/details/20251211-rabbitmq-messaging-cleanup-details.md (Lines 277-305)
+
+- [x] Task 3.5: Add retry-daemon to test compose files
+  - Details: .copilot-tracking/details/20251211-rabbitmq-messaging-cleanup-details.md (Lines 307-325)
+
+- [x] Task 3.6: Add observability configuration for retry-daemon
+  - Details: .copilot-tracking/details/20251211-rabbitmq-messaging-cleanup-details.md (Lines 327-345)
+
+- [x] Task 3.7: Create integration tests for retry daemon
+  - Details: .copilot-tracking/details/20251211-rabbitmq-messaging-cleanup-details.md (Lines 347-380)
 
 ### [ ] Phase 4: Remove DLQ Processing from Scheduler Daemons
 
@@ -104,15 +113,33 @@ Fix DLQ exponential growth bug and remove unused RabbitMQ queues by implementing
 - [ ] Task 5.3: Verify all existing tests pass with new architecture
   - Details: .copilot-tracking/details/20251211-rabbitmq-messaging-cleanup-details.md (Lines 477-495)
 
-### [ ] Phase 6: Documentation and Cleanup
+### [ ] Phase 6: Enhanced Observability
 
-- [ ] Task 6.1: Update RUNTIME_CONFIG.md with retry service documentation
+- [ ] Task 6.1: Add OpenTelemetry metrics to RetryDaemon
+  - Details: Add counters for processed/failed messages, gauges for DLQ depth
+  - Add histogram for processing duration per DLQ
+
+- [ ] Task 6.2: Add detailed span attributes for message processing
+  - Details: Add event_type, routing_key, retry_count to spans
+  - Track individual message processing in child spans
+
+- [ ] Task 6.3: Add health check metrics
+  - Details: Expose last successful processing time, consecutive failures
+  - Add readiness indicator based on RabbitMQ connectivity
+
+- [ ] Task 6.4: Create Grafana dashboard for retry daemon
+  - Details: Visualize DLQ depth over time, processing rates, failure rates
+  - Alert on consecutive processing failures or growing DLQ depth
+
+### [ ] Phase 7: Documentation and Cleanup
+
+- [ ] Task 7.1: Update RUNTIME_CONFIG.md with retry service documentation
   - Details: .copilot-tracking/details/20251211-rabbitmq-messaging-cleanup-details.md (Lines 497-520)
 
-- [ ] Task 6.2: Add DLQ monitoring guidance
+- [ ] Task 7.2: Add DLQ monitoring guidance
   - Details: .copilot-tracking/details/20251211-rabbitmq-messaging-cleanup-details.md (Lines 522-545)
 
-- [ ] Task 6.3: Document migration steps for existing deployments
+- [ ] Task 7.3: Document migration steps for existing deployments
   - Details: .copilot-tracking/details/20251211-rabbitmq-messaging-cleanup-details.md (Lines 547-570)
 
 ## Dependencies

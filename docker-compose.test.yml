@@ -62,6 +62,8 @@ services:
         condition: service_started
       notification-daemon:
         condition: service_started
+      retry-daemon:
+        condition: service_started
     networks:
       - app-network
     command: pytest tests/integration/test_notification_flow_e2e.py -v --tb=short

@@ -33,7 +33,11 @@ RUN chown -R testuser:testgroup /app
 
 USER testuser
 
+# ENTRYPOINT is pytest - pass pytest arguments only (not 'pytest' itself)
+# Examples:
+#   docker compose run integration-tests tests/integration/test_retry_daemon.py -v
+#   docker compose run integration-tests tests/integration/ -k test_message
 ENTRYPOINT ["pytest"]
 
-# Default command runs integration tests
+# Default command runs all integration tests
 CMD ["tests/integration/", "-v", "--tb=short"]

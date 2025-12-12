@@ -185,6 +185,55 @@ Add retry service definition to base compose file for all environments.
   - #file:../research/20251211-dlq-exponential-growth-analysis.md (Lines 841-857) - Docker Compose service specification
 - **Dependencies**: Task 3.3 completion
 
+### Task 3.5: Add retry-daemon to test compose files
+
+Add retry-daemon dependency to integration and e2e test configurations.
+
+- **Files**:
+  - docker-compose.test.yml - Add retry-daemon dependency to e2e-tests
+  - docker-compose.integration.yml - Ensure retry-daemon starts for integration tests
+- **Success**:
+  - e2e-tests depends on retry-daemon in docker-compose.test.yml
+  - retry-daemon starts with integration tests
+  - Tests can verify DLQ processing behavior
+- **Research References**:
+  - Existing daemon dependencies in test compose files
+- **Dependencies**: Task 3.4 completion
+
+### Task 3.6: Add observability configuration for retry-daemon
+
+Add Grafana Alloy scraping configuration for retry-daemon metrics if exposed.
+
+- **Files**:
+  - grafana-alloy/config.alloy - Add retry-daemon to service list if implementing metrics
+- **Success**:
+  - Retry-daemon traces appear in Grafana Cloud (already configured via OTEL)
+  - Logs are collected via OTEL exporter
+  - If metrics endpoint added later, scraping config is ready
+- **Research References**:
+  - Existing OTEL configuration in docker-compose.base.yml
+  - grafana-alloy/config.alloy patterns for other services
+- **Dependencies**: Task 3.4 completion
+
+### Task 3.7: Create integration tests for retry daemon
+
+Create comprehensive integration tests for DLQ retry functionality.
+
+- **Files**:
+  - tests/integration/test_retry_daemon.py - Integration tests for retry service
+- **Success**:
+  - Test message enters DLQ via TTL expiry
+  - Test retry daemon republishes message to primary queue
+  - Test routing key preservation from x-death header
+  - Test both bot_events.dlq and notification_queue.dlq processing
+  - Test retry interval configuration
+  - Test error handling (NACK on republish failure)
+  - All tests pass
+- **Research References**:
+  - tests/integration/test_notification_daemon.py - Pattern for daemon integration tests
+  - tests/integration/test_rabbitmq_infrastructure.py - RabbitMQ test patterns
+- **Dependencies**: Task 3.4 completion
+
 ## Phase 4: Remove DLQ Processing from Scheduler Daemons
 
 ### Task 4.1: Remove process_dlq parameter from notification_daemon_wrapper.py
