@@ -190,3 +190,173 @@ DISCORD_CLIENT_SECRET=from_discord_developer_portal
 **Note:** RabbitMQ credentials are set at runtime via environment variables. The
 same container image works across all environments (dev, test, prod) with
 different credentials.
+
+## Migrating from Shared DLQ Architecture
+
+**For existing deployments upgrading to the new per-queue DLQ architecture:**
+
+### Overview of Changes
+
+The new architecture replaces the shared "DLQ" queue with per-queue DLQs:
+
+- **Old:** Single `DLQ` queue processed by multiple daemons (caused exponential growth)
+- **New:** `bot_events.dlq` and `notification_queue.dlq` processed by dedicated retry-daemon
+
+**Benefits:**
+- Fixes DLQ exponential growth bug
+- Clear ownership of retry logic
+- Improved observability per queue type
+- Eliminates duplicate message processing
+
+### Pre-Migration Steps
+
+1. **Check current DLQ depth:**
+   ```bash
+   docker compose exec rabbitmq rabbitmqctl list_queues name messages | grep DLQ
+   ```
+
+2. **Document any messages in DLQ:**
+   - Access RabbitMQ Management UI at `http://localhost:15672`
+   - Navigate to "Queues" → "DLQ"
+   - Record message count and review message content if needed
+
+3. **Optional - Drain old DLQ:**
+   ```bash
+   # Only if you want to discard current DLQ messages
+   docker compose exec rabbitmq rabbitmqctl purge_queue DLQ
+   ```
+
+### Migration Procedure
+
+1. **Pull latest code:**
+   ```bash
+   git pull
+   ```
+
+2. **Update environment variables in `.env`:**
+   ```bash
+   # Add retry service interval (optional, defaults to 900 seconds)
+   RETRY_INTERVAL_SECONDS=900
+   ```
+
+3. **Rebuild services:**
+   ```bash
+   # For production
+   docker compose -f compose.yml -f compose.production.yaml build
+
+   # For development
+   docker compose build
+   ```
+
+4. **Stop all services:**
+   ```bash
+   docker compose down
+   ```
+
+5. **Start services with new architecture:**
+   ```bash
+   # For production
+   docker compose -f compose.yml -f compose.production.yaml up -d
+
+   # For development
+   docker compose up -d
+   ```
+
+6. **Verify new infrastructure created:**
+   ```bash
+   # Should show bot_events.dlq and notification_queue.dlq
+   docker compose exec rabbitmq rabbitmqctl list_queues name messages | grep dlq
+   ```
+
+7. **Monitor retry-daemon logs:**
+   ```bash
+   docker compose logs -f retry-daemon
+   ```
+
+### Post-Migration Verification
+
+1. **Check service health:**
+   ```bash
+   docker compose ps
+   # All services should be "Up" and healthy
+   ```
+
+2. **Verify RabbitMQ queues:**
+   - Access RabbitMQ Management UI
+   - Confirm `bot_events.dlq` and `notification_queue.dlq` exist
+   - Old "DLQ" queue should be gone or empty
+
+3. **Monitor DLQ depth over time:**
+   ```bash
+   # Check periodically (every 15-30 minutes)
+   docker compose exec rabbitmq rabbitmqctl list_queues name messages | grep dlq
+   ```
+
+4. **Confirm no exponential growth:**
+   - DLQ message count should stay stable or decrease
+   - If messages enter DLQ, they should be processed within 15 minutes
+
+### Troubleshooting Migration
+
+**Old DLQ queue still exists:**
+```bash
+# Manually delete if empty
+docker compose exec rabbitmq rabbitmqctl delete_queue DLQ
+```
+
+**Retry-daemon not starting:**
+```bash
+# Check logs for errors
+docker compose logs retry-daemon
+
+# Common issues:
+# - Missing RABBITMQ_URL environment variable
+# - RabbitMQ not ready (wait 30 seconds and retry)
+# - Port conflicts (check RETRY_INTERVAL_SECONDS is valid number)
+```
+
+**DLQ messages not being processed:**
+```bash
+# Verify retry-daemon is running
+docker compose ps retry-daemon
+
+# Check RabbitMQ connectivity
+docker compose logs retry-daemon | grep -i "connection"
+
+# Manually trigger processing by restarting
+docker compose restart retry-daemon
+```
+
+### Rollback Procedure
+
+If you need to rollback to the old architecture:
+
+1. **Stop retry-daemon:**
+   ```bash
+   docker compose stop retry-daemon
+   ```
+
+2. **Checkout previous code version:**
+   ```bash
+   git checkout <previous-commit-hash>
+   ```
+
+3. **Rebuild and restart:**
+   ```bash
+   docker compose -f compose.yml -f compose.production.yaml build
+   docker compose -f compose.yml -f compose.production.yaml up -d
+   ```
+
+4. **Verify old architecture restored:**
+   - notification-daemon processes DLQ again
+   - status-transition-daemon processes DLQ again
+   - Shared "DLQ" queue exists
+
+**Note:** After successful migration and verification, rollback should not be necessary.
+
+### Additional Resources
+
+For detailed information on DLQ monitoring and troubleshooting, see:
+- [RUNTIME_CONFIG.md](RUNTIME_CONFIG.md#retry-service-dlq-processing) - Retry service configuration
+- `grafana-alloy/dashboards/README.md` - DLQ monitoring dashboard
+

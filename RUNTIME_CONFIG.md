@@ -163,6 +163,167 @@ configured credentials.
 
 The runtime config mechanism only applies to production Docker deployments.
 
+## Retry Service (DLQ Processing)
+
+### Overview
+
+The retry service is a dedicated daemon that processes Dead Letter Queues (DLQs) 
+for RabbitMQ messages that failed delivery. It runs independently from scheduler 
+daemons to provide clear ownership of retry logic and prevent duplicate processing.
+
+### How It Works
+
+1. Messages that fail delivery (due to consumer errors, TTL expiry, or other issues) 
+   are automatically routed to per-queue DLQs by RabbitMQ
+2. The retry service periodically checks all configured DLQs
+3. For each message in a DLQ, it extracts the original routing key from message 
+   headers and republishes to the primary queue
+4. Successfully republished messages are ACKed (removed from DLQ)
+5. Messages that fail to republish are NACKed and remain in DLQ for next retry cycle
+
+### Per-Queue DLQ Architecture
+
+Each primary queue has its own dedicated DLQ:
+
+- `bot_events` → `bot_events.dlq` - Contains failed messages from scheduler daemons
+- `notification_queue` → `notification_queue.dlq` - Contains failed notification messages
+
+This separation ensures clear ownership and prevents cross-contamination of retry logic.
+
+### Configuration
+
+Set this environment variable in your `.env` file:
+
+```bash
+# How often retry service checks DLQs (in seconds)
+# Default: 900 (15 minutes)
+RETRY_INTERVAL_SECONDS=900
+```
+
+**Recommended Values:**
+
+- **Development/Testing:** 60-300 seconds (1-5 minutes) for faster feedback
+- **Production:** 900 seconds (15 minutes) to reduce load and allow time for transient issues to resolve
+
+### Monitoring DLQ Health
+
+#### Check DLQ Depth
+
+**Via RabbitMQ Management UI:**
+
+1. Navigate to `http://localhost:15672`
+2. Go to the "Queues" tab
+3. Look for `bot_events.dlq` and `notification_queue.dlq`
+4. Check the "Ready" message count
+
+**Via Command Line:**
+
+```bash
+# List all queues with message counts
+docker compose exec rabbitmq rabbitmqctl list_queues name messages
+
+# Check specific DLQ
+docker compose exec rabbitmq rabbitmqctl list_queues name messages | grep dlq
+```
+
+#### What DLQ Growth Indicates
+
+**Healthy State:**
+- DLQ message count stays at 0 or occasionally spikes then clears
+- Indicates messages are being processed successfully
+
+**Warning Signs:**
+- DLQ message count consistently >10 messages
+- DLQ depth growing over time (not clearing between retry cycles)
+- Indicates underlying issues requiring investigation
+
+**Common Causes:**
+- **Bot service down:** Messages can't be consumed from primary queue
+- **Database connectivity issues:** Bot/API can't process messages successfully
+- **Discord API errors:** Bot can't send messages to Discord
+- **Malformed messages:** Invalid message format causing repeated processing failures
+
+### Troubleshooting
+
+#### DLQ Messages Not Clearing
+
+1. **Check retry service logs:**
+   ```bash
+   docker compose logs retry-daemon
+   ```
+
+2. **Verify retry service is running:**
+   ```bash
+   docker compose ps retry-daemon
+   ```
+
+3. **Check RabbitMQ connectivity:**
+   ```bash
+   docker compose logs retry-daemon | grep "Connection refused"
+   ```
+
+4. **Inspect DLQ messages manually:**
+   - Use RabbitMQ Management UI to view message content
+   - Check for malformed JSON or missing required fields
+   - Look for error patterns in message headers
+
+#### Manual DLQ Recovery
+
+If retry service fails to process DLQ messages:
+
+1. **Drain DLQ manually (caution: messages will be lost):**
+   ```bash
+   docker compose exec rabbitmq rabbitmqctl purge_queue bot_events.dlq
+   docker compose exec rabbitmq rabbitmqctl purge_queue notification_queue.dlq
+   ```
+
+2. **Republish DLQ messages manually:**
+   - Use RabbitMQ Management UI "Get Messages" feature
+   - Copy message body and routing key
+   - Publish to primary queue with same routing key
+
+3. **Restart retry service:**
+   ```bash
+   docker compose restart retry-daemon
+   ```
+
+### Alerting Recommendations
+
+Set up alerts for:
+
+- **DLQ depth >10 messages:** Warning - investigate underlying cause
+- **DLQ depth >50 messages:** Critical - immediate attention required
+- **DLQ depth growing trend:** Warning - check for systemic issues
+- **Retry service consecutive failures >3:** Critical - service health issue
+
+### Changing Retry Interval
+
+To adjust retry interval on a running system:
+
+1. Update `RETRY_INTERVAL_SECONDS` in your `.env` file
+2. Restart only the retry daemon:
+   ```bash
+   docker compose restart retry-daemon
+   ```
+
+No rebuild required! The new interval takes effect immediately.
+
+### Migration from Shared DLQ
+
+**For existing deployments upgrading from shared DLQ architecture:**
+
+1. **Before deployment:** Verify current DLQ is empty or document messages
+2. **Deploy changes:** Apply new docker-compose configuration
+3. **Verify DLQs created:** Check RabbitMQ UI for `bot_events.dlq` and `notification_queue.dlq`
+4. **Monitor logs:** Watch retry-daemon logs for successful processing
+5. **Old DLQ cleanup:** Shared "DLQ" queue can be deleted after verification
+
+**Rollback procedure:**
+
+1. Stop retry-daemon: `docker compose stop retry-daemon`
+2. Re-enable DLQ processing on notification-daemon (set `process_dlq=True`)
+3. Restart daemons: `docker compose restart notification-daemon status-transition-daemon`
+
 ## OpenTelemetry and Observability Configuration
 
 ### Overview
