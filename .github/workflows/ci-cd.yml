@@ -65,7 +65,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:15
+        image: postgres:17-alpine
         env:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: test_db
@@ -78,7 +78,7 @@ jobs:
           - 5432:5432
 
       redis:
-        image: redis:7-alpine
+        image: redis:7.4-alpine
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 10s
@@ -88,7 +88,7 @@ jobs:
           - 6379:6379
 
       rabbitmq:
-        image: rabbitmq:3.12-management-alpine
+        image: rabbitmq:4.2-management-alpine
         env:
           RABBITMQ_DEFAULT_USER: test
           RABBITMQ_DEFAULT_PASS: test
@@ -126,11 +126,33 @@ jobs:
         run: |
           uv run alembic upgrade head
 
+      - name: Initialize RabbitMQ infrastructure
+        env:
+          RABBITMQ_URL: amqp://test:test@localhost:5672/
+          PYTHONPATH: .
+        run: |
+          uv run python scripts/init_rabbitmq.py
+
+      - name: Start retry daemon
+        env:
+          RABBITMQ_URL: amqp://test:test@localhost:5672/
+          RETRY_INTERVAL_SECONDS: 5
+          LOG_LEVEL: INFO
+          PYTHONPATH: .
+        run: |
+          uv run python -m services.retry.retry_daemon_wrapper &
+          echo $! > retry_daemon.pid
+          sleep 3
+
       - name: Run integration tests
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
           REDIS_URL: redis://localhost:6379
           RABBITMQ_URL: amqp://test:test@localhost:5672/
+          RABBITMQ_HOST: localhost
+          RABBITMQ_PORT: 5672
+          RABBITMQ_DEFAULT_USER: test
+          RABBITMQ_DEFAULT_PASS: test
           TESTING: true
         run: |
           uv run pytest tests/integration/ --cov=shared --cov=services --cov-report=xml --cov-report=term-missing

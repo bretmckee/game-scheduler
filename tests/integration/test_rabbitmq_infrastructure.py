@@ -27,6 +27,7 @@ infrastructure:
 """
 
 import os
+import time
 
 import pika
 import pytest
@@ -172,10 +173,20 @@ def test_primary_queues_have_dlx_configured(rabbitmq_channel):
         assert method is not None, f"Message should arrive in {queue_name}"
         rabbitmq_channel.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
 
-        # Verify message was routed to the appropriate per-queue DLQ
+        # Poll for message in DLQ with retry logic
         dlq_name = expected_dlqs[queue_name]
-        method, properties, body = rabbitmq_channel.basic_get(queue=dlq_name, auto_ack=True)
-        assert method is not None, f"Rejected message should be in {dlq_name}"
+        max_attempts = 20
+        delay_between_attempts = 0.05
+        method = None
+
+        for _attempt in range(max_attempts):
+            method, properties, body = rabbitmq_channel.basic_get(queue=dlq_name, auto_ack=True)
+            if method is not None:
+                break
+            time.sleep(delay_between_attempts)
+
+        timeout = max_attempts * delay_between_attempts
+        assert method is not None, f"Rejected message should be in {dlq_name} after {timeout}s"
         assert body == test_body, "DLQ message content should match"
 
 

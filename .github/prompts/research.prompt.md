@@ -1,6 +1,5 @@
 ---
-mode: task-researcher
-title: Research options for building a scheudling system for online games
+agent: task-researcher
 ---
 
 I would like to build a scheduling system for online games that allows players to create, join, and manage game sessions. The system should support features such as time zone management, notifications.
