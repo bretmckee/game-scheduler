@@ -140,6 +140,9 @@ before proceeding.
     services/scheduler/generic_scheduler_daemon)
   - **Document coverage numbers in changes file**
 
+- [ ] **Type checking verification:**
+  - Use mypy to verify type correctness in modified files
+
 ### 5. Build and Integration Verification
 
 **Verify system-level integration:**
