@@ -109,7 +109,7 @@ def init_telemetry(service_name: str) -> None:
     RedisInstrumentor().instrument()
     AioPikaInstrumentor().instrument()
 
-    print(f"   ✓ Auto-instrumentation enabled (SQLAlchemy, asyncpg, Redis, aio-pika)")
+    print("   ✓ Auto-instrumentation enabled (SQLAlchemy, asyncpg, Redis, aio-pika)")
     # FastAPI instrumentation happens via middleware, initialized when app is created
     logger.info(f"OpenTelemetry instrumentation enabled for {service_name}")
 
