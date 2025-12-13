@@ -1,12 +1,9 @@
 # End-to-end test environment configuration
-# Uses base service definitions from docker-compose.base.yml
+# Uses base service definitions from compose.yaml via merge pattern
 #
 # Usage: docker compose -f docker-compose.e2e.yml --env-file .env.e2e up --abort-on-container-exit
 #
 # Tests complete notification flow including Discord bot interactions
-
-include:
-  - docker-compose.base.yml
 
 services:
   e2e-tests:

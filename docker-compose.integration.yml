@@ -1,14 +1,11 @@
 # Integration test environment configuration
-# Uses base service definitions from docker-compose.base.yml
+# Uses base service definitions from compose.yaml via merge pattern
 #
 # Usage: 
 #   Run all tests: ./scripts/run-integration-tests.sh
 #   Run specific test: ./scripts/run-integration-tests.sh tests/integration/test_retry_daemon.py -v
 #
 # Note: Container ENTRYPOINT is 'pytest', so pass pytest args directly (not 'pytest' itself)
-
-include:
-  - docker-compose.base.yml
 
 services:
   integration-tests:
