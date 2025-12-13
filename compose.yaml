@@ -112,11 +112,19 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
       RABBITMQ_URL: ${RABBITMQ_URL}
+      OTEL_SERVICE_NAME: init-service
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://grafana-alloy:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: otlp
+      OTEL_LOGS_EXPORTER: otlp
     depends_on:
       postgres:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      grafana-alloy:
+        condition: service_started
     networks:
       - app-network
     restart: "no"
@@ -155,6 +163,8 @@ services:
     depends_on:
       init:
         condition: service_completed_successfully
+      grafana-alloy:
+        condition: service_started
     networks:
       - app-network
     logging: *logging-default
@@ -196,6 +206,8 @@ services:
     depends_on:
       init:
         condition: service_completed_successfully
+      grafana-alloy:
+        condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -234,6 +246,8 @@ services:
     depends_on:
       init:
         condition: service_completed_successfully
+      grafana-alloy:
+        condition: service_started
     healthcheck:
       test:
         [
@@ -278,6 +292,8 @@ services:
     depends_on:
       init:
         condition: service_completed_successfully
+      grafana-alloy:
+        condition: service_started
     healthcheck:
       test:
         [
@@ -322,6 +338,8 @@ services:
     depends_on:
       init:
         condition: service_completed_successfully
+      grafana-alloy:
+        condition: service_started
     healthcheck:
       test:
         [
