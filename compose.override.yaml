@@ -8,6 +8,7 @@
 # - All ports exposed (app + infrastructure management)
 # - Source code mounted as volumes for hot-reload
 # - Development build targets
+# - Init container includes volume mounts for migrations and scripts
 #
 # IMPORTANT: Source files must be world-readable (chmod o+r) for the container
 # user (UID 1000) to access volume-mounted code
@@ -98,3 +99,13 @@ services:
   grafana-alloy:
     ports:
       - "${ALLOY_HOST_PORT:-12345}:12345"
+
+  init:
+    volumes:
+      - ./shared:/app/shared:ro
+      - ./scripts:/app/scripts:ro
+      - ./alembic:/app/alembic:ro
+      - ./alembic.ini:/app/alembic.ini:ro
+      - ./docker/init-entrypoint.sh:/app/init-entrypoint.sh:ro
+    environment:
+      PYTHONUNBUFFERED: "1"
