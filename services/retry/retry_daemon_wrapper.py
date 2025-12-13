@@ -26,7 +26,7 @@ import logging
 import os
 import signal
 
-from shared.telemetry import init_telemetry
+from shared.telemetry import flush_telemetry, init_telemetry
 
 from .retry_daemon import RetryDaemon
 
@@ -59,12 +59,15 @@ def main() -> None:
     rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://guest:guest@rabbitmq:5672/")
     retry_interval = int(os.getenv("RETRY_INTERVAL_SECONDS", "900"))
 
-    daemon = RetryDaemon(
-        rabbitmq_url=rabbitmq_url,
-        retry_interval_seconds=retry_interval,
-    )
+    try:
+        daemon = RetryDaemon(
+            rabbitmq_url=rabbitmq_url,
+            retry_interval_seconds=retry_interval,
+        )
 
-    daemon.run(lambda: shutdown_requested)
+        daemon.run(lambda: shutdown_requested)
+    finally:
+        flush_telemetry()
 
 
 if __name__ == "__main__":

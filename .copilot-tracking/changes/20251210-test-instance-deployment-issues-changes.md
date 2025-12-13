@@ -99,6 +99,20 @@ Removed unnecessary port mappings from Docker Compose configurations to minimize
 - grafana-alloy/config.alloy - Modified postgres metrics to route through otelcol.receiver.prometheus and otelcol.processor.resource to add service.name=postgres
 - grafana-alloy/config.alloy - Modified redis metrics to route through otelcol.receiver.prometheus and otelcol.processor.resource to add service.name=redis
 - grafana-alloy/config.alloy - Modified rabbitmq metrics to route through otelcol.receiver.prometheus and otelcol.processor.resource to add service.name=rabbitmq
+- grafana-alloy/config.alloy - Added Docker log collection via loki.source.docker routing to Grafana Cloud Loki
+- compose.yaml - Added x-logging-default anchor with Docker log rotation (10MB max size, 3 files, compressed)
+- compose.yaml - Applied x-logging-default to all 11 services for consistent log management
+- compose.yaml - Added Docker socket mount (/var/run/docker.sock) to grafana-alloy for log collection
+- compose.yaml - Added OTEL environment variables (OTEL_SERVICE_NAME, OTEL_EXPORTER_OTLP_ENDPOINT, etc.) to init service
+- compose.yaml - Added grafana-alloy dependency to all telemetry-enabled services (init, bot, api, notification-daemon, status-transition-daemon, retry-daemon)
+- shared/telemetry.py - Added flush_telemetry() function to force flush buffered telemetry data before process exit
+- services/init/main.py - Added flush_telemetry() call after database migrations complete
+- services/bot/main.py - Added try-finally block with flush_telemetry() to ensure telemetry sent on early exit
+- services/api/main.py - Added try-finally block with flush_telemetry() and moved init_telemetry() call before server start
+- services/scheduler/notification_daemon_wrapper.py - Added try-finally block with flush_telemetry() for graceful shutdown
+- services/scheduler/status_transition_daemon_wrapper.py - Added try-finally block with flush_telemetry() for graceful shutdown
+- services/retry/retry_daemon_wrapper.py - Added try-finally block with flush_telemetry() for graceful shutdown
+- grafana-alloy/config.alloy - Modified rabbitmq metrics to route through otelcol.receiver.prometheus and otelcol.processor.resource to add service.name=rabbitmq
 - grafana-alloy/config.alloy - Removed prometheus.remote_write.grafana_cloud_mimir block (all metrics now route through OTLP)
 - grafana-alloy/config.alloy - Updated architecture comment to reflect unified OTLP routing for all metrics
 - compose.yaml - Added x-logging-default anchor with json-file driver, max-size=10m, max-file=3, compress=true
@@ -150,14 +164,14 @@ None
 
 ## Release Summary
 
-**Total Files Affected**: 19
+**Total Files Affected**: 27
 
 ### Files Created (2)
 
 - DOCKER_PORTS.md - Complete documentation of port exposure strategy and docker exec debugging guide
 - alembic/versions/022_add_completed_schedules.py - Database migration to add COMPLETED status schedules for existing games
 
-### Files Modified (17)
+### Files Modified (25)
 
 **Port Security and Docker Configuration**:
 - docker-compose.base.yml - Removed all port mappings (infrastructure and application services)
@@ -167,11 +181,22 @@ None
 - .env.example - Added port configuration documentation and docker exec examples
 - compose.yaml - Added logging configuration (x-logging-default anchor) to all 11 services
 - compose.yaml - Mounted Docker socket for Grafana Alloy log collection
+- compose.yaml - Added OTEL environment variables to init service
+- compose.yaml - Added grafana-alloy dependency to 6 telemetry-enabled services
 
 **Observability Infrastructure**:
 - grafana-alloy/config.alloy - Routed infrastructure metrics through OTEL processors with service.name attributes
 - grafana-alloy/config.alloy - Added Docker log collection (discovery.docker, loki.source.docker, loki.process)
 - grafana-alloy/config.alloy - Removed prometheus.remote_write (unified OTLP routing)
+- shared/telemetry.py - Added flush_telemetry() function with 5-second timeout
+
+**Telemetry Flushing**:
+- services/init/main.py - Added flush_telemetry() after migrations
+- services/bot/main.py - Added try-finally with flush_telemetry()
+- services/api/main.py - Added try-finally with flush_telemetry()
+- services/scheduler/notification_daemon_wrapper.py - Added try-finally with flush_telemetry()
+- services/scheduler/status_transition_daemon_wrapper.py - Added try-finally with flush_telemetry()
+- services/retry/retry_daemon_wrapper.py - Added try-finally with flush_telemetry()
 
 **Application Code**:
 - services/bot/events/handlers.py - Added game host notification logic with is_host parameter
@@ -222,6 +247,8 @@ None
 - Infrastructure logs centralized in Grafana Cloud Loki
 - Init service telemetry visible (database migrations, RabbitMQ initialization)
 - Complete observability coverage across all services
+- Telemetry flushing ensures data capture even on early failures
+- All services wait for grafana-alloy to be ready before starting
 
 **Game Session Management**:
 - Games now automatically transition to COMPLETED status

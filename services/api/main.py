@@ -29,6 +29,7 @@ import uvicorn
 
 from services.api.app import create_app
 from services.api.config import get_api_config
+from shared.telemetry import flush_telemetry, init_telemetry
 
 app = create_app()
 
@@ -59,18 +60,23 @@ async def main() -> None:
     logger = logging.getLogger(__name__)
     logger.info("Starting Discord Game Scheduler API service")
 
-    app = create_app()
+    init_telemetry("api-service")
 
-    uvicorn_config = uvicorn.Config(
-        app,
-        host=config.api_host,
-        port=config.api_port,
-        log_level=config.log_level.lower(),
-        access_log=config.debug,
-    )
+    try:
+        app = create_app()
 
-    server = uvicorn.Server(uvicorn_config)
-    await server.serve()
+        uvicorn_config = uvicorn.Config(
+            app,
+            host=config.api_host,
+            port=config.api_port,
+            log_level=config.log_level.lower(),
+            access_log=config.debug,
+        )
+
+        server = uvicorn.Server(uvicorn_config)
+        await server.serve()
+    finally:
+        flush_telemetry()
 
 
 if __name__ == "__main__":

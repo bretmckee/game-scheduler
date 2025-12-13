@@ -24,7 +24,7 @@ import sys
 
 from services.bot.bot import create_bot
 from services.bot.config import get_config
-from shared.telemetry import init_telemetry
+from shared.telemetry import flush_telemetry, init_telemetry
 
 
 def setup_logging(log_level: str) -> None:
@@ -54,27 +54,30 @@ async def main() -> None:
     # Initialize OpenTelemetry
     init_telemetry("bot-service")
 
-    # Check if running in test environment without Discord credentials
-    if not config.discord_bot_token or not config.discord_client_id:
-        logger.warning(
-            "Discord credentials not configured. Bot will not start (integration test mode)."
-        )
-        return
-
-    logger.info("Starting Discord Game Scheduler Bot")
-    logger.info(f"Environment: {config.environment}")
-
     try:
-        bot = await create_bot(config)
+        # Check if running in test environment without Discord credentials
+        if not config.discord_bot_token or not config.discord_client_id:
+            logger.warning(
+                "Discord credentials not configured. Bot will not start (integration test mode)."
+            )
+            return
 
-        async with bot:
-            await bot.start(config.discord_bot_token)
+        logger.info("Starting Discord Game Scheduler Bot")
+        logger.info(f"Environment: {config.environment}")
 
-    except KeyboardInterrupt:
-        logger.info("Received interrupt signal, shutting down")
-    except Exception as e:
-        logger.exception(f"Fatal error: {e}")
-        sys.exit(1)
+        try:
+            bot = await create_bot(config)
+
+            async with bot:
+                await bot.start(config.discord_bot_token)
+
+        except KeyboardInterrupt:
+            logger.info("Received interrupt signal, shutting down")
+        except Exception as e:
+            logger.exception(f"Fatal error: {e}")
+            sys.exit(1)
+    finally:
+        flush_telemetry()
 
 
 if __name__ == "__main__":

@@ -24,7 +24,7 @@ import sys
 
 from opentelemetry import trace
 
-from shared.telemetry import init_telemetry
+from shared.telemetry import flush_telemetry, init_telemetry
 
 
 def run_migrations() -> int:
@@ -51,6 +51,9 @@ def run_migrations() -> int:
 
         span.set_status(trace.Status(trace.StatusCode.OK))
         print("✓ Migrations complete")
+
+        # Flush telemetry before exiting to ensure all data is sent
+        flush_telemetry()
         return 0
 
 

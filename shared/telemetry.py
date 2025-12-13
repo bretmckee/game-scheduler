@@ -114,6 +114,28 @@ def init_telemetry(service_name: str) -> None:
     logger.info(f"OpenTelemetry instrumentation enabled for {service_name}")
 
 
+def flush_telemetry() -> None:
+    """
+    Flush all pending telemetry data.
+
+    Call this before exiting short-lived processes to ensure all buffered
+    traces, metrics, and logs are sent to the backend.
+    """
+    print("   ⏳ Flushing telemetry data...")
+
+    # Flush traces
+    tracer_provider = trace.get_tracer_provider()
+    if hasattr(tracer_provider, "force_flush"):
+        tracer_provider.force_flush(timeout_millis=5000)
+
+    # Flush metrics
+    meter_provider = metrics.get_meter_provider()
+    if hasattr(meter_provider, "force_flush"):
+        meter_provider.force_flush(timeout_millis=5000)
+
+    print("   ✓ Telemetry data flushed")
+
+
 def get_tracer(name: str):
     """
     Get a tracer for manual span creation.

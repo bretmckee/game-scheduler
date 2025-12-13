@@ -29,7 +29,7 @@ import signal
 
 from shared.database import BASE_DATABASE_URL
 from shared.models import GameStatusSchedule
-from shared.telemetry import init_telemetry
+from shared.telemetry import flush_telemetry, init_telemetry
 
 from .event_builders import build_status_transition_event
 from .generic_scheduler_daemon import SchedulerDaemon
@@ -62,18 +62,21 @@ def main() -> None:
 
     rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://guest:guest@rabbitmq:5672/")
 
-    daemon = SchedulerDaemon(
-        database_url=BASE_DATABASE_URL,
-        rabbitmq_url=rabbitmq_url,
-        notify_channel="game_status_schedule_changed",
-        model_class=GameStatusSchedule,
-        time_field="transition_time",
-        status_field="executed",
-        event_builder=build_status_transition_event,
-        process_dlq=False,
-    )
+    try:
+        daemon = SchedulerDaemon(
+            database_url=BASE_DATABASE_URL,
+            rabbitmq_url=rabbitmq_url,
+            notify_channel="game_status_schedule_changed",
+            model_class=GameStatusSchedule,
+            time_field="transition_time",
+            status_field="executed",
+            event_builder=build_status_transition_event,
+            process_dlq=False,
+        )
 
-    daemon.run(lambda: shutdown_requested)
+        daemon.run(lambda: shutdown_requested)
+    finally:
+        flush_telemetry()
 
 
 if __name__ == "__main__":
