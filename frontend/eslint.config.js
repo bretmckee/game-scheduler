@@ -9,7 +9,15 @@ import globals from 'globals';
 
 export default tseslint.config(
   {
-    ignores: ['dist/**', 'vite.config.ts', 'vitest.config.ts'],
+    ignores: [
+      'dist/**',
+      'vite.config.ts',
+      'vitest.config.ts',
+      '*.config.js',
+      '*.config.ts',
+      '.eslintrc.cjs',
+      '.eslintignore',
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
