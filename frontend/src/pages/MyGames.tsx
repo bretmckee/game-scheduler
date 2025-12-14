@@ -202,9 +202,7 @@ export const MyGames: FC = () => {
       ) : (
         <Box>
           {joinedGames.length === 0 ? (
-            <Alert severity="info">
-              No games to show
-            </Alert>
+            <Alert severity="info">No games to show</Alert>
           ) : (
             <Box>
               <Typography variant="h6" sx={{ mb: 2 }}>

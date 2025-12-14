@@ -71,18 +71,18 @@ CREATE TABLE notification_schedule (
     notification_time TIMESTAMP NOT NULL,
     sent BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT NOW(),
-    
+
     -- Ensure one notification per game per reminder time
     UNIQUE(game_id, reminder_minutes)
 );
 
 -- Critical index for MIN() query performance
-CREATE INDEX idx_notification_schedule_next_due 
-ON notification_schedule(notification_time) 
+CREATE INDEX idx_notification_schedule_next_due
+ON notification_schedule(notification_time)
 WHERE sent = FALSE;
 
 -- Index for cleanup queries
-CREATE INDEX idx_notification_schedule_game_id 
+CREATE INDEX idx_notification_schedule_game_id
 ON notification_schedule(game_id);
 ```
 
@@ -93,7 +93,7 @@ CREATE OR REPLACE FUNCTION notify_schedule_changed()
 RETURNS TRIGGER AS $$
 BEGIN
     -- Only notify if change affects near-term schedule
-    IF (TG_OP = 'INSERT' OR TG_OP = 'UPDATE') AND 
+    IF (TG_OP = 'INSERT' OR TG_OP = 'UPDATE') AND
        NEW.notification_time <= NOW() + INTERVAL '10 minutes' AND
        NEW.sent = FALSE THEN
         PERFORM pg_notify(
@@ -121,25 +121,25 @@ EXECUTE FUNCTION notify_schedule_changed();
 async def notification_scheduler_loop():
     """
     Main scheduler loop using minimum value pattern.
-    
+
     Algorithm:
     1. Query for MIN(notification_time) WHERE notification_time > NOW()
     2. Calculate wait time until that notification is due
     3. Wait for earliest of: due time, postgres NOTIFY, or 5-min timeout
     4. Process all notifications now due (batch processing)
     5. Loop repeats - re-queries for next minimum
-    
+
     Recovery: On restart, immediately queries MIN() and resumes
     """
-    
+
     # Establish LISTEN connection for event-driven wake-ups
     listen_conn = await get_postgres_listen_connection()
     await listen_conn.execute("LISTEN notification_schedule_changed")
-    
+
     while True:
         # 1. Get next notification due
         next_notification = await get_next_due_notification()
-        
+
         if not next_notification:
             # No notifications scheduled, wait for event or periodic check
             wait_time = 300  # 5 minutes
@@ -147,21 +147,21 @@ async def notification_scheduler_loop():
             # Calculate seconds until notification is due (with 10s buffer)
             time_until_due = (next_notification.notification_time - utcnow()).total_seconds()
             wait_time = max(0, time_until_due - 10)
-        
+
         # 2. Wait for earliest trigger
         wakeup_reason = await wait_for_event_or_timeout(
             listen_conn,
             timeout=wait_time,
             max_timeout=300  # Safety: recheck every 5 min regardless
         )
-        
+
         logger.info(f"Woke up due to: {wakeup_reason}")
-        
+
         # 3. Process all notifications now due (batch processing)
         processed_count = await process_due_notifications()
-        
+
         logger.info(f"Processed {processed_count} notifications")
-        
+
         # 4. Loop continues, re-queries minimum
 ```
 
@@ -171,36 +171,36 @@ async def notification_scheduler_loop():
 async def on_game_created_or_updated(game: GameSession):
     """
     Recalculate notification schedule when game is created/updated.
-    
+
     Triggered by:
     - API creates new game
     - API updates game scheduled_at or reminder_minutes
     - Channel/Guild default reminder_minutes changed
     """
-    
+
     # Resolve reminder minutes using inheritance chain
     reminder_minutes = resolve_reminder_minutes(game)
-    
+
     # Clear existing schedule for this game
     await db.execute(
         "DELETE FROM notification_schedule WHERE game_id = :game_id",
         {"game_id": game.id}
     )
-    
+
     # Insert new schedule entries
     now = datetime.utcnow()
     for reminder_min in reminder_minutes:
         notification_time = game.scheduled_at - timedelta(minutes=reminder_min)
-        
+
         # Only schedule future notifications
         if notification_time > now:
             await db.execute(
                 """
-                INSERT INTO notification_schedule 
+                INSERT INTO notification_schedule
                     (game_id, reminder_minutes, notification_time)
                 VALUES (:game_id, :reminder_min, :notification_time)
-                ON CONFLICT (game_id, reminder_minutes) 
-                DO UPDATE SET 
+                ON CONFLICT (game_id, reminder_minutes)
+                DO UPDATE SET
                     notification_time = EXCLUDED.notification_time,
                     sent = FALSE
                 """,
@@ -210,7 +210,7 @@ async def on_game_created_or_updated(game: GameSession):
                     "notification_time": notification_time
                 }
             )
-    
+
     await db.commit()
     # Postgres trigger automatically sends NOTIFY to scheduler
 ```
@@ -225,31 +225,31 @@ import psycopg2.extensions
 class PostgresNotificationListener:
     """
     Synchronous PostgreSQL LISTEN/NOTIFY client for scheduler service.
-    
+
     Uses psycopg2 (already in dependencies) for LISTEN connections.
     """
-    
+
     def __init__(self, database_url: str):
         self.database_url = database_url
         self.conn = None
-        
+
     def connect(self):
         """Establish connection with autocommit for LISTEN."""
         self.conn = psycopg2.connect(self.database_url)
         self.conn.set_isolation_level(
             psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT
         )
-        
+
     def listen(self, channel: str):
         """Subscribe to notification channel."""
         cursor = self.conn.cursor()
         cursor.execute(f"LISTEN {channel};")
         cursor.close()
-        
+
     def wait_for_notification(self, timeout: float) -> tuple[bool, dict | None]:
         """
         Wait for notification or timeout.
-        
+
         Returns:
             (received, payload) tuple
             - received: True if notification received, False if timeout
@@ -258,15 +258,15 @@ class PostgresNotificationListener:
         if select.select([self.conn], [], [], timeout) == ([], [], []):
             # Timeout occurred
             return False, None
-        
+
         # Notification received
         self.conn.poll()
-        
+
         if self.conn.notifies:
             notify = self.conn.notifies.pop(0)
             payload = json.loads(notify.payload) if notify.payload else {}
             return True, payload
-        
+
         return False, None
 ```
 
@@ -276,11 +276,11 @@ class PostgresNotificationListener:
 async def process_due_notifications():
     """
     Process all notifications due now using pessimistic locking.
-    
+
     FOR UPDATE SKIP LOCKED prevents race conditions if multiple
     scheduler instances run (future horizontal scaling).
     """
-    
+
     # Query all notifications due within next minute (includes processing buffer)
     result = await db.execute(
         """
@@ -292,10 +292,10 @@ async def process_due_notifications():
         FOR UPDATE SKIP LOCKED
         """
     )
-    
+
     notifications = result.fetchall()
     processed_count = 0
-    
+
     for notification in notifications:
         try:
             # Publish game.reminder_due event to RabbitMQ
@@ -303,26 +303,26 @@ async def process_due_notifications():
                 game_id=notification.game_id,
                 reminder_minutes=notification.reminder_minutes
             )
-            
+
             # Mark as sent
             await db.execute(
                 """
-                UPDATE notification_schedule 
-                SET sent = TRUE 
+                UPDATE notification_schedule
+                SET sent = TRUE
                 WHERE id = :id
                 """,
                 {"id": notification.id}
             )
             await db.commit()
             processed_count += 1
-            
+
         except Exception as e:
             logger.error(
                 f"Failed to process notification {notification.id}: {e}",
                 exc_info=True
             )
             await db.rollback()
-    
+
     return processed_count
 ```
 

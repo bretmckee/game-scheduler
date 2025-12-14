@@ -139,7 +139,7 @@ Test that source code changes trigger fast incremental builds without invalidati
 ## Success Criteria
 
 - Build context size reduced to <300KB
-- Incremental builds complete in <10 seconds  
+- Incremental builds complete in <10 seconds
 - Dependencies layer cache preserved across source changes
 - Production image builds successfully
 - Only explicitly listed files enter build context

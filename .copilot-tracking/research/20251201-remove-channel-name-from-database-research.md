@@ -2,7 +2,7 @@
 
 # Research: Remove channel_name from Database
 
-**Date**: 2025-12-01  
+**Date**: 2025-12-01
 **Task**: Remove `channel_name` column from `channel_configurations` table and fetch channel names dynamically from Discord API with caching
 
 ## Overview
@@ -77,7 +77,7 @@ The codebase follows a clear separation:
 async def fetch_channel(self, channel_id: str) -> dict[str, Any]:
     """
     Fetch channel information using bot token with Redis caching.
-    
+
     Returns:
         Channel object with id, name, type, guild_id, etc.
     """
@@ -135,14 +135,14 @@ async def get_guild(
     # Fetch guild config from database
     service = config_service.ConfigurationService(db)
     guild_config = await service.get_guild_by_id(guild_id)
-    
+
     # Fetch guild name from Discord API with caching
     user_guilds = await oauth2.get_user_guilds(
         current_user.access_token, current_user.user.discord_id
     )
     user_guilds_dict = {g["id"]: g["name"] for g in user_guilds}
     guild_name = user_guilds_dict.get(guild_config.guild_id, "Unknown Guild")
-    
+
     # Return response with dynamically fetched guild_name
     return guild_schemas.GuildConfigResponse(
         id=guild_config.id,
@@ -165,7 +165,7 @@ async def get_channel(
     # Fetch channel config from database
     service = config_service.ConfigurationService(db)
     channel_config = await service.get_channel_by_id(channel_id)
-    
+
     # Fetch channel name from Discord API with caching
     try:
         discord_channel = await discord_client.fetch_channel(channel_config.channel_id)
@@ -173,7 +173,7 @@ async def get_channel(
     except DiscordAPIError:
         logger.warning(f"Could not fetch channel name for {channel_config.channel_id}")
         channel_name = "Unknown Channel"
-    
+
     # Return response with dynamically fetched channel_name
     return channel_schemas.ChannelConfigResponse(
         id=channel_config.id,

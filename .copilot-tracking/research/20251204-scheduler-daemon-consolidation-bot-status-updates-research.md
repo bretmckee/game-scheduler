@@ -111,7 +111,7 @@ while not shutdown_requested:
             process_item(next_item)  # Publish event + mark processed
             continue
         wait_time = min(time_until_due - buffer_seconds, max_timeout)
-    
+
     listener.wait_for_notification(timeout=wait_time)
 ```
 
@@ -166,7 +166,7 @@ Create single parameterized daemon that handles both use cases:
 ```python
 class SchedulerDaemon:
     """Generic event-driven scheduler daemon."""
-    
+
     def __init__(
         self,
         database_url: str,
@@ -179,7 +179,7 @@ class SchedulerDaemon:
         max_timeout: int = 900,
     ):
         pass
-    
+
     def _process_item(self, item):
         """Process scheduled item: build event, publish, mark processed."""
         event = self.event_builder(item)
@@ -240,24 +240,24 @@ async def _handle_status_transition_due(self, data: dict[str, Any]) -> None:
     """Handle game.status_transition_due event by updating game status."""
     game_id = data.get("game_id")
     target_status = data.get("target_status")
-    
+
     async with get_db_session() as db:
         game = await self._get_game_with_participants(db, game_id)
         if not game:
             logger.error(f"Game {game_id} not found for status transition")
             return
-        
+
         if game.status != "SCHEDULED":
             logger.warning(f"Game {game_id} status is {game.status}, expected SCHEDULED")
             return
-        
+
         # Update game status
         game.status = target_status
         game.updated_at = utc_now()
         await db.commit()
-        
+
         logger.info(f"Transitioned game {game_id} to {target_status}")
-        
+
         # Refresh Discord message
         await self._refresh_game_message(game_id)
 ```

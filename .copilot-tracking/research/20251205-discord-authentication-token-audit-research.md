@@ -79,7 +79,7 @@ async def get_guild_channels(self, guild_id: str) -> list[dict[str, Any]]:
     """Fetch all channels in a guild using bot token."""
     session = await self._get_session()
     url = f"{DISCORD_API_BASE}/guilds/{guild_id}/channels"
-    
+
     async with session.get(
         url,
         headers={"Authorization": f"Bot {self.bot_token}"},
@@ -155,17 +155,17 @@ async def exchange_code(self, code: str, redirect_uri: str) -> dict[str, Any]:
 async def get_guild_member(self, guild_id: str, user_id: str) -> dict[str, Any]:
     """
     Fetch guild member information using bot token.
-    
+
     Args:
         guild_id: Discord guild (server) ID
         user_id: Discord user ID
-        
+
     Returns:
         Guild member object with user, roles, nick, etc.
     """
     session = await self._get_session()
     url = f"{DISCORD_API_BASE}/guilds/{guild_id}/members/{user_id}"
-    
+
     async with session.get(
         url,
         headers={"Authorization": f"Bot {self.bot_token}"},  # ⚠️ Bot token, not user token
@@ -324,7 +324,7 @@ OAUTH_SCOPES = ["identify", "guilds", "guilds.members.read"]
 OAUTH_SCOPES = ["identify", "guilds"]
 ```
 
-**Impact**: 
+**Impact**:
 - Users will see one fewer permission request during OAuth2 consent
 - No functional change (scope wasn't being used anyway)
 - Cleaner OAuth2 flow

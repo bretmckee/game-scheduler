@@ -11,7 +11,7 @@ This dashboard provides comprehensive monitoring for the retry daemon service th
 - **Use**: Identify accumulating failures or system issues
 
 ### Message Processing Rate
-- **Metrics**: 
+- **Metrics**:
   - `retry_messages_processed_total` (rate)
   - `retry_messages_failed_total` (rate)
 - **Description**: Messages processed and failed per second

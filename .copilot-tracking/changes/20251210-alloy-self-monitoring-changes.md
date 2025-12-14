@@ -24,4 +24,3 @@ Enable comprehensive self-monitoring for Grafana Alloy collector to export its o
 - docker-compose.base.yml - Added GRAFANA_CLOUD_LOKI_INSTANCE_ID environment variable for Alloy service
 
 ### Removed
-

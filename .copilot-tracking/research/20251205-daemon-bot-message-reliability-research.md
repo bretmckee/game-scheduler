@@ -129,20 +129,20 @@ async def _process_message(self, message: AbstractIncomingMessage) -> None:
     try:
         event = Event.model_validate_json(message.body)
         handlers = self._handlers.get(event.event_type.value, [])
-        
+
         if not handlers:
             await message.ack()
             logger.warning(f"No handlers for {event.event_type}, discarding")
             return
-        
+
         # Process handlers
         for handler in handlers:
             await handler(event)
-        
+
         # Success - acknowledge message
         await message.ack()
         logger.debug(f"Successfully processed and ACKed {event.event_type}")
-        
+
     except Exception as e:
         # NACK to DLQ without requeue - let daemon handle republishing
         # This prevents instant retry loops while preserving the message
@@ -171,7 +171,7 @@ async def recover_missed_status_transitions():
     """Find games stuck in SCHEDULED status past their transition time."""
     async with get_db_session() as db:
         now = utc_now()
-        
+
         # Find games in SCHEDULED status with transition time in past
         stuck_games = await db.execute(
             select(GameStatusSchedule)
@@ -179,13 +179,13 @@ async def recover_missed_status_transitions():
             .filter(GameStatusSchedule.transition_time < now)
             .order_by(GameStatusSchedule.transition_time.asc())
         )
-        
+
         for schedule in stuck_games.scalars():
             logger.warning(
                 f"Found missed status transition: game={schedule.game_id}, "
                 f"target={schedule.target_status}, due={schedule.transition_time}"
             )
-            
+
             # Re-process the transition
             await _handle_status_transition_due({
                 'game_id': schedule.game_id,
@@ -213,7 +213,7 @@ Run manually or on deploy to fix any accumulated inconsistencies.
 
 **Option C: Scheduled Container (Like Cron)**
 ```yaml
-# docker-compose.yml  
+# docker-compose.yml
 status-recovery-cron:
   image: game-scheduler-bot:latest
   command: python -m services.bot.recovery.status_transitions_loop
@@ -241,11 +241,11 @@ Implement both:
 
 ### Phase 1: Fix Consumer Message Loss (Immediate)
 
-- **Objectives**: 
+- **Objectives**:
   - Stop acknowledging messages on handler failure
   - Implement event-type-specific retry limits
   - Maintain existing handler idempotency
-  
+
 - **Key Tasks**:
   1. Update `shared/messaging/consumer.py` _process_message() to use manual ACK
   2. Check event type and apply appropriate retry limit
@@ -253,7 +253,7 @@ Implement both:
   4. Status transitions: max 10 retries, then DLQ (recovery will fix)
   5. Add integration tests for retry behavior
   6. Verify handlers are idempotent (already are)
-  
+
 - **Success Criteria**:
   - Messages only ACKed after successful handler completion
   - User notification failures retry up to 3 times
@@ -267,7 +267,7 @@ Implement both:
   - Ensure status transitions always eventually succeed
   - Recover from any message loss or repeated failures
   - Provide monitoring visibility into stuck transitions
-  
+
 - **Key Tasks**:
   1. Create recovery function that queries for missed transitions
   2. Run recovery on bot startup
@@ -275,7 +275,7 @@ Implement both:
   4. Log warnings for recovered transitions (indicates problem upstream)
   5. Add metric/alert for number of recovered transitions
   6. Document that this is safety net, not primary mechanism
-  
+
 - **Success Criteria**:
   - Games never stuck in SCHEDULED status past transition time
   - Recovery runs automatically on startup and periodically
@@ -410,8 +410,8 @@ Build a consumer that:
 
 **Database recovery query**:
 ```sql
-SELECT * FROM game_status_schedule 
-WHERE executed = false 
+SELECT * FROM game_status_schedule
+WHERE executed = false
   AND transition_time < NOW()
 ORDER BY transition_time ASC;
 ```
@@ -451,11 +451,11 @@ This finds transitions that need to happen, regardless of:
 async def monitor_dlq_depth():
     """Alert if DLQ accumulates messages (indicates systemic problem)."""
     dlq_depth = await get_queue_depth("dead_letter_queue")
-    
+
     if dlq_depth > 10:
         logger.error(f"Dead letter queue has {dlq_depth} messages - investigate!")
         # Send alert to ops team
-        
+
     # Optionally: Inspect messages to see what's failing
     for message in sample_dlq_messages(limit=5):
         event_type = extract_event_type(message)
@@ -539,7 +539,7 @@ There IS a plugin for delayed delivery:
 #### Pattern 1: Retry Queues with TTL
 ```
 Primary Queue → (reject) → Retry Queue 1 (TTL: 1s) → (expires) → Primary Queue
-                → (reject) → Retry Queue 2 (TTL: 10s) → (expires) → Primary Queue  
+                → (reject) → Retry Queue 2 (TTL: 10s) → (expires) → Primary Queue
                 → (reject) → Retry Queue 3 (TTL: 60s) → (expires) → Primary Queue
                 → (reject) → DLQ (manual intervention)
 ```
@@ -561,7 +561,7 @@ async def _process_message(self, message):
     except Exception as e:
         attempt = message.headers.get('x-retry-count', 0) + 1
         delay_ms = min(1000 * (2 ** attempt), 86400000)  # Cap at 1 day
-        
+
         if attempt >= MAX_ATTEMPTS:
             await message.reject(requeue=False)  # To DLQ
         else:
@@ -636,7 +636,7 @@ async def recover_missed_transitions():
             .filter(GameStatusSchedule.executed == False)
             .filter(GameStatusSchedule.transition_time < utc_now())
         )
-        
+
         for schedule in stuck:
             # Process transition directly from database
             await process_status_transition(schedule)
@@ -856,32 +856,32 @@ class DLQRecoveryTrigger:
     Consumes from DLQ to trigger database recovery checks.
     Does NOT re-process the DLQ message itself, just uses it as a signal.
     """
-    
+
     async def start_consuming(self):
         consumer = EventConsumer(queue_name="dead_letter_queue")
         await consumer.connect()
         await consumer.bind("#")  # All messages
-        
+
         async def on_dlq_message(message):
             # Message in DLQ = something failed
             event_type = self._extract_event_type(message)
-            
+
             logger.warning(
                 f"DLQ message received: {event_type} - triggering recovery check"
             )
-            
+
             # Trigger recovery based on message type
             if event_type == EventType.GAME_STATUS_TRANSITION_DUE:
                 await self._recover_status_transitions()
             elif event_type == EventType.GAME_REMINDER_DUE:
                 # User notifications - already stale, just log
                 logger.info("Stale reminder notification in DLQ, discarding")
-            
+
             # ACK the DLQ message (it's served its purpose as a signal)
             await message.ack()
-        
+
         await consumer.start_consuming(on_dlq_message)
-    
+
     async def _recover_status_transitions(self):
         """Run database recovery for missed transitions."""
         async with get_db_session() as db:
@@ -890,7 +890,7 @@ class DLQRecoveryTrigger:
                 .filter(GameStatusSchedule.executed == False)
                 .filter(GameStatusSchedule.transition_time < utc_now())
             )
-            
+
             for schedule in stuck.scalars():
                 logger.warning(
                     f"Recovering missed transition: game={schedule.game_id}"
@@ -920,16 +920,16 @@ async def recovery_loop():
     while not shutdown_requested:
         try:
             dlq_depth = await get_queue_depth("dead_letter_queue")
-            
+
             if dlq_depth > 0:
                 logger.warning(f"DLQ has {dlq_depth} messages, running recovery")
                 await recover_status_transitions()
             else:
                 logger.debug("DLQ empty, no recovery needed")
-            
+
             # Check every 5 minutes
             await asyncio.sleep(300)
-            
+
         except Exception as e:
             logger.error(f"Recovery loop error: {e}")
             await asyncio.sleep(60)  # Retry sooner on error
@@ -955,26 +955,26 @@ class BotEventHandlers:
     async def start_consuming(self, queue_name: str = "bot_events"):
         # Run recovery on startup
         await self._startup_recovery()
-        
+
         # Start normal event consumption
         await super().start_consuming(queue_name)
-        
+
         # Start DLQ monitoring in background
         asyncio.create_task(self._dlq_monitor_loop())
-    
+
     async def _startup_recovery(self):
         """Run recovery on startup to catch issues from downtime."""
         logger.info("Running startup recovery check")
         await recover_status_transitions()
-    
+
     async def _dlq_monitor_loop(self):
         """Monitor DLQ and trigger recovery when messages appear."""
         last_depth = 0
-        
+
         while not self.shutdown_requested:
             try:
                 dlq_depth = await get_queue_depth("dead_letter_queue")
-                
+
                 # Trigger recovery when DLQ depth increases
                 if dlq_depth > last_depth:
                     logger.warning(
@@ -982,14 +982,14 @@ class BotEventHandlers:
                         f"running recovery"
                     )
                     await recover_status_transitions()
-                
+
                 last_depth = dlq_depth
                 await asyncio.sleep(60)  # Check every minute
-                
+
             except Exception as e:
                 logger.error(f"DLQ monitor error: {e}")
                 await asyncio.sleep(60)
-    
+
     async def recover_status_transitions(self):
         """Query and recover missed status transitions."""
         async with get_db_session() as db:
@@ -998,7 +998,7 @@ class BotEventHandlers:
                 .filter(GameStatusSchedule.executed == False)
                 .filter(GameStatusSchedule.transition_time < utc_now())
             )
-            
+
             count = 0
             for schedule in stuck.scalars():
                 logger.warning(
@@ -1007,7 +1007,7 @@ class BotEventHandlers:
                 )
                 await process_status_transition(schedule)
                 count += 1
-            
+
             if count > 0:
                 logger.info(f"Recovered {count} missed status transitions")
 ```
@@ -1069,11 +1069,11 @@ class BotEventHandlers:
 async def recovery_strategy():
     # 1. Always run on startup (catches downtime issues)
     await recover_status_transitions()
-    
+
     # 2. Monitor DLQ for ongoing issues
     while running:
         dlq_depth = await get_queue_depth("dead_letter_queue")
-        
+
         if dlq_depth > 0:
             # DLQ has messages = something failed recently
             await recover_status_transitions()
@@ -1106,7 +1106,7 @@ while True:
 ```python
 while True:
     dlq_depth = await get_queue_depth("dead_letter_queue")
-    
+
     if dlq_depth > 0:
         await recover_status_transitions()
         await asyncio.sleep(60)  # Check soon
@@ -1180,37 +1180,37 @@ class EventHandlers:
         self.consumer = None
         self.shutdown_requested = False
         # ... existing handler setup
-    
+
     async def start_consuming(self, queue_name: str = "bot_events"):
         """Start event consumer and recovery loop."""
         self.consumer = EventConsumer(queue_name=queue_name)
         await self.consumer.connect()
         await self.consumer.bind("#")
-        
+
         # Run startup recovery before starting consumer
         await self._startup_recovery()
-        
+
         # Start both tasks concurrently
         await asyncio.gather(
             self.consumer.start_consuming(self._process_event),
             self._recovery_loop(),
         )
-    
+
     async def _startup_recovery(self):
         """Run recovery on bot startup."""
         logger.info("Running startup recovery check")
         await self._recover_status_transitions()
-    
+
     async def _recovery_loop(self):
         """Monitor DLQ and trigger recovery adaptively."""
         last_depth = 0
         last_recovery_time = time.time()
-        
+
         while not self.shutdown_requested:
             try:
                 # Check DLQ depth (requires adding RabbitMQ management API call)
                 dlq_depth = await self._get_queue_depth("dead_letter_queue")
-                
+
                 if dlq_depth > 0:
                     # DLQ has messages - run recovery frequently
                     logger.warning(
@@ -1225,13 +1225,13 @@ class EventHandlers:
                         logger.debug("Fallback recovery check")
                         await self._recover_status_transitions()
                         last_recovery_time = time.time()
-                    
+
                     await asyncio.sleep(60)
-                    
+
             except Exception as e:
                 logger.error(f"Recovery loop error: {e}")
                 await asyncio.sleep(60)
-    
+
     async def _recover_status_transitions(self):
         """Query database and recover missed transitions."""
         async with get_db_session() as db:
@@ -1240,7 +1240,7 @@ class EventHandlers:
                 .filter(GameStatusSchedule.executed == False)
                 .filter(GameStatusSchedule.transition_time < utc_now())
             )
-            
+
             count = 0
             for schedule in stuck.scalars():
                 logger.warning(
@@ -1255,10 +1255,10 @@ class EventHandlers:
                 )
                 await self._handle_status_transition_due(event)
                 count += 1
-            
+
             if count > 0:
                 logger.info(f"Recovered {count} missed status transitions")
-    
+
     async def _get_queue_depth(self, queue_name: str) -> int:
         """Get message count from queue via RabbitMQ Management API."""
         # Implementation using httpx to call RabbitMQ management API
@@ -1288,7 +1288,7 @@ class EventHandlers:
 def main() -> None:
     """Entry point with recovery loop."""
     # ... existing setup
-    
+
     daemon = SchedulerDaemon(
         database_url=BASE_DATABASE_URL,
         rabbitmq_url=rabbitmq_url,
@@ -1298,22 +1298,22 @@ def main() -> None:
         event_builder=build_status_transition_event,
         check_interval=60,
     )
-    
+
     # Run normal daemon loop in background
     import threading
     daemon_thread = threading.Thread(target=daemon.run, args=(lambda: shutdown_requested,))
     daemon_thread.start()
-    
+
     # Run recovery loop in main thread
     recovery_loop(daemon.session_factory)
-    
+
     daemon_thread.join()
 
 
 def recovery_loop(session_factory):
     """Check for missed transitions and republish."""
     last_recovery = 0
-    
+
     while not shutdown_requested:
         try:
             # Every 10 minutes, check for missed items
@@ -1323,17 +1323,17 @@ def recovery_loop(session_factory):
                         GameStatusSchedule.executed == False,
                         GameStatusSchedule.transition_time < utc_now(),
                     ).all()
-                    
+
                     for schedule in stuck:
                         logger.warning(f"Republishing missed transition: {schedule.game_id}")
                         # Reset executed flag and let daemon pick it up
                         schedule.executed = False
                         db.commit()
-                
+
                 last_recovery = time.time()
-            
+
             time.sleep(60)
-            
+
         except Exception as e:
             logger.error(f"Recovery error: {e}")
             time.sleep(60)
@@ -1395,13 +1395,13 @@ def signal_handler(signum: int, frame) -> None:
 async def get_queue_depth(queue_name: str) -> int:
     """Get message count from RabbitMQ Management API."""
     import httpx
-    
+
     rabbitmq_host = os.getenv("RABBITMQ_HOST", "rabbitmq")
     rabbitmq_user = os.getenv("RABBITMQ_USER", "guest")
     rabbitmq_pass = os.getenv("RABBITMQ_PASS", "guest")
-    
+
     url = f"http://{rabbitmq_host}:15672/api/queues/%2F/{queue_name}"
-    
+
     async with httpx.AsyncClient() as client:
         response = await client.get(
             url,
@@ -1419,27 +1419,27 @@ async def recover_status_transitions(publisher: EventPublisher):
             .filter(GameStatusSchedule.executed == False)
             .filter(GameStatusSchedule.transition_time < utc_now())
         )
-        
+
         count = 0
         for schedule in stuck.scalars():
             logger.warning(
                 f"Recovering: game={schedule.game_id}, target={schedule.target_status}"
             )
-            
+
             event = GameStatusTransitionDueEvent(
                 game_id=schedule.game_id,
                 target_status=schedule.target_status,
                 schedule_id=schedule.id,
             )
-            
+
             await publisher.publish(
                 event_type=EventType.GAME_STATUS_TRANSITION_DUE,
                 event_data=event.model_dump(),
                 routing_key="game.status.transition.due",
             )
-            
+
             count += 1
-        
+
         if count > 0:
             logger.info(f"Recovered {count} missed transitions")
 
@@ -1448,17 +1448,17 @@ async def recovery_loop():
     """Main recovery loop with adaptive polling."""
     publisher = EventPublisher()
     await publisher.connect()
-    
+
     last_recovery_time = time.time()
-    
+
     # Run startup recovery
     logger.info("Running startup recovery")
     await recover_status_transitions(publisher)
-    
+
     while not shutdown_requested:
         try:
             dlq_depth = await get_queue_depth("dead_letter_queue")
-            
+
             if dlq_depth > 0:
                 # DLQ has messages - run recovery
                 logger.warning(f"DLQ depth: {dlq_depth}, running recovery")
@@ -1471,13 +1471,13 @@ async def recovery_loop():
                     logger.debug("Fallback recovery check")
                     await recover_status_transitions(publisher)
                     last_recovery_time = time.time()
-                
+
                 await asyncio.sleep(60)
-                
+
         except Exception as e:
             logger.error(f"Recovery loop error: {e}")
             await asyncio.sleep(60)
-    
+
     await publisher.disconnect()
 
 
@@ -1488,10 +1488,10 @@ def main():
         level=getattr(logging, log_level),
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
-    
+
     signal.signal(signal.SIGTERM, signal_handler)
     signal.signal(signal.SIGINT, signal_handler)
-    
+
     asyncio.run(recovery_loop())
 
 
@@ -1546,7 +1546,7 @@ if __name__ == "__main__":
 **How it works**:
 1. **Daemon startup**: Process DLQ before starting normal loop
 2. **Periodic DLQ check**: Every N iterations or on timer, consume from DLQ
-3. **Event-type-specific retry limits**: 
+3. **Event-type-specific retry limits**:
    - Notifications: max 3 retries (use x-death header count)
    - Status transitions: max 20 retries
 4. **Republish to primary queue**: Send message back through normal flow
@@ -1561,31 +1561,31 @@ class SchedulerDaemon:
         self.process_dlq = process_dlq
         self.dlq_check_interval = dlq_check_interval
         self.last_dlq_check = 0
-    
+
     def run(self, shutdown_requested):
         # Process DLQ on startup
         if self.process_dlq:
             self._process_dlq_messages()
-        
+
         # Normal loop with periodic DLQ checks
         while not shutdown_requested():
             self._process_loop_iteration()
-            
+
             # Check if DLQ processing is due
             if self.process_dlq and time.time() - self.last_dlq_check > self.dlq_check_interval:
                 self._process_dlq_messages()
                 self.last_dlq_check = time.time()
-    
+
     def _process_dlq_messages(self):
         """Consume from DLQ and republish with retry limits."""
         dlq_depth = self._get_queue_depth("dead_letter_queue")
-        
+
         if dlq_depth == 0:
             logger.debug("DLQ empty, no recovery needed")
             return
-        
+
         logger.warning(f"Processing {dlq_depth} messages from DLQ")
-        
+
         # Consume from DLQ
         for message in self._consume_dlq(limit=dlq_depth):
             if self._should_retry_dlq_message(message):
@@ -1598,7 +1598,7 @@ class SchedulerDaemon:
     def _should_retry_dlq_message(self, message) -> bool:
         """Check if message should be republished from DLQ."""
         event_type = self._extract_event_type(message)
-        
+
         if event_type == EventType.GAME_REMINDER_DUE:
             # Notifications: Check if still valid (not expired)
             # Per-message TTL will have expired stale messages
@@ -1613,7 +1613,7 @@ class SchedulerDaemon:
             return True
             # Default: max 3 retries
             return retry_count < 3
-    
+
     def _get_queue_depth(self, queue_name: str) -> int:
         """Query RabbitMQ Management API for queue depth."""
         # Implementation using requests/httpx
@@ -1771,11 +1771,11 @@ def publish(self, event: Event, expiration_ms: int | None = None) -> None:
         delivery_mode=pika.DeliveryMode.Persistent,
         content_type="application/json",
     )
-    
+
     # Add expiration if specified
     if expiration_ms is not None:
         properties.expiration = str(expiration_ms)
-    
+
     # ... rest of publish logic
 ```
 
@@ -1789,7 +1789,7 @@ def build_game_reminder_event(
 ) -> tuple[Event, int | None]:
     """
     Build GAME_REMINDER_DUE event with per-message TTL.
-    
+
     Returns:
         (Event, expiration_ms) tuple
     """
@@ -1797,17 +1797,17 @@ def build_game_reminder_event(
         game_id=UUID(notification.game_id),
         reminder_minutes=notification.reminder_minutes,
     )
-    
+
     event = Event(
         event_type=EventType.GAME_REMINDER_DUE,
         data=event_data.model_dump(),
     )
-    
+
     # Calculate TTL: expire when game starts
     expiration_ms = None
     if notification.game_scheduled_at:  # Using denormalized field
         time_until_game = (notification.game_scheduled_at - utc_now()).total_seconds()
-        
+
         if time_until_game > 0:
             expiration_ms = int(time_until_game * 1000)
             logger.debug(
@@ -1817,7 +1817,7 @@ def build_game_reminder_event(
             # Game already started - expire immediately
             expiration_ms = 1
             logger.warning("Game already started, notification will expire immediately")
-    
+
     return event, expiration_ms
 
 
@@ -1826,7 +1826,7 @@ def build_status_transition_event(
 ) -> tuple[Event, int | None]:
     """
     Build GAME_STATUS_TRANSITION_DUE event (no TTL - never expires).
-    
+
     Returns:
         (Event, None) - status transitions never expire
     """
@@ -1834,12 +1834,12 @@ def build_status_transition_event(
         game_id=UUID(schedule.game_id),
         target_status=schedule.target_status,
     )
-    
+
     event = Event(
         event_type=EventType.GAME_STATUS_TRANSITION_DUE,
         data=event_data.model_dump(),
     )
-    
+
     # Status transitions NEVER expire - must eventually succeed
     return event, None
 ```
@@ -1854,16 +1854,16 @@ def _process_item(self, item):
     try:
         # Build event (now returns tuple)
         result = self.event_builder(item)
-        
+
         # Handle both tuple and single return for backward compatibility
         if isinstance(result, tuple):
             event, expiration_ms = result
         else:
             event, expiration_ms = result, None
-        
+
         # Publish with optional TTL
         self.publisher.publish(event, expiration_ms=expiration_ms)
-        
+
         # Mark as processed and commit
         # ... existing logic
 ```
@@ -1945,18 +1945,18 @@ def _should_retry_dlq_message(self, message) -> bool:
         # This is tricky - we don't know when message was published
         # RabbitMQ already checked expiration before sending to DLQ
         pass
-    
+
     # Check event type
     event = Event.model_validate_json(message.body)
-    
+
     # Notifications already expired if in DLQ (via per-message TTL)
     if event.event_type == EventType.GAME_REMINDER_DUE:
         return False  # Don't republish expired notifications
-    
+
     # Status transitions always republish
     if event.event_type == EventType.GAME_STATUS_TRANSITION_DUE:
         return True
-    
+
     return False
 ```
 
@@ -2020,7 +2020,7 @@ def _should_retry_dlq_message(self, message) -> bool:
     if 'x-death' in message.headers:
         death_info = message.headers['x-death'][0]
         reason = death_info.get('reason')
-        
+
         # If expired, check event type
         if reason == 'expired':
             event = Event.model_validate_json(message.body)
@@ -2030,7 +2030,7 @@ def _should_retry_dlq_message(self, message) -> bool:
             # Expired status transitions shouldn't happen (no TTL set)
             # But if they do, republish anyway
             return True
-        
+
         # If rejected (handler failure), check event type
         if reason == 'rejected':
             event = Event.model_validate_json(message.body)
@@ -2039,7 +2039,7 @@ def _should_retry_dlq_message(self, message) -> bool:
                 return True
             # Could republish notifications, but probably already stale
             return False
-    
+
     # No x-death header - shouldn't happen
     return False
 ```
@@ -2092,59 +2092,59 @@ def _should_retry_dlq_message(self, message) -> bool:
 ```python
 def _process_dlq_messages(self):
     """Consume from DLQ and republish all messages.
-    
+
     Simple approach: Republish everything without TTL.
     - Expired messages: Sat unconsumed until TTL elapsed (rare)
     - Rejected messages: Handler failed (common)
-    
+
     Per-message TTL resets on republish (relative to publish time).
     Bot handler checks game status before processing (defensive).
     """
     # Connect to DLQ
     connection = pika.BlockingConnection(pika.ConnectionParameters(host=self.rabbitmq_host))
     channel = connection.channel()
-    
+
     # Get queue depth first
     queue_state = channel.queue_declare(queue='dead_letter_queue', passive=True)
     message_count = queue_state.method.message_count
-    
+
     if message_count == 0:
         logger.debug("DLQ is empty, nothing to process")
         connection.close()
         return
-    
+
     logger.info(f"Processing {message_count} messages from DLQ")
-    
+
     processed = 0
     republished = 0
     discarded = 0
-    
+
     # Consume messages one at a time
     for method, properties, body in channel.consume('dead_letter_queue', auto_ack=False):
         try:
             # Parse event and republish (no x-death checking needed)
             event = Event.model_validate_json(body)
-            
+
             # Republish without TTL (bot handler checks staleness defensively)
             self.publisher.publish(event, expiration_ms=None)
             republished += 1
-            
+
             # ACK the DLQ message
             channel.basic_ack(method.delivery_tag)
             processed += 1
-            
+
             # Break if we've processed all messages
             if processed >= message_count:
                 break
-                
+
         except Exception as e:
             logger.error(f"Error processing DLQ message: {e}")
             # NACK without requeue - don't want to get stuck
             channel.basic_nack(method.delivery_tag, requeue=False)
-    
+
     channel.cancel()
     connection.close()
-    
+
     logger.info(f"DLQ processing: {republished} messages republished")
 ```
 

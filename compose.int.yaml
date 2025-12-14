@@ -1,7 +1,7 @@
 # Integration test overrides - use with --env-file env/env.integration
 # Tests service integration with infrastructure components
 #
-# Usage: 
+# Usage:
 #   Run all tests: ./scripts/run-integration-tests.sh
 #   Run specific test: ./scripts/run-integration-tests.sh tests/integration/test_retry_daemon.py -v
 #

@@ -167,16 +167,16 @@ The runtime config mechanism only applies to production Docker deployments.
 
 ### Overview
 
-The retry service is a dedicated daemon that processes Dead Letter Queues (DLQs) 
-for RabbitMQ messages that failed delivery. It runs independently from scheduler 
+The retry service is a dedicated daemon that processes Dead Letter Queues (DLQs)
+for RabbitMQ messages that failed delivery. It runs independently from scheduler
 daemons to provide clear ownership of retry logic and prevent duplicate processing.
 
 ### How It Works
 
-1. Messages that fail delivery (due to consumer errors, TTL expiry, or other issues) 
+1. Messages that fail delivery (due to consumer errors, TTL expiry, or other issues)
    are automatically routed to per-queue DLQs by RabbitMQ
 2. The retry service periodically checks all configured DLQs
-3. For each message in a DLQ, it extracts the original routing key from message 
+3. For each message in a DLQ, it extracts the original routing key from message
    headers and republishes to the primary queue
 4. Successfully republished messages are ACKed (removed from DLQ)
 5. Messages that fail to republish are NACKed and remain in DLQ for next retry cycle

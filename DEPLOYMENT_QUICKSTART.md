@@ -249,7 +249,7 @@ The new architecture replaces the shared "DLQ" queue with per-queue DLQs:
    ```bash
    # Edit your production environment file
    nano env/env.prod.local
-   
+
    # Add retry service interval (optional, defaults to 900 seconds)
    RETRY_INTERVAL_SECONDS=900
    ```
@@ -267,7 +267,7 @@ The new architecture replaces the shared "DLQ" queue with per-queue DLQs:
    ```bash
    # For production
    docker compose --env-file env/env.prod.local down
-   
+
    # For development
    docker compose down
    ```
@@ -380,4 +380,3 @@ If you need to rollback to the old architecture:
 For detailed information on DLQ monitoring and troubleshooting, see:
 - [RUNTIME_CONFIG.md](RUNTIME_CONFIG.md#retry-service-dlq-processing) - Retry service configuration
 - `grafana-alloy/dashboards/README.md` - DLQ monitoring dashboard
-

@@ -223,7 +223,7 @@ corepack enable
 
 ### Installation Steps:
 1. Install fnm for Node version management
-2. Install Node.js 20 to match Docker environment  
+2. Install Node.js 20 to match Docker environment
 3. Use npm (included with Node.js) for dependency management
 4. Create `.nvmrc` or `.node-version` file to document version
 5. ESLint is already configured - no additional setup needed

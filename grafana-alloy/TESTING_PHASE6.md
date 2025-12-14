@@ -263,7 +263,7 @@ Root Span: scheduled.GameStatusSchedule
 
 ## Verification Results
 
-**Date**: ___________  
+**Date**: ___________
 **Tester**: ___________
 
 - [ ] Notification daemon initialization logged

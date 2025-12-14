@@ -57,4 +57,3 @@ None
 ### Deployment Notes
 
 This fix addresses critical runtime errors discovered by mypy analysis. All changes are backward compatible and do not require database migrations or configuration updates. The API service will start successfully without AttributeError when accessing games with role restrictions. Future type errors will now fail CI builds, preventing similar issues from reaching production.
-

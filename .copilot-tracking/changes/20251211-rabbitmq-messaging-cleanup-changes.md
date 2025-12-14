@@ -141,5 +141,3 @@ Fix DLQ exponential growth bug and remove unused RabbitMQ queues by implementing
 3. Rebuild and restart with old configuration
 
 **Critical Success Metric**: DLQ message count remains stable and clears within retry interval (no exponential growth observed)
-
-

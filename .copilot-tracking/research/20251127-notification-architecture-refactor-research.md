@@ -9,7 +9,7 @@
   - Iterates through each participant individually (lines 106-130)
   - Creates one Celery task per participant per reminder time
   - Tracks notifications with Redis keys like `{game_id}_{user_id}_{reminder_min}`
-  
+
 - **services/scheduler/tasks/send_notification.py**
   - Receives individual participant notification task
   - Queries database for both game and user

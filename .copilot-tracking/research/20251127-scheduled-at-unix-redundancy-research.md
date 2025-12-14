@@ -170,7 +170,7 @@ event_data = SomeEvent(
 
 ## Implementation Guidance
 
-- **Objectives**: 
+- **Objectives**:
   - Remove redundant `scheduled_at_unix` field from all schemas
   - Compute Unix timestamps only where needed for Discord/events
   - Maintain all existing functionality with cleaner data model
@@ -182,7 +182,7 @@ event_data = SomeEvent(
   4. Update frontend TypeScript types
   5. Update all test fixtures and assertions
 
-- **Dependencies**: 
+- **Dependencies**:
   - No external dependencies required
   - Changes are backward compatible at API level (field removal)
   - Frontend already doesn't use the field

@@ -275,7 +275,7 @@ async def get_guild_data(
 ):
     # ALWAYS verify guild membership first
     await permissions.verify_guild_membership(guild_id, current_user, db)
-    
+
     # Now safe to return guild data
     return await fetch_guild_data(guild_id)
 ```

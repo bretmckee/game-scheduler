@@ -87,4 +87,3 @@ aggregation using OpenTelemetry with Grafana Cloud as the observability backend.
 
 - N/A - No postgres-exporter service found to remove (Task 2.4 verification
   confirmed no redundant service exists)
-

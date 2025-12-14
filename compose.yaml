@@ -1,5 +1,5 @@
 # Production-ready base configuration
-# 
+#
 # This file contains complete service definitions for all environments.
 # Use --env-file to specify environment-specific configuration.
 #

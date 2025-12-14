@@ -27,7 +27,7 @@ docker logs gamebot-bot | grep "OpenTelemetry"
 
 # Expected output:
 # INFO - OpenTelemetry tracing initialized
-# INFO - OpenTelemetry metrics initialized  
+# INFO - OpenTelemetry metrics initialized
 # INFO - OpenTelemetry logging initialized
 ```
 

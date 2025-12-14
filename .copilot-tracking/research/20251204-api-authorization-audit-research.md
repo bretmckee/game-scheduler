@@ -92,7 +92,7 @@ The API uses a three-tier authorization model:
 | /sync | POST | get_current_user | Syncs user's guilds |
 | /{guild_id}/validate-mention | POST | get_current_user | Validates @mention |
 
-**Analysis**: 
+**Analysis**:
 - ✅ Configuration endpoints properly require MANAGE_GUILD permission
 - ✅ Read-only endpoints verify guild membership via Discord API
 - ✅ Sync operation only affects user's own guilds
@@ -173,7 +173,7 @@ The API uses a three-tier authorization model:
 **File**: services/api/routes/templates.py
 **Endpoint**: GET /api/v1/templates/{template_id}
 **Issue**: No permission check - any authenticated user can view any template
-**Impact**: 
+**Impact**:
 - Exposes template configuration to unauthorized users
 - Reveals role IDs configured for templates
 - Information disclosure of guild configuration
@@ -307,7 +307,7 @@ Fix all 4 critical endpoints directly in route files without helper functions:
 
 **Template Routes** (services/api/routes/templates.py) - 6 endpoints with duplicated code:
 ```python
-# Repeated in: create_template, update_template, delete_template, 
+# Repeated in: create_template, update_template, delete_template,
 # set_default_template, reorder_templates, list_templates (admin check)
 role_service = roles_module.get_role_service()
 has_permission = await role_service.check_bot_manager_permission(
@@ -507,7 +507,7 @@ Middleware is appropriate for the existing AuthorizationMiddleware (logging) but
 
 ✅ All endpoints use 404 (not 403) for non-member access
 ✅ Guild Endpoints - Verified guild membership checks in place
-✅ Channel Endpoints - Verified guild membership checks in place  
+✅ Channel Endpoints - Verified guild membership checks in place
 ✅ Template Endpoints - All routes check guild membership or use role filtering
 ✅ Game Endpoints - All routes check guild membership and player roles
 ✅ Export Endpoints - Verified using can_export_game with guild membership check
@@ -613,12 +613,12 @@ The codebase now follows consistent authorization patterns with centralized help
 
 ## Implementation Guidance
 
-- **Objectives**: 
+- **Objectives**:
   1. Enforce proper authorization on all API endpoints ✅ COMPLETED
   2. Prevent unauthorized access to resources ✅ COMPLETED
   3. Prevent information disclosure about guilds user isn't member of ✅ COMPLETED
   4. Use appropriate HTTP status codes (404 vs 403) ✅ COMPLETED
-- **Key Tasks**: 
+- **Key Tasks**:
   1. Add guild membership check to template detail endpoint (return 404 if not member) ✅ COMPLETED
   2. Filter game list by guild membership AND player role restrictions ✅ COMPLETED
   3. Add guild membership check to game detail endpoint (return 404 if not member) ✅ COMPLETED
@@ -627,17 +627,15 @@ The codebase now follows consistent authorization patterns with centralized help
   6. Refactor 6 template endpoints to use require_bot_manager dependency ✅ COMPLETED
   7. Audit all endpoints for information leakage ✅ COMPLETED
   8. Add comprehensive authorization tests including negative tests ⚠️ PARTIAL (unit tests exist)
-- **Dependencies**: 
+- **Dependencies**:
   - RoleVerificationService for role checks ✅ Used throughout
   - Discord API (via oauth2.get_user_guilds) for guild membership verification ✅ Used throughout
   - Template model for role restriction data ✅ Used in game authorization
   - Proper HTTP status code usage (404 vs 403) ✅ Implemented correctly
-- **Success Criteria**: 
+- **Success Criteria**:
   - All endpoints enforce proper authorization ✅ VERIFIED
   - No information disclosure vulnerabilities ✅ VERIFIED
   - Users cannot discover existence of guilds they don't belong to ✅ VERIFIED
   - 404 used appropriately to prevent information leakage ✅ VERIFIED
   - Authorization tests pass (both positive and negative cases) ⚠️ Unit tests pass, integration tests recommended
   - No unauthorized access possible via API ✅ VERIFIED
-
-

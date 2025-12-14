@@ -43,9 +43,7 @@ export const TemplateCard: FC<TemplateCardProps> = ({
 }) => {
   const getRoleNames = (roleIds: string[] | null | undefined): string => {
     if (!roleIds || roleIds.length === 0) return 'None';
-    return roleIds
-      .map((id) => roles.find((r) => r.id === id)?.name || 'Unknown')
-      .join(', ');
+    return roleIds.map((id) => roles.find((r) => r.id === id)?.name || 'Unknown').join(', ');
   };
   return (
     <Card sx={{ mb: 2 }}>
@@ -107,7 +105,8 @@ export const TemplateCard: FC<TemplateCardProps> = ({
               </Typography>
 
               <Typography variant="body2">
-                <strong>Allowed Player Roles:</strong> {getRoleNames(template.allowed_player_role_ids)}
+                <strong>Allowed Player Roles:</strong>{' '}
+                {getRoleNames(template.allowed_player_role_ids)}
               </Typography>
 
               <Typography variant="body2">

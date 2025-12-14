@@ -698,10 +698,10 @@ Summarized conversation history---
 
 The research document has been fully updated with the UTC-only timezone strategy. All sections now reflect:
 
-✅ **UTC-only storage** in PostgreSQL TIMESTAMPTZ columns  
-✅ **Discord native timestamps** (`<t:unix_timestamp:F>` and `<t:unix_timestamp:R>`)  
-✅ **Browser automatic timezone** handling with JavaScript Date objects  
-✅ **No manual timezone conversion** libraries needed (removed pytz/zoneinfo)  
+✅ **UTC-only storage** in PostgreSQL TIMESTAMPTZ columns
+✅ **Discord native timestamps** (`<t:unix_timestamp:F>` and `<t:unix_timestamp:R>`)
+✅ **Browser automatic timezone** handling with JavaScript Date objects
+✅ **No manual timezone conversion** libraries needed (removed pytz/zoneinfo)
 ✅ **Unix timestamps in events** for Discord formatting
 
 **Research Document**: 20251114-discord-game-scheduling-system-research.md

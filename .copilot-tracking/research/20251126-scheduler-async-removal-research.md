@@ -9,13 +9,13 @@
   - Uses AsyncSession for database queries
   - Uses async RabbitMQ publisher (aio_pika) for Celery task scheduling
   - Sequential operations in loops (no concurrent I/O)
-  
+
 - `services/scheduler/tasks/update_game_status.py`
   - Celery task wraps async function with event loop management
   - Uses AsyncSession for database queries
   - Uses async EventPublisher for RabbitMQ messaging
   - Sequential status updates (no parallelism)
-  
+
 - `services/scheduler/tasks/send_notification.py`
   - Celery task wraps async function with event loop management
   - Uses AsyncSession for single database lookups
@@ -127,7 +127,7 @@ This pattern:
   async with database.get_db_session() as db:
       result = await db.execute(select(Game))
       games = result.scalars().all()
-  
+
   # Synchronous equivalent
   with database.get_db_session() as db:
       result = db.execute(select(Game))
@@ -145,7 +145,7 @@ This pattern:
   await publisher.connect()
   await publisher.publish(event)
   await publisher.close()
-  
+
   # Synchronous equivalent
   publisher = EventPublisher()
   publisher.connect()
@@ -163,11 +163,11 @@ This pattern:
   def check_notifications():
       loop = asyncio.new_event_loop()
       return loop.run_until_complete(_check_async())
-  
+
   async def _check_async():
       async with get_db_session() as db:
           # ... async operations
-  
+
   # Synchronous pattern
   @app.task
   def check_notifications():
@@ -284,7 +284,7 @@ This pattern:
 
 **Task Files:**
 - [ ] `tasks/check_notifications.py` - Remove async, update to sync
-- [ ] `tasks/update_game_status.py` - Remove async, update to sync  
+- [ ] `tasks/update_game_status.py` - Remove async, update to sync
 - [ ] `tasks/send_notification.py` - Remove async, update to sync
 - [ ] `services/notification_service.py` - Convert to sync
 

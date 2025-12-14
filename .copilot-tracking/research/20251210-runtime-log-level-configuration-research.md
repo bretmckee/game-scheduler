@@ -10,7 +10,7 @@
   - No command-line argument parsing present
 - `services/bot/main.py`
   - Similar pattern: reads `config.log_level` from BotConfig (pydantic)
-  - Calls `setup_logging(config.log_level)` 
+  - Calls `setup_logging(config.log_level)`
   - No command-line argument parsing present
 - `services/scheduler/notification_daemon_wrapper.py` and `status_transition_daemon_wrapper.py`
   - Use `os.getenv("LOG_LEVEL", "INFO")` directly
@@ -58,7 +58,7 @@ def setup_logging(log_level: str) -> None:
 
 ### Environment Variable Support
 - API service: `APIConfig.log_level` from `LOG_LEVEL` env var (default: "INFO")
-- Bot service: `BotConfig.log_level` from `LOG_LEVEL` env var (default: "INFO")  
+- Bot service: `BotConfig.log_level` from `LOG_LEVEL` env var (default: "INFO")
 - Scheduler daemons: `os.getenv("LOG_LEVEL", "INFO")` directly
 - Docker compose: `LOG_LEVEL: ${LOG_LEVEL:-INFO}` with fallback
 
@@ -89,11 +89,11 @@ import sys
 def create_argument_parser(prog_name: str, description: str) -> argparse.ArgumentParser:
     """
     Create argument parser with log level option.
-    
+
     Args:
         prog_name: Program name for help display
         description: Program description
-        
+
     Returns:
         Configured ArgumentParser instance
     """
@@ -102,14 +102,14 @@ def create_argument_parser(prog_name: str, description: str) -> argparse.Argumen
         description=description,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    
+
     parser.add_argument(
         "--log-level",
         "-l",
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
         help="Set logging level (overrides LOG_LEVEL environment variable)",
     )
-    
+
     return parser
 
 def get_log_level(
@@ -119,30 +119,30 @@ def get_log_level(
 ) -> str:
     """
     Determine log level from CLI args, environment, or default.
-    
+
     Priority: CLI argument > Environment variable > Default
-    
+
     Args:
         cli_log_level: Log level from command-line argument (None if not provided)
         env_var_name: Environment variable name to check
         default: Default log level if neither CLI nor env var provided
-        
+
     Returns:
         Log level string (uppercase)
     """
     if cli_log_level is not None:
         return cli_log_level.upper()
-    
+
     env_level = os.getenv(env_var_name)
     if env_level is not None:
         return env_level.upper()
-    
+
     return default.upper()
 
 def setup_logging(log_level: str) -> None:
     """
     Configure logging for the application.
-    
+
     Args:
         log_level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
     """
@@ -160,17 +160,17 @@ async def main() -> None:
         description="Discord Game Scheduler API Service"
     )
     args = parser.parse_args()
-    
+
     # Load config (existing code)
     config = get_api_config()
-    
+
     # Determine log level: CLI > Config (env var) > default
     log_level = get_log_level(
         cli_log_level=args.log_level,
         env_var_name="LOG_LEVEL",
         default=config.log_level,  # Config already has env var or default
     )
-    
+
     setup_logging(log_level)
     # ... rest of main()
 ```
@@ -254,7 +254,7 @@ uv run python -m services.api.main --log-level DEBUG
   - Already uses `env()` for other config (endpoints, credentials)
   - Logging config at lines 12-16
 
-#### Docker Configuration  
+#### Docker Configuration
 - File: `docker-compose.base.yml`
   - Service: `grafana-alloy`
   - Currently no LOG_LEVEL or ALLOY_LOG_LEVEL environment variable

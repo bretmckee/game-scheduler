@@ -151,4 +151,3 @@ Phase 5 (Remove Celery Infrastructure) is complete:
 3. **No Data Migration Needed**: Status transitions are ephemeral (recalculated from game.scheduled_at)
 4. **Backward Compatibility**: All existing game reminder functionality unchanged
 5. **Testing**: All integration tests pass (6/6 status transition tests, 100% success rate)
-

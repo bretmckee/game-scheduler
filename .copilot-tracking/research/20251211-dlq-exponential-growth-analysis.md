@@ -20,7 +20,7 @@ This document outlines a comprehensive cleanup of the RabbitMQ messaging archite
 1. **Message TTL Expiry** (`shared/messaging/infrastructure.py` lines 58-75):
    ```python
    PRIMARY_QUEUE_TTL_MS = 3600000  # 1 hour in milliseconds
-   
+
    QUEUE_ARGUMENTS_MAP: dict[str, dict[str, str | int]] = {
        QUEUE_BOT_EVENTS: {
            "x-dead-letter-exchange": DLX_EXCHANGE,
@@ -97,7 +97,7 @@ await self._channel.set_qos(prefetch_count=10)
 **Discovery from daemon logs**: TWO separate daemons were both configured to process the SAME shared DLQ.
 
 **Evidence**:
-- `notification_daemon_wrapper.py`: `process_dlq=True` 
+- `notification_daemon_wrapper.py`: `process_dlq=True`
 - `status_transition_daemon_wrapper.py`: `process_dlq=True`
 - Both daemons running on different schedules (45min offset)
 - Both processing queue named "DLQ"
@@ -107,27 +107,27 @@ await self._channel.set_qos(prefetch_count=10)
 1. **10:30 AM**: Notification daemon processes DLQ with 10 messages
    - Republishes all 10 messages to primary queues
    - ACKs all 10 from DLQ (removes them)
-   
+
 2. **10:30-11:15**: Republished messages re-enter DLQ somehow (original cause unknown)
    - Now DLQ has ~10 messages again
 
 3. **11:15 AM**: Status transition daemon ALSO processes DLQ with ~10 messages
    - Republishes all 10 messages AGAIN
    - ACKs all 10 from DLQ
-   
+
 4. **11:15-11:30**: Now ~20 messages re-enter DLQ (10 from step 2 + 10 from step 3)
 
 5. **11:30 AM**: Notification daemon processes again with ~20 messages
    - Republishes all 20
    - Next cycle: ~40 messages
-   
+
 **Result**: Each daemon cycle DOUBLES the message count by republishing messages that the other daemon already republished.
 
 **Daemon Processing Timeline from Logs**:
 ```
 10:30 - 10 messages
 11:15 - 38 messages (3.8x growth)
-11:30 - 18 messages  
+11:30 - 18 messages
 12:15 - 70 messages (3.9x growth from 11:30)
 12:30 - 34 messages
 ```
@@ -143,12 +143,12 @@ processed_hashes = set()
 
 for method, _properties, body in channel.consume("DLQ", auto_ack=False):
     msg_hash = hashlib.sha256(body).hexdigest()
-    
+
     if msg_hash in processed_hashes:
         logger.warning(f"Skipping duplicate message: {msg_hash[:8]}")
         channel.basic_ack(method.delivery_tag)
         continue
-    
+
     # Republish logic...
     processed_hashes.add(msg_hash)
 ```
@@ -183,9 +183,9 @@ MAX_DLQ_RETRIES_PER_BOOT = 3
 def _should_process_dlq(self):
     if self.dlq_retry_count >= MAX_DLQ_RETRIES_PER_BOOT:
         return False
-    
+
     # Exponential backoff: 5min, 15min, 45min
-    backoff = 300 * (3 ** self.dlq_retry_count)  
+    backoff = 300 * (3 ** self.dlq_retry_count)
     return (time.time() - self.last_dlq_check) >= backoff
 ```
 
@@ -203,11 +203,11 @@ def _should_process_dlq(self):
 def run(self, shutdown_requested, max_timeout: int = 900) -> None:
     try:
         self.connect()
-        
+
         # Process DLQ once on startup
         if self.process_dlq:
             self._process_dlq_messages()
-        
+
         # Rest of daemon loop (no periodic DLQ processing)
         while not shutdown_requested():
             # ... existing logic WITHOUT dlq_check_interval ...
@@ -282,14 +282,14 @@ seen_message_ids = set()
 
 for method, properties, body in channel.consume("DLQ", auto_ack=False):
     event = Event.model_validate_json(body)
-    
+
     # Check if we've already processed this exact message
     message_id = properties.message_id
     if message_id and message_id in seen_message_ids:
         logger.info(f"Skipping duplicate DLQ message: {message_id}")
         channel.basic_ack(method.delivery_tag)
         continue
-    
+
     # Republish...
     if message_id:
         seen_message_ids.add(message_id)
@@ -306,7 +306,7 @@ for method, properties, body in channel.consume("DLQ", auto_ack=False):
 **Changes**:
 1. Remove periodic DLQ check (lines 136-138)
 2. Update docstring to clarify DLQ processed only on startup
-3. Remove `dlq_check_interval` parameter (no longer needed)  
+3. Remove `dlq_check_interval` parameter (no longer needed)
 4. Remove `last_dlq_check` instance variable
 
 **Impact**:
@@ -329,7 +329,7 @@ From configuration:
 **What's happening**:
 1. Messages fail and go to single shared DLQ queue
 2. **Notification daemon** processes DLQ every ~45 minutes, republishes all messages, ACKs them
-3. **Status transition daemon** processes same DLQ every ~15 minutes, republishes all messages, ACKs them  
+3. **Status transition daemon** processes same DLQ every ~15 minutes, republishes all messages, ACKs them
 4. **Same messages republished by BOTH daemons** → duplicates created
 5. Duplicates fail → go back to DLQ
 6. Exponential growth!
@@ -360,7 +360,7 @@ Since the DLQ contains messages from BOTH daemons (notifications + status transi
 # notification_daemon_wrapper.py
 process_dlq=True
 
-# status_transition_daemon_wrapper.py  
+# status_transition_daemon_wrapper.py
 process_dlq=False  # ← CHANGE THIS
 ```
 
@@ -393,7 +393,7 @@ process_dlq=True
 - **bot_events**: Consumed by bot service
   - Routing keys: `game.*` (all game events)
   - Handlers: game.created, game.updated, game.reminder_due, game.status_transition_due, player.removed
-- **notification_queue**: Consumed by bot service  
+- **notification_queue**: Consumed by bot service
   - Routing keys: `notification.send_dm`
   - Used for direct message notifications
 - **api_events**: **NO CONSUMERS** (placeholder for future API consumption)
@@ -537,7 +537,7 @@ rabbitmqctl set_policy qq-overrides \
 
 **Decision**: Implement Option 3 (Dedicated Retry Service) to:
 1. Fix DLQ exponential growth bug
-2. Remove unused queues (scheduler_events, api_events) 
+2. Remove unused queues (scheduler_events, api_events)
 3. Establish clear ownership for retry logic
 4. Simplify daemon responsibilities
 
@@ -622,7 +622,7 @@ notification_queue --> Bot (consumes)
 notification_queue.dlq
   |
   v (NO PROCESSING - accumulates messages)
-  
+
 Notification Daemon
   |
   v (publishes game.reminder_due)
@@ -636,7 +636,7 @@ bot_events.dlq
 
 Status Transition Daemon
   |
-  v (publishes game.status_transition_due)  
+  v (publishes game.status_transition_due)
 bot_events --> Bot (consumes)
   |
   v (TTL expiry or NACK)
@@ -644,7 +644,7 @@ bot_events.dlq
   |
   v (status_transition_daemon processes - DUPLICATE)
   republish to bot_events
-  
+
 RESULT: Exponential growth from duplicate processing
 ```
 
@@ -708,7 +708,7 @@ Queues (Active):
     - TTL: 1 hour
     - DLX: game_scheduler.dlx
     - consumer: bot service
-    
+
   notification_queue
     - bindings: notification.send_dm
     - TTL: 1 hour
@@ -720,7 +720,7 @@ Dead Letter Queues:
     - bound to: game_scheduler.dlx
     - no TTL (infinite retention)
     - processor: retry service
-    
+
   notification_queue.dlq
     - bound to: game_scheduler.dlx
     - no TTL (infinite retention)
@@ -761,7 +761,7 @@ API ---------> notification_queue ---------> Bot
                      |
                      v (every 15 min)
                [Retry Service] -----> republish to notification_queue
-               
+
 Daemons               Primary Queues         Consumers
 -------               --------------         ---------
 notification_daemon -> bot_events ---------> Bot
@@ -807,65 +807,65 @@ logger = logging.getLogger(__name__)
 
 class RetryDaemon:
     """Processes DLQs and republishes messages with backoff."""
-    
+
     def __init__(self, retry_interval_seconds: int = 900):
         """
         Initialize retry daemon.
-        
+
         Args:
             retry_interval_seconds: How often to check DLQs (default 15 min)
         """
         self.retry_interval = retry_interval_seconds
         self.publisher = SyncPublisher()
-        
+
         # Map DLQ to primary queue for republishing
         self.dlq_mappings = {
             QUEUE_BOT_EVENTS_DLQ: QUEUE_BOT_EVENTS,
             QUEUE_NOTIFICATION_DLQ: QUEUE_NOTIFICATION,
         }
-    
+
     def run(self, shutdown_requested):
         """Main daemon loop."""
         self.publisher.connect()
-        
+
         try:
             while not shutdown_requested():
                 for dlq_name, primary_queue in self.dlq_mappings.items():
                     self._process_dlq(dlq_name, primary_queue)
-                
+
                 time.sleep(self.retry_interval)
         finally:
             self.publisher.close()
-    
+
     def _process_dlq(self, dlq_name: str, primary_queue: str):
         """Process messages from one DLQ."""
         channel = self.publisher._channel
-        
+
         # Count messages without consuming
         queue_state = channel.queue_declare(
-            queue=dlq_name, 
-            passive=True, 
+            queue=dlq_name,
+            passive=True,
             durable=True
         )
         message_count = queue_state.method.message_count
-        
+
         if message_count == 0:
             return
-        
+
         logger.info(f"Processing {message_count} messages from {dlq_name}")
-        
+
         processed = 0
         for method, properties, body in channel.consume(
-            dlq_name, 
+            dlq_name,
             inactivity_timeout=5
         ):
             if method is None:
                 break
-            
+
             try:
                 # Extract routing key from original message
                 routing_key = self._get_routing_key(properties)
-                
+
                 # Republish to primary queue via main exchange
                 self.publisher.publish_raw(
                     exchange=MAIN_EXCHANGE,
@@ -873,11 +873,11 @@ class RetryDaemon:
                     body=body,
                     properties=properties,
                 )
-                
+
                 # ACK after successful republish
                 channel.basic_ack(method.delivery_tag)
                 processed += 1
-                
+
             except Exception as e:
                 logger.error(
                     f"Failed to republish message from {dlq_name}: {e}",
@@ -885,9 +885,9 @@ class RetryDaemon:
                 )
                 # NACK without requeue - message stays in DLQ for next cycle
                 channel.basic_nack(method.delivery_tag, requeue=True)
-        
+
         logger.info(f"Republished {processed} messages from {dlq_name}")
-    
+
     def _get_routing_key(self, properties) -> str:
         """Extract original routing key from message headers."""
         if properties.headers and "x-death" in properties.headers:
@@ -895,7 +895,7 @@ class RetryDaemon:
             deaths = properties.headers["x-death"]
             if deaths and len(deaths) > 0:
                 return deaths[0].get("routing-keys", [None])[0]
-        
+
         # Fallback to message routing key
         return properties.routing_key or "unknown"
 ```
@@ -953,7 +953,7 @@ daemon = GenericSchedulerDaemon(
     process_dlq=False,  # ← Remove DLQ processing
 )
 
-# services/scheduler/status_transition_daemon_wrapper.py  
+# services/scheduler/status_transition_daemon_wrapper.py
 daemon = GenericSchedulerDaemon(
     # ... other config ...
     process_dlq=False,  # ← Remove DLQ processing
@@ -1004,4 +1004,3 @@ QUEUE_BINDINGS = [
 - One additional service to deploy and monitor
 - ~100 lines of new code for retry service
 - Simpler overall architecture (removes complexity from daemons)
-

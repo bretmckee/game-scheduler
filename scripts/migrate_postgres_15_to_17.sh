@@ -1,6 +1,6 @@
 #!/bin/bash
 # PostgreSQL 15 to 17 Migration Script
-# 
+#
 # This script performs a safe migration of PostgreSQL data from version 15 to 17.
 # It uses pg_dump/pg_restore to ensure data compatibility across major versions.
 #
@@ -87,15 +87,15 @@ docker run --rm \
         # Start PostgreSQL temporarily
         docker-entrypoint.sh postgres &
         PG_PID=\$!
-        
+
         # Wait for PostgreSQL to be ready
         until pg_isready -U $POSTGRES_USER -d $POSTGRES_DB; do
             sleep 1
         done
-        
+
         # Create backup
         pg_dump -U $POSTGRES_USER -d $POSTGRES_DB -F p -f /backup/postgres_15_backup_${TIMESTAMP}.sql
-        
+
         # Stop PostgreSQL
         kill \$PG_PID
         wait \$PG_PID 2>/dev/null || true
@@ -144,15 +144,15 @@ docker run --rm \
         # Initialize and start PostgreSQL
         docker-entrypoint.sh postgres &
         PG_PID=\$!
-        
+
         # Wait for PostgreSQL to be ready
         until pg_isready -U $POSTGRES_USER -d $POSTGRES_DB; do
             sleep 1
         done
-        
+
         # Restore backup
         psql -U $POSTGRES_USER -d $POSTGRES_DB -f /backup/postgres_15_backup_${TIMESTAMP}.sql
-        
+
         # Stop PostgreSQL
         kill \$PG_PID
         wait \$PG_PID 2>/dev/null || true
@@ -181,10 +181,10 @@ docker exec "${CONTAINER_PREFIX}-postgres-verify" \
 
 docker exec "${CONTAINER_PREFIX}-postgres-verify" \
     psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "
-        SELECT 
+        SELECT
             schemaname,
             tablename
-        FROM pg_tables 
+        FROM pg_tables
         WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
         ORDER BY schemaname, tablename;
     " > "$BACKUP_DIR/postgres_17_tables_${TIMESTAMP}.txt"

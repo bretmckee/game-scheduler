@@ -93,7 +93,7 @@ The commit made significant authorization improvements:
 
 **Root Cause**: `create_game` now requires `role_service` mock and calls `check_game_host_permission` with new parameters.
 
-**Fix Strategy**: 
+**Fix Strategy**:
 - Add `role_service` mock to test fixtures
 - Mock `role_service.check_game_host_permission` to return True for valid tests
 - Update test setup to provide proper mocking infrastructure

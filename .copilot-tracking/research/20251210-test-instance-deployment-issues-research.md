@@ -245,7 +245,7 @@ real_participants = [p for p in game.participants if p.user_id and p.user]
 for participant in confirmed_participants:
     await self._send_reminder_dm(...)
 
-# Sends reminders to waitlist participants  
+# Sends reminders to waitlist participants
 for participant in overflow_participants:
     await self._send_reminder_dm(...)
 
@@ -463,9 +463,9 @@ return format_game_announcement(
 
 **Current Behavior** (Verified via database inspection):
 ```sql
-SELECT gs.id, gs.title, gs.status, gs.expected_duration_minutes, 
-       gss.target_status, gss.transition_time, gss.executed 
-FROM game_sessions gs 
+SELECT gs.id, gs.title, gs.status, gs.expected_duration_minutes,
+       gss.target_status, gss.transition_time, gss.executed
+FROM game_sessions gs
 LEFT JOIN game_status_schedule gss ON gs.id = gss.game_id;
 
 -- Result: ALL games only have ONE schedule entry with target_status='IN_PROGRESS'
@@ -526,12 +526,12 @@ if game.status == game_model.GameStatus.SCHEDULED.value:
         executed=False,
     )
     self.db.add(status_schedule)
-    
+
     # NEW: Create COMPLETED transition
     DEFAULT_GAME_DURATION_MINUTES = 60  # Default to 1 hour
     duration_minutes = expected_duration_minutes or DEFAULT_GAME_DURATION_MINUTES
     completion_time = game.scheduled_at + timedelta(minutes=duration_minutes)
-    
+
     completion_schedule = game_status_schedule_model.GameStatusSchedule(
         id=str(uuid.uuid4()),
         game_id=game.id,
@@ -555,7 +555,7 @@ if status_schedule_needs_update:
         )
     )
     status_schedules = status_schedule_result.scalars().all()
-    
+
     if game.status == game_model.GameStatus.SCHEDULED.value:
         # Find or create IN_PROGRESS schedule
         in_progress_schedule = next(
@@ -567,7 +567,7 @@ if status_schedule_needs_update:
         else:
             # Create new IN_PROGRESS schedule (existing code)
             ...
-        
+
         # Find or create COMPLETED schedule
         completed_schedule = next(
             (s for s in status_schedules if s.target_status == "COMPLETED"), None
@@ -575,7 +575,7 @@ if status_schedule_needs_update:
         DEFAULT_GAME_DURATION_MINUTES = 60
         duration_minutes = game.expected_duration_minutes or DEFAULT_GAME_DURATION_MINUTES
         completion_time = game.scheduled_at + timedelta(minutes=duration_minutes)
-        
+
         if completed_schedule:
             completed_schedule.transition_time = completion_time
             completed_schedule.executed = False
@@ -592,7 +592,7 @@ if status_schedule_needs_update:
 1. **`services/api/services/games.py`**:
    - `create_game()` method (line ~240-249): Add COMPLETED schedule creation
    - `update_game()` method (line ~556-591): Handle both IN_PROGRESS and COMPLETED schedules
-   
+
 2. **Configuration** (new constant):
    - Add `DEFAULT_GAME_DURATION_MINUTES = 60` constant
    - Could be in `shared/models/game.py` or separate config file
@@ -614,7 +614,7 @@ if status_schedule_needs_update:
 ```sql
 -- Find all IN_PROGRESS games without COMPLETED schedule
 INSERT INTO game_status_schedule (id, game_id, target_status, transition_time, executed)
-SELECT 
+SELECT
     gen_random_uuid(),
     gs.id,
     'COMPLETED',
@@ -623,7 +623,7 @@ SELECT
 FROM game_sessions gs
 WHERE gs.status = 'IN_PROGRESS'
 AND NOT EXISTS (
-    SELECT 1 FROM game_status_schedule gss 
+    SELECT 1 FROM game_status_schedule gss
     WHERE gss.game_id = gs.id AND gss.target_status = 'COMPLETED'
 );
 ```
@@ -690,21 +690,21 @@ def main() -> None:
     """Main initialization entry point."""
     # Initialize telemetry first
     init_telemetry("init-service")
-    
+
     tracer = trace.get_tracer(__name__)
-    
+
     print("=== RabbitMQ Infrastructure Initialization ===")
-    
+
     with tracer.start_as_current_span("init.rabbitmq") as span:
         rabbitmq_url = os.getenv("RABBITMQ_URL")
         if not rabbitmq_url:
             span.set_status(trace.Status(trace.StatusCode.ERROR, "RABBITMQ_URL not set"))
             print("✗ RABBITMQ_URL environment variable not set")
             sys.exit(1)
-        
+
         print("Waiting for RabbitMQ...")
         wait_for_rabbitmq(rabbitmq_url)
-        
+
         print("Creating RabbitMQ infrastructure...")
         try:
             create_infrastructure(rabbitmq_url)
@@ -800,15 +800,15 @@ services:
   postgres:
     image: postgres:17-alpine
     # ... no logging: section
-    
+
   rabbitmq:
     image: rabbitmq:4.2-management-alpine
     # ... no logging: section
-    
+
   redis:
     image: redis:7.4-alpine
     # ... no logging: section
-    
+
   grafana-alloy:
     image: grafana/alloy:latest
     # ... no logging: section
@@ -1042,19 +1042,19 @@ services:
     labels:
       service: "postgres"
       environment: "${ENVIRONMENT:-production}"
-      
+
   rabbitmq:
     logging: *logging-default
     labels:
       service: "rabbitmq"
       environment: "${ENVIRONMENT:-production}"
-      
+
   redis:
     logging: *logging-default
     labels:
       service: "redis"
       environment: "${ENVIRONMENT:-production}"
-      
+
   grafana-alloy:
     logging: *logging-default
     labels:
@@ -1074,7 +1074,7 @@ loki.source.docker "containers" {
 
 discovery.docker "containers" {
   host = "unix:///var/run/docker.sock"
-  
+
   filter {
     name   = "label"
     values = ["service"]  // Only collect containers with 'service' label
@@ -1083,9 +1083,9 @@ discovery.docker "containers" {
 
 loki.process "add_static_labels" {
   forward_to = [loki.write.grafana_cloud_loki.receiver]
-  
+
   stage.docker {}  // Parse Docker JSON logs
-  
+
   stage.labels {
     values = {
       service     = "",  // From Docker label

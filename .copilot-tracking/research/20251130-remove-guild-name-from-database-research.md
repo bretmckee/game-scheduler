@@ -2,7 +2,7 @@
 
 # Research: Remove guild_name from Database and Implement Fetch/Cache
 
-**Date**: 2025-11-30  
+**Date**: 2025-11-30
 **Task**: Remove `guild_name` column from `guild_configurations` table and fetch guild names dynamically from Discord API with caching
 
 ## Overview
@@ -32,7 +32,7 @@ op.create_table(
 ```python
 class GuildConfiguration(Base):
     __tablename__ = "guild_configurations"
-    
+
     guild_name: Mapped[str] = mapped_column(String(100), nullable=False)  # ← TO BE REMOVED
 ```
 
@@ -59,7 +59,7 @@ guild_name: str = Field(..., description="Discord guild name")
 - Passes `guild_name` to `GuildConfigResponse` constructor (Line 69, 75)
 
 **get_guild** (Lines 92-146):
-- Fetches guild names from `oauth2.get_user_guilds()` 
+- Fetches guild names from `oauth2.get_user_guilds()`
 - Passes `guild_name` to `GuildConfigResponse` (Line 136, 141)
 
 **create_guild_config** (Lines 149-197):
@@ -131,7 +131,7 @@ async def fetch_guild(self, guild_id: str) -> dict[str, Any]:
     url = f"{DISCORD_API_BASE}/guilds/{guild_id}"
 
     # ... fetch logic ...
-    
+
     # Cache successful result
     await redis.set(
         cache_key, json.dumps(response_data), ttl=ttl.CacheTTL.DISCORD_GUILD
@@ -217,10 +217,10 @@ def downgrade() -> None:
 
 1. **Create Alembic Migration** (016_remove_guild_name_column.py)
    - Drop `guild_name` column from `guild_configurations` table
-   
+
 2. **Update SQLAlchemy Model** (shared/models/guild.py)
    - Remove `guild_name: Mapped[str]` field
-   
+
 3. **Update Bot Commands** (services/bot/commands/config_guild.py)
    - Remove `guild_name` parameter from `_get_or_create_guild_config()`
    - Remove guild name fetch logic (lines 64-75)
@@ -236,7 +236,7 @@ def downgrade() -> None:
 
 **Current State**: All API routes already fetch guild names from Discord at runtime
 - `list_guilds()` - Uses `oauth2.get_user_guilds()` with caching
-- `get_guild()` - Uses `oauth2.get_user_guilds()` with caching  
+- `get_guild()` - Uses `oauth2.get_user_guilds()` with caching
 - `create_guild_config()` - Uses `oauth2.get_user_guilds()` with caching
 - `update_guild_config()` - Uses `oauth2.get_user_guilds()` with caching
 

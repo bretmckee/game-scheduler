@@ -128,12 +128,12 @@ None
 
 - **New Dependencies**: None
 - **Updated Dependencies**: None
-- **Infrastructure Changes**: 
+- **Infrastructure Changes**:
   - Base configuration now uses internal Docker network (app-network) exclusively for service communication
   - Infrastructure services (postgres, rabbitmq, redis) no longer expose ports to host in any environment
   - Observability services (grafana-alloy) collect telemetry via internal network without port exposure
   - Environment-specific port exposure: development (frontend, API, RabbitMQ UI), test (frontend, API only), production (none)
-- **Configuration Updates**: 
+- **Configuration Updates**:
   - Added port configuration variables to .env.example: API_HOST_PORT, FRONTEND_HOST_PORT, RABBITMQ_MGMT_HOST_PORT
   - Documented docker exec usage patterns for infrastructure service debugging
 
@@ -271,4 +271,3 @@ None
 - Direct localhost access to infrastructure services no longer available
 - Use `docker exec` for debugging (documented in .env.example and DOCKER_PORTS.md)
 - RabbitMQ management UI only exposed in development environment
-

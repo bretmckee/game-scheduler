@@ -13,7 +13,7 @@ sequenceDiagram
 
     User->>Frontend: Visit /login
     Frontend->>Frontend: Generate REDIRECT_URI<br/>(window.location.origin/auth/callback)
-    
+
     User->>Frontend: Click "Login with Discord"
     Frontend->>API: GET /api/v1/auth/login<br/>?redirect_uri=http://localhost:3000/auth/callback
     API->>API: Generate state token
@@ -21,25 +21,25 @@ sequenceDiagram
     API->>Frontend: Return authorization_url & state
     Frontend->>Frontend: Store state in sessionStorage
     Frontend->>User: Redirect to Discord OAuth URL
-    
+
     User->>Discord: Authorize application
     Discord->>Frontend: Redirect to /auth/callback<br/>?code=XXX&state=YYY
-    
+
     Frontend->>Frontend: Retrieve stored state<br/>from sessionStorage
     Frontend->>API: GET /api/v1/auth/callback<br/>?code=XXX&state=YYY<br/>(credentials: include)
-    
+
     API->>API: Validate state token<br/>(retrieve & delete from Redis)
     API->>Discord: POST /oauth2/token<br/>(exchange code for tokens)
     Discord->>API: Return access_token,<br/>refresh_token, expires_in
-    
+
     API->>Discord: GET /users/@me<br/>(using access_token)
     Discord->>API: Return user data (discord_id, etc)
-    
+
     API->>API: Find or create User<br/>in database
     API->>API: Store tokens in Redis<br/>(with session_token key)
     API->>Frontend: Set session_token cookie<br/>(httponly, secure, samesite=lax)
     API->>Frontend: Return {success: true}
-    
+
     Frontend->>API: GET /api/v1/auth/me<br/>(with session_token cookie)
     API->>Frontend: Return user info
     Frontend->>User: Navigate to home page<br/>(authenticated)

@@ -105,7 +105,7 @@ Integration tests would require complex Docker setup and Discord API mocking whi
 
 - **New Dependencies**: None - uses existing FastAPI, Discord OAuth2, SQLAlchemy, and pytest infrastructure
 - **Updated Dependencies**: None
-- **Infrastructure Changes**: 
+- **Infrastructure Changes**:
   - Centralized authorization logic in services/api/dependencies/permissions.py
   - Eliminated inline authorization code from all route handlers
   - Standardized 404 vs 403 response patterns across all endpoints
@@ -166,4 +166,3 @@ Integration tests would require complex Docker setup and Discord API mocking whi
 - **No Configuration Required**: Uses existing Discord OAuth2 and role verification infrastructure
 - **Immediate Security Benefits**: Deploy to fix critical authorization vulnerabilities
 - **Monitoring**: No new monitoring required - authorization failures logged via existing FastAPI error handling
-

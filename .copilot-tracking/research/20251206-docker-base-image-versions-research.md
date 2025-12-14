@@ -9,11 +9,11 @@
   - PostgreSQL: `postgres:15-alpine`
   - RabbitMQ: `rabbitmq:4.2-management-alpine`
   - Redis: `redis:7-alpine`
-  
+
 - `docker/frontend.Dockerfile`
   - Builder stage: `node:20-alpine`
   - Production stage: `nginx:1.25-alpine`
-  
+
 - `docker/api.Dockerfile`, `docker/bot.Dockerfile`, `docker/notification-daemon.Dockerfile`, `docker/status-transition-daemon.Dockerfile`, `docker/init.Dockerfile`, `docker/test.Dockerfile`
   - All use: `python:3.11-slim`
 
@@ -21,23 +21,23 @@
 - #fetch:https://hub.docker.com/_/python
   - Current versions: 3.14 (latest), 3.13, 3.12, 3.11
   - 3.11.14 is latest patch version
-  
+
 - #fetch:https://hub.docker.com/_/node
   - Current LTS versions: Node 24 (Krypton - Active LTS), Node 22 (Jod - Maintenance LTS), Node 20 (Iron - Maintenance LTS)
   - Node 20 is in Maintenance LTS phase until April 2026
-  
+
 - #fetch:https://hub.docker.com/_/postgres
   - Current versions: 18 (latest), 17, 16, 15, 14
   - PostgreSQL 15 supported until November 2027
-  
+
 - #fetch:https://hub.docker.com/_/rabbitmq
   - Current versions: 4.2 (latest), 4.1, 4.0, 3.13
   - RabbitMQ 4.2 is most recent
-  
+
 - #fetch:https://hub.docker.com/_/redis
   - Current versions: 8.4 (latest), 8.2, 8.0, 7.4, 7.2
   - Redis 7.4 is most recent in version 7 line
-  
+
 - #fetch:https://hub.docker.com/_/nginx
   - Current versions: 1.29 (mainline), 1.28 (stable)
   - Nginx 1.28 is stable branch

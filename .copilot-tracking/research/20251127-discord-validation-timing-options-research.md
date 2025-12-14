@@ -298,7 +298,7 @@ const handleBlur = (id: string, mention: string) => {
 2. **Eliminates Redundant Validation**: Current approach validates twice:
    - Preview validation during typing
    - Final resolution on submit
-   
+
 3. **Better Disambiguation Support**: Submit-time validation can show all matches with clickable suggestions, which is difficult in real-time UI
 
 4. **Reduces Server Load**: Zero API calls during form entry, all validation happens once

@@ -196,17 +196,17 @@ Current init container:
    import sys
    import time
    import pika
-   
+
    def wait_for_rabbitmq(rabbitmq_url, max_retries=30):
        """Wait for RabbitMQ to be ready."""
        # Connection retry logic
        pass
-   
+
    def create_infrastructure(rabbitmq_url):
        """Create exchanges, queues, and bindings."""
        connection = pika.BlockingConnection(pika.URLParameters(rabbitmq_url))
        channel = connection.channel()
-       
+
        # Declare exchanges
        channel.exchange_declare(
            exchange='game_scheduler',
@@ -218,7 +218,7 @@ Current init container:
            exchange_type='topic',
            durable=True
        )
-       
+
        # Declare queues with DLX configuration
        queues = ['bot_events', 'api_events', 'scheduler_events', 'notification_queue']
        for queue_name in queues:
@@ -230,15 +230,15 @@ Current init container:
                    'x-message-ttl': 86400000
                }
            )
-       
+
        # Declare DLQ
        channel.queue_declare(queue='DLQ', durable=True)
-       
+
        # Create bindings (routing keys)
        # ... bind queues to exchanges
-       
+
        connection.close()
-   
+
    if __name__ == '__main__':
        rabbitmq_url = os.getenv('RABBITMQ_URL')
        wait_for_rabbitmq(rabbitmq_url)
@@ -250,21 +250,21 @@ Current init container:
    ```bash
    #!/bin/bash
    set -e
-   
+
    echo "Starting infrastructure initialization..."
-   
+
    # Wait for PostgreSQL
    echo "Waiting for PostgreSQL..."
    python3 -c "import time; ..." # existing wait logic
-   
+
    # Run database migrations
    echo "Running database migrations..."
    alembic upgrade head
-   
+
    # Wait for RabbitMQ
    echo "Waiting for RabbitMQ..."
    python3 scripts/init_rabbitmq.py
-   
+
    echo "Infrastructure initialization complete"
    ```
 

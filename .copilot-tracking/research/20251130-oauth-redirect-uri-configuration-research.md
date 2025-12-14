@@ -97,7 +97,7 @@ await apiClient.get('/api/v1/auth/login', {
 **API Client Configuration**:
 ```typescript
 // client.ts
-const API_BASE_URL = 
+const API_BASE_URL =
   window.__RUNTIME_CONFIG__?.API_URL ||  // Runtime config from container
   import.meta.env.VITE_API_URL ||        // Build-time env var
   '';                                     // Fallback (proxy mode)

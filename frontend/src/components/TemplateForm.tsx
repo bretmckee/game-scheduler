@@ -64,7 +64,10 @@ export const TemplateForm: FC<TemplateFormProps> = ({
   onClose,
   onSubmit,
 }) => {
-  console.log('TemplateForm received:', { channelsCount: channels.length, rolesCount: roles.length });
+  console.log('TemplateForm received:', {
+    channelsCount: channels.length,
+    rolesCount: roles.length,
+  });
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [channelId, setChannelId] = useState('');

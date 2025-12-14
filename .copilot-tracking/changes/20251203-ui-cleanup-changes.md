@@ -37,4 +37,3 @@ Complete terminology consistency by changing remaining "Guild" user-facing text 
 
 - frontend/src/pages/HomePage.tsx - Removed obsolete HomePage component since MyGames is now the home screen
 - frontend/src/pages/ChannelConfig.tsx - Removed obsolete channel configuration page (channels now auto-created by system)
-

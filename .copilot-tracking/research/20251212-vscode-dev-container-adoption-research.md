@@ -272,7 +272,7 @@ Based on your current setup, here's a complete dev container configuration:
   "service": "api",
   "workspaceFolder": "/app",
   "shutdownAction": "stopCompose",
-  
+
   "forwardPorts": [
     8000,  // API
     3000,  // Frontend
@@ -282,12 +282,12 @@ Based on your current setup, here's a complete dev container configuration:
     6379,  // Redis
     12345  // Grafana Alloy
   ],
-  
+
   "features": {
     "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
     "ghcr.io/devcontainers/features/git:1": {}
   },
-  
+
   "customizations": {
     "vscode": {
       "extensions": [
@@ -295,19 +295,19 @@ Based on your current setup, here's a complete dev container configuration:
         "ms-python.python",
         "ms-python.vscode-pylance",
         "charliermarsh.ruff",
-        
+
         // Docker
         "ms-azuretools.vscode-docker",
-        
+
         // Testing
         "littlefoxteam.vscode-python-test-adapter",
-        
+
         // Git
         "eamodio.gitlens",
-        
+
         // Markdown
         "yzhang.markdown-all-in-one",
-        
+
         // YAML
         "redhat.vscode-yaml"
       ],
@@ -327,7 +327,7 @@ Based on your current setup, here's a complete dev container configuration:
       }
     }
   },
-  
+
   "remoteEnv": {
     "DATABASE_URL": "postgresql+asyncpg://gamebot:dev_password_change_in_prod@postgres:5432/game_scheduler",
     "RABBITMQ_URL": "amqp://gamebot:dev_password_change_in_prod@rabbitmq:5672/",
@@ -335,7 +335,7 @@ Based on your current setup, here's a complete dev container configuration:
     "PYTHONUNBUFFERED": "1",
     "LOG_LEVEL": "DEBUG"
   },
-  
+
   "postCreateCommand": "chmod -R o+r shared/ services/ frontend/",
   "postStartCommand": "echo 'Dev container ready. Run: python -m services.api.main'"
 }
@@ -612,7 +612,7 @@ Your workflow changes minimally:
 code --remote ssh-host ~/src/game-scheduler
 docker compose up  # (runs on VM)
 
-# After: Mac VSCode → Remote-SSH → VM → Container  
+# After: Mac VSCode → Remote-SSH → VM → Container
 code --remote ssh-host ~/src/game-scheduler
 # VSCode prompts: "Reopen in Container?" → Yes
 docker compose up  # (runs from container, controls VM Docker)
@@ -626,7 +626,7 @@ docker compose up  # (runs from container, controls VM Docker)
 
 #### Phase 3: Clean Up VM (if successful)
 1. Remove Python from VM (container provides it)
-2. Remove uv from VM (container provides it)  
+2. Remove uv from VM (container provides it)
 3. Remove Node.js from VM (container provides it)
 4. VM becomes minimal: Docker + SSH only
 

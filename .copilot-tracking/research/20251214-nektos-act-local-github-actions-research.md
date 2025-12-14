@@ -610,7 +610,7 @@ act -j integration-tests -v
   4. Set up secrets and environment files
   5. Test workflow execution locally within container
   6. Document usage for team members
-- **Dependencies**: 
+- **Dependencies**:
   - Docker must be installed and running
   - Build container must have curl and tar available (already present in test.Dockerfile)
   - Docker socket must be accessible from container for act to spawn test containers

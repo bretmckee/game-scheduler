@@ -15,7 +15,7 @@
   - All use multi-stage builds with `base` and `production` stages
   - All COPY application code into production stage
   - No development-specific stages defined
-  
+
 - `docker/frontend.Dockerfile`
   - Uses multi-stage build: builder stage compiles assets, nginx stage serves static files
   - Build-time compilation means no hot-reload in development
@@ -45,7 +45,7 @@
   - Common: Keep dependencies in image, only mount source code
 
 ### Project Conventions
-- Standards referenced: 
+- Standards referenced:
   - `.github/instructions/containerization-docker-best-practices.instructions.md`
   - Multi-stage builds already in use
   - Security best practices (non-root users, health checks)
@@ -162,7 +162,7 @@ services:
     build: backend
     ports:
       - 80:80
-      
+
   frontend:
     build: frontend
     ports:
@@ -174,7 +174,7 @@ services:
     volumes:
       - ./backend:/usr/src/app
     command: npm run dev  # Uses nodemon for auto-reload
-    
+
   frontend:
     volumes:
       - ./frontend/src:/code/src
@@ -217,7 +217,7 @@ services:
     environment:
       - LOG_LEVEL=DEBUG
       - PYTHONUNBUFFERED=1
-    
+
   bot:
     build:
       target: development
@@ -238,7 +238,7 @@ services:
       target: production
     # No volumes - code baked into image
     restart: always
-    
+
   bot:
     build:
       target: production
@@ -290,7 +290,7 @@ Benefits:
    - Install dependencies only
    - Don't COPY source code
    - Use appropriate development commands (uvicorn --reload, python -m)
-   
+
 2. Add `development` stage to frontend Dockerfile
    - Install dependencies only
    - Don't COPY source code

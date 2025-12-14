@@ -24,7 +24,7 @@
 ### Environment File Analysis
 - env/env - Template/example file
 - env/env.dev - Development Discord bot credentials
-- env/env.prod - Production Discord bot credentials  
+- env/env.prod - Production Discord bot credentials
 - env/env.e2e - E2E test configuration (CONTAINER_PREFIX=gamebot-e2e)
 - env/env.integration - Integration test configuration (CONTAINER_PREFIX=gamebot-integration)
 
@@ -208,7 +208,7 @@ env/
 - See: https://docs.docker.com/compose/how-tos/multiple-compose-files/merge/
 
 **Migration Impact:**
-- Current `docker-compose.base.yml` must be merged into `compose.yaml` 
+- Current `docker-compose.base.yml` must be merged into `compose.yaml`
 - Current `docker-compose.yml` must also be merged into `compose.yaml`
 - Test files that used `include` must be converted to pure override files
 - Result: `compose.yaml` becomes complete, production-ready base configuration

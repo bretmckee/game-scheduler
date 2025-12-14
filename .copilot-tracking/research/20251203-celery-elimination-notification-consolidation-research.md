@@ -197,12 +197,12 @@ with db.begin():
     # 1. Update game status
     game.status = 'IN_PROGRESS'
     game.updated_at = utc_now()
-    
+
     # 2. Mark transition executed
     transition.executed = True
-    
+
     # 3. Publish event (outside transaction for reliability)
-    
+
 db.commit()
 publisher.publish_event(EventType.GAME_STARTED, {...})
 ```
@@ -359,4 +359,3 @@ The update_game_status Celery task is simple enough that either approach easily 
 - Harder to optimize indexes for mixed workload
 - Breaking change to existing notification_schedule schema
 - User preference for domain clarity and independent evolution
-

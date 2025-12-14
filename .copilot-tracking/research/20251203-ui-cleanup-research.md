@@ -110,11 +110,11 @@ From Discord's official documentation:
 ## Implementation Guidance
 
 - **Objectives**: Complete Task 12.8 by fixing remaining user-facing "Guild" text
-- **Key Tasks**: 
+- **Key Tasks**:
   1. Update HomePage button label
   2. Update GuildDashboard error message
 - **Dependencies**: None - purely UI text changes
-- **Success Criteria**: 
+- **Success Criteria**:
   - No user-facing "Guild" text remains (except in technical contexts like URLs)
   - All user-visible labels, buttons, and messages say "Server"
   - Internal code structure unchanged
@@ -173,13 +173,13 @@ Channels are now automatically created and managed by the system when games are 
 ### Implementation Guidance
 
 - **Objectives**: Remove obsolete Channels tab and configuration page from UI
-- **Key Tasks**: 
+- **Key Tasks**:
   1. Remove channels tab, state, and API calls from GuildDashboard
   2. Delete ChannelConfig page and route
   3. Adjust remaining tab indices in GuildDashboard
   4. Verify Channel type not needed in frontend types
 - **Dependencies**: None - purely UI removal
-- **Success Criteria**: 
+- **Success Criteria**:
   - Channels tab no longer visible on server detail screen
   - Channel configuration page no longer accessible
   - Games tab functions correctly with new index

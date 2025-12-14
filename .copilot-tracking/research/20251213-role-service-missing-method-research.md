@@ -18,7 +18,7 @@
     - `check_bot_manager_permission(...)` - Check Bot Manager role
     - `invalidate_user_roles(...)` - Cache invalidation
   - **Missing**: `has_any_role()` method
-  
+
 - services/api/dependencies/permissions.py (lines 185-200)
   - `verify_game_access()` helper calls `role_service.has_any_role()` at line 192
   - Expected signature based on call: `has_any_role(user_discord_id, guild_id, access_token, role_ids_list)`
@@ -83,19 +83,19 @@ async def has_any_role(
 ) -> bool:
     """
     Check if user has any of the specified roles in a guild.
-    
+
     Args:
         user_id: Discord user ID
         guild_id: Discord guild ID
         access_token: User's OAuth2 access token (unused, kept for compatibility)
         role_ids: List of role IDs to check for
-        
+
     Returns:
         True if user has at least one of the specified roles
     """
     if not role_ids:
         return False
-        
+
     user_role_ids = await self.get_user_role_ids(user_id, guild_id)
     return any(role_id in role_ids for role_id in user_role_ids)
 ```
@@ -164,15 +164,15 @@ Mocking creates attributes dynamically, so:
 1. **Remove `continue-on-error: true`** from mypy CI step
    - Makes type checking a hard requirement
    - Prevents merging code with type errors
-   
+
 2. **Run mypy locally before committing**
    - Already configured in `pyproject.toml`
    - Need to establish pre-commit workflow
-   
+
 3. **Integration tests without mocks**
    - Test actual service implementations
    - Would fail at runtime when calling missing method
-   
+
 4. **Stricter mypy configuration**
    - Current: `ignore_missing_imports = true`, `strict_optional = false`
    - Could enable `--strict` mode for stronger checking
@@ -224,7 +224,7 @@ Running mypy across the entire codebase revealed 4 total errors:
 
 ## Implementation Guidance
 
-- **Objectives**: 
+- **Objectives**:
   - Fix AttributeError in game access verification
   - Enable player role restrictions for games
   - Restore API functionality for games with allowed_player_role_ids
@@ -236,7 +236,7 @@ Running mypy across the entire codebase revealed 4 total errors:
   3. Verify tests pass (existing tests already mock this method)
   4. Test runtime behavior with actual game access
 
-- **Dependencies**: 
+- **Dependencies**:
   - Existing `get_user_role_ids()` method
   - Redis cache infrastructure
 
