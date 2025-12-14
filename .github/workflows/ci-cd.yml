@@ -266,12 +266,10 @@ jobs:
       - name: Run frontend linter
         working-directory: frontend
         run: npm run lint
-        continue-on-error: true
 
       - name: Run frontend tests
         working-directory: frontend
         run: npm run test:ci
-        continue-on-error: true
 
       - name: Build frontend
         working-directory: frontend
