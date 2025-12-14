@@ -19,6 +19,7 @@
 
 """Initialize RabbitMQ infrastructure for game scheduler."""
 
+import logging
 import os
 import sys
 import time
@@ -36,7 +37,9 @@ from shared.messaging.infrastructure import (
     PRIMARY_QUEUES,
     QUEUE_BINDINGS,
 )
-from shared.telemetry import init_telemetry
+from shared.telemetry import flush_telemetry, init_telemetry
+
+logger = logging.getLogger(__name__)
 
 
 def wait_for_rabbitmq(rabbitmq_url: str, max_retries: int = 30) -> None:
@@ -55,13 +58,16 @@ def wait_for_rabbitmq(rabbitmq_url: str, max_retries: int = 30) -> None:
             connection = pika.BlockingConnection(pika.URLParameters(rabbitmq_url))
             connection.close()
             print("✓ RabbitMQ is ready")
+            logger.info("RabbitMQ is ready")
             return
         except AMQPConnectionError:
             if attempt < max_retries:
                 print(f"  RabbitMQ not ready (attempt {attempt}/{max_retries}), retrying...")
+                logger.debug(f"RabbitMQ not ready (attempt {attempt}/{max_retries}), retrying...")
                 time.sleep(1)
             else:
                 print(f"✗ RabbitMQ failed to become ready after {max_retries} attempts")
+                logger.error(f"RabbitMQ failed to become ready after {max_retries} attempts")
                 sys.exit(1)
 
 
@@ -77,35 +83,36 @@ def create_infrastructure(rabbitmq_url: str) -> None:
     connection = pika.BlockingConnection(pika.URLParameters(rabbitmq_url))
     channel = connection.channel()
 
-    # Declare main exchange
     channel.exchange_declare(exchange=MAIN_EXCHANGE, exchange_type="topic", durable=True)
     print(f"  ✓ Exchange '{MAIN_EXCHANGE}' declared")
+    logger.info(f"Declared exchange: {MAIN_EXCHANGE}")
 
-    # Declare dead letter exchange
     channel.exchange_declare(exchange=DLX_EXCHANGE, exchange_type="topic", durable=True)
     print(f"  ✓ Exchange '{DLX_EXCHANGE}' declared")
+    logger.info(f"Declared dead letter exchange: {DLX_EXCHANGE}")
 
-    # Declare dead letter queues (no TTL, durable)
     for dlq_name in DEAD_LETTER_QUEUES:
         channel.queue_declare(queue=dlq_name, durable=True)
         print(f"  ✓ DLQ '{dlq_name}' declared")
+        logger.info(f"Declared dead letter queue: {dlq_name}")
 
-    # Bind DLQs to dead letter exchange
     for dlq_name, routing_key in DLQ_BINDINGS:
         channel.queue_bind(exchange=DLX_EXCHANGE, queue=dlq_name, routing_key=routing_key)
         print(f"  ✓ Binding '{dlq_name}' -> DLX '{routing_key}'")
+        logger.info(f"Bound DLQ {dlq_name} to {DLX_EXCHANGE} with routing key {routing_key}")
 
-    # Declare primary queues with TTL and DLX
     for queue_name in PRIMARY_QUEUES:
         channel.queue_declare(queue=queue_name, durable=True, arguments=PRIMARY_QUEUE_ARGUMENTS)
         print(f"  ✓ Queue '{queue_name}' declared")
+        logger.info(f"Declared primary queue: {queue_name}")
 
-    # Create bindings from shared configuration
     for queue_name, routing_key in QUEUE_BINDINGS:
         channel.queue_bind(exchange=MAIN_EXCHANGE, queue=queue_name, routing_key=routing_key)
         print(f"  ✓ Binding '{queue_name}' -> '{routing_key}'")
+        logger.info(f"Bound queue {queue_name} to {MAIN_EXCHANGE} with routing key {routing_key}")
 
     connection.close()
+    logger.info("RabbitMQ infrastructure creation completed")
 
 
 def main() -> None:
@@ -114,27 +121,36 @@ def main() -> None:
     tracer = trace.get_tracer(__name__)
 
     print("=== RabbitMQ Infrastructure Initialization ===")
+    logger.info("RabbitMQ Infrastructure Initialization started")
 
     with tracer.start_as_current_span("init.rabbitmq") as span:
         rabbitmq_url = os.getenv("RABBITMQ_URL")
         if not rabbitmq_url:
             span.set_status(trace.Status(trace.StatusCode.ERROR, "RABBITMQ_URL not set"))
             print("✗ RABBITMQ_URL environment variable not set")
+            logger.error("RABBITMQ_URL environment variable not set")
             sys.exit(1)
 
         print("Waiting for RabbitMQ...")
+        logger.info("Waiting for RabbitMQ to be ready")
         wait_for_rabbitmq(rabbitmq_url)
 
         print("Creating RabbitMQ infrastructure...")
+        logger.info("Creating RabbitMQ infrastructure")
         try:
             create_infrastructure(rabbitmq_url)
             span.set_status(trace.Status(trace.StatusCode.OK))
             print("✓ RabbitMQ infrastructure initialized successfully")
+            logger.info("RabbitMQ infrastructure initialized successfully")
         except Exception as e:
             span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
             span.record_exception(e)
             print(f"✗ Failed to initialize RabbitMQ infrastructure: {e}")
+            logger.error(f"Failed to initialize RabbitMQ infrastructure: {e}", exc_info=True)
+            flush_telemetry()
             sys.exit(1)
+
+    flush_telemetry()
 
 
 if __name__ == "__main__":

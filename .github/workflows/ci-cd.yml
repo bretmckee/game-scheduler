@@ -131,7 +131,7 @@ jobs:
           RABBITMQ_URL: amqp://test:test@localhost:5672/
           PYTHONPATH: .
         run: |
-          uv run python scripts/init_rabbitmq.py
+          uv run python -m services.init.rabbitmq
 
       - name: Start retry daemon
         env:

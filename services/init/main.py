@@ -17,19 +17,44 @@
 # with Game_Scheduler If not, see <https://www.gnu.org/licenses/>.
 
 
-"""Database migration service with OpenTelemetry instrumentation."""
+"""
+Environment initialization orchestrator.
 
-import subprocess
+Coordinates all initialization steps for the application environment:
+1. Wait for PostgreSQL to be ready
+2. Run database migrations
+3. Verify database schema
+4. Wait for RabbitMQ to be ready
+5. Create RabbitMQ infrastructure
+
+All steps are instrumented with OpenTelemetry for observability.
+"""
+
+import logging
 import sys
+from datetime import UTC, datetime
 
 from opentelemetry import trace
 
+from services.init.migrations import run_migrations
+from services.init.rabbitmq import initialize_rabbitmq
+from services.init.verify_schema import verify_schema
+from services.init.wait_postgres import wait_for_postgres
 from shared.telemetry import flush_telemetry, init_telemetry
 
+# Configure logging before any operations
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 
-def run_migrations() -> int:
+logger = logging.getLogger(__name__)
+
+
+def main() -> int:
     """
-    Run Alembic database migrations with telemetry.
+    Main initialization orchestrator.
 
     Returns:
         Exit code (0 for success, non-zero for failure)
@@ -37,25 +62,56 @@ def run_migrations() -> int:
     init_telemetry("init-service")
     tracer = trace.get_tracer(__name__)
 
-    print("Running database migrations...")
-    with tracer.start_as_current_span("init.database_migration") as span:
-        result = subprocess.run(["alembic", "upgrade", "head"], capture_output=True, text=True)
-        print(result.stdout, end="")
-        if result.stderr:
-            print(result.stderr, end="", file=sys.stderr)
+    start_time = datetime.now(UTC)
+    logger.info("=" * 60)
+    logger.info("Environment Initialization Started")
+    logger.info(f"Timestamp: {start_time.strftime('%Y-%m-%d %H:%M:%S UTC')}")
+    logger.info("=" * 60)
 
-        if result.returncode != 0:
-            span.set_status(trace.Status(trace.StatusCode.ERROR, "Migration failed"))
-            span.record_exception(Exception(result.stderr))
-            return result.returncode
+    with tracer.start_as_current_span("init.environment") as span:
+        try:
+            logger.info("[1/5] Waiting for PostgreSQL...")
+            wait_for_postgres()
+            logger.info("✓ PostgreSQL ready")
 
-        span.set_status(trace.Status(trace.StatusCode.OK))
-        print("✓ Migrations complete")
+            logger.info("[2/5] Running database migrations...")
+            run_migrations()
+            logger.info("✓ Migrations complete")
 
-        # Flush telemetry before exiting to ensure all data is sent
-        flush_telemetry()
-        return 0
+            logger.info("[3/5] Verifying database schema...")
+            verify_schema()
+            logger.info("✓ Schema verified")
+
+            logger.info("[4/5] Initializing RabbitMQ infrastructure...")
+            initialize_rabbitmq()
+            logger.info("✓ RabbitMQ infrastructure ready")
+
+            logger.info("[5/5] Finalizing initialization...")
+            span.set_status(trace.Status(trace.StatusCode.OK))
+
+            end_time = datetime.now(UTC)
+            duration = (end_time - start_time).total_seconds()
+
+            logger.info("=" * 60)
+            logger.info("Environment Initialization Complete")
+            logger.info(f"Duration: {duration:.2f} seconds")
+            logger.info("=" * 60)
+
+            return 0
+
+        except Exception as e:
+            logger.error("=" * 60)
+            logger.error("Environment Initialization Failed")
+            logger.error(f"Error: {e}", exc_info=True)
+            logger.error("=" * 60)
+
+            span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
+            span.record_exception(e)
+            return 1
+
+        finally:
+            flush_telemetry()
 
 
 if __name__ == "__main__":
-    sys.exit(run_migrations())
+    sys.exit(main())

@@ -103,6 +103,7 @@ services:
   init:
     volumes:
       - ./shared:/app/shared:ro
+      - ./services/init:/app/services/init:ro
       - ./scripts:/app/scripts:ro
       - ./alembic:/app/alembic:ro
       - ./alembic.ini:/app/alembic.ini:ro
