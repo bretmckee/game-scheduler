@@ -1,9 +1,10 @@
 FROM python:3.13-slim
 
 # Install system dependencies
+# Note: gcc is needed for building psycopg2 from source
 RUN apt-get update && apt-get install -y \
     gcc \
-    postgresql-client \
+    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -14,18 +15,13 @@ RUN pip install --no-cache-dir uv
 # Copy dependency files
 COPY pyproject.toml ./
 
-# Install dependencies (alembic and database drivers)
+# Install dependencies (alembic, database drivers, messaging, observability)
 RUN uv pip install --system -e .
 
-# Copy migration files
+# Copy application files
 COPY shared/ ./shared/
 COPY alembic/ ./alembic/
 COPY alembic.ini ./
-COPY scripts/init_rabbitmq.py ./scripts/
 COPY services/init/ ./services/init/
-COPY docker/init-entrypoint.sh ./
 
-# Make entrypoint executable
-RUN chmod +x init-entrypoint.sh
-
-ENTRYPOINT ["./init-entrypoint.sh"]
+ENTRYPOINT ["python3", "-u", "-m", "services.init.main"]
