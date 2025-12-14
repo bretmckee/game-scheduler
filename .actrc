@@ -1,0 +1,23 @@
+# nektos/act configuration file
+# One argument per line - see https://nektosact.com/usage/index.html
+
+# Use medium-sized Docker image (recommended balance of compatibility and size)
+-P ubuntu-latest=catthehacker/ubuntu:act-latest
+
+# Enable offline mode for faster iteration (uses cached actions/images)
+--action-offline-mode
+
+# Load secrets from file
+--secret-file=.secrets
+
+# Load environment variables from file
+--env-file=.env.act
+
+# Bind working directory to job container
+#--bind
+
+# Reuse containers between runs for faster execution
+--reuse
+
+# Enable artifact server with local path
+--artifact-server-path=.artifacts

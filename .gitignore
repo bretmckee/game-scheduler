@@ -60,3 +60,8 @@ docker-compose.override.yml
 
 # Alembic
 alembic/versions/*.pyc
+
+# nektos/act (local GitHub Actions testing)
+.secrets
+.env.act
+.artifacts/

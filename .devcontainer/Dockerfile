@@ -15,6 +15,12 @@ RUN apt-get update && apt-get install -y \
     sudo \
     && rm -rf /var/lib/apt/lists/*
 
+# Install nektos/act for local GitHub Actions testing
+ARG ACT_VERSION=0.2.83
+RUN curl -L "https://github.com/nektos/act/releases/download/v${ACT_VERSION}/act_Linux_x86_64.tar.gz" \
+    | tar xz -C /usr/local/bin/ \
+    && chmod +x /usr/local/bin/act
+
 WORKDIR /app
 
 # Install uv for dependency management
