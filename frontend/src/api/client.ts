@@ -60,7 +60,7 @@ apiClient.interceptors.response.use(
       try {
         await apiClient.post('/api/v1/auth/refresh');
         return apiClient(originalRequest);
-      } catch (refreshError) {
+      } catch (_refreshError) {
         // Refresh failed, redirect to login
         window.location.href = '/login';
         return new Promise(() => {}); // Never resolves, prevents further processing

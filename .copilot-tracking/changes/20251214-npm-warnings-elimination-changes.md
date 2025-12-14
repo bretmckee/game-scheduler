@@ -13,13 +13,27 @@ Phase 1 implementation to eliminate NPM deprecation warnings and security vulner
 
 ### Added
 
+- frontend/eslint.config.js - New ESLint 9 flat config migrated from .eslintrc.cjs
+
 ### Modified
 
 - frontend/package.json - Updated Vite from ^5.0.8 to ^6.0.0 to fix esbuild CORS vulnerability
 - frontend/package-lock.json - Updated dependencies with npm install, esbuild now 0.25.12
 - frontend/dist/ - Build output verified with Vite 6, all tests pass (51/51)
+- frontend/package.json - Updated ESLint to ^9.0.0, @typescript-eslint/parser to ^8.0.0, @typescript-eslint/eslint-plugin to ^8.0.0
+- frontend/package-lock.json - Installed ESLint 9.39.2 and TypeScript ESLint 8.49.0
+- frontend/package.json - Added @eslint/js, typescript-eslint, and globals packages for flat config
+- frontend/package.json - Updated lint scripts to remove deprecated --ext flag
+- frontend/package-lock.json - Installed flat config dependencies
+- frontend/package.json - Updated eslint-plugin-react-hooks from ^4.6.0 to ^7.0.0 for ESLint 9 compatibility
+- frontend/package-lock.json - Installed eslint-plugin-react-hooks 7.0.1 with no peer dependency warnings
+- frontend/eslint.config.js - Added caughtErrorsIgnorePattern to handle unused catch errors
+- frontend/src/api/client.ts - Prefixed unused catch error with underscore (_refreshError)
 
 ### Removed
+
+- frontend/.eslintignore - Removed deprecated file, using ignores in eslint.config.js instead
+- frontend/.eslintrc.cjs - Removed old ESLint config after migration to flat config
 
 ## Release Summary
 
