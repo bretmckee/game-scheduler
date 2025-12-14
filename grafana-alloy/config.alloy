@@ -1,5 +1,5 @@
 // Grafana Alloy Configuration for OpenTelemetry Collection
-// 
+//
 // Architecture:
 // 1. Application telemetry (traces/metrics/logs) → OTLP Gateway → Tempo/Mimir/Loki
 // 2. Infrastructure metrics (PostgreSQL/Redis/RabbitMQ) → Prometheus → OTEL batch → Mimir
@@ -20,7 +20,7 @@ logging {
 
 loki.process "alloy_logs" {
   forward_to = [loki.write.grafana_cloud_loki.receiver]
-  
+
   stage.static_labels {
     values = {
       service     = "grafana-alloy",
@@ -42,49 +42,58 @@ loki.write "grafana_cloud_loki" {
 // ========================================
 // Docker Log Collection
 // ========================================
-// Collect logs from all Docker containers with 'service' label
+// Collect logs from infrastructure services only (postgres, rabbitmq, redis, grafana-alloy, frontend)
+// Application services (api, bot, init, daemons) send logs via OTLP to avoid duplication
+// NOTE: New services must be explicitly added here to be collected
 
 discovery.docker "containers" {
   host = "unix:///var/run/docker.sock"
-  
+
+  // Collect all containers with service label
   filter {
     name   = "label"
     values = ["service"]
   }
 }
 
-loki.source.docker "containers" {
-  host             = "unix:///var/run/docker.sock"
-  targets          = discovery.docker.containers.targets
-  forward_to       = [loki.process.add_container_labels.receiver]
-  refresh_interval = "5s"
-  relabel_rules    = discovery.relabel.docker_labels.rules
-}
-
 discovery.relabel "docker_labels" {
-  targets = []
-  
+  targets = discovery.docker.containers.targets
+
+  // Keep only infrastructure services (drop application services that use OTLP)
+  rule {
+    source_labels = ["__meta_docker_container_label_service"]
+    regex         = "postgres|rabbitmq|redis|grafana-alloy|frontend"
+    action        = "keep"
+  }
+
   rule {
     source_labels = ["__meta_docker_container_label_service"]
     target_label  = "service"
   }
-  
+
   rule {
     source_labels = ["__meta_docker_container_label_environment"]
     target_label  = "environment"
   }
-  
+
   rule {
     source_labels = ["__meta_docker_container_name"]
     target_label  = "container"
   }
 }
 
+loki.source.docker "containers" {
+  host             = "unix:///var/run/docker.sock"
+  targets          = discovery.relabel.docker_labels.output
+  forward_to       = [loki.process.add_container_labels.receiver]
+  refresh_interval = "5s"
+}
+
 loki.process "add_container_labels" {
   forward_to = [loki.write.grafana_cloud_loki.receiver]
-  
+
   stage.docker {}
-  
+
   stage.labels {
     values = {
       service     = "",
@@ -146,7 +155,7 @@ otelcol.auth.basic "grafana_cloud_otlp" {
 // ========================================
 // Single exporter handles all application signals via HTTP/protobuf:
 // - Traces → Tempo
-// - Metrics → Mimir  
+// - Metrics → Mimir
 // - Logs → Loki
 
 otelcol.exporter.otlphttp "grafana_cloud_otlp" {
@@ -264,7 +273,7 @@ otelcol.processor.attributes "alloy_metrics" {
     value  = "grafana-alloy"
     action = "insert"
   }
-  
+
   output {
     metrics = [otelcol.processor.batch.default.input]
   }
@@ -285,7 +294,7 @@ otelcol.processor.attributes "alloy_traces" {
     value  = "grafana-alloy"
     action = "insert"
   }
-  
+
   output {
     traces = [otelcol.processor.batch.default.input]
   }
