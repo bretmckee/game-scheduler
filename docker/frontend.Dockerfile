@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Install dependencies first (better layer caching)
 COPY frontend/package*.json ./
-RUN npm ci --only=production=false
+RUN npm ci --legacy-peer-deps
 
 # Development stage with Vite dev server
 FROM base AS development
