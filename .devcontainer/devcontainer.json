@@ -49,5 +49,8 @@
   "postCreateCommand": "python --version && uv --version && node --version && npm --version && cd frontend && npm install && cd .. && pre-commit install && echo 'Dev container ready! Pre-commit hooks installed. Start infrastructure with: docker compose up postgres redis rabbitmq -d'",
   "postStartCommand": "sudo chown -R vscode:vscode /home/vscode/.vscode-server 2>/dev/null || true",
   "remoteUser": "vscode",
-  "updateRemoteUserUID": true
+  "updateRemoteUserUID": true,
+  "remoteEnv": {
+    "HOST_WORKSPACE_FOLDER": "${localWorkspaceFolder}"
+  }
 }
