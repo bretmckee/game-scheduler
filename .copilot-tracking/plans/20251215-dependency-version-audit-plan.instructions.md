@@ -1,0 +1,104 @@
+---
+applyTo: ".copilot-tracking/changes/20251215-dependency-version-audit-changes.md"
+---
+
+<!-- markdownlint-disable-file -->
+
+# Task Checklist: Dependency Version Audit and Upgrade Strategy
+
+## Overview
+
+Systematically audit and upgrade infrastructure services (PostgreSQL, Node.js) and dependency constraints (Python, NPM) to modern versions with improved security, performance, and long-term support.
+
+## Objectives
+
+- Upgrade PostgreSQL 17 to PostgreSQL 18 with clean Alembic migration reset
+- Upgrade Node.js 22 to Node.js 24 LTS for extended support
+- Modernize Python dependency constraints using compatible release operator (~=)
+- Update critical NPM packages (axios, TypeScript) to latest stable versions
+- Establish clear upgrade procedures and rollback plans
+
+## Research Summary
+
+### Infrastructure Analysis
+
+- #file:../research/20251215-dependency-version-audit-research.md (Lines 7-64) - PostgreSQL, RabbitMQ, Redis, Python, Node.js version analysis
+- PostgreSQL 18: Latest stable, minimal migration complexity, opportunity for Alembic reset
+- Node.js 24: Active LTS until April 2026, Node 22 enters maintenance mode April 2025
+- Redis 8: Performance improvements but license review required (deferred)
+
+### Python Dependency Management
+
+- #file:../research/20251215-dependency-version-audit-research.md (Lines 66-132) - Package constraint analysis and recommendations
+- Current approach uses unbounded minimum constraints (>=), allows breaking changes
+- Recommended approach: Compatible release operator (~=) for automatic patches, blocked majors
+- Key packages outdated: fastapi (0.104→0.115), pydantic (2.5→2.10), cryptography (41→44)
+
+### NPM Package Status
+
+- #file:../research/20251215-dependency-version-audit-research.md (Lines 134-173) - Recently upgraded and remaining updates
+- Recent upgrades: React 19, MUI 7, ESLint 9, Vite 6, React Router 7 (completed)
+- Remaining updates: axios (1.6→1.7), TypeScript (5.3→5.7), optional Vite 7 upgrade
+
+### Standards References
+
+- #file:../../.github/instructions/python.instructions.md - Python coding conventions
+- #file:../../.github/instructions/containerization-docker-best-practices.instructions.md - Docker best practices
+- #file:../../.github/instructions/coding-best-practices.instructions.md - General coding standards
+
+## Implementation Checklist
+
+### [ ] Phase 1: PostgreSQL 18 Upgrade + Alembic Reset
+
+- [ ] Task 1.1: Update PostgreSQL image references to 18-alpine
+  - Details: .copilot-tracking/details/20251215-dependency-version-audit-details.md (Lines 17-33)
+
+- [ ] Task 1.2: Reset Alembic migration history
+  - Details: .copilot-tracking/details/20251215-dependency-version-audit-details.md (Lines 35-56)
+
+- [ ] Task 1.3: Verify database schema and services
+  - Details: .copilot-tracking/details/20251215-dependency-version-audit-details.md (Lines 58-72)
+
+### [ ] Phase 2: Node.js 24 LTS Upgrade
+
+- [ ] Task 2.1: Update Node.js base images
+  - Details: .copilot-tracking/details/20251215-dependency-version-audit-details.md (Lines 76-89)
+
+- [ ] Task 2.2: Test frontend builds and CI/CD
+  - Details: .copilot-tracking/details/20251215-dependency-version-audit-details.md (Lines 91-103)
+
+### [ ] Phase 3: Python Dependency Modernization
+
+- [ ] Task 3.1: Update pyproject.toml with compatible release constraints
+  - Details: .copilot-tracking/details/20251215-dependency-version-audit-details.md (Lines 107-125)
+
+- [ ] Task 3.2: Upgrade packages and validate
+  - Details: .copilot-tracking/details/20251215-dependency-version-audit-details.md (Lines 127-142)
+
+### [ ] Phase 4: NPM Package Updates
+
+- [ ] Task 4.1: Update axios and TypeScript
+  - Details: .copilot-tracking/details/20251215-dependency-version-audit-details.md (Lines 146-157)
+
+- [ ] Task 4.2: Evaluate and optionally upgrade Vite 7
+  - Details: .copilot-tracking/details/20251215-dependency-version-audit-details.md (Lines 159-173)
+
+## Dependencies
+
+- Docker and Docker Compose (installed)
+- Python 3.13 with uv (installed in dev container)
+- Node.js and npm (for local frontend development)
+- Git (for version control)
+- Access to all compose files and Dockerfiles
+
+## Success Criteria
+
+- PostgreSQL 18-alpine running with clean single-migration Alembic history
+- All database tables match current model definitions with correct schema
+- Node.js 24-alpine images build successfully for frontend
+- Python packages use compatible release constraints (~=) and upgrade cleanly
+- All test suites pass (unit, integration, e2e)
+- No deprecation warnings in logs
+- CI/CD pipeline passes successfully
+- All services start and connect properly
+- Documentation updated with upgrade procedures
