@@ -25,7 +25,7 @@ x-logging-default: &logging-default
 
 services:
   postgres:
-    image: postgres:17-alpine
+    image: postgres:18-alpine
     container_name: ${CONTAINER_PREFIX:-gamebot}-postgres
     command: [
       "postgres",

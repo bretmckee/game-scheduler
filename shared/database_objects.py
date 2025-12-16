@@ -60,7 +60,7 @@ notify_schedule_changed_function = PGFunction(
 notification_schedule_trigger = PGTrigger(
     schema="public",
     signature="notification_schedule_trigger",
-    on_entity="notification_schedule",
+    on_entity="public.notification_schedule",
     definition="""
     AFTER INSERT OR UPDATE OR DELETE
     FOR EACH ROW
@@ -113,7 +113,7 @@ notify_game_status_schedule_changed_function = PGFunction(
 game_status_schedule_trigger = PGTrigger(
     schema="public",
     signature="game_status_schedule_trigger",
-    on_entity="game_status_schedule",
+    on_entity="public.game_status_schedule",
     definition="""
     AFTER INSERT OR UPDATE OR DELETE
     FOR EACH ROW

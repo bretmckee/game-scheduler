@@ -63,7 +63,7 @@ Systematically audit and upgrade infrastructure services (PostgreSQL, Node.js) a
 - [x] Task 1.2: Install and configure alembic-utils for functions/triggers
   - Details: .copilot-tracking/details/20251215-dependency-version-audit-details.md (Lines 44-70)
 
-- [ ] Task 1.3: Update PostgreSQL image references to 18-alpine
+- [x] Task 1.3: Update PostgreSQL image references to 18-alpine
   - Details: .copilot-tracking/details/20251215-dependency-version-audit-details.md (Lines 72-88)
 
 - [ ] Task 1.4: Reset Alembic migration history with corrected models

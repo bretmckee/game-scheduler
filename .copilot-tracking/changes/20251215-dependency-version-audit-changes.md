@@ -102,7 +102,29 @@
 - Extracted function/trigger definitions from existing migration files (012, 020)
 - Functions and triggers will be automatically included in future Alembic autogenerate operations
 
-#### Task 1.3: Update PostgreSQL to 18-alpine (Next)
+#### Task 1.3: Update PostgreSQL to 18-alpine ✅
+
+**Purpose**: Update all Docker Compose files and CI/CD workflows to use PostgreSQL 18-alpine image.
+
+**Files Modified**:
+- [compose.yaml](../../../compose.yaml) - Line 28
+- [.github/workflows/ci-cd.yml](../../../.github/workflows/ci-cd.yml) - Line 62
+
+**Changes Made**:
+1. **Updated base compose file**: Changed `postgres:17-alpine` to `postgres:18-alpine` in compose.yaml
+2. **Updated GitHub Actions workflow**: Changed `postgres:17-alpine` to `postgres:18-alpine` in ci-cd.yml service definition
+
+**Verification**:
+- ✅ All production compose files reference postgres:18-alpine
+- ✅ GitHub Actions CI/CD workflow uses postgres:18-alpine
+- ✅ No active references to postgres:17-alpine remain (only in historical docs)
+
+**Key Design Decisions**:
+- Updated both runtime (compose.yaml) and CI/CD (GitHub Actions) configurations
+- PostgreSQL 18 provides latest stable features and will be supported until 2029
+- Historical references in documentation and migration scripts intentionally preserved
+
+#### Task 1.4: Reset Alembic migrations (Next)
 
 **Purpose**: Update all Docker Compose files to use PostgreSQL 18-alpine image.
 

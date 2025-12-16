@@ -54,7 +54,9 @@ class GameSession(Base):
     __tablename__ = "game_sessions"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
-    template_id: Mapped[str] = mapped_column(ForeignKey("game_templates.id"))
+    template_id: Mapped[str | None] = mapped_column(
+        ForeignKey("game_templates.id"), index=True, nullable=True
+    )
     title: Mapped[str] = mapped_column(String(200))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     signup_instructions: Mapped[str | None] = mapped_column(Text, nullable=True)

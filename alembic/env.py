@@ -22,6 +22,7 @@ import asyncio
 import os
 from logging.config import fileConfig
 
+from alembic_utils.replaceable_entity import register_entities
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
@@ -29,6 +30,9 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 from shared.database_objects import ALL_DATABASE_OBJECTS
 from shared.models import Base
+
+# Register alembic-utils entities for tracking
+register_entities(ALL_DATABASE_OBJECTS)
 
 # Alembic Config object
 config = context.config
@@ -65,7 +69,6 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
-        include_object=ALL_DATABASE_OBJECTS,
     )
 
     with context.begin_transaction():
@@ -77,7 +80,6 @@ def do_run_migrations(connection: Connection) -> None:
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
-        include_object=ALL_DATABASE_OBJECTS,
     )
 
     with context.begin_transaction():
@@ -124,7 +126,6 @@ def run_sync_migrations() -> None:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
-            include_object=ALL_DATABASE_OBJECTS,
         )
 
         with context.begin_transaction():
