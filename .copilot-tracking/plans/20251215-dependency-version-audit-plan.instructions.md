@@ -57,10 +57,10 @@ Systematically audit and upgrade infrastructure services (PostgreSQL, Node.js) a
 
 ### [ ] Phase 1: PostgreSQL 18 Upgrade + Alembic Reset
 
-- [ ] Task 1.1: Fix SQLAlchemy models to include server_default declarations
+- [x] Task 1.1: Fix SQLAlchemy models to include server_default declarations
   - Details: .copilot-tracking/details/20251215-dependency-version-audit-details.md (Lines 17-42)
 
-- [ ] Task 1.2: Install and configure alembic-utils for functions/triggers
+- [x] Task 1.2: Install and configure alembic-utils for functions/triggers
   - Details: .copilot-tracking/details/20251215-dependency-version-audit-details.md (Lines 44-70)
 
 - [ ] Task 1.3: Update PostgreSQL image references to 18-alpine
