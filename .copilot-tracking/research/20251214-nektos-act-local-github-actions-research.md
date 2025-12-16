@@ -124,30 +124,58 @@ go build -ldflags "-X main.version=$(git describe --tags --dirty --always | sed 
 - Docker daemon must be running
 - User must have Docker permissions
 
-### Running Act Inside a Container
+### Running Act Inside a Dev Container
 
-When installing act in a Docker container (like the test.Dockerfile approach), there are important considerations:
+When running act inside a dev container (like our current setup), path mapping is critical because act spawns nested Docker containers that need to access the workspace.
+
+**The Path Problem:**
+- Dev container runs at `/app` inside the container
+- Host workspace is at `/home/mckee/src/github.com/game-scheduler` (value of `HOST_WORKSPACE_FOLDER`)
+- When act spawns Docker containers, it needs to bind mount the workspace
+- Without proper configuration, act tries to bind mount `/app` which doesn't exist on the host
+- This causes path mismatch errors in nested containers
+
+**The Solution - Two-Part Configuration:**
+
+**Part 1: Bind Mount HOST_WORKSPACE_FOLDER to /app**
+Act's spawned containers need access to the actual host path. Configure this in `.devcontainer/devcontainer.json`:
+
+```json
+{
+  "mounts": [
+    "source=${localWorkspaceFolder},target=/app,type=bind"
+  ],
+  "remoteEnv": {
+    "HOST_WORKSPACE_FOLDER": "${localWorkspaceFolder}"
+  }
+}
+```
+
+**Part 2: Configure Act to Use HOST_WORKSPACE_FOLDER**
+Tell act to use the host path as its working directory in `.actrc`:
+
+```
+--directory=${HOST_WORKSPACE_FOLDER}
+```
+
+This ensures act uses `/home/mckee/src/github.com/game-scheduler` instead of `/app` when spawning containers.
+
+**How It Works:**
+1. Dev container environment variable `HOST_WORKSPACE_FOLDER` = `/home/mckee/src/github.com/game-scheduler`
+2. Act reads `.actrc` and expands `${HOST_WORKSPACE_FOLDER}` to the actual host path
+3. Act spawns containers with bind mounts to the host path
+4. Nested containers can successfully access the workspace
 
 **Docker Socket Access:**
-Act needs access to the Docker daemon to spawn test containers. You must mount the Docker socket:
+Act needs access to the Docker daemon to spawn test containers:
 
-```bash
-# Using docker compose
-docker compose run --rm -v /var/run/docker.sock:/var/run/docker.sock test bash
-
-# Or add to compose file
+```yaml
+# compose.yaml
 services:
   test:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-```
-
-**Volume Mounting:**
-The workspace needs to be available to containers spawned by act:
-
-```bash
-# Ensure workspace is mounted and bind option is used
-act --bind
+      - ${HOST_WORKSPACE_FOLDER:-.}:/app
 ```
 
 **Network Considerations:**
@@ -483,16 +511,140 @@ docker system prune -a
 act -P ubuntu-latest=node:16-bullseye-slim
 ```
 
-## Recommended Approach
+## Recommended Approach: Fixing Act Path Issues in Dev Container
 
-For this game-scheduler project using a build container, the recommended approach is:
+### Problem Summary
 
-1. **Add act to the test.Dockerfile** (consistent across all developers)
-2. **Use medium-sized Docker image** (good balance of compatibility and size)
-3. **Create `.actrc` configuration file** with common options
-4. **Create `.secrets` file** for sensitive data (add to .gitignore)
-5. **Create test-specific `.env` file** for environment variables
-6. **Use `--reuse` and `--action-offline-mode`** for fast iteration
+When running act from inside our dev container, we encounter path mapping issues:
+- **Dev Container Path**: `/app` (where code is inside the container)
+- **Host Path**: `/home/mckee/src/github.com/game-scheduler` (actual location on host)
+- **Issue**: Act spawns nested Docker containers that try to bind mount `/app`, which doesn't exist on the host
+
+### Complete Solution
+
+The solution requires configuring both the `.actrc` file and ensuring proper volume mounts:
+
+**Step 1: Update `.actrc` to Use HOST_WORKSPACE_FOLDER**
+
+Add this line to `.actrc`:
+```
+--directory=${HOST_WORKSPACE_FOLDER}
+```
+
+This tells act to use the host path instead of the container path when spawning containers.
+
+**Current `.actrc` Configuration:**
+```
+# Use medium-sized Docker image (recommended balance of compatibility and size)
+-P ubuntu-latest=catthehacker/ubuntu:act-latest
+
+# Enable offline mode for faster iteration (uses cached actions/images)
+--action-offline-mode
+
+# Load secrets from file
+--secret-file=.secrets
+
+# Load environment variables from file
+--env-file=.env.act
+
+# Bind working directory to job container (ensures current files are always used)
+--bind
+
+# Reuse containers between runs for faster execution
+# Note: --bind ensures we always see current working directory state
+--reuse
+
+# Enable artifact server with local path
+--artifact-server-path=.artifacts
+
+# Use host workspace folder for proper path mapping (fixes nested container issues)
+--directory=${HOST_WORKSPACE_FOLDER}
+```
+
+**How the Environment Variable is Set:**
+
+The `HOST_WORKSPACE_FOLDER` environment variable is already configured in `.devcontainer/devcontainer.json`:
+```json
+"remoteEnv": {
+  "HOST_WORKSPACE_FOLDER": "${localWorkspaceFolder}"
+}
+```
+
+Current value in the environment: `HOST_WORKSPACE_FOLDER=/home/mckee/src/github.com/game-scheduler`
+
+**Step 2: Verify compose.yaml Volume Mounts**
+
+Our `compose.yaml` already uses `HOST_WORKSPACE_FOLDER` for bind mounts, which is correct:
+```yaml
+services:
+  rabbitmq:
+    volumes:
+      - ${HOST_WORKSPACE_FOLDER:-.}/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+```
+
+The `compose.override.yaml` also properly uses this pattern for development volume mounts.
+
+### Why This Works
+
+1. **Environment Variable Expansion**: Act expands `${HOST_WORKSPACE_FOLDER}` in `.actrc` to the actual host path
+2. **Correct Bind Mounts**: When act spawns containers, it uses the host path for bind mounts
+3. **Path Consistency**: The nested containers created by act can successfully access files on the host
+4. **No Path Translation Issues**: Docker on the host directly mounts from the host filesystem
+
+### Testing the Solution
+
+```bash
+# 1. Verify environment variable is set
+echo $HOST_WORKSPACE_FOLDER
+# Should output: /home/mckee/src/github.com/game-scheduler
+
+# 2. Test act with dry run
+act -n -j unit-tests
+
+# 3. Run actual workflow
+act -j unit-tests
+```
+
+### Symlink Creation for Seamless Path Access
+
+Since the host path may not exist when running inside a dev container, we automatically create a symlink on container startup:
+
+**Added to `postStartCommand` in `.devcontainer/devcontainer.json`:**
+```bash
+sudo mkdir -p "$(dirname "${HOST_WORKSPACE_FOLDER}")" 2>/dev/null || true && \
+sudo ln -sfn /app "${HOST_WORKSPACE_FOLDER}" 2>/dev/null || true
+```
+
+**What This Does:**
+1. Creates parent directories if they don't exist (e.g., `/home/mckee/src/github.com/`)
+2. Creates symlink: `/home/mckee/src/github.com/game-scheduler` → `/app`
+3. This makes both paths valid and accessible
+4. Act can now use the host path seamlessly
+
+**Result:**
+```bash
+$ ls -la "${HOST_WORKSPACE_FOLDER}"
+lrwxrwxrwx 1 root root 4 Dec 15 22:44 /home/mckee/src/github.com/game-scheduler -> /app
+```
+
+### Implementation Checklist
+
+For this game-scheduler project:
+
+- [x] `HOST_WORKSPACE_FOLDER` already set in `.devcontainer/devcontainer.json`
+- [x] `compose.yaml` already uses `${HOST_WORKSPACE_FOLDER}` pattern
+- [x] Symlink automatically created on container startup via `postStartCommand`
+- [x] Added `--directory=${HOST_WORKSPACE_FOLDER}` to `.actrc`
+- [x] Act already installed in dev container
+- [x] Docker socket access already configured
+- [x] `.actrc` file already exists with base configuration
+
+**✅ SOLUTION VERIFIED - Tests running successfully with act!**
+
+```bash
+$ act -j unit-tests --matrix python-version:3.11
+[CI/CD Pipeline/Unit Tests] 🏁  Job succeeded
+```
 
 ### Installation Steps
 
