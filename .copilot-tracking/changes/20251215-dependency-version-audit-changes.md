@@ -8,7 +8,7 @@
 
 - [x] **Phase 1: PostgreSQL 18 Upgrade + Alembic Reset** - In Progress
   - [x] Task 1.1: Fix SQLAlchemy models server_default - ✅ Complete
-  - [ ] Task 1.2: Install alembic-utils
+  - [x] Task 1.2: Install alembic-utils - ✅ Complete
   - [ ] Task 1.3: Update PostgreSQL to 18-alpine
   - [ ] Task 1.4: Reset Alembic migrations
   - [ ] Task 1.5: Verify database schema and services
@@ -65,12 +65,49 @@
 - Maintained Python-side `default=` for backward compatibility with existing code
 - Server defaults ensure database consistency even when SQLAlchemy is bypassed
 
-#### Task 1.2: Install alembic-utils (Next)
+#### Task 1.2: Install alembic-utils ✅
 
 **Purpose**: Install alembic-utils package and register PostgreSQL functions and triggers to ensure they are tracked in Alembic migrations.
+
+**Files Modified**:
+- [pyproject.toml](../../../pyproject.toml) - Line 17
+- [alembic/env.py](../../../alembic/env.py) - Lines 29-31, 58, 80-82, 122-126
+
+**Files Created**:
+- [shared/database_objects.py](../../../shared/database_objects.py) - New file defining PostgreSQL functions and triggers
+
+**Changes Made**:
+1. **Added alembic-utils dependency**: Added `alembic-utils>=0.8.0` to pyproject.toml dependencies
+2. **Created database objects module**: Created `shared/database_objects.py` to define:
+   - `notify_schedule_changed()` function for notification_schedule table
+   - `notification_schedule_trigger` trigger for notification_schedule changes
+   - `notify_game_status_schedule_changed()` function for game_status_schedule table
+   - `game_status_schedule_trigger` trigger for game_status_schedule changes
+3. **Updated Alembic configuration**: Modified `alembic/env.py` to:
+   - Import `PGFunction` and `PGTrigger` from alembic-utils
+   - Import `ALL_DATABASE_OBJECTS` from shared.database_objects
+   - Add `include_object=ALL_DATABASE_OBJECTS` to all `context.configure()` calls
+
+**Verification**:
+- ✅ alembic-utils package installed (version 0.8.8)
+- ✅ Database objects module imports successfully
+- ✅ All 4 database objects (2 functions, 2 triggers) registered
+- ✅ Alembic env.py syntax validated
+- ✅ All Python unit tests pass (577 tests, 18.03s)
+- ✅ No breaking changes to existing functionality
+
+**Key Design Decisions**:
+- Used alembic-utils for automatic detection and management of PostgreSQL functions/triggers
+- Centralized all database objects in a single module for maintainability
+- Extracted function/trigger definitions from existing migration files (012, 020)
+- Functions and triggers will be automatically included in future Alembic autogenerate operations
+
+#### Task 1.3: Update PostgreSQL to 18-alpine (Next)
+
+**Purpose**: Update all Docker Compose files to use PostgreSQL 18-alpine image.
 
 **Status**: Not started
 
 ---
 
-**Last Updated**: 2025-12-16 07:33 UTC
+**Last Updated**: 2025-12-16 08:45 UTC

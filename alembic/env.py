@@ -27,6 +27,7 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
+from shared.database_objects import ALL_DATABASE_OBJECTS
 from shared.models import Base
 
 # Alembic Config object
@@ -64,6 +65,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        include_object=ALL_DATABASE_OBJECTS,
     )
 
     with context.begin_transaction():
@@ -72,7 +74,11 @@ def run_migrations_offline() -> None:
 
 def do_run_migrations(connection: Connection) -> None:
     """Run migrations with given database connection."""
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        include_object=ALL_DATABASE_OBJECTS,
+    )
 
     with context.begin_transaction():
         context.run_migrations()
@@ -115,7 +121,11 @@ def run_sync_migrations() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            include_object=ALL_DATABASE_OBJECTS,
+        )
 
         with context.begin_transaction():
             context.run_migrations()
