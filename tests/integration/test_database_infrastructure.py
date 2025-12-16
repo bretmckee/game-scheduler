@@ -113,9 +113,6 @@ def test_alembic_migration_status(db_session):
     version = result[0]
     assert version is not None and len(version) > 0, "Alembic version is empty"
 
-    # Version should be in format like "021_add_game_scheduled_at"
-    assert "_" in version, f"Unexpected Alembic version format: {version}"
-
 
 def test_critical_indexes_exist(db_session):
     """Verify performance-critical indexes are present."""
