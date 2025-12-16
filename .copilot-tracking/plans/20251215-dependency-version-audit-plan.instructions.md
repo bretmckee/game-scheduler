@@ -27,6 +27,13 @@ Systematically audit and upgrade infrastructure services (PostgreSQL, Node.js) a
 - Node.js 24: Active LTS until April 2026, Node 22 enters maintenance mode April 2025
 - Redis 8: Performance improvements but license review required (deferred)
 
+### Database Migration Lessons
+
+- #file:../research/20251215-dependency-version-audit-research.md (Lines 109-116) - Critical lessons from failed Alembic reset
+- Alembic autogenerate drops PostgreSQL server defaults if models only use Python-side `default=`
+- Alembic cannot detect PostgreSQL functions/triggers without alembic-utils
+- Must fix models with `server_default` and register functions/triggers before reset
+
 ### Python Dependency Management
 
 - #file:../research/20251215-dependency-version-audit-research.md (Lines 66-132) - Package constraint analysis and recommendations
@@ -50,38 +57,44 @@ Systematically audit and upgrade infrastructure services (PostgreSQL, Node.js) a
 
 ### [ ] Phase 1: PostgreSQL 18 Upgrade + Alembic Reset
 
-- [ ] Task 1.1: Update PostgreSQL image references to 18-alpine
-  - Details: .copilot-tracking/details/20251215-dependency-version-audit-details.md (Lines 17-33)
+- [ ] Task 1.1: Fix SQLAlchemy models to include server_default declarations
+  - Details: .copilot-tracking/details/20251215-dependency-version-audit-details.md (Lines 17-42)
 
-- [ ] Task 1.2: Reset Alembic migration history
-  - Details: .copilot-tracking/details/20251215-dependency-version-audit-details.md (Lines 35-56)
+- [ ] Task 1.2: Install and configure alembic-utils for functions/triggers
+  - Details: .copilot-tracking/details/20251215-dependency-version-audit-details.md (Lines 44-70)
 
-- [ ] Task 1.3: Verify database schema and services
-  - Details: .copilot-tracking/details/20251215-dependency-version-audit-details.md (Lines 58-72)
+- [ ] Task 1.3: Update PostgreSQL image references to 18-alpine
+  - Details: .copilot-tracking/details/20251215-dependency-version-audit-details.md (Lines 72-88)
+
+- [ ] Task 1.4: Reset Alembic migration history with corrected models
+  - Details: .copilot-tracking/details/20251215-dependency-version-audit-details.md (Lines 90-116)
+
+- [ ] Task 1.5: Verify database schema and services
+  - Details: .copilot-tracking/details/20251215-dependency-version-audit-details.md (Lines 118-132)
 
 ### [ ] Phase 2: Node.js 24 LTS Upgrade
 
 - [ ] Task 2.1: Update Node.js base images
-  - Details: .copilot-tracking/details/20251215-dependency-version-audit-details.md (Lines 76-89)
+  - Details: .copilot-tracking/details/20251215-dependency-version-audit-details.md (Lines 136-159)
 
 - [ ] Task 2.2: Test frontend builds and CI/CD
-  - Details: .copilot-tracking/details/20251215-dependency-version-audit-details.md (Lines 91-103)
+  - Details: .copilot-tracking/details/20251215-dependency-version-audit-details.md (Lines 161-175)
 
 ### [ ] Phase 3: Python Dependency Modernization
 
 - [ ] Task 3.1: Update pyproject.toml with compatible release constraints
-  - Details: .copilot-tracking/details/20251215-dependency-version-audit-details.md (Lines 107-125)
+  - Details: .copilot-tracking/details/20251215-dependency-version-audit-details.md (Lines 179-197)
 
 - [ ] Task 3.2: Upgrade packages and validate
-  - Details: .copilot-tracking/details/20251215-dependency-version-audit-details.md (Lines 127-142)
+  - Details: .copilot-tracking/details/20251215-dependency-version-audit-details.md (Lines 199-217)
 
 ### [ ] Phase 4: NPM Package Updates
 
 - [ ] Task 4.1: Update axios and TypeScript
-  - Details: .copilot-tracking/details/20251215-dependency-version-audit-details.md (Lines 146-157)
+  - Details: .copilot-tracking/details/20251215-dependency-version-audit-details.md (Lines 221-238)
 
 - [ ] Task 4.2: Evaluate and optionally upgrade Vite 7
-  - Details: .copilot-tracking/details/20251215-dependency-version-audit-details.md (Lines 159-173)
+  - Details: .copilot-tracking/details/20251215-dependency-version-audit-details.md (Lines 240-259)
 
 ## Dependencies
 

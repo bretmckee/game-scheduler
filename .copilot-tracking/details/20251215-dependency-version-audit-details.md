@@ -8,7 +8,50 @@
 
 ## Phase 1: PostgreSQL 18 Upgrade + Alembic Reset
 
-### Task 1.1: Update PostgreSQL image references to 18-alpine
+**CRITICAL PREREQUISITE**: Previous Alembic reset attempt failed because models lack `server_default` declarations and PostgreSQL functions/triggers are not registered. These MUST be fixed before attempting reset.
+
+### Task 1.1: Fix SQLAlchemy models to include server_default declarations
+
+Add `server_default` parameter to all SQLAlchemy Column definitions that require database-level defaults.
+
+- **Files**:
+  - `shared/models/guild_configurations.py` - Add server_default to require_host_role and other boolean columns
+  - `shared/models/channel_configurations.py` - Add server_default to is_active and other columns
+  - `shared/models/games.py` - Review and add server_default where needed
+  - `shared/models/*.py` - Review all model files for missing server_defaults
+- **Success**:
+  - All columns with Python `default=` also have `server_default=text('...')`
+  - Boolean defaults use `server_default=text('false')` or `text('true')`
+  - Timestamp defaults use `server_default=func.now()` where appropriate
+  - No purely Python-side defaults for database columns
+- **Research References**:
+  - #file:../research/20251215-dependency-version-audit-research.md (Lines 109-116) - Database migration lessons explaining the defect
+  - Example: `require_host_role = Column(Boolean, default=False, server_default=text('false'))`
+- **Dependencies**:
+  - None (prerequisite task)
+
+### Task 1.2: Install and configure alembic-utils for functions/triggers
+
+Install alembic-utils package and register PostgreSQL functions and triggers.
+
+- **Files**:
+  - `pyproject.toml` - Add alembic-utils dependency
+  - `alembic/env.py` - Import and register PGFunction and PGTrigger objects
+  - New file for function/trigger definitions (e.g., `shared/database_objects.py`)
+- **Success**:
+  - alembic-utils installed and available
+  - `notify_schedule_changed` function registered
+  - `notify_game_status_schedule_changed` function registered
+  - Associated triggers registered for both functions
+  - `ix_game_sessions_template_id` index explicitly defined (if not in models)
+  - Alembic env.py properly imports and includes these objects
+- **Research References**:
+  - #file:../research/20251215-dependency-version-audit-research.md (Lines 109-116) - Missing functions/triggers issue
+  - Need to extract SQL definitions from previous migration files
+- **Dependencies**:
+  - Task 1.1 completion (models corrected first)
+
+### Task 1.3: Update PostgreSQL image references to 18-alpine
 
 Update all Docker Compose files to use PostgreSQL 18-alpine image.
 
@@ -26,45 +69,52 @@ Update all Docker Compose files to use PostgreSQL 18-alpine image.
   - #file:../research/20251215-dependency-version-audit-research.md (Lines 7-20) - PostgreSQL version analysis
   - #file:../research/20251215-dependency-version-audit-research.md (Lines 238-265) - PostgreSQL upgrade implementation
 - **Dependencies**:
+  - Tasks 1.1 and 1.2 completion (models and functions fixed)
   - Docker and Docker Compose installed
 
-### Task 1.2: Reset Alembic migration history
+### Task 1.4: Reset Alembic migration history with corrected models
 
-Delete existing migration files and create fresh initial migration from current models.
+Delete existing migration files and create fresh initial migration from corrected models.
 
 - **Files**:
   - `alembic/versions/*.py` - All migration files (delete except __init__.py)
-  - `alembic/versions/001_*.py` - New initial migration (create)
+  - `alembic/versions/001_*.py` - New initial migration (create with autogenerate)
 - **Success**:
   - Only single migration file exists in alembic/versions/
-  - Migration creates all tables matching current model definitions
-  - All foreign keys, indexes, and constraints defined
+  - Migration includes all server_default declarations
+  - Migration includes PostgreSQL functions and triggers via alembic-utils
+  - Migration includes all indexes (including ix_game_sessions_template_id)
+  - All foreign keys and constraints defined
   - Alembic revision executes successfully
-  - Database schema matches SQLAlchemy models
+  - Database schema matches SQLAlchemy models exactly
 - **Research References**:
+  - #file:../research/20251215-dependency-version-audit-research.md (Lines 109-116) - Actionable fix path
   - #file:../research/20251215-dependency-version-audit-research.md (Lines 238-308) - Alembic reset procedure
   - #file:../research/20251215-dependency-version-audit-research.md (Lines 310-324) - Expected migration contents
 - **Dependencies**:
-  - Task 1.1 completion (PostgreSQL 18 image updated)
+  - Task 1.3 completion (PostgreSQL 18 image updated)
   - Database volumes cleared (docker compose down -v)
 
-### Task 1.3: Verify database schema and services
+### Task 1.5: Verify database schema and services
 
-Validate that database schema is correct and all services connect successfully.
+Validate that database schema is correct, defaults work, triggers fire, and all services connect successfully.
 
 - **Files**:
   - No file modifications, verification only
 - **Success**:
   - PostgreSQL 18 container running
   - alembic_version table shows correct head revision
-  - All expected tables exist (games, game_participants, game_templates, discord_users)
-  - Integration tests pass
-  - All services (api, bot, scheduler) start successfully
+  - All expected tables exist with correct server defaults
+  - PostgreSQL functions exist (notify_schedule_changed, notify_game_status_schedule_changed)
+  - PostgreSQL triggers are attached and functional
+  - All indexes exist including ix_game_sessions_template_id
+  - Integration tests pass (validates defaults and triggers work)
+  - All services (api, bot, scheduler, daemons) start successfully
 - **Research References**:
   - #file:../research/20251215-dependency-version-audit-research.md (Lines 326-340) - Verification checklist
   - #file:../research/20251215-dependency-version-audit-research.md (Lines 342-350) - Rollback procedure
 - **Dependencies**:
-  - Task 1.2 completion (Alembic migration applied)
+  - Task 1.4 completion (Alembic migration applied with corrected models)
 
 ## Phase 2: Node.js 24 LTS Upgrade
 
@@ -86,6 +136,7 @@ Update Dockerfiles to use Node.js 24-alpine base image.
   - #file:../research/20251215-dependency-version-audit-research.md (Lines 52-64) - Node.js version analysis
   - #file:../research/20251215-dependency-version-audit-research.md (Lines 352-380) - Node.js upgrade implementation
 - **Dependencies**:
+  - Phase 1 completion recommended but not required (independent change)
   - Docker installed
 
 ### Task 2.2: Test frontend builds and CI/CD
