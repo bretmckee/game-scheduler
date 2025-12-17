@@ -141,9 +141,7 @@ class GameSchedulerBot(commands.Bot):
                 "discord.channel_id": (
                     str(interaction.channel_id) if interaction.channel_id else None
                 ),
-                "discord.guild_id": (
-                    str(interaction.guild_id) if interaction.guild_id else None
-                ),
+                "discord.guild_id": (str(interaction.guild_id) if interaction.guild_id else None),
             },
         ):
             if interaction.type == discord.InteractionType.component:
