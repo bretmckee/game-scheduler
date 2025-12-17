@@ -12,7 +12,9 @@
   - [x] Task 1.3: Update PostgreSQL to 18-alpine - ✅ Complete
   - [x] Task 1.4: Reset Alembic migrations - ✅ Complete
   - [x] Task 1.5: Verify database schema and services - ✅ Complete
-- [ ] **Phase 2: Node.js 24 LTS Upgrade**
+- [x] **Phase 2: Node.js 24 LTS Upgrade** - ✅ Complete
+  - [x] Task 2.1: Update Node.js base images - ✅ Complete
+  - [x] Task 2.2: Test frontend builds and CI/CD - ✅ Complete
 - [ ] **Phase 3: Python Dependency Modernization**
 - [ ] **Phase 4: NPM Package Updates**
 
@@ -180,3 +182,59 @@
 ---
 
 **Phase 1 Complete**: 2025-12-16 09:30 UTC
+
+### Phase 2: Node.js 24 LTS Upgrade
+
+#### Task 2.1: Update Node.js base images ✅
+
+**Purpose**: Update Dockerfiles and CI/CD workflows to use Node.js 24-alpine base image for extended LTS support.
+
+**Files Modified**:
+- [docker/frontend.Dockerfile](../../../docker/frontend.Dockerfile) - Line 2
+- [.github/workflows/ci-cd.yml](../../../.github/workflows/ci-cd.yml) - Line 251
+- [frontend/package.json](../../../frontend/package.json) - Line 7
+
+**Changes Made**:
+1. **Updated frontend Dockerfile**: Changed FROM `node:22-alpine` to `node:24-alpine`
+2. **Updated CI/CD workflow**: Changed Node version from "20" to "24" in setup-node action
+3. **Updated package.json engines**: Changed minimum Node requirement from `>=20.0.0` to `>=24.0.0`
+
+**Key Design Decisions**:
+- Node.js 24 LTS provides extended support until April 2029 vs Node 22 entering maintenance mode April 2025
+- Minimal breaking changes expected between Node 22/24 for standard usage
+- CI/CD was using Node 20, now upgraded to Node 24 for consistency with Docker image
+
+---
+
+#### Task 2.2: Test frontend builds and CI/CD ✅
+
+**Purpose**: Verify that frontend builds successfully with Node.js 24 and all tests pass.
+
+**Files Modified**:
+- [.devcontainer/devcontainer.json](../../../.devcontainer/devcontainer.json) - Line 20 (Node feature version)
+- [frontend/package.json](../../../frontend/package.json) - Added @testing-library/dom@^10.4.1
+- [frontend/package-lock.json](../../../frontend/package-lock.json) - Updated lockfile
+
+**Testing Results**:
+1. **npm install**: Completed without errors
+2. **npm run test:ci**: All 51 tests passed
+   - MentionChip: 3 tests
+   - ServerSelectionDialog: 6 tests
+   - TemplateCard: 7 tests
+   - TemplateList: 3 tests
+   - ValidationErrors: 5 tests
+   - EditGame: 7 tests
+   - GuildConfig: 5 tests
+   - GuildListPage: 4 tests
+   - MyGames: 5 tests
+   - GameForm: 6 tests
+3. **npm run build**: Production build successful (892KB bundle)
+4. **Docker build**: Frontend image built successfully with node:24-alpine
+
+**Issues Resolved**:
+- Added missing `@testing-library/dom` dependency (peer dependency of @testing-library/react v16)
+- Updated devcontainer to use Node.js 24 for local development consistency
+
+---
+
+**Phase 2 Complete**: 2025-12-17 (Commit: b48d23f)
