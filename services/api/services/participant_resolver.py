@@ -237,9 +237,7 @@ class ParticipantResolver:
                         f"Discord API error searching guild {guild_discord_id}: "
                         f"{response.status} - {error_msg}"
                     )
-                    raise discord_client_module.DiscordAPIError(
-                        response.status, error_msg
-                    )
+                    raise discord_client_module.DiscordAPIError(response.status, error_msg)
 
                 response_data = await response.json()
                 return response_data
@@ -251,9 +249,7 @@ class ParticipantResolver:
                 f"Network error searching guild members in {guild_discord_id}: {e}",
                 exc_info=True,
             )
-            raise discord_client_module.DiscordAPIError(
-                500, f"Network error: {str(e)}"
-            ) from e
+            raise discord_client_module.DiscordAPIError(500, f"Network error: {str(e)}") from e
 
     async def ensure_user_exists(
         self,
