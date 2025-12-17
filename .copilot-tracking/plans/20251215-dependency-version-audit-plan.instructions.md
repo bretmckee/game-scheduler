@@ -72,12 +72,12 @@ Systematically audit and upgrade infrastructure services (PostgreSQL, Node.js) a
 - [x] Task 1.5: Verify database schema and services
   - Details: .copilot-tracking/details/20251215-dependency-version-audit-details.md (Lines 118-132)
 
-### [ ] Phase 2: Node.js 24 LTS Upgrade
+### [x] Phase 2: Node.js 24 LTS Upgrade
 
-- [ ] Task 2.1: Update Node.js base images
+- [x] Task 2.1: Update Node.js base images
   - Details: .copilot-tracking/details/20251215-dependency-version-audit-details.md (Lines 136-159)
 
-- [ ] Task 2.2: Test frontend builds and CI/CD
+- [x] Task 2.2: Test frontend builds and CI/CD
   - Details: .copilot-tracking/details/20251215-dependency-version-audit-details.md (Lines 161-175)
 
 ### [ ] Phase 3: Python Dependency Modernization
