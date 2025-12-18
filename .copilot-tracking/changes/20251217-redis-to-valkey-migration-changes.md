@@ -30,5 +30,8 @@ Successfully replaced Redis with Valkey 9.0.1-alpine as a drop-in replacement us
 - DOCKER_PORTS.md - Updated Redis section header to "Valkey (Redis-compatible cache)" and changed all redis-cli commands to valkey-cli
 - TESTING_OAUTH.md - Updated session storage section to reference Valkey instead of Redis and changed redis-cli commands to valkey-cli
 - docs/LOCAL_TESTING_WITH_ACT.md - Added note about Valkey usage with BSD-3-Clause license while retaining redis:// URL scheme for compatibility, and updated service container description to mention Valkey
+- **Validation** - Verified all Docker Compose services start successfully with Valkey 9.0.1-alpine, health checks pass, and application services (API and bot) connect to Valkey successfully
+- **Testing** - All 37 integration tests passed without modifications, confirming cache operations (set, get, delete, expire, TTL), OAuth state storage, session management, and RabbitMQ infrastructure work identically with Valkey
+- **Cache Validation** - Verified cache operations in development environment: sessions (24-hour TTL), user roles (5-minute TTL), display names (5-minute TTL), user guilds, and Discord channel caching all function correctly with proper TTL enforcement
 
 ### Removed
