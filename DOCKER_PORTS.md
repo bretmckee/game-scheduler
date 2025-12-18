@@ -55,17 +55,17 @@ docker exec -it gamebot-postgres psql -U gamebot -d game_scheduler -c "SELECT * 
 docker exec gamebot-postgres pg_dump -U gamebot game_scheduler > backup.sql
 ```
 
-### Redis
+### Valkey (Redis-compatible cache)
 
 ```bash
-# Access redis-cli
-docker exec -it gamebot-redis redis-cli
+# Access valkey-cli
+docker exec -it gamebot-redis valkey-cli
 
 # Check specific key
-docker exec -it gamebot-redis redis-cli GET some_key
+docker exec -it gamebot-redis valkey-cli GET some_key
 
 # Monitor commands
-docker exec -it gamebot-redis redis-cli MONITOR
+docker exec -it gamebot-redis valkey-cli MONITOR
 ```
 
 ### RabbitMQ

@@ -92,11 +92,11 @@ INFO - Created new user with Discord ID: 123456789  # (if new user)
 INFO - Stored tokens for user 123456789
 ```
 
-### Check Redis Session Storage
+### Check Valkey Session Storage
 
 ```bash
-# Connect to Redis
-docker exec -it gamebot-redis redis-cli
+# Connect to Valkey (Redis-compatible cache)
+docker exec -it gamebot-redis valkey-cli
 
 # List all sessions (now stored with UUID keys)
 KEYS session:*

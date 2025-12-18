@@ -54,6 +54,8 @@ REDIS_URL=redis://redis:6379
 RABBITMQ_URL=amqp://test:test@rabbitmq:5672/
 ```
 
+**Note**: The service uses Valkey (BSD-3-Clause licensed, Redis-compatible) but retains the `redis://` URL scheme and service name for backward compatibility.
+
 **Note**: `.env.act` is gitignored and will not be committed.
 
 ## Usage
@@ -93,7 +95,7 @@ Run integration tests (requires service containers):
 act -j integration-tests
 ```
 
-This starts PostgreSQL, Redis, and RabbitMQ containers, runs database migrations, and executes integration tests.
+This starts PostgreSQL, Valkey (Redis-compatible cache), and RabbitMQ containers, runs database migrations, and executes integration tests.
 
 #### End-to-End Tests
 
