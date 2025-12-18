@@ -37,7 +37,7 @@ services:
       RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: -rabbit log_levels [{connection,debug}]
 
   redis:
-    command: redis-server --appendonly yes --loglevel debug
+    command: valkey-server --appendonly yes --loglevel debug
   e2e-tests:
     build:
       context: .
@@ -46,7 +46,7 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL}
       RABBITMQ_URL: ${RABBITMQ_URL}
-      REDIS_URL: ${REDIS_URL}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       API_BASE_URL: http://api:8000
       TEST_DISCORD_TOKEN: ${TEST_DISCORD_TOKEN}
       TEST_DISCORD_GUILD_ID: ${TEST_DISCORD_GUILD_ID}

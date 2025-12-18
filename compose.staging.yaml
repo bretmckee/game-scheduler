@@ -55,4 +55,4 @@ services:
       RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: -rabbit log_levels [{connection,debug}]
 
   redis:
-    command: redis-server --appendonly yes --loglevel debug
+    command: valkey-server --appendonly yes --loglevel debug
