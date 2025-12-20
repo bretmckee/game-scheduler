@@ -30,6 +30,7 @@ const mockGame: GameSession = {
   where: 'Discord',
   max_players: 6,
   guild_id: 'guild-1',
+  guild_name: 'Test Server',
   channel_id: 'channel-1',
   channel_name: 'game-chat',
   message_id: null,

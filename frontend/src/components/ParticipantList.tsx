@@ -49,15 +49,8 @@ export const ParticipantList: FC<ParticipantListProps> = ({ participants, maxPla
   const confirmedParticipants = participants.slice(0, maxSlots);
   const waitlistParticipants = participants.slice(maxSlots);
 
-  const joinedCount = confirmedParticipants.length;
-  const playerDisplay = maxPlayers ? `${joinedCount}/${maxPlayers}` : `${joinedCount}`;
-
   return (
     <Box>
-      <Typography variant="body2" sx={{ mb: 1 }}>
-        <strong>{playerDisplay}</strong> players
-      </Typography>
-
       <List>
         {confirmedParticipants.map((participant) => (
           <ListItem key={participant.id}>

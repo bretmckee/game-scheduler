@@ -30,12 +30,15 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Avatar,
+  IconButton,
 } from '@mui/material';
+import DownloadIcon from '@mui/icons-material/Download';
 import { useParams, useNavigate } from 'react-router';
+import axios from 'axios';
 import { apiClient } from '../api/client';
 import { GameSession } from '../types';
 import { ParticipantList } from '../components/ParticipantList';
-import { ExportButton } from '../components/ExportButton';
 import { useAuth } from '../hooks/useAuth';
 
 export const GameDetails: FC = () => {
@@ -47,6 +50,7 @@ export const GameDetails: FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [calendarLoading, setCalendarLoading] = useState(false);
 
   const formatDuration = (minutes: number | null): string => {
     if (!minutes) return '';
@@ -159,6 +163,47 @@ export const GameDetails: FC = () => {
   const isParticipant =
     user && game && game.participants?.some((p) => p.user_id === user.user_uuid);
 
+  const handleDownloadCalendar = async () => {
+    if (!gameId) return;
+
+    setCalendarLoading(true);
+    try {
+      const url = `/api/v1/export/game/${gameId}`;
+      const response = await axios.get(url, {
+        responseType: 'blob',
+        withCredentials: true,
+      });
+
+      const contentDisposition = response.headers['content-disposition'];
+      let filename = `game-${gameId}.ics`;
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename=([^;]+)/);
+        if (filenameMatch) {
+          filename = filenameMatch[1].trim();
+        }
+      }
+
+      const blob = new Blob([response.data], { type: 'text/calendar' });
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (err) {
+      console.error('Failed to export calendar:', err);
+      const errorMessage =
+        (err as any).response?.status === 403
+          ? 'You must be the host or a participant to export this game.'
+          : 'Failed to export calendar. Please try again.';
+      alert(errorMessage);
+    } finally {
+      setCalendarLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <Container>
@@ -199,7 +244,66 @@ export const GameDetails: FC = () => {
           {game.description}
         </Typography>
 
-        {game.signup_instructions && (
+        <Divider sx={{ my: 3 }} />
+
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            Game Details
+          </Typography>
+          {game.host && game.host.display_name && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+              <Avatar
+                src={game.host.avatar_url || undefined}
+                alt={game.host.display_name}
+                sx={{ width: 40, height: 40 }}
+              >
+                {!game.host.avatar_url && game.host.display_name[0]}
+              </Avatar>
+              <Typography variant="body1" sx={{ fontSize: '1.1rem' }}>
+                <strong>Host:</strong> {game.host.display_name}
+              </Typography>
+            </Box>
+          )}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+            <Typography variant="body1" sx={{ fontSize: '1.1rem', fontWeight: 'bold' }}>
+              <strong>When:</strong> {formatDateTime(game.scheduled_at)}
+            </Typography>
+            {(isHost || isParticipant) && (
+              <IconButton
+                size="small"
+                onClick={handleDownloadCalendar}
+                disabled={calendarLoading}
+                title="Download calendar event"
+                sx={{ ml: 1 }}
+              >
+                {calendarLoading ? <CircularProgress size={20} /> : <DownloadIcon />}
+              </IconButton>
+            )}
+          </Box>
+          <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap', mb: 1 }}>
+            {game.expected_duration_minutes && (
+              <Typography variant="body2">
+                <strong>Duration:</strong> {formatDuration(game.expected_duration_minutes)}
+              </Typography>
+            )}
+            {game.reminder_minutes && game.reminder_minutes.length > 0 && (
+              <Typography variant="body2">
+                <strong>Reminders:</strong> {game.reminder_minutes.join(', ')} minutes before
+              </Typography>
+            )}
+          </Box>
+          {game.where && (
+            <Typography variant="body1" paragraph sx={{ fontSize: '1.1rem' }}>
+              <strong>Where:</strong> {game.where}
+            </Typography>
+          )}
+          <Typography variant="body1" paragraph sx={{ fontSize: '1.1rem' }}>
+            <strong>Location:</strong> {game.guild_name || 'Unknown Server'} #
+            {game.channel_name || 'Unknown Channel'}
+          </Typography>
+        </Box>
+
+        {isHost && game.signup_instructions && (
           <Box
             sx={{
               p: 2,
@@ -221,50 +325,7 @@ export const GameDetails: FC = () => {
 
         <Box sx={{ mb: 3 }}>
           <Typography variant="h6" gutterBottom>
-            Game Details
-          </Typography>
-          <Typography variant="body1" paragraph sx={{ fontSize: '1.1rem', fontWeight: 'bold' }}>
-            <strong>When:</strong> {formatDateTime(game.scheduled_at)}
-          </Typography>
-          {game.where && (
-            <Typography variant="body1" paragraph sx={{ fontSize: '1.1rem' }}>
-              <strong>Where:</strong> {game.where}
-            </Typography>
-          )}
-          {game.reminder_minutes && game.reminder_minutes.length > 0 && (
-            <Typography variant="body2" paragraph>
-              <strong>Reminders:</strong> {game.reminder_minutes.join(', ')} minutes before
-            </Typography>
-          )}
-          {game.expected_duration_minutes && (
-            <Typography variant="body2" paragraph>
-              <strong>Expected Duration:</strong> {formatDuration(game.expected_duration_minutes)}
-            </Typography>
-          )}
-          <Typography variant="body1" paragraph sx={{ fontSize: '1.1rem' }}>
-            <strong>Channel:</strong> {game.channel_name || 'Unknown Channel'}
-          </Typography>
-          {game.host && game.host.display_name && (
-            <Box sx={{ mb: 2 }}>
-              <Chip
-                label={`Host: ${game.host.display_name}`}
-                color="secondary"
-                size="medium"
-                variant="outlined"
-                sx={{ fontWeight: 'bold' }}
-              />
-            </Box>
-          )}
-          <Typography variant="body2" paragraph>
-            <strong>Max Players:</strong> {game.max_players || 10}
-          </Typography>
-        </Box>
-
-        <Divider sx={{ my: 3 }} />
-
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="h6" gutterBottom>
-            Participants
+            Participants ({game.participant_count || 0}/{game.max_players || 10})
           </Typography>
           <ParticipantList
             participants={game.participants || []}
@@ -275,8 +336,6 @@ export const GameDetails: FC = () => {
         <Divider sx={{ my: 3 }} />
 
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-          {(isHost || isParticipant) && <ExportButton gameId={gameId!} />}
-
           {!isHost && !isParticipant && game.status === 'SCHEDULED' && (
             <Button variant="contained" onClick={handleJoinGame} disabled={actionLoading}>
               Join Game

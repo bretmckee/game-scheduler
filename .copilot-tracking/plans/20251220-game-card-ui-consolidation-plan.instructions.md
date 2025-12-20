@@ -42,32 +42,32 @@ Consolidate the UI layout between the web game details page and Discord bot game
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Web GameDetails Page - Layout Restructuring
+### [x] Phase 1: Web GameDetails Page - Layout Restructuring
 
-- [ ] Task 1.1: Move host section to top of game details
+- [x] Task 1.1: Move host section to top of game details
   - Details: .copilot-tracking/details/20251220-game-card-ui-consolidation-details.md (Lines 23-45)
 
-- [ ] Task 1.2: Consolidate When + Calendar link on same line
+- [x] Task 1.2: Consolidate When + Calendar link on same line
   - Details: .copilot-tracking/details/20251220-game-card-ui-consolidation-details.md (Lines 47-70)
 
-- [ ] Task 1.3: Add location context with server and channel display
+- [x] Task 1.3: Add location context with server and channel display
   - Details: .copilot-tracking/details/20251220-game-card-ui-consolidation-details.md (Lines 72-95)
 
-- [ ] Task 1.4: Consolidate participant count and remove max players line
+- [x] Task 1.4: Consolidate participant count and remove max players line
   - Details: .copilot-tracking/details/20251220-game-card-ui-consolidation-details.md (Lines 97-120)
 
-- [ ] Task 1.5: Remove ExportButton and replace with calendar link
+- [x] Task 1.5: Remove ExportButton and replace with calendar link
   - Details: .copilot-tracking/details/20251220-game-card-ui-consolidation-details.md (Lines 122-140)
 
-- [ ] Task 1.6: Update signup instructions display for host-only visibility
+- [x] Task 1.6: Update signup instructions display for host-only visibility
   - Details: .copilot-tracking/details/20251220-game-card-ui-consolidation-details.md (Lines 142-160)
 
-### [ ] Phase 2: Web GameDetails Page - Testing and Validation
+### [x] Phase 2: Web GameDetails Page - Testing and Validation
 
-- [ ] Task 2.1: Test GameDetails page layout changes
+- [x] Task 2.1: Test GameDetails page layout changes
   - Details: .copilot-tracking/details/20251220-game-card-ui-consolidation-details.md (Lines 162-180)
 
-- [ ] Task 2.2: Verify responsive design across screen sizes
+- [x] Task 2.2: Verify responsive design across screen sizes
   - Details: .copilot-tracking/details/20251220-game-card-ui-consolidation-details.md (Lines 182-195)
 
 ### [ ] Phase 3: Discord Bot Card - Field Reorganization

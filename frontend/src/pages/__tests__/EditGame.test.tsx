@@ -47,6 +47,7 @@ describe('EditGame', () => {
     where: null,
     max_players: 8,
     guild_id: 'guild123',
+    guild_name: 'Test Server',
     channel_id: 'channel123',
     channel_name: 'Test Channel',
     message_id: null,

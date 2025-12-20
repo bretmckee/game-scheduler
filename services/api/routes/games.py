@@ -36,7 +36,7 @@ from services.api.services import display_names as display_names_module
 from services.api.services import games as games_service
 from services.api.services import participant_resolver as resolver_module
 from shared import database
-from shared.discord.client import fetch_channel_name_safe
+from shared.discord.client import fetch_channel_name_safe, fetch_guild_name_safe
 from shared.messaging import publisher as messaging_publisher
 from shared.models import game as game_model
 from shared.schemas import auth as auth_schemas
@@ -383,6 +383,11 @@ async def _build_game_response(
     if game.channel:
         channel_name = await fetch_channel_name_safe(game.channel.channel_id)
 
+    # Fetch guild name from Discord API with caching
+    guild_name = None
+    if game.guild:
+        guild_name = await fetch_guild_name_safe(game.guild.guild_id)
+
     participant_responses = []
     for participant in sorted_participants:
         discord_id = participant.user.discord_id if participant.user else None
@@ -438,6 +443,7 @@ async def _build_game_response(
         where=game.where,
         max_players=game.max_players,
         guild_id=game.guild_id,
+        guild_name=guild_name,
         channel_id=game.channel_id,
         channel_name=channel_name,
         message_id=game.message_id,

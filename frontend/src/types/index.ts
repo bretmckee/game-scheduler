@@ -52,6 +52,7 @@ export interface GameSession {
   where: string | null;
   max_players: number | null;
   guild_id: string;
+  guild_name: string | null;
   channel_id: string;
   channel_name: string | null;
   message_id: string | null;

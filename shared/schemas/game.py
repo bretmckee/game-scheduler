@@ -50,7 +50,9 @@ class GameCreateRequest(BaseModel):
         description="Reminder times override (uses template default if None)",
     )
     where: str | None = Field(
-        None, description="Game location (optional, uses template default if None)", max_length=500
+        None,
+        description="Game location (optional, uses template default if None)",
+        max_length=500,
     )
     signup_instructions: str | None = Field(
         None,
@@ -125,6 +127,7 @@ class GameResponse(BaseModel):
     where: str | None = Field(None, description="Game location")
     max_players: int | None = Field(None, description="Max players (resolved)")
     guild_id: str = Field(..., description="Guild ID (UUID)")
+    guild_name: str | None = Field(None, description="Guild name")
     channel_id: str = Field(..., description="Channel ID (UUID)")
     channel_name: str | None = Field(None, description="Channel name")
     message_id: str | None = Field(None, description="Discord message snowflake ID)")
