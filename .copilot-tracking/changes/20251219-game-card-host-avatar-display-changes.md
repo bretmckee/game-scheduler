@@ -1,0 +1,30 @@
+<!-- markdownlint-disable-file -->
+
+# Release Changes: Game Card Host Avatar Display Enhancement
+
+**Related Plan**: 20251219-game-card-host-avatar-display-plan.instructions.md
+**Implementation Date**: 2025-12-20
+
+## Summary
+
+Add host Discord avatar display to both web frontend GameCard component and Discord bot game embeds. This enhancement fetches avatar URLs from Discord API and displays them alongside host names for better visual identification.
+
+## Changes
+
+### Added
+
+- services/api/services/display_names.py - Added `resolve_display_names_and_avatars()` method to extract Discord avatar hashes and construct CDN URLs
+- services/api/services/display_names.py - Added `_build_avatar_url()` static method to construct Discord CDN URLs with proper priority (guild > user > None)
+- shared/cache/keys.py - Added `display_name_avatar()` cache key method for caching display names and avatar URLs together
+- tests/services/api/services/test_display_names.py - Added 8 new unit tests for avatar resolution functionality including cache, API, priority, and error handling
+
+### Modified
+
+- services/api/services/display_names.py - Updated module docstring to mention avatar URL resolution
+- services/api/services/display_names.py - Added json import for caching avatar data
+- shared/schemas/participant.py - Added optional `avatar_url` field to ParticipantResponse schema for Discord CDN avatar URLs
+- services/api/routes/games.py - Updated game detail endpoint to use `resolve_display_names_and_avatars()` and include avatar URLs in all participant and host responses
+- services/api/routes/games.py - Updated join game endpoint to resolve and return avatar URLs for new participants
+- services/api/services/display_names.py - Caching updated to store avatar URLs as JSON alongside display names with 5-minute TTL
+
+### Removed

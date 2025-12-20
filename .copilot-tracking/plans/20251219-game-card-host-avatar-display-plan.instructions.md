@@ -40,18 +40,18 @@ Add host Discord avatar display to both web frontend GameCard component and Disc
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Backend Avatar Data Collection
+### [x] Phase 1: Backend Avatar Data Collection
 
-- [ ] Task 1.1: Update DisplayNameResolver to extract avatar hashes
+- [x] Task 1.1: Update DisplayNameResolver to extract avatar hashes
   - Details: .copilot-tracking/details/20251219-game-card-host-avatar-display-details.md (Lines 15-35)
 
-- [ ] Task 1.2: Add avatar_url to ParticipantResponse schema
+- [x] Task 1.2: Add avatar_url to ParticipantResponse schema
   - Details: .copilot-tracking/details/20251219-game-card-host-avatar-display-details.md (Lines 37-52)
 
-- [ ] Task 1.3: Update game routes to return avatar URLs
+- [x] Task 1.3: Update game routes to return avatar URLs
   - Details: .copilot-tracking/details/20251219-game-card-host-avatar-display-details.md (Lines 54-69)
 
-- [ ] Task 1.4: Update caching to include avatar data
+- [x] Task 1.4: Update caching to include avatar data
   - Details: .copilot-tracking/details/20251219-game-card-host-avatar-display-details.md (Lines 71-86)
 
 ### [ ] Phase 2A: Web Frontend Implementation

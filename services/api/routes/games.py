@@ -286,12 +286,28 @@ async def join_game(
             user_discord_id=current_user.user.discord_id,
         )
 
+        # Resolve display name and avatar for the participant
+        display_data_map = {}
+        if participant.user and participant.user.discord_id and game.guild_id:
+            display_name_resolver = await display_names_module.get_display_name_resolver()
+            guild_discord_id = game.guild.guild_id
+            display_data_map = await display_name_resolver.resolve_display_names_and_avatars(
+                guild_discord_id, [participant.user.discord_id]
+            )
+
+        display_name = participant.display_name
+        avatar_url = None
+        if participant.user and participant.user.discord_id in display_data_map:
+            display_name = display_data_map[participant.user.discord_id]["display_name"]
+            avatar_url = display_data_map[participant.user.discord_id]["avatar_url"]
+
         return participant_schemas.ParticipantResponse(
             id=participant.id,
             game_session_id=participant.game_session_id,
             user_id=participant.user_id,
             discord_id=participant.user.discord_id if participant.user else None,
-            display_name=participant.display_name,
+            display_name=display_name,
+            avatar_url=avatar_url,
             joined_at=participant.joined_at.replace(tzinfo=UTC).isoformat().replace("+00:00", "Z"),
             pre_filled_position=participant.pre_filled_position,
         )
@@ -329,7 +345,9 @@ async def leave_game(
         raise HTTPException(status_code=400, detail=str(e)) from None
 
 
-async def _build_game_response(game: game_model.GameSession) -> game_schemas.GameResponse:
+async def _build_game_response(
+    game: game_model.GameSession,
+) -> game_schemas.GameResponse:
     """
     Build GameResponse from GameSession model with resolved display names.
 
@@ -351,12 +369,12 @@ async def _build_game_response(game: game_model.GameSession) -> game_schemas.Gam
         discord_user_ids.append(host_discord_id)
 
     display_name_resolver = await display_names_module.get_display_name_resolver()
-    display_names_map = {}
+    display_data_map = {}
 
     if discord_user_ids:
         if game.guild_id:
             guild_discord_id = game.guild.guild_id
-            display_names_map = await display_name_resolver.resolve_display_names(
+            display_data_map = await display_name_resolver.resolve_display_names_and_avatars(
                 guild_discord_id, discord_user_ids
             )
 
@@ -369,9 +387,11 @@ async def _build_game_response(game: game_model.GameSession) -> game_schemas.Gam
     for participant in sorted_participants:
         discord_id = participant.user.discord_id if participant.user else None
         display_name = participant.display_name
+        avatar_url = None
 
-        if discord_id and discord_id in display_names_map:
-            display_name = display_names_map[discord_id]
+        if discord_id and discord_id in display_data_map:
+            display_name = display_data_map[discord_id]["display_name"]
+            avatar_url = display_data_map[discord_id]["avatar_url"]
 
         participant_responses.append(
             participant_schemas.ParticipantResponse(
@@ -380,6 +400,7 @@ async def _build_game_response(game: game_model.GameSession) -> game_schemas.Gam
                 user_id=participant.user_id,
                 discord_id=discord_id,
                 display_name=display_name,
+                avatar_url=avatar_url,
                 joined_at=(
                     participant.joined_at.replace(tzinfo=UTC).isoformat().replace("+00:00", "Z")
                 ),
@@ -389,8 +410,10 @@ async def _build_game_response(game: game_model.GameSession) -> game_schemas.Gam
 
     # Build host participant response
     host_display_name = None
-    if host_discord_id and host_discord_id in display_names_map:
-        host_display_name = display_names_map[host_discord_id]
+    host_avatar_url = None
+    if host_discord_id and host_discord_id in display_data_map:
+        host_display_name = display_data_map[host_discord_id]["display_name"]
+        host_avatar_url = display_data_map[host_discord_id]["avatar_url"]
 
     host_response = participant_schemas.ParticipantResponse(
         id=game.host_id,
@@ -398,6 +421,7 @@ async def _build_game_response(game: game_model.GameSession) -> game_schemas.Gam
         user_id=game.host_id,
         discord_id=host_discord_id,
         display_name=host_display_name,
+        avatar_url=host_avatar_url,
         joined_at=game.created_at.replace(tzinfo=UTC).isoformat().replace("+00:00", "Z"),
         pre_filled_position=None,
     )

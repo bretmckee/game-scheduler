@@ -38,6 +38,10 @@ class ParticipantResponse(BaseModel):
         None,
         description="Resolved display name (guild-specific or placeholder text)",
     )
+    avatar_url: str | None = Field(
+        None,
+        description="Discord CDN avatar URL (None if no avatar)",
+    )
     joined_at: str = Field(..., description="Join timestamp (UTC ISO)")
     pre_filled_position: int | None = Field(
         None,

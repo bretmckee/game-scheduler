@@ -28,6 +28,11 @@ class CacheKeys:
         return f"display:{guild_id}:{user_id}"
 
     @staticmethod
+    def display_name_avatar(user_id: str, guild_id: str) -> str:
+        """Return cache key for Discord user display names and avatars in a guild."""
+        return f"display_avatar:{guild_id}:{user_id}"
+
+    @staticmethod
     def user_roles(user_id: str, guild_id: str) -> str:
         """Return cache key for user's role IDs in a guild."""
         return f"user_roles:{user_id}:{guild_id}"
