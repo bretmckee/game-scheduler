@@ -109,10 +109,10 @@ describe('MyGames - Server Selection Logic', () => {
 
     await user.click(screen.getByText('Create New Game'));
 
-    expect(mockNavigate).toHaveBeenCalledWith('/guilds/1/games/new');
+    expect(mockNavigate).toHaveBeenCalledWith('/games/new');
   });
 
-  it('shows server selection dialog when user has multiple servers', async () => {
+  it('navigates to create form when user has multiple servers', async () => {
     const mockGuilds: Guild[] = [
       mockGuild,
       {
@@ -141,8 +141,7 @@ describe('MyGames - Server Selection Logic', () => {
 
     await user.click(createButton);
 
-    const dialogTitle = await screen.findByText('Select Server', {}, { timeout: 3000 });
-    expect(dialogTitle).toBeInTheDocument();
+    expect(mockNavigate).toHaveBeenCalledWith('/games/new');
   });
 
   it('hides create button when user has no servers', async () => {
@@ -164,44 +163,6 @@ describe('MyGames - Server Selection Logic', () => {
     // Button should not be in the document when there are no guilds
     const createButton = screen.queryByText('Create New Game');
     expect(createButton).not.toBeInTheDocument();
-  });
-
-  it('navigates when server is selected from dialog', async () => {
-    const mockGuilds: Guild[] = [
-      mockGuild,
-      {
-        id: '2',
-        guild_name: 'Test Server 2',
-        created_at: '2025-01-01T00:00:00Z',
-        updated_at: '2025-01-01T00:00:00Z',
-      },
-    ];
-
-    vi.mocked(apiClient.get).mockImplementation((url: string) => {
-      if (url === '/api/v1/games') {
-        return Promise.resolve({ data: mockGamesResponse });
-      }
-      if (url === '/api/v1/guilds') {
-        return Promise.resolve({ data: { guilds: mockGuilds } });
-      }
-      return Promise.resolve({ data: { guilds: [] } });
-    });
-
-    const user = userEvent.setup();
-    renderWithAuth();
-
-    const createButton = await screen.findByText('Create New Game', {}, { timeout: 3000 });
-    expect(createButton).toBeInTheDocument();
-
-    await user.click(createButton);
-
-    const dialogTitle = await screen.findByText('Select Server', {}, { timeout: 3000 });
-    expect(dialogTitle).toBeInTheDocument();
-
-    const serverOption = await screen.findByText('Test Server 1', {}, { timeout: 3000 });
-    await user.click(serverOption);
-
-    expect(mockNavigate).toHaveBeenCalledWith('/guilds/1/games/new');
   });
 
   it('fetches guilds on component mount', async () => {

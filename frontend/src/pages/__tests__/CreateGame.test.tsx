@@ -1,0 +1,306 @@
+// Copyright 2025 Bret McKee (bret.mckee@gmail.com)
+//
+// This file is part of Game_Scheduler. (https://github.com/game-scheduler)
+//
+// Game_Scheduler is free software: you can redistribute it and/or
+// modify it under the terms of the GNU Affero General Public License as published
+// by the Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// Game_Scheduler is distributed in the hope that it will be
+// useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General
+// Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License along
+// with Game_Scheduler If not, see <https://www.gnu.org/licenses/>.
+
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { BrowserRouter } from 'react-router';
+import { CreateGame } from '../CreateGame';
+import { AuthContext } from '../../contexts/AuthContext';
+import { CurrentUser, Guild, GameTemplate } from '../../types';
+import { apiClient } from '../../api/client';
+
+const mockNavigate = vi.fn();
+
+vi.mock('react-router', async () => {
+  const actual = await vi.importActual('react-router');
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  };
+});
+
+vi.mock('../../api/client');
+
+vi.mock('../../utils/permissions', () => ({
+  canUserCreateGames: vi.fn().mockResolvedValue(true),
+  canUserManageBotSettings: vi.fn().mockResolvedValue(false),
+}));
+
+describe('CreateGame', () => {
+  const mockUser: CurrentUser = {
+    id: 'id-123',
+    user_uuid: 'user-123',
+    username: 'testuser',
+    discordId: 'discord-123',
+    avatar: null,
+  };
+
+  const mockGuild: Guild = {
+    id: '1',
+    guild_name: 'Test Server',
+    created_at: '2025-01-01T00:00:00Z',
+    updated_at: '2025-01-01T00:00:00Z',
+  };
+
+  const mockTemplate: GameTemplate = {
+    id: 'template-1',
+    guild_id: '1',
+    name: 'Default Game',
+    description: 'Default game template',
+    channel_id: 'channel-1',
+    channel_name: 'general',
+    max_players: 8,
+    expected_duration_minutes: 120,
+    reminder_minutes: [60, 15],
+    where: null,
+    signup_instructions: null,
+    is_default: true,
+    order: 1,
+    notify_role_ids: null,
+    allowed_player_role_ids: null,
+    allowed_host_role_ids: null,
+    created_at: '2025-01-01T00:00:00Z',
+    updated_at: '2025-01-01T00:00:00Z',
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const renderWithAuth = (user: CurrentUser | null = mockUser) => {
+    const mockAuthValue = {
+      user,
+      login: vi.fn(),
+      logout: vi.fn(),
+      refreshUser: vi.fn(),
+      loading: false,
+    };
+
+    return render(
+      <BrowserRouter>
+        <AuthContext.Provider value={mockAuthValue}>
+          <CreateGame />
+        </AuthContext.Provider>
+      </BrowserRouter>
+    );
+  };
+
+  it('renders loading state initially', () => {
+    vi.mocked(apiClient.get).mockImplementation(
+      () => new Promise(() => {}) // Never resolves
+    );
+
+    renderWithAuth();
+    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+  });
+
+  it('renders server dropdown when multiple servers available', async () => {
+    const mockGuilds: Guild[] = [
+      mockGuild,
+      {
+        id: '2',
+        guild_name: 'Another Server',
+        created_at: '2025-01-01T00:00:00Z',
+        updated_at: '2025-01-01T00:00:00Z',
+      },
+    ];
+
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url === '/api/v1/guilds') {
+        return Promise.resolve({ data: { guilds: mockGuilds } });
+      }
+      return Promise.resolve({ data: [] });
+    });
+
+    renderWithAuth();
+
+    await waitFor(() => {
+      // Verify a Select combobox is present for server selection
+      const comboboxes = screen.getAllByRole('combobox');
+      expect(comboboxes.length).toBeGreaterThan(0);
+    });
+
+    // Verify a Select combobox is present
+    const comboboxes = screen.getAllByRole('combobox');
+    expect(comboboxes.length).toBeGreaterThan(0);
+  });
+
+  it('auto-selects single server and loads templates', async () => {
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url === '/api/v1/guilds') {
+        return Promise.resolve({ data: { guilds: [mockGuild] } });
+      }
+      if (url === '/api/v1/guilds/1/templates') {
+        return Promise.resolve({ data: [mockTemplate] });
+      }
+      if (url === '/api/v1/guilds/1/config') {
+        return Promise.resolve({ status: 403 });
+      }
+      return Promise.resolve({ data: [] });
+    });
+
+    renderWithAuth();
+
+    await waitFor(() => {
+      // Template should be auto-selected
+      expect(screen.getByText('Default Game (Default)')).toBeInTheDocument();
+    });
+
+    // Game form should be visible
+    expect(screen.getByRole('textbox', { name: /game title/i })).toBeInTheDocument();
+  });
+
+  it('loads templates when server is selected', async () => {
+    const mockGuilds: Guild[] = [mockGuild];
+
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url === '/api/v1/guilds') {
+        return Promise.resolve({ data: { guilds: mockGuilds } });
+      }
+      if (url === '/api/v1/guilds/1/templates') {
+        return Promise.resolve({ data: [mockTemplate] });
+      }
+      if (url === '/api/v1/guilds/1/config') {
+        return Promise.resolve({ status: 403 });
+      }
+      return Promise.resolve({ data: [] });
+    });
+
+    renderWithAuth();
+
+    await waitFor(() => {
+      // Template should be loaded and auto-selected
+      expect(screen.getByText('Default Game (Default)')).toBeInTheDocument();
+    });
+
+    // Verify template description is shown
+    expect(screen.getByText('Default game template')).toBeInTheDocument();
+  });
+
+  it('displays warning when no servers available', async () => {
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url === '/api/v1/guilds') {
+        return Promise.resolve({ data: { guilds: [] } });
+      }
+      return Promise.resolve({ data: [] });
+    });
+
+    renderWithAuth();
+
+    await waitFor(() => {
+      expect(screen.getByText(/No servers available with game templates/i)).toBeInTheDocument();
+    });
+  });
+
+  it('displays template description when available', async () => {
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url === '/api/v1/guilds') {
+        return Promise.resolve({ data: { guilds: [mockGuild] } });
+      }
+      if (url === '/api/v1/guilds/1/templates') {
+        return Promise.resolve({ data: [mockTemplate] });
+      }
+      if (url === '/api/v1/guilds/1/config') {
+        return Promise.resolve({ status: 403 });
+      }
+      return Promise.resolve({ data: [] });
+    });
+
+    renderWithAuth();
+
+    await waitFor(() => {
+      expect(screen.getByText('Default game template')).toBeInTheDocument();
+    });
+  });
+
+  it('shows GameForm after template selection', async () => {
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url === '/api/v1/guilds') {
+        return Promise.resolve({ data: { guilds: [mockGuild] } });
+      }
+      if (url === '/api/v1/guilds/1/templates') {
+        return Promise.resolve({ data: [mockTemplate] });
+      }
+      if (url === '/api/v1/guilds/1/config') {
+        return Promise.resolve({ status: 403 });
+      }
+      return Promise.resolve({ data: [] });
+    });
+
+    renderWithAuth();
+
+    await waitFor(() => {
+      expect(screen.getByRole('textbox', { name: /game title/i })).toBeInTheDocument();
+    });
+  });
+
+  it('handles server selection change', async () => {
+    const mockGuilds: Guild[] = [
+      mockGuild,
+      {
+        id: '2',
+        guild_name: 'Another Server',
+        created_at: '2025-01-01T00:00:00Z',
+        updated_at: '2025-01-01T00:00:00Z',
+      },
+    ];
+
+    const mockTemplate2: GameTemplate = {
+      ...mockTemplate,
+      id: 'template-2',
+      guild_id: '2',
+      name: 'Server 2 Game',
+    };
+
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url === '/api/v1/guilds') {
+        return Promise.resolve({ data: { guilds: mockGuilds } });
+      }
+      if (url === '/api/v1/guilds/2/templates') {
+        return Promise.resolve({ data: [mockTemplate2] });
+      }
+      if (url.includes('/config')) {
+        return Promise.resolve({ status: 403 });
+      }
+      return Promise.resolve({ data: [] });
+    });
+
+    const user = userEvent.setup();
+    renderWithAuth();
+
+    // Wait for Server dropdown to appear
+    await waitFor(() => {
+      const comboboxes = screen.getAllByRole('combobox');
+      expect(comboboxes.length).toBeGreaterThan(0);
+    });
+
+    // Get the first combobox (Server selector)
+    const comboboxes = screen.getAllByRole('combobox');
+    const serverSelect = comboboxes[0];
+    if (!serverSelect) throw new Error('Server select not found');
+
+    await user.click(serverSelect);
+
+    const server2Option = await screen.findByRole('option', { name: /another server/i });
+    await user.click(server2Option);
+
+    await waitFor(() => {
+      expect(screen.getByText('Server 2 Game (Default)')).toBeInTheDocument();
+    });
+  });
+});

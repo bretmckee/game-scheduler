@@ -31,7 +31,6 @@ import { apiClient } from '../api/client';
 import { GameSession, GameListResponse, Guild } from '../types';
 import { GameCard } from '../components/GameCard';
 import { useAuth } from '../hooks/useAuth';
-import { ServerSelectionDialog } from '../components/ServerSelectionDialog';
 import { canUserCreateGames } from '../utils/permissions';
 
 interface TabPanelProps {
@@ -66,7 +65,6 @@ export const MyGames: FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tabValue, setTabValue] = useState(0);
-  const [serverDialogOpen, setServerDialogOpen] = useState(false);
 
   useEffect(() => {
     const fetchGames = async () => {
@@ -122,18 +120,7 @@ export const MyGames: FC = () => {
   };
 
   const handleCreateGame = () => {
-    const availableGuilds = guilds.filter((guild) => guildsWithTemplates.has(guild.id));
-
-    if (availableGuilds.length === 1 && availableGuilds[0]) {
-      navigate(`/guilds/${availableGuilds[0].id}/games/new`);
-    } else {
-      setServerDialogOpen(true);
-    }
-  };
-
-  const handleServerSelect = (guild: Guild) => {
-    setServerDialogOpen(false);
-    navigate(`/guilds/${guild.id}/games/new`);
+    navigate('/games/new');
   };
 
   const availableGuilds = guilds.filter((guild) => guildsWithTemplates.has(guild.id));
@@ -215,13 +202,6 @@ export const MyGames: FC = () => {
           )}
         </Box>
       )}
-
-      <ServerSelectionDialog
-        open={serverDialogOpen}
-        onClose={() => setServerDialogOpen(false)}
-        guilds={availableGuilds}
-        onSelect={handleServerSelect}
-      />
     </Container>
   );
 };

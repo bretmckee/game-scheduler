@@ -57,7 +57,7 @@ function App() {
                 <Route path="/guilds/:guildId/config" element={<GuildConfig />} />
                 <Route path="/guilds/:guildId/templates" element={<TemplateManagement />} />
                 <Route path="/guilds/:guildId/games" element={<BrowseGames />} />
-                <Route path="/guilds/:guildId/games/new" element={<CreateGame />} />
+                <Route path="/games/new" element={<CreateGame />} />
                 <Route path="/games/:gameId" element={<GameDetails />} />
                 <Route path="/games/:gameId/edit" element={<EditGame />} />
                 <Route path="/my-games" element={<MyGames />} />

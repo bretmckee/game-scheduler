@@ -86,6 +86,8 @@ interface GameFormProps {
   mode: 'create' | 'edit';
   initialData?: Partial<GameSession>;
   guildId: string;
+  guildName?: string;
+  canChangeChannel?: boolean;
   channels: Channel[];
   onSubmit: (formData: GameFormData) => Promise<void>;
   onCancel: () => void;
@@ -155,6 +157,8 @@ export const GameForm: FC<GameFormProps> = ({
   mode,
   initialData,
   guildId,
+  guildName: _guildName,
+  canChangeChannel = true,
   channels,
   onSubmit,
   onCancel,
@@ -325,7 +329,7 @@ export const GameForm: FC<GameFormProps> = ({
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
       <Paper elevation={3} sx={{ p: 4 }}>
-        <Typography variant="h4" gutterBottom>
+        <Typography variant="h4" component="h1" gutterBottom>
           {mode === 'create' ? 'Create New Game' : 'Edit Game'}
         </Typography>
 
@@ -349,11 +353,15 @@ export const GameForm: FC<GameFormProps> = ({
             onChange={handleChange}
             margin="normal"
             disabled={loading}
+            InputLabelProps={{
+              sx: { fontSize: '1.1rem' },
+            }}
+            sx={{ mb: 1 }}
           />
 
           <TextField
             fullWidth
-            label="Location"
+            label="Physical Location"
             name="where"
             value={formData.where}
             onChange={handleChange}
@@ -363,6 +371,10 @@ export const GameForm: FC<GameFormProps> = ({
             helperText="Game location (optional, up to 500 characters)"
             disabled={loading}
             inputProps={{ maxLength: 500 }}
+            InputLabelProps={{
+              sx: { fontSize: '1.1rem' },
+            }}
+            sx={{ mb: 1 }}
           />
 
           <DateTimePicker
@@ -370,47 +382,63 @@ export const GameForm: FC<GameFormProps> = ({
             value={formData.scheduledAt}
             onChange={handleDateChange}
             disabled={loading}
-            sx={{ width: '100%', mt: 2, mb: 1 }}
+            slotProps={{
+              textField: {
+                InputLabelProps: {
+                  sx: { fontSize: '1.1rem' },
+                },
+              },
+            }}
+            sx={{ width: '100%', mt: 1, mb: 1 }}
           />
 
-          <TextField
-            fullWidth
-            label="Expected Duration"
-            name="expectedDurationMinutes"
-            value={formData.expectedDurationMinutes}
-            onChange={handleChange}
-            margin="normal"
-            helperText="e.g., 2h, 90m, 1h 30m, 1:30 (optional)"
-            disabled={loading}
-            placeholder="2h 30m"
-          />
-
-          <TextField
-            fullWidth
-            label="Reminder Times (minutes)"
-            name="reminderMinutes"
-            value={formData.reminderMinutes}
-            onChange={handleChange}
-            margin="normal"
-            helperText="Comma-separated (e.g., 60, 15). Leave empty for default"
-            disabled={loading}
-          />
-
-          <FormControl fullWidth margin="normal" required>
-            <InputLabel>Channel</InputLabel>
-            <Select
-              value={formData.channelId}
-              onChange={handleSelectChange}
-              label="Channel"
+          <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap', mb: 1, mt: 1 }}>
+            <TextField
+              label="Expected Duration"
+              name="expectedDurationMinutes"
+              value={formData.expectedDurationMinutes}
+              onChange={handleChange}
+              helperText="e.g., 2h, 90m, 1h 30m, 1:30 (optional)"
               disabled={loading}
-            >
-              {channels.map((channel) => (
-                <MenuItem key={channel.id} value={channel.id}>
-                  {channel.channel_name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+              placeholder="2h 30m"
+              sx={{ flex: '1 1 45%', minWidth: '200px' }}
+            />
+
+            <TextField
+              label="Reminder Times (minutes)"
+              name="reminderMinutes"
+              value={formData.reminderMinutes}
+              onChange={handleChange}
+              helperText="Comma-separated (e.g., 60, 15). Leave empty for default"
+              disabled={loading}
+              sx={{ flex: '1 1 45%', minWidth: '200px' }}
+            />
+          </Box>
+
+          {canChangeChannel ? (
+            <FormControl fullWidth margin="normal" required sx={{ mb: 1 }}>
+              <InputLabel sx={{ fontSize: '1.1rem' }}>Channel</InputLabel>
+              <Select
+                value={formData.channelId}
+                onChange={handleSelectChange}
+                label="Channel"
+                disabled={loading}
+              >
+                {channels.map((channel) => (
+                  <MenuItem key={channel.id} value={channel.id}>
+                    # {channel.channel_name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          ) : (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body1" sx={{ fontSize: '1.1rem' }}>
+                <strong>Channel:</strong> #{' '}
+                {channels.find((c) => c.id === formData.channelId)?.channel_name || 'Unknown'}
+              </Typography>
+            </Box>
+          )}
 
           <TextField
             fullWidth
@@ -423,6 +451,10 @@ export const GameForm: FC<GameFormProps> = ({
             onChange={handleChange}
             margin="normal"
             disabled={loading}
+            InputLabelProps={{
+              sx: { fontSize: '1.1rem' },
+            }}
+            sx={{ mb: 1 }}
           />
 
           <TextField
@@ -434,11 +466,12 @@ export const GameForm: FC<GameFormProps> = ({
             value={formData.signupInstructions}
             onChange={handleChange}
             margin="normal"
-            helperText="Special requirements or instructions for participants"
+            helperText="Special requirements or instructions (visible to host only after creation)"
             disabled={loading}
+            sx={{ mb: 1 }}
           />
 
-          <Grid container spacing={2} sx={{ mt: 1 }}>
+          <Grid container spacing={2} sx={{ mt: 1, mb: 2 }}>
             <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth
@@ -450,6 +483,9 @@ export const GameForm: FC<GameFormProps> = ({
                 helperText="Leave empty to use channel/server default"
                 disabled={loading}
                 inputProps={{ min: 1, max: 100 }}
+                InputLabelProps={{
+                  sx: { fontSize: '1.1rem' },
+                }}
               />
             </Grid>
           </Grid>

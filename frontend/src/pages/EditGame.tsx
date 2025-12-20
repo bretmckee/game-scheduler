@@ -197,6 +197,7 @@ export const EditGame: FC = () => {
         mode="edit"
         initialData={state.game}
         guildId={state.game.guild_id}
+        guildName={state.game.guild_name || undefined}
         channels={state.channels}
         onSubmit={handleSubmit}
         onCancel={() => navigate(`/games/${gameId}`)}
