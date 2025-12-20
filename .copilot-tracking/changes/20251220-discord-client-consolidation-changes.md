@@ -71,7 +71,30 @@ Consolidation of Discord API client from API service to shared layer, enabling c
 - services/bot/utils/discord_format.py - Updated get_member_display_info() to use DiscordAPIClient with caching instead of discord.py bot client; added _build_avatar_url() helper function for consistent avatar URL generation
 - services/bot/auth/role_checker.py - Replaced 13 uncached bot.fetch_guild() and guild.fetch_member() calls with cached DiscordAPIClient equivalents; updated 5 permission checking methods; added _has_permission() helper function for Discord permission checking
 - services/bot/events/handlers.py - Replaced 4 uncached bot.fetch_channel() and bot.fetch_user() calls with cached DiscordAPIClient equivalents; updated event handlers for game lifecycle and participant changes
+- shared/cache/keys.py - Added 5 new Discord-specific cache key methods: user_guilds(), discord_channel(), discord_guild(), discord_guild_roles(), discord_user()
+- shared/discord/client.py - Replaced all 5 inline f-string cache keys with CacheKeys method calls; added cache_keys import for consistency
 
 ### Removed
 
 - services/api/auth/discord_client.py - Deleted old location after moving to shared layer
+
+## Phase 4: Consolidate Cache Keys
+
+### Task 4.1 Complete: Cache Key Patterns Audited
+
+Documented all cache key patterns in use:
+- DiscordAPIClient uses 5 inline f-strings: `user_guilds:`, `discord:channel:`, `discord:guild:`, `discord:guild_roles:`, `discord:user:`
+- DisplayNameResolver correctly uses CacheKeys.display_name() and CacheKeys.display_name_avatar()
+- Identified inconsistency: DiscordAPIClient should use CacheKeys constants for consistency
+
+### Task 4.2 Complete: DiscordAPIClient Updated to Use CacheKeys Constants
+
+- shared/cache/keys.py - Added 5 new cache key methods: user_guilds(), discord_channel(), discord_guild(), discord_guild_roles(), discord_user()
+- shared/discord/client.py - Replaced all 5 inline f-string cache keys with CacheKeys.method() calls for consistency; added cache_keys import
+- All 39 DiscordAPIClient tests pass with new cache key patterns
+
+### Task 4.3 Complete: DisplayNameResolver Cache Keys Verified
+
+- services/api/services/display_names.py - Verified already using CacheKeys.display_name() and CacheKeys.display_name_avatar() consistently
+- All 17 DisplayNameResolver tests pass
+- No changes required - already following best practices

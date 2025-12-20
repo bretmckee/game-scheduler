@@ -30,6 +30,7 @@ from typing import Any
 import aiohttp
 
 from shared.cache import client as cache_client
+from shared.cache import keys as cache_keys
 from shared.cache import ttl
 
 logger = logging.getLogger(__name__)
@@ -248,7 +249,7 @@ class DiscordAPIClient:
         """
         # Fast path: check cache without lock if user_id provided
         if user_id:
-            cache_key = f"user_guilds:{user_id}"
+            cache_key = cache_keys.CacheKeys.user_guilds(user_id)
             redis = await cache_client.get_redis_client()
             cached = await redis.get(cache_key)
             if cached:
@@ -403,7 +404,7 @@ class DiscordAPIClient:
         Raises:
             DiscordAPIError: If fetching channel fails
         """
-        cache_key = f"discord:channel:{channel_id}"
+        cache_key = cache_keys.CacheKeys.discord_channel(channel_id)
         redis = await cache_client.get_redis_client()
 
         # Check cache first
@@ -457,7 +458,7 @@ class DiscordAPIClient:
         Raises:
             DiscordAPIError: If fetching guild fails
         """
-        cache_key = f"discord:guild:{guild_id}"
+        cache_key = cache_keys.CacheKeys.discord_guild(guild_id)
         redis = await cache_client.get_redis_client()
 
         # Check cache first
@@ -509,7 +510,7 @@ class DiscordAPIClient:
         Raises:
             DiscordAPIError: If fetching roles fails
         """
-        cache_key = f"discord:guild_roles:{guild_id}"
+        cache_key = cache_keys.CacheKeys.discord_guild_roles(guild_id)
         redis = await cache_client.get_redis_client()
 
         # Check cache first
@@ -556,7 +557,7 @@ class DiscordAPIClient:
         Raises:
             DiscordAPIError: If fetching user fails
         """
-        cache_key = f"discord:user:{user_id}"
+        cache_key = cache_keys.CacheKeys.discord_user(user_id)
         redis = await cache_client.get_redis_client()
 
         # Check cache first

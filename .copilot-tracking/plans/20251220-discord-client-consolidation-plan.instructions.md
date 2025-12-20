@@ -82,14 +82,14 @@ Move DiscordAPIClient from API service to shared layer and integrate it into bot
 - [x] Task 3.5: Verify bot unit tests pass
   - Details: [.copilot-tracking/details/20251220-discord-client-consolidation-details.md](.copilot-tracking/details/20251220-discord-client-consolidation-details.md) (Lines 217-227)
 
-### [ ] Phase 4: Consolidate Cache Keys
-- [ ] Task 4.1: Audit and document all cache key patterns
+### [x] Phase 4: Consolidate Cache Keys
+- [x] Task 4.1: Audit and document all cache key patterns
   - Details: [.copilot-tracking/details/20251220-discord-client-consolidation-details.md](.copilot-tracking/details/20251220-discord-client-consolidation-details.md) (Lines 229-246)
 
-- [ ] Task 4.2: Update DiscordAPIClient to use CacheKeys constants
+- [x] Task 4.2: Update DiscordAPIClient to use CacheKeys constants
   - Details: [.copilot-tracking/details/20251220-discord-client-consolidation-details.md](.copilot-tracking/details/20251220-discord-client-consolidation-details.md) (Lines 248-265)
 
-- [ ] Task 4.3: Update DisplayNameResolver cache keys for consistency
+- [x] Task 4.3: Update DisplayNameResolver cache keys for consistency
   - Details: [.copilot-tracking/details/20251220-discord-client-consolidation-details.md](.copilot-tracking/details/20251220-discord-client-consolidation-details.md) (Lines 267-282)
 
 ### [ ] Phase 5: Testing and Validation

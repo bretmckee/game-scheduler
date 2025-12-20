@@ -66,3 +66,28 @@ class CacheKeys:
     def message_update_throttle(game_id: str) -> str:
         """Return cache key for message update throttling."""
         return f"message_update:{game_id}"
+
+    @staticmethod
+    def user_guilds(user_id: str) -> str:
+        """Return cache key for Discord user's guild list."""
+        return f"user_guilds:{user_id}"
+
+    @staticmethod
+    def discord_channel(channel_id: str) -> str:
+        """Return cache key for Discord channel information."""
+        return f"discord:channel:{channel_id}"
+
+    @staticmethod
+    def discord_guild(guild_id: str) -> str:
+        """Return cache key for Discord guild information."""
+        return f"discord:guild:{guild_id}"
+
+    @staticmethod
+    def discord_guild_roles(guild_id: str) -> str:
+        """Return cache key for Discord guild roles."""
+        return f"discord:guild_roles:{guild_id}"
+
+    @staticmethod
+    def discord_user(user_id: str) -> str:
+        """Return cache key for Discord user information."""
+        return f"discord:user:{user_id}"
