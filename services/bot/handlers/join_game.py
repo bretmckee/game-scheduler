@@ -20,6 +20,7 @@
 
 import logging
 import uuid
+from datetime import timedelta
 
 import discord
 from sqlalchemy import select
@@ -30,10 +31,11 @@ from services.bot.events.publisher import BotEventPublisher
 from services.bot.handlers.utils import (
     send_deferred_response,
     send_error_message,
-    send_success_message,
 )
 from shared.database import get_db_session
+from shared.models.base import utc_now
 from shared.models.game import GameSession
+from shared.models.notification_schedule import NotificationSchedule
 from shared.models.participant import GameParticipant
 from shared.models.user import User
 
@@ -82,13 +84,31 @@ async def handle_join_game(
         db.add(participant)
         try:
             await db.commit()
+            await db.refresh(participant)
         except IntegrityError:
             logger.info(f"User {user_discord_id} attempted duplicate join for game {game_id}")
             return
 
+        # Create delayed join notification schedule
+        schedule = NotificationSchedule(
+            game_id=str(game_id),
+            participant_id=participant.id,
+            notification_type="join_notification",
+            notification_time=utc_now() + timedelta(seconds=60),
+            sent=False,
+            game_scheduled_at=game.scheduled_at,
+            reminder_minutes=None,
+        )
+        db.add(schedule)
+        await db.commit()
+
     await publisher.publish_game_updated(game_id=game_id, updated_fields={"participants": True})
 
-    await send_success_message(interaction, f"✅ You've joined **{game.title}**!")
+    # Update button interaction view (no DM notification here)
+    await interaction.edit_original_response(
+        content=f"✅ You've joined **{game.title}**!",
+        view=None,
+    )
 
     logger.info(
         f"User {user_discord_id} joined game {game_id} "

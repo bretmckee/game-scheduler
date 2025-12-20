@@ -26,7 +26,7 @@ model instance for publishing to RabbitMQ.
 import logging
 from uuid import UUID
 
-from shared.messaging.events import Event, EventType, GameReminderDueEvent
+from shared.messaging.events import Event, EventType, NotificationDueEvent
 from shared.models import GameStatusSchedule, NotificationSchedule
 from shared.models.base import utc_now
 from shared.schemas.events import GameStatusTransitionDueEvent
@@ -34,9 +34,11 @@ from shared.schemas.events import GameStatusTransitionDueEvent
 logger = logging.getLogger(__name__)
 
 
-def build_game_reminder_event(notification: NotificationSchedule) -> tuple[Event, int | None]:
+def build_notification_event(
+    notification: NotificationSchedule,
+) -> tuple[Event, int | None]:
     """
-    Build GAME_REMINDER_DUE event from notification schedule with per-message TTL.
+    Build NOTIFICATION_DUE event from notification schedule with per-message TTL.
 
     Args:
         notification: NotificationSchedule record
@@ -46,13 +48,14 @@ def build_game_reminder_event(notification: NotificationSchedule) -> tuple[Event
         until game starts. If game has no scheduled_at or already started,
         returns minimal TTL.
     """
-    event_data = GameReminderDueEvent(
+    event_data = NotificationDueEvent(
         game_id=UUID(notification.game_id),
-        reminder_minutes=notification.reminder_minutes,
+        notification_type=notification.notification_type,
+        participant_id=notification.participant_id,
     )
 
     event = Event(
-        event_type=EventType.GAME_REMINDER_DUE,
+        event_type=EventType.NOTIFICATION_DUE,
         data=event_data.model_dump(),
     )
 

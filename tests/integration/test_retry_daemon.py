@@ -209,7 +209,7 @@ class TestRetryDaemonEndToEnd:
         be republished WITHOUT TTL to prevent this.
         """
         event = Event(
-            event_type=EventType.GAME_REMINDER_DUE,
+            event_type=EventType.NOTIFICATION_DUE,
             data={"game_id": str(uuid4()), "test": "no_ttl_republish"},
         )
 
@@ -253,7 +253,7 @@ class TestRetryDaemonEndToEnd:
         - Result: Message processed once, never re-enters DLQ
         """
         event = Event(
-            event_type=EventType.GAME_REMINDER_DUE,
+            event_type=EventType.NOTIFICATION_DUE,
             data={"game_id": str(uuid4()), "test": "no_exponential_growth"},
         )
 
@@ -282,7 +282,7 @@ class TestRetryDaemonEndToEnd:
         Verifies the per-queue DLQ pattern is working correctly.
         """
         bot_event = Event(
-            event_type=EventType.GAME_REMINDER_DUE,
+            event_type=EventType.NOTIFICATION_DUE,
             data={"game_id": str(uuid4()), "queue": "bot_events"},
         )
         notification_event = Event(
@@ -295,7 +295,10 @@ class TestRetryDaemonEndToEnd:
             rabbitmq_channel, QUEUE_BOT_EVENTS_DLQ, bot_event, "game.reminder_due"
         )
         publish_to_dlq_with_metadata(
-            rabbitmq_channel, QUEUE_NOTIFICATION_DLQ, notification_event, "notification.send_dm"
+            rabbitmq_channel,
+            QUEUE_NOTIFICATION_DLQ,
+            notification_event,
+            "notification.send_dm",
         )
 
         # Verify both messages in their respective DLQs

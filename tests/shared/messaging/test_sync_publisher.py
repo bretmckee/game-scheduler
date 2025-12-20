@@ -46,7 +46,7 @@ def mock_channel():
 def sample_event():
     """Create sample event for testing."""
     return Event(
-        event_type=EventType.GAME_REMINDER_DUE,
+        event_type=EventType.NOTIFICATION_DUE,
         data={"game_id": str(uuid4()), "reminder_minutes": 60},
     )
 
@@ -213,11 +213,11 @@ class TestSyncEventPublisherPublishDict:
 
         with patch.object(publisher, "publish") as mock_publish:
             publisher.publish_dict(
-                event_type=EventType.GAME_REMINDER_DUE.value,
+                event_type=EventType.NOTIFICATION_DUE.value,
                 data={"game_id": str(uuid4())},
             )
 
             mock_publish.assert_called_once()
             call_args = mock_publish.call_args
             event = call_args[0][0]
-            assert event.event_type == EventType.GAME_REMINDER_DUE
+            assert event.event_type == EventType.NOTIFICATION_DUE

@@ -38,7 +38,7 @@ from shared.messaging.consumer import EventConsumer
 from shared.messaging.events import (
     Event,
     EventType,
-    GameReminderDueEvent,
+    NotificationDueEvent,
     NotificationSendDMEvent,
 )
 from shared.models.base import utc_now
@@ -70,7 +70,7 @@ class EventHandlers:
         self.consumer: EventConsumer | None = None
         self._handlers: dict[EventType, Callable] = {
             EventType.GAME_UPDATED: self._handle_game_updated,
-            EventType.GAME_REMINDER_DUE: self._handle_game_reminder_due,
+            EventType.NOTIFICATION_DUE: self._handle_notification_due,
             EventType.GAME_STATUS_TRANSITION_DUE: self._handle_status_transition_due,
             EventType.NOTIFICATION_SEND_DM: self._handle_send_notification,
             EventType.GAME_CREATED: self._handle_game_created,
@@ -98,8 +98,8 @@ class EventHandlers:
             EventType.GAME_UPDATED, lambda e: self._handle_game_updated(e.data)
         )
         self.consumer.register_handler(
-            EventType.GAME_REMINDER_DUE,
-            lambda e: self._handle_game_reminder_due(e.data),
+            EventType.NOTIFICATION_DUE,
+            lambda e: self._handle_notification_due(e.data),
         )
         self.consumer.register_handler(
             EventType.NOTIFICATION_SEND_DM,
@@ -311,9 +311,43 @@ class EventHandlers:
         except Exception as e:
             logger.error(f"Failed to refresh game message: {e}", exc_info=True)
 
-    async def _handle_game_reminder_due(self, data: dict[str, Any]) -> None:
+    async def _handle_notification_due(self, data: dict[str, Any]) -> None:
         """
-        Handle game.reminder_due event by sending DMs to all eligible participants.
+        Handle game.notification_due event by routing to appropriate handler.
+
+        Routes based on notification_type:
+        - 'reminder': Game reminder notifications to all participants
+        - 'join_notification': Delayed join notification for specific participant
+
+        Args:
+            data: Event payload with game_id, notification_type, participant_id
+        """
+        logger.info(f"=== Received game.notification_due event: {data} ===")
+
+        try:
+            notification_event = NotificationDueEvent(**data)
+            logger.info(
+                f"Parsed notification event: game_id={notification_event.game_id}, "
+                f"type={notification_event.notification_type}, "
+                f"participant_id={notification_event.participant_id}"
+            )
+        except Exception as e:
+            logger.error(f"Invalid notification event data: {e}", exc_info=True)
+            return
+
+        if notification_event.notification_type == "reminder":
+            await self._handle_game_reminder(notification_event)
+        elif notification_event.notification_type == "join_notification":
+            await self._handle_join_notification(notification_event)
+        else:
+            logger.error(
+                f"Unknown notification type: {notification_event.notification_type} "
+                f"for game {notification_event.game_id}"
+            )
+
+    async def _handle_game_reminder(self, reminder_event: NotificationDueEvent) -> None:
+        """
+        Handle game reminder notifications by sending DMs to all eligible participants.
 
         Processes participants according to game rules:
         - Filters to only real participants (user_id IS NOT NULL)
@@ -322,19 +356,8 @@ class EventHandlers:
         - Sends DM to each eligible participant
 
         Args:
-            data: Event payload with game_id and reminder_minutes
+            reminder_event: Notification event with game_id
         """
-        logger.info(f"=== Received game.reminder_due event: {data} ===")
-
-        try:
-            reminder_event = GameReminderDueEvent(**data)
-            logger.info(
-                f"Parsed game reminder event: game_id={reminder_event.game_id}, "
-                f"reminder_minutes={reminder_event.reminder_minutes}"
-            )
-        except Exception as e:
-            logger.error(f"Invalid game reminder event data: {e}", exc_info=True)
-            return
 
         try:
             async with get_db_session() as db:
@@ -390,7 +413,7 @@ class EventHandlers:
                             user_discord_id=participant.user.discord_id,
                             game_title=game.title,
                             game_time_unix=game_time_unix,
-                            reminder_minutes=reminder_event.reminder_minutes,
+                            reminder_minutes=0,  # Not used in message formatting
                             is_waitlist=False,
                         )
                     except Exception as e:
@@ -406,7 +429,7 @@ class EventHandlers:
                             user_discord_id=participant.user.discord_id,
                             game_title=game.title,
                             game_time_unix=game_time_unix,
-                            reminder_minutes=reminder_event.reminder_minutes,
+                            reminder_minutes=0,  # Not used in message formatting
                             is_waitlist=True,
                         )
                     except Exception as e:
@@ -423,7 +446,7 @@ class EventHandlers:
                             user_discord_id=game.host.discord_id,
                             game_title=game.title,
                             game_time_unix=game_time_unix,
-                            reminder_minutes=reminder_event.reminder_minutes,
+                            reminder_minutes=0,  # Not used in message formatting
                             is_waitlist=False,
                             is_host=True,
                         )
@@ -443,6 +466,84 @@ class EventHandlers:
         except Exception as e:
             logger.error(
                 f"Failed to handle game reminder due event: {e}",
+                exc_info=True,
+            )
+
+    async def _handle_join_notification(self, event: NotificationDueEvent) -> None:
+        """
+        Handle join notification by sending DM with conditional signup instructions.
+
+        Checks if participant still exists and is confirmed (not waitlisted).
+        Includes signup instructions in message if present in game.
+
+        Args:
+            event: Notification event with game_id and participant_id
+        """
+        try:
+            async with get_db_session() as db:
+                # Query game with relationships
+                game = await self._get_game_with_participants(db, str(event.game_id))
+
+                if not game:
+                    logger.error(f"Game not found: {event.game_id}")
+                    return
+
+                # Query specific participant
+                participant_result = await db.execute(
+                    select(GameParticipant).where(GameParticipant.id == event.participant_id)
+                )
+                participant = participant_result.scalar_one_or_none()
+
+                # Verify participant still exists and has user
+                if not participant or not participant.user:
+                    logger.info(
+                        f"Participant {event.participant_id} no longer active for game "
+                        f"{event.game_id}"
+                    )
+                    return
+
+                # Check if participant is confirmed (not on waitlist)
+                real_participants = [p for p in game.participants if p.user_id and p.user]
+                sorted_participants = participant_sorting.sort_participants(real_participants)
+                max_players = game.max_players or 10
+                confirmed_participants = sorted_participants[:max_players]
+
+                if participant not in confirmed_participants:
+                    logger.info(
+                        f"Participant {event.participant_id} is waitlisted, skipping join "
+                        f"notification for game {event.game_id}"
+                    )
+                    return
+
+                # Format message based on signup_instructions presence
+                if game.signup_instructions:
+                    message = (
+                        f"✅ **You've joined {game.title}**\n\n"
+                        f"📋 **Signup Instructions**\n"
+                        f"{game.signup_instructions}\n\n"
+                        f"Game starts <t:{int(game.scheduled_at.timestamp())}:R>"
+                    )
+                else:
+                    message = f"✅ You've joined **{game.title}**!"
+
+                # Send DM
+                success = await self._send_dm(participant.user.discord_id, message)
+
+                if success:
+                    logger.info(
+                        f"✓ Sent join notification to {participant.user.discord_id} "
+                        f"for game {event.game_id}"
+                    )
+                else:
+                    logger.warning(
+                        f"Failed to send join notification to {participant.user.discord_id} "
+                        f"for game {event.game_id}"
+                    )
+
+        except Exception as e:
+            logger.error(
+                f"Failed to handle join notification for game {event.game_id}, "
+                f"participant {event.participant_id}: {e}",
                 exc_info=True,
             )
 

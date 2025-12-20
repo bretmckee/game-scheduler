@@ -76,6 +76,7 @@ def test_event_handlers_initialization(event_handlers, mock_bot):
     assert event_handlers.bot is mock_bot
     assert event_handlers.consumer is None
     assert EventType.GAME_UPDATED in event_handlers._handlers
+    assert EventType.NOTIFICATION_DUE in event_handlers._handlers
     assert EventType.GAME_STATUS_TRANSITION_DUE in event_handlers._handlers
     assert EventType.NOTIFICATION_SEND_DM in event_handlers._handlers
     assert EventType.GAME_CREATED in event_handlers._handlers
@@ -143,7 +144,10 @@ async def test_handle_game_created_success(event_handlers, mock_bot, sample_game
                     "services.bot.events.handlers.get_member_display_info",
                     return_value=("Test User", "https://example.com/avatar.png"),
                 ):
-                    data = {"game_id": sample_game.id, "channel_id": sample_game.channel_id}
+                    data = {
+                        "game_id": sample_game.id,
+                        "channel_id": sample_game.channel_id,
+                    }
                     # Should complete without raising an exception
                     await event_handlers._handle_game_created(data)
 
@@ -583,8 +587,11 @@ async def test_handle_game_reminder_due_success(event_handlers, sample_game, sam
                     with patch.object(
                         event_handlers, "_send_reminder_dm", new_callable=AsyncMock
                     ) as mock_send_reminder:
-                        data = {"game_id": sample_game.id, "reminder_minutes": 60}
-                        await event_handlers._handle_game_reminder_due(data)
+                        data = {
+                            "game_id": sample_game.id,
+                            "notification_type": "reminder",
+                        }
+                        await event_handlers._handle_notification_due(data)
 
                         # Should send 3 reminders: 2 participants + 1 host
                         assert mock_send_reminder.await_count == 3
@@ -636,8 +643,8 @@ async def test_handle_game_reminder_due_no_participants_but_host(
                 with patch.object(
                     event_handlers, "_send_reminder_dm", new_callable=AsyncMock
                 ) as mock_send_reminder:
-                    data = {"game_id": sample_game.id, "reminder_minutes": 60}
-                    await event_handlers._handle_game_reminder_due(data)
+                    data = {"game_id": sample_game.id, "notification_type": "reminder"}
+                    await event_handlers._handle_notification_due(data)
 
                     # Should still send host reminder even with no participants
                     assert mock_send_reminder.await_count == 1
@@ -682,8 +689,11 @@ async def test_handle_game_reminder_due_no_host(event_handlers, sample_game):
                     with patch.object(
                         event_handlers, "_send_reminder_dm", new_callable=AsyncMock
                     ) as mock_send_reminder:
-                        data = {"game_id": sample_game.id, "reminder_minutes": 60}
-                        await event_handlers._handle_game_reminder_due(data)
+                        data = {
+                            "game_id": sample_game.id,
+                            "notification_type": "reminder",
+                        }
+                        await event_handlers._handle_notification_due(data)
 
                         # Should only send participant reminder, no host reminder
                         assert mock_send_reminder.await_count == 1
@@ -742,9 +752,12 @@ async def test_handle_game_reminder_due_host_error_doesnt_affect_participants(
                     ) as mock_send_reminder:
                         mock_send_reminder.side_effect = mock_send_reminder_side_effect
 
-                        data = {"game_id": sample_game.id, "reminder_minutes": 60}
+                        data = {
+                            "game_id": sample_game.id,
+                            "notification_type": "reminder",
+                        }
                         # Should not raise exception despite host notification failure
-                        await event_handlers._handle_game_reminder_due(data)
+                        await event_handlers._handle_notification_due(data)
 
                         # Should have tried to send both notifications
                         assert mock_send_reminder.await_count == 2
@@ -792,8 +805,11 @@ async def test_handle_game_reminder_due_with_waitlist(event_handlers, sample_gam
                     with patch.object(
                         event_handlers, "_send_reminder_dm", new_callable=AsyncMock
                     ) as mock_send_reminder:
-                        data = {"game_id": sample_game.id, "reminder_minutes": 60}
-                        await event_handlers._handle_game_reminder_due(data)
+                        data = {
+                            "game_id": sample_game.id,
+                            "notification_type": "reminder",
+                        }
+                        await event_handlers._handle_notification_due(data)
 
                         # Should send 4 reminders: 2 confirmed + 1 waitlist + 1 host
                         assert mock_send_reminder.await_count == 4
@@ -823,3 +839,185 @@ async def test_handle_game_reminder_due_with_waitlist(event_handlers, sample_gam
                         ]
                         assert len(host_calls) == 1
                         assert host_calls[0].kwargs["user_discord_id"] == "host123"
+
+
+@pytest.mark.asyncio
+async def test_handle_join_notification_with_signup_instructions(event_handlers, sample_game):
+    """Test join notification sends DM with signup instructions when present."""
+    participant_user = User(id=str(uuid4()), discord_id="participant123")
+    sample_game.signup_instructions = "Click the link to create your character: https://example.com"
+    sample_game.scheduled_at = datetime(2025, 12, 20, 18, 0, 0, tzinfo=UTC)
+    sample_game.max_players = 5
+
+    participant = MagicMock()
+    participant.id = str(uuid4())
+    participant.user_id = participant_user.id
+    participant.user = participant_user
+    participant.is_waitlisted = False
+
+    sample_game.participants = [participant]
+
+    with patch("services.bot.events.handlers.get_db_session") as mock_db_session:
+        mock_db = MagicMock()
+        mock_db.__aenter__ = AsyncMock(return_value=mock_db)
+        mock_db.__aexit__ = AsyncMock()
+        mock_db_session.return_value = mock_db
+
+        with patch.object(
+            event_handlers, "_get_game_with_participants", new_callable=AsyncMock
+        ) as mock_get_game:
+            mock_get_game.return_value = sample_game
+
+            async def mock_execute(query):
+                result = MagicMock()
+                result.scalar_one_or_none = MagicMock(return_value=participant)
+                return result
+
+            mock_db.execute = AsyncMock(side_effect=mock_execute)
+
+            with patch(
+                "services.bot.events.handlers.participant_sorting.sort_participants",
+                side_effect=lambda x: x,
+            ):
+                with patch.object(
+                    event_handlers, "_send_dm", new_callable=AsyncMock
+                ) as mock_send_dm:
+                    mock_send_dm.return_value = True
+
+                    data = {
+                        "game_id": sample_game.id,
+                        "notification_type": "join_notification",
+                        "participant_id": participant.id,
+                    }
+                    await event_handlers._handle_notification_due(data)
+
+                    assert mock_send_dm.await_count == 1
+                    sent_message = mock_send_dm.call_args.args[1]
+                    assert "joined" in sent_message.lower()
+                    assert sample_game.title in sent_message
+                    assert sample_game.signup_instructions in sent_message
+
+
+@pytest.mark.asyncio
+async def test_handle_join_notification_without_signup_instructions(event_handlers, sample_game):
+    """Test join notification sends DM without signup instructions when not present."""
+    participant_user = User(id=str(uuid4()), discord_id="participant123")
+    sample_game.signup_instructions = None
+    sample_game.scheduled_at = datetime(2025, 12, 20, 18, 0, 0, tzinfo=UTC)
+    sample_game.max_players = 5
+
+    participant = MagicMock()
+    participant.id = str(uuid4())
+    participant.user_id = participant_user.id
+    participant.user = participant_user
+    participant.is_waitlisted = False
+
+    sample_game.participants = [participant]
+
+    with patch("services.bot.events.handlers.get_db_session") as mock_db_session:
+        mock_db = MagicMock()
+        mock_db.__aenter__ = AsyncMock(return_value=mock_db)
+        mock_db.__aexit__ = AsyncMock()
+        mock_db_session.return_value = mock_db
+
+        with patch.object(
+            event_handlers, "_get_game_with_participants", new_callable=AsyncMock
+        ) as mock_get_game:
+            mock_get_game.return_value = sample_game
+
+            async def mock_execute(query):
+                result = MagicMock()
+                result.scalar_one_or_none = MagicMock(return_value=participant)
+                return result
+
+            mock_db.execute = AsyncMock(side_effect=mock_execute)
+
+            with patch(
+                "services.bot.events.handlers.participant_sorting.sort_participants",
+                side_effect=lambda x: x,
+            ):
+                with patch.object(
+                    event_handlers, "_send_dm", new_callable=AsyncMock
+                ) as mock_send_dm:
+                    mock_send_dm.return_value = True
+
+                    data = {
+                        "game_id": sample_game.id,
+                        "notification_type": "join_notification",
+                        "participant_id": participant.id,
+                    }
+                    await event_handlers._handle_notification_due(data)
+
+                    assert mock_send_dm.await_count == 1
+                    sent_message = mock_send_dm.call_args.args[1]
+                    assert "joined" in sent_message.lower()
+                    assert sample_game.title in sent_message
+                    assert "signup instructions" not in sent_message.lower()
+
+
+@pytest.mark.asyncio
+async def test_handle_join_notification_missing_participant_id(event_handlers, sample_game):
+    """Test join notification handles missing participant_id gracefully."""
+    data = {
+        "game_id": str(uuid4()),
+        "notification_type": "join_notification",
+        "participant_id": None,
+    }
+
+    with patch("services.bot.events.handlers.get_db_session") as mock_db_session:
+        mock_db = MagicMock()
+        mock_db.__aenter__ = AsyncMock(return_value=mock_db)
+        mock_db.__aexit__ = AsyncMock()
+        mock_db_session.return_value = mock_db
+
+        with patch.object(
+            event_handlers, "_get_game_with_participants", new_callable=AsyncMock
+        ) as mock_get_game:
+            mock_get_game.return_value = sample_game
+
+            async def mock_execute(query):
+                result = MagicMock()
+                result.scalar_one_or_none = MagicMock(return_value=None)
+                return result
+
+            mock_db.execute = AsyncMock(side_effect=mock_execute)
+
+            # Should complete without error
+            await event_handlers._handle_notification_due(data)
+
+
+@pytest.mark.asyncio
+async def test_handle_join_notification_user_not_found(event_handlers, sample_game):
+    """Test join notification handles missing participant gracefully."""
+    participant_id = str(uuid4())
+
+    with patch("services.bot.events.handlers.get_db_session") as mock_db_session:
+        mock_db = MagicMock()
+        mock_db.__aenter__ = AsyncMock(return_value=mock_db)
+        mock_db.__aexit__ = AsyncMock()
+        mock_db_session.return_value = mock_db
+
+        with patch.object(
+            event_handlers, "_get_game_with_participants", new_callable=AsyncMock
+        ) as mock_get_game:
+            mock_get_game.return_value = sample_game
+
+            async def mock_execute(query):
+                result = MagicMock()
+                result.scalar_one_or_none = MagicMock(return_value=None)
+                return result
+
+            mock_db.execute = AsyncMock(side_effect=mock_execute)
+
+            with patch("services.bot.events.handlers.logger") as mock_logger:
+                data = {
+                    "game_id": sample_game.id,
+                    "notification_type": "join_notification",
+                    "participant_id": participant_id,
+                }
+                await event_handlers._handle_notification_due(data)
+                # Should log that participant no longer active
+                mock_logger.info.assert_called()
+                assert any(
+                    "no longer active" in str(call) for call in mock_logger.info.call_args_list
+                )

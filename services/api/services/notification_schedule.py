@@ -29,6 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.models import game as game_model
 from shared.models import notification_schedule as notification_schedule_model
+from shared.models.base import utc_now
 
 logger = logging.getLogger(__name__)
 
@@ -131,3 +132,43 @@ class NotificationScheduleService:
             )
         )
         logger.debug(f"Cleared schedule for game {game_id}")
+
+
+async def schedule_join_notification(
+    db: AsyncSession,
+    game_id: str,
+    participant_id: str,
+    game_scheduled_at: datetime | None,
+    delay_seconds: int = 60,
+) -> notification_schedule_model.NotificationSchedule:
+    """
+    Schedule delayed join notification for a participant.
+
+    Creates a notification_schedule entry that will trigger a notification
+    after the specified delay. If the participant is removed before the
+    notification time, the schedule is automatically cancelled via CASCADE delete.
+
+    Args:
+        db: Database session
+        game_id: ID of the game joined
+        participant_id: ID of the participant who joined
+        game_scheduled_at: When the game is scheduled (for TTL calculation)
+        delay_seconds: Delay before notification (default: 60)
+
+    Returns:
+        Created NotificationSchedule instance
+    """
+    schedule = notification_schedule_model.NotificationSchedule(
+        game_id=game_id,
+        participant_id=participant_id,
+        notification_type="join_notification",
+        notification_time=utc_now() + timedelta(seconds=delay_seconds),
+        sent=False,
+        game_scheduled_at=game_scheduled_at,
+        reminder_minutes=None,
+    )
+
+    db.add(schedule)
+    await db.flush()
+
+    return schedule

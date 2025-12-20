@@ -31,7 +31,7 @@ import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
-from services.scheduler.event_builders import build_game_reminder_event
+from services.scheduler.event_builders import build_notification_event
 from services.scheduler.generic_scheduler_daemon import SchedulerDaemon
 from services.scheduler.postgres_listener import PostgresNotificationListener
 from shared.models import NotificationSchedule
@@ -121,7 +121,12 @@ def test_game_session(db_session):
             "INSERT INTO users (id, discord_id, created_at, updated_at) "
             "VALUES (:id, :discord_id, :created_at, :updated_at)"
         ),
-        {"id": user_id, "discord_id": "111222333", "created_at": now, "updated_at": now},
+        {
+            "id": user_id,
+            "discord_id": "111222333",
+            "created_at": now,
+            "updated_at": now,
+        },
     )
 
     db_session.execute(
@@ -274,7 +279,7 @@ class TestNotificationDaemonIntegration:
             model_class=NotificationSchedule,
             time_field="notification_time",
             status_field="sent",
-            event_builder=build_game_reminder_event,
+            event_builder=build_notification_event,
         )
 
         try:
@@ -325,7 +330,7 @@ class TestNotificationDaemonIntegration:
             model_class=NotificationSchedule,
             time_field="notification_time",
             status_field="sent",
-            event_builder=build_game_reminder_event,
+            event_builder=build_notification_event,
         )
 
         try:
@@ -384,7 +389,7 @@ class TestNotificationDaemonIntegration:
             model_class=NotificationSchedule,
             time_field="notification_time",
             status_field="sent",
-            event_builder=build_game_reminder_event,
+            event_builder=build_notification_event,
             max_timeout=2,  # Short timeout for test
         )
 

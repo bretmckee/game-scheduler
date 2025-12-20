@@ -31,7 +31,7 @@ from shared.database import BASE_DATABASE_URL
 from shared.models import NotificationSchedule
 from shared.telemetry import flush_telemetry, init_telemetry
 
-from .event_builders import build_game_reminder_event
+from .event_builders import build_notification_event
 from .generic_scheduler_daemon import SchedulerDaemon
 
 logger = logging.getLogger(__name__)
@@ -70,7 +70,7 @@ def main() -> None:
             model_class=NotificationSchedule,
             time_field="notification_time",
             status_field="sent",
-            event_builder=build_game_reminder_event,
+            event_builder=build_notification_event,
             process_dlq=False,
         )
 

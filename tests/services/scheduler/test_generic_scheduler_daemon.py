@@ -39,7 +39,7 @@ def mock_event_builder():
 
     def builder(record):
         event = Event(
-            event_type=EventType.GAME_REMINDER_DUE,
+            event_type=EventType.NOTIFICATION_DUE,
             data={"game_id": str(record.game_id), "reminder_minutes": record.reminder_minutes},
         )
         return event, None
@@ -290,7 +290,7 @@ class TestSchedulerDaemonProcessItem:
         # Verify event published
         mock_publisher.publish.assert_called_once()
         call_args = mock_publisher.publish.call_args
-        assert call_args[1]["event"].event_type == EventType.GAME_REMINDER_DUE
+        assert call_args[1]["event"].event_type == EventType.NOTIFICATION_DUE
         assert game_id in str(call_args[1]["event"].data)
         assert call_args[1]["expiration_ms"] is None
 
@@ -641,7 +641,7 @@ class TestSchedulerDaemonTupleHandling:
 
         def builder_with_ttl(record):
             event = Event(
-                event_type=EventType.GAME_REMINDER_DUE,
+                event_type=EventType.NOTIFICATION_DUE,
                 data={"game_id": str(record.game_id)},
             )
             return event, ttl_value
@@ -701,7 +701,7 @@ class TestSchedulerDaemonTupleHandling:
 
         def legacy_builder(record):
             return Event(
-                event_type=EventType.GAME_REMINDER_DUE,
+                event_type=EventType.NOTIFICATION_DUE,
                 data={"game_id": str(record.game_id)},
             )
 

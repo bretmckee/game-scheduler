@@ -36,6 +36,7 @@ from sqlalchemy.orm import selectinload
 from services.api.auth import roles as roles_module
 from services.api.services import notification_schedule as notification_schedule_service
 from services.api.services import participant_resolver as resolver_module
+from services.api.services.notification_schedule import schedule_join_notification
 from shared.discord import client as discord_client_module
 from shared.messaging import events as messaging_events
 from shared.messaging import publisher as messaging_publisher
@@ -555,6 +556,25 @@ class GameService:
 
         await self.db.flush()
 
+        # Create join notification schedules for Discord users only
+        for new_participant in await self.db.scalars(
+            select(participant_model.GameParticipant)
+            .where(
+                participant_model.GameParticipant.game_session_id == game.id,
+                participant_model.GameParticipant.user_id.isnot(None),
+                participant_model.GameParticipant.pre_filled_position.isnot(None),
+            )
+            .order_by(participant_model.GameParticipant.joined_at.desc())
+            .limit(len([p for p in valid_participants if p["type"] == "discord"]))
+        ):
+            await schedule_join_notification(
+                db=self.db,
+                game_id=game.id,
+                participant_id=new_participant.id,
+                game_scheduled_at=game.scheduled_at,
+                delay_seconds=60,
+            )
+
     async def _update_status_schedules(
         self,
         game: game_model.GameSession,
@@ -876,6 +896,16 @@ class GameService:
             await self.db.refresh(participant)
         except IntegrityError:
             raise ValueError("User has already joined this game") from None
+
+        # Create delayed join notification schedule
+        await schedule_join_notification(
+            db=self.db,
+            game_id=game_id,
+            participant_id=participant.id,
+            game_scheduled_at=game.scheduled_at,
+            delay_seconds=60,
+        )
+        await self.db.commit()
 
         # Publish game.updated event
         await self._publish_game_updated(game)

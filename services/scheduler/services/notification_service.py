@@ -59,19 +59,19 @@ class NotificationService:
             self.event_publisher.connect()
             logger.info("Successfully connected to RabbitMQ")
 
-            reminder_event = events.GameReminderDueEvent(
+            notification_event = events.NotificationDueEvent(
                 game_id=game_id,
-                reminder_minutes=reminder_minutes,
+                notification_type="reminder",
             )
 
-            logger.info(f"Created game reminder event: {reminder_event.model_dump()}")
+            logger.info(f"Created notification event: {notification_event.model_dump()}")
 
             event_wrapper = events.Event(
-                event_type=events.EventType.GAME_REMINDER_DUE,
-                data=reminder_event.model_dump(),
+                event_type=events.EventType.NOTIFICATION_DUE,
+                data=notification_event.model_dump(),
             )
 
-            logger.info("Publishing event to RabbitMQ with routing key: game.reminder_due")
+            logger.info("Publishing event to RabbitMQ with routing key: game.notification_due")
             self.event_publisher.publish(event_wrapper)
             logger.info("Event published successfully to RabbitMQ")
 

@@ -811,7 +811,8 @@ async def test_join_game_success(
     await game_service.join_game(game_id=game_id, user_discord_id=new_user.discord_id)
 
     mock_db.add.assert_called()
-    mock_db.commit.assert_called_once()
+    # Commit is called twice: once for participant, once for join notification
+    assert mock_db.commit.call_count == 2
 
 
 @pytest.mark.asyncio
