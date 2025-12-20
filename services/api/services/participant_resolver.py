@@ -30,7 +30,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from services.api.auth import discord_client as discord_client_module
+from shared.discord import client as discord_client_module
 from shared.models import user as user_model
 
 logger = logging.getLogger(__name__)

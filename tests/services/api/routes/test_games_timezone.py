@@ -30,9 +30,12 @@ from shared.models.user import User
 
 
 @pytest.mark.asyncio
-@patch("services.api.routes.games.discord_client_module.get_discord_client")
+@patch("services.api.routes.games.fetch_channel_name_safe")
+@patch("services.api.routes.games.get_discord_client")
 @patch("services.api.services.display_names.get_display_name_resolver")
-async def test_scheduled_at_has_utc_marker(mock_get_resolver, mock_get_discord_client):
+async def test_scheduled_at_has_utc_marker(
+    mock_get_resolver, mock_get_discord_client, mock_fetch_channel
+):
     """Test that scheduled_at includes 'Z' suffix for UTC."""
     # Mock display name resolver to avoid Discord API calls
     mock_resolver = AsyncMock()
@@ -43,6 +46,9 @@ async def test_scheduled_at_has_utc_marker(mock_get_resolver, mock_get_discord_c
     mock_discord_client = AsyncMock()
     mock_discord_client.fetch_channel = AsyncMock(return_value={"name": "test-channel"})
     mock_get_discord_client.return_value = mock_discord_client
+
+    # Mock channel name fetch
+    mock_fetch_channel.return_value = "test-channel"
 
     # Create mock game objects
     guild = GuildConfiguration(guild_id="test-guild")
@@ -89,9 +95,12 @@ async def test_scheduled_at_has_utc_marker(mock_get_resolver, mock_get_discord_c
 
 
 @pytest.mark.asyncio
-@patch("services.api.routes.games.discord_client_module.get_discord_client")
+@patch("services.api.routes.games.fetch_channel_name_safe")
+@patch("services.api.routes.games.get_discord_client")
 @patch("services.api.services.display_names.get_display_name_resolver")
-async def test_created_updated_have_utc_marker(mock_get_resolver, mock_get_discord_client):
+async def test_created_updated_have_utc_marker(
+    mock_get_resolver, mock_get_discord_client, mock_fetch_channel
+):
     """
     Test that created_at and updated_at include 'Z' suffix.
     """
@@ -104,6 +113,9 @@ async def test_created_updated_have_utc_marker(mock_get_resolver, mock_get_disco
     mock_discord_client = AsyncMock()
     mock_discord_client.fetch_channel = AsyncMock(return_value={"name": "test-channel"})
     mock_get_discord_client.return_value = mock_discord_client
+
+    # Mock channel name fetch
+    mock_fetch_channel.return_value = "test-channel"
 
     guild = GuildConfiguration(guild_id="test-guild")
     guild.id = "1"
@@ -141,9 +153,12 @@ async def test_created_updated_have_utc_marker(mock_get_resolver, mock_get_disco
 
 
 @pytest.mark.asyncio
-@patch("services.api.routes.games.discord_client_module.get_discord_client")
+@patch("services.api.routes.games.fetch_channel_name_safe")
+@patch("services.api.routes.games.get_discord_client")
 @patch("services.api.services.display_names.get_display_name_resolver")
-async def test_midnight_utc_not_offset(mock_get_resolver, mock_get_discord_client):
+async def test_midnight_utc_not_offset(
+    mock_get_resolver, mock_get_discord_client, mock_fetch_channel
+):
     """
 
     Critical test: Verify midnight UTC is not incorrectly offset.
@@ -161,6 +176,9 @@ async def test_midnight_utc_not_offset(mock_get_resolver, mock_get_discord_clien
     mock_discord_client = AsyncMock()
     mock_discord_client.fetch_channel = AsyncMock(return_value={"name": "test-channel"})
     mock_get_discord_client.return_value = mock_discord_client
+
+    # Mock channel name fetch
+    mock_fetch_channel.return_value = "test-channel"
 
     guild = GuildConfiguration(guild_id="test-guild")
     guild.id = "1"
@@ -209,9 +227,12 @@ async def test_midnight_utc_not_offset(mock_get_resolver, mock_get_discord_clien
 
 
 @pytest.mark.asyncio
-@patch("services.api.routes.games.discord_client_module.get_discord_client")
+@patch("services.api.routes.games.fetch_channel_name_safe")
+@patch("services.api.routes.games.get_discord_client")
 @patch("services.api.services.display_names.get_display_name_resolver")
-async def test_various_times_consistent(mock_get_resolver, mock_get_discord_client):
+async def test_various_times_consistent(
+    mock_get_resolver, mock_get_discord_client, mock_fetch_channel
+):
     """
     Test that various times are serialized consistently.
     """
@@ -224,6 +245,9 @@ async def test_various_times_consistent(mock_get_resolver, mock_get_discord_clie
     mock_discord_client = AsyncMock()
     mock_discord_client.fetch_channel = AsyncMock(return_value={"name": "test-channel"})
     mock_get_discord_client.return_value = mock_discord_client
+
+    # Mock channel name fetch
+    mock_fetch_channel.return_value = "test-channel"
 
     guild = GuildConfiguration(guild_id="test-guild")
     guild.id = "1"

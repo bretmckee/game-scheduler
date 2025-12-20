@@ -27,10 +27,11 @@ import logging
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.api.auth import discord_client
+from services.api.dependencies.discord import get_discord_client
 from shared.cache import client as cache_client
 from shared.cache import keys as cache_keys
 from shared.cache import ttl as cache_ttl
+from shared.discord import client as discord_client
 from shared.models import guild as guild_model
 from shared.utils.discord import DiscordPermissions
 
@@ -42,7 +43,7 @@ class RoleVerificationService:
 
     def __init__(self):
         """Initialize role verification service."""
-        self.discord_client = discord_client.get_discord_client()
+        self.discord_client = get_discord_client()
         self._cache: cache_client.RedisClient | None = None
 
     async def _get_cache(self) -> cache_client.RedisClient:
@@ -197,7 +198,11 @@ class RoleVerificationService:
         return any(role_id in allowed_host_role_ids for role_id in user_role_ids)
 
     async def check_bot_manager_permission(
-        self, user_id: str, guild_id: str, db: AsyncSession, access_token: str | None = None
+        self,
+        user_id: str,
+        guild_id: str,
+        db: AsyncSession,
+        access_token: str | None = None,
     ) -> bool:
         """
         Check if user has Bot Manager role in guild.

@@ -22,7 +22,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from services.api.auth import discord_client, roles
+from services.api.auth import roles
+from shared.discord import client as discord_client
 
 
 @pytest.fixture

@@ -23,8 +23,8 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.api.auth import discord_client as discord_client_module
 from services.api.services import participant_resolver as resolver_module
+from shared.discord import client as discord_client_module
 from shared.models import user as user_model
 
 

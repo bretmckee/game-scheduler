@@ -33,10 +33,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
-from services.api.auth import discord_client as discord_client_module
 from services.api.auth import roles as roles_module
 from services.api.services import notification_schedule as notification_schedule_service
 from services.api.services import participant_resolver as resolver_module
+from shared.discord import client as discord_client_module
 from shared.messaging import events as messaging_events
 from shared.messaging import publisher as messaging_publisher
 from shared.models import channel as channel_model
@@ -1013,7 +1013,7 @@ class GameService:
                 "message_id": game.message_id or "",
                 "channel_id": game.channel_id,
                 "game_title": game.title,
-                "game_scheduled_at": game.scheduled_at.isoformat() if game.scheduled_at else None,
+                "game_scheduled_at": (game.scheduled_at.isoformat() if game.scheduled_at else None),
             },
         )
 

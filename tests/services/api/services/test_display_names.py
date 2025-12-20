@@ -23,9 +23,9 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from services.api.auth import discord_client
 from services.api.services import display_names
 from shared.cache import client as cache_client
+from shared.discord import client as discord_client
 
 
 @pytest.fixture

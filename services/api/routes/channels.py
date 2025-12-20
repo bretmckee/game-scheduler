@@ -25,11 +25,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.api import dependencies
-from services.api.auth import discord_client as discord_client_module
 from services.api.database import queries
 from services.api.dependencies import permissions
 from services.api.services import channel_service
 from shared import database
+from shared.discord import client as discord_client_module
 from shared.schemas import auth as auth_schemas
 from shared.schemas import channel as channel_schemas
 
@@ -53,7 +53,8 @@ async def get_channel(
 
     if not channel_config:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Channel configuration not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Channel configuration not found",
         )
 
     # Verify guild membership, returns 404 if not member to prevent information disclosure
@@ -74,7 +75,9 @@ async def get_channel(
 
 
 @router.post(
-    "", response_model=channel_schemas.ChannelConfigResponse, status_code=status.HTTP_201_CREATED
+    "",
+    response_model=channel_schemas.ChannelConfigResponse,
+    status_code=status.HTTP_201_CREATED,
 )
 async def create_channel_config(
     request: channel_schemas.ChannelConfigCreateRequest,
@@ -129,7 +132,8 @@ async def update_channel_config(
     channel_config = await queries.get_channel_by_id(db, channel_id)
     if not channel_config:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Channel configuration not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Channel configuration not found",
         )
 
     updates = request.model_dump(exclude_unset=True)

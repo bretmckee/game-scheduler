@@ -109,8 +109,10 @@ class TestListTemplates:
         with (
             patch("services.api.database.queries.get_guild_by_id") as mock_get_guild,
             patch("services.api.auth.roles.get_role_service") as mock_get_role_service,
-            patch("services.api.auth.discord_client.get_discord_client") as mock_get_discord_client,
-            patch("services.api.auth.discord_client.fetch_channel_name_safe") as mock_fetch_name,
+            patch(
+                "services.api.dependencies.discord.get_discord_client"
+            ) as mock_get_discord_client,
+            patch("shared.discord.client.fetch_channel_name_safe") as mock_fetch_name,
             patch(
                 "services.api.services.template_service.TemplateService"
             ) as mock_template_service,
@@ -132,7 +134,9 @@ class TestListTemplates:
             mock_template_service.return_value = mock_service
 
             result = await templates.list_templates(
-                guild_id=mock_guild_config.id, current_user=mock_current_user, db=mock_db
+                guild_id=mock_guild_config.id,
+                current_user=mock_current_user,
+                db=mock_db,
             )
 
             assert len(result) == 1
@@ -165,7 +169,7 @@ class TestGetTemplate:
             patch(
                 "services.api.services.template_service.TemplateService"
             ) as mock_template_service,
-            patch("services.api.auth.discord_client.fetch_channel_name_safe") as mock_fetch_name,
+            patch("shared.discord.client.fetch_channel_name_safe") as mock_fetch_name,
             patch(
                 "services.api.dependencies.permissions.verify_template_access"
             ) as mock_verify_access,
@@ -197,7 +201,9 @@ class TestGetTemplate:
 
             with pytest.raises(HTTPException) as exc_info:
                 await templates.get_template(
-                    template_id="nonexistent", current_user=mock_current_user, db=mock_db
+                    template_id="nonexistent",
+                    current_user=mock_current_user,
+                    db=mock_db,
                 )
 
             assert exc_info.value.status_code == 404
@@ -234,7 +240,7 @@ class TestCreateTemplate:
             patch(
                 "services.api.services.template_service.TemplateService"
             ) as mock_template_service,
-            patch("services.api.auth.discord_client.fetch_channel_name_safe") as mock_fetch_name,
+            patch("shared.discord.client.fetch_channel_name_safe") as mock_fetch_name,
             patch(
                 "services.api.dependencies.permissions.require_bot_manager"
             ) as mock_require_manager,
@@ -330,7 +336,9 @@ class TestDeleteTemplate:
 
             with pytest.raises(HTTPException) as exc_info:
                 await templates.delete_template(
-                    template_id=mock_template.id, current_user=mock_current_user, db=mock_db
+                    template_id=mock_template.id,
+                    current_user=mock_current_user,
+                    db=mock_db,
                 )
 
             assert exc_info.value.status_code == 400

@@ -25,12 +25,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.api import dependencies
-from services.api.auth import discord_client as discord_client_module
 from services.api.auth import oauth2
 from services.api.database import queries
 from services.api.dependencies import permissions
+from services.api.dependencies.discord import get_discord_client
 from services.api.services import guild_service
 from shared import database
+from shared.discord.client import DiscordAPIClient, fetch_channel_name_safe
 from shared.schemas import auth as auth_schemas
 from shared.schemas import channel as channel_schemas
 from shared.schemas import guild as guild_schemas
@@ -137,7 +138,9 @@ async def get_guild_config(
 
 
 @router.post(
-    "", response_model=guild_schemas.GuildConfigResponse, status_code=status.HTTP_201_CREATED
+    "",
+    response_model=guild_schemas.GuildConfigResponse,
+    status_code=status.HTTP_201_CREATED,
 )
 async def create_guild_config(
     request: guild_schemas.GuildConfigCreateRequest,
@@ -189,7 +192,8 @@ async def update_guild_config(
     guild_config = await queries.get_guild_by_id(db, guild_id)
     if not guild_config:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Guild configuration not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Guild configuration not found",
         )
 
     updates = request.model_dump(exclude_unset=True)
@@ -235,7 +239,7 @@ async def list_guild_channels(
 
     channel_responses = []
     for channel in channels:
-        channel_name = await discord_client_module.fetch_channel_name_safe(channel.channel_id)
+        channel_name = await fetch_channel_name_safe(channel.channel_id)
 
         channel_responses.append(
             channel_schemas.ChannelConfigResponse(
@@ -258,9 +262,7 @@ async def list_guild_roles(
     guild_id: str,
     current_user: auth_schemas.CurrentUser = Depends(dependencies.auth.get_current_user),
     db: AsyncSession = Depends(database.get_db),
-    discord_client: discord_client_module.DiscordAPIClient = Depends(
-        discord_client_module.get_discord_client
-    ),
+    discord_client: DiscordAPIClient = Depends(get_discord_client),
 ) -> list[dict]:
     """
     List all roles for a guild, excluding @everyone and managed roles.
@@ -285,7 +287,7 @@ async def list_guild_roles(
     filtered_roles = [
         {
             "id": role["id"],
-            "name": role["name"] if role["name"].startswith("@") else f"@{role['name']}",
+            "name": (role["name"] if role["name"].startswith("@") else f"@{role['name']}"),
             "color": role["color"],
             "position": role["position"],
             "managed": role.get("managed", False),
@@ -362,7 +364,7 @@ async def validate_mention(
     # Query Discord API to validate @mention
     from services.api.services.participant_resolver import ParticipantResolver
 
-    discord_client_instance = discord_client_module.get_discord_client()
+    discord_client_instance = get_discord_client()
     resolver = ParticipantResolver(discord_client_instance)
 
     try:

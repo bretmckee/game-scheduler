@@ -659,3 +659,92 @@ class DiscordAPIClient:
             f"Discord API: Batch completed - fetched {len(members)}/{len(user_ids)} members"
         )
         return members
+
+
+# Global client instance for helper functions (lazy-initialized)
+_global_client_instance: DiscordAPIClient | None = None
+
+
+def _get_global_client() -> DiscordAPIClient:
+    """
+    Get or create global Discord API client for helper functions.
+
+    This is a fallback for legacy helper functions that don't accept a client parameter.
+    New code should use get_discord_client() from service-specific dependencies.
+    """
+    global _global_client_instance
+    if _global_client_instance is None:
+        # Import here to avoid circular dependency
+        from services.api.dependencies.discord import get_discord_client
+
+        _global_client_instance = get_discord_client()
+    return _global_client_instance
+
+
+async def fetch_channel_name_safe(channel_id: str, client: DiscordAPIClient | None = None) -> str:
+    """
+    Fetch channel name from Discord API with error handling.
+
+    This is a convenience wrapper around fetch_channel that handles errors
+    gracefully and returns "Unknown Channel" if the fetch fails.
+
+    Args:
+        channel_id: Discord channel ID
+        client: DiscordAPIClient instance (optional, uses global if not provided)
+
+    Returns:
+        Channel name or "Unknown Channel" if fetch fails
+    """
+    if client is None:
+        client = _get_global_client()
+    try:
+        channel_data = await client.fetch_channel(channel_id)
+        return channel_data.get("name", "Unknown Channel")
+    except DiscordAPIError as e:
+        logger.warning(f"Could not fetch channel name for {channel_id}: {e}")
+        return "Unknown Channel"
+
+
+async def fetch_user_display_name_safe(
+    discord_id: str, client: DiscordAPIClient | None = None
+) -> str:
+    """
+    Fetch user display name from Discord API with error handling.
+
+    Args:
+        discord_id: Discord user ID
+        client: DiscordAPIClient instance (optional, uses global if not provided)
+
+    Returns:
+        User display name in format "@username" or fallback to "@{id}"
+    """
+    if client is None:
+        client = _get_global_client()
+    try:
+        user_data = await client.fetch_user(discord_id)
+        username = user_data.get("username", discord_id)
+        return f"@{username}"
+    except DiscordAPIError as e:
+        logger.warning(f"Could not fetch user name for {discord_id}: {e}")
+        return f"@{discord_id}"
+
+
+async def fetch_guild_name_safe(guild_id: str, client: DiscordAPIClient | None = None) -> str:
+    """
+    Fetch guild/server name from Discord API with error handling.
+
+    Args:
+        guild_id: Discord guild ID
+        client: DiscordAPIClient instance (optional, uses global if not provided)
+
+    Returns:
+        Guild name or fallback to guild ID
+    """
+    if client is None:
+        client = _get_global_client()
+    try:
+        guild_data = await client.fetch_guild(guild_id)
+        return guild_data.get("name", guild_id)
+    except DiscordAPIError as e:
+        logger.warning(f"Could not fetch guild name for {guild_id}: {e}")
+        return guild_id

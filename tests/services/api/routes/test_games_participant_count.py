@@ -109,8 +109,12 @@ async def test_participant_count_includes_discord_users_only(
             return_value=mock_display_name_resolver,
         ),
         patch(
-            "services.api.routes.games.discord_client_module.get_discord_client",
+            "services.api.routes.games.get_discord_client",
             return_value=mock_discord_client,
+        ),
+        patch(
+            "services.api.routes.games.fetch_channel_name_safe",
+            return_value="test-channel",
         ),
     ):
         response = await games_routes._build_game_response(game)
@@ -186,8 +190,12 @@ async def test_participant_count_includes_placeholder_participants(
             return_value=mock_display_name_resolver,
         ),
         patch(
-            "services.api.routes.games.discord_client_module.get_discord_client",
+            "services.api.routes.games.get_discord_client",
             return_value=mock_discord_client,
+        ),
+        patch(
+            "services.api.routes.games.fetch_channel_name_safe",
+            return_value="test-channel",
         ),
     ):
         response = await games_routes._build_game_response(game)
@@ -274,8 +282,12 @@ async def test_participant_count_includes_mixed_participants(
             return_value=mock_display_name_resolver,
         ),
         patch(
-            "services.api.routes.games.discord_client_module.get_discord_client",
+            "services.api.routes.games.get_discord_client",
             return_value=mock_discord_client,
+        ),
+        patch(
+            "services.api.routes.games.fetch_channel_name_safe",
+            return_value="test-channel",
         ),
     ):
         response = await games_routes._build_game_response(game)
@@ -330,8 +342,12 @@ async def test_participant_count_with_empty_participants(
             return_value=mock_display_name_resolver,
         ),
         patch(
-            "services.api.routes.games.discord_client_module.get_discord_client",
+            "services.api.routes.games.get_discord_client",
             return_value=mock_discord_client,
+        ),
+        patch(
+            "services.api.routes.games.fetch_channel_name_safe",
+            return_value="test-channel",
         ),
     ):
         response = await games_routes._build_game_response(game)

@@ -25,11 +25,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.api import dependencies
-from services.api.auth import discord_client as discord_client_module
 from services.api.auth import roles as roles_module
 from services.api.database import queries
 from services.api.services import template_service as template_service_module
 from shared import database
+from shared.discord import client as discord_client_module
 from shared.schemas import auth as auth_schemas
 from shared.schemas import template as template_schemas
 
@@ -37,7 +37,10 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["templates"])
 
 
-@router.get("/guilds/{guild_id}/templates", response_model=list[template_schemas.TemplateListItem])
+@router.get(
+    "/guilds/{guild_id}/templates",
+    response_model=list[template_schemas.TemplateListItem],
+)
 async def list_templates(
     guild_id: str,
     current_user: auth_schemas.CurrentUser = Depends(dependencies.auth.get_current_user),
@@ -52,7 +55,8 @@ async def list_templates(
     guild_config = await queries.get_guild_by_id(db, guild_id)
     if not guild_config:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Guild configuration not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Guild configuration not found",
         )
 
     # Get templates with permission filtering
@@ -173,7 +177,8 @@ async def create_template(
     guild_config = await queries.get_guild_by_id(db, guild_id)
     if not guild_config:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Guild configuration not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Guild configuration not found",
         )
 
     # Verify bot manager permission using dependency
@@ -306,7 +311,8 @@ async def delete_template(
 
 
 @router.post(
-    "/templates/{template_id}/set-default", response_model=template_schemas.TemplateResponse
+    "/templates/{template_id}/set-default",
+    response_model=template_schemas.TemplateResponse,
 )
 async def set_default_template(
     template_id: str,

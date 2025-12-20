@@ -28,15 +28,15 @@ from datetime import UTC
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.api.auth import discord_client as discord_client_module
 from services.api.auth import roles as roles_module
-from services.api.auth.discord_client import fetch_channel_name_safe
 from services.api.dependencies import auth as auth_deps
 from services.api.dependencies import permissions as permissions_deps
+from services.api.dependencies.discord import get_discord_client
 from services.api.services import display_names as display_names_module
 from services.api.services import games as games_service
 from services.api.services import participant_resolver as resolver_module
 from shared import database
+from shared.discord.client import fetch_channel_name_safe
 from shared.messaging import publisher as messaging_publisher
 from shared.models import game as game_model
 from shared.schemas import auth as auth_schemas
@@ -56,7 +56,7 @@ def _get_game_service(
 ) -> games_service.GameService:
     """Get game service instance with dependencies."""
     event_publisher = messaging_publisher.EventPublisher()
-    discord_client = discord_client_module.get_discord_client()
+    discord_client = get_discord_client()
     participant_resolver = resolver_module.ParticipantResolver(discord_client)
 
     return games_service.GameService(

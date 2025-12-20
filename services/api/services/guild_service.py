@@ -21,8 +21,8 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.api.auth import discord_client as discord_client_module
 from services.api.database import queries
+from services.api.dependencies.discord import get_discord_client
 from services.api.services import channel_service
 from services.api.services import template_service as template_service_module
 from shared.models.guild import GuildConfiguration
@@ -90,7 +90,7 @@ async def sync_user_guilds(db: AsyncSession, access_token: str, user_id: str) ->
             "new_channels": number of new channels created
         }
     """
-    discord_client = discord_client_module.get_discord_client()
+    discord_client = get_discord_client()
 
     # Fetch user's guilds with MANAGE_GUILD permission
     user_guilds = await discord_client.get_user_guilds(access_token, user_id)

@@ -80,7 +80,7 @@ class TestOAuth2Flow:
     @pytest.mark.asyncio
     async def test_exchange_code_for_tokens(self):
         """Test authorization code exchange."""
-        with patch("services.api.auth.oauth2.discord_client.get_discord_client") as mock_client:
+        with patch("services.api.auth.oauth2.get_discord_client") as mock_client:
             mock_discord = AsyncMock()
             mock_client.return_value = mock_discord
             mock_discord.exchange_code.return_value = {
@@ -97,7 +97,7 @@ class TestOAuth2Flow:
     @pytest.mark.asyncio
     async def test_refresh_access_token(self):
         """Test access token refresh."""
-        with patch("services.api.auth.oauth2.discord_client.get_discord_client") as mock_client:
+        with patch("services.api.auth.oauth2.get_discord_client") as mock_client:
             mock_discord = AsyncMock()
             mock_client.return_value = mock_discord
             mock_discord.refresh_token.return_value = {
@@ -113,7 +113,7 @@ class TestOAuth2Flow:
     @pytest.mark.asyncio
     async def test_get_user_from_token(self):
         """Test user info fetching."""
-        with patch("services.api.auth.oauth2.discord_client.get_discord_client") as mock_client:
+        with patch("services.api.auth.oauth2.get_discord_client") as mock_client:
             mock_discord = AsyncMock()
             mock_client.return_value = mock_discord
             mock_discord.get_user_info.return_value = {
@@ -129,7 +129,7 @@ class TestOAuth2Flow:
     @pytest.mark.asyncio
     async def test_get_user_guilds(self):
         """Test user guilds fetching."""
-        with patch("services.api.auth.oauth2.discord_client.get_discord_client") as mock_client:
+        with patch("services.api.auth.oauth2.get_discord_client") as mock_client:
             mock_discord = AsyncMock()
             mock_client.return_value = mock_discord
             mock_discord.get_user_guilds.return_value = [

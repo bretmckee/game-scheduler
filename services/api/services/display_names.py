@@ -27,10 +27,11 @@ import json
 import logging
 from typing import TYPE_CHECKING
 
-from services.api.auth import discord_client
+from services.api.dependencies.discord import get_discord_client
 from shared.cache import client as cache_client
 from shared.cache import keys as cache_keys
 from shared.cache import ttl as cache_ttl
+from shared.discord import client as discord_client
 
 if TYPE_CHECKING:
     pass
@@ -236,6 +237,6 @@ class DisplayNameResolver:
 
 async def get_display_name_resolver() -> DisplayNameResolver:
     """Get display name resolver instance with initialized dependencies."""
-    discord_api = discord_client.get_discord_client()
+    discord_api = get_discord_client()
     cache = await cache_client.get_redis_client()
     return DisplayNameResolver(discord_api, cache)

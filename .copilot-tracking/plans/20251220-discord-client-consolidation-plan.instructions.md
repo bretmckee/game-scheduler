@@ -51,18 +51,18 @@ Move DiscordAPIClient from API service to shared layer and integrate it into bot
 - [x] Task 1.3: Update DiscordAPIClient imports to use shared.cache
   - Details: [.copilot-tracking/details/20251220-discord-client-consolidation-details.md](.copilot-tracking/details/20251220-discord-client-consolidation-details.md) (Lines 47-60)
 
-### [ ] Phase 2: Update API Service Imports
+### [x] Phase 2: Update API Service Imports
 
-- [ ] Task 2.1: Find all files importing services.api.auth.discord_client
+- [x] Task 2.1: Find all files importing services.api.auth.discord_client
   - Details: [.copilot-tracking/details/20251220-discord-client-consolidation-details.md](.copilot-tracking/details/20251220-discord-client-consolidation-details.md) (Lines 62-76)
 
-- [ ] Task 2.2: Update imports to shared.discord.client across all 19 API files
+- [x] Task 2.2: Update imports to shared.discord.client across all 19 API files
   - Details: [.copilot-tracking/details/20251220-discord-client-consolidation-details.md](.copilot-tracking/details/20251220-discord-client-consolidation-details.md) (Lines 78-94)
 
-- [ ] Task 2.3: Update get_discord_client() singleton in API service
+- [x] Task 2.3: Update get_discord_client() singleton in API service
   - Details: [.copilot-tracking/details/20251220-discord-client-consolidation-details.md](.copilot-tracking/details/20251220-discord-client-consolidation-details.md) (Lines 96-112)
 
-- [ ] Task 2.4: Verify API unit tests pass
+- [x] Task 2.4: Verify API unit tests pass
   - Details: [.copilot-tracking/details/20251220-discord-client-consolidation-details.md](.copilot-tracking/details/20251220-discord-client-consolidation-details.md) (Lines 114-124)
 
 ### [ ] Phase 3: Integrate DiscordAPIClient in Bot Service

@@ -27,7 +27,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from services.api.auth.discord_client import (
+from shared.discord.client import (
     fetch_channel_name_safe,
     fetch_guild_name_safe,
     fetch_user_display_name_safe,

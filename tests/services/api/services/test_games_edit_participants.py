@@ -25,9 +25,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.api.auth import discord_client as discord_client_module
 from services.api.services import games as games_service
 from services.api.services import participant_resolver as resolver_module
+from shared.discord import client as discord_client_module
 from shared.messaging import publisher as messaging_publisher
 from shared.models import channel as channel_model
 from shared.models import game as game_model
@@ -101,7 +101,12 @@ def sample_user():
 
 @pytest.mark.asyncio
 async def test_update_game_with_discord_mention_format(
-    game_service, mock_db, mock_participant_resolver, sample_guild, sample_channel, sample_user
+    game_service,
+    mock_db,
+    mock_participant_resolver,
+    sample_guild,
+    sample_channel,
+    sample_user,
 ):
     """
     Test that updating a game with <@discord_id> format preserves Discord users.
@@ -205,7 +210,12 @@ async def test_update_game_with_discord_mention_format(
 
 @pytest.mark.asyncio
 async def test_update_game_preserves_discord_users_not_placeholders(
-    game_service, mock_db, mock_participant_resolver, sample_guild, sample_channel, sample_user
+    game_service,
+    mock_db,
+    mock_participant_resolver,
+    sample_guild,
+    sample_channel,
+    sample_user,
 ):
     """
     Verify that Discord users remain Discord users after edit, not converted to placeholders.

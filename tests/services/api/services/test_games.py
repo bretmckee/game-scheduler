@@ -26,9 +26,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.api.auth import discord_client as discord_client_module
 from services.api.services import games as games_service
 from services.api.services import participant_resolver as resolver_module
+from shared.discord import client as discord_client_module
 from shared.messaging import publisher as messaging_publisher
 from shared.models import channel as channel_model
 from shared.models import game as game_model
@@ -180,7 +180,13 @@ async def test_create_game_without_participants(
     reload_result.scalar_one_or_none.return_value = created_game
 
     mock_db.execute = AsyncMock(
-        side_effect=[template_result, guild_result, host_result, channel_result, reload_result]
+        side_effect=[
+            template_result,
+            guild_result,
+            host_result,
+            channel_result,
+            reload_result,
+        ]
     )
     mock_db.flush = AsyncMock()
     mock_db.commit = AsyncMock()
@@ -257,7 +263,13 @@ async def test_create_game_with_where_field(
     reload_result.scalar_one_or_none.return_value = created_game
 
     mock_db.execute = AsyncMock(
-        side_effect=[template_result, guild_result, host_result, channel_result, reload_result]
+        side_effect=[
+            template_result,
+            guild_result,
+            host_result,
+            channel_result,
+            reload_result,
+        ]
     )
     mock_db.flush = AsyncMock()
     mock_db.commit = AsyncMock()
@@ -341,7 +353,13 @@ async def test_create_game_with_valid_participants(
     reload_result.scalar_one_or_none.return_value = created_game
 
     mock_db.execute = AsyncMock(
-        side_effect=[template_result, guild_result, host_result, channel_result, reload_result]
+        side_effect=[
+            template_result,
+            guild_result,
+            host_result,
+            channel_result,
+            reload_result,
+        ]
     )
     mock_db.flush = AsyncMock()
     mock_db.commit = AsyncMock()
@@ -467,7 +485,13 @@ async def test_create_game_timezone_conversion(
     reload_result.scalar_one_or_none.return_value = created_game
 
     mock_db.execute = AsyncMock(
-        side_effect=[template_result, guild_result, host_result, channel_result, reload_result]
+        side_effect=[
+            template_result,
+            guild_result,
+            host_result,
+            channel_result,
+            reload_result,
+        ]
     )
     mock_db.flush = AsyncMock()
     mock_db.commit = AsyncMock()
@@ -792,7 +816,12 @@ async def test_join_game_success(
 
 @pytest.mark.asyncio
 async def test_join_game_already_joined(
-    game_service, mock_db, mock_participant_resolver, sample_user, sample_guild, sample_channel
+    game_service,
+    mock_db,
+    mock_participant_resolver,
+    sample_user,
+    sample_guild,
+    sample_channel,
 ):
     """Test joining same game twice raises ValueError due to IntegrityError."""
     from sqlalchemy.exc import IntegrityError
@@ -1265,7 +1294,13 @@ async def test_create_game_creates_status_schedules(
     reload_result.scalar_one_or_none.return_value = created_game
 
     mock_db.execute = AsyncMock(
-        side_effect=[template_result, guild_result, host_result, channel_result, reload_result]
+        side_effect=[
+            template_result,
+            guild_result,
+            host_result,
+            channel_result,
+            reload_result,
+        ]
     )
     mock_db.flush = AsyncMock()
     mock_db.commit = AsyncMock()

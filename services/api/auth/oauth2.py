@@ -28,7 +28,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from services.api import config
-from services.api.auth import discord_client
+from services.api.dependencies.discord import get_discord_client
 from shared.cache import client as cache_client
 
 logger = logging.getLogger(__name__)
@@ -115,7 +115,7 @@ async def exchange_code_for_tokens(code: str, redirect_uri: str) -> dict[str, An
     Raises:
         DiscordAPIError: If token exchange fails
     """
-    discord = discord_client.get_discord_client()
+    discord = get_discord_client()
     token_data = await discord.exchange_code(code, redirect_uri)
 
     logger.info("Successfully exchanged authorization code for tokens")
@@ -135,7 +135,7 @@ async def refresh_access_token(refresh_token: str) -> dict[str, Any]:
     Raises:
         DiscordAPIError: If token refresh fails
     """
-    discord = discord_client.get_discord_client()
+    discord = get_discord_client()
     token_data = await discord.refresh_token(refresh_token)
 
     logger.info("Successfully refreshed access token")
@@ -155,7 +155,7 @@ async def get_user_from_token(access_token: str) -> dict[str, Any]:
     Raises:
         DiscordAPIError: If fetching user fails
     """
-    discord = discord_client.get_discord_client()
+    discord = get_discord_client()
     user_data = await discord.get_user_info(access_token)
 
     logger.info(f"Fetched user info for Discord ID: {user_data.get('id')}")
@@ -176,7 +176,7 @@ async def get_user_guilds(access_token: str, user_id: str | None = None) -> list
     Raises:
         DiscordAPIError: If fetching guilds fails
     """
-    discord = discord_client.get_discord_client()
+    discord = get_discord_client()
     guilds_data = await discord.get_user_guilds(access_token, user_id)
 
     logger.info(f"Fetched {len(guilds_data)} guilds for user")
