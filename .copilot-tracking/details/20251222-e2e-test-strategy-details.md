@@ -6,229 +6,263 @@
 
 **Source Research**: #file:../research/20251222-e2e-test-strategy-research.md
 
-## Phase 1: Discord Test Helper Module
+## Phase 1: E2E Infrastructure Setup
 
-### Task 1.1: Create DiscordTestHelper class structure
+### Task 1.1: Create DiscordTestHelper module
 
-Create a new helper module for Discord API interactions in E2E tests.
+Implement a helper module to abstract Discord operations used by tests.
 
 - **Files**:
-  - tests/e2e/helpers/__init__.py - Empty module initializer
-  - tests/e2e/helpers/discord.py - DiscordTestHelper class implementation
+  - tests/e2e/helpers/discord.py - Helper with connect/disconnect and message/DM utilities
 - **Success**:
-  - Class initializes with bot token parameter
-  - Implements async context manager (__aenter__, __aexit__)
-  - Has connect() and disconnect() methods
-  - Tracks connection state to avoid duplicate logins
+  - `DiscordTestHelper.connect()` logs in with bot token and can fetch channels/messages
+  - `get_channel_message()` returns a `Message` object; `verify_game_announcement()` validates embed
 - **Research References**:
-  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 315-355) - Helper module pattern recommendation
-  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 470-550) - Discord message reading implementation example
+  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 340-392) - Helper module pattern and example
+  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 400-420) - Additional helper implementation details
 - **Dependencies**:
-  - discord.py library (already installed)
-  - pytest-asyncio for async test support
+  - discord.py installed and configured for bot token usage
 
-### Task 1.2: Implement message fetching methods
+### Task 1.2: Set up E2E fixtures in conftest.py
 
-Add methods to retrieve Discord messages from channels.
+Create pytest fixtures for environment variables, database sessions, HTTP client, and Discord helper lifecycle.
 
 - **Files**:
-  - tests/e2e/helpers/discord.py - Add get_message(), get_recent_messages(), find_message_by_embed_title()
+  - tests/e2e/conftest.py - Centralized fixtures
 - **Success**:
-  - get_message(channel_id, message_id) returns discord.Message object
-  - get_recent_messages(channel_id, limit) returns list of recent messages
-  - find_message_by_embed_title(channel_id, title, limit) finds message by embed title
-  - All methods handle channel and message fetching via discord.py client
+  - Env fixtures provide `discord_token`, `discord_guild_id`, `discord_channel_id`, `discord_user_id`
+  - `db_engine`/`db_session` fixtures pool connections correctly
+  - `http_client` fixture targets API base URL and can call `/health`
+  - `discord_helper` fixture auto-connects and disconnects the helper
 - **Research References**:
-  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 470-550) - Message fetching implementation
-  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 115-142) - discord.py bot usage patterns
-  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 144-170) - Discord Message API reference
+  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 560-580) - Fixture inventory and status
+  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 571-576) - Fixture scopes and patterns
 - **Dependencies**:
-  - Task 1.1 completion (DiscordTestHelper class exists)
+  - Docker Compose e2e profile running services
 
-### Task 1.3: Implement DM verification methods
+### Task 1.3: Verify E2E test environment
 
-Add methods to retrieve and verify direct messages sent to users.
+Validate credentials, connectivity, and seeded data prior to scenario tests.
 
 - **Files**:
-  - tests/e2e/helpers/discord.py - Add get_user_recent_dms(), find_game_reminder_dm()
+  - env/env.e2e - Environment variables
+  - compose.e2e.yaml - Required services and env passthrough
+  - tests/e2e/test_00_environment.py - Basic environment sanity tests
 - **Success**:
-  - get_user_recent_dms(user_id, limit) returns list of DMs sent to user by bot
-  - find_game_reminder_dm(user_id, game_title) finds specific game reminder DM
-  - Methods filter for bot's messages only (msg.author.id == bot user id)
-  - Searches embed content for game title
+  - Bot token can login and reach guild/channel; `/health` responds
+  - Seeded data exists (guild, channel, test user)
 - **Research References**:
-  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 470-550) - DM verification implementation
-  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 197-210) - DM verification capabilities
+  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 580-620) - Environment validation tests
+  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 1-45) - Project files and compose profile overview
 - **Dependencies**:
-  - Task 1.1 completion (DiscordTestHelper class exists)
+  - Init service seeding completed; Docker network ready
 
-### Task 1.4: Implement embed verification utilities
+## Phase 2: Core Authentication
 
-Add helper methods to extract and verify Discord embed content.
+### Task 2.1: Extract bot Discord ID from token
+
+Provide a utility to parse the bot token and derive the bot user ID by base64 decoding the first segment.
 
 - **Files**:
-  - tests/e2e/helpers/discord.py - Add extract_embed_field_value(), verify_game_embed()
+  - tests/e2e/helpers/discord.py or a small util in tests/e2e/utils/tokens.py
 - **Success**:
-  - extract_embed_field_value(embed, field_name) returns field value or None
-  - verify_game_embed(embed, expected_title, expected_host_id, expected_max_players) validates embed structure
-  - verify_game_embed checks: title, host field with mention, players field with count
-  - Uses assertions for clear test failure messages
+  - Function returns correct bot user ID for provided `DISCORD_TOKEN`
 - **Research References**:
-  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 470-550) - Embed verification implementation
-  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 144-170) - Discord embed structure
+  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 1088-1105) - Immediate steps: ID extraction
 - **Dependencies**:
-  - Task 1.1 completion (DiscordTestHelper class exists)
+  - Access to `DISCORD_TOKEN` from env
 
-## Phase 2: First E2E Test - Game Announcement
+### Task 2.2: Create authenticated_admin_client fixture
 
-### Task 2.1: Create test environment fixtures
-
-Create pytest fixtures for E2E test setup and teardown.
+Authenticate API client by storing a session using the bot token as the access token and setting the `session_token` cookie.
 
 - **Files**:
-  - tests/e2e/test_game_announcement.py - New test file with fixtures
+  - tests/e2e/conftest.py - `authenticated_admin_client` fixture
 - **Success**:
-  - discord_helper fixture creates DiscordTestHelper, connects, yields, disconnects
-  - test_guild_config fixture creates database guild configuration
-  - test_channel_config fixture creates database channel configuration
-  - test_host_user fixture creates database user record
-  - Fixtures use environment variables from env/env.e2e (TEST_DISCORD_TOKEN, TEST_GUILD_ID, etc.)
+  - Fixture yields an HTTP client authorized for API calls; session established via `tokens.store_user_tokens()`
 - **Research References**:
-  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 357-407) - Fixture-based and helper module patterns
-  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 552-573) - Test execution considerations (environment requirements)
+  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 1106-1125) - Session creation with bot token and cookie
 - **Dependencies**:
-  - Phase 1 completion (DiscordTestHelper module exists)
-  - env/env.e2e configured with Discord test credentials
+  - Token unification implemented in `DiscordAPIClient` (already complete)
 
-### Task 2.2: Implement game creation announcement test
+### Task 2.3: Add synced_guild fixture
 
-Write test that creates game via API and verifies Discord announcement.
+Run `/api/v1/guilds/sync` using admin bot auth to ensure configs/templates exist for tests.
 
 - **Files**:
-  - tests/e2e/test_game_announcement.py - Add test_game_creation_posts_announcement_to_discord()
+  - tests/e2e/conftest.py - `synced_guild` fixture
 - **Success**:
-  - Test creates game via API POST /api/games
-  - Waits for bot to process game.created event (asyncio.sleep with timeout)
-  - Fetches game from database to get message_id
-  - Uses discord_helper to fetch Discord message by message_id
-  - Asserts message exists and has one embed
+  - Returns IDs for guild/channel configurations and a default template
 - **Research References**:
-  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 247-313) - Recommended first test structure
-  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 234-245) - Why this test first
-  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 552-596) - Test execution considerations (timing, isolation)
+  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 1126-1145) - Guild sync fixture requirements
 - **Dependencies**:
-  - Task 2.1 completion (fixtures exist)
-  - Running full stack via compose.e2e.yaml
+  - Authenticated client fixture
 
-### Task 2.3: Validate message content and embed structure
+## Phase 3: Complete First Test - Game Announcement
 
-Extend game creation test to verify Discord message content details.
+### Task 3.1: Update test to use authenticated client
+
+Switch the test to use `authenticated_admin_client` and rely on `synced_guild` outputs.
 
 - **Files**:
-  - tests/e2e/test_game_announcement.py - Enhance test_game_creation_posts_announcement_to_discord()
+  - tests/e2e/test_game_announcement.py - Main test scenario
 - **Success**:
-  - Uses discord_helper.verify_game_embed() to check embed structure
-  - Validates embed title matches game title
-  - Verifies host field contains user mention (<@discord_id>)
-  - Confirms players field shows correct count (0/max_players)
-  - All assertions provide clear failure messages
+  - Test executes without auth errors and reaches game creation endpoint
 - **Research References**:
-  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 247-313) - Test implementation example
-  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 315-324) - Success criteria for first test
+  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 1146-1160) - First test steps and validation path
 - **Dependencies**:
-  - Task 2.2 completion (basic test exists)
-  - Task 1.4 completion (verify_game_embed implemented)
+  - Phase 2 completion
 
-## Phase 3: Additional E2E Test Scenarios
+### Task 3.2: Include template_id in game creation request
 
-### Task 3.1: Implement game update message refresh test
-
-Test that updating game details causes Discord message to be edited.
+Use the default template ID from `synced_guild` to create a game.
 
 - **Files**:
-  - tests/e2e/test_game_announcement.py - Add test_game_update_refreshes_discord_message()
+  - tests/e2e/test_game_announcement.py - Request body adjustments
 - **Success**:
-  - Creates game via API, verifies initial announcement
-  - Updates game title/description via API PATCH /api/games/{id}
-  - Waits for bot to process game.updated event
-  - Fetches same message_id from Discord
-  - Verifies embed reflects updated content
-  - Confirms message_id unchanged (edit, not new post)
+  - API responds 201; session record has non-null `message_id`
 - **Research References**:
-  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 222-232) - Priority E2E test scenarios (scenario 2)
-  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 172-192) - System architecture for message editing
+  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 1146-1160) - Template requirement for end-to-end
 - **Dependencies**:
-  - Phase 2 completion (basic test pattern established)
+  - Synced guild fixture
 
-### Task 3.2: Implement user join participant list test
+### Task 3.3: Verify Discord announcement message posted
 
-Test that joining game updates participant list in Discord message.
+Fetch the message from the Discord channel and confirm existence.
 
 - **Files**:
-  - tests/e2e/test_game_announcement.py - Add test_user_join_updates_participant_list()
+  - tests/e2e/helpers/discord.py - `get_channel_message()`
 - **Success**:
-  - Creates game, verifies initial announcement shows 0 players
-  - Adds participant via API POST /api/games/{id}/participants
-  - Waits for bot to process participant change
-  - Fetches Discord message, verifies player count incremented (1/max)
-  - Confirms participant appears in embed field
+  - Retrieved message matches `game_sessions.message_id`
 - **Research References**:
-  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 222-232) - Priority E2E test scenarios (scenario 3)
-  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 172-192) - System architecture for participant updates
+  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 340-380) - Helper function example
+  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 1-25) - Message API reference link
 - **Dependencies**:
-  - Phase 2 completion (basic test pattern established)
+  - Game created; DB has message_id
 
-### Task 3.3: Implement DM reminder delivery test
+### Task 3.4: Complete embed content validation
 
-Test that notification daemon sends DM reminders to participants.
+Validate core embed structure: title, host mention, participant count, key fields.
 
 - **Files**:
-  - tests/e2e/test_game_announcement.py - Add test_game_reminder_sends_dm_to_participants()
+  - tests/e2e/helpers/discord.py - `verify_game_announcement()`
 - **Success**:
-  - Creates game with reminder_minutes=[5]
-  - Sets scheduled_at to trigger reminder (current time + 6 minutes)
-  - Adds test user as participant
-  - Waits for notification daemon to process (polling interval + buffer)
-  - Uses discord_helper.find_game_reminder_dm() to locate DM
-  - Verifies DM embed contains game title and scheduled time
+  - Assertions pass for embed title, host ID mention, and count fields
 - **Research References**:
-  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 222-232) - Priority E2E test scenarios (scenario 4)
-  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 172-192) - System architecture for notification daemon
-  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 575-588) - Timing considerations for daemon polling
+  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 380-392) - Embed verification pattern
 - **Dependencies**:
-  - Phase 2 completion (basic test pattern established)
-  - Task 1.3 completion (DM verification methods exist)
+  - Retrieved message
 
-### Task 3.4: Implement game deletion message removal test
+## Phase 4: Remaining Test Scenarios
 
-Test that deleting game removes Discord announcement message.
+### Task 4.1: Game update → message refresh test
+
+Update game data and confirm the Discord message content changes while keeping the same `message_id`.
 
 - **Files**:
-  - tests/e2e/test_game_announcement.py - Add test_game_deletion_removes_discord_message()
+  - tests/e2e/test_game_update.py
 - **Success**:
-  - Creates game, verifies announcement exists
-  - Deletes game via API DELETE /api/games/{id}
-  - Waits for bot to process game.deleted event
-  - Attempts to fetch Discord message by message_id
-  - Verifies fetch raises NotFound exception (message deleted)
+  - Discord message reflects updated title/description
 - **Research References**:
-  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 222-232) - Priority E2E test scenarios (scenario 5)
-  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 172-192) - System architecture for message deletion
+  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 1161-1173) - Scenario outlines
 - **Dependencies**:
-  - Phase 2 completion (basic test pattern established)
+  - Initial game and message created
 
-## Phase 4: Documentation and CI/CD Integration
+### Task 4.2: User joins → participant list update test
 
-### Task 4.1: Update TESTING_E2E.md with new test execution instructions
-
-Document how to run new E2E tests with Discord validation.
+Simulate join via API and verify participant count increments in the announcement.
 
 - **Files**:
-  - TESTING_E2E.md - Add section "Discord Message Validation Tests"
+  - tests/e2e/test_user_join.py
 - **Success**:
-  - Explains difference between database-focused and Discord validation tests
-  - Lists required environment variables (TEST_DISCORD_TOKEN, etc.)
-  - Provides command to run new E2E tests
+  - Message shows increased participant count; test passes
+- **Research References**:
+  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 1161-1170) - Scenario outlines
+- **Dependencies**:
+  - Game announcement exists
+
+### Task 4.3: Game reminder → DM verification test
+
+Trigger reminder and confirm DM received by the test user.
+
+- **Files**:
+  - tests/e2e/helpers/discord.py - `get_user_dms()`
+  - tests/e2e/test_game_reminder.py
+- **Success**:
+  - DM appears with correct content; within expected time window
+- **Research References**:
+  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 340-380) - DM helper example
+  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 1161-1170) - Scenario outlines
+- **Dependencies**:
+  - Notification daemon running; reminder scheduled
+
+### Task 4.4: Game deletion → message removed test
+
+Delete the game and verify the corresponding Discord message is removed.
+
+- **Files**:
+  - tests/e2e/test_game_deletion.py
+- **Success**:
+  - Message no longer retrievable; API returns 404 or helper detects absence
+- **Research References**:
+  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 1166-1173) - Scenario outlines
+- **Dependencies**:
+  - Prior creation of game and message
+
+## Phase 5: Documentation and CI/CD
+
+### Task 5.1: Update TESTING_E2E.md
+
+Document helper usage, fixture setup, and execution steps.
+
+- **Files**:
+  - TESTING_E2E.md
+- **Success**:
+  - Clear run instructions; environment requirements; troubleshooting section
+- **Research References**:
+  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 20-45) - Project docs references
+- **Dependencies**:
+  - Helper and fixtures implemented
+
+### Task 5.2: Document Discord test environment requirements
+
+Summarize bot token, guild/channel setup, and test user provisioning.
+
+- **Files**:
+  - TESTING_E2E.md
+- **Success**:
+  - Environment checklist complete and accurate
+- **Research References**:
+  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 560-600) - Env validation and compose setup
+- **Dependencies**:
+  - Verified environment
+
+### Task 5.3: Configure CI/CD for E2E test execution
+
+Add conditional execution or manual documentation for running E2E in CI.
+
+- **Files**:
+  - .github/workflows/e2e.yml (if applicable)
+  - scripts/run-e2e-tests.sh
+- **Success**:
+  - CI can optionally run E2E or provide manual steps
+- **Research References**:
+  - #file:../research/20251222-e2e-test-strategy-research.md (Lines 26-45) - Compose and scripts overview
+- **Dependencies**:
+  - Stable test environment and scripts
+
+## Dependencies
+
+- discord.py and pytest-asyncio
+- Docker Compose e2e profile
+- Seeded test data via init service
+
+## Success Criteria
+
+- Helper and fixtures implemented and validated
+- First end-to-end test passes with Discord message validation
+- Remaining scenarios implemented with passing tests
+Documentation updated; CI/CD notes added
   - Documents expected test execution time and timing considerations
   - Includes troubleshooting section for common issues
 - **Research References**:
