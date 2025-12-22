@@ -1,6 +1,21 @@
 <!-- markdownlint-disable-file -->
 # Task Research Notes: E2E Test Strategy
 
+> **PAUSED FOR REFACTOR (2025-12-22)**
+>
+> During E2E authentication research, discovered that the bot/OAuth token distinction in `DiscordAPIClient` is artificial. Discord API accepts both token types for the same endpoints. This insight enables a major simplification.
+>
+> **Actions Taken:**
+> 1. Created `20251222-discord-client-token-unification-research.md` to document unified client approach
+> 2. Branching to implement token unification refactor first
+> 3. Will cherry-pick E2E commits back after refactor completes
+>
+> **When Resuming E2E Work:**
+> - Verify `DiscordAPIClient` now has unified `get_guilds(token)` method (not separate `get_bot_guilds()` and `get_user_guilds()`)
+> - Check if token detection (`_get_auth_header()`) already implemented
+> - Review if admin bot approach still needed or if unified API simplifies authentication further
+> - Validate that Priority 1 (Authentication) implementation steps still align with refactored client
+
 ## Research Executed
 
 ### File Analysis
@@ -532,3 +547,493 @@ class DiscordTestHelper:
 - Pattern established for future E2E test development
 - Documentation updated with test execution instructions
 - Clear path forward for implementing remaining test scenarios
+
+## Progress Update (December 22, 2025)
+
+### Phase 1 Implementation Status: PARTIALLY COMPLETE
+
+**✅ Completed Work**:
+
+1. **Discord Test Helper Module** - `tests/e2e/helpers/discord.py`
+   - DiscordTestHelper class with connect/disconnect lifecycle
+   - get_message(channel_id, message_id) - Fetch specific Discord message
+   - verify_game_embed() - Validate game announcement embed structure
+   - Context manager support for clean resource management
+   - Status: **FULLY IMPLEMENTED**
+
+2. **E2E Test Infrastructure** - `tests/e2e/conftest.py`
+   - Environment variable fixtures (discord_token, discord_guild_id, discord_channel_id, discord_user_id)
+   - Database session fixtures (db_engine, db_session) with proper connection pooling
+   - HTTP client fixture for API requests
+   - discord_helper fixture with automatic connect/disconnect
+   - All fixtures use proper scopes (session vs function)
+   - Status: **FULLY IMPLEMENTED**
+
+3. **Environment Validation Tests** - `tests/e2e/test_00_environment.py`
+   - test_environment_variables() - Verify all required env vars present
+   - test_discord_bot_can_connect() - Validate bot token and Discord login
+   - test_discord_guild_exists() - Confirm bot has access to test guild
+   - test_discord_channel_exists() - Verify channel exists and is text channel
+   - test_discord_user_exists() - Validate test user exists in Discord
+   - test_database_seeded() - Confirm init service seeded guild/channel/user
+   - test_api_accessible() - Check API /health endpoint responds
+   - **All 7 tests PASSING** ✅
+   - Status: **COMPLETE AND VALIDATED**
+
+4. **E2E Data Seeding** - `services/init/seed_e2e.py`
+   - Idempotent seeding (checks if data already exists)
+   - Seeds guild_configurations, channel_configurations, users tables
+   - Uses TEST_ENVIRONMENT flag to trigger seeding
+   - Integrated into init service startup
+   - Status: **FULLY IMPLEMENTED AND TESTED**
+
+5. **Docker Compose Configuration** - `compose.e2e.yaml`
+   - All services configured with proper environment variables
+   - PYTEST_RUNNING=1 disables telemetry (eliminates noise)
+   - Environment variables standardized (removed TEST_ prefix confusion)
+   - Database connection variables (POSTGRES_*) passed to test container
+   - Status: **OPTIMIZED AND WORKING**
+
+6. **Test Execution Script** - `scripts/run-e2e-tests.sh`
+   - Validates required environment variables
+   - Builds test container
+   - Runs pytest with proper arguments
+   - Cleans up Docker resources after execution
+   - Status: **FUNCTIONAL**
+
+**⚠️ Partially Complete Work**:
+
+1. **Game Announcement Test** - `tests/e2e/test_game_announcement.py`
+   - Test structure created with proper fixtures
+   - clean_test_data fixture removes game records between tests
+   - test_guild_id, test_channel_id, test_host_id fixtures query seeded data
+   - Main test function skeleton implemented
+   - **Status: BLOCKED - Needs Authentication + Template**
+
+**🔴 Blocking Issues Discovered**:
+
+### Authentication Requirements
+The API endpoint `/api/v1/games` POST requires:
+1. **Session Token Cookie**: `session_token` must be present in cookies
+   - Error: `{"field":"cookie.session_token","message":"Field required","type":"missing"}`
+   - The API uses OAuth/session-based authentication
+   - Tests need to authenticate before making API requests
+
+2. **Template ID Field**: Request body must include `template_id`
+   - Error: `{"field":"body.template_id","message":"Field required","type":"missing"}`
+   - Games are created from templates, not from scratch
+   - Tests need to either:
+     - Query existing default template from database
+     - Create test template as part of setup
+     - Use template_id from seeded data
+
+### Required Next Steps
+
+**Priority 1: Authentication Solution**
+
+**✅ RECOMMENDED: Use Bot as Authenticated User**
+
+Discord bots ARE Discord users with a token (`DISCORD_TOKEN` in env.e2e). We can:
+1. **Use bot's Discord user ID as the authenticated user**
+   - Bot token: `YOUR_BOT_TOKEN_HERE.TIMESTAMP.SIGNATURE`
+   - Bot's Discord user ID can be extracted from token (first part base64 decoded)
+   - Bot is already a member of test guild with all necessary permissions
+2. **Create session directly in Valkey (Redis)**
+   - Call `tokens.store_user_tokens(bot_discord_id, "dummy_access", "dummy_refresh", 604800)`
+   - Returns session_token UUID to use in cookies
+   - Simpler than full OAuth flow, but uses real token storage mechanism
+3. **Include session_token in API requests**
+   - Set `session_token` cookie in test HTTP client
+   - API validates session exists in Valkey
+   - User record with bot's Discord ID already exists in database (seeded)
+
+**Why This Approach is Best**:
+- ✅ **Bot token already available** (`DISCORD_TOKEN` in env/env.e2e)
+- ✅ **Bot is real Discord user** with guild membership
+- ✅ **No OAuth flow complexity** (no need for authorization code exchange)
+- ✅ **Uses real session mechanism** (Valkey storage, not mocking)
+- ✅ **Bot has all necessary permissions** (manage channels, send messages)
+- ✅ **Idempotent** (can run tests repeatedly without auth expiry)
+- ✅ **No API changes needed** (uses existing token storage functions)
+
+**Alternative Approaches Considered (Not Recommended)**:
+- Full OAuth flow - Too complex, requires browser automation
+- Direct Valkey insertion - Bypasses token functions, may break if format changes
+- Test-only endpoint - Requires API changes, security risk if leaked to prod
+
+**Implementation Steps**:
+1. Extract bot's Discord user ID from `DISCORD_TOKEN` (base64 decode first segment)
+2. Add fixture `authenticated_bot_client` that:
+   - Calls `tokens.store_user_tokens(bot_discord_id, "e2e_access", "e2e_refresh", 604800)`
+   - Sets session_token cookie in HTTP client
+3. Update seed_e2e.py to create user record for bot's Discord ID
+4. Use `authenticated_bot_client` in tests instead of plain `http_client`
+
+## Bot Token Authentication Deep Dive
+
+### Discord Bot Token Structure
+
+Discord bot tokens have format: `BASE64_USER_ID.TIMESTAMP.HMAC_SIGNATURE`
+- First segment (BASE64_USER_ID): Bot's Discord user ID encoded in base64
+- Example: `MTIzNDU2Nzg5MDEyMzQ1Njc4` decodes to `123456789012345678` (placeholder)
+
+**Extracting Bot's Discord User ID**:
+```python
+import base64
+token_parts = DISCORD_TOKEN.split('.')
+bot_user_id = base64.b64decode(token_parts[0] + '==').decode('utf-8')
+```
+
+### Complete Implementation Code
+
+**1. Extract Bot Discord ID Utility** (not needed - seed can skip this):
+```python
+# Seed service no longer needs to create guild/channel configs
+# They're created via /api/v1/guilds/sync endpoint instead
+```
+
+**2. Update Seed Service (services/init/seed_e2e.py)** - Simplified:
+```python
+async def seed_e2e_data(db_session: AsyncSession):
+    """Seed E2E test data - only bot user needed."""
+    bot_token = os.environ.get("DISCORD_TOKEN", "")
+    bot_discord_id = extract_bot_discord_id(bot_token)
+
+    # Only seed bot user - guild/channels created via sync endpoint
+    result = await db_session.execute(
+        text("SELECT id FROM users WHERE discord_id = :discord_id"),
+        {"discord_id": bot_discord_id}
+    )
+    if not result.fetchone():
+        await db_session.execute(
+            text("INSERT INTO users (discord_id) VALUES (:discord_id)"),
+            {"discord_id": bot_discord_id}
+        )
+        print(f"✓ Seeded bot user: {bot_discord_id}")
+```
+
+**2. Test Fixtures (tests/e2e/conftest.py)**:
+```python
+@pytest.fixture
+async def admin_bot_discord_id(discord_admin_token):
+    """Extract admin bot's Discord user ID from token."""
+    return extract_bot_discord_id(discord_admin_token)
+
+@pytest.fixture
+async def authenticated_admin_client(http_client, admin_bot_discord_id, discord_admin_token):
+    """HTTP client with admin bot authentication."""
+    # Create session using admin bot's Discord ID and bot token as access_token
+    session_token = await tokens.store_user_tokens(
+        user_id=admin_bot_discord_id,
+        access_token=discord_admin_token,  # Admin bot token (will be detected as Bot token)
+        refresh_token="e2e_admin_refresh",
+        expires_in=604800
+    )
+    http_client.cookies.set("session_token", session_token)
+    yield http_client
+    await tokens.delete_user_tokens(session_token)
+
+@pytest.fixture(scope="session")
+async def synced_guild(authenticated_admin_client):
+    """Sync admin bot's guilds to create test configs."""
+    response = await authenticated_admin_client.post("/api/v1/guilds/sync")
+    assert response.status_code == 200
+    result = response.json()
+    print(f"✓ Synced {result['new_guilds']} guilds, {result['new_channels']} channels")
+    return result
+
+@pytest.fixture
+async def test_guild_id(db_session, synced_guild, discord_guild_id):
+    """Get guild config UUID after sync."""
+    result = await db_session.execute(
+        select(GuildConfiguration).where(
+            GuildConfiguration.guild_id == discord_guild_id
+        )
+    )
+    return result.scalar_one().id
+
+@pytest.fixture
+async def test_template_id(db_session, test_guild_id):
+    """Get default template UUID created by sync."""
+    result = await db_session.execute(
+        select(GameTemplate).where(
+            GameTemplate.guild_id == test_guild_id,
+            GameTemplate.is_default.is_(True)
+        )
+    )
+    return result.scalar_one().id
+```
+
+### Why Bot Authentication Works
+
+- ✅ Bot IS a Discord user (has user ID, guild membership, permissions)
+- ✅ API validates session exists, doesn't verify OAuth tokens in E2E context
+- ✅ Bot user seeded in database by init service
+- ✅ Matches production flow: session_token cookie → Valkey → user lookup
+- ✅ No mocking, no API changes, uses real session mechanism
+
+### Using Admin Bot Token with Guild Sync Endpoint
+
+**Key Insight**: Bot tokens can be distinguished from OAuth tokens and work with Discord API!
+
+- **Bot token format**: `BASE64_ID.TIMESTAMP.SIGNATURE` (3 parts separated by dots)
+- **OAuth token format**: Single random string (no dots or different structure)
+- **Solution**: Add token type detection to `DiscordAPIClient._get_auth_header()`
+  - If token has 3 dot-separated parts → `Authorization: Bot {token}`
+  - Otherwise → `Authorization: Bearer {token}`
+
+**Benefits**:
+- ✅ Admin bot token works with `/api/v1/guilds/sync` endpoint
+- ✅ No OAuth flow needed for E2E tests
+- ✅ Tests real production sync path (creates guild/channels/template via service layer)
+- ✅ Realistic permission separation (admin bot vs regular bot)
+- ✅ General improvement (all DiscordAPIClient methods now support both token types)
+
+**Priority 2: Setup via Guild Sync Endpoint**
+
+Use real production sync path with admin bot token:
+
+**1. Create Admin Bot in Discord Developer Portal**:
+- Name: "Game Scheduler E2E Admin Bot"
+- Copy bot token → `DISCORD_ADMIN_TOKEN` in env.e2e
+- Invite to test guild with `MANAGE_GUILD` permission
+- Bot OAuth URL: `https://discord.com/oauth2/authorize?client_id={CLIENT_ID}&scope=bot&permissions=32` (MANAGE_GUILD=32)
+
+**2. Environment Variables**:
+```bash
+# env/env.e2e
+DISCORD_TOKEN=regular_bot_token_here        # Regular bot (message permissions)
+DISCORD_ADMIN_TOKEN=admin_bot_token_here    # Admin bot (MANAGE_GUILD)
+DISCORD_GUILD_ID=test_guild_id
+DISCORD_CHANNEL_ID=test_channel_id
+DISCORD_USER_ID=test_user_id
+```
+
+**3. Add Bot Token Detection (shared/discord/client.py)**:
+```python
+def _get_auth_header(self, token: str) -> str:
+    """Detect token type and return appropriate Authorization header."""
+    # Bot tokens: BASE64_ID.TIMESTAMP.SIGNATURE (3 parts)
+    is_bot_token = len(token.split('.')) == 3
+    return f"Bot {token}" if is_bot_token else f"Bearer {token}"
+```
+
+**4. Update all Discord API calls to use helper**:
+```python
+# Replace hardcoded f"Bearer {access_token}" with:
+headers={"Authorization": self._get_auth_header(access_token)}
+```
+
+**Why This Approach**:
+- ✅ Tests real production sync path
+- ✅ Admin bot has appropriate permissions (MANAGE_GUILD)
+- ✅ Regular bot keeps minimal permissions (production-realistic)
+- ✅ No manual config seeding needed
+- ✅ Service layer creates everything correctly
+- ✅ Bot token detection improves entire codebase
+- ✅ More realistic end-to-end testing
+
+**Priority 3: Complete Game Announcement Test**
+
+Once authentication and sync resolved:
+1. Admin bot syncs guild (creates configs)
+2. Test authenticates as admin bot
+3. Include template_id in game creation request
+4. Validate 201 response and proceed with Discord verification
+5. Complete remaining assertions (embed content, fields, etc.)
+
+### Complete Implementation Code
+
+**1. Update Seed Service (services/init/seed_e2e.py)** - Seed admin bot user only:
+```python
+import base64
+from sqlalchemy import select
+from shared.models.user import User
+
+def extract_bot_discord_id(bot_token: str) -> str:
+    """Extract Discord user ID from bot token."""
+    token_parts = bot_token.split('.')
+    encoded_id = token_parts[0]
+    padding = 4 - (len(encoded_id) % 4)
+    if padding != 4:
+        encoded_id += '=' * padding
+    return base64.b64decode(encoded_id).decode('utf-8')
+
+async def seed_e2e_data(db_session: AsyncSession):
+    """Seed E2E test data - admin bot user only."""
+    # Seed admin bot user (used for guild sync)
+    admin_bot_discord_id = extract_bot_discord_id(os.environ["DISCORD_ADMIN_TOKEN"])
+
+    result = await db_session.execute(
+        select(User).where(User.discord_id == admin_bot_discord_id)
+    )
+    if not result.scalar_one_or_none():
+        admin_bot_user = User(discord_id=admin_bot_discord_id)
+        db_session.add(admin_bot_user)
+        await db_session.commit()
+        print(f"✓ Seeded admin bot user: {admin_bot_discord_id}")
+
+    # Note: Guild/channel/template configs created via /api/v1/guilds/sync in tests
+```
+
+**2. Test Fixtures (tests/e2e/conftest.py)**:
+```python
+@pytest.fixture
+async def admin_bot_discord_id(discord_admin_token):
+    """Extract admin bot's Discord user ID from token."""
+    return extract_bot_discord_id(discord_admin_token)
+
+@pytest.fixture
+async def authenticated_admin_client(http_client, admin_bot_discord_id, discord_admin_token):
+    """HTTP client with admin bot authentication."""
+    # Create session using admin bot's Discord ID and bot token as access_token
+    session_token = await tokens.store_user_tokens(
+        user_id=admin_bot_discord_id,
+        access_token=discord_admin_token,  # Admin bot token (will be detected as Bot token)
+        refresh_token="e2e_admin_refresh",
+        expires_in=604800
+    )
+    http_client.cookies.set("session_token", session_token)
+    yield http_client
+    await tokens.delete_user_tokens(session_token)
+
+@pytest.fixture(scope="session")
+async def synced_guild(authenticated_admin_client):
+    """Sync admin bot's guilds to create test configs."""
+    response = await authenticated_admin_client.post("/api/v1/guilds/sync")
+    assert response.status_code == 200
+    result = response.json()
+    print(f"✓ Synced {result['new_guilds']} guilds, {result['new_channels']} channels")
+    return result
+
+@pytest.fixture
+async def test_guild_id(db_session, synced_guild, discord_guild_id):
+    """Get guild config UUID after sync."""
+    result = await db_session.execute(
+        select(GuildConfiguration).where(
+            GuildConfiguration.guild_id == discord_guild_id
+        )
+    )
+    return result.scalar_one().id
+
+@pytest.fixture
+async def test_template_id(db_session, test_guild_id):
+    """Get default template UUID created by sync."""
+    result = await db_session.execute(
+        select(GameTemplate).where(
+            GameTemplate.guild_id == test_guild_id,
+            GameTemplate.is_default.is_(True)
+        )
+    )
+    return result.scalar_one().id
+```
+    row = result.fetchone()
+    if not row:
+        pytest.fail("Default template not found - seed may have failed")
+    return row[0]
+
+# Update test function signature
+async def test_game_creation_posts_announcement_to_discord(
+    authenticated_client,  # Changed from http_client
+    db_session,
+    discord_helper,
+    test_guild_id,
+    test_channel_id,
+    test_host_id,
+    test_template_id,  # Added
+    discord_channel_id,
+    discord_user_id,
+    clean_test_data,
+):
+    # Update game_data to include template_id
+    game_data = {
+        "template_id": test_template_id,  # Added
+        "title": game_title,
+        # ... rest of fields
+    }
+
+    # Rest of test unchanged - authentication handled by fixture
+```
+
+### Technical Debt / Known Issues
+
+1. **AsyncClient API change**: Old tests in test_guild_template_api.py used `AsyncClient(app=app)` which is no longer valid in current httpx version
+   - Solution: Removed old broken tests, using httpx.Client() for new tests
+
+2. **Environment Variable Naming**: Initial confusion between TEST_DISCORD_* and DISCORD_* variable names
+   - Solution: Standardized on DISCORD_* throughout (compose, tests, seed service)
+
+3. **Telemetry Noise**: Init service was sending OpenTelemetry data during tests, causing errors
+   - Solution: Set PYTEST_RUNNING=1 in compose.e2e.yaml to disable telemetry
+
+4. **Duplicate Fixtures**: Both conftest.py and test file defined same fixtures causing conflicts
+   - Solution: Moved all fixtures to conftest.py as single source of truth
+
+### Files Modified/Created
+
+**Created**:
+- `tests/e2e/conftest.py` - Pytest fixtures for E2E tests
+- `tests/e2e/test_00_environment.py` - Environment validation tests (7 passing)
+- `tests/e2e/helpers/discord.py` - DiscordTestHelper for message verification
+- `services/init/seed_e2e.py` - E2E test data seeding
+
+**Modified**:
+- `compose.e2e.yaml` - Environment variables, PYTEST_RUNNING flag
+- `scripts/run-e2e-tests.sh` - Variable name updates (DISCORD_* not TEST_DISCORD_*)
+- `tests/e2e/test_game_announcement.py` - Test structure, fixtures, API endpoint path
+- `services/init/main.py` - Integration of seed_e2e_data() call
+
+**Removed**:
+- `tests/e2e/test_guild_template_api.py` - Old broken integration test
+- `tests/e2e/test_game_notification_api_flow.py` - Database-focused test (not true E2E)
+
+### Test Execution Results
+
+**Current Status: 7/8 tests passing** (87.5% passing)
+
+```
+tests/e2e/test_00_environment.py::test_environment_variables PASSED
+tests/e2e/test_00_environment.py::test_discord_bot_can_connect PASSED
+tests/e2e/test_00_environment.py::test_discord_guild_exists PASSED
+tests/e2e/test_00_environment.py::test_discord_channel_exists PASSED
+tests/e2e/test_00_environment.py::test_discord_user_exists PASSED
+tests/e2e/test_00_environment.py::test_database_seeded PASSED
+tests/e2e/test_00_environment.py::test_api_accessible PASSED
+tests/e2e/test_game_announcement.py::test_game_creation_posts_announcement_to_discord FAILED
+```
+
+**Failure Details**:
+```
+AssertionError: Failed to create game: {
+  "error":"validation_error",
+  "message":"Invalid request data",
+  "details":[
+    {"field":"cookie.session_token","message":"Field required","type":"missing"},
+    {"field":"body.template_id","message":"Field required","type":"missing"}
+  ]
+}
+assert 422 == 201
+```
+
+### Summary
+
+**Achievements**:
+- ✅ Complete E2E test infrastructure established
+- ✅ Environment validation tests all passing
+- ✅ Discord test helper fully functional
+- ✅ Database seeding working correctly
+- ✅ Docker compose configuration optimized
+- ✅ Clean, noise-free test output
+
+**Remaining Work**:
+- 🔴 Implement authentication for E2E tests (blocking)
+- 🔴 Add template seeding/lookup (blocking)
+- 🟡 Complete game announcement test with Discord verification
+- 🟡 Implement remaining Phase 2-4 test scenarios
+- 🟡 Document authentication approach in TESTING_E2E.md
+
+**Estimated Effort to Complete Phase 1**:
+- Authentication solution: 1-2 hours (research + implementation)
+- Template seeding: 30 minutes (add to seed_e2e.py)
+- Complete announcement test: 1 hour (finish assertions, debug)
+- Total: ~3-4 hours to have first true E2E test passing
