@@ -36,8 +36,10 @@ USER testuser
 # ENTRYPOINT is pytest - pass pytest arguments only (not 'pytest' itself)
 # Examples:
 #   docker compose run integration-tests tests/integration/test_retry_daemon.py -v
+#   docker compose run e2e-tests tests/e2e/test_game_announcement.py -v
 #   docker compose run integration-tests tests/integration/ -k test_message
 ENTRYPOINT ["pytest"]
 
-# Default command runs all integration tests
+# Default command runs all integration tests when service is 'integration-tests'
+# or all e2e tests when service is 'e2e-tests'
 CMD ["tests/integration/", "-v", "--tb=short"]

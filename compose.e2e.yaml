@@ -1,15 +1,27 @@
 # End-to-end test overrides - use with --env-file env/env.e2e
 # Tests complete notification flow including Discord bot interactions
 #
-# Usage: docker compose --env-file env/env.e2e up --abort-on-container-exit
+# Usage:
+#   Run all tests: ./scripts/run-e2e-tests.sh
+#   Run specific test: ./scripts/run-e2e-tests.sh tests/e2e/test_game_announcement.py -v
 #
 # E2E test configuration:
 # - LOG_LEVEL: DEBUG for all services
 # - No port mappings (tests run inside container network)
 # - tmpfs volumes for speed
 # - Test service with full dependencies
+#
+# Note: Container ENTRYPOINT is 'pytest', so pass pytest args directly (not 'pytest' itself)
 
 services:
+  init:
+    environment:
+      TEST_ENVIRONMENT: ${TEST_ENVIRONMENT}
+      DISCORD_GUILD_ID: ${DISCORD_GUILD_ID}
+      DISCORD_CHANNEL_ID: ${DISCORD_CHANNEL_ID}
+      DISCORD_USER_ID: ${DISCORD_USER_ID}
+      PYTEST_RUNNING: "1"
+
   api:
     environment:
       LOG_LEVEL: DEBUG
@@ -44,14 +56,20 @@ services:
       dockerfile: docker/test.Dockerfile
     container_name: ${CONTAINER_PREFIX:-gamebot-e2e}-tests
     environment:
+      PYTHONUNBUFFERED: \"1\"
       DATABASE_URL: ${DATABASE_URL}
       RABBITMQ_URL: ${RABBITMQ_URL}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       API_BASE_URL: http://api:8000
-      TEST_DISCORD_TOKEN: ${TEST_DISCORD_TOKEN}
-      TEST_DISCORD_GUILD_ID: ${TEST_DISCORD_GUILD_ID}
-      TEST_DISCORD_CHANNEL_ID: ${TEST_DISCORD_CHANNEL_ID}
-      TEST_DISCORD_USER_ID: ${TEST_DISCORD_USER_ID}
+      DISCORD_TOKEN: ${DISCORD_TOKEN}
+      DISCORD_GUILD_ID: ${DISCORD_GUILD_ID}
+      DISCORD_CHANNEL_ID: ${DISCORD_CHANNEL_ID}
+      DISCORD_USER_ID: ${DISCORD_USER_ID}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
       TEST_ENVIRONMENT: ${TEST_ENVIRONMENT}
     depends_on:
       init:
@@ -70,7 +88,7 @@ services:
         condition: service_started
     networks:
       - app-network
-    command: pytest tests/e2e/test_game_notification_api_flow.py -v --tb=short
+    command: tests/e2e/ -v --tb=short
 
 # Use tmpfs for test volumes (in-memory, fast, auto-cleanup)
 volumes:

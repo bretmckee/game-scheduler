@@ -38,6 +38,7 @@ from opentelemetry import trace
 
 from services.init.migrations import run_migrations
 from services.init.rabbitmq import initialize_rabbitmq
+from services.init.seed_e2e import seed_e2e_data
 from services.init.verify_schema import verify_schema
 from services.init.wait_postgres import wait_for_postgres
 from shared.telemetry import flush_telemetry, init_telemetry
@@ -86,7 +87,12 @@ def main() -> int:
             initialize_rabbitmq()
             logger.info("✓ RabbitMQ infrastructure ready")
 
-            logger.info("[5/5] Finalizing initialization...")
+            logger.info("[5/5] Seeding E2E test data (if applicable)...")
+            if not seed_e2e_data():
+                logger.warning("E2E seed failed, but continuing...")
+            logger.info("✓ E2E seeding complete")
+
+            logger.info("[6/6] Finalizing initialization...")
             span.set_status(trace.Status(trace.StatusCode.OK))
 
             end_time = datetime.now(UTC)
