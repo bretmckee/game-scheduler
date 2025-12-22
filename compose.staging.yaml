@@ -6,15 +6,13 @@
 # Staging configuration:
 # - LOG_LEVEL: DEBUG (for troubleshooting)
 # - restart: always (production-like behavior)
-# - Frontend and API ports exposed (no infrastructure ports)
+# - No port mappings (reverse proxy handles external access)
 # - Production build targets (code baked into images)
 
 services:
   api:
     build:
       target: production
-    ports:
-      - "${API_HOST_PORT:-8000}:8000"
     environment:
       LOG_LEVEL: DEBUG
 
@@ -39,8 +37,6 @@ services:
   frontend:
     build:
       target: production
-    ports:
-      - "${FRONTEND_HOST_PORT:-3000}:80"
     environment:
       NGINX_LOG_LEVEL: debug
 
@@ -56,3 +52,9 @@ services:
 
   redis:
     command: valkey-server --appendonly yes --loglevel debug
+
+networks:
+  app-network:
+    name: swag_game_scheduler
+    driver: bridge
+    external: true
