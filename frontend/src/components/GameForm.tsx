@@ -41,6 +41,7 @@ import {
   EditableParticipantList,
   ParticipantInput as EditableParticipantInput,
 } from './EditableParticipantList';
+import { useAuth } from '../hooks/useAuth';
 
 /**
  * Round time up to the next half hour (e.g., 5:13 -> 5:30, 5:30 -> 5:30, 5:31 -> 6:00)
@@ -71,6 +72,7 @@ function getNextHalfHour(): Date {
 
 export interface GameFormData {
   title: string;
+  host?: string;
   description: string;
   signupInstructions: string;
   scheduledAt: Date | null;
@@ -92,6 +94,7 @@ interface GameFormProps {
   guildId: string;
   guildName?: string;
   canChangeChannel?: boolean;
+  isBotManager?: boolean;
   channels: Channel[];
   onSubmit: (formData: GameFormData) => Promise<void>;
   onCancel: () => void;
@@ -163,6 +166,7 @@ export const GameForm: FC<GameFormProps> = ({
   guildId,
   guildName: _guildName,
   canChangeChannel = true,
+  isBotManager = false,
   channels,
   onSubmit,
   onCancel,
@@ -170,10 +174,12 @@ export const GameForm: FC<GameFormProps> = ({
   validParticipants,
   onValidationErrorClick,
 }) => {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState<GameFormData>({
     title: initialData?.title || '',
+    host: '',
     description: initialData?.description || '',
     signupInstructions: initialData?.signup_instructions || '',
     scheduledAt: initialData?.scheduled_at ? new Date(initialData.scheduled_at) : getNextHalfHour(),
@@ -436,6 +442,24 @@ export const GameForm: FC<GameFormProps> = ({
             }}
             sx={{ mb: 1 }}
           />
+
+          {isBotManager && (
+            <TextField
+              fullWidth
+              label="Game Host"
+              name="host"
+              value={formData.host}
+              onChange={handleChange}
+              margin="normal"
+              disabled={loading}
+              placeholder={user?.username || 'Your username'}
+              helperText="Game host (@mention or username). Leave empty to host yourself."
+              InputLabelProps={{
+                sx: { fontSize: '1.1rem' },
+              }}
+              sx={{ mb: 1 }}
+            />
+          )}
 
           <TextField
             fullWidth

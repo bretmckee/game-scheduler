@@ -18,6 +18,19 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render } from '@testing-library/react';
 import { GameForm } from '../GameForm';
+import { AuthContext } from '../../contexts/AuthContext';
+
+const mockAuthContextValue = {
+  user: { id: '1', user_uuid: 'uuid1', username: 'testuser' },
+  loading: false,
+  login: vi.fn(),
+  logout: vi.fn(),
+  refreshUser: vi.fn(),
+};
+
+const renderWithAuth = (ui: React.ReactElement) => {
+  return render(<AuthContext.Provider value={mockAuthContextValue}>{ui}</AuthContext.Provider>);
+};
 
 // Helper to get the hidden input for the date picker (MUI v8 accessible DOM structure)
 function getDatePickerHiddenInput(container: HTMLElement): HTMLInputElement {
@@ -56,7 +69,7 @@ describe('GameForm - getNextHalfHour', () => {
     const mockOnSubmit = vi.fn();
     const mockOnCancel = vi.fn();
 
-    const { container } = render(
+    const { container } = renderWithAuth(
       <GameForm
         mode="create"
         guildId="test-guild"
@@ -81,7 +94,7 @@ describe('GameForm - getNextHalfHour', () => {
     const mockOnSubmit = vi.fn();
     const mockOnCancel = vi.fn();
 
-    const { container } = render(
+    const { container } = renderWithAuth(
       <GameForm
         mode="create"
         guildId="test-guild"
@@ -106,7 +119,7 @@ describe('GameForm - getNextHalfHour', () => {
     const mockOnSubmit = vi.fn();
     const mockOnCancel = vi.fn();
 
-    const { container } = render(
+    const { container } = renderWithAuth(
       <GameForm
         mode="create"
         guildId="test-guild"
@@ -130,7 +143,7 @@ describe('GameForm - getNextHalfHour', () => {
     const mockOnSubmit = vi.fn();
     const mockOnCancel = vi.fn();
 
-    const { container } = render(
+    const { container } = renderWithAuth(
       <GameForm
         mode="create"
         guildId="test-guild"
@@ -154,7 +167,7 @@ describe('GameForm - getNextHalfHour', () => {
     const mockOnSubmit = vi.fn();
     const mockOnCancel = vi.fn();
 
-    const { container } = render(
+    const { container } = renderWithAuth(
       <GameForm
         mode="create"
         guildId="test-guild"
@@ -179,7 +192,7 @@ describe('GameForm - getNextHalfHour', () => {
     const mockOnSubmit = vi.fn();
     const mockOnCancel = vi.fn();
 
-    const { container } = render(
+    const { container } = renderWithAuth(
       <GameForm
         mode="edit"
         guildId="test-guild"
@@ -202,5 +215,104 @@ describe('GameForm - getNextHalfHour', () => {
     // Check that it uses the existing scheduled time (2:45 PM)
     expect(inputValue).toContain('02:45 PM');
     expect(inputValue).toContain('12/10/2025');
+  });
+});
+
+describe('GameForm - Host Field Conditional Rendering', () => {
+  const mockChannel = {
+    id: 'ch1',
+    channel_name: 'General',
+    guild_id: 'guild1',
+    channel_id: 'ch1',
+    is_active: true,
+    created_at: '2025-01-01T00:00:00Z',
+    updated_at: '2025-01-01T00:00:00Z',
+  };
+
+  const mockOnSubmit = vi.fn();
+  const mockOnCancel = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('should show host field when isBotManager is true', () => {
+    const { getByLabelText } = renderWithAuth(
+      <GameForm
+        mode="create"
+        guildId="guild1"
+        channels={[mockChannel]}
+        isBotManager={true}
+        onSubmit={mockOnSubmit}
+        onCancel={mockOnCancel}
+      />
+    );
+
+    expect(getByLabelText(/game host/i)).toBeInTheDocument();
+  });
+
+  it('should not show host field when isBotManager is false', () => {
+    const { queryByLabelText } = renderWithAuth(
+      <GameForm
+        mode="create"
+        guildId="guild1"
+        channels={[mockChannel]}
+        isBotManager={false}
+        onSubmit={mockOnSubmit}
+        onCancel={mockOnCancel}
+      />
+    );
+
+    expect(queryByLabelText(/game host/i)).not.toBeInTheDocument();
+  });
+
+  it('should not show host field when isBotManager is undefined (defaults to false)', () => {
+    const { queryByLabelText } = renderWithAuth(
+      <GameForm
+        mode="create"
+        guildId="guild1"
+        channels={[mockChannel]}
+        onSubmit={mockOnSubmit}
+        onCancel={mockOnCancel}
+      />
+    );
+
+    expect(queryByLabelText(/game host/i)).not.toBeInTheDocument();
+  });
+
+  it('should display host field with correct helper text', () => {
+    const { getByText } = renderWithAuth(
+      <GameForm
+        mode="create"
+        guildId="guild1"
+        channels={[mockChannel]}
+        isBotManager={true}
+        onSubmit={mockOnSubmit}
+        onCancel={mockOnCancel}
+      />
+    );
+
+    expect(
+      getByText(/game host \(@mention or username\)\. leave empty to host yourself\./i)
+    ).toBeInTheDocument();
+  });
+
+  it('should allow regular users to see all other form fields without host field', () => {
+    const { getByLabelText, queryByLabelText, container } = renderWithAuth(
+      <GameForm
+        mode="create"
+        guildId="guild1"
+        channels={[mockChannel]}
+        isBotManager={false}
+        onSubmit={mockOnSubmit}
+        onCancel={mockOnCancel}
+      />
+    );
+
+    expect(getByLabelText(/game title/i)).toBeInTheDocument();
+    expect(getByLabelText(/physical location/i)).toBeInTheDocument();
+    const datePicker = container.querySelector('input[value*="/"]');
+    expect(datePicker).toBeInTheDocument();
+    expect(queryByLabelText(/game host/i)).not.toBeInTheDocument();
   });
 });

@@ -42,45 +42,45 @@ Add editable host field to game creation form for bot managers only, allowing th
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Backend Schema and Permission Validation
+### [x] Phase 1: Backend Schema and Permission Validation
 
-- [ ] Task 1.1: Update GameCreateRequest schema to accept optional host field
+- [x] Task 1.1: Update GameCreateRequest schema to accept optional host field
   - Details: .copilot-tracking/details/20251218-bot-manager-host-field-details.md (Lines 15-27)
 
-- [ ] Task 1.2: Add bot manager authorization check to GameService.create_game
+- [x] Task 1.2: Add bot manager authorization check to GameService.create_game
   - Details: .copilot-tracking/details/20251218-bot-manager-host-field-details.md (Lines 29-44)
 
-- [ ] Task 1.3: Implement host mention resolution and validation
+- [x] Task 1.3: Implement host mention resolution and validation
   - Details: .copilot-tracking/details/20251218-bot-manager-host-field-details.md (Lines 46-63)
 
-- [ ] Task 1.4: Add host permission validation (template allowed_host_role_ids)
+- [x] Task 1.4: Add host permission validation (template allowed_host_role_ids)
   - Details: .copilot-tracking/details/20251218-bot-manager-host-field-details.md (Lines 65-77)
 
-### [ ] Phase 2: Frontend Bot Manager Detection and Conditional UI
+### [x] Phase 2: Frontend Bot Manager Detection and Conditional UI
 
-- [ ] Task 2.1: Add bot manager detection to GameForm component
+- [x] Task 2.1: Add bot manager detection to GameForm component
   - Details: .copilot-tracking/details/20251218-bot-manager-host-field-details.md (Lines 81-96)
 
-- [ ] Task 2.2: Add conditional host field to GameForm (bot managers only)
+- [x] Task 2.2: Add conditional host field to GameForm (bot managers only)
   - Details: .copilot-tracking/details/20251218-bot-manager-host-field-details.md (Lines 98-115)
 
-- [ ] Task 2.3: Update form submission to include host only for bot managers
+- [x] Task 2.3: Update form submission to include host only for bot managers
   - Details: .copilot-tracking/details/20251218-bot-manager-host-field-details.md (Lines 117-130)
 
-- [ ] Task 2.4: Handle host validation errors and disambiguation
+- [x] Task 2.4: Handle host validation errors and disambiguation
   - Details: .copilot-tracking/details/20251218-bot-manager-host-field-details.md (Lines 132-145)
 
-### [ ] Phase 3: Testing and Validation
+### [x] Phase 3: Testing and Validation
 
-- [ ] Task 3.1: Add backend unit tests for host validation logic
+- [x] Task 3.1: Add backend unit tests for host validation logic
   - Details: .copilot-tracking/details/20251218-bot-manager-host-field-details.md (Lines 149-167)
 
-- [ ] Task 3.2: Add frontend tests for conditional rendering
+- [x] Task 3.2: Add frontend tests for conditional rendering
   - Details: .copilot-tracking/details/20251218-bot-manager-host-field-details.md (Lines 169-183)
 
-- [ ] Task 3.3: Add integration tests for end-to-end workflows
+- [x] Task 3.3: Add integration tests for end-to-end workflows
   - Details: .copilot-tracking/details/20251218-bot-manager-host-field-details.md (Lines 185-201)
-
+### [x] Phase 3: Testing and Validation
 ## Dependencies
 
 - Existing ParticipantResolver for mention resolution (shared/discord/participant_resolver.py)

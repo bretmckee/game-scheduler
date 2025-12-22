@@ -1353,3 +1353,416 @@ async def test_create_game_creates_status_schedules(
         tzinfo=None
     )
     assert completed_schedule.executed is False
+
+
+# Host Override Tests
+
+
+@pytest.mark.asyncio
+async def test_create_game_with_empty_host_defaults_to_current_user(
+    game_service,
+    mock_db,
+    mock_event_publisher,
+    mock_participant_resolver,
+    mock_role_service,
+    sample_template,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """Test that empty host field defaults to current user (backward compatibility)."""
+    game_data = game_schemas.GameCreateRequest(
+        template_id=sample_template.id,
+        title="Test Game",
+        scheduled_at=datetime.datetime.now(datetime.UTC),
+        host=None,
+    )
+
+    created_game = game_model.GameSession(
+        id=str(uuid.uuid4()),
+        title="Test Game",
+        scheduled_at=datetime.datetime.now(datetime.UTC),
+        guild_id=sample_guild.id,
+        channel_id=sample_channel.id,
+        host_id=sample_user.id,
+        status="SCHEDULED",
+    )
+    created_game.host = sample_user
+    created_game.participants = []
+
+    template_result = MagicMock()
+    template_result.scalar_one_or_none.return_value = sample_template
+    guild_result = MagicMock()
+    guild_result.scalar_one_or_none.return_value = sample_guild
+    host_result = MagicMock()
+    host_result.scalar_one_or_none.return_value = sample_user
+    channel_result = MagicMock()
+    channel_result.scalar_one_or_none.return_value = sample_channel
+    reload_result = MagicMock()
+    reload_result.scalar_one_or_none.return_value = created_game
+
+    mock_db.execute = AsyncMock(
+        side_effect=[
+            template_result,
+            guild_result,
+            host_result,
+            channel_result,
+            reload_result,
+        ]
+    )
+    mock_db.flush = AsyncMock()
+    mock_db.commit = AsyncMock()
+    mock_db.add = MagicMock()
+
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
+        game = await game_service.create_game(
+            game_data=game_data,
+            host_user_id=sample_user.id,
+            access_token="token",
+        )
+
+    assert game.host_id == sample_user.id
+
+
+@pytest.mark.asyncio
+async def test_create_game_regular_user_cannot_override_host(
+    game_service,
+    mock_db,
+    mock_participant_resolver,
+    sample_template,
+    sample_guild,
+    sample_user,
+):
+    """Test that regular user cannot specify different host."""
+    game_data = game_schemas.GameCreateRequest(
+        template_id=sample_template.id,
+        title="Test Game",
+        scheduled_at=datetime.datetime.now(datetime.UTC),
+        host="@different_user",
+    )
+
+    template_result = MagicMock()
+    template_result.scalar_one_or_none.return_value = sample_template
+    guild_result = MagicMock()
+    guild_result.scalar_one_or_none.return_value = sample_guild
+    requester_result = MagicMock()
+    requester_result.scalar_one_or_none.return_value = sample_user
+
+    mock_db.execute = AsyncMock(
+        side_effect=[
+            template_result,
+            guild_result,
+            requester_result,
+        ]
+    )
+
+    mock_role_service = AsyncMock()
+    mock_role_service.check_bot_manager_permission = AsyncMock(return_value=False)
+
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
+        with pytest.raises(ValueError, match="Only bot managers can specify the game host"):
+            await game_service.create_game(
+                game_data=game_data,
+                host_user_id=sample_user.id,
+                access_token="token",
+            )
+
+
+@pytest.mark.asyncio
+async def test_create_game_bot_manager_can_override_host(
+    game_service,
+    mock_db,
+    mock_event_publisher,
+    mock_participant_resolver,
+    mock_role_service,
+    sample_template,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """Test that bot manager can specify different user as host."""
+    different_host = user_model.User(id=str(uuid.uuid4()), discord_id="999888777")
+
+    game_data = game_schemas.GameCreateRequest(
+        template_id=sample_template.id,
+        title="Test Game",
+        scheduled_at=datetime.datetime.now(datetime.UTC),
+        host="@different_host",
+    )
+
+    created_game = game_model.GameSession(
+        id=str(uuid.uuid4()),
+        title="Test Game",
+        scheduled_at=datetime.datetime.now(datetime.UTC),
+        guild_id=sample_guild.id,
+        channel_id=sample_channel.id,
+        host_id=different_host.id,
+        status="SCHEDULED",
+    )
+    created_game.host = different_host
+    created_game.participants = []
+
+    template_result = MagicMock()
+    template_result.scalar_one_or_none.return_value = sample_template
+    guild_result = MagicMock()
+    guild_result.scalar_one_or_none.return_value = sample_guild
+    requester_result = MagicMock()
+    requester_result.scalar_one_or_none.return_value = sample_user
+    resolved_host_result = MagicMock()
+    resolved_host_result.scalar_one_or_none.return_value = different_host
+    final_host_result = MagicMock()
+    final_host_result.scalar_one_or_none.return_value = different_host
+    channel_result = MagicMock()
+    channel_result.scalar_one_or_none.return_value = sample_channel
+    reload_result = MagicMock()
+    reload_result.scalar_one_or_none.return_value = created_game
+
+    mock_db.execute = AsyncMock(
+        side_effect=[
+            template_result,
+            guild_result,
+            requester_result,
+            resolved_host_result,
+            final_host_result,
+            channel_result,
+            reload_result,
+        ]
+    )
+    mock_db.flush = AsyncMock()
+    mock_db.commit = AsyncMock()
+    mock_db.add = MagicMock()
+
+    mock_role_service.check_bot_manager_permission = AsyncMock(return_value=True)
+    mock_participant_resolver.resolve_initial_participants = AsyncMock(
+        return_value=(
+            [
+                {
+                    "discord_id": different_host.discord_id,
+                    "username": "different_host",
+                    "display_name": "Different Host",
+                    "original_input": "@different_host",
+                }
+            ],
+            [],
+        )
+    )
+
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
+        game = await game_service.create_game(
+            game_data=game_data,
+            host_user_id=sample_user.id,
+            access_token="token",
+        )
+
+    assert game.host_id == different_host.id
+
+
+@pytest.mark.asyncio
+async def test_create_game_bot_manager_invalid_host_raises_validation_error(
+    game_service,
+    mock_db,
+    mock_participant_resolver,
+    sample_template,
+    sample_guild,
+    sample_user,
+):
+    """Test that invalid host mention raises validation error."""
+    game_data = game_schemas.GameCreateRequest(
+        template_id=sample_template.id,
+        title="Test Game",
+        scheduled_at=datetime.datetime.now(datetime.UTC),
+        host="@invalid_user",
+    )
+
+    template_result = MagicMock()
+    template_result.scalar_one_or_none.return_value = sample_template
+    guild_result = MagicMock()
+    guild_result.scalar_one_or_none.return_value = sample_guild
+    requester_result = MagicMock()
+    requester_result.scalar_one_or_none.return_value = sample_user
+
+    mock_db.execute = AsyncMock(
+        side_effect=[
+            template_result,
+            guild_result,
+            requester_result,
+        ]
+    )
+
+    mock_role_service = AsyncMock()
+    mock_role_service.check_bot_manager_permission = AsyncMock(return_value=True)
+
+    mock_participant_resolver.resolve_initial_participants = AsyncMock(
+        return_value=(
+            [],
+            [
+                {
+                    "mention": "@invalid_user",
+                    "error": "User not found",
+                    "suggestions": [],
+                }
+            ],
+        )
+    )
+
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
+        with pytest.raises(resolver_module.ValidationError) as exc_info:
+            await game_service.create_game(
+                game_data=game_data,
+                host_user_id=sample_user.id,
+                access_token="token",
+            )
+
+        assert len(exc_info.value.invalid_mentions) == 1
+        assert exc_info.value.invalid_mentions[0]["mention"] == "@invalid_user"
+
+
+@pytest.mark.asyncio
+async def test_create_game_bot_manager_host_without_permissions_fails(
+    game_service,
+    mock_db,
+    mock_participant_resolver,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """Test that host without required role permissions fails."""
+    template_with_restrictions = template_model.GameTemplate(
+        id=str(uuid.uuid4()),
+        guild_id=sample_guild.id,
+        channel_id=sample_channel.id,
+        name="Restricted Template",
+        order=0,
+        is_default=False,
+        allowed_host_role_ids=["role123", "role456"],
+        max_players=10,
+        reminder_minutes=[60, 15],
+    )
+
+    different_host = user_model.User(id=str(uuid.uuid4()), discord_id="999888777")
+
+    game_data = game_schemas.GameCreateRequest(
+        template_id=template_with_restrictions.id,
+        title="Test Game",
+        scheduled_at=datetime.datetime.now(datetime.UTC),
+        host="@different_host",
+    )
+
+    template_result = MagicMock()
+    template_result.scalar_one_or_none.return_value = template_with_restrictions
+    guild_result = MagicMock()
+    guild_result.scalar_one_or_none.return_value = sample_guild
+    requester_result = MagicMock()
+    requester_result.scalar_one_or_none.return_value = sample_user
+    resolved_host_result = MagicMock()
+    resolved_host_result.scalar_one_or_none.return_value = different_host
+    final_host_result = MagicMock()
+    final_host_result.scalar_one_or_none.return_value = different_host
+
+    mock_db.execute = AsyncMock(
+        side_effect=[
+            template_result,
+            guild_result,
+            requester_result,
+            resolved_host_result,
+            final_host_result,
+        ]
+    )
+    mock_db.flush = AsyncMock()
+
+    mock_role_service = AsyncMock()
+    mock_role_service.check_bot_manager_permission = AsyncMock(return_value=True)
+    mock_role_service.check_game_host_permission = AsyncMock(return_value=False)
+
+    mock_participant_resolver.resolve_initial_participants = AsyncMock(
+        return_value=(
+            [
+                {
+                    "discord_id": different_host.discord_id,
+                    "username": "different_host",
+                    "display_name": "Different Host",
+                    "original_input": "@different_host",
+                }
+            ],
+            [],
+        )
+    )
+
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
+        with pytest.raises(
+            ValueError,
+            match="User does not have permission to create games with this template",
+        ):
+            await game_service.create_game(
+                game_data=game_data,
+                host_user_id=sample_user.id,
+                access_token="token",
+            )
+
+
+@pytest.mark.asyncio
+async def test_create_game_bot_manager_empty_host_uses_self(
+    game_service,
+    mock_db,
+    mock_event_publisher,
+    mock_participant_resolver,
+    mock_role_service,
+    sample_template,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """Test that bot manager with empty host field defaults to themselves."""
+    game_data = game_schemas.GameCreateRequest(
+        template_id=sample_template.id,
+        title="Test Game",
+        scheduled_at=datetime.datetime.now(datetime.UTC),
+        host="",
+    )
+
+    created_game = game_model.GameSession(
+        id=str(uuid.uuid4()),
+        title="Test Game",
+        scheduled_at=datetime.datetime.now(datetime.UTC),
+        guild_id=sample_guild.id,
+        channel_id=sample_channel.id,
+        host_id=sample_user.id,
+        status="SCHEDULED",
+    )
+    created_game.host = sample_user
+    created_game.participants = []
+
+    template_result = MagicMock()
+    template_result.scalar_one_or_none.return_value = sample_template
+    guild_result = MagicMock()
+    guild_result.scalar_one_or_none.return_value = sample_guild
+    host_result = MagicMock()
+    host_result.scalar_one_or_none.return_value = sample_user
+    channel_result = MagicMock()
+    channel_result.scalar_one_or_none.return_value = sample_channel
+    reload_result = MagicMock()
+    reload_result.scalar_one_or_none.return_value = created_game
+
+    mock_db.execute = AsyncMock(
+        side_effect=[
+            template_result,
+            guild_result,
+            host_result,
+            channel_result,
+            reload_result,
+        ]
+    )
+    mock_db.flush = AsyncMock()
+    mock_db.commit = AsyncMock()
+    mock_db.add = MagicMock()
+
+    mock_role_service.check_bot_manager_permission = AsyncMock(return_value=True)
+
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
+        game = await game_service.create_game(
+            game_data=game_data,
+            host_user_id=sample_user.id,
+            access_token="token",
+        )
+
+    assert game.host_id == sample_user.id

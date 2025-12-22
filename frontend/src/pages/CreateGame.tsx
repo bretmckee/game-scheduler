@@ -166,6 +166,11 @@ export const CreateGame: FC = () => {
         payload.append('max_players', maxPlayers.toString());
       }
 
+      // Add host field only if bot manager and field has value
+      if (isBotManager && formData.host && formData.host.trim()) {
+        payload.append('host', formData.host.trim());
+      }
+
       // Add reminder minutes as JSON array
       if (formData.reminderMinutes) {
         const reminderMinutesArray = formData.reminderMinutes
@@ -334,6 +339,7 @@ export const CreateGame: FC = () => {
                   guildId={selectedGuild.id}
                   guildName={selectedGuild.guild_name}
                   canChangeChannel={isBotManager}
+                  isBotManager={isBotManager}
                   channels={[
                     {
                       id: selectedTemplate.channel_id,

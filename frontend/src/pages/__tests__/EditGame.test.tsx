@@ -22,9 +22,18 @@ import { BrowserRouter } from 'react-router';
 import { EditGame } from '../EditGame';
 import { apiClient } from '../../api/client';
 import { GameSession, Channel } from '../../types';
+import { AuthContext } from '../../contexts/AuthContext';
 
 const mockNavigate = vi.fn();
 const mockParams = { gameId: 'game123' };
+
+const mockAuthContextValue = {
+  user: { id: '1', user_uuid: 'uuid1', username: 'testuser' },
+  loading: false,
+  login: vi.fn(),
+  logout: vi.fn(),
+  refreshUser: vi.fn(),
+};
 
 vi.mock('react-router', async () => {
   const actual = await vi.importActual('react-router');
@@ -101,9 +110,11 @@ describe('EditGame', () => {
     });
 
     render(
-      <BrowserRouter>
-        <EditGame />
-      </BrowserRouter>
+      <AuthContext.Provider value={mockAuthContextValue}>
+        <BrowserRouter>
+          <EditGame />
+        </BrowserRouter>
+      </AuthContext.Provider>
     );
 
     await waitFor(() => {
@@ -119,9 +130,11 @@ describe('EditGame', () => {
     vi.mocked(apiClient.get).mockImplementation(() => new Promise(() => {}));
 
     render(
-      <BrowserRouter>
-        <EditGame />
-      </BrowserRouter>
+      <AuthContext.Provider value={mockAuthContextValue}>
+        <BrowserRouter>
+          <EditGame />
+        </BrowserRouter>
+      </AuthContext.Provider>
     );
 
     expect(screen.getByRole('progressbar')).toBeInTheDocument();
@@ -131,9 +144,11 @@ describe('EditGame', () => {
     vi.mocked(apiClient.get).mockRejectedValueOnce(new Error('Game not found'));
 
     render(
-      <BrowserRouter>
-        <EditGame />
-      </BrowserRouter>
+      <AuthContext.Provider value={mockAuthContextValue}>
+        <BrowserRouter>
+          <EditGame />
+        </BrowserRouter>
+      </AuthContext.Provider>
     );
 
     await waitFor(() => {
@@ -160,9 +175,11 @@ describe('EditGame', () => {
     const user = userEvent.setup();
 
     render(
-      <BrowserRouter>
-        <EditGame />
-      </BrowserRouter>
+      <AuthContext.Provider value={mockAuthContextValue}>
+        <BrowserRouter>
+          <EditGame />
+        </BrowserRouter>
+      </AuthContext.Provider>
     );
 
     await waitFor(() => {
@@ -203,9 +220,11 @@ describe('EditGame', () => {
     const user = userEvent.setup();
 
     render(
-      <BrowserRouter>
-        <EditGame />
-      </BrowserRouter>
+      <AuthContext.Provider value={mockAuthContextValue}>
+        <BrowserRouter>
+          <EditGame />
+        </BrowserRouter>
+      </AuthContext.Provider>
     );
 
     await waitFor(() => {
@@ -233,9 +252,11 @@ describe('EditGame', () => {
     });
 
     render(
-      <BrowserRouter>
-        <EditGame />
-      </BrowserRouter>
+      <AuthContext.Provider value={mockAuthContextValue}>
+        <BrowserRouter>
+          <EditGame />
+        </BrowserRouter>
+      </AuthContext.Provider>
     );
 
     await waitFor(() => {
@@ -270,9 +291,11 @@ describe('EditGame', () => {
     const user = userEvent.setup();
 
     render(
-      <BrowserRouter>
-        <EditGame />
-      </BrowserRouter>
+      <AuthContext.Provider value={mockAuthContextValue}>
+        <BrowserRouter>
+          <EditGame />
+        </BrowserRouter>
+      </AuthContext.Provider>
     );
 
     await waitFor(() => {

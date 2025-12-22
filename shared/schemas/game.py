@@ -65,6 +65,13 @@ class GameCreateRequest(BaseModel):
         default_factory=list,
         description="Pre-populated participants (@mentions or placeholder strings)",
     )
+    host: str | None = Field(
+        None,
+        description=(
+            "Game host (@mention or username). Bot managers only. Defaults to current user if None."
+        ),
+        max_length=200,
+    )
 
 
 class GameUpdateRequest(BaseModel):

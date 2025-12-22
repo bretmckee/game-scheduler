@@ -129,13 +129,81 @@ class GameService:
         if guild_config is None:
             raise ValueError(f"Guild configuration not found for ID: {template.guild_id}")
 
+        # Handle host override for bot managers
+        actual_host_user_id = host_user_id
+        if game_data.host and game_data.host.strip():
+            # Check if requester is bot manager
+            role_service = roles_module.get_role_service()
+            requester_result = await self.db.execute(
+                select(user_model.User).where(user_model.User.id == host_user_id)
+            )
+            requester_user = requester_result.scalar_one_or_none()
+            if requester_user is None:
+                raise ValueError(f"Requester user not found for ID: {host_user_id}")
+
+            is_bot_manager = await role_service.check_bot_manager_permission(
+                requester_user.discord_id,
+                guild_config.guild_id,
+                self.db,
+                access_token,
+            )
+
+            if not is_bot_manager:
+                raise ValueError("Only bot managers can specify the game host")
+
+            # Resolve host mention
+            try:
+                (
+                    resolved_hosts,
+                    validation_errors,
+                ) = await self.participant_resolver.resolve_initial_participants(
+                    guild_config.guild_id,
+                    [game_data.host],
+                    access_token,
+                )
+
+                if validation_errors:
+                    raise resolver_module.ValidationError(
+                        invalid_mentions=validation_errors,
+                        valid_participants=[],
+                    )
+
+                if not resolved_hosts:
+                    raise ValueError(f"Could not resolve host: {game_data.host}")
+
+                host_discord_id = resolved_hosts[0]["discord_id"]
+
+                # Get or create host user in database
+                host_user_result = await self.db.execute(
+                    select(user_model.User).where(user_model.User.discord_id == host_discord_id)
+                )
+                resolved_host_user = host_user_result.scalar_one_or_none()
+
+                if resolved_host_user is None:
+                    # Create user record
+                    resolved_host_user = user_model.User(
+                        id=user_model.generate_uuid(),
+                        discord_id=host_discord_id,
+                        username=resolved_hosts[0].get("username"),
+                        display_name=resolved_hosts[0].get("display_name"),
+                    )
+                    self.db.add(resolved_host_user)
+                    await self.db.flush()
+
+                actual_host_user_id = resolved_host_user.id
+
+            except resolver_module.ValidationError:
+                raise
+            except Exception as e:
+                raise ValueError(f"Failed to resolve host mention: {str(e)}") from e
+
         # Get host user from database
         host_result = await self.db.execute(
-            select(user_model.User).where(user_model.User.id == host_user_id)
+            select(user_model.User).where(user_model.User.id == actual_host_user_id)
         )
         host_user = host_result.scalar_one_or_none()
         if host_user is None:
-            raise ValueError(f"Host user not found for ID: {host_user_id}")
+            raise ValueError(f"Host user not found for ID: {actual_host_user_id}")
 
         # Check if user can host games with this template
         role_service = roles_module.get_role_service()

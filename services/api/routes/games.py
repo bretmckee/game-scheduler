@@ -111,6 +111,7 @@ async def create_game(
     where: Annotated[str | None, Form()] = None,
     signup_instructions: Annotated[str | None, Form()] = None,
     initial_participants: Annotated[str | None, Form()] = None,
+    host: Annotated[str | None, Form()] = None,
     thumbnail: Annotated[UploadFile | None, File()] = None,
     image: Annotated[UploadFile | None, File()] = None,
     current_user: auth_schemas.CurrentUser = Depends(auth_deps.get_current_user),
@@ -150,6 +151,7 @@ async def create_game(
             where=where,
             signup_instructions=signup_instructions,
             initial_participants=initial_participants_list,
+            host=host,
         )
 
         # Validate and read thumbnail
