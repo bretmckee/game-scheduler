@@ -19,7 +19,7 @@
 """
 E2E test data seeding.
 
-Seeds the database with test guild, channel, and user records required for E2E tests.
+Seeds the database with test guild, channel, user, and template records required for E2E tests.
 Only runs when TEST_ENVIRONMENT=true.
 """
 
@@ -43,6 +43,7 @@ def seed_e2e_data() -> bool:
     - Test guild configuration
     - Test channel configuration
     - Test host user
+    - Default game template
 
     Returns:
         True if seeding succeeded, False otherwise
@@ -83,6 +84,7 @@ def seed_e2e_data() -> bool:
             channel_id = str(uuid4())
             user_id = str(uuid4())
             bot_user_id = str(uuid4())
+            template_id = str(uuid4())
 
             logger.info(f"Seeding E2E test data for guild {discord_guild_id}")
             logger.info(f"Seeding bot user with Discord ID: {bot_discord_id}")
@@ -118,6 +120,25 @@ def seed_e2e_data() -> bool:
 
             session.execute(
                 text(
+                    "INSERT INTO game_templates "
+                    "(id, guild_id, channel_id, name, is_default, "
+                    "created_at, updated_at) "
+                    "VALUES (:id, :guild_id, :channel_id, :name, :is_default, "
+                    ":created_at, :updated_at)"
+                ),
+                {
+                    "id": template_id,
+                    "guild_id": guild_id,
+                    "channel_id": channel_id,
+                    "name": "Default E2E Template",
+                    "is_default": True,
+                    "created_at": now,
+                    "updated_at": now,
+                },
+            )
+
+            session.execute(
+                text(
                     "INSERT INTO users (id, discord_id, created_at, updated_at) "
                     "VALUES (:id, :discord_id, :created_at, :updated_at)"
                 ),
@@ -142,7 +163,7 @@ def seed_e2e_data() -> bool:
                 },
             )
 
-            logger.info("E2E test data seeded successfully")
+            logger.info("E2E test data seeded successfully (guild, channel, users, template)")
             session.commit()
             return True
 

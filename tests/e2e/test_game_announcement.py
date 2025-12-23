@@ -99,15 +99,31 @@ def test_host_id(db_session, discord_user_id):
     return row[0]
 
 
-@pytest.mark.xfail(reason="Phase 3 - Not yet implemented")
+@pytest.fixture
+def test_template_id(db_session, test_guild_id, synced_guild):
+    """Get default template ID for test guild (created by guild sync)."""
+    result = db_session.execute(
+        text("SELECT id FROM game_templates WHERE guild_id = :guild_id AND is_default = true"),
+        {"guild_id": test_guild_id},
+    )
+    row = result.fetchone()
+    if not row:
+        pytest.fail(
+            f"Default template not found for guild {test_guild_id} - "
+            "guild sync may not have created default template"
+        )
+    return row[0]
+
+
 @pytest.mark.asyncio
 async def test_game_creation_posts_announcement_to_discord(
-    http_client,
+    authenticated_admin_client,
     db_session,
     discord_helper,
     test_guild_id,
     test_channel_id,
     test_host_id,
+    test_template_id,
     discord_channel_id,
     discord_user_id,
     clean_test_data,
@@ -124,31 +140,37 @@ async def test_game_creation_posts_announcement_to_discord(
     scheduled_time = datetime.now(UTC) + timedelta(hours=2)
     game_title = f"E2E Test Game {uuid4().hex[:8]}"
     game_data = {
+        "template_id": test_template_id,
         "title": game_title,
         "description": "Testing game announcement to Discord",
         "scheduled_at": scheduled_time.isoformat(),
-        "guild_id": test_guild_id,
-        "channel_id": test_channel_id,
-        "host_id": test_host_id,
-        "max_players": 4,
+        "max_players": "4",
     }
 
-    response = http_client.post("/api/v1/games", json=game_data)
+    response = await authenticated_admin_client.post("/api/v1/games", data=game_data)
     assert response.status_code == 201, f"Failed to create game: {response.text}"
     game_id = response.json()["id"]
+    print(f"\n[TEST] Game created with ID: {game_id}")
 
     await asyncio.sleep(3)
 
     result = db_session.execute(
-        text("SELECT message_id FROM game_sessions WHERE id = :game_id"),
+        text("SELECT message_id, channel_id FROM game_sessions WHERE id = :game_id"),
         {"game_id": game_id},
     )
     row = result.fetchone()
     assert row is not None, "Game session not found in database"
     message_id = row[0]
+    game_channel_id = row[1]
+    print(f"[TEST] Database - message_id: {message_id}, channel_id: {game_channel_id}")
+    print(f"[TEST] Expected Discord channel_id: {discord_channel_id}")
     assert message_id is not None, "Message ID should be populated after announcement"
 
+    # Wait additional time to ensure embed is attached before fetching
+    await asyncio.sleep(2)
+
     message = await discord_helper.get_message(discord_channel_id, message_id)
+    print(f"[TEST] Discord message fetched: {message}")
     assert message is not None, "Discord message should exist"
     assert len(message.embeds) == 1, "Message should have exactly one embed"
 

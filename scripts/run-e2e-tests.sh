@@ -41,7 +41,7 @@ trap cleanup EXIT
 
 echo "Running end-to-end tests..."
 if [ $# -eq 0 ]; then
-  docker compose --env-file env/env.e2e run --rm e2e-tests
+  docker compose --env-file env/env.e2e run --rm e2e-tests tests/e2e/
 else
   docker compose --env-file env/env.e2e run --rm e2e-tests "$@"
 fi

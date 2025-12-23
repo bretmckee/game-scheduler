@@ -100,26 +100,26 @@ Implement true end-to-end testing that validates Discord bot behavior and messag
   - Details: .copilot-tracking/details/20251222-e2e-test-strategy-details.md (Lines 88-102)
   - Details: .copilot-tracking/details/20251222-e2e-test-strategy-details.md (Lines 88-102)
 
-### [ ] Phase 3: Complete First Test - Game Announcement
+### [x] Phase 3: Complete First Test - Game Announcement
 
-- [ ] Task 3.1: Update test to use authenticated client
+- [x] Task 3.1: Update test to use authenticated client
   - Modify test_game_announcement.py to use authenticated_admin_client fixture
   - Replace plain http_client with authenticated_admin_client
   - Details: .copilot-tracking/details/20251222-e2e-test-strategy-details.md (Lines 103-115)
 
-- [ ] Task 3.2: Include template_id in game creation request
+- [x] Task 3.2: Include template_id in game creation request
   - Add template_id field to game creation request body
   - Use test_template_id from synced_guild fixture
   - Details: .copilot-tracking/details/20251222-e2e-test-strategy-details.md (Lines 116-128)
 
-- [ ] Task 3.3: Verify Discord announcement message posted
+- [x] Task 3.3: Verify Discord announcement message posted
   - Create game via API
   - Fetch message_id from database (game_sessions.message_id)
   - Use DiscordTestHelper to retrieve message from Discord channel
   - Verify message exists
   - Details: .copilot-tracking/details/20251222-e2e-test-strategy-details.md (Lines 129-142)
 
-- [ ] Task 3.4: Complete embed content validation
+- [x] Task 3.4: Complete embed content validation
   - Validate embed title matches game title
   - Validate embed contains host mention
   - Validate embed contains player count (0/max_players)

@@ -11,6 +11,7 @@ Implementation of true end-to-end testing that validates Discord bot behavior an
 
 **Phase 1 Status: ✅ COMPLETE** - All infrastructure, fixtures, and environment validation tests implemented and verified.
 **Phase 2 Status: ✅ COMPLETE** - Bot authentication fixtures with manual session creation fully working (4/4 tests passing).
+**Phase 3 Status: ✅ COMPLETE** - First E2E test fully implemented and passing (1/1 test) with Discord message validation working.
 
 ## Changes
 
@@ -24,6 +25,7 @@ Implementation of true end-to-end testing that validates Discord bot behavior an
 - tests/e2e/test_00_environment.py - Added test_discord_helper_fixture() to validate fixture connectivity
 - tests/e2e/test_01_authentication.py - Phase 2 authentication fixture validation tests (4 tests)
 - shared/utils/discord_tokens.py - Bot Discord ID extraction utility with base64 padding logic
+- tests/shared/utils/test_discord_tokens.py - Unit tests for discord_tokens module (7 tests, 93% coverage)
 - env/env.e2e - Added DISCORD_ADMIN_BOT_TOKEN, DISCORD_ADMIN_BOT_CLIENT_ID, DISCORD_ADMIN_BOT_CLIENT_SECRET for separate admin bot
 
 ### Modified
@@ -49,6 +51,27 @@ Implementation of true end-to-end testing that validates Discord bot behavior an
 - tests/e2e/conftest.py - Changed discord_token fixture to use DISCORD_ADMIN_BOT_TOKEN instead of DISCORD_TOKEN
 - services/init/seed_e2e.py - Updated to seed admin bot user in database using DISCORD_ADMIN_BOT_TOKEN
 - compose.e2e.yaml - Added DISCORD_ADMIN_BOT_TOKEN to both init and e2e-tests service environments
+- tests/e2e/test_game_announcement.py - Updated to use authenticated_admin_client instead of http_client (Phase 3)
+- tests/e2e/test_game_announcement.py - Added test_template_id fixture to get default template from synced guild (Phase 3)
+- tests/e2e/test_game_announcement.py - Added template_id field to game creation request (Phase 3)
+- tests/e2e/test_game_announcement.py - Updated API call to use await with AsyncClient (Phase 3)
+- tests/e2e/test_game_announcement.py - Removed xfail marker as test is now fully implemented (Phase 3)
+- services/init/seed_e2e.py - Added default template creation during E2E seed (Phase 3)
+- tests/e2e/test_game_announcement.py - Changed request from JSON to form data (multipart/form-data) (Phase 3)
+- tests/e2e/test_game_announcement.py - Removed guild_id, channel_id, host_id from request (derived from template/auth) (Phase 3)
+- compose.e2e.yaml - Added DISCORD_BOT_TOKEN environment variable mapping for bot service (Phase 3)
+- tests/e2e/helpers/discord.py - Added embed field validation in verify_game_embed() (Phase 3)
+- tests/e2e/test_game_announcement.py - Implemented full Discord message verification with embed content validation (Phase 3)
+
+## Success Metrics
+
+**Phase 3 Complete:**
+- ✅ 1/1 E2E test passing (test_game_creation_posts_announcement_to_discord)
+- ✅ Game creation via API succeeds (201 response)
+- ✅ Discord bot posts announcement message
+- ✅ message_id populated in database
+- ✅ Discord message fetched and validated
+- ✅ Embed content verified (title, host mention, player count)
 
 ### Removed
 

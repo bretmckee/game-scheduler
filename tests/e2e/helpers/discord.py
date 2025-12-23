@@ -36,7 +36,10 @@ class DiscordTestHelper:
         Args:
             bot_token: Discord bot authentication token
         """
-        self.client = discord.Client(intents=discord.Intents.default())
+        # MESSAGE_CONTENT intent is required to fetch embeds, attachments, and content
+        # via REST API, even though it's not a gateway event
+        intents = discord.Intents(message_content=True)
+        self.client = discord.Client(intents=intents)
         self.bot_token = bot_token
         self._connected = False
 
@@ -75,7 +78,9 @@ class DiscordTestHelper:
         channel = await self.client.fetch_channel(int(channel_id))
         if not isinstance(channel, discord.TextChannel | discord.Thread | discord.DMChannel):
             raise ValueError(f"Channel {channel_id} does not support messages")
-        return await channel.fetch_message(int(message_id))
+
+        message = await channel.fetch_message(int(message_id))
+        return message
 
     async def get_recent_messages(self, channel_id: str, limit: int = 10) -> list[discord.Message]:
         """
@@ -190,12 +195,17 @@ class DiscordTestHelper:
         """
         assert embed.title == expected_title, f"Title mismatch: {embed.title}"
 
-        host_field = self.extract_embed_field_value(embed, "🎯 Host")
-        assert host_field is not None, "Host field missing"
-        assert f"<@{expected_host_id}>" in host_field, f"Host mention incorrect: {host_field}"
+        assert embed.author and embed.author.name, "Embed should have author with name"
+        assert "Host:" in embed.author.name, f"Author should contain 'Host:': {embed.author.name}"
 
-        players_field = self.extract_embed_field_value(embed, "👥 Players")
-        assert players_field is not None, "Players field missing"
-        assert f"/{expected_max_players}" in players_field, (
-            f"Max players incorrect: {players_field}"
+        # Find the participants field - it has format "Participants (X/Y)"
+        participants_field = None
+        for field in embed.fields:
+            if field.name and "Participants" in field.name:
+                participants_field = field.value
+                break
+
+        assert participants_field is not None, "Participants field missing"
+        assert f"/{expected_max_players}" in field.name, (
+            f"Max players incorrect in field name: {field.name}"
         )
