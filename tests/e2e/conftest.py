@@ -33,8 +33,8 @@ from sqlalchemy.orm import sessionmaker
 
 @pytest.fixture(scope="session")
 def discord_token():
-    """Provide Discord bot token from environment."""
-    return os.environ["DISCORD_TOKEN"]
+    """Provide Discord admin bot token for E2E tests."""
+    return os.environ["DISCORD_ADMIN_BOT_TOKEN"]
 
 
 @pytest.fixture(scope="session")
@@ -108,3 +108,77 @@ async def discord_helper(discord_token):
     await helper.connect()
     yield helper
     await helper.disconnect()
+
+
+@pytest.fixture(scope="session")
+def bot_discord_id(discord_token):
+    """Extract bot Discord ID from token."""
+    from tests.e2e.utils.tokens import extract_bot_discord_id
+
+    return extract_bot_discord_id(discord_token)
+
+
+@pytest.fixture(scope="function")
+async def authenticated_admin_client(api_base_url, bot_discord_id, discord_token):
+    """HTTP client authenticated as admin bot."""
+    import uuid
+    from datetime import UTC, datetime, timedelta
+
+    import httpx
+
+    from services.api.auth.tokens import encrypt_token
+    from shared.cache.client import RedisClient
+
+    client = httpx.AsyncClient(base_url=api_base_url, timeout=10.0)
+
+    redis_client = RedisClient()
+    await redis_client.connect()
+
+    session_token = str(uuid.uuid4())
+    encrypted_access = encrypt_token(discord_token)
+    encrypted_refresh = encrypt_token("e2e_bot_refresh")
+    expiry = datetime.now(UTC).replace(tzinfo=None) + timedelta(seconds=604800)
+
+    session_data = {
+        "user_id": bot_discord_id,
+        "access_token": encrypted_access,
+        "refresh_token": encrypted_refresh,
+        "expires_at": expiry.isoformat(),
+    }
+
+    session_key = f"session:{session_token}"
+    await redis_client.set_json(session_key, session_data, ttl=604800)
+
+    client.cookies.set("session_token", session_token)
+
+    yield client
+
+    await redis_client.delete(session_key)
+    await redis_client.disconnect()
+    await client.aclose()
+
+
+@pytest.fixture(scope="function")
+async def synced_guild(authenticated_admin_client, discord_guild_id):
+    """
+    Sync guilds using the API endpoint and return sync results.
+
+    Calls /api/v1/guilds/sync with the admin bot token.
+    Returns the sync response containing new_guilds and new_channels counts.
+    """
+    print("\n[synced_guild fixture] Calling /api/v1/guilds/sync")
+    print(f"[synced_guild fixture] Client: {authenticated_admin_client}")
+    print(f"[synced_guild fixture] Cookies: {authenticated_admin_client.cookies}")
+
+    response = await authenticated_admin_client.post("/api/v1/guilds/sync")
+
+    print(f"[synced_guild fixture] Response status: {response.status_code}")
+    print(f"[synced_guild fixture] Response text: {response.text[:200]}")
+
+    assert response.status_code == 200, (
+        f"Guild sync failed: {response.status_code} - {response.text}"
+    )
+
+    sync_results = response.json()
+    print(f"[synced_guild fixture] Sync results: {sync_results}")
+    return sync_results

@@ -162,6 +162,16 @@ def test_database_seeded(db_session, discord_guild_id, discord_channel_id, disco
     )
 
 
+@pytest.mark.asyncio
+async def test_discord_helper_fixture(discord_helper, discord_channel_id):
+    """Verify discord_helper fixture connects successfully and can fetch channel."""
+    assert discord_helper._connected, "Discord helper should be connected"
+    assert discord_helper.client.user is not None, "Bot user should exist after connection"
+
+    channel = await discord_helper.client.fetch_channel(int(discord_channel_id))
+    assert channel is not None, "Should be able to fetch test channel using fixture"
+
+
 def test_api_accessible(http_client):
     """Verify API service is running and accessible."""
     response = http_client.get("/health")

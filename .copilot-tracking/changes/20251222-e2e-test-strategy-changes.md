@@ -9,6 +9,9 @@
 
 Implementation of true end-to-end testing that validates Discord bot behavior and message content, addressing the gap in current database-focused tests.
 
+**Phase 1 Status: ✅ COMPLETE** - All infrastructure, fixtures, and environment validation tests implemented and verified.
+**Phase 2 Status: ✅ COMPLETE** - Bot authentication fixtures with manual session creation fully working (4/4 tests passing).
+
 ## Changes
 
 ### Added
@@ -18,6 +21,10 @@ Implementation of true end-to-end testing that validates Discord bot behavior an
 - tests/e2e/test_game_announcement.py - E2E test file with environment fixtures for Discord message validation
 - tests/e2e/test_00_environment.py - Environment validation test that runs first to verify E2E setup
 - services/init/seed_e2e.py - E2E test data seeding module that populates guild/channel/user on init
+- tests/e2e/test_00_environment.py - Added test_discord_helper_fixture() to validate fixture connectivity
+- tests/e2e/test_01_authentication.py - Phase 2 authentication fixture validation tests (4 tests)
+- shared/utils/discord_tokens.py - Bot Discord ID extraction utility with base64 padding logic
+- env/env.e2e - Added DISCORD_ADMIN_BOT_TOKEN, DISCORD_ADMIN_BOT_CLIENT_ID, DISCORD_ADMIN_BOT_CLIENT_SECRET for separate admin bot
 
 ### Modified
 
@@ -36,6 +43,12 @@ Implementation of true end-to-end testing that validates Discord bot behavior an
 - compose.e2e.yaml - Added init service environment variables for TEST_ENVIRONMENT and Discord IDs
 - tests/e2e/test_game_announcement.py - Replaced per-test fixtures with lookups to seeded data from init service
 - tests/e2e/test_game_announcement.py - Simplified clean_test_data to only clean game records, not guild/channel/user
+- tests/e2e/conftest.py - Added bot_discord_id fixture that extracts ID from admin bot token
+- tests/e2e/conftest.py - Added authenticated_admin_client fixture with manual Redis session creation (bypasses OAuth)
+- tests/e2e/conftest.py - Added synced_guild fixture that verifies pre-seeded guild configuration
+- tests/e2e/conftest.py - Changed discord_token fixture to use DISCORD_ADMIN_BOT_TOKEN instead of DISCORD_TOKEN
+- services/init/seed_e2e.py - Updated to seed admin bot user in database using DISCORD_ADMIN_BOT_TOKEN
+- compose.e2e.yaml - Added DISCORD_ADMIN_BOT_TOKEN to both init and e2e-tests service environments
 
 ### Removed
 

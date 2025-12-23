@@ -54,12 +54,17 @@ def seed_e2e_data() -> bool:
     discord_guild_id = os.getenv("DISCORD_GUILD_ID")
     discord_channel_id = os.getenv("DISCORD_CHANNEL_ID")
     discord_user_id = os.getenv("DISCORD_USER_ID")
+    admin_bot_token = os.getenv("DISCORD_ADMIN_BOT_TOKEN")
 
-    if not all([discord_guild_id, discord_channel_id, discord_user_id]):
+    if not all([discord_guild_id, discord_channel_id, discord_user_id, admin_bot_token]):
         logger.warning("Skipping E2E seed - missing DISCORD_* environment variables")
         return True
 
     try:
+        # Extract bot Discord ID from token
+        from shared.utils.discord_tokens import extract_bot_discord_id
+
+        bot_discord_id = extract_bot_discord_id(admin_bot_token)
         with get_sync_db_session() as session:
             now = datetime.now(UTC).replace(tzinfo=None)
 
@@ -77,8 +82,10 @@ def seed_e2e_data() -> bool:
             guild_id = str(uuid4())
             channel_id = str(uuid4())
             user_id = str(uuid4())
+            bot_user_id = str(uuid4())
 
             logger.info(f"Seeding E2E test data for guild {discord_guild_id}")
+            logger.info(f"Seeding bot user with Discord ID: {bot_discord_id}")
 
             session.execute(
                 text(
@@ -122,7 +129,21 @@ def seed_e2e_data() -> bool:
                 },
             )
 
+            session.execute(
+                text(
+                    "INSERT INTO users (id, discord_id, created_at, updated_at) "
+                    "VALUES (:id, :discord_id, :created_at, :updated_at)"
+                ),
+                {
+                    "id": bot_user_id,
+                    "discord_id": bot_discord_id,
+                    "created_at": now,
+                    "updated_at": now,
+                },
+            )
+
             logger.info("E2E test data seeded successfully")
+            session.commit()
             return True
 
     except Exception as e:

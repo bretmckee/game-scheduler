@@ -99,6 +99,11 @@ async def sync_user_guilds(db: AsyncSession, access_token: str, user_id: str) ->
         guild["id"] for guild in user_guilds if int(guild.get("permissions", 0)) & manage_guild
     }
 
+    # Respect Discord rate limit (1 req/sec for /users/@me/guilds)
+    import asyncio
+
+    await asyncio.sleep(1.1)
+
     # Fetch bot's current guilds
     bot_guilds = await discord_client.get_guilds()
     bot_guild_ids = {guild["id"] for guild in bot_guilds}

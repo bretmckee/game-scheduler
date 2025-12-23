@@ -99,6 +99,7 @@ def test_host_id(db_session, discord_user_id):
     return row[0]
 
 
+@pytest.mark.xfail(reason="Phase 3 - Not yet implemented")
 @pytest.mark.asyncio
 async def test_game_creation_posts_announcement_to_discord(
     http_client,

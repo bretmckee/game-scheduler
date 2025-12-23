@@ -52,9 +52,9 @@ Implement true end-to-end testing that validates Discord bot behavior and messag
 
 ## Implementation Checklist
 
-### [ ] Phase 1: E2E Infrastructure Setup
+### [x] Phase 1: E2E Infrastructure Setup
 
-- [ ] Task 1.1: Create DiscordTestHelper module
+- [x] Task 1.1: Create DiscordTestHelper module
   - Create tests/e2e/helpers/discord.py with DiscordTestHelper class
   - Implement connect/disconnect lifecycle for discord.py bot client
   - Implement get_channel_message(channel_id, message_id) method
@@ -63,7 +63,7 @@ Implement true end-to-end testing that validates Discord bot behavior and messag
   - Add proper error handling and logging
   - Details: .copilot-tracking/details/20251222-e2e-test-strategy-details.md (Lines 11-25)
 
-- [ ] Task 1.2: Set up E2E fixtures in conftest.py
+- [x] Task 1.2: Set up E2E fixtures in conftest.py
   - Create environment variable fixtures (discord_token, guild_id, channel_id, test_user_id)
   - Create database fixtures (db_engine, db_session) with proper connection pooling
   - Create http_client fixture (httpx.AsyncClient with base URL)
@@ -71,33 +71,33 @@ Implement true end-to-end testing that validates Discord bot behavior and messag
   - Set appropriate fixture scopes (session for db, function for http_client)
   - Details: .copilot-tracking/details/20251222-e2e-test-strategy-details.md (Lines 26-42)
 
-- [ ] Task 1.3: Verify E2E test environment
+- [x] Task 1.3: Verify E2E test environment
   - Validate env/env.e2e has required Discord credentials
   - Verify compose.e2e.yaml includes all required services
   - Test that fixtures connect successfully without errors
   - Document any additional setup steps needed
   - Details: .copilot-tracking/details/20251222-e2e-test-strategy-details.md (Lines 43-61)
 
-### [ ] Phase 2: Core Authentication
+### [x] Phase 2: Core Authentication
 
-- [ ] Task 2.1: Extract bot Discord ID from token
-  - Extract Discord user ID from `DISCORD_TOKEN` by base64 decoding first segment
-  - Implement utility function to parse bot token format
-  - Validate extraction works correctly
+- [x] Task 2.1: Extract bot Discord ID from token
+  - Extract Discord user ID from `DISCORD_ADMIN_BOT_TOKEN` by base64 decoding first segment
+  - Implement utility function to parse bot token format with proper padding
+  - Moved extraction logic to shared/utils/discord_tokens.py for reuse
   - Details: .copilot-tracking/details/20251222-e2e-test-strategy-details.md (Lines 62-74)
 
-- [ ] Task 2.2: Create authenticated_admin_client fixture
-  - Create fixture in tests/e2e/conftest.py
-  - Call `tokens.store_user_tokens()` with bot token as access_token
+- [x] Task 2.2: Create authenticated_admin_client fixture
+  - Create fixture in tests/e2e/conftest.py with function scope
+  - Manually create Redis session using bot Discord ID and admin bot token
   - Set session_token cookie in HTTP client
   - Yield authenticated client for test use
   - Details: .copilot-tracking/details/20251222-e2e-test-strategy-details.md (Lines 75-87)
 
-- [ ] Task 2.3: Add synced_guild fixture
-  - Create session-scoped fixture to call `/api/v1/guilds/sync`
-  - Uses admin bot token to discover test guild
-  - Creates guild_configurations, channel_configurations, default template
-  - Returns config IDs for use in game creation tests
+- [x] Task 2.3: Add synced_guild fixture
+  - Create function-scoped fixture that verifies pre-seeded guild exists
+  - Guild/channel already created by init service, no sync needed
+  - Returns guild configuration info for use in game creation tests
+  - Details: .copilot-tracking/details/20251222-e2e-test-strategy-details.md (Lines 88-102)
   - Details: .copilot-tracking/details/20251222-e2e-test-strategy-details.md (Lines 88-102)
 
 ### [ ] Phase 3: Complete First Test - Game Announcement
