@@ -128,26 +128,30 @@ Implement true end-to-end testing that validates Discord bot behavior and messag
 
 ### [ ] Phase 4: Remaining Test Scenarios
 
-- [ ] Task 4.1: Game update → message refresh test
+- [x] Task 4.1: Game update → message refresh test
   - Create game and retrieve message_id
   - Update game (title/description) via API
   - Verify message_id unchanged
   - Fetch message from Discord and validate updated content
   - Details: .copilot-tracking/details/20251222-e2e-test-strategy-details.md (Lines 158-170)
+  - Status: ✅ COMPLETE - test_game_update_refreshes_message passing
 
-- [ ] Task 4.2: User joins → participant list update test
+- [x] Task 4.2: User joins → participant list update test
   - Create game, retrieve message_id
   - Simulate join via API (add participant)
   - Fetch message and verify participant count updated
   - Validate player count incremented
   - Details: .copilot-tracking/details/20251222-e2e-test-strategy-details.md (Lines 171-183)
+  - Status: ✅ COMPLETE - test_user_join_updates_participant_count passing
 
-- [ ] Task 4.3: Game reminder → DM verification test
-  - Create game with reminder_minutes=[5]
+- [x] Task 4.3: Game reminder → DM verification test
+  - Create game with reminder_minutes=[1] (1 minute timeout instead of 5)
+  - Schedule game 2 minutes in future
   - Wait for notification daemon to process
   - Use DiscordTestHelper.get_user_recent_dms() to fetch DMs
   - Verify test user receives DM with game details
   - Details: .copilot-tracking/details/20251222-e2e-test-strategy-details.md (Lines 184-198)
+  - Status: ✅ COMPLETE - test_game_reminder_dm_delivery implemented with 1 minute timeout and 2 minute schedule
 
 - [ ] Task 4.4: Game deletion → message removed test
   - Create game, retrieve message_id
