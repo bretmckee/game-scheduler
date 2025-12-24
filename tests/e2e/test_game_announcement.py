@@ -152,22 +152,27 @@ async def test_game_creation_posts_announcement_to_discord(
     game_id = response.json()["id"]
     print(f"\n[TEST] Game created with ID: {game_id}")
 
-    await asyncio.sleep(3)
+    # Poll for message_id (announcement happens asynchronously via RabbitMQ)
+    message_id = None
+    for attempt in range(10):
+        result = db_session.execute(
+            text("SELECT message_id, channel_id FROM game_sessions WHERE id = :game_id"),
+            {"game_id": game_id},
+        )
+        row = result.fetchone()
+        assert row is not None, "Game session not found in database"
+        message_id = row[0]
+        game_channel_id = row[1]
 
-    result = db_session.execute(
-        text("SELECT message_id, channel_id FROM game_sessions WHERE id = :game_id"),
-        {"game_id": game_id},
-    )
-    row = result.fetchone()
-    assert row is not None, "Game session not found in database"
-    message_id = row[0]
-    game_channel_id = row[1]
+        if message_id is not None:
+            break
+
+        if attempt < 9:
+            await asyncio.sleep(0.5)
+
     print(f"[TEST] Database - message_id: {message_id}, channel_id: {game_channel_id}")
     print(f"[TEST] Expected Discord channel_id: {discord_channel_id}")
     assert message_id is not None, "Message ID should be populated after announcement"
-
-    # Wait additional time to ensure embed is attached before fetching
-    await asyncio.sleep(2)
 
     message = await discord_helper.get_message(discord_channel_id, message_id)
     print(f"[TEST] Discord message fetched: {message}")
