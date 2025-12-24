@@ -24,6 +24,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
+from starlette import status
 
 from services.api.routes import templates
 from shared.models.template import GameTemplate
@@ -290,7 +291,9 @@ class TestCreateTemplate:
             mock_role_service = AsyncMock()
             mock_role_service.check_bot_manager_permission.return_value = False
             mock_get_role_service.return_value = mock_role_service
-            mock_require_manager.side_effect = HTTPException(status_code=403, detail="Forbidden")
+            mock_require_manager.side_effect = HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden"
+            )
 
             with pytest.raises(HTTPException) as exc_info:
                 await templates.create_template(

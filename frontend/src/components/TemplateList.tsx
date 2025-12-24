@@ -19,6 +19,7 @@ import { FC, useState } from 'react';
 import { Box, Typography } from '@mui/material';
 import { TemplateCard } from './TemplateCard';
 import { GameTemplate, DiscordRole } from '../types';
+import { UI } from '../constants/ui';
 
 interface TemplateListProps {
   templates: GameTemplate[];
@@ -93,7 +94,7 @@ export const TemplateList: FC<TemplateListProps> = ({
           onDragEnd={handleDragEnd}
           onDragLeave={handleDragLeave}
           sx={{
-            opacity: draggedIndex === index ? 0.5 : 1,
+            opacity: draggedIndex === index ? UI.HOVER_OPACITY : 1,
             transition: 'opacity 0.2s',
             borderTop: dragOverIndex === index ? '2px solid primary.main' : 'none',
           }}

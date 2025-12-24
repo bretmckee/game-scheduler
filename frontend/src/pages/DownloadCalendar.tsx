@@ -16,9 +16,11 @@
 // with Game_Scheduler If not, see <https://www.gnu.org/licenses/>.
 
 import { FC, useEffect, useState, useRef } from 'react';
+import { StatusCodes } from 'http-status-codes';
 import { useParams, useNavigate } from 'react-router';
 import { Box, CircularProgress, Typography, Alert } from '@mui/material';
 import { useAuth } from '../hooks/useAuth';
+import { Time } from '../constants/time';
 
 export const DownloadCalendar: FC = () => {
   const { gameId } = useParams<{ gameId: string }>();
@@ -36,9 +38,9 @@ export const DownloadCalendar: FC = () => {
       });
 
       if (!response.ok) {
-        if (response.status === 403) {
+        if (response.status === StatusCodes.FORBIDDEN) {
           setError('You do not have permission to download this calendar.');
-        } else if (response.status === 404) {
+        } else if (response.status === StatusCodes.NOT_FOUND) {
           setError('Game not found.');
         } else {
           setError('Failed to download calendar.');
@@ -60,7 +62,7 @@ export const DownloadCalendar: FC = () => {
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
 
-      setTimeout(() => navigate('/my-games'), 1000);
+      setTimeout(() => navigate('/my-games'), Time.MILLISECONDS_PER_SECOND);
     } catch (err) {
       setError('An error occurred while downloading the calendar.');
       console.error('Calendar download error:', err);

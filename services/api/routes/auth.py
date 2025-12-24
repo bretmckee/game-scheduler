@@ -26,6 +26,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette import status
 
 from services.api.auth import oauth2, tokens
 from services.api.config import get_api_config
@@ -57,7 +58,10 @@ async def login(redirect_uri: str = Query(...)) -> auth_schemas.LoginResponse:
         return auth_schemas.LoginResponse(authorization_url=auth_url, state=state)
     except Exception as e:
         logger.error(f"Login initiation failed: {e}")
-        raise HTTPException(status_code=500, detail="Failed to initiate login") from e
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to initiate login",
+        ) from e
 
 
 @router.get("/callback", response_model=None)
@@ -83,14 +87,19 @@ async def callback(
     try:
         redirect_uri = await oauth2.validate_state(state)
     except oauth2.OAuth2StateError as e:
-        raise HTTPException(status_code=400, detail="Invalid or expired state") from e
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired state"
+        ) from e
 
     try:
         token_data = await oauth2.exchange_code_for_tokens(code, redirect_uri)
         user_data = await oauth2.get_user_from_token(token_data["access_token"])
     except Exception as e:
         logger.error(f"OAuth2 callback failed: {e}")
-        raise HTTPException(status_code=500, detail="Authentication failed") from e
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Authentication failed",
+        ) from e
 
     discord_id = user_data["id"]
 
@@ -145,7 +154,7 @@ async def refresh(
     """
     token_data = await tokens.get_user_tokens(current_user.session_token)
     if not token_data:
-        raise HTTPException(status_code=401, detail="No session found")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No session found")
 
     try:
         new_tokens = await oauth2.refresh_access_token(token_data["refresh_token"])
@@ -159,7 +168,9 @@ async def refresh(
         )
     except Exception as e:
         logger.error(f"Token refresh failed: {e}")
-        raise HTTPException(status_code=401, detail="Failed to refresh token") from e
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Failed to refresh token"
+        ) from e
 
 
 @router.post("/logout")
@@ -199,7 +210,7 @@ async def get_user_info(
     """
     token_data = await tokens.get_user_tokens(current_user.session_token)
     if not token_data:
-        raise HTTPException(status_code=401, detail="No session found")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No session found")
 
     if await tokens.is_token_expired(token_data["expires_at"]):
         try:
@@ -212,7 +223,9 @@ async def get_user_info(
             access_token = new_tokens["access_token"]
         except Exception as e:
             logger.error(f"Token refresh in get_user_info failed: {e}")
-            raise HTTPException(status_code=401, detail="Session expired") from e
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired"
+            ) from e
     else:
         access_token = token_data["access_token"]
 
@@ -229,4 +242,7 @@ async def get_user_info(
         )
     except Exception as e:
         logger.error(f"Failed to fetch user info: {e}")
-        raise HTTPException(status_code=500, detail="Failed to fetch user info") from e
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch user info",
+        ) from e

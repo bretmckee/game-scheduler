@@ -26,6 +26,7 @@ import logging
 
 from fastapi import Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette import status
 
 from services.api.auth import oauth2, tokens
 from services.api.auth import roles as roles_module
@@ -36,6 +37,10 @@ from shared.models.game import GameSession
 from shared.models.template import GameTemplate
 from shared.schemas import auth as auth_schemas
 from shared.utils.discord import DiscordPermissions
+from shared.utils.security_constants import (
+    DISCORD_SNOWFLAKE_MAX_LENGTH,
+    DISCORD_SNOWFLAKE_MIN_LENGTH,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +93,7 @@ async def verify_guild_membership(
     """
     token_data = await tokens.get_user_tokens(current_user.session_token)
     if not token_data:
-        raise HTTPException(status_code=401, detail="No session found")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No session found")
 
     access_token = token_data["access_token"]
     user_guilds = await oauth2.get_user_guilds(access_token, current_user.user.discord_id)
@@ -100,7 +105,7 @@ async def verify_guild_membership(
             f"User {current_user.user.discord_id} attempted to access guild {guild_id} "
             f"where they are not a member"
         )
-        raise HTTPException(status_code=404, detail="Guild not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Guild not found")
 
     return user_guilds
 
@@ -129,7 +134,7 @@ async def verify_template_access(
     # Get guild configuration to resolve Discord guild ID
     guild_config = await queries.get_guild_by_id(db, template.guild_id)
     if not guild_config:
-        raise HTTPException(status_code=404, detail="Template not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Template not found")
 
     # Check guild membership
     is_member = await _check_guild_membership(user_discord_id, guild_config.guild_id, access_token)
@@ -139,7 +144,7 @@ async def verify_template_access(
             f"User {user_discord_id} attempted to access template {template.id} "
             f"in guild {guild_config.guild_id} where they are not a member"
         )
-        raise HTTPException(status_code=404, detail="Template not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Template not found")
 
     return template
 
@@ -175,7 +180,7 @@ async def verify_game_access(
     # Get guild configuration to resolve Discord guild ID
     guild_config = await queries.get_guild_by_id(db, game.guild_id)
     if not guild_config:
-        raise HTTPException(status_code=404, detail="Game not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Game not found")
 
     # Check guild membership first - return 404 if not member to prevent info disclosure
     is_member = await _check_guild_membership(user_discord_id, guild_config.guild_id, access_token)
@@ -185,7 +190,7 @@ async def verify_game_access(
             f"User {user_discord_id} attempted to access game {game.id} "
             f"in guild {guild_config.guild_id} where they are not a member"
         )
-        raise HTTPException(status_code=404, detail="Game not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Game not found")
 
     # Check player role restrictions from template (if configured)
     if game.allowed_player_role_ids:
@@ -198,7 +203,7 @@ async def verify_game_access(
         if not has_role:
             logger.warning(f"User {user_discord_id} lacks required player roles for game {game.id}")
             raise HTTPException(
-                status_code=403,
+                status_code=status.HTTP_403_FORBIDDEN,
                 detail="You don't have the required role to access this game",
             )
 
@@ -227,13 +232,16 @@ async def _resolve_guild_id(guild_id: str, db: AsyncSession) -> str:
         Discord guild ID (snowflake)
     """
     # Check if already a Discord snowflake ID (numeric string, 17-20 chars)
-    if guild_id.isdigit() and 17 <= len(guild_id) <= 20:
+    if (
+        guild_id.isdigit()
+        and DISCORD_SNOWFLAKE_MIN_LENGTH <= len(guild_id) <= DISCORD_SNOWFLAKE_MAX_LENGTH
+    ):
         return guild_id
 
     # Otherwise treat as UUID and look up
     guild_config = await queries.get_guild_by_id(db, guild_id)
     if not guild_config:
-        raise HTTPException(status_code=404, detail="Guild not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Guild not found")
 
     return guild_config.guild_id
 
@@ -262,7 +270,7 @@ async def require_manage_guild(
     """
     token_data = await tokens.get_user_tokens(current_user.session_token)
     if not token_data:
-        raise HTTPException(status_code=401, detail="Session expired")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired")
 
     access_token = token_data["access_token"]
 
@@ -282,7 +290,7 @@ async def require_manage_guild(
             f"in guild {discord_guild_id}"
         )
         raise HTTPException(
-            status_code=403,
+            status_code=status.HTTP_403_FORBIDDEN,
             detail="You need MANAGE_GUILD permission to perform this action",
         )
 
@@ -313,7 +321,7 @@ async def require_manage_channels(
     """
     token_data = await tokens.get_user_tokens(current_user.session_token)
     if not token_data:
-        raise HTTPException(status_code=401, detail="Session expired")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired")
 
     access_token = token_data["access_token"]
 
@@ -333,7 +341,7 @@ async def require_manage_channels(
             f"in guild {discord_guild_id}"
         )
         raise HTTPException(
-            status_code=403,
+            status_code=status.HTTP_403_FORBIDDEN,
             detail="You need MANAGE_CHANNELS permission to perform this action",
         )
 
@@ -365,7 +373,7 @@ async def get_guild_name(
     """
     token_data = await tokens.get_user_tokens(current_user.session_token)
     if not token_data:
-        raise HTTPException(status_code=401, detail="No session found")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No session found")
 
     access_token = token_data["access_token"]
     user_guilds = await oauth2.get_user_guilds(access_token, current_user.user.discord_id)
@@ -402,7 +410,7 @@ async def require_bot_manager(
     """
     token_data = await tokens.get_user_tokens(current_user.session_token)
     if not token_data:
-        raise HTTPException(status_code=401, detail="Session expired")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired")
 
     access_token = token_data["access_token"]
 
@@ -419,7 +427,7 @@ async def require_bot_manager(
             f"in guild {discord_guild_id}"
         )
         raise HTTPException(
-            status_code=403,
+            status_code=status.HTTP_403_FORBIDDEN,
             detail="Bot manager role required to perform this action",
         )
 
@@ -455,7 +463,7 @@ async def require_game_host(
     """
     token_data = await tokens.get_user_tokens(current_user.session_token)
     if not token_data:
-        raise HTTPException(status_code=401, detail="Session expired")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired")
 
     access_token = token_data["access_token"]
 
@@ -472,7 +480,7 @@ async def require_game_host(
             f"guild {guild_id}, channel {channel_id}"
         )
         raise HTTPException(
-            status_code=403,
+            status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to host games in this guild/channel",
         )
 
@@ -605,7 +613,7 @@ async def require_administrator(
     """
     token_data = await tokens.get_user_tokens(current_user.session_token)
     if not token_data:
-        raise HTTPException(status_code=401, detail="Session expired")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired")
 
     access_token = token_data["access_token"]
 
@@ -622,7 +630,7 @@ async def require_administrator(
             f"in guild {guild_id}"
         )
         raise HTTPException(
-            status_code=403,
+            status_code=status.HTTP_403_FORBIDDEN,
             detail="You need ADMINISTRATOR permission to perform this action",
         )
 

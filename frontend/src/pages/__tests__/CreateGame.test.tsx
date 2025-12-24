@@ -16,6 +16,7 @@
 // with Game_Scheduler If not, see <https://www.gnu.org/licenses/>.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { StatusCodes } from 'http-status-codes';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router';
@@ -149,7 +150,7 @@ describe('CreateGame', () => {
         return Promise.resolve({ data: [mockTemplate] });
       }
       if (url === '/api/v1/guilds/1/config') {
-        return Promise.resolve({ status: 403 });
+        return Promise.resolve({ status: StatusCodes.FORBIDDEN });
       }
       return Promise.resolve({ data: [] });
     });
@@ -176,7 +177,7 @@ describe('CreateGame', () => {
         return Promise.resolve({ data: [mockTemplate] });
       }
       if (url === '/api/v1/guilds/1/config') {
-        return Promise.resolve({ status: 403 });
+        return Promise.resolve({ status: StatusCodes.FORBIDDEN });
       }
       return Promise.resolve({ data: [] });
     });
@@ -216,7 +217,7 @@ describe('CreateGame', () => {
         return Promise.resolve({ data: [mockTemplate] });
       }
       if (url === '/api/v1/guilds/1/config') {
-        return Promise.resolve({ status: 403 });
+        return Promise.resolve({ status: StatusCodes.FORBIDDEN });
       }
       return Promise.resolve({ data: [] });
     });
@@ -237,7 +238,7 @@ describe('CreateGame', () => {
         return Promise.resolve({ data: [mockTemplate] });
       }
       if (url === '/api/v1/guilds/1/config') {
-        return Promise.resolve({ status: 403 });
+        return Promise.resolve({ status: StatusCodes.FORBIDDEN });
       }
       return Promise.resolve({ data: [] });
     });
@@ -275,7 +276,7 @@ describe('CreateGame', () => {
         return Promise.resolve({ data: [mockTemplate2] });
       }
       if (url.includes('/config')) {
-        return Promise.resolve({ status: 403 });
+        return Promise.resolve({ status: StatusCodes.FORBIDDEN });
       }
       return Promise.resolve({ data: [] });
     });

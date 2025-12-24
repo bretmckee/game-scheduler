@@ -19,6 +19,7 @@ import { FC, useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { Box, CircularProgress, Typography, Container } from '@mui/material';
 import { useAuth } from '../hooks/useAuth';
+import { UI } from '../constants/ui';
 
 export const AuthCallback: FC = () => {
   const [searchParams] = useSearchParams();
@@ -40,7 +41,7 @@ export const AuthCallback: FC = () => {
       } catch (err) {
         console.error('Failed to complete login:', err);
         setError('Failed to fetch user information');
-        setTimeout(() => navigate('/login'), 3000);
+        setTimeout(() => navigate('/login'), UI.ANIMATION_DELAY_STANDARD);
       }
     };
 
@@ -59,19 +60,19 @@ export const AuthCallback: FC = () => {
 
       if (errorParam) {
         setError(`Discord authorization failed: ${errorParam}`);
-        setTimeout(() => navigate('/login'), 3000);
+        setTimeout(() => navigate('/login'), UI.ANIMATION_DELAY_STANDARD);
         return;
       }
 
       if (!code) {
         setError('No authorization code received from Discord');
-        setTimeout(() => navigate('/login'), 3000);
+        setTimeout(() => navigate('/login'), UI.ANIMATION_DELAY_STANDARD);
         return;
       }
 
       if (!state) {
         setError('No state parameter received');
-        setTimeout(() => navigate('/login'), 3000);
+        setTimeout(() => navigate('/login'), UI.ANIMATION_DELAY_STANDARD);
         return;
       }
 
@@ -91,14 +92,14 @@ export const AuthCallback: FC = () => {
         } else {
           const data = await response.json().catch(() => ({ detail: 'Unknown error' }));
           setError(data.detail || 'Failed to complete authentication');
-          setTimeout(() => navigate('/login'), 3000);
+          setTimeout(() => navigate('/login'), UI.ANIMATION_DELAY_STANDARD);
         }
       } catch (err: unknown) {
         console.error('OAuth callback error:', err);
         const errorMessage =
           (err as any).response?.data?.detail || 'Failed to complete authentication';
         setError(errorMessage);
-        setTimeout(() => navigate('/login'), 3000);
+        setTimeout(() => navigate('/login'), UI.ANIMATION_DELAY_STANDARD);
       }
     };
 

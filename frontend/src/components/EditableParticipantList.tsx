@@ -18,6 +18,7 @@
 import { FC, useState } from 'react';
 import { Box, Typography, TextField, IconButton, Button } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
+import { UI } from '../constants/ui';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
@@ -165,7 +166,7 @@ export const EditableParticipantList: FC<EditableParticipantListProps> = ({
               mb: 1,
               alignItems: 'flex-start',
               cursor: 'move',
-              opacity: draggedIndex === index ? 0.5 : 1,
+              opacity: draggedIndex === index ? UI.HOVER_OPACITY : 1,
               transition: 'opacity 0.2s',
               '&:hover': {
                 backgroundColor: 'action.hover',

@@ -29,6 +29,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette import status as http_status
 
 from services.api.auth import roles as roles_module
 from services.api.dependencies import auth as auth_deps
@@ -67,7 +68,7 @@ async def _validate_image_upload(file: UploadFile, field_name: str) -> None:
     allowed_types = {"image/png", "image/jpeg", "image/gif", "image/webp"}
     if file.content_type not in allowed_types:
         raise HTTPException(
-            status_code=400,
+            status_code=http_status.HTTP_400_BAD_REQUEST,
             detail=f"{field_name} must be PNG, JPEG, GIF, or WebP",
         )
 
@@ -78,7 +79,7 @@ async def _validate_image_upload(file: UploadFile, field_name: str) -> None:
     max_size = 5 * 1024 * 1024
     if size > max_size:
         raise HTTPException(
-            status_code=400,
+            status_code=http_status.HTTP_400_BAD_REQUEST,
             detail=f"{field_name} must be less than 5MB",
         )
 
@@ -99,7 +100,11 @@ def _get_game_service(
     )
 
 
-@router.post("", response_model=game_schemas.GameResponse, status_code=201)
+@router.post(
+    "",
+    response_model=game_schemas.GameResponse,
+    status_code=http_status.HTTP_201_CREATED,
+)
 async def create_game(
     template_id: Annotated[str, Form()],
     title: Annotated[str, Form()],
@@ -198,7 +203,7 @@ async def create_game(
 
     except resolver_module.ValidationError as e:
         raise HTTPException(
-            status_code=422,
+            status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail={
                 "error": "invalid_mentions",
                 "message": "Some @mentions could not be resolved",
@@ -208,7 +213,7 @@ async def create_game(
             },
         ) from None
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from None
+        raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail=str(e)) from None
 
 
 @router.get("", response_model=game_schemas.GameListResponse)
@@ -272,7 +277,9 @@ async def get_game(
     game = await game_service.get_game(game_id)
 
     if game is None:
-        raise HTTPException(status_code=404, detail="Game not found") from None
+        raise HTTPException(
+            status_code=http_status.HTTP_404_NOT_FOUND, detail="Game not found"
+        ) from None
 
     # Verify user has access (guild membership + player roles)
     await permissions_deps.verify_game_access(
@@ -410,7 +417,7 @@ async def update_game(
 
     except resolver_module.ValidationError as e:
         raise HTTPException(
-            status_code=422,
+            status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail={
                 "error": "invalid_mentions",
                 "message": "Some @mentions could not be resolved",
@@ -422,13 +429,17 @@ async def update_game(
     except ValueError as e:
         error_msg = str(e)
         if "not found" in error_msg.lower():
-            raise HTTPException(status_code=404, detail=error_msg) from None
+            raise HTTPException(
+                status_code=http_status.HTTP_404_NOT_FOUND, detail=error_msg
+            ) from None
         if "minimum players cannot be greater" in error_msg.lower():
-            raise HTTPException(status_code=422, detail=error_msg) from None
-        raise HTTPException(status_code=403, detail=error_msg) from None
+            raise HTTPException(
+                status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY, detail=error_msg
+            ) from None
+        raise HTTPException(status_code=http_status.HTTP_403_FORBIDDEN, detail=error_msg) from None
 
 
-@router.delete("/{game_id}", status_code=204)
+@router.delete("/{game_id}", status_code=http_status.HTTP_204_NO_CONTENT)
 async def delete_game(
     game_id: str,
     current_user: auth_schemas.CurrentUser = Depends(auth_deps.get_current_user),
@@ -453,8 +464,8 @@ async def delete_game(
         )
     except ValueError as e:
         if "not found" in str(e).lower():
-            raise HTTPException(status_code=404, detail=str(e)) from None
-        raise HTTPException(status_code=403, detail=str(e)) from None
+            raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail=str(e)) from None
+        raise HTTPException(status_code=http_status.HTTP_403_FORBIDDEN, detail=str(e)) from None
 
 
 @router.post("/{game_id}/join", response_model=participant_schemas.ParticipantResponse)
@@ -473,7 +484,7 @@ async def join_game(
     # Fetch game to verify authorization
     game = await game_service.get_game(game_id)
     if game is None:
-        raise HTTPException(status_code=404, detail="Game not found")
+        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Game not found")
 
     # Verify user has access (guild membership + player roles)
     await permissions_deps.verify_game_access(
@@ -518,11 +529,11 @@ async def join_game(
 
     except ValueError as e:
         if "not found" in str(e).lower():
-            raise HTTPException(status_code=404, detail=str(e)) from None
-        raise HTTPException(status_code=400, detail=str(e)) from None
+            raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail=str(e)) from None
+        raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail=str(e)) from None
 
 
-@router.post("/{game_id}/leave", status_code=204)
+@router.post("/{game_id}/leave", status_code=http_status.HTTP_204_NO_CONTENT)
 async def leave_game(
     game_id: str,
     current_user: auth_schemas.CurrentUser = Depends(auth_deps.get_current_user),
@@ -545,8 +556,8 @@ async def leave_game(
     except ValueError as e:
         logger.error(f"Leave game error: {e}")
         if "not found" in str(e).lower():
-            raise HTTPException(status_code=404, detail=str(e)) from None
-        raise HTTPException(status_code=400, detail=str(e)) from None
+            raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail=str(e)) from None
+        raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail=str(e)) from None
 
 
 async def _build_game_response(
@@ -668,10 +679,13 @@ async def get_game_thumbnail(
     """Serve game thumbnail image."""
     game = await game_service.get_game(game_id)
     if not game:
-        raise HTTPException(status_code=404, detail="Game not found")
+        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Game not found")
 
     if not game.thumbnail_data:
-        raise HTTPException(status_code=404, detail="No thumbnail for this game")
+        raise HTTPException(
+            status_code=http_status.HTTP_404_NOT_FOUND,
+            detail="No thumbnail for this game",
+        )
 
     return Response(
         content=game.thumbnail_data,
@@ -690,10 +704,13 @@ async def get_game_image(
     """Serve game banner image."""
     game = await game_service.get_game(game_id)
     if not game:
-        raise HTTPException(status_code=404, detail="Game not found")
+        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Game not found")
 
     if not game.image_data:
-        raise HTTPException(status_code=404, detail="No banner image for this game")
+        raise HTTPException(
+            status_code=http_status.HTTP_404_NOT_FOUND,
+            detail="No banner image for this game",
+        )
 
     return Response(
         content=game.image_data,

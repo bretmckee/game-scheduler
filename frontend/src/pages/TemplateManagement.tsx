@@ -16,6 +16,7 @@
 // with Game_Scheduler If not, see <https://www.gnu.org/licenses/>.
 
 import { FC, useState, useEffect } from 'react';
+import { StatusCodes } from 'http-status-codes';
 import { useParams, useNavigate } from 'react-router';
 import {
   Container,
@@ -79,7 +80,7 @@ export const TemplateManagement: FC = () => {
     } catch (err: any) {
       console.error('Failed to fetch data:', err);
       const statusCode = err.response?.status;
-      if (statusCode === 403) {
+      if (statusCode === StatusCodes.FORBIDDEN) {
         setHasPermission(false);
       }
       setError(err.response?.data?.detail || 'Failed to load template data. Please try again.');

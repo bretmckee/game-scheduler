@@ -32,6 +32,7 @@ from cryptography.fernet import Fernet
 from services.api import config
 from shared.cache import client as cache_client
 from shared.cache import ttl as cache_ttl
+from shared.utils.security_constants import ENCRYPTION_KEY_LENGTH
 
 logger = logging.getLogger(__name__)
 
@@ -45,9 +46,9 @@ def get_encryption_key() -> bytes:
     """
     api_config = config.get_api_config()
     key = api_config.jwt_secret.encode()
-    if len(key) < 32:
-        key = key.ljust(32, b"0")
-    key = key[:32]
+    if len(key) < ENCRYPTION_KEY_LENGTH:
+        key = key.ljust(ENCRYPTION_KEY_LENGTH, b"0")
+    key = key[:ENCRYPTION_KEY_LENGTH]
     return base64.urlsafe_b64encode(key)
 
 

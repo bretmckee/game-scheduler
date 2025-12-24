@@ -28,6 +28,8 @@ import {
 } from '@mui/material';
 import { useNavigate } from 'react-router';
 import { GameSession } from '../types';
+import { Time } from '../constants/time';
+import { UI } from '../constants/ui';
 
 interface GameCardProps {
   game: GameSession;
@@ -62,8 +64,8 @@ export const GameCard: FC<GameCardProps> = ({ game, showActions = true }) => {
 
   const formatDuration = (minutes: number | null): string => {
     if (!minutes) return '';
-    const hours = Math.floor(minutes / 60);
-    const remainingMinutes = minutes % 60;
+    const hours = Math.floor(minutes / Time.SECONDS_PER_MINUTE);
+    const remainingMinutes = minutes % Time.SECONDS_PER_MINUTE;
     if (hours > 0 && remainingMinutes > 0) {
       return `${hours}h ${remainingMinutes}m`;
     } else if (hours > 0) {
@@ -74,10 +76,13 @@ export const GameCard: FC<GameCardProps> = ({ game, showActions = true }) => {
   };
 
   const participantCount = game.participant_count || 0;
-  const maxPlayers = game.max_players || 10;
+  const maxPlayers = game.max_players || UI.DEFAULT_MAX_PLAYERS;
   const playerDisplay = `${participantCount}/${maxPlayers}`;
 
-  const truncateDescription = (text: string, maxLength: number = 200): string => {
+  const truncateDescription = (
+    text: string,
+    maxLength: number = UI.DEFAULT_TRUNCATE_LENGTH
+  ): string => {
     if (!text || text.length <= maxLength) {
       return text;
     }
@@ -110,7 +115,7 @@ export const GameCard: FC<GameCardProps> = ({ game, showActions = true }) => {
         </Box>
 
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-          {truncateDescription(game.description, 200)}
+          {truncateDescription(game.description, UI.DEFAULT_TRUNCATE_LENGTH)}
         </Typography>
 
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 1 }}>

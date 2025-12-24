@@ -36,6 +36,7 @@ import SaveIcon from '@mui/icons-material/Save';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { apiClient } from '../api/client';
 import { GuildConfigData, DiscordRole } from '../types';
+import { UI } from '../constants/ui';
 
 export const GuildConfig: FC = () => {
   const { guildId } = useParams<{ guildId: string }>();
@@ -115,7 +116,7 @@ export const GuildConfig: FC = () => {
       setSuccess(true);
       setTimeout(() => {
         navigate(`/guilds/${guildId}`);
-      }, 1500);
+      }, UI.ANIMATION_DELAY_SHORT);
     } catch (err: unknown) {
       console.error('Failed to save guild config:', err);
       setError(
@@ -205,7 +206,7 @@ export const GuildConfig: FC = () => {
                       {...chipProps}
                       sx={{
                         backgroundColor: option.color
-                          ? `#${option.color.toString(16).padStart(6, '0')}`
+                          ? `#${option.color.toString(UI.GRID_SPACING_LARGE).padStart(UI.GRID_SPACING_SMALL, '0')}`
                           : undefined,
                         color: option.color ? '#ffffff' : undefined,
                       }}

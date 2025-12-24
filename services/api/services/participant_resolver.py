@@ -29,6 +29,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from starlette import status
 
 from shared.discord import client as discord_client_module
 from shared.models import user as user_model
@@ -226,7 +227,7 @@ class ParticipantResolver:
                 params=params,
                 headers={"Authorization": f"Bot {self.discord_client.bot_token}"},
             ) as response:
-                if response.status != 200:
+                if response.status != status.HTTP_200_OK:
                     try:
                         response_data = await response.json()
                         error_msg = response_data.get("message", "Unknown error")
@@ -249,7 +250,9 @@ class ParticipantResolver:
                 f"Network error searching guild members in {guild_discord_id}: {e}",
                 exc_info=True,
             )
-            raise discord_client_module.DiscordAPIError(500, f"Network error: {str(e)}") from e
+            raise discord_client_module.DiscordAPIError(
+                status.HTTP_500_INTERNAL_SERVER_ERROR, f"Network error: {str(e)}"
+            ) from e
 
     async def ensure_user_exists(
         self,

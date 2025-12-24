@@ -16,6 +16,7 @@
 // with Game_Scheduler If not, see <https://www.gnu.org/licenses/>.
 
 import { FC, useState } from 'react';
+import { StatusCodes } from 'http-status-codes';
 import { Button, CircularProgress } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
 import axios from 'axios';
@@ -60,7 +61,7 @@ export const ExportButton: FC<ExportButtonProps> = ({ gameId }) => {
     } catch (error) {
       console.error('Failed to export calendar:', error);
       const errorMessage =
-        (error as any).response?.status === 403
+        (error as any).response?.status === StatusCodes.FORBIDDEN
           ? 'You must be the host or a participant to export this game.'
           : 'Failed to export calendar. Please try again.';
       alert(errorMessage);

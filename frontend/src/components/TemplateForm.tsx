@@ -44,6 +44,7 @@ import {
   TemplateUpdateRequest,
 } from '../types';
 import { formatDurationForDisplay, parseDurationString } from './GameForm';
+import { UI } from '../constants/ui';
 
 interface TemplateFormProps {
   open: boolean;
@@ -123,8 +124,8 @@ export const TemplateForm: FC<TemplateFormProps> = ({
       newErrors.channelId = 'Channel is required';
     }
 
-    if (maxPlayers && (parseInt(maxPlayers) < 1 || parseInt(maxPlayers) > 100)) {
-      newErrors.maxPlayers = 'Max players must be between 1 and 100';
+    if (maxPlayers && (parseInt(maxPlayers) < 1 || parseInt(maxPlayers) > UI.MAX_PLAYERS_LIMIT)) {
+      newErrors.maxPlayers = `Max players must be between 1 and ${UI.MAX_PLAYERS_LIMIT}`;
     }
 
     if (expectedDuration && parseDurationString(expectedDuration) === null) {

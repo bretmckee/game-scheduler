@@ -42,66 +42,66 @@ Eliminate all magic number lint violations (71 total) by replacing numeric liter
 
 ## Implementation Checklist
 
-### [ ] Phase 0: Enable Linter Rules
+### [x] Phase 0: Enable Linter Rules
 
-- [ ] Task 0.1: Enable Python PLR2004 rule in pyproject.toml
+- [x] Task 0.1: Enable Python PLR2004 rule in pyproject.toml
   - Details: .copilot-tracking/details/20251224-magic-number-lint-remediation-details.md (Lines 15-30)
 
-- [ ] Task 0.2: Enable TypeScript @typescript-eslint/no-magic-numbers rule in ESLint config
+- [x] Task 0.2: Enable TypeScript @typescript-eslint/no-magic-numbers rule in ESLint config
   - Details: .copilot-tracking/details/20251224-magic-number-lint-remediation-details.md (Lines 32-52)
 
-### [ ] Phase 1: Python HTTP Status Code Migration
+### [x] Phase 1: Python HTTP Status Code Migration
 
-- [ ] Task 1.1: Add starlette.status imports to all API route files
+- [x] Task 1.1: Add starlette.status imports to all API route files
   - Details: .copilot-tracking/details/20251224-magic-number-lint-remediation-details.md (Lines 54-75)
 
-- [ ] Task 1.2: Replace HTTP status code literals in services/api/routes/
+- [x] Task 1.2: Replace HTTP status code literals in services/api/routes/
   - Details: .copilot-tracking/details/20251224-magic-number-lint-remediation-details.md (Lines 77-98)
 
-- [ ] Task 1.3: Replace HTTP status code literals in middleware and auth modules
+- [x] Task 1.3: Replace HTTP status code literals in middleware and auth modules
   - Details: .copilot-tracking/details/20251224-magic-number-lint-remediation-details.md (Lines 100-118)
 
-- [ ] Task 1.4: Update test files to use starlette.status constants
+- [x] Task 1.4: Update test files to use starlette.status constants
   - Details: .copilot-tracking/details/20251224-magic-number-lint-remediation-details.md (Lines 120-138)
 
-### [ ] Phase 2: TypeScript HTTP Status Code Migration
+### [x] Phase 2: TypeScript HTTP Status Code Migration
 
-- [ ] Task 2.1: Install http-status-codes npm package
+- [x] Task 2.1: Install http-status-codes npm package
   - Details: .copilot-tracking/details/20251224-magic-number-lint-remediation-details.md (Lines 140-157)
 
-- [ ] Task 2.2: Replace HTTP status codes in API client and interceptors
+- [x] Task 2.2: Replace HTTP status codes in API client and interceptors
   - Details: .copilot-tracking/details/20251224-magic-number-lint-remediation-details.md (Lines 159-178)
 
-- [ ] Task 2.3: Replace HTTP status codes in React components
+- [x] Task 2.3: Replace HTTP status codes in React components
   - Details: .copilot-tracking/details/20251224-magic-number-lint-remediation-details.md (Lines 180-199)
 
-- [ ] Task 2.4: Replace HTTP status codes in hooks and utilities
+- [x] Task 2.4: Replace HTTP status codes in hooks and utilities
   - Details: .copilot-tracking/details/20251224-magic-number-lint-remediation-details.md (Lines 201-218)
 
-### [ ] Phase 3: Domain-Specific Constants
+### [x] Phase 3: Domain-Specific Constants
 
-- [ ] Task 3.1: Create shared/utils/security_constants.py for cryptographic constants
+- [x] Task 3.1: Create shared/utils/security_constants.py for cryptographic constants
   - Details: .copilot-tracking/details/20251224-magic-number-lint-remediation-details.md (Lines 220-245)
 
-- [ ] Task 3.2: Create shared/utils/pagination.py for business logic constants
+- [x] Task 3.2: Create shared/utils/pagination.py for business logic constants
   - Details: .copilot-tracking/details/20251224-magic-number-lint-remediation-details.md (Lines 247-270)
 
-- [ ] Task 3.3: Create frontend/src/constants/ui.ts for UI/UX constants
+- [x] Task 3.3: Create frontend/src/constants/ui.ts for UI/UX constants
   - Details: .copilot-tracking/details/20251224-magic-number-lint-remediation-details.md (Lines 272-298)
 
-- [ ] Task 3.4: Create frontend/src/constants/time.ts for time conversion constants
+- [x] Task 3.4: Create frontend/src/constants/time.ts for time conversion constants
   - Details: .copilot-tracking/details/20251224-magic-number-lint-remediation-details.md (Lines 300-322)
 
-- [ ] Task 3.5: Replace security magic numbers with security_constants imports
+- [x] Task 3.5: Replace security magic numbers with security_constants imports
   - Details: .copilot-tracking/details/20251224-magic-number-lint-remediation-details.md (Lines 324-344)
 
-- [ ] Task 3.6: Replace pagination magic numbers with pagination imports
+- [x] Task 3.6: Replace pagination magic numbers with pagination imports
   - Details: .copilot-tracking/details/20251224-magic-number-lint-remediation-details.md (Lines 346-364)
 
-- [ ] Task 3.7: Replace UI magic numbers with UI constant imports
+- [x] Task 3.7: Replace UI magic numbers with UI constant imports
   - Details: .copilot-tracking/details/20251224-magic-number-lint-remediation-details.md (Lines 366-388)
 
-- [ ] Task 3.8: Replace time conversion magic numbers with Time constant imports
+- [x] Task 3.8: Replace time conversion magic numbers with Time constant imports
   - Details: .copilot-tracking/details/20251224-magic-number-lint-remediation-details.md (Lines 390-410)
 
 ### [ ] Phase 4: Verification and Cleanup

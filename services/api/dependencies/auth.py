@@ -26,6 +26,7 @@ import logging
 from fastapi import Cookie, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from starlette import status
 
 from services.api.auth import tokens
 from shared import database
@@ -56,14 +57,14 @@ async def get_current_user(
         HTTPException: If user is not authenticated
     """
     if not session_token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
 
     token_data = await tokens.get_user_tokens(session_token)
     if not token_data:
-        raise HTTPException(status_code=401, detail="Session not found")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session not found")
 
     if await tokens.is_token_expired(token_data["expires_at"]):
-        raise HTTPException(status_code=401, detail="Token expired")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expired")
 
     # Get user from database by Discord ID
     discord_id = token_data["user_id"]
@@ -73,7 +74,7 @@ async def get_current_user(
     user = result.scalar_one_or_none()
 
     if not user:
-        raise HTTPException(status_code=401, detail="User not found")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 
     return auth_schemas.CurrentUser(
         user=user,

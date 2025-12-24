@@ -16,6 +16,7 @@
 // with Game_Scheduler If not, see <https://www.gnu.org/licenses/>.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { StatusCodes } from 'http-status-codes';
 import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router';
 import { DownloadCalendar } from '../DownloadCalendar';
@@ -132,7 +133,7 @@ describe('DownloadCalendar', () => {
   it('shows permission denied error for 403 response', async () => {
     const mockResponse = {
       ok: false,
-      status: 403,
+      status: StatusCodes.FORBIDDEN,
     };
 
     vi.mocked(globalThis.fetch).mockResolvedValue(mockResponse as any);
@@ -152,7 +153,7 @@ describe('DownloadCalendar', () => {
   it('shows not found error for 404 response', async () => {
     const mockResponse = {
       ok: false,
-      status: 404,
+      status: StatusCodes.NOT_FOUND,
     };
 
     vi.mocked(globalThis.fetch).mockResolvedValue(mockResponse as any);
@@ -170,7 +171,7 @@ describe('DownloadCalendar', () => {
   it('shows generic error for other error status codes', async () => {
     const mockResponse = {
       ok: false,
-      status: 500,
+      status: StatusCodes.INTERNAL_SERVER_ERROR,
     };
 
     vi.mocked(globalThis.fetch).mockResolvedValue(mockResponse as any);
@@ -209,7 +210,7 @@ describe('DownloadCalendar', () => {
   it('navigates to my-games when error alert is closed', async () => {
     const mockResponse = {
       ok: false,
-      status: 404,
+      status: StatusCodes.NOT_FOUND,
     };
 
     vi.mocked(globalThis.fetch).mockResolvedValue(mockResponse as any);

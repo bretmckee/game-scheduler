@@ -28,6 +28,7 @@ import {
 } from '@mui/material';
 import { Participant } from '../types';
 import { formatParticipantDisplay } from '../utils/formatParticipant';
+import { UI } from '../constants/ui';
 
 interface ParticipantListProps {
   participants: Participant[];
@@ -45,7 +46,7 @@ export const ParticipantList: FC<ParticipantListProps> = ({ participants, maxPla
 
   // Backend returns participants already sorted (priority participants first, then regular by join time)
   // All participants in the list are active (no status filtering needed)
-  const maxSlots = maxPlayers || 10;
+  const maxSlots = maxPlayers || UI.DEFAULT_MAX_PLAYERS;
   const confirmedParticipants = participants.slice(0, maxSlots);
   const waitlistParticipants = participants.slice(maxSlots);
 

@@ -16,6 +16,7 @@
 // with Game_Scheduler If not, see <https://www.gnu.org/licenses/>.
 
 import axios from 'axios';
+import { StatusCodes } from 'http-status-codes';
 
 // Runtime config from /config.js (loaded in index.html)
 // Falls back to VITE_API_URL for development, then empty string for proxy
@@ -50,7 +51,7 @@ apiClient.interceptors.response.use(
 
     // Don't retry if this is already a retry, or if this is the refresh endpoint itself
     if (
-      error.response?.status === 401 &&
+      error.response?.status === StatusCodes.UNAUTHORIZED &&
       !originalRequest._retry &&
       !originalRequest.url?.includes('/auth/refresh') &&
       !isAuthPage
@@ -68,7 +69,7 @@ apiClient.interceptors.response.use(
     }
 
     // For 401 on refresh endpoint or already retried requests, redirect to login (unless already on login page)
-    if (error.response?.status === 401 && !isAuthPage) {
+    if (error.response?.status === StatusCodes.UNAUTHORIZED && !isAuthPage) {
       window.location.href = '/login';
       return new Promise(() => {}); // Never resolves, prevents further processing
     }

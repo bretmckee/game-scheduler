@@ -15,6 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License along
 // with Game_Scheduler If not, see <https://www.gnu.org/licenses/>.
 
+import { StatusCodes } from 'http-status-codes';
 import { apiClient } from '../api/client';
 
 /**
@@ -39,9 +40,9 @@ export async function canUserCreateGames(guildId: string): Promise<boolean> {
 export async function canUserManageBotSettings(guildId: string): Promise<boolean> {
   try {
     const response = await apiClient.get(`/api/v1/guilds/${guildId}/config`);
-    return response.status === 200;
+    return response.status === StatusCodes.OK;
   } catch (error: any) {
-    if (error.response?.status === 403) {
+    if (error.response?.status === StatusCodes.FORBIDDEN) {
       return false;
     }
     return false;

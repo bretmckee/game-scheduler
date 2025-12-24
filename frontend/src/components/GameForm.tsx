@@ -42,6 +42,8 @@ import {
   ParticipantInput as EditableParticipantInput,
 } from './EditableParticipantList';
 import { useAuth } from '../hooks/useAuth';
+import { Time } from '../constants/time';
+import { UI } from '../constants/ui';
 
 /**
  * Round time up to the next half hour (e.g., 5:13 -> 5:30, 5:30 -> 5:30, 5:31 -> 6:00)
@@ -53,7 +55,7 @@ function getNextHalfHour(): Date {
   const milliseconds = now.getMilliseconds();
 
   // If already on the half hour exactly, keep it
-  if (minutes === 0 || minutes === 30) {
+  if (minutes === 0 || minutes === Time.MINUTES_PER_HALF_HOUR) {
     if (seconds === 0 && milliseconds === 0) {
       return now;
     }
@@ -61,8 +63,8 @@ function getNextHalfHour(): Date {
 
   // Round up to next half hour
   const nextHalfHour = new Date(now);
-  if (minutes < 30) {
-    nextHalfHour.setMinutes(30, 0, 0);
+  if (minutes < Time.MINUTES_PER_HALF_HOUR) {
+    nextHalfHour.setMinutes(Time.MINUTES_PER_HALF_HOUR, 0, 0);
   } else {
     nextHalfHour.setHours(now.getHours() + 1, 0, 0, 0);
   }
@@ -113,8 +115,8 @@ interface GameFormProps {
 
 export const formatDurationForDisplay = (minutes: number | null): string => {
   if (!minutes) return '';
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
+  const hours = Math.floor(minutes / Time.SECONDS_PER_MINUTE);
+  const remainingMinutes = minutes % Time.SECONDS_PER_MINUTE;
   if (hours > 0 && remainingMinutes > 0) {
     return `${hours}h ${remainingMinutes}m`;
   } else if (hours > 0) {
@@ -132,12 +134,12 @@ export const parseDurationString = (input: string): number | null => {
   // Parse formats like "1h 30m", "1h30m", "90m", "2h"
   const hourMinuteMatch = trimmed.match(/^(\d+)h\s*(\d+)m$/);
   if (hourMinuteMatch) {
-    return parseInt(hourMinuteMatch[1]!) * 60 + parseInt(hourMinuteMatch[2]!);
+    return parseInt(hourMinuteMatch[1]!) * Time.SECONDS_PER_MINUTE + parseInt(hourMinuteMatch[2]!);
   }
 
   const hoursOnlyMatch = trimmed.match(/^(\d+)h$/);
   if (hoursOnlyMatch) {
-    return parseInt(hoursOnlyMatch[1]!) * 60;
+    return parseInt(hoursOnlyMatch[1]!) * Time.SECONDS_PER_MINUTE;
   }
 
   const minutesOnlyMatch = trimmed.match(/^(\d+)m$/);
@@ -148,7 +150,7 @@ export const parseDurationString = (input: string): number | null => {
   // Parse colon format like "1:30" (hours:minutes)
   const colonMatch = trimmed.match(/^(\d+):(\d+)$/);
   if (colonMatch) {
-    return parseInt(colonMatch[1]!) * 60 + parseInt(colonMatch[2]!);
+    return parseInt(colonMatch[1]!) * Time.SECONDS_PER_MINUTE + parseInt(colonMatch[2]!);
   }
 
   // Try parsing as plain number (minutes)
@@ -308,7 +310,7 @@ export const GameForm: FC<GameFormProps> = ({
 
     if (file) {
       // Validate file size (<5MB)
-      if (file.size > 5 * 1024 * 1024) {
+      if (file.size > UI.MAX_FILE_SIZE_BYTES) {
         alert('Thumbnail must be less than 5MB');
         return;
       }
@@ -333,7 +335,7 @@ export const GameForm: FC<GameFormProps> = ({
 
     if (file) {
       // Validate file size (<5MB)
-      if (file.size > 5 * 1024 * 1024) {
+      if (file.size > UI.MAX_FILE_SIZE_BYTES) {
         alert('Banner image must be less than 5MB');
         return;
       }

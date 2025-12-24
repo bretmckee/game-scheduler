@@ -27,6 +27,7 @@ import logging
 import time
 
 from fastapi import Request, Response
+from starlette import status
 from starlette.middleware.base import BaseHTTPMiddleware
 
 logger = logging.getLogger(__name__)
@@ -66,12 +67,12 @@ class AuthorizationMiddleware(BaseHTTPMiddleware):
 
             duration = time.time() - start_time
 
-            if response.status_code == 403:
+            if response.status_code == status.HTTP_403_FORBIDDEN:
                 logger.warning(
                     f"Authorization denied: {request.method} {request.url.path} "
                     f"for user {user_id or 'anonymous'} (request_id={request_id})"
                 )
-            elif response.status_code == 401:
+            elif response.status_code == status.HTTP_401_UNAUTHORIZED:
                 logger.info(
                     f"Authentication required: {request.method} {request.url.path} "
                     f"(request_id={request_id})"

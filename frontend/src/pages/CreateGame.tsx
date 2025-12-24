@@ -16,6 +16,7 @@
 // with Game_Scheduler If not, see <https://www.gnu.org/licenses/>.
 
 import { FC, useState, useEffect } from 'react';
+import { StatusCodes } from 'http-status-codes';
 import {
   Container,
   CircularProgress,
@@ -211,7 +212,7 @@ export const CreateGame: FC = () => {
       console.error('Failed to create game:', err);
 
       if (
-        (err as any).response?.status === 422 &&
+        (err as any).response?.status === StatusCodes.UNPROCESSABLE_ENTITY &&
         (err as any).response.data?.detail?.error === 'invalid_mentions'
       ) {
         const errorData = (err as any).response.data.detail as ValidationErrorResponse;

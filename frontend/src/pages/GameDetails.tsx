@@ -16,6 +16,7 @@
 // with Game_Scheduler If not, see <https://www.gnu.org/licenses/>.
 
 import { FC, useState, useEffect } from 'react';
+import { StatusCodes } from 'http-status-codes';
 import {
   Container,
   Typography,
@@ -40,6 +41,8 @@ import { apiClient } from '../api/client';
 import { GameSession } from '../types';
 import { ParticipantList } from '../components/ParticipantList';
 import { useAuth } from '../hooks/useAuth';
+import { Time } from '../constants/time';
+import { UI } from '../constants/ui';
 
 export const GameDetails: FC = () => {
   const { gameId } = useParams<{ gameId: string }>();
@@ -54,8 +57,8 @@ export const GameDetails: FC = () => {
 
   const formatDuration = (minutes: number | null): string => {
     if (!minutes) return '';
-    const hours = Math.floor(minutes / 60);
-    const remainingMinutes = minutes % 60;
+    const hours = Math.floor(minutes / Time.SECONDS_PER_MINUTE);
+    const remainingMinutes = minutes % Time.SECONDS_PER_MINUTE;
     if (hours > 0 && remainingMinutes > 0) {
       return `${hours}h ${remainingMinutes}m`;
     } else if (hours > 0) {
@@ -195,7 +198,7 @@ export const GameDetails: FC = () => {
     } catch (err) {
       console.error('Failed to export calendar:', err);
       const errorMessage =
-        (err as any).response?.status === 403
+        (err as any).response?.status === StatusCodes.FORBIDDEN
           ? 'You must be the host or a participant to export this game.'
           : 'Failed to export calendar. Please try again.';
       alert(errorMessage);
@@ -325,11 +328,12 @@ export const GameDetails: FC = () => {
 
         <Box sx={{ mb: 3 }}>
           <Typography variant="h6" gutterBottom>
-            Participants ({game.participant_count || 0}/{game.max_players || 10})
+            Participants ({game.participant_count || 0}/{game.max_players || UI.DEFAULT_MAX_PLAYERS}
+            )
           </Typography>
           <ParticipantList
             participants={game.participants || []}
-            maxPlayers={game.max_players || 10}
+            maxPlayers={game.max_players || UI.DEFAULT_MAX_PLAYERS}
           />
         </Box>
 
