@@ -332,13 +332,13 @@ Fix waitlist promotion detection bug where users are not notified when promoted 
 
 ### [ ] Phase 1: Create Centralized Participant Partitioning Utility
 
-- [ ] Task 1.1: Add `PartitionedParticipants` dataclass to `shared/utils/participant_sorting.py`
+- [x] Task 1.1: Add `PartitionedParticipants` dataclass to `shared/utils/participant_sorting.py`
   - Details: .copilot-tracking/details/20251224-promotion-detection-placeholder-bug-details.md (Lines 15-35)
 
-- [ ] Task 1.2: Add `partition_participants()` function to `shared/utils/participant_sorting.py`
+- [x] Task 1.2: Add `partition_participants()` function to `shared/utils/participant_sorting.py`
   - Details: .copilot-tracking/details/20251224-promotion-detection-placeholder-bug-details.md (Lines 37-75)
 
-- [ ] Task 1.3: Add comprehensive unit tests for `partition_participants()`
+- [x] Task 1.3: Add comprehensive unit tests for `partition_participants()`
   - Details: .copilot-tracking/details/20251224-promotion-detection-placeholder-bug-details.md (Lines 77-110)
 
 ### [ ] Phase 2: Fix Promotion Detection in games.py

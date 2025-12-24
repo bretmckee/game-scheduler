@@ -18,10 +18,39 @@
 
 """Participant sorting utilities for consistent ordering across services."""
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from shared.models.participant import GameParticipant
+
+DEFAULT_MAX_PLAYERS = 10
+"""Default maximum number of players when max_players is not specified."""
+
+
+@dataclass
+class PartitionedParticipants:
+    """Result of partitioning participants into confirmed and overflow groups.
+
+    This provides a single source of truth for participant ordering that accounts
+    for placeholders, ensuring consistent behavior across bot formatters, API
+    services, and notification logic.
+    """
+
+    all_sorted: list["GameParticipant"]
+    """All participants sorted by priority (host, cohost, signup time)"""
+
+    confirmed: list["GameParticipant"]
+    """Participants in confirmed slots (0 to max_players-1)"""
+
+    overflow: list["GameParticipant"]
+    """Participants in overflow/waitlist (max_players onwards)"""
+
+    confirmed_real_user_ids: set[str]
+    """Discord IDs of confirmed participants with user accounts"""
+
+    overflow_real_user_ids: set[str]
+    """Discord IDs of overflow participants with user accounts"""
 
 
 def sort_participants(participants: list["GameParticipant"]) -> list["GameParticipant"]:
@@ -49,3 +78,41 @@ def sort_participants(participants: list["GameParticipant"]) -> list["GamePartic
     )
 
     return priority_participants + regular_participants
+
+
+def partition_participants(
+    participants: list["GameParticipant"],
+    max_players: int | None = None,
+) -> PartitionedParticipants:
+    """Sort and partition participants into confirmed and overflow groups.
+
+    This function handles both real users and placeholder participants,
+    ensuring consistent ordering logic across the application.
+
+    Args:
+        participants: List of all participants (including placeholders)
+        max_players: Maximum confirmed participants (defaults to DEFAULT_MAX_PLAYERS if None)
+
+    Returns:
+        PartitionedParticipants with sorted lists and pre-computed ID sets
+
+    Example:
+        >>> partitioned = partition_participants(game.participants, game.max_players)
+        >>> confirmed_ids = partitioned.confirmed_real_user_ids
+        >>> overflow_ids = partitioned.overflow_real_user_ids
+    """
+    max_players = max_players or DEFAULT_MAX_PLAYERS
+    sorted_all = sort_participants(participants)
+    confirmed = sorted_all[:max_players]
+    overflow = sorted_all[max_players:]
+
+    confirmed_ids = {p.user.discord_id for p in confirmed if p.user and p.user.discord_id}
+    overflow_ids = {p.user.discord_id for p in overflow if p.user and p.user.discord_id}
+
+    return PartitionedParticipants(
+        all_sorted=sorted_all,
+        confirmed=confirmed,
+        overflow=overflow,
+        confirmed_real_user_ids=confirmed_ids,
+        overflow_real_user_ids=overflow_ids,
+    )

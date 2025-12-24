@@ -23,7 +23,12 @@ from unittest.mock import Mock
 
 import pytest
 
-from shared.utils.participant_sorting import sort_participants
+from shared.utils.participant_sorting import (
+    DEFAULT_MAX_PLAYERS,
+    PartitionedParticipants,
+    partition_participants,
+    sort_participants,
+)
 
 
 @pytest.fixture
@@ -177,3 +182,239 @@ class TestSortParticipants:
         assert result[:5] == priority
         # Next 10 should be regular sorted by time
         assert result[5:] == regular
+
+
+class TestPartitionParticipants:
+    """Tests for partition_participants function."""
+
+    def test_partition_all_real_users(self, mock_participant):
+        """Test partitioning with only real users (no placeholders)."""
+        base_time = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
+
+        # Create participants with user objects
+        participants = []
+        for i in range(5):
+            p = mock_participant(f"user{i}", joined_at=base_time.replace(minute=i))
+            p.user = Mock()
+            p.user.discord_id = f"discord_{i}"
+            participants.append(p)
+
+        result = partition_participants(participants, max_players=3)
+
+        assert len(result.all_sorted) == 5
+        assert len(result.confirmed) == 3
+        assert len(result.overflow) == 2
+        assert result.confirmed_real_user_ids == {"discord_0", "discord_1", "discord_2"}
+        assert result.overflow_real_user_ids == {"discord_3", "discord_4"}
+
+    def test_partition_with_placeholders_in_confirmed(self, mock_participant):
+        """Test partitioning when placeholders occupy confirmed slots."""
+        base_time = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
+
+        # Placeholder in position 0
+        placeholder = mock_participant("placeholder", joined_at=base_time, pre_filled_position=0)
+        placeholder.user = None
+        placeholder.display_name = "Reserved"
+
+        # Real users
+        user1 = mock_participant("user1", joined_at=base_time.replace(minute=1))
+        user1.user = Mock()
+        user1.user.discord_id = "discord_1"
+
+        user2 = mock_participant("user2", joined_at=base_time.replace(minute=2))
+        user2.user = Mock()
+        user2.user.discord_id = "discord_2"
+
+        result = partition_participants([placeholder, user1, user2], max_players=2)
+
+        assert len(result.confirmed) == 2
+        assert result.confirmed[0] == placeholder
+        assert result.confirmed[1] == user1
+        assert len(result.overflow) == 1
+        assert result.overflow[0] == user2
+        assert result.confirmed_real_user_ids == {"discord_1"}
+        assert result.overflow_real_user_ids == {"discord_2"}
+
+    def test_partition_with_placeholders_in_overflow(self, mock_participant):
+        """Test partitioning when placeholders are in overflow."""
+        base_time = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
+
+        # Real users
+        user1 = mock_participant("user1", joined_at=base_time)
+        user1.user = Mock()
+        user1.user.discord_id = "discord_1"
+
+        user2 = mock_participant("user2", joined_at=base_time.replace(minute=1))
+        user2.user = Mock()
+        user2.user.discord_id = "discord_2"
+
+        # Placeholder in overflow
+        placeholder = mock_participant("placeholder", joined_at=base_time.replace(minute=2))
+        placeholder.user = None
+        placeholder.display_name = "Reserved"
+
+        result = partition_participants([user1, user2, placeholder], max_players=2)
+
+        assert len(result.confirmed) == 2
+        assert len(result.overflow) == 1
+        assert result.overflow[0] == placeholder
+        assert result.confirmed_real_user_ids == {"discord_1", "discord_2"}
+        assert result.overflow_real_user_ids == set()
+
+    def test_partition_mixed_placeholders_and_users(self, mock_participant):
+        """Test complex scenario with placeholders in both confirmed and overflow."""
+        base_time = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
+
+        # Placeholder in confirmed (position 0)
+        placeholder1 = mock_participant("ph1", joined_at=base_time, pre_filled_position=0)
+        placeholder1.user = None
+
+        # Real users
+        user1 = mock_participant("user1", joined_at=base_time.replace(minute=1))
+        user1.user = Mock()
+        user1.user.discord_id = "discord_1"
+
+        user2 = mock_participant("user2", joined_at=base_time.replace(minute=2))
+        user2.user = Mock()
+        user2.user.discord_id = "discord_2"
+
+        # Placeholder in overflow
+        placeholder2 = mock_participant("ph2", joined_at=base_time.replace(minute=3))
+        placeholder2.user = None
+
+        result = partition_participants([placeholder1, user1, user2, placeholder2], max_players=2)
+
+        assert len(result.confirmed) == 2
+        assert len(result.overflow) == 2
+        assert result.confirmed_real_user_ids == {"discord_1"}
+        assert result.overflow_real_user_ids == {"discord_2"}
+
+    def test_partition_empty_list(self, mock_participant):
+        """Test partitioning an empty list."""
+        result = partition_participants([], max_players=5)
+
+        assert len(result.all_sorted) == 0
+        assert len(result.confirmed) == 0
+        assert len(result.overflow) == 0
+        assert result.confirmed_real_user_ids == set()
+        assert result.overflow_real_user_ids == set()
+
+    def test_partition_default_max_players(self, mock_participant):
+        """Test that max_players defaults to DEFAULT_MAX_PLAYERS when None."""
+        base_time = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
+
+        participants = []
+        for i in range(15):
+            p = mock_participant(f"user{i}", joined_at=base_time.replace(minute=i))
+            p.user = Mock()
+            p.user.discord_id = f"discord_{i}"
+            participants.append(p)
+
+        result = partition_participants(participants, max_players=None)
+
+        assert len(result.confirmed) == DEFAULT_MAX_PLAYERS
+        assert len(result.overflow) == 15 - DEFAULT_MAX_PLAYERS
+        assert len(result.confirmed_real_user_ids) == DEFAULT_MAX_PLAYERS
+        assert len(result.overflow_real_user_ids) == 15 - DEFAULT_MAX_PLAYERS
+
+    def test_partition_max_players_zero(self, mock_participant):
+        """Test that max_players=0 uses default (DEFAULT_MAX_PLAYERS)."""
+        base_time = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
+
+        user = mock_participant("user1", joined_at=base_time)
+        user.user = Mock()
+        user.user.discord_id = "discord_1"
+
+        result = partition_participants([user], max_players=0)
+
+        # max_players=0 triggers default behavior (DEFAULT_MAX_PLAYERS)
+        assert len(result.confirmed) == 1
+        assert len(result.overflow) == 0
+        assert result.confirmed_real_user_ids == {"discord_1"}
+        assert result.overflow_real_user_ids == set()
+
+    def test_partition_max_players_exceeds_count(self, mock_participant):
+        """Test partitioning when max_players exceeds participant count."""
+        base_time = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
+
+        participants = []
+        for i in range(3):
+            p = mock_participant(f"user{i}", joined_at=base_time.replace(minute=i))
+            p.user = Mock()
+            p.user.discord_id = f"discord_{i}"
+            participants.append(p)
+
+        result = partition_participants(participants, max_players=10)
+
+        assert len(result.confirmed) == 3
+        assert len(result.overflow) == 0
+        assert result.confirmed_real_user_ids == {"discord_0", "discord_1", "discord_2"}
+        assert result.overflow_real_user_ids == set()
+
+    def test_partition_preserves_sort_order(self, mock_participant):
+        """Test that partitioning preserves the sort order from sort_participants."""
+        base_time = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
+
+        # Create priority participant
+        priority = mock_participant("priority", joined_at=base_time, pre_filled_position=0)
+        priority.user = Mock()
+        priority.user.discord_id = "discord_priority"
+
+        # Create regular participants
+        user1 = mock_participant("user1", joined_at=base_time.replace(minute=2))
+        user1.user = Mock()
+        user1.user.discord_id = "discord_1"
+
+        user2 = mock_participant("user2", joined_at=base_time.replace(minute=1))
+        user2.user = Mock()
+        user2.user.discord_id = "discord_2"
+
+        # Submit in random order
+        result = partition_participants([user1, priority, user2], max_players=2)
+
+        # Should be sorted: priority, user2, user1
+        assert result.all_sorted == [priority, user2, user1]
+        assert result.confirmed == [priority, user2]
+        assert result.overflow == [user1]
+
+    def test_partition_confirmed_overflow_id_sets_correct(self, mock_participant):
+        """Test that ID sets correctly identify users in confirmed vs overflow."""
+        base_time = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
+
+        # Create mix of users with and without discord_id
+        user1 = mock_participant("user1", joined_at=base_time)
+        user1.user = Mock()
+        user1.user.discord_id = "discord_1"
+
+        user2 = mock_participant("user2", joined_at=base_time.replace(minute=1))
+        user2.user = Mock()
+        user2.user.discord_id = None  # No discord_id
+
+        user3 = mock_participant("user3", joined_at=base_time.replace(minute=2))
+        user3.user = None  # No user object
+
+        user4 = mock_participant("user4", joined_at=base_time.replace(minute=3))
+        user4.user = Mock()
+        user4.user.discord_id = "discord_4"
+
+        result = partition_participants([user1, user2, user3, user4], max_players=2)
+
+        # Only users with valid discord_id should be in sets
+        assert result.confirmed_real_user_ids == {"discord_1"}
+        assert result.overflow_real_user_ids == {"discord_4"}
+
+    def test_partition_returns_correct_dataclass(self, mock_participant):
+        """Test that partition_participants returns PartitionedParticipants instance."""
+        base_time = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
+        user = mock_participant("user1", joined_at=base_time)
+        user.user = Mock()
+        user.user.discord_id = "discord_1"
+
+        result = partition_participants([user], max_players=1)
+
+        assert isinstance(result, PartitionedParticipants)
+        assert hasattr(result, "all_sorted")
+        assert hasattr(result, "confirmed")
+        assert hasattr(result, "overflow")
+        assert hasattr(result, "confirmed_real_user_ids")
+        assert hasattr(result, "overflow_real_user_ids")
