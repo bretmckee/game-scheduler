@@ -19,6 +19,7 @@
 """Game participant model."""
 
 from datetime import datetime
+from enum import IntEnum
 from typing import TYPE_CHECKING
 
 from sqlalchemy import CheckConstraint, ForeignKey, Integer, String, UniqueConstraint, func
@@ -29,6 +30,13 @@ from .base import Base, generate_uuid, utc_now
 if TYPE_CHECKING:
     from .game import GameSession
     from .user import User
+
+
+class ParticipantType(IntEnum):
+    """Participant type enumeration with sparse values for future expansion."""
+
+    HOST_ADDED = 8000  # High priority (sorts first)
+    SELF_ADDED = 24000  # Low priority (sorts last)
 
 
 class GameParticipant(Base):
