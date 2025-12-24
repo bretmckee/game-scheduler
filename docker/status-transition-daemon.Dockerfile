@@ -54,6 +54,7 @@ COPY --from=base /usr/local/bin /usr/local/bin
 
 # Copy application code
 COPY shared/ ./shared/
+COPY services/__init__.py ./services/__init__.py
 COPY services/scheduler/generic_scheduler_daemon.py ./services/scheduler/generic_scheduler_daemon.py
 COPY services/scheduler/event_builders.py ./services/scheduler/event_builders.py
 COPY services/scheduler/status_transition_daemon_wrapper.py ./services/scheduler/status_transition_daemon_wrapper.py
