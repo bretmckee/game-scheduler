@@ -563,9 +563,9 @@ async def _build_game_response(
     """
     participant_count = len(game.participants)
 
-    sorted_participants = participant_sorting.sort_participants(game.participants)
+    partitioned = participant_sorting.partition_participants(game.participants, game.max_players)
 
-    discord_user_ids = [p.user.discord_id for p in sorted_participants if p.user is not None]
+    discord_user_ids = [p.user.discord_id for p in partitioned.all_sorted if p.user is not None]
 
     # Add host to the list of users to resolve
     host_discord_id = game.host.discord_id if game.host else None
@@ -593,7 +593,7 @@ async def _build_game_response(
         guild_name = await fetch_guild_name_safe(game.guild.guild_id)
 
     participant_responses = []
-    for participant in sorted_participants:
+    for participant in partitioned.all_sorted:
         discord_id = participant.user.discord_id if participant.user else None
         display_name = participant.display_name
         avatar_url = None

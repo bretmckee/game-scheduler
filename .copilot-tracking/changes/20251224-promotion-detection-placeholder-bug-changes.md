@@ -32,5 +32,6 @@ Fix waitlist promotion detection bug where users are not notified when promoted 
 - services/bot/events/handlers.py - Added partition_participants import and updated _handle_game_reminder() to use centralized partitioning utility (Task 3.1)
 - services/bot/events/handlers.py - Updated _handle_join_notification() to use partition_participants() for checking confirmed status (Task 3.2)
 - services/bot/events/handlers.py - Updated _handle_game_cancelled() helper to use partition_participants() for extracting participant IDs (Task 3.3)
+- services/api/routes/games.py - Updated download_calendar() to use partition_participants() for consistent participant partitioning (Task 4.1)
 
 ### Removed
