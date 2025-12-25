@@ -35,3 +35,18 @@ Fix waitlist promotion detection bug where users are not notified when promoted 
 - services/api/routes/games.py - Updated download_calendar() to use partition_participants() for consistent participant partitioning (Task 4.1)
 
 ### Removed
+### Skipped
+
+- Phase 5: Verification and Testing - Skipped as requested; manual testing and verification can be performed as needed
+
+## Phase Status
+
+- ✅ Phase 1: Create Centralized Participant Partitioning Utility - Completed
+- ✅ Phase 2: Fix Promotion Detection in games.py - Completed
+- ✅ Phase 3: Migrate Bot Event Handlers - Completed
+- ✅ Phase 4: Migrate API Routes - Completed
+- ⏭️ Phase 5: Verification and Testing - Skipped (manual testing can be performed as needed)
+
+## Notes
+
+All code changes have been implemented. The centralized `partition_participants()` utility is now used consistently across all 6 locations in the codebase, fixing the promotion detection bug when placeholders occupy confirmed slots.
