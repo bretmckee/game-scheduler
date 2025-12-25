@@ -63,9 +63,7 @@ def test_guild_id(db_session, discord_guild_id):
     )
     row = result.fetchone()
     if not row:
-        pytest.fail(
-            f"Test guild {discord_guild_id} not found - init seed may have failed"
-        )
+        pytest.fail(f"Test guild {discord_guild_id} not found - init seed may have failed")
     return row[0]
 
 
@@ -73,9 +71,7 @@ def test_guild_id(db_session, discord_guild_id):
 def test_template_id(db_session, test_guild_id, synced_guild):
     """Get default template ID for test guild (created by guild sync)."""
     result = db_session.execute(
-        text(
-            "SELECT id FROM game_templates WHERE guild_id = :guild_id AND is_default = true"
-        ),
+        text("SELECT id FROM game_templates WHERE guild_id = :guild_id AND is_default = true"),
         {"guild_id": test_guild_id},
     )
     row = result.fetchone()
@@ -98,9 +94,7 @@ async def trigger_promotion_via_removal(
         "removed_participant_ids": json.dumps([placeholder_participant_id]),
     }
 
-    response = await authenticated_admin_client.put(
-        f"/api/v1/games/{game_id}", data=update_data
-    )
+    response = await authenticated_admin_client.put(f"/api/v1/games/{game_id}", data=update_data)
     assert response.status_code == 200, f"Failed to remove placeholder: {response.text}"
     return "Removed placeholder participant to trigger promotion"
 
@@ -116,12 +110,8 @@ async def trigger_promotion_via_max_players_increase(
         "max_players": "2",
     }
 
-    response = await authenticated_admin_client.put(
-        f"/api/v1/games/{game_id}", data=update_data
-    )
-    assert (
-        response.status_code == 200
-    ), f"Failed to increase max_players: {response.text}"
+    response = await authenticated_admin_client.put(f"/api/v1/games/{game_id}", data=update_data)
+    assert response.status_code == 200, f"Failed to increase max_players: {response.text}"
     return "Increased max_players from 1 to 2 to trigger promotion"
 
 
@@ -202,12 +192,12 @@ async def test_waitlist_promotion_sends_dm(
             break
 
     assert participants_field is not None, "Participants field not found"
-    assert (
-        "1/1" in participants_field.name
-    ), f"Expected 1/1 in field name, got: {participants_field.name}"
-    assert (
-        "Reserved" in participants_field.value
-    ), f"Expected 'Reserved' in participants, got: {participants_field.value}"
+    assert "1/1" in participants_field.name, (
+        f"Expected 1/1 in field name, got: {participants_field.name}"
+    )
+    assert "Reserved" in participants_field.value, (
+        f"Expected 'Reserved' in participants, got: {participants_field.value}"
+    )
     print("✓ Initial message shows 1/1 with Reserved, test user in overflow")
 
     # Get placeholder participant ID for removal trigger
@@ -245,9 +235,10 @@ async def test_waitlist_promotion_sends_dm(
             break
 
     assert participants_field is not None, "Participants field not found"
-    assert (
-        expected_player_count in participants_field.name
-    ), f"Expected {expected_player_count} in field name after promotion, got: {participants_field.name}"
+    assert expected_player_count in participants_field.name, (
+        f"Expected {expected_player_count} in field name after promotion, "
+        f"got: {participants_field.name}"
+    )
     print(f"✓ Discord message shows {expected_player_count} with test user promoted")
 
     # Verify test user received promotion DM (use main_bot_helper since it sends DMs)
@@ -256,7 +247,7 @@ async def test_waitlist_promotion_sends_dm(
     for i, dm in enumerate(recent_dms):
         content_preview = dm.content[:120] if dm.content else "(no content)"
         print(f"[TEST] DM {i}: {content_preview}")
-    
+
     promotion_dm = None
     for dm in recent_dms:
         if (
@@ -268,8 +259,8 @@ async def test_waitlist_promotion_sends_dm(
             break
 
     print(f"[TEST] Looking for promotion DM with game_title='{game_title}'")
-    print(f"[TEST] Looking for phrases: 'A spot opened up', 'moved from the waitlist'")
-    
+    print("[TEST] Looking for phrases: 'A spot opened up', 'moved from the waitlist'")
+
     assert promotion_dm is not None, (
         f"Test user should have received promotion DM. "
         f"Recent DMs: {[dm.content[:100] for dm in recent_dms]}"

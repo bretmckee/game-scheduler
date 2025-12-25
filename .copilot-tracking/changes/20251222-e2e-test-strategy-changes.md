@@ -13,7 +13,7 @@ Implementation of true end-to-end testing that validates Discord bot behavior an
 **Phase 2 Status: ✅ COMPLETE** - Bot authentication fixtures with manual session creation fully working (4/4 tests passing).
 **Phase 3 Status: ✅ COMPLETE** - First E2E test fully implemented and passing (1/1 test) with Discord message validation working.
 **Phase 4 Status: ✅ COMPLETE** - Message validation tests completed (Tasks 4.1, 4.2, 4.3, and 4.4 all implemented). Task 4.5 intentionally skipped - see Phase 5.
-**Phase 5 Status: 🔄 IN PROGRESS** - Additional communication path tests (Tasks 5.1, 5.2, and 5.3 complete, 1 remaining task).
+**Phase 5 Status: ✅ COMPLETE** - All additional communication path tests implemented and passing (Tasks 5.1, 5.2, 5.3, and 5.4 complete).
 
 ## Changes
 
@@ -36,6 +36,10 @@ Implementation of true end-to-end testing that validates Discord bot behavior an
 - tests/e2e/test_game_cancellation.py - E2E test for game cancellation message update validation (Task 5.1)
 - tests/e2e/test_player_removal.py - E2E test for player removal DM notification and message update validation (Task 5.2)
 - tests/e2e/test_waitlist_promotion.py - E2E test for waitlist promotion DM notification validation (Task 5.3, parametrized with 2 scenarios)
+- tests/e2e/test_join_notification.py - E2E test for join notification DM delivery with signup instructions (Task 5.4, 2 test scenarios)
+  - test_join_notification_with_signup_instructions: Validates DM includes signup instructions
+  - test_join_notification_without_signup_instructions: Validates generic join message when no instructions
+  - Both tests passing (2/2)
 
 ### Modified
 
@@ -79,6 +83,13 @@ Implementation of true end-to-end testing that validates Discord bot behavior an
   - Added `await self.db.refresh(game, ["participants"])` after commit (line ~889)
   - Ensures promotion detection sees correct participant list after deletions
   - Resolves SQLAlchemy relationship caching issue causing stale data
+- services/api/services/games.py - Refactored join notification scheduling into common helper method (Task 5.4)
+  - Created `_schedule_join_notifications_for_game(game)` helper method
+  - Uses `partition_participants()` to only notify **confirmed** participants (not waitlisted)
+  - Called from both `create_game()` (for initial participants) and `_add_new_mentions()` (for later additions)
+  - Eliminates code duplication and ensures consistent behavior
+  - Schedules notifications only for Discord users (participants with user_id) with 60-second delay
+  - Added game.participants refresh in create_game() to ensure relationship is loaded before partitioning
 
 ## Success Metrics
 
@@ -96,6 +107,11 @@ Implementation of true end-to-end testing that validates Discord bot behavior an
 - ✅ Task 5.3: Waitlist promotion DM notification test passing (both scenarios: via_removal and via_max_players_increase)
   - Fixed SQLAlchemy relationship caching bug in promotion detection
   - Both parametrized test scenarios validating correctly
+- ✅ Task 5.4: Join notification DM delivery test passing (2 scenarios: with and without signup instructions)
+  - Validates delayed notification schedule creation (60 second delay)
+  - Verifies notification daemon processing
+  - Confirms DM delivery with conditional signup instructions
+  - Tests both presence and absence of signup_instructions field
 
 ### Removed
 

@@ -163,7 +163,7 @@ Implement true end-to-end testing that validates Discord bot behavior and messag
   - Details: .copilot-tracking/details/20251222-e2e-test-strategy-details.md (Lines 199-220)
   - Status: ✅ COMPLETE - Test implemented with status verification and Discord message validation
 
-### [ ] Phase 5: Additional Communication Path Tests
+### [x] Phase 5: Additional Communication Path Tests
 
 - [x] Task 5.1: Game cancellation → message update test
   - Create game, retrieve message_id
@@ -201,7 +201,7 @@ Implement true end-to-end testing that validates Discord bot behavior and messag
   - **Test File**: tests/e2e/test_waitlist_promotion.py (parametrized with 2 scenarios)
   - **Validation**: Both scenarios passing - via_removal and via_max_players_increase
 
-- [ ] Task 5.4: Join notification → delayed DM test
+- [x] Task 5.4: Join notification → delayed DM test
   - Create game with signup instructions
   - Join game as participant
   - Verify notification_schedule entry created (type=join_notification)
@@ -209,7 +209,7 @@ Implement true end-to-end testing that validates Discord bot behavior and messag
   - Verify NOTIFICATION_DUE event published with type=join_notification
   - Verify participant receives signup instructions DM
   - Details: .copilot-tracking/details/20251222-e2e-test-strategy-details.md (Lines 278-300)
-  - Status: ❌ NOT STARTED - Critical gap: validates second notification_type path
+  - Status: ✅ COMPLETE - E2E test implemented with 2 scenarios (with/without signup instructions)
 
 ### [ ] Phase 6: Documentation and CI/CD Integration
 
@@ -252,8 +252,8 @@ Implement true end-to-end testing that validates Discord bot behavior and messag
 - Pattern established for future E2E test development
 - Clear path forward for implementing advanced test scenarios
 - **Comprehensive microservice communication path coverage achieved**:
-  - Pattern 1 (Immediate API Events): 4/5 validated, 1/5 implemented awaiting validation (80% validated)
+  - Pattern 1 (Immediate API Events): 5/5 validated (100%)
   - Pattern 2 (Scheduled Notification Events): 2/2 tested (100%)
   - Pattern 3 (Scheduled Status Events): 1/1 tested (100%)
-  - Overall: 7/8 critical paths validated, 1/8 awaiting validation (87.5% validated)
-- **Task 5.3 (Waitlist Promotion) requires validation** before marking complete
+  - Overall: 8/8 critical paths validated (100% validated)
+- **All Phase 5 tasks complete** - comprehensive E2E coverage of all microservice communication patterns
