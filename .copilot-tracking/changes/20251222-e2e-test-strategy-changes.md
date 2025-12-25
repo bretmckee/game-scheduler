@@ -14,6 +14,7 @@ Implementation of true end-to-end testing that validates Discord bot behavior an
 **Phase 3 Status: ✅ COMPLETE** - First E2E test fully implemented and passing (1/1 test) with Discord message validation working.
 **Phase 4 Status: ✅ COMPLETE** - Message validation tests completed (Tasks 4.1, 4.2, 4.3, and 4.4 all implemented). Task 4.5 intentionally skipped - see Phase 5.
 **Phase 5 Status: ✅ COMPLETE** - All additional communication path tests implemented and passing (Tasks 5.1, 5.2, 5.3, and 5.4 complete).
+**Phase 6 Status: ✅ COMPLETE** - All documentation updates complete including comprehensive CI/CD integration guidance (Tasks 6.1, 6.2, 6.3 all complete).
 
 ## Changes
 
@@ -40,6 +41,7 @@ Implementation of true end-to-end testing that validates Discord bot behavior an
   - test_join_notification_with_signup_instructions: Validates DM includes signup instructions
   - test_join_notification_without_signup_instructions: Validates generic join message when no instructions
   - Both tests passing (2/2)
+- .copilot-tracking/research/20251225-e2e-polling-patterns-research.md - Analysis of sleep/polling patterns with improvement proposal (21 sleep calls identified)
 
 ### Modified
 
@@ -90,6 +92,15 @@ Implementation of true end-to-end testing that validates Discord bot behavior an
   - Eliminates code duplication and ensures consistent behavior
   - Schedules notifications only for Discord users (participants with user_id) with 60-second delay
   - Added game.participants refresh in create_game() to ensure relationship is loaded before partitioning
+- TESTING_E2E.md - Comprehensive documentation update with E2E test patterns (Task 6.1, 6.2)
+  - Documented two-bot setup (main bot + admin bot) with required permissions
+  - Added E2E test architecture section with fixture usage examples
+  - Included DiscordTestHelper API reference with code examples
+  - Documented authentication pattern using admin bot tokens
+  - Added timing considerations and synchronization patterns
+  - Expanded troubleshooting section with common failure scenarios
+  - Updated environment variable configuration for both bots
+  - Added CI/CD integration recommendations (manual execution preferred)
 
 ## Success Metrics
 

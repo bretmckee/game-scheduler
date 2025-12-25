@@ -52,13 +52,13 @@ class DiscordTestHelper:
         """Context manager exit - disconnect from Discord."""
         await self.disconnect()
 
-    async def connect(self):
+    async def connect(self) -> None:
         """Connect to Discord using bot token."""
         if not self._connected:
             await self.client.login(self.bot_token)
             self._connected = True
 
-    async def disconnect(self):
+    async def disconnect(self) -> None:
         """Disconnect from Discord."""
         if self._connected:
             await self.client.close()
@@ -180,7 +180,7 @@ class DiscordTestHelper:
         expected_title: str,
         expected_host_id: str,
         expected_max_players: int,
-    ):
+    ) -> None:
         """
         Verify game announcement embed structure and content.
 
