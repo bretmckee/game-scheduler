@@ -30,6 +30,7 @@ from shared.messaging.events import Event, EventType, NotificationDueEvent
 from shared.models import GameStatusSchedule, NotificationSchedule
 from shared.models.base import utc_now
 from shared.schemas.events import GameStatusTransitionDueEvent
+from shared.utils.time_constants import MILLISECONDS_PER_SECOND, SECONDS_PER_MINUTE
 
 logger = logging.getLogger(__name__)
 
@@ -63,14 +64,14 @@ def build_notification_event(
     if notification.game_scheduled_at:
         time_until_game = (notification.game_scheduled_at - utc_now()).total_seconds()
 
-        if time_until_game > 60:
-            expiration_ms = int(time_until_game * 1000)
+        if time_until_game > SECONDS_PER_MINUTE:
+            expiration_ms = int(time_until_game * MILLISECONDS_PER_SECOND)
             logger.debug(
                 f"Notification TTL: {time_until_game:.0f}s until game starts "
                 f"(game_id={notification.game_id})"
             )
         else:
-            expiration_ms = 60000
+            expiration_ms = SECONDS_PER_MINUTE * MILLISECONDS_PER_SECOND
             logger.warning(
                 f"Game already started or starting soon, setting minimal TTL "
                 f"(game_id={notification.game_id})"

@@ -34,6 +34,7 @@ from services.bot.utils.discord_format import (
     format_participant_list,
 )
 from services.bot.views.game_view import GameView
+from shared.utils.limits import MAX_STRING_DISPLAY_LENGTH
 
 
 class GameMessageFormatter:
@@ -89,10 +90,10 @@ class GameMessageFormatter:
         Returns:
             Configured Discord embed
         """
-        # Truncate description to first 100 chars for Discord message
+        # Truncate description for Discord message
         truncated_description = description
-        if description and len(description) > 100:
-            truncated_description = description[:97] + "..."
+        if description and len(description) > MAX_STRING_DISPLAY_LENGTH:
+            truncated_description = description[: MAX_STRING_DISPLAY_LENGTH - 3] + "..."
 
         calendar_url = None
         if game_id:

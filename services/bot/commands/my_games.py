@@ -30,6 +30,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database import get_db_session
 from shared.models import GameParticipant, GameSession, User
+from shared.utils.limits import DEFAULT_PAGE_SIZE
 
 if TYPE_CHECKING:
     from services.bot.bot import GameSchedulerBot
@@ -50,8 +51,8 @@ async def my_games_command(interaction: Interaction) -> None:
         attributes={
             "discord.command": "my-games",
             "discord.user_id": str(interaction.user.id),
-            "discord.guild_id": str(interaction.guild.id) if interaction.guild else None,
-            "discord.channel_id": str(interaction.channel_id) if interaction.channel_id else None,
+            "discord.guild_id": (str(interaction.guild.id) if interaction.guild else None),
+            "discord.channel_id": (str(interaction.channel_id) if interaction.channel_id else None),
         },
     ):
         await interaction.response.defer(ephemeral=True)
@@ -196,8 +197,8 @@ def _create_games_embed(
             inline=False,
         )
 
-    if len(games) > 10:
-        embed.set_footer(text=f"Showing 10 of {len(games)} games")
+    if len(games) > DEFAULT_PAGE_SIZE:
+        embed.set_footer(text=f"Showing {DEFAULT_PAGE_SIZE} of {len(games)} games")
     else:
         embed.set_footer(text=f"{len(games)} game(s)")
 

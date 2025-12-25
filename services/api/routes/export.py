@@ -40,6 +40,7 @@ from shared import database
 from shared.models.game import GameSession
 from shared.models.participant import GameParticipant
 from shared.schemas import auth as auth_schemas
+from shared.utils.limits import MAX_STRING_DISPLAY_LENGTH
 
 logger = logging.getLogger(__name__)
 
@@ -69,9 +70,9 @@ def generate_calendar_filename(game_title: str, scheduled_at: datetime) -> str:
     # Replace multiple spaces/hyphens with single hyphen
     safe_title = re.sub(r"[-\s]+", "-", safe_title)
 
-    # Truncate if too long (max 100 chars before date)
-    if len(safe_title) > 100:
-        safe_title = safe_title[:100].rstrip("-")
+    # Truncate if too long
+    if len(safe_title) > MAX_STRING_DISPLAY_LENGTH:
+        safe_title = safe_title[:MAX_STRING_DISPLAY_LENGTH].rstrip("-")
 
     # Format date
     date_str = scheduled_at.strftime("%Y-%m-%d")

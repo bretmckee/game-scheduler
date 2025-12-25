@@ -17,13 +17,11 @@
 
 
 """
-Business logic constants.
+Limit constants for pagination and string display.
 
-Defines pagination limits, string truncation, and retry thresholds.
+Defines maximum values for pagination page sizes and string truncation lengths.
 """
 
 DEFAULT_PAGE_SIZE = 10
 
 MAX_STRING_DISPLAY_LENGTH = 100
-
-MAX_CONSECUTIVE_FAILURES = 3

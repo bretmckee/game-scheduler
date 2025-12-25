@@ -20,6 +20,9 @@
 
 import base64
 
+DISCORD_TOKEN_PARTS = 3
+DISCORD_BOT_TOKEN_DOT_COUNT = 2
+
 
 def extract_bot_discord_id(bot_token: str) -> str:
     """
@@ -38,8 +41,10 @@ def extract_bot_discord_id(bot_token: str) -> str:
         ValueError: If token format is invalid
     """
     parts = bot_token.split(".")
-    if len(parts) != 3:
-        raise ValueError(f"Invalid bot token format: expected 3 parts, got {len(parts)}")
+    if len(parts) != DISCORD_TOKEN_PARTS:
+        raise ValueError(
+            f"Invalid bot token format: expected {DISCORD_TOKEN_PARTS} parts, got {len(parts)}"
+        )
 
     try:
         bot_id_base64 = parts[0]

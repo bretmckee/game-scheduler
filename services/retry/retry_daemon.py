@@ -37,6 +37,8 @@ from shared.messaging.infrastructure import (
 )
 from shared.messaging.sync_publisher import SyncEventPublisher
 
+MAX_CONSECUTIVE_FAILURES = 3
+
 logger = logging.getLogger(__name__)
 tracer = trace.get_tracer(__name__)
 meter = metrics.get_meter(__name__)
@@ -317,7 +319,7 @@ class RetryDaemon:
 
         # Check for excessive consecutive failures
         for dlq_name, failures in self.consecutive_failures.items():
-            if failures >= 3:
+            if failures >= MAX_CONSECUTIVE_FAILURES:
                 logger.warning(f"DLQ {dlq_name} has {failures} consecutive failures")
                 return False
 

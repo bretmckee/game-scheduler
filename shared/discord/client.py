@@ -28,10 +28,12 @@ import logging
 from typing import Any
 
 import aiohttp
+from starlette import status
 
 from shared.cache import client as cache_client
 from shared.cache import keys as cache_keys
 from shared.cache import ttl
+from shared.utils.discord_tokens import DISCORD_BOT_TOKEN_DOT_COUNT
 
 logger = logging.getLogger(__name__)
 
@@ -96,11 +98,14 @@ class DiscordAPIClient:
         """
         token = token or self.bot_token
         dot_count = token.count(".")
-        if dot_count == 2:
+        if dot_count == DISCORD_BOT_TOKEN_DOT_COUNT:
             return f"Bot {token}"
         if dot_count == 1:
             return f"Bearer {token}"
-        raise ValueError(f"Invalid Discord token format: expected 1 or 2 dots, got {dot_count}")
+        raise ValueError(
+            f"Invalid Discord token format: expected 1 or {DISCORD_BOT_TOKEN_DOT_COUNT} dots, "
+            f"got {dot_count}"
+        )
 
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create aiohttp session."""
@@ -169,7 +174,7 @@ class DiscordAPIClient:
                 response_data = await response.json()
                 self._log_response(response)
 
-                if response.status != 200:
+                if response.status != status.HTTP_200_OK:
                     error_msg = response_data.get("error_description", "Unknown error")
                     raise DiscordAPIError(response.status, error_msg)
 
@@ -210,7 +215,7 @@ class DiscordAPIClient:
                 response_data = await response.json()
                 self._log_response(response)
 
-                if response.status != 200:
+                if response.status != status.HTTP_200_OK:
                     error_msg = response_data.get("error_description", "Unknown error")
                     raise DiscordAPIError(response.status, error_msg)
 
@@ -243,7 +248,7 @@ class DiscordAPIClient:
                 response_data = await response.json()
                 self._log_response(response)
 
-                if response.status != 200:
+                if response.status != status.HTTP_200_OK:
                     error_msg = response_data.get("message", "Unknown error")
                     raise DiscordAPIError(response.status, error_msg, dict(response.headers))
 
@@ -330,7 +335,7 @@ class DiscordAPIClient:
                 guild_count = len(response_data) if isinstance(response_data, list) else "N/A"
                 self._log_response(response, f"Returned {guild_count} guilds")
 
-                if response.status != 200:
+                if response.status != status.HTTP_200_OK:
                     error_msg = (
                         response_data.get("message", "Unknown error")
                         if isinstance(response_data, dict)
@@ -369,7 +374,7 @@ class DiscordAPIClient:
                 channel_count = len(response_data) if isinstance(response_data, list) else "N/A"
                 self._log_response(response, f"Returned {channel_count} channels")
 
-                if response.status != 200:
+                if response.status != status.HTTP_200_OK:
                     error_msg = (
                         response_data.get("message", "Unknown error")
                         if isinstance(response_data, dict)
@@ -418,9 +423,9 @@ class DiscordAPIClient:
                 response_data = await response.json()
                 self._log_response(response)
 
-                if response.status != 200:
+                if response.status != status.HTTP_200_OK:
                     error_msg = response_data.get("message", "Unknown error")
-                    if response.status == 404:
+                    if response.status == status.HTTP_404_NOT_FOUND:
                         # Cache negative result briefly
                         await redis.set(cache_key, json.dumps({"error": "not_found"}), ttl=60)
                     raise DiscordAPIError(response.status, error_msg, dict(response.headers))
@@ -473,9 +478,9 @@ class DiscordAPIClient:
                 response_data = await response.json()
                 self._log_response(response)
 
-                if response.status != 200:
+                if response.status != status.HTTP_200_OK:
                     error_msg = response_data.get("message", "Unknown error")
-                    if response.status == 404:
+                    if response.status == status.HTTP_404_NOT_FOUND:
                         # Cache negative result briefly
                         await redis.set(cache_key, json.dumps({"error": "not_found"}), ttl=60)
                     raise DiscordAPIError(response.status, error_msg, dict(response.headers))
@@ -525,7 +530,7 @@ class DiscordAPIClient:
                 response_data = await response.json()
                 self._log_response(response)
 
-                if response.status != 200:
+                if response.status != status.HTTP_200_OK:
                     error_msg = response_data.get("message", "Unknown error")
                     raise DiscordAPIError(response.status, error_msg, dict(response.headers))
 
@@ -573,9 +578,9 @@ class DiscordAPIClient:
                 response_data = await response.json()
                 self._log_response(response)
 
-                if response.status != 200:
+                if response.status != status.HTTP_200_OK:
                     error_msg = response_data.get("message", "Unknown error")
-                    if response.status == 404:
+                    if response.status == status.HTTP_404_NOT_FOUND:
                         # Cache negative result briefly
                         await redis.set(cache_key, json.dumps({"error": "not_found"}), ttl=60)
                     raise DiscordAPIError(response.status, error_msg, dict(response.headers))
@@ -614,7 +619,7 @@ class DiscordAPIClient:
                 response_data = await response.json()
                 self._log_response(response)
 
-                if response.status != 200:
+                if response.status != status.HTTP_200_OK:
                     error_msg = response_data.get("message", "Unknown error")
                     raise DiscordAPIError(response.status, error_msg, dict(response.headers))
 
@@ -646,7 +651,7 @@ class DiscordAPIClient:
                 member = await self.get_guild_member(guild_id, user_id)
                 members.append(member)
             except DiscordAPIError as e:
-                if e.status == 404:
+                if e.status == status.HTTP_404_NOT_FOUND:
                     logger.debug(f"User {user_id} not found in guild {guild_id}")
                     continue
                 raise
