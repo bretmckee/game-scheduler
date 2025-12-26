@@ -38,45 +38,48 @@ Rewrite test_notification_daemon.py and test_status_transitions.py to test runni
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Infrastructure Setup
+### [x] Phase 1: Infrastructure Setup
 
-- [ ] Task 1.1: Add rabbitmq_channel fixture if missing
+- [x] Task 1.1: Add rabbitmq_channel fixture if missing
   - Details: .copilot-tracking/details/20251226-integration-test-daemon-rewrite-details.md (Lines 13-29)
 
-- [ ] Task 1.2: Add RabbitMQ helper functions
+- [x] Task 1.2: Add RabbitMQ helper functions
   - Details: .copilot-tracking/details/20251226-integration-test-daemon-rewrite-details.md (Lines 31-54)
 
-### [ ] Phase 2: Rewrite Notification Daemon Tests
+### [x] Phase 2: Rewrite Notification Daemon Tests
 
-- [ ] Task 2.1: Rewrite test_daemon_processes_due_notification
+- [x] Task 2.1: Rewrite test_daemon_processes_due_notification
   - Details: .copilot-tracking/details/20251226-integration-test-daemon-rewrite-details.md (Lines 56-87)
 
-- [ ] Task 2.2: Rewrite test_daemon_waits_for_future_notification
+- [x] Task 2.2: Rewrite test_daemon_waits_for_future_notification
   - Details: .copilot-tracking/details/20251226-integration-test-daemon-rewrite-details.md (Lines 89-118)
 
-- [ ] Task 2.3: Rewrite test_daemon_marks_notification_as_processed
+- [x] Task 2.3: Rewrite test_daemon_marks_notification_as_processed
   - Details: .copilot-tracking/details/20251226-integration-test-daemon-rewrite-details.md (Lines 120-147)
+  - Note: Test does not exist; functionality already validated in Task 2.1
 
-- [ ] Task 2.4: Rewrite test_daemon_publishes_correct_event_type
+- [x] Task 2.4: Rewrite test_daemon_publishes_correct_event_type
   - Details: .copilot-tracking/details/20251226-integration-test-daemon-rewrite-details.md (Lines 149-176)
+  - Note: Test does not exist; functionality already validated in Task 2.1
 
-### [ ] Phase 3: Rewrite Status Transition Tests
+### [x] Phase 3: Rewrite Status Transition Tests
 
-- [ ] Task 3.1: Rewrite test_status_transition_daemon_processes_due_transition
+- [x] Task 3.1: Rewrite test_status_transition_daemon_processes_due_transition
   - Details: .copilot-tracking/details/20251226-integration-test-daemon-rewrite-details.md (Lines 178-209)
 
-- [ ] Task 3.2: Rewrite test_status_transition_daemon_waits_for_future
+- [x] Task 3.2: Rewrite test_status_transition_daemon_waits_for_future
   - Details: .copilot-tracking/details/20251226-integration-test-daemon-rewrite-details.md (Lines 211-238)
 
-- [ ] Task 3.3: Rewrite test_status_transition_daemon_handles_cancellation
+- [x] Task 3.3: Rewrite test_status_transition_daemon_handles_cancellation
   - Details: .copilot-tracking/details/20251226-integration-test-daemon-rewrite-details.md (Lines 240-267)
+  - Note: Test does not exist; no cancellation test to rewrite
 
-### [ ] Phase 4: Validation and Cleanup
+### [x] Phase 4: Validation and Cleanup
 
-- [ ] Task 4.1: Verify all tests pass with running daemons
+- [x] Task 4.1: Verify all tests pass with running daemons
   - Details: .copilot-tracking/details/20251226-integration-test-daemon-rewrite-details.md (Lines 269-283)
 
-- [ ] Task 4.2: Remove unused imports and code
+- [x] Task 4.2: Remove unused imports and code
   - Details: .copilot-tracking/details/20251226-integration-test-daemon-rewrite-details.md (Lines 285-298)
 
 ## Dependencies

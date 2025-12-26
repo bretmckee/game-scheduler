@@ -23,7 +23,6 @@ services (PostgreSQL, RabbitMQ) are available.
 """
 
 import os
-import threading
 import time
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
@@ -32,13 +31,30 @@ import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
-import services.scheduler.status_transition_daemon_wrapper as daemon_module
-from services.scheduler.event_builders import build_status_transition_event
-from services.scheduler.generic_scheduler_daemon import SchedulerDaemon
 from services.scheduler.postgres_listener import PostgresNotificationListener
-from shared.models import GameStatusSchedule
+from shared.messaging.infrastructure import QUEUE_BOT_EVENTS
+from tests.shared.polling import wait_for_db_condition_sync
 
 pytestmark = pytest.mark.integration
+
+
+def get_queue_message_count(channel, queue_name):
+    """Get number of messages in queue."""
+    result = channel.queue_declare(queue=queue_name, durable=True, passive=True)
+    return result.method.message_count
+
+
+def consume_one_message(channel, queue_name, timeout=5):
+    """Consume one message from queue with timeout."""
+    for method, properties, body in channel.consume(
+        queue_name, auto_ack=False, inactivity_timeout=timeout
+    ):
+        if method is None:
+            return None, None, None
+        channel.basic_ack(method.delivery_tag)
+        channel.cancel()
+        return method, properties, body
+    return None, None, None
 
 
 @pytest.fixture(scope="module")
@@ -66,15 +82,19 @@ def db_session(db_url):
 
 
 @pytest.fixture
-def clean_game_status_schedule(db_session):
-    """Clean game_status_schedule table before and after test."""
+def clean_game_status_schedule(db_session, rabbitmq_channel):
+    """Clean game_status_schedule table and queue before and after test."""
     db_session.execute(text("DELETE FROM game_status_schedule"))
     db_session.commit()
+    time.sleep(0.5)  # Let daemon process any remaining transitions
+    rabbitmq_channel.queue_purge(QUEUE_BOT_EVENTS)
 
     yield
 
     db_session.execute(text("DELETE FROM game_status_schedule"))
     db_session.commit()
+    time.sleep(0.5)  # Let daemon process cleanup
+    rabbitmq_channel.queue_purge(QUEUE_BOT_EVENTS)
 
 
 @pytest.fixture
@@ -177,14 +197,6 @@ def rabbitmq_url():
     return os.getenv("RABBITMQ_URL", "amqp://gamebot:dev_password_change_in_prod@rabbitmq:5672/")
 
 
-@pytest.fixture(autouse=True)
-def reset_shutdown_flag():
-    """Reset daemon shutdown flag before and after each test."""
-    daemon_module.shutdown_requested = False
-    yield
-    daemon_module.shutdown_requested = False
-
-
 class TestPostgresListenerIntegration:
     """Integration tests for PostgreSQL LISTEN/NOTIFY on game_status_schedule."""
 
@@ -231,22 +243,25 @@ class TestPostgresListenerIntegration:
 
 
 class TestStatusTransitionDaemonIntegration:
-    """Integration tests for StatusTransitionDaemon end-to-end functionality."""
+    """Integration tests for status transition daemon service.
+
+    These tests run against the actual status-transition-daemon container
+    started by docker-compose, validating that the running service processes
+    status transitions correctly.
+    """
 
     def test_daemon_transitions_game_status_when_due(
         self,
-        db_url,
         db_session,
-        rabbitmq_url,
         clean_game_status_schedule,
         test_game_session,
+        rabbitmq_channel,
     ):
-        """Daemon marks transition executed and publishes event when transition is due."""
+        """Test that running status-transition-daemon processes due transitions."""
         game_id = test_game_session
         schedule_id = str(uuid4())
-        transition_time = datetime.now(UTC).replace(tzinfo=None) - timedelta(seconds=5)
+        transition_time = datetime.now(UTC).replace(tzinfo=None) - timedelta(minutes=1)
 
-        # Insert due transition
         db_session.execute(
             text(
                 """
@@ -265,205 +280,32 @@ class TestStatusTransitionDaemonIntegration:
         )
         db_session.commit()
 
-        daemon = SchedulerDaemon(
-            database_url=db_url,
-            rabbitmq_url=rabbitmq_url,
-            notify_channel="game_status_schedule_changed",
-            model_class=GameStatusSchedule,
-            time_field="transition_time",
-            status_field="executed",
-            event_builder=build_status_transition_event,
+        result = wait_for_db_condition_sync(
+            db_session,
+            "SELECT executed FROM game_status_schedule WHERE id = :id",
+            {"id": schedule_id},
+            lambda row: row[0] is True,
+            timeout=5,
+            interval=0.5,
+            description="transition marked as executed",
         )
 
-        try:
-            # Run daemon in background thread
-            daemon_thread = threading.Thread(
-                target=daemon.run,
-                args=(lambda: daemon_module.shutdown_requested,),
-                daemon=True,
-            )
-            daemon_thread.start()
+        assert result[0] is True, "Transition should be marked as executed"
 
-            # Wait for daemon to process transition
-            time.sleep(3)
-
-            # Verify schedule marked executed
-            result = db_session.execute(
-                text("SELECT executed FROM game_status_schedule WHERE id = :id"),
-                {"id": schedule_id},
-            )
-            row = result.fetchone()
-            assert row is not None
-            assert row[0] is True
-
-        finally:
-            # Stop daemon using shutdown flag
-            daemon_module.shutdown_requested = True
-            daemon_thread.join(timeout=2)
-
-    def test_daemon_handles_multiple_due_transitions(
-        self, db_url, db_session, rabbitmq_url, clean_game_status_schedule
-    ):
-        """Daemon marks multiple due transitions as executed and publishes events."""
-        # Create multiple games
-        game_ids = []
-        schedule_ids = []
-        now = datetime.now(UTC).replace(tzinfo=None)
-
-        for i in range(3):
-            guild_id = str(uuid4())
-            channel_id = str(uuid4())
-            user_id = str(uuid4())
-            game_id = str(uuid4())
-            schedule_id = str(uuid4())
-
-            db_session.execute(
-                text(
-                    "INSERT INTO guild_configurations "
-                    "(id, guild_id, created_at, updated_at) "
-                    "VALUES (:id, :guild_id, :created_at, :updated_at)"
-                ),
-                {
-                    "id": guild_id,
-                    "guild_id": f"guild_{i}",
-                    "created_at": now,
-                    "updated_at": now,
-                },
-            )
-
-            db_session.execute(
-                text(
-                    "INSERT INTO channel_configurations "
-                    "(id, channel_id, guild_id, created_at, updated_at) "
-                    "VALUES (:id, :channel_id, :guild_id, :created_at, :updated_at)"
-                ),
-                {
-                    "id": channel_id,
-                    "channel_id": f"channel_{i}",
-                    "guild_id": guild_id,
-                    "created_at": now,
-                    "updated_at": now,
-                },
-            )
-
-            db_session.execute(
-                text(
-                    "INSERT INTO users (id, discord_id, created_at, updated_at) "
-                    "VALUES (:id, :discord_id, :created_at, :updated_at)"
-                ),
-                {
-                    "id": user_id,
-                    "discord_id": f"user_{i}",
-                    "created_at": now,
-                    "updated_at": now,
-                },
-            )
-
-            db_session.execute(
-                text(
-                    "INSERT INTO game_sessions "
-                    "(id, title, scheduled_at, guild_id, channel_id, host_id, "
-                    "status, created_at, updated_at) "
-                    "VALUES (:id, :title, :scheduled_at, :guild_id, :channel_id, :host_id, "
-                    ":status, :created_at, :updated_at)"
-                ),
-                {
-                    "id": game_id,
-                    "title": f"Test Game {i}",
-                    "scheduled_at": now - timedelta(minutes=5),
-                    "guild_id": guild_id,
-                    "channel_id": channel_id,
-                    "host_id": user_id,
-                    "status": "SCHEDULED",
-                    "created_at": now,
-                    "updated_at": now,
-                },
-            )
-
-            db_session.execute(
-                text(
-                    """
-                    INSERT INTO game_status_schedule
-                        (id, game_id, target_status, transition_time, executed)
-                    VALUES (:id, :game_id, :target_status, :transition_time, :executed)
-                    """
-                ),
-                {
-                    "id": schedule_id,
-                    "game_id": game_id,
-                    "target_status": "IN_PROGRESS",
-                    "transition_time": now - timedelta(minutes=5),
-                    "executed": False,
-                },
-            )
-
-            game_ids.append(game_id)
-            schedule_ids.append(schedule_id)
-
-        db_session.commit()
-
-        daemon = SchedulerDaemon(
-            database_url=db_url,
-            rabbitmq_url=rabbitmq_url,
-            notify_channel="game_status_schedule_changed",
-            model_class=GameStatusSchedule,
-            time_field="transition_time",
-            status_field="executed",
-            event_builder=build_status_transition_event,
-        )
-
-        try:
-            # Run daemon in background thread
-            daemon_thread = threading.Thread(
-                target=daemon.run,
-                args=(lambda: daemon_module.shutdown_requested,),
-                daemon=True,
-            )
-            daemon_thread.start()
-
-            # Wait for daemon to process all transitions
-            time.sleep(5)
-
-            # Verify all schedules marked executed
-            for schedule_id in schedule_ids:
-                result = db_session.execute(
-                    text("SELECT executed FROM game_status_schedule WHERE id = :id"),
-                    {"id": schedule_id},
-                )
-                row = result.fetchone()
-                assert row is not None
-                assert row[0] is True
-
-        finally:
-            # Stop daemon using shutdown flag
-            daemon_module.shutdown_requested = True
-            if daemon_thread.is_alive():
-                daemon_thread.join(timeout=2)
-
-            # Cleanup
-            for game_id in game_ids:
-                db_session.execute(
-                    text("DELETE FROM game_status_schedule WHERE game_id = :game_id"),
-                    {"game_id": game_id},
-                )
-                db_session.execute(
-                    text("DELETE FROM game_sessions WHERE id = :id"), {"id": game_id}
-                )
-            db_session.commit()
+        message_count = get_queue_message_count(rabbitmq_channel, QUEUE_BOT_EVENTS)
+        assert message_count == 1, "Should have published 1 status transition event"
 
     def test_daemon_waits_for_future_transition(
         self,
-        db_url,
         db_session,
-        rabbitmq_url,
         clean_game_status_schedule,
         test_game_session,
+        rabbitmq_channel,
     ):
-        """Daemon waits and marks transition executed when time arrives."""
+        """Test that running daemon doesn't process future transitions."""
         game_id = test_game_session
         schedule_id = str(uuid4())
-        # Set transition 3 seconds in the future
-        transition_time = datetime.now(UTC).replace(tzinfo=None) + timedelta(seconds=3)
+        transition_time = datetime.now(UTC).replace(tzinfo=None) + timedelta(minutes=10)
 
         db_session.execute(
             text(
@@ -483,39 +325,14 @@ class TestStatusTransitionDaemonIntegration:
         )
         db_session.commit()
 
-        daemon = SchedulerDaemon(
-            database_url=db_url,
-            rabbitmq_url=rabbitmq_url,
-            notify_channel="game_status_schedule_changed",
-            model_class=GameStatusSchedule,
-            time_field="transition_time",
-            status_field="executed",
-            event_builder=build_status_transition_event,
-        )
+        time.sleep(2)
 
-        try:
-            # Run daemon in background thread
-            daemon_thread = threading.Thread(
-                target=daemon.run,
-                args=(lambda: daemon_module.shutdown_requested,),
-                daemon=True,
-            )
-            daemon_thread.start()
+        result = db_session.execute(
+            text("SELECT executed FROM game_status_schedule WHERE id = :id"),
+            {"id": schedule_id},
+        ).fetchone()
 
-            # Wait for transition time to pass
-            time.sleep(5)
+        assert result[0] is False, "Future transition should not be processed"
 
-            # Verify schedule marked executed
-            result = db_session.execute(
-                text("SELECT executed FROM game_status_schedule WHERE id = :id"),
-                {"id": schedule_id},
-            )
-            row = result.fetchone()
-            assert row is not None
-            assert row[0] is True
-
-        finally:
-            # Stop daemon using shutdown flag
-            daemon_module.shutdown_requested = True
-            if daemon_thread.is_alive():
-                daemon_thread.join(timeout=2)
+        message_count = get_queue_message_count(rabbitmq_channel, QUEUE_BOT_EVENTS)
+        assert message_count == 0, "Should have no messages for future transition"

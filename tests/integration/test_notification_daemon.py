@@ -31,12 +31,30 @@ import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
-from services.scheduler.event_builders import build_notification_event
-from services.scheduler.generic_scheduler_daemon import SchedulerDaemon
 from services.scheduler.postgres_listener import PostgresNotificationListener
-from shared.models import NotificationSchedule
+from shared.messaging.infrastructure import QUEUE_BOT_EVENTS
+from tests.shared.polling import wait_for_db_condition_sync
 
 pytestmark = pytest.mark.integration
+
+
+def get_queue_message_count(channel, queue_name):
+    """Get number of messages in queue."""
+    result = channel.queue_declare(queue=queue_name, durable=True, passive=True)
+    return result.method.message_count
+
+
+def consume_one_message(channel, queue_name, timeout=5):
+    """Consume one message from queue with timeout."""
+    for method, properties, body in channel.consume(
+        queue_name, auto_ack=False, inactivity_timeout=timeout
+    ):
+        if method is None:
+            return None, None, None
+        channel.basic_ack(method.delivery_tag)
+        channel.cancel()
+        return method, properties, body
+    return None, None, None
 
 
 @pytest.fixture(scope="module")
@@ -64,15 +82,19 @@ def db_session(db_url):
 
 
 @pytest.fixture
-def clean_notification_schedule(db_session):
-    """Clean notification_schedule table before and after test."""
+def clean_notification_schedule(db_session, rabbitmq_channel):
+    """Clean notification_schedule table and queue before and after test."""
     db_session.execute(text("DELETE FROM notification_schedule"))
     db_session.commit()
+    time.sleep(0.5)  # Let daemon process any remaining notifications
+    rabbitmq_channel.queue_purge(QUEUE_BOT_EVENTS)
 
     yield
 
     db_session.execute(text("DELETE FROM notification_schedule"))
     db_session.commit()
+    time.sleep(0.5)  # Let daemon process cleanup
+    rabbitmq_channel.queue_purge(QUEUE_BOT_EVENTS)
 
 
 @pytest.fixture
@@ -270,40 +292,25 @@ class TestPostgresListenerIntegration:
 
 
 class TestNotificationDaemonIntegration:
-    """Integration tests for notification daemon with real database."""
+    """Integration tests for notification daemon service.
 
-    def test_daemon_connects_to_database(self, db_url, rabbitmq_url):
-        """Daemon can establish database connections."""
-        daemon = SchedulerDaemon(
-            database_url=db_url,
-            rabbitmq_url=rabbitmq_url,
-            notify_channel="notification_schedule_changed",
-            model_class=NotificationSchedule,
-            time_field="notification_time",
-            status_field="sent",
-            event_builder=build_notification_event,
-        )
-
-        try:
-            daemon.connect()
-
-            assert daemon.listener is not None
-            assert daemon.publisher is not None
-            assert daemon.db is not None
-
-        finally:
-            daemon._cleanup()
+    These tests run against the actual notification-daemon container started
+    by docker-compose, validating that the running service processes
+    notifications correctly.
+    """
 
     def test_daemon_processes_due_notification(
-        self, db_url, db_session, clean_notification_schedule, test_game_session
+        self,
+        db_session,
+        clean_notification_schedule,
+        test_game_session,
+        rabbitmq_channel,
     ):
-        """Daemon processes notification that is due now."""
+        """Test that running notification-daemon processes due notifications."""
         game_id = test_game_session
         notif_id = str(uuid4())
-        # Notification due 1 minute ago
         notification_time = datetime.now(UTC).replace(tzinfo=None) - timedelta(minutes=1)
 
-        # Insert notification
         db_session.execute(
             text(
                 """
@@ -325,44 +332,33 @@ class TestNotificationDaemonIntegration:
         )
         db_session.commit()
 
-        daemon = SchedulerDaemon(
-            database_url=db_url,
-            rabbitmq_url="amqp://guest:guest@localhost:5672/",
-            notify_channel="notification_schedule_changed",
-            model_class=NotificationSchedule,
-            time_field="notification_time",
-            status_field="sent",
-            event_builder=build_notification_event,
+        result = wait_for_db_condition_sync(
+            db_session,
+            "SELECT sent FROM notification_schedule WHERE id = :id",
+            {"id": notif_id},
+            lambda row: row[0] is True,
+            timeout=5,
+            interval=0.5,
+            description="notification marked as sent",
         )
 
-        try:
-            daemon.connect()
+        assert result[0] is True, "Notification should be marked as sent"
 
-            # Process one iteration (should process the due notification)
-            daemon._process_loop_iteration()
-
-            # Verify notification marked as sent
-            db_session.expire_all()
-            updated = db_session.execute(
-                text("SELECT sent FROM notification_schedule WHERE id = :id"),
-                {"id": notif_id},
-            ).scalar_one()
-
-            assert updated is True
-
-        finally:
-            daemon._cleanup()
+        message_count = get_queue_message_count(rabbitmq_channel, QUEUE_BOT_EVENTS)
+        assert message_count == 1, "Should have published 1 notification event"
 
     def test_daemon_waits_for_future_notification(
-        self, db_url, db_session, clean_notification_schedule, test_game_session
+        self,
+        db_session,
+        clean_notification_schedule,
+        test_game_session,
+        rabbitmq_channel,
     ):
-        """Daemon waits when notification is in future."""
+        """Test that running daemon doesn't process future notifications."""
         game_id = test_game_session
         notif_id = str(uuid4())
-        # Notification due 10 minutes from now
         notification_time = datetime.now(UTC).replace(tzinfo=None) + timedelta(minutes=10)
 
-        # Insert notification
         db_session.execute(
             text(
                 """
@@ -384,36 +380,14 @@ class TestNotificationDaemonIntegration:
         )
         db_session.commit()
 
-        daemon = SchedulerDaemon(
-            database_url=db_url,
-            rabbitmq_url="amqp://guest:guest@localhost:5672/",
-            notify_channel="notification_schedule_changed",
-            model_class=NotificationSchedule,
-            time_field="notification_time",
-            status_field="sent",
-            event_builder=build_notification_event,
-            max_timeout=2,  # Short timeout for test
-        )
+        time.sleep(2)
 
-        try:
-            daemon.connect()
+        result = db_session.execute(
+            text("SELECT sent FROM notification_schedule WHERE id = :id"),
+            {"id": notif_id},
+        ).fetchone()
 
-            # Process one iteration (should wait, not process)
-            start_time = time.time()
-            daemon._process_loop_iteration()
-            elapsed = time.time() - start_time
+        assert result[0] is False, "Future notification should not be processed"
 
-            # Should have waited approximately max_timeout
-            assert elapsed >= 1.5  # Allow some margin
-
-            # Notification should NOT be marked as sent
-            db_session.expire_all()
-            still_unsent = db_session.execute(
-                text("SELECT sent FROM notification_schedule WHERE id = :id"),
-                {"id": notif_id},
-            ).scalar_one()
-
-            assert still_unsent is False
-
-        finally:
-            daemon._cleanup()
+        message_count = get_queue_message_count(rabbitmq_channel, QUEUE_BOT_EVENTS)
+        assert message_count == 0, "Should have no messages for future notification"

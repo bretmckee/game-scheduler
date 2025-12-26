@@ -127,7 +127,8 @@ services:
         condition: service_started
     networks:
       - app-network
-    command: -m e2e -v --tb=short
+    entrypoint: ["pytest", "-m", "e2e"]
+    command: -v --tb=short
 
 # Use tmpfs for test volumes (in-memory, fast, auto-cleanup)
 volumes:
