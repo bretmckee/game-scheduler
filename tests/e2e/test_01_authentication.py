@@ -20,6 +20,8 @@
 
 import pytest
 
+pytestmark = pytest.mark.e2e
+
 
 def test_bot_discord_id_extracted(bot_discord_id):
     """Verify bot Discord ID can be extracted from token."""

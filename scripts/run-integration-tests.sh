@@ -16,8 +16,10 @@ trap cleanup EXIT
 
 echo "Running integration tests..."
 if [ $# -eq 0 ]; then
+  # Use marker-based selection (command from compose.int.yaml: -m integration -v --tb=short)
   docker compose --env-file env/env.int run --rm integration-tests
 else
+  # User specified args - pass them through
   docker compose --env-file env/env.int run --rm integration-tests "$@"
 fi
 

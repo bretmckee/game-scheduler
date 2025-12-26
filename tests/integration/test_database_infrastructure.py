@@ -32,6 +32,8 @@ import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
+pytestmark = pytest.mark.integration
+
 
 @pytest.fixture(scope="module")
 def db_url():

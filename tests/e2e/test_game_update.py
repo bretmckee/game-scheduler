@@ -44,6 +44,8 @@ from sqlalchemy import text
 
 from tests.e2e.conftest import TimeoutType, wait_for_game_message_id
 
+pytestmark = pytest.mark.e2e
+
 
 @pytest.fixture
 async def clean_test_data(db_session):

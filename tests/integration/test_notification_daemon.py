@@ -36,6 +36,8 @@ from services.scheduler.generic_scheduler_daemon import SchedulerDaemon
 from services.scheduler.postgres_listener import PostgresNotificationListener
 from shared.models import NotificationSchedule
 
+pytestmark = pytest.mark.integration
+
 
 @pytest.fixture(scope="module")
 def db_url():

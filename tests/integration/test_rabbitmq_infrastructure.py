@@ -32,6 +32,8 @@ import time
 import pika
 import pytest
 
+pytestmark = pytest.mark.integration
+
 
 @pytest.fixture(scope="module")
 def rabbitmq_connection():

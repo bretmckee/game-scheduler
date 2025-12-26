@@ -118,9 +118,7 @@ class DMFormats:
         return f"🎮 **[Host]** Your game '{game_title}' starts <t:{game_time_unix}:R>"
 
     @staticmethod
-    def reminder_participant(
-        game_title: str, game_time_unix: int, is_waitlist: bool
-    ) -> str:
+    def reminder_participant(game_title: str, game_time_unix: int, is_waitlist: bool) -> str:
         """
         Format reminder DM for participant (confirmed or waitlist).
 
@@ -133,9 +131,7 @@ class DMFormats:
             Formatted participant reminder message
         """
         waitlist_prefix = "🎫 **[Waitlist]** " if is_waitlist else ""
-        return (
-            f"{waitlist_prefix}Your game '{game_title}' starts <t:{game_time_unix}:R>"
-        )
+        return f"{waitlist_prefix}Your game '{game_title}' starts <t:{game_time_unix}:R>"
 
 
 class DMPredicates:
@@ -176,11 +172,7 @@ class DMPredicates:
         """
 
         def predicate(dm: DiscordMessage) -> bool:
-            return bool(
-                dm.content
-                and game_title in dm.content
-                and "removed" in dm.content.lower()
-            )
+            return bool(dm.content and game_title in dm.content and "removed" in dm.content.lower())
 
         return predicate
 
@@ -197,11 +189,7 @@ class DMPredicates:
         """
 
         def predicate(dm: DiscordMessage) -> bool:
-            return bool(
-                dm.content
-                and "joined" in dm.content.lower()
-                and game_title in dm.content
-            )
+            return bool(dm.content and "joined" in dm.content.lower() and game_title in dm.content)
 
         return predicate
 
@@ -218,8 +206,6 @@ class DMPredicates:
         """
 
         def predicate(dm: DiscordMessage) -> bool:
-            return bool(
-                dm.content and game_title in dm.content and "starts <t:" in dm.content
-            )
+            return bool(dm.content and game_title in dm.content and "starts <t:" in dm.content)
 
         return predicate

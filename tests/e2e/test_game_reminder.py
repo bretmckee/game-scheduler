@@ -52,6 +52,8 @@ from tests.e2e.conftest import (
 )
 from tests.e2e.helpers.discord import DMType
 
+pytestmark = pytest.mark.e2e
+
 
 @pytest.fixture
 async def clean_test_data(db_session):

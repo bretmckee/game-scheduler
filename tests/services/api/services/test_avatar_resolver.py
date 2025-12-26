@@ -16,14 +16,13 @@
 # with Game_Scheduler If not, see <https://www.gnu.org/licenses/>.
 
 
-"""Integration tests for avatar data flow.
+"""Unit tests for avatar resolver and DisplayNameResolver.
 
-Tests verify the complete flow from Discord API through backend to frontend/bot:
-1. Discord API returns avatar data
-2. DisplayNameResolver extracts and constructs URLs correctly
-3. API responses include avatar URLs
-4. Cache stores and retrieves avatar data
-5. Avatar URL priority (guild > user > null) works end-to-end
+Tests verify avatar URL construction and resolution logic with mocked dependencies:
+1. Discord API data parsing and avatar extraction
+2. DisplayNameResolver constructs correct avatar URLs
+3. Cache storage and retrieval of avatar data
+4. Avatar URL priority (guild > user > null) logic
 """
 
 import json

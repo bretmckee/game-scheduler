@@ -29,6 +29,10 @@ import discord
 import pytest
 from sqlalchemy import text
 
+pytestmark = pytest.mark.e2e
+
+pytestmark = pytest.mark.e2e
+
 
 @pytest.mark.asyncio
 async def test_environment_variables():

@@ -38,6 +38,8 @@ from services.scheduler.generic_scheduler_daemon import SchedulerDaemon
 from services.scheduler.postgres_listener import PostgresNotificationListener
 from shared.models import GameStatusSchedule
 
+pytestmark = pytest.mark.integration
+
 
 @pytest.fixture(scope="module")
 def db_url():
@@ -123,7 +125,12 @@ def test_game_session(db_session):
             "INSERT INTO users (id, discord_id, created_at, updated_at) "
             "VALUES (:id, :discord_id, :created_at, :updated_at)"
         ),
-        {"id": user_id, "discord_id": "111222333", "created_at": now, "updated_at": now},
+        {
+            "id": user_id,
+            "discord_id": "111222333",
+            "created_at": now,
+            "updated_at": now,
+        },
     )
 
     db_session.execute(
@@ -227,7 +234,12 @@ class TestStatusTransitionDaemonIntegration:
     """Integration tests for StatusTransitionDaemon end-to-end functionality."""
 
     def test_daemon_transitions_game_status_when_due(
-        self, db_url, db_session, rabbitmq_url, clean_game_status_schedule, test_game_session
+        self,
+        db_url,
+        db_session,
+        rabbitmq_url,
+        clean_game_status_schedule,
+        test_game_session,
     ):
         """Daemon marks transition executed and publishes event when transition is due."""
         game_id = test_game_session
@@ -266,7 +278,9 @@ class TestStatusTransitionDaemonIntegration:
         try:
             # Run daemon in background thread
             daemon_thread = threading.Thread(
-                target=daemon.run, args=(lambda: daemon_module.shutdown_requested,), daemon=True
+                target=daemon.run,
+                args=(lambda: daemon_module.shutdown_requested,),
+                daemon=True,
             )
             daemon_thread.start()
 
@@ -401,7 +415,9 @@ class TestStatusTransitionDaemonIntegration:
         try:
             # Run daemon in background thread
             daemon_thread = threading.Thread(
-                target=daemon.run, args=(lambda: daemon_module.shutdown_requested,), daemon=True
+                target=daemon.run,
+                args=(lambda: daemon_module.shutdown_requested,),
+                daemon=True,
             )
             daemon_thread.start()
 
@@ -436,7 +452,12 @@ class TestStatusTransitionDaemonIntegration:
             db_session.commit()
 
     def test_daemon_waits_for_future_transition(
-        self, db_url, db_session, rabbitmq_url, clean_game_status_schedule, test_game_session
+        self,
+        db_url,
+        db_session,
+        rabbitmq_url,
+        clean_game_status_schedule,
+        test_game_session,
     ):
         """Daemon waits and marks transition executed when time arrives."""
         game_id = test_game_session
@@ -475,7 +496,9 @@ class TestStatusTransitionDaemonIntegration:
         try:
             # Run daemon in background thread
             daemon_thread = threading.Thread(
-                target=daemon.run, args=(lambda: daemon_module.shutdown_requested,), daemon=True
+                target=daemon.run,
+                args=(lambda: daemon_module.shutdown_requested,),
+                daemon=True,
             )
             daemon_thread.start()
 

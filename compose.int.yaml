@@ -85,6 +85,7 @@ services:
       dockerfile: docker/test.Dockerfile
     container_name: ${CONTAINER_PREFIX:-gamebot-integration}-tests
     environment:
+      PYTEST_RUNNING: "1"
       DATABASE_URL: ${DATABASE_URL}
       RABBITMQ_URL: ${RABBITMQ_URL}
       RABBITMQ_HOST: rabbitmq
@@ -101,7 +102,7 @@ services:
         condition: service_started
     networks:
       - app-network
-    command: tests/integration/ -v --tb=short
+    command: -m integration -v --tb=short
 
 # Use tmpfs for test volumes (in-memory, fast, auto-cleanup)
 volumes:

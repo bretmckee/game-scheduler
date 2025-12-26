@@ -43,6 +43,8 @@ from shared.messaging.infrastructure import (
     QUEUE_NOTIFICATION_DLQ,
 )
 
+pytestmark = pytest.mark.integration
+
 
 @pytest.fixture(scope="module")
 def rabbitmq_url():

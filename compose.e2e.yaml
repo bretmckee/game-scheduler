@@ -106,6 +106,7 @@ services:
     container_name: ${CONTAINER_PREFIX:-gamebot-e2e}-tests
     environment:
       PYTHONUNBUFFERED: \"1\"
+      PYTEST_RUNNING: "1"
       DATABASE_URL: ${DATABASE_URL}
       RABBITMQ_URL: ${RABBITMQ_URL}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
@@ -126,7 +127,7 @@ services:
         condition: service_started
     networks:
       - app-network
-    command: tests/e2e/ -v --tb=short
+    command: -m e2e -v --tb=short
 
 # Use tmpfs for test volumes (in-memory, fast, auto-cleanup)
 volumes:

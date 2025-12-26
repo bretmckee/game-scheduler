@@ -75,6 +75,11 @@ known-first-party = ["shared", "services"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = [
+    "integration: Integration tests requiring RabbitMQ, Postgres, Redis",
+    "e2e: End-to-end tests requiring Discord bot and full stack",
+]
+addopts = "-m 'not e2e and not integration'"
 
 [tool.mypy]
 python_version = "3.13"
