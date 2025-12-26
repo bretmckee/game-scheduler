@@ -1,7 +1,7 @@
-# Staging overrides - use with --env-file env/env.staging
+# Staging overrides - use with --env-file config/env/env.staging
 # Production builds with DEBUG logging and app-only port exposure
 #
-# Usage: docker compose --env-file env/env.staging up -d
+# Usage: docker compose --env-file config/env/env.staging up -d
 #
 # Staging configuration:
 # - LOG_LEVEL: DEBUG (for troubleshooting)

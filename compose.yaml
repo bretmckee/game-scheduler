@@ -5,10 +5,10 @@
 #
 # Environments:
 # - Development: docker compose up (auto-loads compose.override.yaml)
-# - Production: docker compose --env-file env/env.prod up -d
-# - Staging: docker compose --env-file env/env.staging up -d
-# - E2E Tests: docker compose --env-file env/env.e2e up
-# - Integration: docker compose --env-file env/env.integration up
+# - Production: docker compose --env-file config/env/env.prod up -d
+# - Staging: docker compose --env-file config/env/env.staging up -d
+# - E2E Tests: docker compose --env-file config/env/env.e2e up
+# - Integration: docker compose --env-file config/env/env.int up
 #
 # Production defaults:
 # - INFO log level
@@ -60,7 +60,7 @@ services:
       RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: -rabbit log_levels [{connection,${RABBITMQ_LOG_LEVEL:-info}}]
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
-      - ${HOST_WORKSPACE_FOLDER:-.}/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ${HOST_WORKSPACE_FOLDER:-.}/config/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
     healthcheck:
       test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping"]
       interval: 10s
@@ -399,7 +399,7 @@ services:
     container_name: ${CONTAINER_PREFIX:-gamebot}-grafana-alloy
     restart: always
     volumes:
-      - ${HOST_WORKSPACE_FOLDER:-.}/grafana-alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - ${HOST_WORKSPACE_FOLDER:-.}/config/grafana-alloy/config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
       ALLOY_LOG_LEVEL: ${ALLOY_LOG_LEVEL:-info}

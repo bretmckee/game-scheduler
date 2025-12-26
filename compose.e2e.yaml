@@ -1,4 +1,4 @@
-# End-to-end test overrides - use with --env-file env/env.e2e
+# End-to-end test overrides - use with --env-file config/env/env.e2e
 # Tests complete notification flow including Discord bot interactions
 #
 # Usage:

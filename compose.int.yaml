@@ -1,4 +1,4 @@
-# Integration test overrides - use with --env-file env/env.integration
+# Integration test overrides - use with --env-file config/env/env.int
 # Tests service integration with infrastructure components
 #
 # Usage:

@@ -58,15 +58,15 @@ Reorganize all deployment configuration files into a single `config/` directory 
 - [x] Task 1.4: Move Grafana Alloy configuration
   - Details: .copilot-tracking/details/20251226-deployment-config-organization-details.md (Lines 56-66)
 
-### [ ] Phase 2: Update Docker Compose Files
+### [x] Phase 2: Update Docker Compose Files
 
-- [ ] Task 2.1: Update compose.yaml volume mounts
+- [x] Task 2.1: Update compose.yaml volume mounts
   - Details: .copilot-tracking/details/20251226-deployment-config-organization-details.md (Lines 68-78)
 
-- [ ] Task 2.2: Update compose.override.yaml volume mounts
+- [x] Task 2.2: Update compose.override.yaml volume mounts
   - Details: .copilot-tracking/details/20251226-deployment-config-organization-details.md (Lines 80-90)
 
-- [ ] Task 2.3: Update environment-specific compose files
+- [x] Task 2.3: Update environment-specific compose files
   - Details: .copilot-tracking/details/20251226-deployment-config-organization-details.md (Lines 92-102)
 
 ### [ ] Phase 3: Update Scripts and Documentation

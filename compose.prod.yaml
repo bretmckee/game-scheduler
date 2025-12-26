@@ -1,7 +1,7 @@
-# Production overrides - use with --env-file env/env.prod
+# Production overrides - use with --env-file config/env/env.prod
 # Minimal overrides since compose.yaml provides production-ready defaults
 #
-# Usage: docker compose --env-file env/env.prod up -d
+# Usage: docker compose --env-file config/env/env.prod up -d
 #
 # Production configuration:
 # - LOG_LEVEL: INFO (from compose.yaml base)

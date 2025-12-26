@@ -37,6 +37,13 @@ Reorganizing all deployment configuration files into a single `config/` director
 
 ### Modified
 
+- compose.yaml - Updated RabbitMQ and Grafana Alloy volume mount paths to reference config/ directory
+- compose.override.yaml - No changes needed (no config path references)
+- compose.prod.yaml - Updated env file path references in comments
+- compose.staging.yaml - Updated env file path references in comments
+- compose.e2e.yaml - Updated env file path references in comments
+- compose.int.yaml - Updated env file path references in comments
+
 ### Removed
 
 - env/ - Removed after moving all files to config/env/
