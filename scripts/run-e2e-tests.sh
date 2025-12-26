@@ -6,35 +6,35 @@
 
 set -e
 
-# Check for env/env.e2e file
-if [ ! -f env/env.e2e ]; then
-  echo "ERROR: env/env.e2e file not found"
-  echo "Create env/env.e2e with test Discord credentials"
+# Check for config/env/env.e2e file
+if [ ! -f config/env/env.e2e ]; then
+  echo "ERROR: config/env/env.e2e file not found"
+  echo "Create config/env/env.e2e with test Discord credentials"
   echo "See TESTING_E2E.md for setup instructions"
   exit 1
 fi
 
-# Source env/env.e2e to check required variables
-source env/env.e2e
+# Source config/env/env.e2e to check required variables
+source config/env/env.e2e
 
 # Check for required test Discord credentials
 if [ -z "$DISCORD_TOKEN" ]; then
-  echo "ERROR: DISCORD_TOKEN environment variable is required in env/env.e2e"
+  echo "ERROR: DISCORD_TOKEN environment variable is required in config/env/env.e2e"
   echo "See TESTING_E2E.md for setup instructions"
   exit 1
 fi
 
 if [ -z "$DISCORD_GUILD_ID" ] || [ -z "$DISCORD_CHANNEL_ID" ]; then
-  echo "WARNING: DISCORD_GUILD_ID and DISCORD_CHANNEL_ID should be set in env/env.e2e"
+  echo "WARNING: DISCORD_GUILD_ID and DISCORD_CHANNEL_ID should be set in config/env/env.e2e"
   echo "Tests may fail without these. See TESTING_E2E.md for setup instructions"
 fi
 
 echo "Building end-to-end test container..."
-docker compose --env-file env/env.e2e build e2e-tests init
+docker compose --env-file config/env/env.e2e build e2e-tests init
 
 cleanup() {
   echo "Cleaning up end-to-end test environment..."
-  docker compose --env-file env/env.e2e down -v
+  docker compose --env-file config/env/env.e2e down -v
 }
 
 trap cleanup EXIT
@@ -42,10 +42,10 @@ trap cleanup EXIT
 echo "Running end-to-end tests..."
 if [ $# -eq 0 ]; then
   # Use marker-based selection (command from compose.e2e.yaml: -m e2e -v --tb=short)
-  docker compose --env-file env/env.e2e run --rm e2e-tests
+  docker compose --env-file config/env/env.e2e run --rm e2e-tests
 else
   # User specified args - pass them through
-  docker compose --env-file env/env.e2e run --rm e2e-tests "$@"
+  docker compose --env-file config/env/env.e2e run --rm e2e-tests "$@"
 fi
 
 echo "End-to-end tests passed!"

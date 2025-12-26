@@ -87,7 +87,7 @@ docker compose up
 
 **How Development Environment Works:**
 
-The `.env` symlink points to `env/env.dev`, which contains:
+The `.env` symlink points to `config/env/env.dev`, which contains:
 - `COMPOSE_FILE=compose.yaml:compose.override.yaml` - Specifies which compose files to load
 - Development-specific configuration (DEBUG logging, all ports exposed)
 
@@ -255,29 +255,29 @@ Graviton) and AMD64 (traditional x86) architectures using Docker Bake.
 For production deployments, use the production environment file:
 
 ```bash
-# Build production images (uses env/env.prod)
-docker compose --env-file env/env.prod build
+# Build production images (uses config/env/env.prod)
+docker compose --env-file config/env/env.prod build
 
 # Start production services
-docker compose --env-file env/env.prod up -d
+docker compose --env-file config/env/env.prod up -d
 ```
 
 **Environment-Specific Configurations:**
 
-Each environment file (in `env/` directory) contains a `COMPOSE_FILE` variable specifying which compose files to load:
+Each environment file (in `config/env/` directory) contains a `COMPOSE_FILE` variable specifying which compose files to load:
 
-- **Production** (`env/env.prod`): `COMPOSE_FILE=compose.yaml`
+- **Production** (`config/env/env.prod`): `COMPOSE_FILE=compose.yaml`
   - Production-only base configuration
   - INFO logging level
   - No port mappings (use reverse proxy)
   - Restart policies enabled
 
-- **Staging** (`env/env.staging`): `COMPOSE_FILE=compose.yaml:compose.staging.yaml`
+- **Staging** (`config/env/env.staging`): `COMPOSE_FILE=compose.yaml:compose.staging.yaml`
   - Production builds with DEBUG logging
   - Frontend and API ports exposed for testing
   - Restart policies enabled
 
-- **Development** (`env/env.dev`): `COMPOSE_FILE=compose.yaml:compose.override.yaml`
+- **Development** (`config/env/env.dev`): `COMPOSE_FILE=compose.yaml:compose.override.yaml`
   - Development stages with hot-reload
   - DEBUG logging, all ports exposed
   - Source code mounted as volumes
@@ -380,13 +380,13 @@ Configure in `.env` file:
 The project uses modern Docker Compose with environment-controlled configuration:
 
 - **`compose.yaml`**: Production-ready base configuration with all services
-- **Environment files** (in `env/`): Each contains `COMPOSE_FILE` variable specifying which compose files to merge
+- **Environment files** (in `config/env/`): Each contains `COMPOSE_FILE` variable specifying which compose files to merge
 - **Override files**: Environment-specific modifications (logging, ports, volumes, build targets)
 
 **How it works:**
-- Each `env/env.*` file sets `COMPOSE_FILE=compose.yaml:compose.{env}.yaml`
-- Single `--env-file env/env.{environment}` parameter controls entire configuration
-- Development uses `.env` symlink → `env/env.dev` for automatic configuration
+- Each `config/env/env.*` file sets `COMPOSE_FILE=compose.yaml:compose.{env}.yaml`
+- Single `--env-file config/env/env.{environment}` parameter controls entire configuration
+- Development uses `.env` symlink → `config/env/env.dev` for automatic configuration
 
 This design ensures all environments stay in sync while allowing
 environment-specific configurations. See [TESTING_E2E.md](TESTING_E2E.md) for

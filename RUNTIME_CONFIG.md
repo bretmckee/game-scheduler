@@ -346,7 +346,7 @@ to Grafana Cloud for visualization and analysis.
 
 #### Required Environment Variables
 
-Set these in your `.env` file (see `.env.example` for template):
+Set these in your `.env` file (see `config/env/env.example` for template):
 
 ```bash
 # Grafana Cloud Tempo Instance ID (7-digit number)
@@ -394,7 +394,7 @@ ALLOY_OTLP_HTTP_PORT=4318
 For detailed step-by-step instructions on setting up Grafana Cloud and obtaining
 credentials, see:
 
-- `grafana-alloy/SETUP_GRAFANA_CLOUD.md` - Complete setup guide
+- `config/grafana-alloy/SETUP_GRAFANA_CLOUD.md` - Complete setup guide
 
 ### Architecture
 

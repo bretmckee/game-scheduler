@@ -26,6 +26,7 @@ Reorganizing all deployment configuration files into a single `config/` director
 - config/grafana-alloy/config.alloy - Moved from grafana-alloy/config.alloy
 - config/grafana-alloy/dashboards/ - Moved from grafana-alloy/dashboards/
 - config/grafana-alloy/SETUP_GRAFANA_CLOUD.md - Moved from grafana-alloy/SETUP_GRAFANA_CLOUD.md
+- config/env/env.example - Moved from .env.example
 - docs/grafana-alloy/ - New directory for Grafana Alloy documentation
 - docs/grafana-alloy/TESTING_PHASE1.md - Moved from grafana-alloy/TESTING_PHASE1.md
 - docs/grafana-alloy/TESTING_PHASE2.md - Moved from grafana-alloy/TESTING_PHASE2.md
@@ -43,9 +44,26 @@ Reorganizing all deployment configuration files into a single `config/` director
 - compose.staging.yaml - Updated env file path references in comments
 - compose.e2e.yaml - Updated env file path references in comments
 - compose.int.yaml - Updated env file path references in comments
+- scripts/run-e2e-tests.sh - Updated to use config/env/env.e2e path
+- scripts/run-integration-tests.sh - Updated to use config/env/env.int path
+- DEPLOYMENT_QUICKSTART.md - Updated all env file path references to config/env/
+- README.md - Updated all env file path references to config/env/
+- RUNTIME_CONFIG.md - Updated Grafana Alloy setup guide path to config/grafana-alloy/
+- RUNTIME_CONFIG.md - Updated .env.example reference to config/env/env.example
+- frontend/README.md - Updated .env.example reference to config/env/env.example
+- .gitignore - No changes needed (existing env/ pattern matches config/env/ files)
 
 ### Removed
 
 - env/ - Removed after moving all files to config/env/
 - rabbitmq/ - Removed after moving all files to config/rabbitmq/
 - grafana-alloy/ - Removed after moving all files to config/grafana-alloy/
+
+## Validation
+
+### Phase 4: Testing and Validation
+
+- Development environment: Validated with `docker compose config` - all volume mounts correctly reference config/ paths
+- Staging environment: Validated with `docker compose -f compose.yaml -f compose.staging.yaml --env-file config/env/env.staging config` - configuration loads successfully
+- Production environment: Validated with `docker compose -f compose.yaml -f compose.prod.yaml --env-file config/env/env.prod config` - configuration is correct
+- All RabbitMQ and Grafana Alloy config paths verified in resolved compose configurations

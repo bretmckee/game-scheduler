@@ -29,10 +29,10 @@ bun install
 
 ### Configuration
 
-Copy `.env.example` to `.env` and configure:
+Copy `config/env/env.example` to `.env` and configure:
 
 ```bash
-cp .env.example .env
+cp config/env/env.example .env
 ```
 
 Edit `.env`:

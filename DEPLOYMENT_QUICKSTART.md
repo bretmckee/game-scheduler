@@ -4,14 +4,14 @@
 
 ### 1. Configure Your Environment
 
-Copy the appropriate environment template from `env/` directory. For production, use `env.prod`:
+Copy the appropriate environment template from `config/env/` directory. For production, use `env.prod`:
 
 ```bash
 # Copy production environment template
-cp env/env.prod env/env.prod.local
+cp config/env/env.prod config/env/env.prod.local
 ```
 
-Edit `env/env.prod.local` and set:
+Edit `config/env/env.prod.local` and set:
 
 ```bash
 # Leave API_URL empty to use nginx proxy (works with any hostname)
@@ -37,17 +37,17 @@ RABBITMQ_URL=amqp://gamebot:change_me@rabbitmq:5672/
 
 ```bash
 # Build production images (targets production stage)
-docker compose --env-file env/env.prod.local build
+docker compose --env-file config/env/env.prod.local build
 
 # Start production services
-docker compose --env-file env/env.prod.local up -d
+docker compose --env-file config/env/env.prod.local up -d
 ```
 
 **How Environment Files Control Configuration:**
 
-Each environment file (in `env/` directory) contains a `COMPOSE_FILE` variable that specifies which compose files to load:
+Each environment file (in `config/env/` directory) contains a `COMPOSE_FILE` variable that specifies which compose files to load:
 
-- **Production** (`env/env.prod`):
+- **Production** (`config/env/env.prod`):
   - `COMPOSE_FILE=compose.yaml` (base configuration only)
   - Uses `production` stage from Dockerfiles
   - Source code baked into images
@@ -55,13 +55,13 @@ Each environment file (in `env/` directory) contains a `COMPOSE_FILE` variable t
   - No port mappings (use reverse proxy)
   - Includes restart policies
 
-- **Staging** (`env/env.staging`):
+- **Staging** (`config/env/env.staging`):
   - `COMPOSE_FILE=compose.yaml:compose.staging.yaml`
   - Production builds with DEBUG logging
   - Exposes frontend and API ports
   - Restart policies enabled
 
-- **Development** (`env/env.dev`, auto-loaded via `.env` symlink):
+- **Development** (`config/env/env.dev`, auto-loaded via `.env` symlink):
   - `COMPOSE_FILE=compose.yaml:compose.override.yaml`
   - Uses `development` stage from Dockerfiles
   - Source code mounted as volumes
@@ -97,29 +97,29 @@ For production deployments, rebuild images after code changes:
 git pull
 
 # Rebuild and restart services
-docker compose --env-file env/env.prod.local build
-docker compose --env-file env/env.prod.local up -d
+docker compose --env-file config/env/env.prod.local build
+docker compose --env-file config/env/env.prod.local up -d
 ```
 
 ### Viewing Logs
 
 ```bash
 # View all service logs
-docker compose --env-file env/env.prod.local logs -f
+docker compose --env-file config/env/env.prod.local logs -f
 
 # View specific service logs
-docker compose --env-file env/env.prod.local logs -f api
-docker compose --env-file env/env.prod.local logs -f bot
+docker compose --env-file config/env/env.prod.local logs -f api
+docker compose --env-file config/env/env.prod.local logs -f bot
 ```
 
 ### Restarting Services
 
 ```bash
 # Restart all services
-docker compose --env-file env/env.prod.local restart
+docker compose --env-file config/env/env.prod.local restart
 
 # Restart specific service
-docker compose --env-file env/env.prod.local restart api
+docker compose --env-file config/env/env.prod.local restart api
 ```
 
 ## Changing the API URL Later
@@ -128,10 +128,10 @@ No rebuild needed! Just update your environment file and restart the frontend:
 
 ```bash
 # Edit your environment file and change API_URL
-nano env/env.prod.local
+nano config/env/env.prod.local
 
 # Restart only the frontend container
-docker compose --env-file env/env.prod.local restart frontend
+docker compose --env-file config/env/env.prod.local restart frontend
 ```
 
 See [RUNTIME_CONFIG.md](RUNTIME_CONFIG.md) for more details.
@@ -185,7 +185,7 @@ infrastructure ready.
 
 ```bash
 # Edit your production environment file
-nano env/env.prod.local
+nano config/env/env.prod.local
 
 # Update these critical values:
 # Database password
@@ -224,7 +224,7 @@ The new architecture replaces the shared "DLQ" queue with per-queue DLQs:
 
 1. **Check current DLQ depth:**
    ```bash
-   docker compose --env-file env/env.prod.local exec rabbitmq rabbitmqctl list_queues name messages | grep DLQ
+   docker compose --env-file config/env/env.prod.local exec rabbitmq rabbitmqctl list_queues name messages | grep DLQ
    ```
 
 2. **Document any messages in DLQ:**
@@ -235,7 +235,7 @@ The new architecture replaces the shared "DLQ" queue with per-queue DLQs:
 3. **Optional - Drain old DLQ:**
    ```bash
    # Only if you want to discard current DLQ messages
-   docker compose --env-file env/env.prod.local exec rabbitmq rabbitmqctl purge_queue DLQ
+   docker compose --env-file config/env/env.prod.local exec rabbitmq rabbitmqctl purge_queue DLQ
    ```
 
 ### Migration Procedure
@@ -248,7 +248,7 @@ The new architecture replaces the shared "DLQ" queue with per-queue DLQs:
 2. **Update environment variables in your environment file:**
    ```bash
    # Edit your production environment file
-   nano env/env.prod.local
+   nano config/env/env.prod.local
 
    # Add retry service interval (optional, defaults to 900 seconds)
    RETRY_INTERVAL_SECONDS=900
@@ -257,7 +257,7 @@ The new architecture replaces the shared "DLQ" queue with per-queue DLQs:
 3. **Rebuild services:**
    ```bash
    # For production
-   docker compose --env-file env/env.prod.local build
+   docker compose --env-file config/env/env.prod.local build
 
    # For development (using .env symlink)
    docker compose build
