@@ -86,10 +86,10 @@ npm run format:check
 ## Step 4: Run Tests
 
 ### Python Unit Tests
-Run the Python unit tests (excluding e2e and integration tests):
+Run the Python unit tests:
 ```bash
 cd /home/mckee/src/github.com/game-scheduler
-uv run pytest --ignore tests/e2e --ignore tests/integration -v
+uv run pytest -v
 ```
 
 ### Frontend Tests
@@ -133,6 +133,8 @@ After all linters and tests pass successfully, return to the root directory and 
    ```bash
    git commit -m "Your commit message here"
    ```
+
+   **Note**: Using `git commit --no-verify` to skip pre-commit hooks requires **explicit user approval**. Do not use this option without asking the user first.
 
 ## Important Notes
 
