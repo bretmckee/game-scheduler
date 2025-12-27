@@ -35,6 +35,7 @@ from services.api.config import get_api_config
 from services.api.routes import auth, channels, export, games, guilds, templates
 from shared.cache import client as redis_client
 from shared.telemetry import init_telemetry
+from shared.version import get_api_version, get_git_version
 
 # Configure logging at module level before anything else
 logging.basicConfig(
@@ -90,7 +91,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Discord Game Scheduler API",
         description="REST API for Discord game scheduling web dashboard",
-        version="1.0.0",
+        version=get_api_version(),
         docs_url="/docs" if config.debug else None,
         redoc_url="/redoc" if config.debug else None,
         lifespan=lifespan,
@@ -109,7 +110,28 @@ def create_app() -> FastAPI:
     @app.get("/health")
     async def health_check():
         """Health check endpoint for monitoring."""
-        return {"status": "healthy", "service": "api"}
+        return {
+            "status": "healthy",
+            "service": "api",
+            "version": {
+                "git": get_git_version(),
+                "api": get_api_version(),
+            },
+        }
+
+    @app.get("/api/v1/version")
+    async def version_info():
+        """
+        Get version information for the API service.
+
+        Returns version details including git version and API version.
+        """
+        return {
+            "service": "api",
+            "git_version": get_git_version(),
+            "api_version": get_api_version(),
+            "api_prefix": "/api/v1",
+        }
 
     logger.info(f"FastAPI application created (environment: {config.environment})")
 

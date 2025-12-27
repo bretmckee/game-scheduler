@@ -32,6 +32,7 @@ import { CreateGame } from './pages/CreateGame';
 import { EditGame } from './pages/EditGame';
 import { TemplateManagement } from './pages/TemplateManagement';
 import { DownloadCalendar } from './pages/DownloadCalendar';
+import { About } from './pages/About';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
@@ -62,6 +63,7 @@ function App() {
                 <Route path="/games/:gameId/edit" element={<EditGame />} />
                 <Route path="/my-games" element={<MyGames />} />
               </Route>
+              <Route path="/about" element={<About />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />

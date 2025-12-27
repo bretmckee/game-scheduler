@@ -1,7 +1,11 @@
+[build-system]
+requires = ["setuptools>=80", "setuptools-scm[simple]>=8"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "Game_Scheduler"
 license = "AGPL-3.0-or-later"
-version = "0.1.0"
+dynamic = ["version"]
 authors = [
   {name = "Bret McKee", email = "bret.mckee@gmail.com"},
 ]
@@ -113,3 +117,6 @@ dev = [
     "autocopyright~=1.1.0",
     "pre-commit~=4.0.0",
 ]
+
+[tool.setuptools_scm]
+fallback_version = "0.0.0+unknown"

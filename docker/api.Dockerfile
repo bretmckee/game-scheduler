@@ -6,6 +6,7 @@ RUN apt-get update && apt-get install -y \
     gcc \
     postgresql-client \
     curl \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -16,11 +17,29 @@ RUN pip install --no-cache-dir uv
 # Copy dependency files
 COPY pyproject.toml ./
 
-# Install Python dependencies
+# Install Python dependencies only (without the package itself)
 RUN uv pip install --system .
+
+# Copy source code to match git working directory state
+COPY shared/ ./shared/
+COPY services/ ./services/
+
+# Final step: install package with version from git
+# Convert git describe output to PEP 440 format (v0.0.1-479-ge95e5f2 → 0.0.1.post479+ge95e5f2)
+RUN --mount=source=.git,target=.git,type=bind \
+    export GIT_VERSION=$(git describe --tags --always) && \
+    export PEP440_VERSION=$(echo "$GIT_VERSION" | sed -E 's/^v//; s/-([0-9]+)-g/.post\1+g/') && \
+    SETUPTOOLS_SCM_PRETEND_VERSION="$PEP440_VERSION" uv pip install --system --no-deps . && \
+    python -c "import importlib.metadata; print(importlib.metadata.version('game-scheduler'), end='')" > /app/.build_version
 
 # Development stage
 FROM base AS development
+
+# Set GIT_VERSION environment variable from the captured build version
+# This ensures the version is available even when source is volume-mounted
+RUN GIT_VERSION=$(cat /app/.build_version) && \
+    echo "export GIT_VERSION=${GIT_VERSION}" > /etc/profile.d/git_version.sh
+ENV GIT_VERSION="dev-unknown"
 
 # Create non-root user with UID 1000
 # Note: Source files must be world-readable for volume mounts to work

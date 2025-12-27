@@ -47,14 +47,22 @@ export const Layout: FC = () => {
               <Button color="inherit" onClick={() => navigate('/guilds')}>
                 My Servers
               </Button>
+              <Button color="inherit" onClick={() => navigate('/about')}>
+                About
+              </Button>
               <Button color="inherit" onClick={handleLogout}>
                 Logout
               </Button>
             </>
           ) : (
-            <Button color="inherit" onClick={() => navigate('/login')}>
-              Login
-            </Button>
+            <>
+              <Button color="inherit" onClick={() => navigate('/about')}>
+                About
+              </Button>
+              <Button color="inherit" onClick={() => navigate('/login')}>
+                Login
+              </Button>
+            </>
           )}
         </Toolbar>
       </AppBar>
