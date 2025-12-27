@@ -346,7 +346,7 @@ to Grafana Cloud for visualization and analysis.
 
 #### Required Environment Variables
 
-Set these in your `.env` file (see `config/env/env.example` for template):
+Set these in your `.env` file (see `config/template/env.template` for template):
 
 ```bash
 # Grafana Cloud Tempo Instance ID (7-digit number)

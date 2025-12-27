@@ -13,10 +13,10 @@ Synchronize all environment configuration files to ensure consistent variable or
 
 ### Added
 
-- config.example/ - Created example configuration directory structure for new deployments
-- config.example/env.example - Environment variable template with comprehensive documentation
-- config.example/rabbitmq/ - RabbitMQ configuration files
-- config.example/grafana-alloy/ - Grafana Alloy observability configuration and dashboards
+- config.template/ - Created template configuration directory structure for new deployments
+- config.template/env.template - Environment variable template with comprehensive documentation
+- config.template/rabbitmq/ - RabbitMQ configuration files
+- config.template/grafana-alloy/ - Grafana Alloy observability configuration and dashboards
 - config/env/env.dev - Added Docker configuration variables: CONTAINER_PREFIX, RESTART_POLICY, HOST_WORKSPACE_FOLDER
 - config/env/env.dev - Added JWT_SECRET variable to API Configuration section
 - config/env/env.dev - Added RETRY_DAEMON_LOG_LEVEL to Daemon Service Configuration section
@@ -84,7 +84,7 @@ Synchronize all environment configuration files to ensure consistent variable or
 
 ### Phase 6: Verification & Final Cleanup
 
-- Verified all 18 compose variables have corresponding entries in config.example/env.example
+- Verified all 18 compose variables have corresponding entries in config.template/env.template
 - Added TEST_ENVIRONMENT variable to all env files (was used in compose files but missing from templates)
 - Added RETRY_INTERVAL_SECONDS to all env files (900 seconds for prod/staging/dev, 5 seconds for test environments)
 - Removed unused variables from all env files:
