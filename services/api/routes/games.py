@@ -680,7 +680,8 @@ async def _build_game_response(
     )
 
 
-@router.api_route("/{game_id}/thumbnail", methods=["GET", "HEAD"])
+@router.get("/{game_id}/thumbnail", operation_id="get_game_thumbnail")
+@router.head("/{game_id}/thumbnail", operation_id="head_game_thumbnail")
 async def get_game_thumbnail(
     game_id: str,
     game_service: games_service.GameService = Depends(_get_game_service),
@@ -705,7 +706,8 @@ async def get_game_thumbnail(
     )
 
 
-@router.api_route("/{game_id}/image", methods=["GET", "HEAD"])
+@router.get("/{game_id}/image", operation_id="get_game_image")
+@router.head("/{game_id}/image", operation_id="head_game_image")
 async def get_game_image(
     game_id: str,
     game_service: games_service.GameService = Depends(_get_game_service),
