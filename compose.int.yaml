@@ -106,7 +106,7 @@ services:
     networks:
       - app-network
     entrypoint: ["pytest", "-m", "integration"]
-    command: -v --tb=short
+    command: -q --tb=line
 
 # Use tmpfs for test volumes (in-memory, fast, auto-cleanup)
 volumes:

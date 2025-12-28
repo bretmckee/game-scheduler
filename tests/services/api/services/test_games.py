@@ -298,6 +298,198 @@ async def test_create_game_with_where_field(
 
 
 @pytest.mark.asyncio
+async def test_create_game_with_empty_reminders_overrides_template(
+    game_service,
+    mock_db,
+    mock_event_publisher,
+    mock_participant_resolver,
+    mock_role_service,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """Test creating game with empty reminder list overrides template defaults."""
+    template_with_reminders = template_model.GameTemplate(
+        id=str(uuid.uuid4()),
+        guild_id=sample_guild.id,
+        channel_id=sample_channel.id,
+        name="Template With Reminders",
+        order=0,
+        is_default=False,
+        max_players=10,
+        reminder_minutes=[60, 15],
+    )
+
+    game_data = game_schemas.GameCreateRequest(
+        template_id=template_with_reminders.id,
+        title="Test Game",
+        description="Test description",
+        scheduled_at=datetime.datetime.now(datetime.UTC),
+        reminder_minutes=[],
+    )
+
+    created_game = game_model.GameSession(
+        id=str(uuid.uuid4()),
+        title="Test Game",
+        description="Test description",
+        scheduled_at=datetime.datetime.now(datetime.UTC),
+        reminder_minutes=[],
+        guild_id=sample_guild.id,
+        channel_id=sample_channel.id,
+        host_id=sample_user.id,
+        status="SCHEDULED",
+        signup_method="SELF_SIGNUP",
+    )
+    created_game.host = sample_user
+    created_game.participants = []
+
+    template_result = MagicMock()
+    template_result.scalar_one_or_none.return_value = template_with_reminders
+    guild_result = MagicMock()
+    guild_result.scalar_one_or_none.return_value = sample_guild
+    channel_result = MagicMock()
+    channel_result.scalar_one_or_none.return_value = sample_channel
+    host_result = MagicMock()
+    host_result.scalar_one_or_none.return_value = sample_user
+    reload_result = MagicMock()
+    reload_result.scalar_one_or_none.return_value = created_game
+
+    mock_db.execute = AsyncMock(
+        side_effect=[
+            template_result,
+            guild_result,
+            host_result,
+            channel_result,
+            reload_result,
+        ]
+    )
+    mock_db.flush = AsyncMock()
+    mock_db.commit = AsyncMock()
+    mock_db.add = MagicMock()
+
+    def mock_add_side_effect(obj):
+        if isinstance(obj, game_model.GameSession):
+            obj.id = created_game.id
+            obj.reminder_minutes = game_data.reminder_minutes
+
+    mock_db.add.side_effect = mock_add_side_effect
+
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
+        game = await game_service.create_game(
+            game_data=game_data,
+            host_user_id=sample_user.id,
+            access_token="token",
+        )
+
+    assert isinstance(game, game_model.GameSession)
+    assert game.reminder_minutes == []
+    mock_db.add.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_create_game_with_cleared_optional_fields_overrides_template(
+    game_service,
+    mock_db,
+    mock_event_publisher,
+    mock_participant_resolver,
+    mock_role_service,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """Test creating game with cleared optional fields overrides template defaults."""
+    template_with_defaults = template_model.GameTemplate(
+        id=str(uuid.uuid4()),
+        guild_id=sample_guild.id,
+        channel_id=sample_channel.id,
+        name="Template With Defaults",
+        order=0,
+        is_default=False,
+        max_players=10,
+        where="Discord Voice",
+        signup_instructions="Please be on time",
+        expected_duration_minutes=120,
+    )
+
+    game_data = game_schemas.GameCreateRequest(
+        template_id=template_with_defaults.id,
+        title="Test Game",
+        description="Test description",
+        scheduled_at=datetime.datetime.now(datetime.UTC),
+        where="",
+        signup_instructions="",
+        max_players=None,
+        expected_duration_minutes=None,
+    )
+
+    created_game = game_model.GameSession(
+        id=str(uuid.uuid4()),
+        title="Test Game",
+        description="Test description",
+        scheduled_at=datetime.datetime.now(datetime.UTC),
+        where="",
+        signup_instructions="",
+        max_players=None,
+        expected_duration_minutes=None,
+        guild_id=sample_guild.id,
+        channel_id=sample_channel.id,
+        host_id=sample_user.id,
+        status="SCHEDULED",
+        signup_method="SELF_SIGNUP",
+    )
+    created_game.host = sample_user
+    created_game.participants = []
+
+    template_result = MagicMock()
+    template_result.scalar_one_or_none.return_value = template_with_defaults
+    guild_result = MagicMock()
+    guild_result.scalar_one_or_none.return_value = sample_guild
+    channel_result = MagicMock()
+    channel_result.scalar_one_or_none.return_value = sample_channel
+    host_result = MagicMock()
+    host_result.scalar_one_or_none.return_value = sample_user
+    reload_result = MagicMock()
+    reload_result.scalar_one_or_none.return_value = created_game
+
+    mock_db.execute = AsyncMock(
+        side_effect=[
+            template_result,
+            guild_result,
+            host_result,
+            channel_result,
+            reload_result,
+        ]
+    )
+    mock_db.flush = AsyncMock()
+    mock_db.commit = AsyncMock()
+    mock_db.add = MagicMock()
+
+    def mock_add_side_effect(obj):
+        if isinstance(obj, game_model.GameSession):
+            obj.id = created_game.id
+            obj.where = game_data.where
+            obj.signup_instructions = game_data.signup_instructions
+            obj.max_players = game_data.max_players
+            obj.expected_duration_minutes = game_data.expected_duration_minutes
+
+    mock_db.add.side_effect = mock_add_side_effect
+
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
+        game = await game_service.create_game(
+            game_data=game_data,
+            host_user_id=sample_user.id,
+            access_token="token",
+        )
+
+    assert isinstance(game, game_model.GameSession)
+    assert game.where == ""
+    assert game.signup_instructions == ""
+    assert game.max_players is None
+    assert game.expected_duration_minutes is None
+    mock_db.add.assert_called()
+
+
+@pytest.mark.asyncio
 async def test_create_game_with_valid_participants(
     game_service,
     mock_db,

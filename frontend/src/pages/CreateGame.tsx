@@ -156,16 +156,14 @@ export const CreateGame: FC = () => {
       payload.append('description', formData.description);
       payload.append('scheduled_at', formData.scheduledAt!.toISOString());
 
-      // Add optional text fields
-      if (formData.signupInstructions) {
-        payload.append('signup_instructions', formData.signupInstructions);
-      }
-      if (formData.where) {
-        payload.append('where', formData.where);
-      }
+      // Add optional text fields (always include to allow clearing template defaults)
+      payload.append('signup_instructions', formData.signupInstructions || '');
+      payload.append('where', formData.where || '');
+
       if (maxPlayers !== null) {
         payload.append('max_players', maxPlayers.toString());
       }
+      // Don't send field at all if null - backend will use template default
 
       // Add host field only if bot manager and field has value
       if (isBotManager && formData.host && formData.host.trim()) {
@@ -173,18 +171,21 @@ export const CreateGame: FC = () => {
       }
 
       // Add reminder minutes as JSON array
-      if (formData.reminderMinutes) {
-        const reminderMinutesArray = formData.reminderMinutes
-          .split(',')
-          .map((m) => parseInt(m.trim()));
-        payload.append('reminder_minutes', JSON.stringify(reminderMinutesArray));
-      }
+      // Send empty array when field is empty (no reminders)
+      const reminderMinutesArray = formData.reminderMinutes
+        ? formData.reminderMinutes
+            .split(',')
+            .map((m) => parseInt(m.trim()))
+            .filter((m) => !isNaN(m))
+        : [];
+      payload.append('reminder_minutes', JSON.stringify(reminderMinutesArray));
 
-      // Add expected duration
+      // Add expected duration only if provided
       const expectedDuration = parseDurationString(formData.expectedDurationMinutes);
       if (expectedDuration !== null) {
         payload.append('expected_duration_minutes', expectedDuration.toString());
       }
+      // Don't send field at all if null - backend will use template default
 
       // Add signup method
       if (formData.signupMethod) {

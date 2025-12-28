@@ -44,7 +44,7 @@ trap cleanup EXIT
 
 echo "Running e2e tests..."
 if [ $# -eq 0 ]; then
-  # Use marker-based selection (command from compose.e2e.yaml: -m e2e -v --tb=short)
+  # Use marker-based selection (command from compose.e2e.yaml: -m e2e -q --tb=line)
   docker compose --env-file "$ENV_FILE" run --rm e2e-tests
 else
   # User specified args - pass them through

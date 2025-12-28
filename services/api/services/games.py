@@ -230,13 +230,25 @@ class GameService:
             raise ValueError(f"Channel configuration not found for ID: {template.channel_id}")
 
         # Use template defaults for optional fields
-        max_players = resolve_max_players(game_data.max_players or template.max_players)
-        reminder_minutes = game_data.reminder_minutes or template.reminder_minutes or [60, 15]
-        expected_duration_minutes = (
-            game_data.expected_duration_minutes or template.expected_duration_minutes
+        max_players = resolve_max_players(
+            game_data.max_players if game_data.max_players is not None else template.max_players
         )
-        where = game_data.where or template.where
-        signup_instructions = game_data.signup_instructions or template.signup_instructions
+        reminder_minutes = (
+            game_data.reminder_minutes
+            if game_data.reminder_minutes is not None
+            else (template.reminder_minutes or [60, 15])
+        )
+        expected_duration_minutes = (
+            game_data.expected_duration_minutes
+            if game_data.expected_duration_minutes is not None
+            else template.expected_duration_minutes
+        )
+        where = game_data.where if game_data.where is not None else template.where
+        signup_instructions = (
+            game_data.signup_instructions
+            if game_data.signup_instructions is not None
+            else template.signup_instructions
+        )
 
         # Locked fields from template
         channel_id = template.channel_id

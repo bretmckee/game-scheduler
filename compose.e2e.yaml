@@ -128,7 +128,7 @@ services:
     networks:
       - app-network
     entrypoint: ["pytest", "-m", "e2e"]
-    command: -v --tb=short
+    command: -q --tb=line
 
 # Use tmpfs for test volumes (in-memory, fast, auto-cleanup)
 volumes:

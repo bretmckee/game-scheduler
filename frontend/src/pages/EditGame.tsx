@@ -126,30 +126,31 @@ export const EditGame: FC = () => {
       payload.append('scheduled_at', formData.scheduledAt!.toISOString());
       payload.append('channel_id', formData.channelId);
 
-      // Add optional text fields
-      if (formData.signupInstructions) {
-        payload.append('signup_instructions', formData.signupInstructions);
-      }
-      if (formData.where) {
-        payload.append('where', formData.where);
-      }
+      // Add optional text fields (always include to allow clearing defaults)
+      payload.append('signup_instructions', formData.signupInstructions || '');
+      payload.append('where', formData.where || '');
+
       if (maxPlayers !== null) {
         payload.append('max_players', maxPlayers.toString());
       }
+      // Don't send field at all if null - keeps existing value
 
       // Add reminder minutes as JSON array
-      if (formData.reminderMinutes) {
-        const reminderMinutesArray = formData.reminderMinutes
-          .split(',')
-          .map((m) => parseInt(m.trim()));
-        payload.append('reminder_minutes', JSON.stringify(reminderMinutesArray));
-      }
+      // Send empty array when field is cleared to signal deletion
+      const reminderMinutesArray = formData.reminderMinutes
+        ? formData.reminderMinutes
+            .split(',')
+            .map((m) => parseInt(m.trim()))
+            .filter((m) => !isNaN(m))
+        : [];
+      payload.append('reminder_minutes', JSON.stringify(reminderMinutesArray));
 
-      // Add expected duration
+      // Add expected duration only if provided
       const expectedDuration = parseDurationString(formData.expectedDurationMinutes);
       if (expectedDuration !== null) {
         payload.append('expected_duration_minutes', expectedDuration.toString());
       }
+      // Don't send field at all if null - keeps existing value
 
       // Add signup method
       payload.append('signup_method', formData.signupMethod);
