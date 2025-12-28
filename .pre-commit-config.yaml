@@ -108,40 +108,40 @@ repos:
         files: ^frontend/.*\.(ts|tsx|js|jsx|json|css|scss|html)$
         pass_filenames: false
 
-  # Automatic testing for new/modified files
+  # Automatic testing with coverage (RUNS ON EVERY COMMIT)
   - repo: local
     hooks:
-      # Unit tests for new/modified test files (RUNS ON EVERY COMMIT)
-      - id: pytest-changed
-        name: pytest on new/modified test files
-        entry: bash -c 'test_files=$(git diff --cached --name-only --diff-filter=ACMR | grep "^tests/.*\.py$" | grep -v "tests/integration/" | grep -v "tests/e2e/"); if [ -n "$test_files" ]; then uv run pytest $test_files --tb=short -x -v || [ $? -eq 5 ]; else echo "No unit test files changed"; fi'
+      # Python unit tests with coverage
+      - id: pytest-coverage
+        name: Python unit tests with coverage
+        entry: uv run pytest --cov --cov-report=xml -q
         language: system
         pass_filenames: false
         always_run: true
         verbose: true
 
-      # Frontend tests for new/modified files (RUNS ON EVERY COMMIT)
-      - id: vitest-changed
-        name: Frontend tests on changed files
-        entry: bash -c 'files=$(git diff --cached --name-only --diff-filter=ACM | grep -E "^frontend/.*\.(ts|tsx|js|jsx)$"); if [ -n "$files" ]; then cd frontend && npm run test -- --run; else echo "No frontend files to test"; fi'
+      # Frontend unit tests with coverage
+      - id: vitest-coverage
+        name: Frontend unit tests with coverage
+        entry: bash -c 'cd frontend && npm run test:coverage -- --run --reporter=dot && sed "s|^SF:src/|SF:frontend/src/|g" coverage/lcov.info > coverage/lcov-fixed.info'
         language: system
         pass_filenames: false
         always_run: true
         verbose: true
 
-      # Diff coverage check for modified Python code (RUNS ON EVERY COMMIT)
+      # Diff coverage check for modified Python code
       - id: diff-coverage
-        name: Coverage check on modified lines
-        entry: bash -c 'py_files=$(git diff --cached --name-only --diff-filter=ACM | grep -E "^(services|shared)/.*\.py$" | grep -v "__pycache__"); if [ -n "$py_files" ]; then uv run pytest --cov --cov-report=xml --cov-report=term -q && uv run diff-cover coverage.xml --compare-branch=origin/main --fail-under=80 --ignore-whitespace; else echo "No source Python files changed"; fi'
+        name: Python diff coverage check
+        entry: bash -c 'py_files=$(git diff --cached --name-only --diff-filter=ACM | grep -E "^(services|shared)/.*\.py$" | grep -v "__pycache__"); if [ -n "$py_files" ]; then uv run diff-cover coverage.xml --compare-branch=origin/main --fail-under=80 --ignore-whitespace --quiet; else echo "No source Python files changed"; fi'
         language: system
         pass_filenames: false
         always_run: true
         verbose: true
 
-      # Diff coverage check for modified TypeScript code (RUNS ON EVERY COMMIT)
+      # Diff coverage check for modified TypeScript code
       - id: diff-coverage-frontend
-        name: Frontend coverage check on modified lines
-        entry: bash -c 'ts_files=$(git diff --cached --name-only --diff-filter=ACM | grep -E "^frontend/src/.*\.(ts|tsx)$" | grep -v "\.test\."); if [ -n "$ts_files" ]; then cd frontend && npm run test:coverage -- --run && cd .. && uv run diff-cover frontend/coverage/lcov.info --compare-branch=origin/main --fail-under=80 --ignore-whitespace; else echo "No source TypeScript files changed"; fi'
+        name: Frontend diff coverage check
+        entry: bash -c 'ts_files=$(git diff --cached --name-only --diff-filter=ACM | grep -E "^frontend/src/.*\.(ts|tsx)$" | grep -v "\.test\."); if [ -n "$ts_files" ]; then uv run diff-cover frontend/coverage/lcov-fixed.info --compare-branch=origin/main --fail-under=80 --ignore-whitespace --quiet; else echo "No source TypeScript files changed"; fi'
         language: system
         pass_filenames: false
         always_run: true

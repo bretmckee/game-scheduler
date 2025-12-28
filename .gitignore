@@ -51,6 +51,7 @@ logs/
 .coverage
 htmlcov/
 .tox/
+coverage.xml
 
 # OS
 .DS_Store
