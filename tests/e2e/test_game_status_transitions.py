@@ -148,15 +148,15 @@ async def test_game_status_transitions_update_message(
     E2E: Game status transitions trigger Discord message updates.
 
     Verifies:
-    - Game created scheduled 1 minute in future with 2 minute duration
+    - Game created scheduled 1 minute in future with 1 minute duration
     - game_status_schedule populated with IN_PROGRESS and COMPLETED entries
     - Status transition daemon processes SCHEDULED→IN_PROGRESS (waits up to 150s)
     - Game status updated to IN_PROGRESS in database
     - Discord message refreshed to show IN_PROGRESS status
-    - Status transition daemon processes IN_PROGRESS→COMPLETED (waits up to 180s)
+    - Status transition daemon processes IN_PROGRESS→COMPLETED (waits up to 150s)
     - Game status updated to COMPLETED in database
     - Discord message refreshed to show COMPLETED status
-    - Total test duration: ~5-6 minutes (1 min + 150s + 2 min + 180s)
+    - Total test duration: ~4-5 minutes (1 min + 150s + 1 min + 150s)
     """
     scheduled_time = datetime.now(UTC) + timedelta(minutes=1)
     game_title = f"E2E Status Transition Test {uuid4().hex[:8]}"
@@ -168,7 +168,7 @@ async def test_game_status_transitions_update_message(
         "description": game_description,
         "scheduled_at": scheduled_time.isoformat(),
         "max_players": "4",
-        "expected_duration_minutes": "2",
+        "expected_duration_minutes": "1",
     }
 
     response = await authenticated_admin_client.post("/api/v1/games", data=game_data)
@@ -243,31 +243,26 @@ async def test_game_status_transitions_update_message(
         description="game status transition to IN_PROGRESS",
     )
 
-    message = await discord_helper.get_message(discord_channel_id, message_id)
+    message = await discord_helper.wait_for_message_update(
+        channel_id=discord_channel_id,
+        message_id=message_id,
+        check_func=lambda msg: (
+            msg.embeds
+            and msg.embeds[0].footer
+            and GameStatus.IN_PROGRESS.display_name in msg.embeds[0].footer.text
+        ),
+        timeout=e2e_timeouts[TimeoutType.STATUS_TRANSITION] + 10,
+        interval=2.0,
+        description="message update with IN_PROGRESS status",
+    )
     assert message is not None, "Discord message should still exist after IN_PROGRESS transition"
     assert len(message.embeds) == 1, "Message should have one embed"
-    embed = message.embeds[0]
 
-    has_in_progress_indicator = False
-    if embed.fields:
-        for field in embed.fields:
-            if GameStatus.IN_PROGRESS.display_name in field.value:
-                has_in_progress_indicator = True
-                break
-
-    if not has_in_progress_indicator and embed.description:
-        if GameStatus.IN_PROGRESS.display_name in embed.description:
-            has_in_progress_indicator = True
-
-    if not has_in_progress_indicator and embed.footer:
-        if GameStatus.IN_PROGRESS.display_name in embed.footer.text:
-            has_in_progress_indicator = True
-
-    assert has_in_progress_indicator, "Discord message should display IN_PROGRESS status indicator"
+    print("[TEST] ✓ Discord message updated with IN_PROGRESS status")
 
     print(
-        "[TEST] Waiting up to 180 seconds for COMPLETED transition "
-        "(2 min duration + 60s daemon polling + margin)"
+        "[TEST] Waiting up to 150 seconds for COMPLETED transition "
+        "(1 min duration + 60s daemon polling + margin)"
     )
 
     await wait_for_db_condition(
@@ -280,27 +275,22 @@ async def test_game_status_transitions_update_message(
         description="game status transition to COMPLETED",
     )
 
-    message = await discord_helper.get_message(discord_channel_id, message_id)
+    message = await discord_helper.wait_for_message_update(
+        channel_id=discord_channel_id,
+        message_id=message_id,
+        check_func=lambda msg: (
+            msg.embeds
+            and msg.embeds[0].footer
+            and GameStatus.COMPLETED.display_name in msg.embeds[0].footer.text
+        ),
+        timeout=e2e_timeouts[TimeoutType.STATUS_TRANSITION] + 10,
+        interval=2.0,
+        description="message update with COMPLETED status",
+    )
     assert message is not None, "Discord message should still exist after COMPLETED transition"
     assert len(message.embeds) == 1, "Message should have one embed"
-    embed = message.embeds[0]
 
-    has_completed_indicator = False
-    if embed.fields:
-        for field in embed.fields:
-            if GameStatus.COMPLETED.display_name in field.value:
-                has_completed_indicator = True
-                break
-
-    if not has_completed_indicator and embed.description:
-        if GameStatus.COMPLETED.display_name in embed.description:
-            has_completed_indicator = True
-
-    if not has_completed_indicator and embed.footer:
-        if GameStatus.COMPLETED.display_name in embed.footer.text:
-            has_completed_indicator = True
-
-    assert has_completed_indicator, "Discord message should display COMPLETED status indicator"
+    print("[TEST] ✓ Discord message updated with COMPLETED status")
 
     print("[TEST] ✓ Game status transition test completed successfully")
     print("[TEST] ✓ Both SCHEDULED→IN_PROGRESS and IN_PROGRESS→COMPLETED verified")

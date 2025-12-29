@@ -253,7 +253,21 @@ async def test_player_removal_sends_dm_and_updates_message(
     )
     assert game_title in removal_dm.content, f"DM should mention game title: {removal_dm.content}"
 
-    updated_message = await discord_helper.get_message(discord_channel_id, message_id)
+    updated_message = await discord_helper.wait_for_message_update(
+        channel_id=discord_channel_id,
+        message_id=message_id,
+        check_func=lambda msg: (
+            msg.embeds
+            and any(
+                "0/4" in field.name
+                for field in msg.embeds[0].fields
+                if field.name and "Participants" in field.name
+            )
+        ),
+        timeout=e2e_timeouts[TimeoutType.MESSAGE_UPDATE] + 5,
+        interval=2.0,
+        description="message update to show 0/4 participants after removal",
+    )
     assert updated_message is not None, "Discord message should still exist after removal"
     assert len(updated_message.embeds) == 1, "Message should have one embed"
 
@@ -265,12 +279,6 @@ async def test_player_removal_sends_dm_and_updates_message(
             break
 
     assert updated_participants_field is not None, "Participants field should exist after removal"
-    print(f"[TEST] Updated participant field: {updated_participants_field.name}")
-
-    assert "0/4" in updated_participants_field.name, (
-        f"Should show 0/4 participants after removal: {updated_participants_field.name}"
-    )
-
     participant_list = updated_participants_field.value
     assert f"<@{discord_user_id}>" not in participant_list, (
         f"Removed user should not appear in participant list: {participant_list}"

@@ -233,12 +233,26 @@ async def test_waitlist_promotion_sends_dm(
         timeout=e2e_timeouts[TimeoutType.DM_IMMEDIATE],
     )
 
-    # Verify Discord message shows expected player count after promotion
-    promoted_message = await discord_helper.get_message(discord_channel_id, message_id)
+    # Wait for Discord message to be updated with new participant count
+    promoted_message = await discord_helper.wait_for_message_update(
+        channel_id=discord_channel_id,
+        message_id=message_id,
+        check_func=lambda msg: (
+            msg.embeds
+            and any(
+                expected_player_count in field.name
+                for field in msg.embeds[0].fields
+                if field.name and "Participants" in field.name
+            )
+        ),
+        timeout=e2e_timeouts[TimeoutType.MESSAGE_UPDATE] + 5,
+        interval=2.0,
+        description=f"message update to show {expected_player_count} after promotion",
+    )
     assert promoted_message is not None
     promoted_embed = promoted_message.embeds[0]
 
-    # Find participants field
+    # Find participants field for verification
     participants_field = None
     for field in promoted_embed.fields:
         if field.name and "Participants" in field.name:
@@ -246,10 +260,6 @@ async def test_waitlist_promotion_sends_dm(
             break
 
     assert participants_field is not None, "Participants field not found"
-    assert expected_player_count in participants_field.name, (
-        f"Expected {expected_player_count} in field name after promotion, "
-        f"got: {participants_field.name}"
-    )
     print(f"✓ Discord message shows {expected_player_count} with test user promoted")
 
     # Verify promotion DM content
