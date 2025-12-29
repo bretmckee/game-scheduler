@@ -82,14 +82,7 @@ before proceeding.
   - Build optimization (layer caching, .dockerignore)
   - Health checks defined where applicable
 
-### 2. Copyright and Legal Compliance
-
-- [ ] **All new files have copyright notice:**
-  - Check for AGPL-3.0 notice at top of each new file
-  - Run `scripts/add-copyright` if any files missing copyright
-  - Verify copyright year is current (2025)
-
-### 3. Code Quality and Best Practices
+### 2. Code Quality and Best Practices
 
 - [ ] **Modularity and DRY:**
 
@@ -109,7 +102,7 @@ before proceeding.
   - SQL injection prevention (parameterized queries)
   - Proper authentication/authorization checks
 
-### 4. Testing Requirements
+### 3. Testing Requirements
 
 **Run and verify tests systematically:**
 
@@ -162,7 +155,7 @@ before proceeding.
 - [ ] **Type checking verification:**
   - Use mypy to verify type correctness in modified files
 
-### 5. Build and Integration Verification
+### 4. Build and Integration Verification
 
 **Verify system-level integration:**
 
@@ -182,7 +175,7 @@ before proceeding.
   - All tests must pass
   - Fix any failures immediately
 
-### 6. Final Lint and Error Check
+### 5. Final Lint and Error Check
 
 **MUST be performed last** (after all other fixes):
 
@@ -214,7 +207,6 @@ before proceeding.
 Before marking verification complete:
 
 - [ ] All code convention checks passed
-- [ ] Copyright notices added to all new files
 - [ ] **Unit tests exist and pass for new/modified code**
   - [ ] **VERIFIED: New functions have new tests**
   - [ ] **VERIFIED: Modified functions have updated tests**
