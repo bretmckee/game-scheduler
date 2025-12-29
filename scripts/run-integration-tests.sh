@@ -7,9 +7,6 @@ set -e
 # Environment file location
 ENV_FILE="config/env.int"
 
-echo "Building integration test container..."
-docker compose --env-file "$ENV_FILE" build integration-tests init
-
 cleanup() {
   echo "Cleaning up integration test environment..."
   docker compose --env-file "$ENV_FILE" down -v
@@ -18,12 +15,8 @@ cleanup() {
 trap cleanup EXIT
 
 echo "Running integration tests..."
-if [ $# -eq 0 ]; then
-  # Use marker-based selection (command from compose.int.yaml: -m integration -q --tb=line)
-  docker compose --env-file "$ENV_FILE" run --rm integration-tests
-else
-  # User specified args - pass them through
-  docker compose --env-file "$ENV_FILE" run --rm integration-tests "$@"
-fi
+# Build if needed, then run tests
+# When $@ is empty, compose uses command field; when present, it overrides
+docker compose --env-file "$ENV_FILE" run --build --rm integration-tests "$@"
 
 echo "Integration tests passed!"
