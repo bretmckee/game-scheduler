@@ -240,6 +240,7 @@ export const GameForm: FC<GameFormProps> = ({
     if (initialData) {
       setFormData({
         title: initialData.title || '',
+        host: '',
         description: initialData.description || '',
         signupInstructions: initialData.signup_instructions || '',
         scheduledAt: initialData.scheduled_at

@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License along
 // with Game_Scheduler If not, see <https://www.gnu.org/licenses/>.
 
-import { FC, useState, useEffect } from 'react';
+import { FC, useState, useEffect, useMemo } from 'react';
 import { StatusCodes } from 'http-status-codes';
 import {
   Container,
@@ -246,6 +246,22 @@ export const CreateGame: FC = () => {
     setError(null);
   };
 
+  // Memoize initialData to prevent form reset on re-renders
+  const initialData = useMemo(
+    () =>
+      selectedTemplate
+        ? {
+            max_players: selectedTemplate.max_players,
+            expected_duration_minutes: selectedTemplate.expected_duration_minutes,
+            reminder_minutes: selectedTemplate.reminder_minutes,
+            where: selectedTemplate.where,
+            signup_instructions: selectedTemplate.signup_instructions,
+            channel_id: selectedTemplate.channel_id,
+          }
+        : undefined,
+    [selectedTemplate]
+  );
+
   if (loading) {
     return (
       <Container maxWidth="md" sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
@@ -360,14 +376,7 @@ export const CreateGame: FC = () => {
                   ]}
                   allowedSignupMethods={selectedTemplate.allowed_signup_methods}
                   defaultSignupMethod={selectedTemplate.default_signup_method}
-                  initialData={{
-                    max_players: selectedTemplate.max_players,
-                    expected_duration_minutes: selectedTemplate.expected_duration_minutes,
-                    reminder_minutes: selectedTemplate.reminder_minutes,
-                    where: selectedTemplate.where,
-                    signup_instructions: selectedTemplate.signup_instructions,
-                    channel_id: selectedTemplate.channel_id,
-                  }}
+                  initialData={initialData}
                   onSubmit={handleSubmit}
                   onCancel={() => navigate(-1)}
                   validationErrors={validationErrors}
