@@ -102,13 +102,58 @@ class ParticipantResolver:
             mention_match = discord_mention_pattern.match(input_text)
             if mention_match:
                 discord_id = mention_match.group(1)
-                valid_participants.append(
-                    {
-                        "type": "discord",
-                        "discord_id": discord_id,
-                        "original_input": input_text,
-                    }
-                )
+                try:
+                    # Fetch member details to get username and display_name
+                    member = await self.discord_client.get_guild_member(
+                        guild_discord_id, discord_id
+                    )
+                    valid_participants.append(
+                        {
+                            "type": "discord",
+                            "discord_id": discord_id,
+                            "username": member["user"]["username"],
+                            "display_name": (
+                                member.get("nick")
+                                or member["user"].get("global_name")
+                                or member["user"]["username"]
+                            ),
+                            "original_input": input_text,
+                        }
+                    )
+                except discord_client_module.DiscordAPIError as e:
+                    if e.status == status.HTTP_404_NOT_FOUND:
+                        # Member not found in guild
+                        validation_errors.append(
+                            {
+                                "input": input_text,
+                                "reason": "User not found in server",
+                                "suggestions": [],
+                            }
+                        )
+                    else:
+                        logger.error(
+                            f"Discord API error fetching member {discord_id} from "
+                            f"guild {guild_discord_id}: {e.status} - {e.message}"
+                        )
+                        validation_errors.append(
+                            {
+                                "input": input_text,
+                                "reason": f"Discord API error: {e.message}",
+                                "suggestions": [],
+                            }
+                        )
+                except Exception as e:
+                    logger.error(
+                        f"Unexpected error fetching guild member {discord_id}: {e}",
+                        exc_info=True,
+                    )
+                    validation_errors.append(
+                        {
+                            "input": input_text,
+                            "reason": "Internal error fetching user",
+                            "suggestions": [],
+                        }
+                    )
                 continue
 
             if input_text.startswith("@"):

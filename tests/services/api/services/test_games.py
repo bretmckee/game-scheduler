@@ -1710,6 +1710,7 @@ async def test_create_game_bot_manager_can_override_host(
         return_value=(
             [
                 {
+                    "type": "discord",
                     "discord_id": different_host.discord_id,
                     "username": "different_host",
                     "display_name": "Different Host",
@@ -1851,6 +1852,7 @@ async def test_create_game_bot_manager_host_without_permissions_fails(
         return_value=(
             [
                 {
+                    "type": "discord",
                     "discord_id": different_host.discord_id,
                     "username": "different_host",
                     "display_name": "Different Host",

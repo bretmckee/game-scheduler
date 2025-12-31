@@ -184,6 +184,7 @@ export const GameForm: FC<GameFormProps> = ({
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hostError, setHostError] = useState<string | null>(null);
 
   // Calculate available signup methods: if empty/null, all methods are available
   const availableSignupMethods =
@@ -286,12 +287,21 @@ export const GameForm: FC<GameFormProps> = ({
     }
   }, [channels, formData.channelId]);
 
-  // Update participant validation status when validationErrors change
+  // Update participant and host validation status when validationErrors change
   useEffect(() => {
     if (!validationErrors && !validParticipants) return;
 
     const invalidInputs = new Set(validationErrors?.map((err) => err.input.trim()) || []);
     const validInputs = new Set(validParticipants?.map((input) => input.trim()) || []);
+
+    // Check if host field has a validation error
+    const hostInput = formData.host?.trim();
+    if (hostInput) {
+      const hostValidationError = validationErrors?.find((err) => err.input.trim() === hostInput);
+      setHostError(hostValidationError?.reason || null);
+    } else {
+      setHostError(null);
+    }
 
     setFormData((prev) => ({
       ...prev,
@@ -307,7 +317,7 @@ export const GameForm: FC<GameFormProps> = ({
         return p;
       }),
     }));
-  }, [validationErrors, validParticipants]);
+  }, [validationErrors, validParticipants, formData.host]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -481,7 +491,10 @@ export const GameForm: FC<GameFormProps> = ({
               margin="normal"
               disabled={loading}
               placeholder={user?.username || 'Your username'}
-              helperText="Game host (@mention or username). Leave empty to host yourself."
+              helperText={
+                hostError || 'Game host (@mention or username). Leave empty to host yourself.'
+              }
+              error={!!hostError}
               InputLabelProps={{
                 sx: { fontSize: '1.1rem' },
               }}

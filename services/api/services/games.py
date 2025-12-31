@@ -173,6 +173,22 @@ class GameService:
                 if not resolved_hosts:
                     raise ValueError(f"Could not resolve host: {game_data.host}")
 
+                # Host must be a Discord user, not a placeholder
+                if resolved_hosts[0].get("type") != "discord":
+                    raise resolver_module.ValidationError(
+                        invalid_mentions=[
+                            {
+                                "input": game_data.host,
+                                "reason": (
+                                    "Game host must be a Discord user (use @username format). "
+                                    "Placeholder strings are not allowed for the host field."
+                                ),
+                                "suggestions": [],
+                            }
+                        ],
+                        valid_participants=[],
+                    )
+
                 host_discord_id = resolved_hosts[0]["discord_id"]
 
                 # Get or create host user in database
