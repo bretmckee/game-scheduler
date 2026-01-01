@@ -95,6 +95,62 @@ Create comprehensive test suite covering all wrapper functions with focus on gui
 - **Dependencies**: Tasks 1.2, 1.3, 1.4 completion
 - **Testing**: Run pytest with coverage report, verify 100% coverage
 
+### Task 1.6: Add integration tests for guild query wrappers
+
+Create integration tests that exercise all 12 wrapper functions against a real PostgreSQL database before migrating production code to use them.
+
+- **Files**:
+  - `tests/integration/test_guild_queries.py` - New integration test suite covering all wrapper functions
+  - Uses existing integration test infrastructure (conftest.py, scripts/run-integration-tests.sh)
+- **Test Coverage**:
+  - **Game Operations** (5 functions):
+    - `get_game_by_id`: Verify returns game from correct guild only, None for wrong guild
+    - `list_games`: Verify returns only specified guild's games, respects channel filter
+    - `create_game`: Verify guild_id correctly set, RLS context applied
+    - `update_game`: Verify rejects updates to other guild's games, validates ownership
+    - `delete_game`: Verify rejects deletes of other guild's games, validates ownership
+  - **Participant Operations** (3 functions):
+    - `add_participant`: Verify validates game belongs to guild before adding
+    - `remove_participant`: Verify validates game belongs to guild before removing
+    - `list_user_games`: Verify returns only user's games from specified guild
+  - **Template Operations** (4 functions):
+    - `get_template_by_id`: Verify returns template from correct guild only
+    - `list_templates`: Verify returns only specified guild's templates
+    - `create_template`: Verify guild_id correctly set, RLS context applied
+    - `update_template`: Verify rejects updates to other guild's templates
+- **Test Data Setup**:
+  - Create two guilds (guild_a, guild_b) with distinct UUIDs
+  - Create games, participants, templates in both guilds
+  - Use realistic game data (titles, descriptions, dates, player counts)
+  - Clean up test data after each test
+- **Security Validations**:
+  - Cross-guild access attempts return None or raise ValueError
+  - List operations never return cross-guild data
+  - RLS context (`SET LOCAL app.current_guild_id`) correctly set before each query
+  - Validate filtering by guild_id in WHERE clauses is effective
+- **Error Handling Tests**:
+  - Empty string guild_id raises ValueError
+  - Empty string game_id/template_id raises ValueError
+  - Non-existent IDs return None or raise appropriate errors
+  - Database constraint violations handled gracefully
+- **Performance Validation**:
+  - Measure wrapper overhead per query (target: < 5ms)
+  - Verify RLS context setting doesn't significantly impact query performance
+  - Confirm no N+1 query issues in list operations
+- **Success Criteria**:
+  - All 12 wrapper functions tested against real database
+  - 100% of security validations pass (zero cross-guild data leakage)
+  - All error cases handled correctly
+  - Performance acceptable for production use
+  - Tests run successfully via `scripts/run-integration-tests.sh`
+  - Provides confidence to proceed with migration of 37+ call sites
+- **Research References**:
+  - #file:../research/20260101-centralized-query-layer-deduplication-security-research.md (Lines 711-732) - Integration test rationale and threat model
+  - #file:../../tests/integration/test_database_infrastructure.py (Lines 1-100) - Existing integration test pattern to follow
+  - #file:../../.github/instructions/integration-tests.instructions.md - Integration test execution requirements
+- **Dependencies**: Tasks 1.1-1.4 completion (all wrapper functions implemented)
+- **Testing**: Execute via `scripts/run-integration-tests.sh`, verify all tests pass, review coverage report
+
 ## Phase 2: API Migration - High Priority Routes
 
 ### Task 2.1: Migrate games route to use guild_queries wrappers

@@ -42,84 +42,87 @@ Create a centralized guild-scoped query layer that eliminates code duplication a
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Foundation - Create Guild Query Wrapper Functions
+### [x] Phase 1: Foundation - Create Guild Query Wrapper Functions
 
-- [ ] Task 1.1: Create `shared/data_access/` directory structure
-  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 15-35)
+- [x] Task 1.1: Create `shared/data_access/` directory structure
+  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 11-27)
 
-- [ ] Task 1.2: Implement core game operation wrappers (5 functions)
-  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 37-95)
+- [x] Task 1.2: Implement core game operation wrappers (5 functions)
+  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 27-45)
 
-- [ ] Task 1.3: Implement participant operation wrappers (3 functions)
-  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 97-145)
+- [x] Task 1.3: Implement participant operation wrappers (3 functions)
+  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 45-62)
 
-- [ ] Task 1.4: Implement template operation wrappers (4 functions)
-  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 147-195)
+- [x] Task 1.4: Implement template operation wrappers (4 functions)
+  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 62-79)
 
-- [ ] Task 1.5: Add comprehensive unit tests for all wrapper functions
-  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 197-235)
+- [x] Task 1.5: Add comprehensive unit tests for all wrapper functions
+  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 79-98)
 
-### [ ] Phase 2: API Migration - High Priority Routes
+- [x] Task 1.6: Add integration tests for guild query wrappers
+  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 98-154)
+
+### [ ] Phase 2: API Routes Migration
 
 - [ ] Task 2.1: Migrate games route to use guild_queries wrappers
-  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 237-275)
+  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 156-178)
 
 - [ ] Task 2.2: Migrate templates route to use guild_queries wrappers
-  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 277-315)
+  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 178-198)
 
 - [ ] Task 2.3: Migrate guilds route to use guild_queries wrappers
-  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 317-355)
+  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 198-214)
 
 - [ ] Task 2.4: Migrate channels route to use guild_queries wrappers
-  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 357-395)
+  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 214-229)
 
 - [ ] Task 2.5: Migrate permissions dependencies to use guild_queries wrappers
-  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 397-435)
+  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 229-244)
 
 - [ ] Task 2.6: Create integration tests for API guild isolation
-  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 437-460)
+  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 244-265)
 
 ### [ ] Phase 3: Bot and Scheduler Migration
 
 - [ ] Task 3.1: Migrate bot handlers to use guild_queries (async)
-  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 462-485)
+  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 267-283)
 
 - [ ] Task 3.2: Create synchronous wrapper variants for scheduler
-  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 487-510)
+  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 283-299)
 
 - [ ] Task 3.3: Migrate scheduler daemons to use guild_queries_sync
-  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 512-535)
+  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 299-316)
 
 - [ ] Task 3.4: Create integration tests for bot guild isolation
-  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 537-561)
+  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 316-335)
 
 - [ ] Task 3.5: Update scheduler integration tests for guild isolation
-  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 563-587)
+  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 335-355)
 
 ### [ ] Phase 4: Verification and Database Security
 
 - [ ] Task 4.1: Verify 100% migration completion
-  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 589-627)
+  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 357-375)
 
 - [ ] Task 4.2: Create and apply RLS migration
-  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 629-677)
+  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 375-394)
 
 - [ ] Task 4.3: Add integration tests for RLS enforcement
-  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 679-703)
+  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 394-411)
 
 - [ ] Task 4.4: Create end-to-end guild isolation validation tests
-  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 705-732)
+  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 411-432)
 
 ### [ ] Phase 5: Architectural Enforcement
 
 - [ ] Task 5.1: Create linting script to prevent model imports
-  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 734-782)
+  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 434-453)
 
 - [ ] Task 5.2: Add pre-commit hook for query layer enforcement
-  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 784-822)
+  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 453-470)
 
 - [ ] Task 5.3: Update documentation with architecture guidelines
-  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 824-862)
+  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 470-488)
 
 ## Dependencies
 
