@@ -125,9 +125,15 @@ services:
         condition: service_healthy
       grafana-alloy:
         condition: service_started
+    healthcheck:
+      test: ["CMD", "test", "-f", "/tmp/init-complete"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 120s
     networks:
       - app-network
-    restart: "no"
+    restart: unless-stopped
     logging: *logging-default
     labels:
       service: "init"
@@ -164,7 +170,7 @@ services:
       OTEL_LOGS_EXPORTER: otlp
     depends_on:
       init:
-        condition: service_completed_successfully
+        condition: service_healthy
       grafana-alloy:
         condition: service_started
     networks:
@@ -207,7 +213,7 @@ services:
       OTEL_LOGS_EXPORTER: otlp
     depends_on:
       init:
-        condition: service_completed_successfully
+        condition: service_healthy
       grafana-alloy:
         condition: service_started
     healthcheck:
@@ -247,7 +253,7 @@ services:
       OTEL_LOGS_EXPORTER: otlp
     depends_on:
       init:
-        condition: service_completed_successfully
+        condition: service_healthy
       grafana-alloy:
         condition: service_started
     healthcheck:
@@ -293,7 +299,7 @@ services:
       OTEL_LOGS_EXPORTER: otlp
     depends_on:
       init:
-        condition: service_completed_successfully
+        condition: service_healthy
       grafana-alloy:
         condition: service_started
     healthcheck:
@@ -339,7 +345,7 @@ services:
       OTEL_LOGS_EXPORTER: otlp
     depends_on:
       init:
-        condition: service_completed_successfully
+        condition: service_healthy
       grafana-alloy:
         condition: service_started
     healthcheck:

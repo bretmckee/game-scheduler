@@ -32,7 +32,9 @@ All steps are instrumented with OpenTelemetry for observability.
 
 import logging
 import sys
+import time
 from datetime import UTC, datetime
+from pathlib import Path
 
 from opentelemetry import trace
 
@@ -42,6 +44,8 @@ from services.init.seed_e2e import seed_e2e_data
 from services.init.verify_schema import verify_schema
 from services.init.wait_postgres import wait_for_postgres
 from shared.telemetry import flush_telemetry, init_telemetry
+
+SECONDS_PER_DAY = 86400
 
 # Configure logging before any operations
 logging.basicConfig(
@@ -103,7 +107,13 @@ def main() -> int:
             logger.info(f"Duration: {duration:.2f} seconds")
             logger.info("=" * 60)
 
-            return 0
+            marker_file = Path("/tmp/init-complete")
+            marker_file.touch()
+            logger.info(f"Created completion marker: {marker_file}")
+
+            logger.info("Entering sleep mode. Container will remain healthy.")
+            while True:
+                time.sleep(SECONDS_PER_DAY)
 
         except Exception as e:
             logger.error("=" * 60)

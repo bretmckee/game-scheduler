@@ -62,7 +62,7 @@ services:
     command: sh -c "echo 'System ready for testing' && sleep infinity"
     depends_on:
       init:
-        condition: service_completed_successfully
+        condition: service_healthy
       postgres:
         condition: service_healthy
       rabbitmq:
