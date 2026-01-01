@@ -55,20 +55,29 @@ Implement transparent guild isolation using SQLAlchemy event listeners, PostgreS
 
 ### [ ] Phase 1: Infrastructure + Tests (Week 1)
 
+**NOTE**: Two test files from previous attempt exist but provide **incomplete coverage**:
+- `tests/integration/test_games_route_guild_isolation.py` - Tests current behavior WITHOUT RLS (needs adaptation)
+- `tests/e2e/test_game_authorization.py` - Tests authorization, not guild isolation (needs extension)
+
+These files will be useful reference but do NOT cover Phase 1 infrastructure tasks (ContextVars, event listeners, enhanced dependency).
+
 - [ ] Task 1.1: Write unit tests for ContextVar functions
   - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 108-124)
+  - **Status**: No existing coverage - must create new test file
 
 - [ ] Task 1.2: Implement ContextVar functions
   - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 126-142)
 
 - [ ] Task 1.3: Write integration tests for event listener
   - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 144-159)
+  - **Status**: No existing coverage - must create new test file
 
 - [ ] Task 1.4: Implement SQLAlchemy event listener
   - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 161-179)
 
 - [ ] Task 1.5: Write tests for enhanced database dependency
   - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 181-198)
+  - **Status**: No existing coverage - must create new test file
 
 - [ ] Task 1.6: Implement enhanced database dependency
   - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 200-217)
@@ -84,8 +93,11 @@ Implement transparent guild isolation using SQLAlchemy event listeners, PostgreS
 
 ### [ ] Phase 2: Service Factory Migration (Week 2)
 
+**NOTE**: `tests/integration/test_games_route_guild_isolation.py` provides useful game service test patterns but tests **current behavior without RLS**. These tests will need adaptation/extension for Task 2.1.
+
 - [ ] Task 2.1: Write integration tests for game service RLS
   - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 266-283)
+  - **Status**: Partial coverage in `test_games_route_guild_isolation.py` - needs RLS context testing
 
 - [ ] Task 2.2: Migrate game service factory
   - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 285-300)
@@ -107,8 +119,11 @@ Implement transparent guild isolation using SQLAlchemy event listeners, PostgreS
 
 ### [ ] Phase 3: Enable RLS + E2E Validation (Week 3)
 
+**NOTE**: `tests/e2e/test_game_authorization.py` provides E2E test infrastructure but focuses on **authorization**, not **guild isolation**. Useful as template for Task 3.1 but needs extension.
+
 - [ ] Task 3.1: Write E2E tests for cross-guild isolation
   - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 381-398)
+  - **Status**: Partial infrastructure in `test_game_authorization.py` - needs guild isolation tests
 
 - [ ] Task 3.2: Enable RLS on game_sessions table
   - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 400-418)
