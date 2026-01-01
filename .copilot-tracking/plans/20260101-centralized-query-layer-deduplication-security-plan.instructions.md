@@ -62,42 +62,57 @@ Create a centralized guild-scoped query layer that eliminates code duplication a
 - [x] Task 1.6: Add integration tests for guild query wrappers
   - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 98-154)
 
-### [ ] Phase 2: API Routes Migration
+### [ ] Phase 2: API Routes Migration (Test-First Approach)
 
-- [ ] Task 2.1: Migrate games route to use guild_queries wrappers
-  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 156-178)
+- [ ] Task 2.1a: Create integration tests for games route (pre-migration baseline)
+  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 156-183)
 
-- [ ] Task 2.2: Migrate templates route to use guild_queries wrappers
-  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 178-198)
+- [ ] Task 2.1b: Migrate games route to use guild_queries wrappers
+  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 183-208)
 
-- [ ] Task 2.3: Migrate guilds route to use guild_queries wrappers
-  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 198-214)
+- [ ] Task 2.2a: Create integration tests for templates route (pre-migration baseline)
+  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 208-232)
 
-- [ ] Task 2.4: Migrate channels route to use guild_queries wrappers
-  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 214-229)
+- [ ] Task 2.2b: Migrate templates route to use guild_queries wrappers
+  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 232-254)
 
-- [ ] Task 2.5: Migrate permissions dependencies to use guild_queries wrappers
-  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 229-244)
+- [ ] Task 2.3a: Create integration tests for guilds route (pre-migration baseline)
+  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 254-279)
 
-- [ ] Task 2.6: Create integration tests for API guild isolation
-  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 244-265)
+- [ ] Task 2.3b: Migrate guilds route to use guild_queries wrappers
+  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 279-299)
 
-### [ ] Phase 3: Bot and Scheduler Migration
+- [ ] Task 2.4a: Create integration tests for channels route (pre-migration baseline)
+  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 299-324)
 
-- [ ] Task 3.1: Migrate bot handlers to use guild_queries (async)
-  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 267-283)
+- [ ] Task 2.4b: Migrate channels route to use guild_queries wrappers
+  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 324-343)
 
-- [ ] Task 3.2: Create synchronous wrapper variants for scheduler
-  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 283-299)
+- [ ] Task 2.5a: Create integration tests for permissions dependencies (pre-migration baseline)
+  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 343-370)
 
-- [ ] Task 3.3: Migrate scheduler daemons to use guild_queries_sync
-  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 299-316)
+- [ ] Task 2.5b: Migrate permissions dependencies to use guild_queries wrappers
+  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 370-389)
 
-- [ ] Task 3.4: Create integration tests for bot guild isolation
-  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 316-335)
+### [ ] Phase 3: Bot and Scheduler Migration (Test-First Approach)
 
-- [ ] Task 3.5: Update scheduler integration tests for guild isolation
-  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 335-355)
+- [ ] Task 3.1a: Create integration tests for bot handlers (pre-migration baseline)
+  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 391-420)
+
+- [ ] Task 3.1b: Migrate bot handlers to use guild_queries (async)
+  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 420-439)
+
+- [ ] Task 3.2a: Create unit tests for synchronous wrapper variants (TDD)
+  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 439-469)
+
+- [ ] Task 3.2b: Create synchronous wrapper variants for scheduler
+  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 469-487)
+
+- [ ] Task 3.3a: Enhance scheduler integration tests for guild isolation (pre-migration baseline)
+  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 487-519)
+
+- [ ] Task 3.3b: Migrate scheduler daemons to use guild_queries_sync
+  - Details: .copilot-tracking/details/20260101-centralized-query-layer-deduplication-security-details.md (Lines 519-539)
 
 ### [ ] Phase 4: Verification and Database Security
 

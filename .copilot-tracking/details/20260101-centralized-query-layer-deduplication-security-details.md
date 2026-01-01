@@ -153,7 +153,32 @@ Create integration tests that exercise all 12 wrapper functions against a real P
 
 ## Phase 2: API Migration - High Priority Routes
 
-### Task 2.1: Migrate games route to use guild_queries wrappers
+### Task 2.1a: Create integration tests for games route (pre-migration baseline)
+
+Create integration tests for games API endpoints that verify current behavior before migration.
+
+- **Files**:
+  - `tests/integration/test_games_route_guild_isolation.py` - New integration test suite for games endpoints
+- **Test Coverage**:
+  - Test all game CRUD operations through API endpoints
+  - Verify cross-guild game access returns 404/403
+  - Verify list_games only returns games from correct guild
+  - Verify create_game sets correct guild_id
+  - Verify update_game validates guild ownership
+  - Verify delete_game validates guild ownership
+  - Test with real database using multiple guilds
+- **Success**:
+  - All tests pass with current implementation (direct database queries)
+  - Tests establish behavioral baseline for migration
+  - Tests document expected guild isolation behavior
+  - Tests can be re-run after migration to verify no regressions
+- **Research References**:
+  - #file:../research/20260101-centralized-query-layer-deduplication-security-research.md (Lines 627-660) - Integration test requirements
+  - #file:../../tests/integration/test_guild_queries.py - Integration test pattern to follow
+- **Dependencies**: Phase 1 completion (wrapper functions available for comparison)
+- **Testing**: Run via `scripts/run-integration-tests.sh`, all tests must pass before proceeding to 2.1b
+
+### Task 2.1b: Migrate games route to use guild_queries wrappers
 
 Replace inline database queries in games route with centralized guild_queries wrapper functions.
 
@@ -167,15 +192,37 @@ Replace inline database queries in games route with centralized guild_queries wr
   - Game creation uses guild_queries.create_game
   - Game updates use guild_queries.update_game
   - Game deletion uses guild_queries.delete_game
-  - All endpoints continue to work correctly (verified by existing tests)
+  - All integration tests from Task 2.1a still pass
   - No direct GameSession queries remain in file
 - **Research References**:
   - #file:../research/20260101-centralized-query-layer-deduplication-security-research.md (Lines 293-309) - Before/after migration examples
   - #file:../research/20260101-centralized-query-layer-deduplication-security-research.md (Lines 311-322) - Migration targets with priority order
-- **Dependencies**: Phase 1 completion
-- **Testing**: Run existing API integration tests, verify all game endpoints work, add test verifying guild_queries is called
+- **Dependencies**: Task 2.1a completion (baseline tests passing)
+- **Testing**: Run integration tests from Task 2.1a - all must still pass, verify guild_queries functions are called
 
-### Task 2.2: Migrate templates route to use guild_queries wrappers
+### Task 2.2a: Create integration tests for templates route (pre-migration baseline)
+
+Create integration tests for templates API endpoints that verify current behavior before migration.
+
+- **Files**:
+  - `tests/integration/test_templates_route_guild_isolation.py` - New integration test suite for templates endpoints
+- **Test Coverage**:
+  - Test all template CRUD operations through API endpoints
+  - Verify cross-guild template access returns 404/403
+  - Verify list_templates only returns templates from correct guild
+  - Verify create_template sets correct guild_id
+  - Verify update_template validates guild ownership
+  - Test with real database using multiple guilds
+- **Success**:
+  - All tests pass with current implementation
+  - Tests establish behavioral baseline for migration
+  - Tests can be re-run after migration to verify no regressions
+- **Research References**:
+  - #file:../research/20260101-centralized-query-layer-deduplication-security-research.md (Lines 627-660) - Integration test requirements
+- **Dependencies**: Task 2.1b completion
+- **Testing**: Run via `scripts/run-integration-tests.sh`, all tests must pass before proceeding to 2.2b
+
+### Task 2.2b: Migrate templates route to use guild_queries wrappers
 
 Replace inline template queries with centralized wrapper functions.
 
@@ -187,15 +234,36 @@ Replace inline template queries with centralized wrapper functions.
   - Template listing uses guild_queries.list_templates
   - Template creation uses guild_queries.create_template
   - Template updates use guild_queries.update_template
-  - All template endpoints functional
+  - All integration tests from Task 2.2a still pass
   - Consolidates 15+ inline queries.get_guild_by_id() + template patterns
 - **Research References**:
   - #file:../research/20260101-centralized-query-layer-deduplication-security-research.md (Lines 236-265) - Template wrapper function examples
   - #file:../research/20260101-centralized-query-layer-deduplication-security-research.md (Lines 44-47) - Duplication audit findings for templates
-- **Dependencies**: Phase 1 completion
-- **Testing**: Run template API tests, verify guild filtering works correctly
+- **Dependencies**: Task 2.2a completion (baseline tests passing)
+- **Testing**: Run integration tests from Task 2.2a - all must still pass
 
-### Task 2.3: Migrate guilds route to use guild_queries wrappers
+### Task 2.3a: Create integration tests for guilds route (pre-migration baseline)
+
+Create integration tests for guilds API endpoints that verify current behavior before migration.
+
+- **Files**:
+  - `tests/integration/test_guilds_route_guild_isolation.py` - New integration test suite for guilds endpoints
+- **Test Coverage**:
+  - Test guild configuration retrieval through API endpoints
+  - Verify cross-guild configuration access returns 404/403
+  - Verify list operations only return data from correct guild
+  - Test guild configuration updates validate guild ownership
+  - Test with real database using multiple guilds
+- **Success**:
+  - All tests pass with current implementation
+  - Tests establish behavioral baseline for migration
+  - Tests can be re-run after migration to verify no regressions
+- **Research References**:
+  - #file:../research/20260101-centralized-query-layer-deduplication-security-research.md (Lines 627-660) - Integration test requirements
+- **Dependencies**: Task 2.2b completion
+- **Testing**: Run via `scripts/run-integration-tests.sh`, all tests must pass before proceeding to 2.3b
+
+### Task 2.3b: Migrate guilds route to use guild_queries wrappers
 
 Replace guild and configuration queries with centralized wrappers.
 
@@ -205,13 +273,35 @@ Replace guild and configuration queries with centralized wrappers.
 - **Success**:
   - All guild data retrieval uses centralized functions
   - Guild configuration queries consolidated
+  - All integration tests from Task 2.3a still pass
   - No direct database model imports
 - **Research References**:
   - #file:../research/20260101-centralized-query-layer-deduplication-security-research.md (Lines 311-322) - Migration priority targets
-- **Dependencies**: Phase 1 completion
-- **Testing**: Run guild API tests, verify configuration endpoints work
+- **Dependencies**: Task 2.3a completion (baseline tests passing)
+- **Testing**: Run integration tests from Task 2.3a - all must still pass
 
-### Task 2.4: Migrate channels route to use guild_queries wrappers
+### Task 2.4a: Create integration tests for channels route (pre-migration baseline)
+
+Create integration tests for channels API endpoints that verify current behavior before migration.
+
+- **Files**:
+  - `tests/integration/test_channels_route_guild_isolation.py` - New integration test suite for channels endpoints
+- **Test Coverage**:
+  - Test all channel operations through API endpoints
+  - Verify cross-guild channel access returns 404/403
+  - Verify list operations only return channels from correct guild
+  - Test channel configuration updates validate guild ownership
+  - Test with real database using multiple guilds
+- **Success**:
+  - All tests pass with current implementation
+  - Tests establish behavioral baseline for migration
+  - Tests can be re-run after migration to verify no regressions
+- **Research References**:
+  - #file:../research/20260101-centralized-query-layer-deduplication-security-research.md (Lines 627-660) - Integration test requirements
+- **Dependencies**: Task 2.3b completion
+- **Testing**: Run via `scripts/run-integration-tests.sh`, all tests must pass before proceeding to 2.4b
+
+### Task 2.4b: Migrate channels route to use guild_queries wrappers
 
 Replace channel queries with centralized wrappers.
 
@@ -220,13 +310,36 @@ Replace channel queries with centralized wrappers.
   - May require adding channel wrappers to guild_queries.py
 - **Success**:
   - Channel queries consolidated
+  - All integration tests from Task 2.4a still pass
   - Guild filtering enforced for all channel operations
 - **Research References**:
   - #file:../research/20260101-centralized-query-layer-deduplication-security-research.md (Lines 40-42) - Duplication audit showing channel query patterns
-- **Dependencies**: Phase 1 completion
-- **Testing**: Run channel API tests
+- **Dependencies**: Task 2.4a completion (baseline tests passing)
+- **Testing**: Run integration tests from Task 2.4a - all must still pass
 
-### Task 2.5: Migrate permissions dependencies to use guild_queries wrappers
+### Task 2.5a: Create integration tests for permissions dependencies (pre-migration baseline)
+
+Create integration tests for permission checks that verify current behavior before migration.
+
+- **Files**:
+  - `tests/integration/test_permissions_guild_isolation.py` - New integration test suite for permission checks
+- **Test Coverage**:
+  - Test permission checks enforce guild boundaries
+  - Verify users cannot access other guilds' resources
+  - Test permission checks for games, templates, channels
+  - Measure performance of permission checks (baseline for comparison)
+  - Test with real database using multiple guilds
+- **Success**:
+  - All tests pass with current implementation
+  - Tests establish behavioral baseline for migration
+  - Performance baseline established for permission checks
+  - Tests can be re-run after migration to verify no regressions
+- **Research References**:
+  - #file:../research/20260101-centralized-query-layer-deduplication-security-research.md (Lines 627-660) - Integration test requirements
+- **Dependencies**: Task 2.4b completion
+- **Testing**: Run via `scripts/run-integration-tests.sh`, all tests must pass before proceeding to 2.5b
+
+### Task 2.5b: Migrate permissions dependencies to use guild_queries wrappers
 
 Replace permission check queries with centralized wrappers.
 
@@ -234,37 +347,41 @@ Replace permission check queries with centralized wrappers.
   - `services/api/dependencies/permissions.py` - Replace 10+ permission check queries with guild_queries calls
 - **Success**:
   - All permission checks use centralized query layer
+  - All integration tests from Task 2.5a still pass
   - Guild isolation enforced in permission validation
-  - No performance regression (permission checks are called frequently)
+  - No performance regression (verified against Task 2.5a baseline)
 - **Research References**:
   - #file:../research/20260101-centralized-query-layer-deduplication-security-research.md (Lines 36-43) - Duplication audit showing permission query locations
-- **Dependencies**: Phase 1 completion
-- **Testing**: Run permission integration tests, verify authorization still works correctly
+- **Dependencies**: Task 2.5a completion (baseline tests passing)
+- **Testing**: Run integration tests from Task 2.5a - all must still pass, verify no performance degradation
 
-### Task 2.6: Create integration tests for API guild isolation
+## Phase 3: Bot and Scheduler Migration (Test-First Approach)
 
-Create comprehensive integration tests verifying all migrated API routes enforce guild isolation.
+### Task 3.1a: Create integration tests for bot handlers (pre-migration baseline)
+
+Create integration tests for bot handlers that verify current database query behavior before migration.
 
 - **Files**:
-  - `tests/integration/test_guild_isolation_api.py` - New integration test suite
-  - Tests cover all migrated routes: games, templates, guilds, channels
+  - `tests/integration/test_bot_handlers_guild_isolation.py` - New integration test suite for bot handlers
+- **Test Coverage**:
+  - Test bot commands that query games, templates, participants
+  - Mock Discord interaction context with different guild_ids
+  - Verify bot in Guild A only accesses Guild A data
+  - Verify bot commands handle guild_id extraction from interaction.guild_id
+  - Test cross-guild access attempts fail gracefully
+  - Test with real database using multiple guilds
 - **Success**:
-  - Cross-guild game access attempts return 404/403
-  - List operations only return data for correct guild
-  - Create operations correctly set guild_id
-  - Update operations validate guild ownership
-  - Delete operations validate guild ownership
-  - Performance acceptable (wrapper overhead < 5ms per query)
-  - All tests use real database with multiple guilds
+  - All tests pass with current implementation (direct database queries)
+  - Tests establish behavioral baseline for bot handlers
+  - Tests document expected guild isolation in bot context
+  - Tests can be re-run after migration to verify no regressions
 - **Research References**:
-  - #file:../research/20260101-centralized-query-layer-deduplication-security-research.md (Lines 627-660) - Integration test requirements for security validation
-  - #file:../../.github/instructions/coding-best-practices.instructions.md (Lines 123-146) - Testing standards requiring integration tests
-- **Dependencies**: Tasks 2.1-2.5 completion (all API routes migrated)
-- **Testing**: Run integration tests with multiple guild scenarios, verify cross-guild isolation, measure query performance
+  - #file:../research/20260101-centralized-query-layer-deduplication-security-research.md (Lines 661-680) - Bot testing requirements
+  - #file:../research/20260101-centralized-query-layer-deduplication-security-research.md (Lines 324-339) - Bot migration patterns
+- **Dependencies**: Phase 2 completion (API routes migrated and tested)
+- **Testing**: Run via `scripts/run-integration-tests.sh`, all tests must pass before proceeding to 3.1b
 
-## Phase 3: Bot and Scheduler Migration
-
-### Task 3.1: Migrate bot handlers to use guild_queries (async)
+### Task 3.1b: Migrate bot handlers to use guild_queries (async)
 
 Replace implicit Discord guild context queries with explicit guild_queries calls.
 
@@ -274,29 +391,82 @@ Replace implicit Discord guild context queries with explicit guild_queries calls
 - **Success**:
   - All bot database queries use guild_queries functions
   - Guild context explicitly passed (better than implicit Discord context)
+  - All integration tests from Task 3.1a still pass
   - No direct model imports in bot handlers
 - **Research References**:
   - #file:../research/20260101-centralized-query-layer-deduplication-security-research.md (Lines 324-339) - Bot migration examples showing explicit guild_id
-- **Dependencies**: Phase 1 completion
-- **Testing**: Run bot integration tests, manually test bot interactions if needed
+- **Dependencies**: Task 3.1a completion (baseline tests passing)
+- **Testing**: Run integration tests from Task 3.1a - all must still pass
 
-### Task 3.2: Create synchronous wrapper variants for scheduler
+### Task 3.2a: Create unit tests for synchronous wrapper variants (TDD)
 
-Create synchronous versions of guild_queries for scheduler's sync Session usage.
+Create unit tests for synchronous guild_queries wrappers before implementation.
+
+- **Files**:
+  - `tests/shared/data_access/test_guild_queries_sync.py` - Unit test suite for sync wrappers
+- **Test Coverage**:
+  - Test sync versions of game operations (get, list, create, update, delete)
+  - Test sync versions of notification and status query operations
+  - Verify guild_id is required parameter
+  - Verify RLS context is set correctly (`SET LOCAL app.current_guild_id`)
+  - Verify guild_id filtering in WHERE clauses
+  - Test error handling (not found, invalid guild_id)
+  - Use mocked sync Session to avoid database dependencies
+- **Success**:
+  - Complete test suite written (tests will fail initially - TDD approach)
+  - Tests define expected behavior for sync wrappers
+  - Tests mirror async wrapper test patterns from Task 1.5
+  - Ready to guide implementation in Task 3.2b
+- **Research References**:
+  - #file:../research/20260101-centralized-query-layer-deduplication-security-research.md (Lines 341-358) - Sync wrapper specifications
+  - #file:../../tests/shared/data_access/test_guild_queries.py - Async test pattern to mirror
+- **Dependencies**: Task 3.1b completion
+- **Testing**: Tests written but will fail until Task 3.2b implements sync wrappers
+
+### Task 3.2b: Create synchronous wrapper variants for scheduler
+
+Implement synchronous versions of guild_queries for scheduler's sync Session usage.
 
 - **Files**:
   - `shared/data_access/guild_queries_sync.py` - Synchronous versions of key wrapper functions
   - Focus on functions used by scheduler: game status queries, notification queries
 - **Success**:
   - Sync versions of needed functions implemented
+  - All unit tests from Task 3.2a pass
   - Same security guarantees as async versions (required guild_id, RLS context)
   - Clear naming distinction between async and sync functions
 - **Research References**:
   - #file:../research/20260101-centralized-query-layer-deduplication-security-research.md (Lines 341-358) - Sync wrapper example for scheduler
-- **Dependencies**: Phase 1 completion (as reference for sync implementation)
-- **Testing**: Unit tests for sync wrappers with sync Session mock
+- **Dependencies**: Task 3.2a completion (tests written)
+- **Testing**: Run unit tests from Task 3.2a - all must pass
 
-### Task 3.3: Migrate scheduler daemons to use guild_queries_sync
+### Task 3.3a: Enhance scheduler integration tests for guild isolation (pre-migration baseline)
+
+Enhance existing scheduler integration tests to verify guild isolation before migration.
+
+- **Files**:
+  - `tests/integration/test_notification_daemon.py` - Add multi-guild isolation tests
+  - `tests/integration/test_status_transitions.py` - Add multi-guild isolation tests
+- **Test Coverage**:
+  - Test notification daemon processes events from multiple guilds in isolation
+  - Test status transition daemon processes games from multiple guilds separately
+  - Verify Guild A notifications don't affect Guild B
+  - Verify Guild A status transitions don't affect Guild B
+  - Test simultaneous pending events from multiple guilds
+  - Measure daemon processing performance (baseline for comparison)
+  - Test with real database using multiple guilds
+- **Success**:
+  - All tests pass with current implementation (direct database queries)
+  - Tests establish behavioral baseline for scheduler daemons
+  - Multi-guild scenarios documented and tested
+  - Tests can be re-run after migration to verify no regressions
+- **Research References**:
+  - #file:../research/20260101-centralized-query-layer-deduplication-security-research.md (Lines 681-700) - Scheduler testing requirements
+  - Existing tests: #file:../../tests/integration/test_notification_daemon.py, #file:../../tests/integration/test_status_transitions.py
+- **Dependencies**: Task 3.2b completion (sync wrappers available)
+- **Testing**: Run via `scripts/run-integration-tests.sh`, all tests must pass before proceeding to 3.3b
+
+### Task 3.3b: Migrate scheduler daemons to use guild_queries_sync
 
 Replace scheduler daemon queries with synchronous wrapper functions.
 
@@ -306,51 +476,13 @@ Replace scheduler daemon queries with synchronous wrapper functions.
   - `services/scheduler/status_transition_daemon.py` - Status transition queries
 - **Success**:
   - All scheduler queries use guild_queries_sync functions
+  - All integration tests from Task 3.3a still pass
   - Same consolidation and security benefits as async code
-  - No performance regression
+  - No performance regression (verified against Task 3.3a baseline)
 - **Research References**:
   - #file:../research/20260101-centralized-query-layer-deduplication-security-research.md (Lines 341-358) - Scheduler migration approach
-- **Dependencies**: Task 3.2 completion
-- **Testing**: Run scheduler integration tests, verify daemons process events correctly
-
-### Task 3.4: Create integration tests for bot guild isolation
-
-Create integration tests verifying bot handlers correctly extract guild_id from Discord context and enforce isolation.
-
-- **Files**:
-  - `tests/integration/test_bot_guild_isolation.py` - New bot integration test suite
-  - Tests simulate Discord interactions with different guild contexts
-- **Success**:
-  - Bot commands in Guild A only access Guild A data
-  - interaction.guild_id correctly extracted and passed to guild_queries
-  - Cross-guild access attempts fail gracefully
-  - Bot cannot accidentally query data from wrong guild
-  - All bot handlers tested with multiple guild scenarios
-- **Research References**:
-  - #file:../research/20260101-centralized-query-layer-deduplication-security-research.md (Lines 661-680) - Bot testing requirements
-  - #file:../research/20260101-centralized-query-layer-deduplication-security-research.md (Lines 324-339) - Bot migration showing explicit guild_id usage
-- **Dependencies**: Task 3.1 completion (bot handlers migrated)
-- **Testing**: Run bot integration tests with mocked Discord interactions, verify guild context handling
-
-### Task 3.5: Update scheduler integration tests for guild isolation
-
-Enhance existing scheduler integration tests to verify guild isolation in daemon processing.
-
-- **Files**:
-  - `tests/integration/test_notification_daemon.py` - Add guild isolation tests
-  - `tests/integration/test_status_transitions.py` - Add guild isolation tests
-  - Test multiple guilds with simultaneous pending events
-- **Success**:
-  - Daemon processes Guild A events without affecting Guild B
-  - Multiple guilds with pending events processed correctly in isolation
-  - Sync wrappers correctly set RLS context
-  - No cross-guild notification or status transition leakage
-  - Existing daemon functionality preserved
-- **Research References**:
-  - #file:../research/20260101-centralized-query-layer-deduplication-security-research.md (Lines 681-700) - Scheduler testing requirements
-  - Existing tests: tests/integration/test_notification_daemon.py, tests/integration/test_status_transitions.py
-- **Dependencies**: Task 3.3 completion (scheduler daemons migrated)
-- **Testing**: Run updated integration tests with multi-guild scenarios, verify isolation and performance
+- **Dependencies**: Task 3.3a completion (baseline tests passing)
+- **Testing**: Run integration tests from Task 3.3a - all must still pass, verify no performance degradation
 
 ## Phase 4: Verification and Database Security
 
