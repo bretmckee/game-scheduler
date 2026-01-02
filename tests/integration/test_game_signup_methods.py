@@ -53,11 +53,13 @@ TEST_BOT_DISCORD_ID = extract_bot_discord_id(TEST_DISCORD_TOKEN)
 
 @pytest.fixture(scope="module")
 def db_url():
-    """Get database URL from environment."""
-    return os.getenv(
+    """Get database URL from environment, converting asyncpg to psycopg2 for sync tests."""
+    raw_url = os.getenv(
         "DATABASE_URL",
         "postgresql://gamebot:dev_password_change_in_prod@postgres:5432/game_scheduler",
     )
+    # Convert postgresql+asyncpg:// to postgresql:// for synchronous tests
+    return raw_url.replace("postgresql+asyncpg://", "postgresql://")
 
 
 @pytest.fixture(scope="module")

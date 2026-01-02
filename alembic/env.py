@@ -37,7 +37,7 @@ register_entities(ALL_DATABASE_OBJECTS)
 # Alembic Config object
 config = context.config
 
-# Override sqlalchemy.url with environment variable if present
+# Use DATABASE_URL for migrations (gamebot_app user has CREATE permissions)
 database_url = os.getenv("DATABASE_URL")
 if database_url:
     # Convert to async driver format only if not already specified

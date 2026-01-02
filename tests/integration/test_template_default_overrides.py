@@ -35,6 +35,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 from shared.cache.client import RedisClient
+from shared.cache.keys import CacheKeys
 from shared.utils.discord_tokens import extract_bot_discord_id
 from tests.shared.auth_helpers import cleanup_test_session, create_test_session
 
@@ -46,11 +47,13 @@ TEST_BOT_DISCORD_ID = extract_bot_discord_id(TEST_DISCORD_TOKEN)
 
 @pytest.fixture(scope="module")
 def db_url():
-    """Get database URL from environment."""
-    return os.getenv(
+    """Get database URL from environment, converting asyncpg to psycopg2 for sync tests."""
+    raw_url = os.getenv(
         "DATABASE_URL",
         "postgresql://gamebot:dev_password_change_in_prod@postgres:5432/game_scheduler",
     )
+    # Convert postgresql+asyncpg:// to postgresql:// for synchronous tests
+    return raw_url.replace("postgresql+asyncpg://", "postgresql://")
 
 
 @pytest.fixture(scope="module")
@@ -157,6 +160,13 @@ async def test_cleared_reminder_minutes_not_reverted_to_template_default(
     )
     db_session.commit()
 
+    # Get guild Discord ID for @everyone role (Discord convention: @everyone role ID = guild ID)
+    guild_discord_id_result = db_session.execute(
+        text("SELECT guild_id FROM guild_configurations WHERE id = :id"),
+        {"id": guild_id},
+    )
+    guild_discord_id = guild_discord_id_result.scalar()
+
     # Create template WITH reminder minutes set
     template_result = db_session.execute(
         text(
@@ -164,21 +174,39 @@ async def test_cleared_reminder_minutes_not_reverted_to_template_default(
             INSERT INTO game_templates
             (id, guild_id, channel_id, name, description, max_players, reminder_minutes,
              "where", signup_instructions, expected_duration_minutes,
-             default_signup_method, allowed_signup_methods)
+             default_signup_method, allowed_signup_methods, allowed_host_role_ids)
             VALUES (gen_random_uuid(), :guild_id, :channel_id, 'TEMPLATE_TEST Template',
                     'Template with defaults', 10, '[60, 15]'::json,
                     'Discord Voice', 'Please be on time', 120,
-                    'SELF_SIGNUP', '["SELF_SIGNUP", "HOST_SELECTED"]'::json)
+                    'SELF_SIGNUP', '["SELF_SIGNUP", "HOST_SELECTED"]'::json,
+                    jsonb_build_array(:guild_discord_id))
             RETURNING id
             """
         ),
         {
             "guild_id": guild_id,
             "channel_id": channel_id,
+            "guild_discord_id": guild_discord_id,
         },
     )
     template_id = template_result.scalar()
     db_session.commit()
+
+    # Seed cache with bot manager role for permission check
+    # Get Discord guild ID and bot manager role from guild configuration
+    guild_config_result = db_session.execute(
+        text("SELECT guild_id, bot_manager_role_ids FROM guild_configurations WHERE id = :id"),
+        {"id": guild_id},
+    )
+    guild_config_row = guild_config_result.fetchone()
+    guild_discord_id = guild_config_row[0]
+    bot_manager_role_ids = guild_config_row[1] or []
+
+    # Add guild_id as a role (Discord convention - guild membership = guild_id role)
+    # and any bot_manager_role_ids if configured
+    user_roles = [guild_discord_id] + bot_manager_role_ids
+    user_roles_key = CacheKeys.user_roles(TEST_BOT_DISCORD_ID, guild_discord_id)
+    await redis_client.set_json(user_roles_key, user_roles, ttl=3600)
 
     # Create authenticated session
     session_token, session_data = await create_test_session(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
@@ -246,6 +274,13 @@ async def test_cleared_optional_text_fields_not_reverted_to_template_defaults(
     )
     db_session.commit()
 
+    # Get guild Discord ID for @everyone role (Discord convention: @everyone role ID = guild ID)
+    guild_discord_id_result = db_session.execute(
+        text("SELECT guild_id FROM guild_configurations WHERE id = :id"),
+        {"id": guild_id},
+    )
+    guild_discord_id = guild_discord_id_result.scalar()
+
     # Create template WITH all optional fields set
     template_result = db_session.execute(
         text(
@@ -253,21 +288,39 @@ async def test_cleared_optional_text_fields_not_reverted_to_template_defaults(
             INSERT INTO game_templates
             (id, guild_id, channel_id, name, description, max_players,
              "where", signup_instructions, expected_duration_minutes,
-             default_signup_method, allowed_signup_methods)
+             default_signup_method, allowed_signup_methods, allowed_host_role_ids)
             VALUES (gen_random_uuid(), :guild_id, :channel_id, 'TEMPLATE_TEST Full Template',
                     'Template with all defaults', 10,
                     'Discord Voice', 'Please be on time', 120,
-                    'SELF_SIGNUP', '["SELF_SIGNUP", "HOST_SELECTED"]'::json)
+                    'SELF_SIGNUP', '["SELF_SIGNUP", "HOST_SELECTED"]'::json,
+                    jsonb_build_array(:guild_discord_id))
             RETURNING id
             """
         ),
         {
             "guild_id": guild_id,
             "channel_id": channel_id,
+            "guild_discord_id": guild_discord_id,
         },
     )
     template_id = template_result.scalar()
     db_session.commit()
+
+    # Seed cache with bot manager role for permission check
+    # Get Discord guild ID and bot manager role from guild configuration
+    guild_config_result = db_session.execute(
+        text("SELECT guild_id, bot_manager_role_ids FROM guild_configurations WHERE id = :id"),
+        {"id": guild_id},
+    )
+    guild_config_row = guild_config_result.fetchone()
+    guild_discord_id = guild_config_row[0]
+    bot_manager_role_ids = guild_config_row[1] or []
+
+    # Add guild_id as a role (Discord convention - guild membership = guild_id role)
+    # and any bot_manager_role_ids if configured
+    user_roles = [guild_discord_id] + bot_manager_role_ids
+    user_roles_key = CacheKeys.user_roles(TEST_BOT_DISCORD_ID, guild_discord_id)
+    await redis_client.set_json(user_roles_key, user_roles, ttl=3600)
 
     # Create authenticated session
     session_token, session_data = await create_test_session(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)

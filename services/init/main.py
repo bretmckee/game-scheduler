@@ -38,6 +38,7 @@ from pathlib import Path
 
 from opentelemetry import trace
 
+from services.init.database_users import create_database_users
 from services.init.migrations import run_migrations
 from services.init.rabbitmq import initialize_rabbitmq
 from services.init.seed_e2e import seed_e2e_data
@@ -75,28 +76,32 @@ def main() -> int:
 
     with tracer.start_as_current_span("init.environment") as span:
         try:
-            logger.info("[1/5] Waiting for PostgreSQL...")
+            logger.info("[1/6] Waiting for PostgreSQL...")
             wait_for_postgres()
             logger.info("✓ PostgreSQL ready")
 
-            logger.info("[2/5] Running database migrations...")
+            logger.info("[2/6] Creating database users for RLS enforcement...")
+            create_database_users()
+            logger.info("✓ Database users configured")
+
+            logger.info("[3/6] Running database migrations...")
             run_migrations()
             logger.info("✓ Migrations complete")
 
-            logger.info("[3/5] Verifying database schema...")
+            logger.info("[4/6] Verifying database schema...")
             verify_schema()
             logger.info("✓ Schema verified")
 
-            logger.info("[4/5] Initializing RabbitMQ infrastructure...")
+            logger.info("[5/6] Initializing RabbitMQ infrastructure...")
             initialize_rabbitmq()
             logger.info("✓ RabbitMQ infrastructure ready")
 
-            logger.info("[5/5] Seeding E2E test data (if applicable)...")
+            logger.info("[6/6] Seeding E2E test data (if applicable)...")
             if not seed_e2e_data():
                 logger.warning("E2E seed failed, but continuing...")
             logger.info("✓ E2E seeding complete")
 
-            logger.info("[6/6] Finalizing initialization...")
+            logger.info("Finalizing initialization...")
             span.set_status(trace.Status(trace.StatusCode.OK))
 
             end_time = datetime.now(UTC)

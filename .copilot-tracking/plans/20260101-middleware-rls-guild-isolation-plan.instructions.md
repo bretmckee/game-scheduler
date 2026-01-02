@@ -42,15 +42,15 @@ Implement transparent guild isolation using SQLAlchemy event listeners, PostgreS
 
 ## Implementation Checklist
 
-### [ ] Phase 0: Database User Configuration (Prerequisites)
+### [x] Phase 0: Database User Configuration (Prerequisites)
 
-- [ ] Task 0.1: Create two-user database architecture
+- [x] Task 0.1: Create two-user database architecture
   - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 21-65)
 
-- [ ] Task 0.2: Update environment variables for both users
+- [x] Task 0.2: Update environment variables for both users
   - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 67-83)
 
-- [ ] Task 0.3: Verify RLS enforcement with non-superuser
+- [x] Task 0.3: Verify RLS enforcement with non-superuser
   - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 85-106)
 
 ### [ ] Phase 1: Infrastructure + Tests (Week 1)

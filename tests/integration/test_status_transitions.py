@@ -59,18 +59,19 @@ def consume_one_message(channel, queue_name, timeout=5):
 
 @pytest.fixture(scope="module")
 def db_url():
-    """Get database URL from environment (set by docker-compose)."""
-    return os.getenv(
+    """Get database URL from environment, converting asyncpg to psycopg2 for sync tests."""
+    raw_url = os.getenv(
         "DATABASE_URL",
         "postgresql://gamebot:dev_password_change_in_prod@postgres:5432/game_scheduler",
     )
+    # Convert postgresql+asyncpg:// to postgresql:// for synchronous tests
+    return raw_url.replace("postgresql+asyncpg://", "postgresql://")
 
 
 @pytest.fixture
 def db_session(db_url):
     """Create a database session for tests."""
-    sync_url = db_url.replace("postgresql://", "postgresql+psycopg2://")
-    engine = create_engine(sync_url, pool_pre_ping=True)
+    engine = create_engine(db_url, pool_pre_ping=True)
     session_local = sessionmaker(bind=engine)
 
     session = session_local()
