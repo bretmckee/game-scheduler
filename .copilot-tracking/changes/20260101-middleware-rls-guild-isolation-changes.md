@@ -205,3 +205,28 @@ SELECT tablename, rowsecurity FROM pg_tables WHERE tablename IN ('game_sessions'
 -- Check indexes exist
 SELECT indexname FROM pg_indexes WHERE tablename IN ('game_sessions', 'game_templates') AND indexname LIKE '%guild_id%';
 ```
+#### Task 1.9: Full test suite validation (Phase 1)
+**Status**: ✅ Completed
+**Completed**: 2026-01-02
+**Details**: Fixed pytest warning configuration and verified all test suites pass with Phase 1 changes. Addressed breaking change from commit 409c4bf (Configure pytest to treat all warnings as errors) which caused integration tests to fail due to external library warnings.
+
+**Implementation**:
+- Fixed pytest configuration in pyproject.toml:
+  - Moved `-W error` from addopts to filterwarnings array as first entry
+  - Added ignore filter for pika.data DeprecationWarning (Python 3.13 datetime.utcfromtimestamp issue)
+  - Added ignore filter for ResourceWarning (unclosed connections in redis/asyncio cleanup)
+  - Filter order matters: "error" first, then specific "ignore" patterns
+- Removed ad-hoc warnings.filterwarnings() call from test_rabbitmq_infrastructure.py
+- Updated integration test script to ensure system-ready before running tests (prevents race conditions)
+
+**Test Results**:
+- ✅ Unit tests: All pass
+- ✅ Integration tests: 81 passed (fixed from previous failures)
+- ✅ E2E tests: 31 passed
+
+**Commits**:
+- 7e459e8: Task 1.8: Fix integration test runner and verify all tests pass
+- cf20175: Remove ad-hoc warning filter and apply black formatting to RabbitMQ tests
+- f5f10e4: Fix pytest warning configuration to ignore external library warnings
+
+**Note**: The pytest configuration fix (f5f10e4) should ideally be merged into commit 409c4bf where the breaking change was introduced, to maintain bisectability of the git history.

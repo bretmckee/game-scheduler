@@ -15,8 +15,11 @@ cleanup() {
 trap cleanup EXIT
 
 echo "Running integration tests..."
-# Build if needed, then run tests
+# Ensure full stack (including init) is healthy before running tests
+docker compose --env-file "$ENV_FILE" up -d --build system-ready
+
+# Build if needed, then run tests without restarting dependencies
 # When $@ is empty, compose uses command field; when present, it overrides
-docker compose --env-file "$ENV_FILE" run --build --rm integration-tests "$@"
+docker compose --env-file "$ENV_FILE" run --build --no-deps --rm integration-tests "$@"
 
 echo "Integration tests passed!"

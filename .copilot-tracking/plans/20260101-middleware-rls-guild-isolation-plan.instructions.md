@@ -88,7 +88,7 @@ These files will be useful reference but do NOT cover Phase 1 infrastructure tas
 - [x] Task 1.8: Create Alembic migration for RLS policies (disabled)
   - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 231-249)
 
-- [ ] Task 1.9: Full test suite validation (Phase 1)
+- [x] Task 1.9: Full test suite validation (Phase 1)
   - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 251-264)
 
 ### [ ] Phase 2: Service Factory Migration (Week 2)

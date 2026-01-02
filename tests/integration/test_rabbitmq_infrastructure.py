@@ -129,7 +129,9 @@ def test_bot_events_bindings(rabbitmq_channel):
         # Publish test message with routing key
         test_body = f"test_{routing_key}".encode()
         rabbitmq_channel.basic_publish(
-            exchange="game_scheduler", routing_key=routing_key.replace("*", "test"), body=test_body
+            exchange="game_scheduler",
+            routing_key=routing_key.replace("*", "test"),
+            body=test_body,
         )
 
     # Verify messages arrived in bot_events queue
@@ -156,7 +158,10 @@ def test_notification_queue_bindings(rabbitmq_channel):
 def test_primary_queues_have_dlx_configured(rabbitmq_channel):
     """Verify primary queues route rejected messages to DLX."""
     primary_queues = ["bot_events", "notification_queue"]
-    expected_dlqs = {"bot_events": "bot_events.dlq", "notification_queue": "notification_queue.dlq"}
+    expected_dlqs = {
+        "bot_events": "bot_events.dlq",
+        "notification_queue": "notification_queue.dlq",
+    }
 
     for queue_name in primary_queues:
         # Determine appropriate routing key for this queue
@@ -210,7 +215,9 @@ def test_dlq_bindings_to_dlx(rabbitmq_channel):
     # Test notification_queue.dlq receives messages with notification.send_dm routing key
     test_body = b"test_notification"
     rabbitmq_channel.basic_publish(
-        exchange="game_scheduler.dlx", routing_key="notification.send_dm", body=test_body
+        exchange="game_scheduler.dlx",
+        routing_key="notification.send_dm",
+        body=test_body,
     )
 
     method, properties, body = rabbitmq_channel.basic_get(
@@ -221,7 +228,9 @@ def test_dlq_bindings_to_dlx(rabbitmq_channel):
     # Verify bot_events.dlq does NOT receive notification messages
     test_body = b"test_notification_2"
     rabbitmq_channel.basic_publish(
-        exchange="game_scheduler.dlx", routing_key="notification.send_dm", body=test_body
+        exchange="game_scheduler.dlx",
+        routing_key="notification.send_dm",
+        body=test_body,
     )
 
     method, properties, body = rabbitmq_channel.basic_get(queue="bot_events.dlq", auto_ack=True)
