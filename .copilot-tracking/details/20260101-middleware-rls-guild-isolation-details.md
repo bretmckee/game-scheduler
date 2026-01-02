@@ -387,23 +387,141 @@ Run all tests after all service factory migrations complete.
 
 ## Phase 3: Enable RLS + E2E Validation (Week 3)
 
+### Task 3.0: Multi-guild E2E infrastructure setup
+
+Set up Guild B, User B, and E2E fixtures for cross-guild isolation testing.
+
+- **Files**:
+  - `config/env.e2e` (MODIFIED) - Add Guild B and User B environment variables
+  - `services/init/init_app.py` (MODIFIED) - Extend to seed Guild B + User B
+  - `tests/e2e/conftest.py` (MODIFIED) - Add Guild B fixtures and authenticated_client_b
+  - `docs/TESTING_E2E.md` (MODIFIED) - Document Discord bot setup for Guild B + User B
+- **Environment Variables to Add**:
+  ```bash
+  # Guild B and User B for cross-guild isolation testing
+  DISCORD_GUILD_B_ID=<second_guild_discord_id>
+  DISCORD_CHANNEL_B_ID=<second_channel_discord_id>
+  DISCORD_USER_B_ID=<second_user_discord_id>
+  DISCORD_USER_B_TOKEN=<bot_token_for_user_b>
+  ```
+- **Init Service Changes**:
+  - Check for `DISCORD_GUILD_B_ID` environment variable
+  - If present, seed Guild B configuration (similar to Guild A)
+  - Create User B in database (from `DISCORD_USER_B_ID`)
+  - Create guild membership: User B → Guild B only
+  - Create default template for Guild B
+  - User A remains in Guild A only (no Guild B membership)
+- **E2E Fixtures to Add**:
+  ```python
+  @pytest.fixture(scope="session")
+  def discord_guild_b_id():
+      """Second test guild for cross-guild isolation tests."""
+      return os.environ.get("DISCORD_GUILD_B_ID")
+
+  @pytest.fixture(scope="session")
+  def discord_channel_b_id():
+      """Channel in Guild B for isolation tests."""
+      return os.environ.get("DISCORD_CHANNEL_B_ID")
+
+  @pytest.fixture(scope="session")
+  def discord_user_b_id():
+      """User B (member of Guild B only)."""
+      return os.environ.get("DISCORD_USER_B_ID")
+
+  @pytest.fixture(scope="session")
+  def discord_user_b_token():
+      """Bot token for User B."""
+      return os.environ.get("DISCORD_USER_B_TOKEN")
+
+  @pytest.fixture
+  async def authenticated_client_b(discord_user_b_token):
+      """HTTP client authenticated as User B (Guild B member)."""
+      if not discord_user_b_token:
+          pytest.skip("DISCORD_USER_B_TOKEN not set - multi-guild tests disabled")
+      headers = {"Authorization": f"Bearer {discord_user_b_token}"}
+      async with httpx.AsyncClient(base_url="http://api:8000", headers=headers) as client:
+          yield client
+
+  @pytest.fixture
+  async def guild_b_db_id(db_session, discord_guild_b_id):
+      """Get database ID for Guild B."""
+      if not discord_guild_b_id:
+          pytest.skip("DISCORD_GUILD_B_ID not set - multi-guild tests disabled")
+      result = await db_session.execute(
+          text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
+          {"guild_id": discord_guild_b_id},
+      )
+      row = result.fetchone()
+      if not row:
+          pytest.fail(f"Guild B {discord_guild_b_id} not found - init seed may have failed")
+      return row[0]
+
+  @pytest.fixture
+  async def guild_b_template_id(db_session, guild_b_db_id):
+      """Get default template ID for Guild B."""
+      result = await db_session.execute(
+          text("SELECT id FROM game_templates WHERE guild_id = :guild_id AND is_default = true"),
+          {"guild_id": guild_b_db_id},
+      )
+      row = result.fetchone()
+      if not row:
+          pytest.fail(f"Default template for Guild B not found - init seed may have failed")
+      return row[0]
+  ```
+- **Success Criteria**:
+  - Guild B environment variables documented in `docs/TESTING_E2E.md`
+  - Init service seeds Guild B when `DISCORD_GUILD_B_ID` present
+  - User B created with membership in Guild B only
+  - Default template created for Guild B
+  - All Guild B fixtures return valid IDs
+  - `authenticated_client_b` fixture authenticates as User B
+  - Existing E2E tests still pass (Guild A only)
+- **Dependencies**:
+  - Phase 2 completion
+  - Discord bot setup for User B (manual step, documented)
+- **Test Command**: `uv run scripts/run-e2e-tests.sh -v` (should pass, no new tests yet)
+
 ### Task 3.1: Write E2E tests for cross-guild isolation
 
 Create comprehensive E2E tests for guild isolation across full request flow.
 
 - **Files**:
   - `tests/e2e/test_guild_isolation_e2e.py` (NEW) - E2E isolation tests
+- **Test Cases to Implement**:
+  1. **Game List Isolation**: User A calls GET /api/games, Guild B games not in response
+  2. **Game Access by ID**: User A calls GET /api/games/{guild_b_game_id}, receives 404
+  3. **Game Creation with Guild B Template**: User A calls POST /api/games with guild_b_template_id, receives 404 or error
+  4. **Participant Signup**: User A calls POST /api/games/{guild_b_game_id}/participants, receives 404
+  5. **Template List Isolation**: User A calls GET /api/templates, Guild B templates not in response
+  6. **Template Access by ID**: User A calls GET /api/templates/{guild_b_template_id}, receives 404
+- **Test Pattern**:
+  ```python
+  async def test_cannot_list_other_guild_games(
+      authenticated_client,      # User A (Guild A)
+      authenticated_client_b,    # User B (Guild B)
+      guild_b_template_id,
+  ):
+      # User B creates game in Guild B
+      response = await authenticated_client_b.post("/api/games", json={...})
+      assert response.status_code == 201
+      guild_b_game_id = response.json()["id"]
+
+      # User A lists games (should only see Guild A games)
+      response = await authenticated_client.get("/api/games")
+      assert response.status_code == 200
+      games = response.json()
+      assert guild_b_game_id not in [g["id"] for g in games]
+  ```
 - **Success**:
-  - Test for user cannot see games from other guilds
-  - Test for user cannot access other guild game by ID (404)
-  - Test for user cannot join other guild game
-  - Test for template isolation across guilds
-  - Tests initially fail (RLS disabled), will pass after RLS enabled
+  - 6 test cases implemented
+  - Tests initially **FAIL** (RLS disabled - all data visible)
+  - Tests will pass after RLS enabled in Tasks 3.2-3.6
+  - Tests use real REST API calls (no mocking)
 - **Research References**:
   - #file:../research/20260101-middleware-rls-guild-isolation-research.md (Lines 1230-1314) - E2E test examples
 - **Dependencies**:
-  - Phase 2 completion (all routes migrated)
-- **Test Command**: `uv run scripts/run-e2e-tests.sh -- tests/e2e/test_guild_isolation_e2e.py -v` (expected to fail initially)
+  - Task 3.0 completion (Guild B infrastructure ready)
+- **Test Command**: `uv run scripts/run-e2e-tests.sh -- tests/e2e/test_guild_isolation_e2e.py -v` (expected to **FAIL** initially - will pass after RLS enabled)
 
 ### Task 3.2: Enable RLS on game_sessions table
 

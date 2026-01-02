@@ -124,32 +124,36 @@ These files will be useful reference but do NOT cover Phase 1 infrastructure tas
 
 ### [ ] Phase 3: Enable RLS + E2E Validation (Week 3)
 
-**NOTE**: `tests/e2e/test_game_authorization.py` provides E2E test infrastructure but focuses on **authorization**, not **guild isolation**. Useful as template for Task 3.1 but needs extension.
+**NOTE**: `tests/e2e/test_game_authorization.py` provides E2E test infrastructure but focuses on **authorization**, not **guild isolation**. Useful as template but needs extension.
+
+- [ ] Task 3.0: Multi-guild E2E infrastructure setup
+  - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 381-430)
+  - **Status**: New prerequisite - Guild B + User B infrastructure for isolation testing
 
 - [ ] Task 3.1: Write E2E tests for cross-guild isolation
-  - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 381-398)
-  - **Status**: Partial infrastructure in `test_game_authorization.py` - needs guild isolation tests
+  - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 432-465)
+  - **Status**: Depends on Task 3.0 - will fail until RLS enabled
 
 - [ ] Task 3.2: Enable RLS on game_sessions table
-  - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 400-418)
+  - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 467-485)
 
 - [ ] Task 3.3: Run E2E tests and validate game isolation
-  - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 420-433)
+  - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 487-500)
 
 - [ ] Task 3.4: Enable RLS on game_templates table
-  - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 435-453)
+  - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 502-520)
 
 - [ ] Task 3.5: Run E2E tests and validate template isolation
-  - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 455-468)
+  - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 522-535)
 
 - [ ] Task 3.6: Enable RLS on participants table
-  - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 470-488)
+  - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 537-555)
 
 - [ ] Task 3.7: Full test suite validation (Phase 3)
-  - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 490-505)
+  - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 557-572)
 
 - [ ] Task 3.8: Production readiness verification
-  - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 507-524)
+  - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 574-591)
 
 ## Dependencies
 
