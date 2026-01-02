@@ -23,6 +23,9 @@ import os
 import pika
 import pytest
 
+from shared.data_access.guild_isolation import clear_current_guild_ids
+from shared.database import engine
+
 
 @pytest.fixture(scope="module")
 def rabbitmq_url():
@@ -44,3 +47,23 @@ def rabbitmq_channel(rabbitmq_connection):
     channel = rabbitmq_connection.channel()
     yield channel
     channel.close()
+
+
+@pytest.fixture(autouse=True, scope="function")
+async def cleanup_guild_context():
+    """Ensure guild context is cleared before and after each test."""
+    clear_current_guild_ids()
+    yield
+    clear_current_guild_ids()
+
+
+@pytest.fixture(autouse=True, scope="function")
+async def cleanup_db_engine():
+    """
+    Dispose database engine after each test to prevent event loop issues.
+
+    Ensures connection pool is cleared between tests so connections
+    don't get reused across different event loops in pytest-asyncio.
+    """
+    yield
+    await engine.dispose()

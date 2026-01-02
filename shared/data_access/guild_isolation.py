@@ -22,7 +22,13 @@ Guild isolation middleware using ContextVars and SQLAlchemy event listeners.
 Provides transparent guild-level data filtering for multi-tenant security.
 """
 
+import logging
 from contextvars import ContextVar
+
+from sqlalchemy import event
+from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 
 _current_guild_ids: ContextVar[list[str] | None] = ContextVar("current_guild_ids", default=None)
 
@@ -50,3 +56,28 @@ def get_current_guild_ids() -> list[str] | None:
 def clear_current_guild_ids() -> None:
     """Clear guild IDs from current request context."""
     _current_guild_ids.set(None)
+
+
+@event.listens_for(AsyncSession.sync_session_class, "after_begin")
+def set_rls_context_on_transaction_begin(session, transaction, connection):
+    """
+    Automatically set PostgreSQL RLS context when transaction begins.
+
+    Reads guild_ids from ContextVar and sets PostgreSQL session variable
+    for use by RLS policies. Transaction-scoped (SET LOCAL).
+
+    Args:
+        session: SQLAlchemy session
+        transaction: Current transaction
+        connection: Database connection
+    """
+    guild_ids = get_current_guild_ids()
+
+    if guild_ids is None or not guild_ids:
+        return
+
+    guild_ids_str = ",".join(guild_ids)
+
+    logger.debug(f"Setting RLS context: app.current_guild_ids = {guild_ids_str}")
+
+    connection.exec_driver_sql(f"SET LOCAL app.current_guild_ids = '{guild_ids_str}'")

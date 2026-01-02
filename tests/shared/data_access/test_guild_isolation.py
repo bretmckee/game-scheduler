@@ -19,6 +19,7 @@
 """Unit tests for guild isolation ContextVar management."""
 
 import asyncio
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -26,6 +27,7 @@ from shared.data_access.guild_isolation import (
     clear_current_guild_ids,
     get_current_guild_ids,
     set_current_guild_ids,
+    set_rls_context_on_transaction_begin,
 )
 
 
@@ -76,3 +78,35 @@ async def test_contextvars_isolated_between_async_tasks():
 
     assert result1 == ["task1_guild"]
     assert result2 == ["task2_guild"]
+
+
+def test_event_listener_with_guild_ids():
+    """Event listener executes SQL when guild_ids are set."""
+    set_current_guild_ids(["123", "456"])
+    mock_connection = MagicMock()
+
+    set_rls_context_on_transaction_begin(None, None, mock_connection)
+
+    mock_connection.exec_driver_sql.assert_called_once_with(
+        "SET LOCAL app.current_guild_ids = '123,456'"
+    )
+
+
+def test_event_listener_with_none():
+    """Event listener skips SQL when guild_ids is None."""
+    clear_current_guild_ids()
+    mock_connection = MagicMock()
+
+    set_rls_context_on_transaction_begin(None, None, mock_connection)
+
+    mock_connection.exec_driver_sql.assert_not_called()
+
+
+def test_event_listener_with_empty_list():
+    """Event listener skips SQL when guild_ids is empty list."""
+    set_current_guild_ids([])
+    mock_connection = MagicMock()
+
+    set_rls_context_on_transaction_begin(None, None, mock_connection)
+
+    mock_connection.exec_driver_sql.assert_not_called()
