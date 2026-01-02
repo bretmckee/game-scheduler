@@ -19,10 +19,12 @@ Implementing transparent guild isolation using SQLAlchemy event listeners, Postg
 - tests/shared/data_access/test_guild_isolation.py - Unit tests for ContextVar management functions
 - tests/integration/test_guild_isolation_rls.py - Integration tests for SQLAlchemy event listener RLS context setting
 - tests/services/api/test_database_dependencies.py - Unit tests for enhanced database dependency function (get_db_with_user_guilds)
+- alembic/versions/436f4d5b2b35_add_rls_policies_disabled.py - Alembic migration that creates RLS policies and indexes but leaves RLS disabled
 
 ### Modified
 
 - services/init/main.py - Added database user creation as step 2/6 in initialization sequence (between PostgreSQL wait and migrations)
+- services/api/app.py - Added import of shared.data_access.guild_isolation module to register SQLAlchemy event listener at application startup
 - config/env.dev - Updated to two-user architecture with ADMIN_DATABASE_URL and DATABASE_URL separation
 - config/env.int - Updated to two-user architecture with admin and app user credentials
 - config/env.e2e - Updated to two-user architecture with admin and app user credentials
@@ -159,3 +161,47 @@ Enhanced dependency ensures guild context always set for authenticated requests 
 **Test Results**: All 3 unit tests pass (green phase). Verified ContextVar set/clear behavior in normal and exception cases.
 
 **Test Command**: `uv run pytest tests/services/api/test_database_dependencies.py -v`
+
+#### Task 1.7: Register event listener in application startup
+**Status**: ✅ Completed
+**Completed**: 2026-01-02
+**Details**: Registered SQLAlchemy event listener at application startup by importing shared.data_access.guild_isolation module in services/api/app.py. Implementation:
+- Added import with noqa comment (import registers event listener as side effect)
+- Updated lifespan function docstring to document guild isolation middleware registration
+- Added log message confirming guild isolation middleware is active
+
+Event listener registration happens automatically on module import. The import statement in app.py ensures listener is registered before any database operations occur.
+
+**Test Results**: Application starts successfully. Event listener registered at startup. No behavior changes (RLS still disabled in Phase 1).
+
+#### Task 1.8: Create Alembic migration for RLS policies (disabled)
+**Status**: ✅ Completed
+**Completed**: 2026-01-02
+**Details**: Created Alembic migration (436f4d5b2b35_add_rls_policies_disabled.py) that establishes RLS infrastructure without enabling enforcement. Migration:
+- Creates indexes on guild_id columns for game_sessions and game_templates (performance optimization for RLS queries)
+- Creates guild_isolation_games policy on game_sessions table (checks if guild_id matches app.current_guild_ids session variable)
+- Creates guild_isolation_templates policy on game_templates table (same guild_id matching logic)
+- Creates guild_isolation_participants policy on game_participants table (via subquery join to game_sessions)
+- All policies use FOR ALL (applies to SELECT/INSERT/UPDATE/DELETE operations)
+- RLS policies created but NOT enabled (no ALTER TABLE ... ENABLE ROW LEVEL SECURITY)
+
+Migration uses proper down_revision chain (b49eb343d5a6) to avoid branching. Downgrade removes all policies and indexes.
+
+**Test Results**: Migration ran successfully in integration environment. Verified:
+- All three policies created (guild_isolation_games, guild_isolation_templates, guild_isolation_participants)
+- Indexes created (idx_game_sessions_guild_id, idx_game_templates_guild_id)
+- RLS disabled on all three tables (rowsecurity = false)
+
+**Migration Command**: `docker compose --env-file config/env.int up -d --build init`
+
+**Verification Queries**:
+```sql
+-- Check policies exist
+SELECT polname FROM pg_policy WHERE polrelid IN ('game_sessions'::regclass, 'game_templates'::regclass, 'game_participants'::regclass);
+
+-- Check RLS is disabled
+SELECT tablename, rowsecurity FROM pg_tables WHERE tablename IN ('game_sessions', 'game_templates', 'game_participants');
+
+-- Check indexes exist
+SELECT indexname FROM pg_indexes WHERE tablename IN ('game_sessions', 'game_templates') AND indexname LIKE '%guild_id%';
+```

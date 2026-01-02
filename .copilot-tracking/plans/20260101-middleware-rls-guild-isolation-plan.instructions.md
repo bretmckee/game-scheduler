@@ -68,24 +68,24 @@ These files will be useful reference but do NOT cover Phase 1 infrastructure tas
 - [x] Task 1.2: Implement ContextVar functions
   - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 126-142)
 
-- [ ] Task 1.3: Write integration tests for event listener
+- [x] Task 1.3: Write integration tests for event listener
   - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 144-159)
   - **Status**: No existing coverage - must create new test file
 
-- [ ] Task 1.4: Implement SQLAlchemy event listener
+- [x] Task 1.4: Implement SQLAlchemy event listener
   - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 161-179)
 
-- [ ] Task 1.5: Write tests for enhanced database dependency
+- [x] Task 1.5: Write tests for enhanced database dependency
   - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 181-198)
   - **Status**: No existing coverage - must create new test file
 
-- [ ] Task 1.6: Implement enhanced database dependency
+- [x] Task 1.6: Implement enhanced database dependency
   - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 200-217)
 
-- [ ] Task 1.7: Register event listener in application startup
+- [x] Task 1.7: Register event listener in application startup
   - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 219-229)
 
-- [ ] Task 1.8: Create Alembic migration for RLS policies (disabled)
+- [x] Task 1.8: Create Alembic migration for RLS policies (disabled)
   - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 231-249)
 
 - [ ] Task 1.9: Full test suite validation (Phase 1)

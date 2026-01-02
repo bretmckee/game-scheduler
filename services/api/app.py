@@ -62,6 +62,7 @@ async def lifespan(app: FastAPI):
     Application lifespan context manager.
 
     Initializes connections on startup and closes them on shutdown.
+    Guild isolation event listener registered via import.
 
     Args:
         app: FastAPI application instance
@@ -70,6 +71,8 @@ async def lifespan(app: FastAPI):
 
     redis_instance = await redis_client.get_redis_client()
     logger.info("Redis connection initialized")
+
+    logger.info("Guild isolation middleware registered (event listener active)")
 
     yield
 
