@@ -309,8 +309,17 @@ async def test_malformed_response_handling(resolver, mock_discord_client):
 
 
 @pytest.mark.asyncio
-async def test_resolve_discord_mention_format(resolver):
+async def test_resolve_discord_mention_format(resolver, mock_discord_client):
     """Test resolving Discord internal mention format <@discord_id>."""
+    member_data = {
+        "user": {
+            "id": "987654321012345678",
+            "username": "testuser",
+            "global_name": "Test User",
+        }
+    }
+    mock_discord_client.get_guild_member = AsyncMock(return_value=member_data)
+
     valid, errors = await resolver.resolve_initial_participants(
         guild_discord_id="123456789",
         participant_inputs=["<@987654321012345678>"],
@@ -340,6 +349,15 @@ async def test_resolve_mixed_mention_formats(resolver, mock_discord_client):
     mock_session = MagicMock()
     mock_session.get = MagicMock(return_value=create_mock_http_response(200, json_data))
     mock_discord_client._get_session = AsyncMock(return_value=mock_session)
+
+    member_data = {
+        "user": {
+            "id": "987654321012345678",
+            "username": "mentionuser",
+            "global_name": "Mention User",
+        }
+    }
+    mock_discord_client.get_guild_member = AsyncMock(return_value=member_data)
 
     valid, errors = await resolver.resolve_initial_participants(
         guild_discord_id="123456789",
@@ -384,8 +402,17 @@ async def test_reject_invalid_discord_mention_format(resolver):
 
 
 @pytest.mark.asyncio
-async def test_discord_mention_format_with_whitespace(resolver):
+async def test_discord_mention_format_with_whitespace(resolver, mock_discord_client):
     """Test Discord mention format handles whitespace correctly."""
+    member_data = {
+        "user": {
+            "id": "987654321012345678",
+            "username": "testuser",
+            "global_name": "Test User",
+        }
+    }
+    mock_discord_client.get_guild_member = AsyncMock(return_value=member_data)
+
     valid, errors = await resolver.resolve_initial_participants(
         guild_discord_id="123456789",
         participant_inputs=[
