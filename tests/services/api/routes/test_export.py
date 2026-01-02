@@ -93,7 +93,7 @@ def test_export_game_as_host_success(app, mock_user, mock_game):
         return mock_role_service
 
     app.dependency_overrides[auth_deps.get_current_user] = override_get_current_user
-    app.dependency_overrides[database.get_db] = override_get_db
+    app.dependency_overrides[database.get_db_with_user_guilds] = override_get_db
     app.dependency_overrides[permissions_deps.get_role_service] = override_get_role_service
 
     try:
@@ -145,7 +145,7 @@ def test_export_game_not_found(app, mock_user):
         return mock_role_service
 
     app.dependency_overrides[auth_deps.get_current_user] = override_get_current_user
-    app.dependency_overrides[database.get_db] = override_get_db
+    app.dependency_overrides[database.get_db_with_user_guilds] = override_get_db
     app.dependency_overrides[permissions_deps.get_role_service] = override_get_role_service
 
     try:
@@ -188,7 +188,7 @@ def test_export_game_permission_denied(app, mock_user, mock_game):
         return mock_role_service
 
     app.dependency_overrides[auth_deps.get_current_user] = override_get_current_user
-    app.dependency_overrides[database.get_db] = override_get_db
+    app.dependency_overrides[database.get_db_with_user_guilds] = override_get_db
     app.dependency_overrides[permissions_deps.get_role_service] = override_get_role_service
 
     try:
@@ -250,7 +250,7 @@ def test_export_game_as_participant(app, mock_user, mock_game):
         return mock_role_service
 
     app.dependency_overrides[auth_deps.get_current_user] = override_get_current_user
-    app.dependency_overrides[database.get_db] = override_get_db
+    app.dependency_overrides[database.get_db_with_user_guilds] = override_get_db
     app.dependency_overrides[permissions_deps.get_role_service] = override_get_role_service
 
     try:

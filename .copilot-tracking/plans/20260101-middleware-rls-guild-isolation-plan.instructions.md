@@ -112,7 +112,7 @@ These files will be useful reference but do NOT cover Phase 1 infrastructure tas
 - [x] Task 2.5: Migrate guild routes dependency
   - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 340-351)
 
-- [ ] Task 2.6: Migrate export route dependency
+- [x] Task 2.6: Migrate export route dependency
   - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 353-364)
 
 - [ ] Task 2.7: Full test suite validation (Phase 2)

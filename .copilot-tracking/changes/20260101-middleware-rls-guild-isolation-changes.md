@@ -39,6 +39,8 @@ Implementing transparent guild isolation using SQLAlchemy event listeners, Postg
 - pyproject.toml - Exclude services/init/* from coverage reporting (infrastructure code)
 - shared/database.py - Added get_db_with_user_guilds() dependency function that fetches user's guilds, sets ContextVar, yields session, and clears ContextVar in finally block
 - services/api/routes/guilds.py - Migrated list_guilds() to use get_db_with_user_guilds dependency (line 47)
+- services/api/routes/export.py - Migrated export_game() to use get_db_with_user_guilds dependency (line 92)
+- tests/services/api/routes/test_export.py - Updated all 4 test functions to override get_db_with_user_guilds instead of get_db (lines 96, 148, 191, 253)
 
 ### Removed
 
@@ -412,4 +414,30 @@ SELECT indexname FROM pg_indexes WHERE tablename IN ('game_sessions', 'game_temp
 **Impact**: Zero breaking changes. All previously passing tests continue to pass. Guild routes now ready for Phase 3 RLS enablement.
 
 **Files Modified**:
+- services/api/routes/guilds.py - 1 dependency change (line 47)
+
+#### Task 2.6: Migrate export route dependency
+**Status**: ✅ Completed
+**Completed**: 2026-01-02
+**Details**: Migrated `export_game` route handler dependency from `get_db` to `get_db_with_user_guilds` for automatic guild isolation RLS context setting. Single-line change with zero functional impact in Phase 2 (RLS disabled), but establishes the foundation for automatic database-level guild filtering when RLS is enabled in Phase 3.
+
+**Implementation**:
+- Modified services/api/routes/export.py - Line 92, export_game function
+- Changed from: `db: AsyncSession = Depends(database.get_db)`
+- Changed to: `db: AsyncSession = Depends(database.get_db_with_user_guilds)`
+- Function signature and return type unchanged
+- All downstream logic unaffected (transparent change)
+- Updated tests/services/api/routes/test_export.py - All 4 test functions to override get_db_with_user_guilds instead of get_db (lines 96, 148, 191, 253)
+
+**Test Results**:
+- ✅ All 10 unit tests pass (tests/services/api/routes/test_export.py)
+- Test command: `uv run pytest tests/services/api/routes/test_export.py -v`
+- Zero breaking changes to existing functionality
+- RLS context now set automatically for all export queries (will enable filtering in Phase 3)
+
+**Impact**: Zero breaking changes. All previously passing tests continue to pass. Export routes now ready for Phase 3 RLS enablement.
+
+**Files Modified**:
+- services/api/routes/export.py - 1 dependency change (line 92)
+- tests/services/api/routes/test_export.py - 4 test updates to override correct dependency (lines 96, 148, 191, 253)
 - services/api/routes/guilds.py - 1 dependency change (line 47)
