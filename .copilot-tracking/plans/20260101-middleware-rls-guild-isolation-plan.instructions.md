@@ -95,12 +95,13 @@ These files will be useful reference but do NOT cover Phase 1 infrastructure tas
 
 **NOTE**: `tests/integration/test_games_route_guild_isolation.py` provides useful game service test patterns but tests **current behavior without RLS**. These tests will need adaptation/extension for Task 2.1.
 
-- [ ] Task 2.1: Write integration tests for game service RLS
+- [x] Task 2.1: Write integration tests for game service RLS
   - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 266-283)
-  - **Status**: Partial coverage in `test_games_route_guild_isolation.py` - needs RLS context testing
+  - **Status**: Completed - 10 comprehensive tests created with 7 passing, 3 xfail for RLS-enabled scenarios
 
-- [ ] Task 2.2: Migrate game service factory
+- [x] Task 2.2: Migrate game service factory
   - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 285-300)
+  - **Status**: Completed - Changed to async function that fetches guilds and sets context
 
 - [ ] Task 2.3: Write integration tests for template routes RLS
   - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 302-317)

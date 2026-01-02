@@ -202,6 +202,11 @@ async def test_cleared_reminder_minutes_not_reverted_to_template_default(
     guild_discord_id = guild_config_row[0]
     bot_manager_role_ids = guild_config_row[1] or []
 
+    # User guilds for RLS context (Phase 2 guild isolation)
+    from tests.integration.conftest import seed_user_guilds_cache
+
+    await seed_user_guilds_cache(redis_client, TEST_BOT_DISCORD_ID, [guild_discord_id])
+
     # Add guild_id as a role (Discord convention - guild membership = guild_id role)
     # and any bot_manager_role_ids if configured
     user_roles = [guild_discord_id] + bot_manager_role_ids
@@ -315,6 +320,11 @@ async def test_cleared_optional_text_fields_not_reverted_to_template_defaults(
     guild_config_row = guild_config_result.fetchone()
     guild_discord_id = guild_config_row[0]
     bot_manager_role_ids = guild_config_row[1] or []
+
+    # User guilds for RLS context (Phase 2 guild isolation)
+    from tests.integration.conftest import seed_user_guilds_cache
+
+    await seed_user_guilds_cache(redis_client, TEST_BOT_DISCORD_ID, [guild_discord_id])
 
     # Add guild_id as a role (Discord convention - guild membership = guild_id role)
     # and any bot_manager_role_ids if configured

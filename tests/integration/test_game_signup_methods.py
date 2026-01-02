@@ -192,6 +192,11 @@ def test_template(db_session, redis_client, test_user):
 
     # Seed Redis cache with all test data in single event loop
     async def seed_cache():
+        # User guilds for RLS context (Phase 2 guild isolation)
+        from tests.integration.conftest import seed_user_guilds_cache
+
+        await seed_user_guilds_cache(redis_client, test_user["discord_id"], [guild_id])
+
         # User roles for bot manager permission
         user_roles_key = CacheKeys.user_roles(test_user["discord_id"], guild_id)
         await redis_client.set_json(user_roles_key, [bot_manager_role_id, guild_id], ttl=3600)
