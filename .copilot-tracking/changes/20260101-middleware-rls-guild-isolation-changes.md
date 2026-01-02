@@ -18,6 +18,7 @@ Implementing transparent guild isolation using SQLAlchemy event listeners, Postg
 - shared/data_access/guild_isolation.py - ContextVar functions for thread-safe, async-safe guild ID storage (set_current_guild_ids, get_current_guild_ids, clear_current_guild_ids) + SQLAlchemy event listener for automatic RLS context setting
 - tests/shared/data_access/test_guild_isolation.py - Unit tests for ContextVar management functions
 - tests/integration/test_guild_isolation_rls.py - Integration tests for SQLAlchemy event listener RLS context setting
+- tests/services/api/test_database_dependencies.py - Unit tests for enhanced database dependency function (get_db_with_user_guilds)
 
 ### Modified
 
@@ -32,6 +33,7 @@ Implementing transparent guild isolation using SQLAlchemy event listeners, Postg
 - tests/integration/test_database_infrastructure.py - Convert postgresql+asyncpg:// URL to postgresql:// for synchronous SQLAlchemy tests
 - tests/integration/test_notification_daemon.py - Convert postgresql+asyncpg:// URL to postgresql:// for psycopg2 connections
 - pyproject.toml - Exclude services/init/* from coverage reporting (infrastructure code)
+- shared/database.py - Added get_db_with_user_guilds() dependency function that fetches user's guilds, sets ContextVar, yields session, and clears ContextVar in finally block
 
 ### Removed
 
@@ -128,3 +130,32 @@ Event listener fires automatically on every transaction begin, transparently inj
 **Test Results**: 2 of 3 integration tests pass (green phase). test_event_listener_handles_empty_guild_list has asyncio event loop cleanup issue (RuntimeError) but the actual RLS logic works. Main tests passing confirm event listener functionality.
 
 **Test Command**: `./scripts/run-integration-tests.sh tests/integration/test_guild_isolation_rls.py -v`
+
+#### Task 1.5: Write tests for enhanced database dependency
+**Status**: ✅ Completed
+**Completed**: 2026-01-02
+**Details**: Created unit tests for get_db_with_user_guilds() dependency function in tests/services/api/test_database_dependencies.py. Tests cover:
+- Sets guild_ids in ContextVar from mocked Discord API response
+- Clears ContextVar on normal exit (generator consumed)
+- Clears ContextVar even when exception raised (proper cleanup)
+
+Tests use mocked CurrentUser and Discord API guild responses. Tests initially failed with ImportError as expected (red phase) - function doesn't exist yet.
+
+**Test Results**: 3 tests written, verified failure before implementation (ImportError: cannot import name 'get_db_with_user_guilds').
+
+#### Task 1.6: Implement enhanced database dependency
+**Status**: ✅ Completed
+**Completed**: 2026-01-02
+**Details**: Implemented get_db_with_user_guilds() in shared/database.py that wraps session creation with guild context management. Implementation:
+- Takes current_user as parameter (FastAPI dependency injection)
+- Fetches user's guilds from Discord API via oauth2.get_user_guilds() (cached with 5-min TTL)
+- Extracts guild IDs from API response
+- Sets guild_ids in ContextVar via set_current_guild_ids()
+- Yields AsyncSession (same behavior as get_db())
+- Clears ContextVar in finally block via clear_current_guild_ids()
+
+Enhanced dependency ensures guild context always set for authenticated requests and always cleaned up (even on exception). Event listener (Task 1.4) will automatically use this context to set PostgreSQL RLS session variable.
+
+**Test Results**: All 3 unit tests pass (green phase). Verified ContextVar set/clear behavior in normal and exception cases.
+
+**Test Command**: `uv run pytest tests/services/api/test_database_dependencies.py -v`

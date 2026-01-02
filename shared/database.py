@@ -26,6 +26,11 @@ from sqlalchemy import create_engine as create_sync_engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from shared.data_access.guild_isolation import (
+    clear_current_guild_ids,
+    set_current_guild_ids,
+)
+
 # Base PostgreSQL URL without driver specification
 _raw_database_url = os.getenv(
     "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/game_scheduler"
@@ -88,6 +93,56 @@ async def get_db() -> AsyncGenerator[AsyncSession]:
             raise
         finally:
             await session.close()
+
+
+async def get_db_with_user_guilds(
+    current_user,  # Type hint causes circular import, FastAPI handles it
+) -> AsyncGenerator[AsyncSession]:
+    """
+    Provide database session with user's guilds set for RLS enforcement.
+
+    Use this dependency for tenant-scoped queries (games, templates, participants).
+    The SQLAlchemy event listener automatically sets RLS context on transaction begin.
+
+    For unauthenticated operations (migrations, service tasks), use get_db() instead.
+
+    Args:
+        current_user: Current authenticated user (injected by FastAPI)
+
+    Yields:
+        AsyncSession: Database session with guild context set
+
+    Example:
+        @router.get("/games")
+        async def list_games(
+            db: AsyncSession = Depends(get_db_with_user_guilds)
+        ):
+            # All queries automatically filtered to user's guilds
+            result = await db.execute(select(GameSession))
+            return result.scalars().all()
+    """
+    from services.api.auth import oauth2
+
+    # Fetch user's guilds (cached with 5-min TTL)
+    user_guilds = await oauth2.get_user_guilds(
+        current_user.access_token, current_user.user.discord_id
+    )
+    guild_ids = [g["id"] for g in user_guilds]
+
+    # Store in request-scoped context
+    set_current_guild_ids(guild_ids)
+
+    # Yield session - event listener will set RLS on next query
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
+            clear_current_guild_ids()
 
 
 def get_db_session() -> AsyncSession:
