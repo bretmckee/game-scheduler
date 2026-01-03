@@ -54,7 +54,10 @@ def mock_user_guilds():
 async def test_get_db_with_user_guilds_sets_context(mock_current_user, mock_user_guilds):
     """Enhanced dependency sets guild_ids in ContextVar."""
     with patch("services.api.auth.oauth2.get_user_guilds", return_value=mock_user_guilds):
-        generator = get_db_with_user_guilds(mock_current_user)
+        # Factory function returns the actual dependency
+        dependency_func = get_db_with_user_guilds()
+        # Call the dependency with mock_current_user
+        generator = dependency_func(mock_current_user)
         try:
             async for _session in generator:
                 # Inside context, guild_ids should be set
@@ -70,7 +73,9 @@ async def test_get_db_with_user_guilds_sets_context(mock_current_user, mock_user
 async def test_get_db_with_user_guilds_clears_context_on_exit(mock_current_user, mock_user_guilds):
     """Enhanced dependency clears ContextVar in finally block."""
     with patch("services.api.auth.oauth2.get_user_guilds", return_value=mock_user_guilds):
-        async for _session in get_db_with_user_guilds(mock_current_user):
+        # Factory function returns the actual dependency
+        dependency_func = get_db_with_user_guilds()
+        async for _session in dependency_func(mock_current_user):
             pass  # Consume generator
 
     # After generator exits, guild_ids should be cleared
@@ -84,7 +89,9 @@ async def test_get_db_with_user_guilds_clears_context_on_exception(
 ):
     """Enhanced dependency clears ContextVar even if exception raised."""
     with patch("services.api.auth.oauth2.get_user_guilds", return_value=mock_user_guilds):
-        generator = get_db_with_user_guilds(mock_current_user)
+        # Factory function returns the actual dependency
+        dependency_func = get_db_with_user_guilds()
+        generator = dependency_func(mock_current_user)
         try:
             with pytest.raises(RuntimeError):
                 async for _session in generator:

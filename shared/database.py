@@ -22,6 +22,7 @@ import os
 from collections.abc import AsyncGenerator
 from contextlib import contextmanager
 
+from fastapi import Depends
 from sqlalchemy import create_engine as create_sync_engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -96,52 +97,45 @@ async def get_db() -> AsyncGenerator[AsyncSession]:
             await session.close()
 
 
-async def get_db_with_user_guilds(
-    current_user: CurrentUser,
-) -> AsyncGenerator[AsyncSession]:
+def get_db_with_user_guilds():
     """
-    Provide database session with user's guilds set for RLS enforcement.
+    Factory function that returns a database dependency with user guild context.
 
-    Use this dependency for tenant-scoped queries (games, templates, participants).
-    The SQLAlchemy event listener automatically sets RLS context on transaction begin.
+    This should be called as: db: AsyncSession = Depends(get_db_with_user_guilds())
 
-    For unauthenticated operations (migrations, service tasks), use get_db() instead.
-
-    IMPORTANT: Routes must explicitly pass current_user dependency:
-        @router.get("/games")
-        async def list_games(
-            current_user: CurrentUser = Depends(get_current_user),
-            db: AsyncSession = Depends(get_db_with_user_guilds)
-        ):
-
-    Args:
-        current_user: Current authenticated user (must be passed via Depends)
-
-    Yields:
-        AsyncSession: Database session with guild context set
+    The returned dependency function will automatically receive current_user from
+    the route's dependency chain.
     """
-    from services.api.auth import oauth2
+    from services.api.dependencies import auth
 
-    # Fetch user's guilds (cached with 5-min TTL)
-    user_guilds = await oauth2.get_user_guilds(
-        current_user.access_token, current_user.user.discord_id
-    )
-    guild_ids = [g["id"] for g in user_guilds]
+    async def _get_db_with_guilds(
+        current_user: CurrentUser = Depends(auth.get_current_user),  # noqa: B008
+    ) -> AsyncGenerator[AsyncSession]:
+        """Inner dependency that receives current_user and provides DB session."""
+        from services.api.auth import oauth2
 
-    # Store in request-scoped context
-    set_current_guild_ids(guild_ids)
+        # Fetch user's guilds (cached with 5-min TTL)
+        user_guilds = await oauth2.get_user_guilds(
+            current_user.access_token, current_user.user.discord_id
+        )
+        guild_ids = [g["id"] for g in user_guilds]
 
-    # Yield session - event listener will set RLS on next query
-    async with AsyncSessionLocal() as session:
-        try:
-            yield session
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
-        finally:
-            await session.close()
-            clear_current_guild_ids()
+        # Store in request-scoped context
+        set_current_guild_ids(guild_ids)
+
+        # Yield session - event listener will set RLS on next query
+        async with AsyncSessionLocal() as session:
+            try:
+                yield session
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                raise
+            finally:
+                await session.close()
+                clear_current_guild_ids()
+
+    return _get_db_with_guilds
 
 
 def get_db_session() -> AsyncSession:

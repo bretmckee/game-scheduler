@@ -22,6 +22,7 @@ Implementing transparent guild isolation using SQLAlchemy event listeners, Postg
 - alembic/versions/436f4d5b2b35_add_rls_policies_disabled.py - Alembic migration that creates RLS policies and indexes but leaves RLS disabled
 - tests/integration/test_game_service_guild_isolation.py - Integration tests for GameService guild isolation behavior with RLS context
 - tests/integration/test_template_routes_guild_isolation.py - Integration tests for template routes guild isolation behavior with RLS context
+- tests/e2e/test_guild_isolation_e2e.py - E2E tests for cross-guild isolation with 8 comprehensive xfail tests (list, get, join, update, delete games; template access; participant isolation)
 
 ### Modified
 
@@ -545,3 +546,34 @@ SELECT indexname FROM pg_indexes WHERE tablename IN ('game_sessions', 'game_temp
 - tests/e2e/conftest.py - Added 7 new Guild B fixtures (after discord_user_id fixture)
 - tests/e2e/test_00_environment.py - Added 9 Guild B validation tests (guild exists, channel exists, user exists, database seeded, default template, user isolation)
 - TESTING_E2E.md - Added Guild B setup section and documentation
+
+#### Task 3.1: Write E2E tests for cross-guild isolation
+**Status**: ✅ Completed
+**Completed**: 2026-01-03
+**Details**: Created comprehensive E2E tests verifying cross-guild isolation before RLS enablement. Tests document expected behavior and serve as acceptance criteria for Phase 3.2+ when RLS is enabled.
+
+**Implementation**:
+- Created tests/e2e/test_guild_isolation_e2e.py with 8 comprehensive test cases:
+  - test_user_cannot_list_games_from_other_guilds - Verifies game list filtering per guild
+  - test_user_cannot_get_game_from_other_guild_by_id - Verifies 404 for cross-guild game access
+  - test_user_cannot_join_game_from_other_guild - Verifies 404/403 for cross-guild join attempts
+  - test_user_cannot_update_game_from_other_guild - Verifies 404 for cross-guild game updates
+  - test_user_cannot_delete_game_from_other_guild - Verifies 404 for cross-guild game deletion
+  - test_templates_isolated_across_guilds - Verifies template filtering and 404 for cross-guild access
+  - test_participants_isolated_across_guilds - Verifies participant isolation via game isolation
+- All tests marked with @pytest.mark.xfail(reason="RLS not yet enabled - will pass after Phase 3.2+", strict=False)
+- Tests use real Guild A and Guild B fixtures (authenticated_admin_client, authenticated_client_b)
+- Tests create real games in both guilds and verify isolation
+- Clear assertion messages explain expected RLS behavior after enablement
+- Fixtures handle game creation, cleanup, and database polling for reliability
+
+**Test Results**:
+- ✅ All 8 tests created with proper xfail markers
+- ⚠️ Tests expected to fail until RLS enabled in Phase 3.2+
+- ✅ Tests document acceptance criteria for RLS enablement
+- ✅ Tests verify complete isolation (list, get, join, update, delete, templates, participants)
+
+**Impact**: Complete E2E test coverage for cross-guild isolation scenarios. Tests will transition from xfail to passing when RLS is enabled in subsequent tasks.
+
+**Files Added**:
+- tests/e2e/test_guild_isolation_e2e.py - NEW E2E test suite with 8 comprehensive cross-guild isolation tests

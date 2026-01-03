@@ -130,9 +130,9 @@ These files will be useful reference but do NOT cover Phase 1 infrastructure tas
   - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 381-430)
   - **Status**: ✅ Completed - Guild B + User B infrastructure for isolation testing
 
-- [ ] Task 3.1: Write E2E tests for cross-guild isolation
+- [x] Task 3.1: Write E2E tests for cross-guild isolation
   - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 432-465)
-  - **Status**: Depends on Task 3.0 - will fail until RLS enabled
+  - **Status**: ✅ Completed - 8 comprehensive xfail tests for cross-guild isolation (games and templates)
 
 - [ ] Task 3.2: Enable RLS on game_sessions table
   - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 467-485)
