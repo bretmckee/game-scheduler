@@ -114,6 +114,6 @@ services:
 
 networks:
   app-network:
-    name: gamebot-network
+    name: ${CONTAINER_PREFIX:-gamebot-dev}-network
     driver: bridge
     external: true

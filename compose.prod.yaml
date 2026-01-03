@@ -38,3 +38,9 @@ services:
         condition: service_healthy
       retry-daemon:
         condition: service_healthy
+
+networks:
+  app-network:
+    name: ${CONTAINER_PREFIX:-gamebot-prod}-network
+    driver: bridge
+    external: true

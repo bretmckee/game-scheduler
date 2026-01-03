@@ -64,6 +64,6 @@ services:
 
 networks:
   app-network:
-    name: swag_game_scheduler
+    name: ${CONTAINER_PREFIX:-gamebot-staging}-network
     driver: bridge
     external: true
