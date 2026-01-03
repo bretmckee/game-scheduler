@@ -18,10 +18,16 @@
 
 """Database query functions for guild and channel configurations."""
 
+from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from starlette import status
 
+from shared.data_access.guild_isolation import (
+    get_current_guild_ids,
+    set_current_guild_ids,
+)
 from shared.models.channel import ChannelConfiguration
 from shared.models.guild import GuildConfiguration
 
@@ -39,6 +45,59 @@ async def get_guild_by_id(db: AsyncSession, guild_id: str) -> GuildConfiguration
     """
     result = await db.execute(select(GuildConfiguration).where(GuildConfiguration.id == guild_id))
     return result.scalar_one_or_none()
+
+
+async def require_guild_by_id(
+    db: AsyncSession,
+    guild_id: str,
+    access_token: str,
+    user_discord_id: str,
+    not_found_detail: str = "Guild configuration not found",
+) -> GuildConfiguration:
+    """
+    Fetch guild configuration by UUID with automatic RLS context setup.
+
+    Sets RLS context if not already set (idempotent). Returns 404 for both
+    "not found" and "unauthorized" to prevent information disclosure.
+
+    Args:
+        db: Database session
+        guild_id: Database UUID (GuildConfiguration.id)
+        access_token: User's OAuth2 access token
+        user_discord_id: User's Discord ID
+        not_found_detail: Custom error message for 404 response
+
+    Returns:
+        Guild configuration (verified user has access)
+
+    Raises:
+        HTTPException(404): If guild not found OR user not authorized
+    """
+    from services.api.auth import oauth2
+
+    # Ensure RLS context is set (idempotent - only fetches if not already set)
+    if get_current_guild_ids() is None:
+        user_guilds = await oauth2.get_user_guilds(access_token, user_discord_id)
+        guild_ids = [g["id"] for g in user_guilds]
+        set_current_guild_ids(guild_ids)
+
+    guild_config = await get_guild_by_id(db, guild_id)
+    if not guild_config:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=not_found_detail,
+        )
+
+    # Defense in depth: Manual authorization check
+    # (RLS will also enforce at database level once enabled)
+    authorized_guild_ids = get_current_guild_ids()
+    if authorized_guild_ids is None or guild_config.guild_id not in authorized_guild_ids:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=not_found_detail,
+        )
+
+    return guild_config
 
 
 async def get_guild_by_discord_id(
