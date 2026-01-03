@@ -118,17 +118,17 @@ async def test_get_guild_config_enforces_authorization(
     Config routes require MANAGE_GUILD permission.
 
     Expected behavior:
-    - User A tries to get Guild B config → 403 (no MANAGE_GUILD permission)
+    - User A tries to get Guild B config → 404 (not authorized - prevents info disclosure)
     - User B with permission can get Guild B config → 200
     """
     # User B can access their guild config
     response_b = await authenticated_client_b.get(f"/api/v1/guilds/{guild_b_db_id}/config")
     assert response_b.status_code == 200, "User B should access Guild B config"
 
-    # User A gets permission denied (checked before guild lookup)
+    # User A gets 404 (not 403) to prevent information disclosure
     response_a = await authenticated_admin_client.get(f"/api/v1/guilds/{guild_b_db_id}/config")
-    assert response_a.status_code == 403, (
-        "User A should get 403 for Guild B config (lacks MANAGE_GUILD permission)"
+    assert response_a.status_code == 404, (
+        "User A should get 404 for Guild B config (not authorized - prevents info disclosure)"
     )
 
 
@@ -140,15 +140,16 @@ async def test_update_guild_config_enforces_authorization(
     Config update requires MANAGE_GUILD permission.
 
     Expected behavior:
-    - User A tries to update Guild B config → 403 (no permission)
+    - User A tries to update Guild B config → 404 (not authorized - prevents info disclosure)
     """
     update_data = {"require_host_role": True}
     response = await authenticated_admin_client.put(
         f"/api/v1/guilds/{guild_b_db_id}", json=update_data
     )
 
-    assert response.status_code == 403, (
-        "User A should get 403 when updating Guild B config (lacks MANAGE_GUILD permission)"
+    assert response.status_code == 404, (
+        "User A should get 404 when updating Guild B config "
+        "(not authorized - prevents info disclosure)"
     )
 
 

@@ -39,8 +39,8 @@ def mock_current_user_guild_a(user_a):
     """Mock CurrentUser for guild A user."""
     return CurrentUser(
         user=user_a,
-        access_token="mock_access_token_guild_a",
-        session_token="mock_session_token_guild_a",
+        access_token="mock_access.token_guild_a",
+        session_token="mock_session.token_guild_a",
     )
 
 
@@ -49,8 +49,8 @@ def mock_current_user_guild_b(user_b):
     """Mock CurrentUser for guild B user."""
     return CurrentUser(
         user=user_b,
-        access_token="mock_access_token_guild_b",
-        session_token="mock_session_token_guild_b",
+        access_token="mock_access.token_guild_b",
+        session_token="mock_session.token_guild_b",
     )
 
 
@@ -93,12 +93,15 @@ async def test_list_templates_only_returns_user_guild_templates(
     """list_templates only returns templates from user's guilds."""
     from tests.integration.conftest import seed_user_guilds_cache
 
+    # Use Discord snowflake ID (not UUID) for authorization
     await seed_user_guilds_cache(
-        redis_client, mock_current_user_guild_a.user.discord_id, [guild_a_id]
+        redis_client,
+        mock_current_user_guild_a.user.discord_id,
+        [guild_a_config.guild_id],
     )
 
     # Set guild context to simulate get_db_with_user_guilds behavior
-    set_current_guild_ids([guild_a_id])
+    set_current_guild_ids([guild_a_config.guild_id])
 
     try:
         # Mock Discord client channel name lookup
@@ -136,6 +139,7 @@ async def test_get_template_returns_404_for_other_guild_template(
     db,
     redis_client,
     guild_a_id,
+    guild_a_config,
     guild_b_id,
     template_b,
     mock_current_user_guild_a,
@@ -144,12 +148,15 @@ async def test_get_template_returns_404_for_other_guild_template(
     """get_template raises 404 for template from different guild (after RLS enabled)."""
     from tests.integration.conftest import seed_user_guilds_cache
 
+    # Use Discord snowflake ID (not UUID) for authorization
     await seed_user_guilds_cache(
-        redis_client, mock_current_user_guild_a.user.discord_id, [guild_a_id]
+        redis_client,
+        mock_current_user_guild_a.user.discord_id,
+        [guild_a_config.guild_id],
     )
 
     # Set guild context to simulate get_db_with_user_guilds behavior
-    set_current_guild_ids([guild_a_id])
+    set_current_guild_ids([guild_a_config.guild_id])
 
     try:
         # Mock Discord client channel name lookup
@@ -185,29 +192,36 @@ async def test_list_templates_with_no_guild_context_returns_all(
     template_a,
     template_b,
     guild_a_id,
+    guild_a_config,
     mock_current_user_guild_a,
 ):
     """list_templates without guild context sees all templates (no RLS filtering)."""
     # Do NOT set guild context (simulating service operations without RLS)
 
-    # Mock Discord client channel name lookup
-    with patch("shared.discord.client.fetch_channel_name_safe", return_value="test-channel"):
-        # Mock role service to return admin permission
-        with patch(
-            "services.api.routes.templates.roles_module.get_role_service"
-        ) as mock_role_service:
-            mock_svc = AsyncMock()
-            mock_svc.check_bot_manager_permission.return_value = True
-            mock_role_service.return_value = mock_svc
+    # Mock oauth2.get_user_guilds to return guild list when require_guild_by_id calls it
+    with patch("services.api.auth.oauth2.get_user_guilds") as mock_get_guilds:
+        mock_get_guilds.return_value = [
+            {"id": guild_a_config.guild_id, "name": "Test Guild A", "permissions": "8"}
+        ]
 
-            # This should see all templates for guild_a since guild_id is passed
-            # (route already filters by guild_id, RLS provides additional safety)
-            templates = await list_templates(
-                guild_id=guild_a_id,
-                current_user=mock_current_user_guild_a,
-                db=db,
-            )
+        # Mock Discord client channel name lookup
+        with patch("shared.discord.client.fetch_channel_name_safe", return_value="test-channel"):
+            # Mock role service to return admin permission
+            with patch(
+                "services.api.routes.templates.roles_module.get_role_service"
+            ) as mock_role_service:
+                mock_svc = AsyncMock()
+                mock_svc.check_bot_manager_permission.return_value = True
+                mock_role_service.return_value = mock_svc
 
-            # Should only see guild_a templates (route filters by guild_id parameter)
-            template_ids = [t.id for t in templates]
+                # This should see all templates for guild_a since guild_id is passed
+                # (route already filters by guild_id, RLS provides additional safety)
+                templates = await list_templates(
+                    guild_id=guild_a_id,
+                    current_user=mock_current_user_guild_a,
+                    db=db,
+                )
+
+                # Should only see guild_a templates (route filters by guild_id parameter)
+                template_ids = [t.id for t in templates]
             assert template_a.id in template_ids

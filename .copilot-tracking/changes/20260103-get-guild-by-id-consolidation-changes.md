@@ -22,6 +22,9 @@ Consolidate 11 duplicated `get_guild_by_id()` + error handling patterns into sin
 - tests/services/api/database/test_queries.py - Removed xfail markers, fixed oauth2 patch paths, formatted with ruff
 - services/api/routes/templates.py - Migrated 2 locations from get_guild_by_id to require_guild_by_id helper
 - services/api/routes/guilds.py - Migrated 6 locations from get_guild_by_id to require_guild_by_id helper
+- services/api/dependencies/permissions.py - Migrated 3 functions from get_guild_by_id to require_guild_by_id helper
+- tests/integration/test_template_routes_guild_isolation.py - Fixed to use Discord snowflake IDs and proper OAuth mocking
+- tests/e2e/test_guild_routes_e2e.py - Updated authorization tests to expect 404 (not 403) for security
 
 ### Removed
 
@@ -235,3 +238,117 @@ return guild_config.guild_id
 - **Authorization enforcement**: Now automatic via require_guild_by_id
 - **Test coverage**: 11 comprehensive unit tests, all passing
 - **Call site updates**: 3 call sites updated to pass auth credentials to _resolve_guild_id
+
+### Phase 5: Final Verification and Security Validation
+
+**Status**: ✅ Completed
+**Started**: 2026-01-03
+**Completed**: 2026-01-03
+
+#### Task 5.1: Run full test suite
+**Status**: ✅ Completed
+**Completed**: 2026-01-03
+**Details**: Ran comprehensive test suite to verify no regressions.
+
+**Test Results**:
+- **Unit tests**: 1024 tests passed in 32.25s
+  - tests/services/api/database/test_queries.py: 9 tests passed (require_guild_by_id)
+  - tests/services/api/dependencies/test_permissions_migration.py: 11 tests passed (permissions.py migration)
+  - tests/services/api/: 379 tests passed (all API tests)
+  - tests/shared/: 625 tests passed (all shared utilities)
+- **Zero regressions**: All existing tests continue to pass
+- **Authorization tests**: All 14 security-focused authorization tests passing
+
+#### Task 5.2: Perform security validation testing
+**Status**: ✅ Completed
+**Completed**: 2026-01-03
+**Details**: Verified authorization enforcement and information disclosure prevention through comprehensive test suite.
+
+**Security Verification Results**:
+- ✅ Guild membership authorization - 404 returned for non-members (not 403)
+- ✅ Template access authorization - 404 prevents guild enumeration
+- ✅ Game access authorization - 404 for non-members, 403 for members lacking roles
+- ✅ Information disclosure prevention - All 4 prevention tests passing
+- ✅ RLS context automatic setup - Helper sets context when missing
+- ✅ oauth2.get_user_guilds caching - API called only when needed (5-min cache)
+
+**Test Results**: 14 security-focused tests all passing
+
+#### Task 5.3: Verify all 11 locations migrated
+**Status**: ✅ Completed
+**Completed**: 2026-01-03
+**Details**: Verified complete migration with no old patterns remaining.
+
+**Migration Verification**:
+```bash
+# Old pattern: 0 occurrences (complete removal)
+grep -r "await queries.get_guild_by_id" services/api/routes/
+grep -r "await queries.get_guild_by_id" services/api/dependencies/
+# Result: No matches found
+
+# New pattern: Exactly 11 occurrences (expected count)
+grep -c "await queries.require_guild_by_id" services/api/routes/guilds.py      # 6
+grep -c "await queries.require_guild_by_id" services/api/routes/templates.py   # 2
+grep -c "await queries.require_guild_by_id" services/api/dependencies/permissions.py  # 3
+# Total: 6 + 2 + 3 = 11 ✓
+```
+
+**Verification Results**: ✅ All 11 locations migrated successfully
+
+#### Task 5.4: Document changes and close security gap
+**Status**: ✅ Completed
+**Completed**: 2026-01-03
+**Details**: Updated changes file with complete migration summary and security improvements.
+
+**Security Gap Closed**:
+- **Before**: 11 locations manually checking guild_by_id with inconsistent RLS context setup
+- **After**: Single helper function with automatic RLS context setup and consistent authorization
+- **Defense in depth**: Authorization enforced at query layer in addition to middleware RLS
+- **Information disclosure prevention**: 404 returned for unauthorized access (not 403)
+
+**Phase 5 Summary**:
+- **Test suite verification**: 1024 unit tests passing, 0 regressions
+- **Security validation**: 14 authorization tests passing, information disclosure prevented
+- **Migration verification**: 11/11 locations migrated, old pattern completely removed
+- **Documentation**: Complete changes file with all phases documented
+
+## Implementation Metrics
+
+### Overall Code Reduction
+- **Before**: 44-55 lines of duplicated code across 11 locations
+- **After**: 11 lines using shared helper function
+- **Net Reduction**: 33-44 lines removed (~75% reduction)
+
+### Test Coverage
+- **Unit tests added**: 20 tests (9 for require_guild_by_id + 11 for permissions.py)
+- **Unit tests passing**: 1024 tests (100% pass rate)
+- **Security tests passing**: 14 tests (authorization and information disclosure)
+
+### Security Improvements
+- **Automatic RLS context setup**: No more manual context management
+- **Consistent authorization enforcement**: Single point of enforcement
+- **Information disclosure prevention**: 404 responses prevent enumeration
+- **Defense in depth**: Authorization at query layer + middleware RLS
+
+### Migration Breakdown by Phase
+- **Phase 1**: Helper implementation (services/api/database/queries.py)
+- **Phase 2**: 6 routes migrated (services/api/routes/guilds.py) - 18 lines reduced
+- **Phase 3**: 2 routes migrated (services/api/routes/templates.py) - 6 lines reduced
+- **Phase 4**: 3 functions migrated (services/api/dependencies/permissions.py) - 9 lines reduced
+- **Phase 5**: Verification and security validation complete
+
+### Integration Test Fixes
+- **Issue**: Integration tests failing due to authorization changes
+- **Root Cause**: Tests using database UUIDs instead of Discord snowflake IDs for guild context
+- **Fix**: Updated test_template_routes_guild_isolation.py to:
+  - Use `guild_config.guild_id` (Discord snowflake) instead of `guild_id` (database UUID)
+  - Add proper OAuth2 token format (with dots) for Discord client validation
+  - Mock `oauth2.get_user_guilds` in test without guild context
+- **Result**: All 87 integration tests passing (4 xfailed, 3 xpassed)
+
+### E2E Test Fixes
+- **Issue**: E2E tests expecting 403 for unauthorized guild access
+- **Root Cause**: `require_guild_by_id` now returns 404 (not 403) for unauthorized access to prevent information disclosure
+- **Fix**: Updated test_guild_routes_e2e.py authorization tests to expect 404 instead of 403
+- **Result**: All 48 e2e tests passing (7 xpassed)
+- **Phase 5**: Verification and security validation complete
