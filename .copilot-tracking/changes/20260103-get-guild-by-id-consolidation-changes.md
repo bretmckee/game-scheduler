@@ -14,6 +14,7 @@ Consolidate 11 duplicated `get_guild_by_id()` + error handling patterns into sin
 ### Added
 
 - tests/services/api/database/test_queries.py - Comprehensive unit tests for require_guild_by_id with 9 test cases
+- tests/services/api/dependencies/test_permissions_migration.py - Unit tests for permissions.py migration with 11 test cases
 
 ### Modified
 
@@ -137,3 +138,100 @@ Consolidate 11 duplicated `get_guild_by_id()` + error handling patterns into sin
 - test_require_guild_by_id_multiple_guilds_authorized - PASSED
 - test_require_guild_by_id_idempotent_context_set - PASSED
 - test_require_guild_by_id_oauth2_get_user_guilds_called_only_when_needed - PASSED
+### Phase 4: Migrate permissions.py Functions (3 locations)
+
+**Status**: ✅ Completed
+**Started**: 2026-01-03
+**Completed**: 2026-01-03
+
+#### Task 4.1: Add unit tests for permissions.py functions
+**Status**: ✅ Completed
+**Completed**: 2026-01-03
+**Details**: Created comprehensive unit tests in tests/services/api/dependencies/test_permissions_migration.py with 11 test cases covering all success and error scenarios.
+
+**Test Coverage**:
+- TestVerifyTemplateAccess (3 tests):
+  - test_verify_template_access_success - Successful access verification
+  - test_verify_template_access_guild_not_found - Guild not found returns 404
+  - test_verify_template_access_user_not_member - Non-member returns 404
+- TestVerifyGameAccess (5 tests):
+  - test_verify_game_access_success - Successful access with role verification
+  - test_verify_game_access_guild_not_found - Guild not found returns 404
+  - test_verify_game_access_user_not_member - Non-member returns 404
+  - test_verify_game_access_user_lacks_player_role - Member without role returns 403
+  - test_verify_game_access_no_player_role_restriction - Success when no role restriction
+- TestResolveGuildDiscordId (3 tests):
+  - test_resolve_guild_id_already_snowflake - Snowflake ID returned as-is
+  - test_resolve_guild_id_from_uuid_success - UUID resolved to snowflake
+  - test_resolve_guild_id_guild_not_found - Guild not found returns 404
+
+**Test Results**: 11 tests collected successfully, 8 marked xfail (pending migration), 3 xpass (_resolve_guild_id tests don't need migration yet) 3 xpass (_resolve_guild_id tests don't need migration yet)
+
+#### Task 4.2: Migrate verify_template_access with custom message
+**Status**: ✅ Completed
+**Completed**: 2026-01-03
+**Details**: Successfully migrated verify_template_access from get_guild_by_id + error handling to require_guild_by_id helper with custom error message "Template not found".
+
+**Code Reduction**: 4 lines → 1 line (3 lines removed)
+
+#### Task 4.3: Migrate verify_game_access with custom message
+**Status**: ✅ Completed
+**Completed**: 2026-01-03
+**Details**: Successfully migrated verify_game_access from get_guild_by_id + error handling to require_guild_by_id helper with custom error message "Game not found".
+
+**Code Reduction**: 4 lines → 1 line (3 lines removed)
+
+#### Task 4.4: Migrate _resolve_guild_id
+**Status**: ✅ Completed
+**Completed**: 2026-01-03
+**Details**: Successfully migrated _resolve_guild_id from get_guild_by_id to require_guild_by_id. Updated function signature to accept auth credentials and updated all 3 call sites.
+
+**Changes**:
+- Updated _resolve_guild_id signature to accept `access_token` and `user_discord_id` parameters
+- Replaced get_guild_by_id + error handling with require_guild_by_id call
+- Updated all 3 call sites to pass auth credentials:
+  - require_manage_guild (line 278)
+  - require_manage_channels (line 329)
+  - require_bot_manager (line 418)
+
+**Before** (6 lines):
+```python
+# Otherwise treat as UUID and look up
+guild_config = await queries.get_guild_by_id(db, guild_id)
+if not guild_config:
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Guild not found")
+
+return guild_config.guild_id
+```
+
+**After** (3 lines):
+```python
+# Otherwise treat as UUID and look up with authorization check
+guild_config = await queries.require_guild_by_id(
+    db, guild_id, access_token, user_discord_id
+)
+
+return guild_config.guild_id
+```
+
+**Code Reduction**: 6 lines → 3 lines (3 lines removed)
+
+**Test Updates**: Updated all 3 _resolve_guild_id tests to pass auth parameters and use require_guild_by_id
+
+#### Task 4.5: Remove xfail markers and verify all tests pass
+**Status**: ✅ Completed
+**Completed**: 2026-01-03
+**Details**: Removed xfail markers from all 11 tests and verified implementation correctness.
+
+**Test Results**: All 11 tests passing in 2.24s
+- TestVerifyTemplateAccess (3 tests) - PASSED
+- TestVerifyGameAccess (5 tests) - PASSED
+- TestResolveGuildDiscordId (3 tests) - PASSED
+
+**Phase 4 Summary**:
+- **Total migrations**: 3 functions (verify_template_access, verify_game_access, _resolve_guild_id)
+- **Code reduction**: 14 lines removed, 5 lines added = **9 lines net reduction**
+- **Custom error messages preserved**: "Template not found", "Game not found"
+- **Authorization enforcement**: Now automatic via require_guild_by_id
+- **Test coverage**: 11 comprehensive unit tests, all passing
+- **Call site updates**: 3 call sites updated to pass auth credentials to _resolve_guild_id

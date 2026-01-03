@@ -92,21 +92,21 @@ Consolidate 11 duplicated `get_guild_by_id()` + error handling patterns into sin
 - [x] Task 3.4: Run integration tests to verify no behavior changes
   - Details: .copilot-tracking/details/20260103-get-guild-by-id-consolidation-details.md (Lines 377-390)
 
-### [ ] Phase 4: Migrate permissions.py Functions (3 locations)
+### [x] Phase 4: Migrate permissions.py Functions (3 locations)
 
-- [ ] Task 4.1: Add unit tests for permissions.py functions
+- [x] Task 4.1: Add unit tests for permissions.py functions
   - Details: .copilot-tracking/details/20260103-get-guild-by-id-consolidation-details.md (Lines 392-425)
 
-- [ ] Task 4.2: Migrate verify_template_access (line 135) with custom message
+- [x] Task 4.2: Migrate verify_template_access (line 135) with custom message
   - Details: .copilot-tracking/details/20260103-get-guild-by-id-consolidation-details.md (Lines 427-450)
 
-- [ ] Task 4.3: Migrate verify_game_access (line 181) with custom message
+- [x] Task 4.3: Migrate verify_game_access (line 181) with custom message
   - Details: .copilot-tracking/details/20260103-get-guild-by-id-consolidation-details.md (Lines 452-475)
 
-- [ ] Task 4.4: Migrate resolve_guild_discord_id (line 242)
+- [x] Task 4.4: Migrate resolve_guild_discord_id (line 242)
   - Details: .copilot-tracking/details/20260103-get-guild-by-id-consolidation-details.md (Lines 477-495)
 
-- [ ] Task 4.5: Run unit tests to verify no behavior changes
+- [x] Task 4.5: Run unit tests to verify no behavior changes
   - Details: .copilot-tracking/details/20260103-get-guild-by-id-consolidation-details.md (Lines 497-510)
 
 ### [ ] Phase 5: Final Verification and Security Validation

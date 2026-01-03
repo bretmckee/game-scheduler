@@ -132,9 +132,9 @@ async def verify_template_access(
         HTTPException(404): If user is not a member of template's guild
     """
     # Get guild configuration to resolve Discord guild ID
-    guild_config = await queries.get_guild_by_id(db, template.guild_id)
-    if not guild_config:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Template not found")
+    guild_config = await queries.require_guild_by_id(
+        db, template.guild_id, access_token, user_discord_id, not_found_detail="Template not found"
+    )
 
     # Check guild membership
     is_member = await _check_guild_membership(user_discord_id, guild_config.guild_id, access_token)
@@ -178,9 +178,9 @@ async def verify_game_access(
         HTTPException(403): If user lacks required player roles
     """
     # Get guild configuration to resolve Discord guild ID
-    guild_config = await queries.get_guild_by_id(db, game.guild_id)
-    if not guild_config:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Game not found")
+    guild_config = await queries.require_guild_by_id(
+        db, game.guild_id, access_token, user_discord_id, not_found_detail="Game not found"
+    )
 
     # Check guild membership first - return 404 if not member to prevent info disclosure
     is_member = await _check_guild_membership(user_discord_id, guild_config.guild_id, access_token)
@@ -220,13 +220,17 @@ async def get_role_service() -> roles_module.RoleVerificationService:
     return roles_module.get_role_service()
 
 
-async def _resolve_guild_id(guild_id: str, db: AsyncSession) -> str:
+async def _resolve_guild_id(
+    guild_id: str, db: AsyncSession, access_token: str, user_discord_id: str
+) -> str:
     """
     Resolve database UUID to Discord guild ID if needed.
 
     Args:
         guild_id: Database guild UUID or Discord guild ID
         db: Database session
+        access_token: User's OAuth2 access token
+        user_discord_id: Discord ID of the user
 
     Returns:
         Discord guild ID (snowflake)
@@ -238,10 +242,8 @@ async def _resolve_guild_id(guild_id: str, db: AsyncSession) -> str:
     ):
         return guild_id
 
-    # Otherwise treat as UUID and look up
-    guild_config = await queries.get_guild_by_id(db, guild_id)
-    if not guild_config:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Guild not found")
+    # Otherwise treat as UUID and look up with authorization check
+    guild_config = await queries.require_guild_by_id(db, guild_id, access_token, user_discord_id)
 
     return guild_config.guild_id
 
@@ -275,7 +277,9 @@ async def require_manage_guild(
     access_token = token_data["access_token"]
 
     # Resolve Discord guild_id from database UUID if needed
-    discord_guild_id = await _resolve_guild_id(guild_id, db)
+    discord_guild_id = await _resolve_guild_id(
+        guild_id, db, access_token, current_user.user.discord_id
+    )
 
     has_permission = await role_service.has_permissions(
         current_user.user.discord_id,
@@ -326,7 +330,9 @@ async def require_manage_channels(
     access_token = token_data["access_token"]
 
     # Resolve Discord guild_id from database UUID if needed
-    discord_guild_id = await _resolve_guild_id(guild_id, db)
+    discord_guild_id = await _resolve_guild_id(
+        guild_id, db, access_token, current_user.user.discord_id
+    )
 
     has_permission = await role_service.has_permissions(
         current_user.user.discord_id,
@@ -415,7 +421,9 @@ async def require_bot_manager(
     access_token = token_data["access_token"]
 
     # Resolve Discord guild_id from database UUID if needed
-    discord_guild_id = await _resolve_guild_id(guild_id, db)
+    discord_guild_id = await _resolve_guild_id(
+        guild_id, db, access_token, current_user.user.discord_id
+    )
 
     has_permission = await role_service.check_bot_manager_permission(
         current_user.user.discord_id, discord_guild_id, db, access_token

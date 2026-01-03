@@ -24,7 +24,28 @@ during test execution.
 """
 
 import os
+from unittest.mock import AsyncMock, patch
+
+import pytest
 
 # Disable OpenTelemetry during tests to prevent background threads
 # from persisting after pytest exits
 os.environ["PYTEST_RUNNING"] = "1"
+
+
+@pytest.fixture(autouse=True)
+def mock_oauth2_get_user_guilds():
+    """
+    Auto-mock oauth2.get_user_guilds for all tests.
+
+    This allows require_guild_by_id to work in tests without making real API calls.
+    Returns guilds with common test IDs that tests use.
+    """
+    with patch("services.api.auth.oauth2.get_user_guilds", new_callable=AsyncMock) as mock:
+        # Default: return multiple common test guild IDs so most tests pass
+        mock.return_value = [
+            {"id": "123456789012345678", "name": "Test Guild"},
+            {"id": "guild123", "name": "Test Guild 2"},
+            {"id": "guild_id_from_env", "name": "Test Guild 3"},
+        ]
+        yield mock

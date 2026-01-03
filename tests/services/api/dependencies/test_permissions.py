@@ -321,7 +321,10 @@ async def test_verify_guild_membership_success():
     user_guilds = [{"id": "guild123"}, {"id": "guild456"}]
 
     with (
-        patch("services.api.auth.tokens.get_user_tokens", return_value={"access_token": "token"}),
+        patch(
+            "services.api.auth.tokens.get_user_tokens",
+            return_value={"access_token": "token"},
+        ),
         patch("services.api.auth.oauth2.get_user_guilds", return_value=user_guilds),
     ):
         result = await permissions.verify_guild_membership("guild123", mock_current_user, mock_db)
@@ -346,7 +349,10 @@ async def test_verify_guild_membership_not_member():
     user_guilds = [{"id": "guild456"}, {"id": "guild789"}]
 
     with (
-        patch("services.api.auth.tokens.get_user_tokens", return_value={"access_token": "token"}),
+        patch(
+            "services.api.auth.tokens.get_user_tokens",
+            return_value={"access_token": "token"},
+        ),
         patch("services.api.auth.oauth2.get_user_guilds", return_value=user_guilds),
         pytest.raises(HTTPException) as exc_info,
     ):
@@ -396,8 +402,14 @@ async def test_verify_template_access_success():
     mock_db = AsyncMock()
 
     with (
-        patch("services.api.database.queries.get_guild_by_id", return_value=mock_guild_config),
-        patch("services.api.dependencies.permissions._check_guild_membership", return_value=True),
+        patch(
+            "services.api.database.queries.get_guild_by_id",
+            return_value=mock_guild_config,
+        ),
+        patch(
+            "services.api.dependencies.permissions._check_guild_membership",
+            return_value=True,
+        ),
     ):
         result = await permissions.verify_template_access(
             mock_template, "user123", "test_token", mock_db
@@ -421,8 +433,14 @@ async def test_verify_template_access_not_member():
     mock_db = AsyncMock()
 
     with (
-        patch("services.api.database.queries.get_guild_by_id", return_value=mock_guild_config),
-        patch("services.api.dependencies.permissions._check_guild_membership", return_value=False),
+        patch(
+            "services.api.database.queries.get_guild_by_id",
+            return_value=mock_guild_config,
+        ),
+        patch(
+            "services.api.dependencies.permissions._check_guild_membership",
+            return_value=False,
+        ),
     ):
         with pytest.raises(HTTPException) as exc_info:
             await permissions.verify_template_access(
@@ -471,8 +489,14 @@ async def test_verify_game_access_success():
     mock_role_service = AsyncMock()
 
     with (
-        patch("services.api.database.queries.get_guild_by_id", return_value=mock_guild_config),
-        patch("services.api.dependencies.permissions._check_guild_membership", return_value=True),
+        patch(
+            "services.api.database.queries.get_guild_by_id",
+            return_value=mock_guild_config,
+        ),
+        patch(
+            "services.api.dependencies.permissions._check_guild_membership",
+            return_value=True,
+        ),
     ):
         result = await permissions.verify_game_access(
             mock_game, "user123", "test_token", mock_db, mock_role_service
@@ -497,8 +521,14 @@ async def test_verify_game_access_not_member():
     mock_role_service = AsyncMock()
 
     with (
-        patch("services.api.database.queries.get_guild_by_id", return_value=mock_guild_config),
-        patch("services.api.dependencies.permissions._check_guild_membership", return_value=False),
+        patch(
+            "services.api.database.queries.get_guild_by_id",
+            return_value=mock_guild_config,
+        ),
+        patch(
+            "services.api.dependencies.permissions._check_guild_membership",
+            return_value=False,
+        ),
     ):
         with pytest.raises(HTTPException) as exc_info:
             await permissions.verify_game_access(
@@ -527,8 +557,14 @@ async def test_verify_game_access_role_check_success():
     mock_role_service.has_any_role.return_value = True
 
     with (
-        patch("services.api.database.queries.get_guild_by_id", return_value=mock_guild_config),
-        patch("services.api.dependencies.permissions._check_guild_membership", return_value=True),
+        patch(
+            "services.api.database.queries.get_guild_by_id",
+            return_value=mock_guild_config,
+        ),
+        patch(
+            "services.api.dependencies.permissions._check_guild_membership",
+            return_value=True,
+        ),
     ):
         result = await permissions.verify_game_access(
             mock_game, "user123", "test_token", mock_db, mock_role_service
@@ -558,8 +594,14 @@ async def test_verify_game_access_role_check_fails():
     mock_role_service.has_any_role.return_value = False
 
     with (
-        patch("services.api.database.queries.get_guild_by_id", return_value=mock_guild_config),
-        patch("services.api.dependencies.permissions._check_guild_membership", return_value=True),
+        patch(
+            "services.api.database.queries.get_guild_by_id",
+            return_value=mock_guild_config,
+        ),
+        patch(
+            "services.api.dependencies.permissions._check_guild_membership",
+            return_value=True,
+        ),
     ):
         with pytest.raises(HTTPException) as exc_info:
             await permissions.verify_game_access(
@@ -578,7 +620,8 @@ async def test_check_guild_membership_exception_handling(caplog):
     caplog.set_level(logging.ERROR)
 
     with patch(
-        "services.api.auth.oauth2.get_user_guilds", side_effect=Exception("Discord API error")
+        "services.api.auth.oauth2.get_user_guilds",
+        side_effect=Exception("Discord API error"),
     ):
         result = await permissions._check_guild_membership("user123", "guild123", "test_token")
 
@@ -732,9 +775,14 @@ async def test_resolve_guild_id_guild_not_found():
     """Test _resolve_guild_id raises 404 when guild not in database."""
     mock_db = AsyncMock()
 
-    with patch("services.api.database.queries.get_guild_by_id", return_value=None):
+    with patch(
+        "services.api.database.queries.require_guild_by_id",
+        side_effect=HTTPException(status_code=404, detail="Guild not found"),
+    ):
         with pytest.raises(HTTPException) as exc_info:
-            await permissions._resolve_guild_id("some-uuid-format", mock_db)
+            await permissions._resolve_guild_id(
+                "some-uuid-format", mock_db, "test.token", "user123"
+            )
 
     assert exc_info.value.status_code == 404
     assert "Guild not found" in exc_info.value.detail
@@ -749,8 +797,13 @@ async def test_resolve_guild_id_uuid_success():
     mock_guild_config = MagicMock()
     mock_guild_config.guild_id = "123456789012345678"
 
-    with patch("services.api.database.queries.get_guild_by_id", return_value=mock_guild_config):
-        result = await permissions._resolve_guild_id("db-guild-uuid-format", mock_db)
+    with patch(
+        "services.api.database.queries.require_guild_by_id",
+        return_value=mock_guild_config,
+    ):
+        result = await permissions._resolve_guild_id(
+            "db-guild-uuid-format", mock_db, "test.token", "user123"
+        )
 
     assert result == "123456789012345678"
 
@@ -807,7 +860,8 @@ async def test_can_manage_game_user_is_bot_manager():
             return_value=[{"id": "guild123"}],
         ),
         patch(
-            "services.api.auth.tokens.get_user_tokens", return_value={"access_token": "test_token"}
+            "services.api.auth.tokens.get_user_tokens",
+            return_value={"access_token": "test_token"},
         ),
     ):
         result = await permissions.can_manage_game(
@@ -842,7 +896,8 @@ async def test_can_manage_game_user_unauthorized():
             return_value=[{"id": "guild123"}],
         ),
         patch(
-            "services.api.auth.tokens.get_user_tokens", return_value={"access_token": "test_token"}
+            "services.api.auth.tokens.get_user_tokens",
+            return_value={"access_token": "test_token"},
         ),
     ):
         result = await permissions.can_manage_game(
