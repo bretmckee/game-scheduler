@@ -123,6 +123,20 @@ Consolidate 11 duplicated `get_guild_by_id()` + error handling patterns into sin
 - [x] Task 5.4: Document changes and close security gap
   - Details: .copilot-tracking/details/20260103-get-guild-by-id-consolidation-details.md (Lines 582-600)
 
+### [ ] Phase 6: Enable RLS on guild_configurations Table
+
+- [ ] Task 6.1: Create Alembic migration to add RLS policy
+  - Details: .copilot-tracking/details/20260103-get-guild-by-id-consolidation-details.md (Lines 602-635)
+
+- [ ] Task 6.2: Test RLS enforcement in development environment
+  - Details: .copilot-tracking/details/20260103-get-guild-by-id-consolidation-details.md (Lines 637-665)
+
+- [ ] Task 6.3: Run full test suite to verify RLS doesn't break existing functionality
+  - Details: .copilot-tracking/details/20260103-get-guild-by-id-consolidation-details.md (Lines 667-685)
+
+- [ ] Task 6.4: Optional - Simplify helper to remove manual authorization check
+  - Details: .copilot-tracking/details/20260103-get-guild-by-id-consolidation-details.md (Lines 687-710)
+
 ## Dependencies
 
 - pytest with async support
@@ -139,3 +153,4 @@ Consolidate 11 duplicated `get_guild_by_id()` + error handling patterns into sin
 - Security validation confirms authorization enforcement
 - No service interruptions during migration
 - Code reduction: 44-55 lines to 11 lines achieved
+- (Optional) RLS policy enabled on guild_configurations for defense in depth

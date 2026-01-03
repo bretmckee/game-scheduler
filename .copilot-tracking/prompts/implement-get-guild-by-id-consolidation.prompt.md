@@ -64,5 +64,6 @@ When ALL Phases are checked off (`[x]`) and completed you WILL do the following:
 - [ ] Security validation confirms authorization enforcement
 - [ ] All 11 locations migrated successfully
 - [ ] Code reduction achieved: 44-55 lines → 11 lines
+- [ ] (Optional) RLS policy enabled on guild_configurations for defense in depth
 - [ ] Changes file updated continuously
 - [ ] Line numbers updated if any referenced files changed

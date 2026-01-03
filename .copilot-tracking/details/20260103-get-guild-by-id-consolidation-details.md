@@ -587,6 +587,113 @@ Update documentation to reflect consolidation and security improvements.
 - **Dependencies**:
   - Task 5.3 completion
 
+## Phase 6: Enable RLS on guild_configurations Table
+
+### Task 6.1: Create Alembic migration to add RLS policy
+
+Now that `require_guild_by_id()` automatically sets RLS context, enable RLS on the guild_configurations table for defense in depth.
+
+- **Files**:
+  - alembic/versions/YYYYMMDD_HHMM_add_rls_to_guild_configurations.py - New migration
+- **Success**:
+  - Migration creates RLS policy successfully
+  - Policy allows SELECT only when guild_id in current_guild_ids
+  - Migration is reversible (downgrade removes policy)
+  - No syntax errors in SQL
+- **Research References**:
+  - #file:../research/20260103-get-guild-by-id-consolidation-research.md (Lines 376-396) - Future RLS work section
+  - alembic/versions/*_add_rls_to_games.py - Example RLS migration pattern
+  - alembic/versions/*_add_rls_to_templates.py - Example RLS migration pattern
+- **Dependencies**:
+  - Phase 5 completion (helper function in production)
+  - Understanding of existing RLS patterns in codebase
+
+**Migration Template**:
+```python
+from alembic import op
+
+def upgrade():
+    op.execute("""
+        ALTER TABLE guild_configurations ENABLE ROW LEVEL SECURITY;
+
+        CREATE POLICY guild_configurations_isolation_policy ON guild_configurations
+        FOR SELECT
+        USING (
+            guild_id::text = ANY(current_setting('app.current_guild_ids', true)::text[])
+        );
+    """)
+
+def downgrade():
+    op.execute("""
+        DROP POLICY IF EXISTS guild_configurations_isolation_policy ON guild_configurations;
+        ALTER TABLE guild_configurations DISABLE ROW LEVEL SECURITY;
+    """)
+```
+
+### Task 6.2: Test RLS enforcement in development environment
+
+Verify RLS policy blocks unauthorized access and allows authorized access.
+
+- **Files**:
+  - tests/integration/test_guild_configurations_rls.py - New RLS-specific tests
+- **Success**:
+  - Test verifies authorized access works (RLS context set, guild in list)
+  - Test verifies unauthorized access blocked (RLS context set, guild not in list)
+  - Test verifies safe failure when context not set (returns empty result, not error)
+  - Test verifies require_guild_by_id handles all cases correctly
+  - All tests pass in development environment
+- **Research References**:
+  - #file:../research/20260103-get-guild-by-id-consolidation-research.md (Lines 360-378) - Security testing
+  - tests/integration/test_game_rls.py - Example RLS test pattern
+- **Dependencies**:
+  - Task 6.1 completion (migration applied)
+  - Development database with RLS enabled
+
+**Test Scenarios**:
+1. User in guild, RLS context set → Success (fetch returns data)
+2. User NOT in guild, RLS context set → 404 from require_guild_by_id
+3. RLS context NOT set → 404 from require_guild_by_id (safe failure)
+4. Multiple guilds in context, requesting valid guild → Success
+5. Multiple guilds in context, requesting invalid guild → 404
+
+### Task 6.3: Run full test suite to verify RLS doesn't break existing functionality
+
+Ensure RLS enablement doesn't cause regressions in existing tests.
+
+- **Files**:
+  - All existing test files (unit, integration, e2e)
+- **Success**:
+  - All unit tests pass (100% pass rate)
+  - All integration tests pass (100% pass rate)
+  - All e2e tests pass (100% pass rate)
+  - No new test failures introduced by RLS
+  - Performance remains acceptable (no significant slowdown)
+- **Research References**:
+  - #file:../research/20260103-get-guild-by-id-consolidation-research.md (Lines 512-530) - Testing strategy
+- **Dependencies**:
+  - Task 6.2 completion
+  - All previous phases completion
+
+### Task 6.4: Optional - Simplify helper to remove manual authorization check
+
+Once RLS is enabled and tested, the manual authorization check in `require_guild_by_id()` becomes redundant (defense in depth).
+
+- **Files**:
+  - services/api/database/queries.py - Simplify require_guild_by_id
+  - tests/services/api/database/test_queries.py - Update tests if needed
+- **Success**:
+  - Manual check removed from helper function
+  - RLS enforces authorization at database level
+  - All tests still pass (RLS provides same protection)
+  - Code is simpler (fewer lines, clearer intent)
+- **Research References**:
+  - #file:../research/20260103-get-guild-by-id-consolidation-research.md (Lines 348-360) - Security analysis
+- **Dependencies**:
+  - Task 6.3 completion (verified RLS works)
+  - Team decision to rely on RLS (defense in depth vs single layer)
+
+**Note**: This task is OPTIONAL. Keeping manual check provides defense in depth. Remove only if team prefers single-layer enforcement at database.
+
 ## Dependencies
 
 - pytest with async support
