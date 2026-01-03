@@ -41,41 +41,41 @@ Consolidate 11 duplicated `get_guild_by_id()` + error handling patterns into sin
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Test-First Implementation of Helper Function
+### [x] Phase 1: Test-First Implementation of Helper Function
 
-- [ ] Task 1.1: Write comprehensive unit tests for require_guild_by_id (marked xfail)
+- [x] Task 1.1: Write comprehensive unit tests for require_guild_by_id (marked xfail)
   - Details: .copilot-tracking/details/20260103-get-guild-by-id-consolidation-details.md (Lines 25-85)
 
-- [ ] Task 1.2: Implement require_guild_by_id helper function in queries.py
+- [x] Task 1.2: Implement require_guild_by_id helper function in queries.py
   - Details: .copilot-tracking/details/20260103-get-guild-by-id-consolidation-details.md (Lines 87-125)
 
-- [ ] Task 1.3: Remove xfail markers and verify all tests pass
+- [x] Task 1.3: Remove xfail markers and verify all tests pass
   - Details: .copilot-tracking/details/20260103-get-guild-by-id-consolidation-details.md (Lines 127-140)
 
-### [ ] Phase 2: Migrate guilds.py Routes (6 locations)
+### [x] Phase 2: Migrate guilds.py Routes (6 locations)
 
-- [ ] Task 2.1: Add integration tests for guilds.py routes (verify no behavior change)
+- [x] Task 2.1: Add e2e tests for guilds.py routes (verify no behavior change)
   - Details: .copilot-tracking/details/20260103-get-guild-by-id-consolidation-details.md (Lines 142-175)
 
-- [ ] Task 2.2: Migrate get_guild_basic_info (line 89)
+- [x] Task 2.2: Migrate get_guild_basic_info (line 89)
   - Details: .copilot-tracking/details/20260103-get-guild-by-id-consolidation-details.md (Lines 177-195)
 
-- [ ] Task 2.3: Migrate get_guild_config (line 121)
+- [x] Task 2.3: Migrate get_guild_config (line 121)
   - Details: .copilot-tracking/details/20260103-get-guild-by-id-consolidation-details.md (Lines 197-215)
 
-- [ ] Task 2.4: Migrate update_guild_config (line 192)
+- [x] Task 2.4: Migrate update_guild_config (line 192)
   - Details: .copilot-tracking/details/20260103-get-guild-by-id-consolidation-details.md (Lines 217-235)
 
-- [ ] Task 2.5: Migrate list_guild_channels (line 228)
+- [x] Task 2.5: Migrate list_guild_channels (line 228)
   - Details: .copilot-tracking/details/20260103-get-guild-by-id-consolidation-details.md (Lines 237-255)
 
-- [ ] Task 2.6: Migrate get_guild_roles (line 272)
+- [x] Task 2.6: Migrate get_guild_roles (line 272)
   - Details: .copilot-tracking/details/20260103-get-guild-by-id-consolidation-details.md (Lines 257-275)
 
-- [ ] Task 2.7: Migrate validate_mention (line 344)
+- [x] Task 2.7: Migrate validate_mention (line 344)
   - Details: .copilot-tracking/details/20260103-get-guild-by-id-consolidation-details.md (Lines 277-295)
 
-- [ ] Task 2.8: Run integration tests to verify no behavior changes
+- [x] Task 2.8: Run integration tests to verify no behavior changes
   - Details: .copilot-tracking/details/20260103-get-guild-by-id-consolidation-details.md (Lines 297-310)
 
 ### [ ] Phase 3: Migrate templates.py Routes (2 locations)

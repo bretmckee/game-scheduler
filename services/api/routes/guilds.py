@@ -86,12 +86,9 @@ async def get_guild(
     Returns guild name and metadata without sensitive configuration data.
     Requires user to be member of the guild.
     """
-    guild_config = await queries.get_guild_by_id(db, guild_id)
-    if not guild_config:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Guild configuration not found",
-        )
+    guild_config = await queries.require_guild_by_id(
+        db, guild_id, current_user.access_token, current_user.user.discord_id
+    )
 
     # Verify guild membership, returns 404 if not member to prevent information disclosure
     user_guilds = await permissions.verify_guild_membership(guild_config.guild_id, current_user, db)
@@ -118,12 +115,9 @@ async def get_guild_config(
 
     Requires MANAGE_GUILD permission in the guild.
     """
-    guild_config = await queries.get_guild_by_id(db, guild_id)
-    if not guild_config:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Guild configuration not found",
-        )
+    guild_config = await queries.require_guild_by_id(
+        db, guild_id, current_user.access_token, current_user.user.discord_id
+    )
 
     guild_name = await permissions.get_guild_name(guild_config.guild_id, current_user, db)
 
@@ -189,12 +183,9 @@ async def update_guild_config(
 
     Requires MANAGE_GUILD permission in the guild.
     """
-    guild_config = await queries.get_guild_by_id(db, guild_id)
-    if not guild_config:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Guild configuration not found",
-        )
+    guild_config = await queries.require_guild_by_id(
+        db, guild_id, current_user.access_token, current_user.user.discord_id
+    )
 
     updates = request.model_dump(exclude_unset=True)
     guild_config = await guild_service.update_guild_config(db, guild_config, **updates)
@@ -225,12 +216,9 @@ async def list_guild_channels(
 
     Returns channels with their settings and inheritance information.
     """
-    guild_config = await queries.get_guild_by_id(db, guild_id)
-    if not guild_config:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Guild configuration not found",
-        )
+    guild_config = await queries.require_guild_by_id(
+        db, guild_id, current_user.access_token, current_user.user.discord_id
+    )
 
     # Verify guild membership, returns 404 if not member to prevent information disclosure
     await permissions.verify_guild_membership(guild_config.guild_id, current_user, db)
@@ -269,12 +257,9 @@ async def list_guild_roles(
 
     Returns roles suitable for notification mentions.
     """
-    guild_config = await queries.get_guild_by_id(db, guild_id)
-    if not guild_config:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Guild configuration not found",
-        )
+    guild_config = await queries.require_guild_by_id(
+        db, guild_id, current_user.access_token, current_user.user.discord_id
+    )
 
     # Verify guild membership, returns 404 if not member to prevent information disclosure
     await permissions.verify_guild_membership(guild_config.guild_id, current_user, db)
@@ -341,12 +326,9 @@ async def validate_mention(
     Checks if the mention can be resolved to a valid guild member.
     Does not return user details, only validation status.
     """
-    guild_config = await queries.get_guild_by_id(db, guild_id)
-    if not guild_config:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Guild configuration not found",
-        )
+    guild_config = await queries.require_guild_by_id(
+        db, guild_id, current_user.access_token, current_user.user.discord_id
+    )
 
     # Verify guild membership, returns 404 if not member to prevent information disclosure
     await permissions.verify_guild_membership(guild_config.guild_id, current_user, db)

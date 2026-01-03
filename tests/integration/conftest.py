@@ -154,6 +154,35 @@ async def seed_user_guilds_cache(
     await redis_client.set_json(user_guilds_key, guilds_data, ttl=300)
 
 
+async def seed_user_session(
+    redis_client: RedisClient,
+    session_token: str,
+    user_id: str,
+    access_token: str,
+):
+    """
+    Seed Redis cache with user session for token validation.
+
+    Allows integration tests to bypass actual OAuth login flow.
+
+    Args:
+        redis_client: Redis client instance
+        session_token: Session token to create
+        user_id: User UUID
+        access_token: Access token to store (will be encrypted)
+    """
+    from services.api.auth.tokens import encrypt_token
+
+    session_key = f"session:{session_token}"
+    session_data = {
+        "user_id": user_id,
+        "access_token": encrypt_token(access_token),
+        "refresh_token": encrypt_token("mock_refresh_token"),
+        "expires_at": (datetime.now(UTC) + timedelta(hours=1)).isoformat(),
+    }
+    await redis_client.set_json(session_key, session_data, ttl=3600)
+
+
 @pytest.fixture
 def guild_a_id():
     """Guild A UUID for multi-guild testing - unique per test."""
