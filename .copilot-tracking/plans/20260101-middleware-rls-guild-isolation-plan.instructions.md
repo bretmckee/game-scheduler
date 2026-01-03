@@ -53,7 +53,7 @@ Implement transparent guild isolation using SQLAlchemy event listeners, PostgreS
 - [x] Task 0.3: Verify RLS enforcement with non-superuser
   - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 85-106)
 
-### [ ] Phase 1: Infrastructure + Tests (Week 1)
+### [x] Phase 1: Infrastructure + Tests (Week 1)
 
 **NOTE**: Two test files from previous attempt exist but provide **incomplete coverage**:
 - `tests/integration/test_games_route_guild_isolation.py` - Tests current behavior WITHOUT RLS (needs adaptation)
@@ -91,7 +91,7 @@ These files will be useful reference but do NOT cover Phase 1 infrastructure tas
 - [x] Task 1.9: Full test suite validation (Phase 1)
   - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 251-264)
 
-### [ ] Phase 2: Service Factory Migration (Week 2)
+### [x] Phase 2: Service Factory Migration (Week 2)
 
 **NOTE**: `tests/integration/test_games_route_guild_isolation.py` provides useful game service test patterns but tests **current behavior without RLS**. These tests will need adaptation/extension for Task 2.1.
 
@@ -122,7 +122,7 @@ These files will be useful reference but do NOT cover Phase 1 infrastructure tas
 **Phase Status**: ✅ **COMPLETE** - All 7 tasks finished successfully with comprehensive test coverage
   - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 366-379)
 
-### [ ] Phase 3: Enable RLS + E2E Validation (Week 3)
+### [x] Phase 3: Enable RLS + E2E Validation (Week 3)
 
 **NOTE**: `tests/e2e/test_game_authorization.py` provides E2E test infrastructure but focuses on **authorization**, not **guild isolation**. Useful as template but needs extension.
 
@@ -134,26 +134,33 @@ These files will be useful reference but do NOT cover Phase 1 infrastructure tas
   - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 432-465)
   - **Status**: ✅ Completed - 8 comprehensive xfail tests for cross-guild isolation (games and templates)
 
-- [ ] Task 3.2: Enable RLS on game_sessions table
+- [x] Task 3.2: Enable RLS on game_sessions table
   - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 467-485)
+  - **Status**: ✅ Completed - Migration bee86ec99cfa applied
 
-- [ ] Task 3.3: Run E2E tests and validate game isolation
+- [x] Task 3.3: Run E2E tests and validate game isolation
   - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 487-500)
+  - **Status**: ✅ Completed - All tests passing
 
-- [ ] Task 3.4: Enable RLS on game_templates table
+- [x] Task 3.4: Enable RLS on game_templates table
   - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 502-520)
+  - **Status**: ✅ Completed - Migration d7f8e3a1b9c4 applied
 
-- [ ] Task 3.5: Run E2E tests and validate template isolation
+- [x] Task 3.5: Run E2E tests and validate template isolation
   - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 522-535)
+  - **Status**: ✅ Completed - All tests passing
 
-- [ ] Task 3.6: Enable RLS on participants table
+- [x] Task 3.6: Enable RLS on participants table
   - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 537-555)
+  - **Status**: ✅ Completed - Migration 13625652ab09 applied
 
-- [ ] Task 3.7: Full test suite validation (Phase 3)
+- [x] Task 3.7: Full test suite validation (Phase 3)
   - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 557-572)
+  - **Status**: ✅ Completed - All tests passing
 
-- [ ] Task 3.8: Production readiness verification
+- [x] Task 3.8: Production readiness verification
   - Details: [.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md](../.copilot-tracking/details/20260101-middleware-rls-guild-isolation-details.md) (Lines 574-591)
+  - **Status**: ✅ Completed - Documentation complete
 
 ## Dependencies
 
