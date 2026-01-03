@@ -24,6 +24,7 @@ from datetime import UTC, datetime, timedelta
 
 import pika
 import pytest
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from shared.cache.client import RedisClient
@@ -192,6 +193,10 @@ async def guild_b_config(db, guild_b_id):
 @pytest.fixture
 async def channel_a(db, guild_a_id, guild_a_config):
     """Test channel for guild A."""
+    await db.execute(
+        text("SELECT set_config('app.current_guild_ids', :guild_ids, false)"),
+        {"guild_ids": guild_a_id},
+    )
     channel = ChannelConfiguration(
         id=str(uuid.uuid4()),
         guild_id=guild_a_id,
@@ -206,6 +211,10 @@ async def channel_a(db, guild_a_id, guild_a_config):
 @pytest.fixture
 async def channel_b(db, guild_b_id, guild_b_config):
     """Test channel for guild B."""
+    await db.execute(
+        text("SELECT set_config('app.current_guild_ids', :guild_ids, false)"),
+        {"guild_ids": guild_b_id},
+    )
     channel = ChannelConfiguration(
         id=str(uuid.uuid4()),
         guild_id=guild_b_id,
@@ -220,6 +229,10 @@ async def channel_b(db, guild_b_id, guild_b_config):
 @pytest.fixture
 async def template_a(db, guild_a_id, channel_a):
     """Test template for guild A."""
+    await db.execute(
+        text("SELECT set_config('app.current_guild_ids', :guild_ids, false)"),
+        {"guild_ids": guild_a_id},
+    )
     template = GameTemplate(
         id=str(uuid.uuid4()),
         guild_id=guild_a_id,
@@ -238,6 +251,10 @@ async def template_a(db, guild_a_id, channel_a):
 @pytest.fixture
 async def template_b(db, guild_b_id, channel_b):
     """Test template for guild B."""
+    await db.execute(
+        text("SELECT set_config('app.current_guild_ids', :guild_ids, false)"),
+        {"guild_ids": guild_b_id},
+    )
     template = GameTemplate(
         id=str(uuid.uuid4()),
         guild_id=guild_b_id,
@@ -280,6 +297,10 @@ async def user_b(db):
 @pytest.fixture
 async def game_a(db, guild_a_id, channel_a, template_a, user_a):
     """Test game in guild A."""
+    await db.execute(
+        text("SELECT set_config('app.current_guild_ids', :guild_ids, false)"),
+        {"guild_ids": guild_a_id},
+    )
     game = GameSession(
         id=str(uuid.uuid4()),
         guild_id=guild_a_id,
@@ -300,6 +321,10 @@ async def game_a(db, guild_a_id, channel_a, template_a, user_a):
 @pytest.fixture
 async def game_b(db, guild_b_id, channel_b, template_b, user_b):
     """Test game in guild B."""
+    await db.execute(
+        text("SELECT set_config('app.current_guild_ids', :guild_ids, false)"),
+        {"guild_ids": guild_b_id},
+    )
     game = GameSession(
         id=str(uuid.uuid4()),
         guild_id=guild_b_id,

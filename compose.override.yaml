@@ -111,3 +111,9 @@ services:
       - ${HOST_WORKSPACE_FOLDER:-.}/docker/init-entrypoint.sh:/app/init-entrypoint.sh:ro
     environment:
       PYTHONUNBUFFERED: "1"
+
+networks:
+  app-network:
+    name: gamebot-network
+    driver: bridge
+    external: true
