@@ -110,7 +110,7 @@ class TestListTemplates:
     ):
         """Test listing templates with role filtering."""
         with (
-            patch("services.api.database.queries.get_guild_by_id") as mock_get_guild,
+            patch("services.api.database.queries.require_guild_by_id") as mock_get_guild,
             patch("services.api.auth.roles.get_role_service") as mock_get_role_service,
             patch(
                 "services.api.dependencies.discord.get_discord_client"
@@ -149,8 +149,10 @@ class TestListTemplates:
     @pytest.mark.asyncio
     async def test_list_templates_guild_not_found(self, mock_db, mock_current_user):
         """Test listing templates when guild not found."""
-        with patch("services.api.database.queries.get_guild_by_id") as mock_get_guild:
-            mock_get_guild.return_value = None
+        with patch("services.api.database.queries.require_guild_by_id") as mock_get_guild:
+            mock_get_guild.side_effect = HTTPException(
+                status_code=404, detail="Guild configuration not found"
+            )
 
             with pytest.raises(HTTPException) as exc_info:
                 await templates.list_templates(
@@ -238,7 +240,7 @@ class TestCreateTemplate:
         )
 
         with (
-            patch("services.api.database.queries.get_guild_by_id") as mock_get_guild,
+            patch("services.api.database.queries.require_guild_by_id") as mock_get_guild,
             patch("services.api.auth.roles.get_role_service") as mock_get_role_service,
             patch(
                 "services.api.services.template_service.TemplateService"
@@ -282,7 +284,7 @@ class TestCreateTemplate:
         )
 
         with (
-            patch("services.api.database.queries.get_guild_by_id") as mock_get_guild,
+            patch("services.api.database.queries.require_guild_by_id") as mock_get_guild,
             patch("services.api.auth.roles.get_role_service") as mock_get_role_service,
             patch(
                 "services.api.dependencies.permissions.require_bot_manager"
@@ -322,7 +324,7 @@ class TestDeleteTemplate:
             patch(
                 "services.api.services.template_service.TemplateService"
             ) as mock_template_service,
-            patch("services.api.database.queries.get_guild_by_id") as mock_get_guild,
+            patch("services.api.database.queries.require_guild_by_id") as mock_get_guild,
             patch("services.api.auth.roles.get_role_service") as mock_get_role_service,
             patch(
                 "services.api.dependencies.permissions.require_bot_manager"

@@ -78,18 +78,18 @@ Consolidate 11 duplicated `get_guild_by_id()` + error handling patterns into sin
 - [x] Task 2.8: Run integration tests to verify no behavior changes
   - Details: .copilot-tracking/details/20260103-get-guild-by-id-consolidation-details.md (Lines 297-310)
 
-### [ ] Phase 3: Migrate templates.py Routes (2 locations)
+### [x] Phase 3: Migrate templates.py Routes (2 locations)
 
-- [ ] Task 3.1: Add integration tests for templates.py routes
+- [x] Task 3.1: Add integration tests for templates.py routes
   - Details: .copilot-tracking/details/20260103-get-guild-by-id-consolidation-details.md (Lines 312-335)
 
-- [ ] Task 3.2: Migrate list_templates (line 55)
+- [x] Task 3.2: Migrate list_templates (line 55)
   - Details: .copilot-tracking/details/20260103-get-guild-by-id-consolidation-details.md (Lines 337-355)
 
-- [ ] Task 3.3: Migrate create_template (line 181)
+- [x] Task 3.3: Migrate create_template (line 181)
   - Details: .copilot-tracking/details/20260103-get-guild-by-id-consolidation-details.md (Lines 357-375)
 
-- [ ] Task 3.4: Run integration tests to verify no behavior changes
+- [x] Task 3.4: Run integration tests to verify no behavior changes
   - Details: .copilot-tracking/details/20260103-get-guild-by-id-consolidation-details.md (Lines 377-390)
 
 ### [ ] Phase 4: Migrate permissions.py Functions (3 locations)

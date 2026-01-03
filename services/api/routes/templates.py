@@ -52,12 +52,9 @@ async def list_templates(
     Templates are filtered by allowed_host_role_ids unless user is guild admin.
     Sorted with default template first, then by order.
     """
-    guild_config = await queries.get_guild_by_id(db, guild_id)
-    if not guild_config:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Guild configuration not found",
-        )
+    guild_config = await queries.require_guild_by_id(
+        db, guild_id, current_user.access_token, current_user.user.discord_id
+    )
 
     # Get templates with permission filtering
     role_service = roles_module.get_role_service()
@@ -178,12 +175,9 @@ async def create_template(
     db: AsyncSession = Depends(database.get_db_with_user_guilds()),
 ) -> template_schemas.TemplateResponse:
     """Create new template (requires bot manager role)."""
-    guild_config = await queries.get_guild_by_id(db, guild_id)
-    if not guild_config:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Guild configuration not found",
-        )
+    await queries.require_guild_by_id(
+        db, guild_id, current_user.access_token, current_user.user.discord_id
+    )
 
     # Verify bot manager permission using dependency
     role_service = roles_module.get_role_service()
