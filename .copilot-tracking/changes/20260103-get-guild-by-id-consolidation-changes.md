@@ -15,6 +15,7 @@ Consolidate 11 duplicated `get_guild_by_id()` + error handling patterns into sin
 
 - tests/services/api/database/test_queries.py - Comprehensive unit tests for require_guild_by_id with 9 test cases
 - tests/services/api/dependencies/test_permissions_migration.py - Unit tests for permissions.py migration with 11 test cases
+- alembic/versions/72aaf1f3fb40_add_rls_to_guild_configurations.py - RLS policy and enablement for guild_configurations table
 
 ### Modified
 
@@ -336,6 +337,33 @@ grep -c "await queries.require_guild_by_id" services/api/dependencies/permission
 - **Phase 3**: 2 routes migrated (services/api/routes/templates.py) - 6 lines reduced
 - **Phase 4**: 3 functions migrated (services/api/dependencies/permissions.py) - 9 lines reduced
 - **Phase 5**: Verification and security validation complete
+- **Phase 6**: RLS enablement on guild_configurations table
+
+### Phase 6: Enable RLS on guild_configurations Table
+
+**Status**: 🚧 In Progress
+**Started**: 2026-01-03
+
+#### Task 6.1: Create Alembic migration to add RLS policy
+**Status**: ✅ Completed
+**Completed**: 2026-01-03
+**Details**: Created migration 72aaf1f3fb40_add_rls_to_guild_configurations.py that creates RLS policy and enables RLS in one step.
+
+**Implementation**:
+- Created index `idx_guild_configurations_guild_id` for policy performance
+- Created policy `guild_isolation_configurations` using same pattern as existing tables
+- Policy checks `guild_id::text = ANY(string_to_array(current_setting('app.current_guild_ids', true), ','))`
+- Enabled RLS on guild_configurations table
+- Reversible downgrade removes policy, disables RLS, and drops index
+
+**Migration File**: alembic/versions/72aaf1f3fb40_add_rls_to_guild_configurations.py
+
+**Verification**:
+- Added `test_rls_enabled_on_tenant_tables()` and `test_rls_policies_exist_on_tenant_tables()` to test_database_infrastructure.py
+- Both tests verify RLS configuration on all 4 tenant tables including guild_configurations
+- Tests run as non-superuser (gamebot_app) ensuring RLS enforcement
+- Manual verification in dev environment confirmed: rowsecurity=true, policy exists
+- All integration tests pass (2/2 new tests, 0 regressions)
 
 ### Integration Test Fixes
 - **Issue**: Integration tests failing due to authorization changes

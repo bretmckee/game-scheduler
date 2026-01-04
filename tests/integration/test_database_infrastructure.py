@@ -402,3 +402,58 @@ def test_game_sessions_image_storage_schema(db_session):
             f"Column {col_name} has type {columns[col_name]['type']}, expected {expected_type}"
         )
         assert columns[col_name]["nullable"] == "YES", f"Column {col_name} should be nullable"
+
+
+def test_rls_enabled_on_tenant_tables(db_session):
+    """Verify Row-Level Security is enabled on all tenant-scoped tables."""
+    tenant_tables = [
+        "game_sessions",
+        "game_templates",
+        "game_participants",
+        "guild_configurations",
+    ]
+
+    for table_name in tenant_tables:
+        result = db_session.execute(
+            text(
+                """
+                SELECT tablename, rowsecurity
+                FROM pg_tables
+                WHERE schemaname = 'public'
+                AND tablename = :table_name
+                """
+            ),
+            {"table_name": table_name},
+        )
+        row = result.fetchone()
+
+        assert row is not None, f"Table {table_name} not found"
+        assert row[1] is True, f"RLS not enabled on {table_name} (rowsecurity = {row[1]})"
+
+
+def test_rls_policies_exist_on_tenant_tables(db_session):
+    """Verify RLS policies exist for all tenant-scoped tables."""
+    expected_policies = {
+        "game_sessions": "guild_isolation_games",
+        "game_templates": "guild_isolation_templates",
+        "game_participants": "guild_isolation_participants",
+        "guild_configurations": "guild_isolation_configurations",
+    }
+
+    for table_name, policy_name in expected_policies.items():
+        result = db_session.execute(
+            text(
+                """
+                SELECT policyname
+                FROM pg_policies
+                WHERE schemaname = 'public'
+                AND tablename = :table_name
+                """
+            ),
+            {"table_name": table_name},
+        )
+        policies = [row[0] for row in result.fetchall()]
+
+        assert policy_name in policies, (
+            f"Policy {policy_name} not found on {table_name}. Found: {policies}"
+        )

@@ -125,7 +125,7 @@ Consolidate 11 duplicated `get_guild_by_id()` + error handling patterns into sin
 
 ### [ ] Phase 6: Enable RLS on guild_configurations Table
 
-- [ ] Task 6.1: Create Alembic migration to add RLS policy
+- [x] Task 6.1: Create Alembic migration to add RLS policy
   - Details: .copilot-tracking/details/20260103-get-guild-by-id-consolidation-details.md (Lines 602-635)
 
 - [ ] Task 6.2: Test RLS enforcement in development environment
