@@ -22,14 +22,12 @@ These tests are designed to run in Docker with docker-compose where all
 services (PostgreSQL, RabbitMQ) are available.
 """
 
-import os
 import time
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import text
 
 from services.scheduler.postgres_listener import PostgresNotificationListener
 from shared.messaging.infrastructure import QUEUE_BOT_EVENTS
@@ -57,154 +55,38 @@ def consume_one_message(channel, queue_name, timeout=5):
     return None, None, None
 
 
-@pytest.fixture(scope="module")
-def db_url():
-    """Get database URL from environment (set by docker-compose)."""
-    raw_url = os.getenv(
-        "DATABASE_URL",
-        "postgresql://gamebot:dev_password_change_in_prod@postgres:5432/game_scheduler",
-    )
-    # Convert postgresql+asyncpg:// to postgresql:// for synchronous tests
-    return raw_url.replace("postgresql+asyncpg://", "postgresql://")
-
-
 @pytest.fixture
-def db_session(db_url):
-    """Create a database session for tests."""
-    sync_url = db_url.replace("postgresql://", "postgresql+psycopg2://")
-    engine = create_engine(sync_url, pool_pre_ping=True)
-    session_local = sessionmaker(bind=engine)
-
-    session = session_local()
-    try:
-        yield session
-    finally:
-        session.close()
-        engine.dispose()
-
-
-@pytest.fixture
-def clean_notification_schedule(db_session, rabbitmq_channel):
-    """Clean notification_schedule table and queue before and after test."""
-    db_session.execute(text("DELETE FROM notification_schedule"))
-    db_session.commit()
+def clean_notification_schedule(rabbitmq_channel):
+    """Clean RabbitMQ queue before and after test, with daemon processing time."""
     time.sleep(0.5)  # Let daemon process any remaining notifications
     rabbitmq_channel.queue_purge(QUEUE_BOT_EVENTS)
 
     yield
 
-    db_session.execute(text("DELETE FROM notification_schedule"))
-    db_session.commit()
     time.sleep(0.5)  # Let daemon process cleanup
     rabbitmq_channel.queue_purge(QUEUE_BOT_EVENTS)
-
-
-@pytest.fixture
-def test_game_session(db_session):
-    """
-    Create minimal test data for foreign key constraints.
-
-    Creates: guild -> channel -> user -> game_session
-    Returns the game_session.id for use in notification_schedule inserts.
-    """
-    guild_id = str(uuid4())
-    channel_id = str(uuid4())
-    user_id = str(uuid4())
-    game_id = str(uuid4())
-    now = datetime.now(UTC).replace(tzinfo=None)
-
-    db_session.execute(
-        text(
-            "INSERT INTO guild_configurations "
-            "(id, guild_id, created_at, updated_at) "
-            "VALUES (:id, :guild_id, :created_at, :updated_at)"
-        ),
-        {
-            "id": guild_id,
-            "guild_id": "123456789",
-            "created_at": now,
-            "updated_at": now,
-        },
-    )
-
-    db_session.execute(
-        text(
-            "INSERT INTO channel_configurations "
-            "(id, channel_id, guild_id, created_at, updated_at) "
-            "VALUES (:id, :channel_id, :guild_id, :created_at, :updated_at)"
-        ),
-        {
-            "id": channel_id,
-            "channel_id": "987654321",
-            "guild_id": guild_id,
-            "created_at": now,
-            "updated_at": now,
-        },
-    )
-
-    db_session.execute(
-        text(
-            "INSERT INTO users (id, discord_id, created_at, updated_at) "
-            "VALUES (:id, :discord_id, :created_at, :updated_at)"
-        ),
-        {
-            "id": user_id,
-            "discord_id": "111222333",
-            "created_at": now,
-            "updated_at": now,
-        },
-    )
-
-    db_session.execute(
-        text(
-            "INSERT INTO game_sessions "
-            "(id, title, scheduled_at, guild_id, channel_id, host_id, "
-            "status, created_at, updated_at) "
-            "VALUES (:id, :title, :scheduled_at, :guild_id, :channel_id, :host_id, "
-            ":status, :created_at, :updated_at)"
-        ),
-        {
-            "id": game_id,
-            "title": "Test Game",
-            "scheduled_at": now + timedelta(hours=2),
-            "guild_id": guild_id,
-            "channel_id": channel_id,
-            "host_id": user_id,
-            "status": "scheduled",
-            "created_at": now,
-            "updated_at": now,
-        },
-    )
-    db_session.commit()
-
-    yield game_id
-
-    # Cleanup in reverse order
-    db_session.execute(
-        text("DELETE FROM notification_schedule WHERE game_id = :game_id"),
-        {"game_id": game_id},
-    )
-    db_session.execute(text("DELETE FROM game_sessions WHERE id = :id"), {"id": game_id})
-    db_session.execute(text("DELETE FROM users WHERE id = :id"), {"id": user_id})
-    db_session.execute(
-        text("DELETE FROM channel_configurations WHERE id = :id"), {"id": channel_id}
-    )
-    db_session.execute(text("DELETE FROM guild_configurations WHERE id = :id"), {"id": guild_id})
-    db_session.commit()
-
-
-@pytest.fixture
-def rabbitmq_url():
-    """Get RabbitMQ URL from environment (set by docker-compose)."""
-    return os.getenv("RABBITMQ_URL", "amqp://gamebot:dev_password_change_in_prod@rabbitmq:5672/")
 
 
 class TestPostgresListenerIntegration:
     """Integration tests for PostgreSQL LISTEN/NOTIFY."""
 
-    def test_listener_connects_to_real_database(self, db_url):
+    @staticmethod
+    def _create_test_data(create_guild, create_channel, create_user, create_game):
+        """Helper to create standard test data."""
+        guild = create_guild()
+        channel = create_channel(guild_id=guild["id"])
+        user = create_user()
+        game = create_game(
+            guild_id=guild["id"],
+            channel_id=channel["id"],
+            host_id=user["id"],
+            title="Test Game",
+        )
+        return game
+
+    def test_listener_connects_to_real_database(self, admin_db_url_sync):
         """Listener can connect to actual PostgreSQL database."""
-        listener = PostgresNotificationListener(db_url)
+        listener = PostgresNotificationListener(admin_db_url_sync)
 
         try:
             listener.connect()
@@ -213,9 +95,9 @@ class TestPostgresListenerIntegration:
         finally:
             listener.close()
 
-    def test_listener_subscribes_to_channel(self, db_url):
+    def test_listener_subscribes_to_channel(self, admin_db_url_sync):
         """Listener can subscribe to notification channel."""
-        listener = PostgresNotificationListener(db_url)
+        listener = PostgresNotificationListener(admin_db_url_sync)
 
         try:
             listener.connect()
@@ -227,20 +109,26 @@ class TestPostgresListenerIntegration:
             listener.close()
 
     def test_listener_receives_notify_from_trigger(
-        self, db_url, db_session, clean_notification_schedule, test_game_session
+        self,
+        admin_db_url_sync,
+        admin_db_sync,
+        clean_notification_schedule,
+        create_guild,
+        create_channel,
+        create_user,
+        create_game,
     ):
         """Listener receives NOTIFY events from PostgreSQL trigger."""
-        listener = PostgresNotificationListener(db_url)
+        listener = PostgresNotificationListener(admin_db_url_sync)
 
         try:
             listener.connect()
             listener.listen("notification_schedule_changed")
 
-            # Insert notification record (should trigger NOTIFY)
-            game_id = test_game_session
+            game = self._create_test_data(create_guild, create_channel, create_user, create_game)
             notification_time = datetime.now(UTC).replace(tzinfo=None) + timedelta(minutes=5)
 
-            db_session.execute(
+            admin_db_sync.execute(
                 text(
                     """
                     INSERT INTO notification_schedule
@@ -252,14 +140,14 @@ class TestPostgresListenerIntegration:
                 ),
                 {
                     "id": str(uuid4()),
-                    "game_id": game_id,
+                    "game_id": game["id"],
                     "reminder_minutes": 60,
                     "notification_time": notification_time,
                     "game_scheduled_at": notification_time + timedelta(minutes=60),
                     "sent": False,
                 },
             )
-            db_session.commit()
+            admin_db_sync.commit()
 
             # Wait for notification with timeout
             received, payload = listener.wait_for_notification(timeout=2.0)
@@ -273,9 +161,9 @@ class TestPostgresListenerIntegration:
             listener.close()
 
     @pytest.mark.xfail(reason="RLS changes may affect PostgreSQL connection timing")
-    def test_listener_timeout_when_no_notification(self, db_url):
+    def test_listener_timeout_when_no_notification(self, admin_db_url_sync):
         """Listener times out when no notifications received."""
-        listener = PostgresNotificationListener(db_url)
+        listener = PostgresNotificationListener(admin_db_url_sync)
 
         try:
             listener.connect()
@@ -302,19 +190,37 @@ class TestNotificationDaemonIntegration:
     notifications correctly.
     """
 
+    @staticmethod
+    def _create_test_data(create_guild, create_channel, create_user, create_game):
+        """Helper to create standard test data."""
+        guild = create_guild()
+        channel = create_channel(guild_id=guild["id"])
+        user = create_user()
+        game = create_game(
+            guild_id=guild["id"],
+            channel_id=channel["id"],
+            host_id=user["id"],
+            title="Test Game",
+        )
+        return game
+
     def test_daemon_processes_due_notification(
         self,
-        db_session,
+        admin_db_sync,
         clean_notification_schedule,
-        test_game_session,
         rabbitmq_channel,
+        create_guild,
+        create_channel,
+        create_user,
+        create_game,
     ):
         """Test that running notification-daemon processes due notifications."""
-        game_id = test_game_session
+        game = self._create_test_data(create_guild, create_channel, create_user, create_game)
+
         notif_id = str(uuid4())
         notification_time = datetime.now(UTC).replace(tzinfo=None) - timedelta(minutes=1)
 
-        db_session.execute(
+        admin_db_sync.execute(
             text(
                 """
                 INSERT INTO notification_schedule
@@ -326,17 +232,17 @@ class TestNotificationDaemonIntegration:
             ),
             {
                 "id": notif_id,
-                "game_id": game_id,
+                "game_id": game["id"],
                 "reminder_minutes": 60,
                 "notification_time": notification_time,
                 "game_scheduled_at": notification_time + timedelta(minutes=60),
                 "sent": False,
             },
         )
-        db_session.commit()
+        admin_db_sync.commit()
 
         result = wait_for_db_condition_sync(
-            db_session,
+            admin_db_sync,
             "SELECT sent FROM notification_schedule WHERE id = :id",
             {"id": notif_id},
             lambda row: row[0] is True,
@@ -352,17 +258,21 @@ class TestNotificationDaemonIntegration:
 
     def test_daemon_waits_for_future_notification(
         self,
-        db_session,
+        admin_db_sync,
         clean_notification_schedule,
-        test_game_session,
         rabbitmq_channel,
+        create_guild,
+        create_channel,
+        create_user,
+        create_game,
     ):
         """Test that running daemon doesn't process future notifications."""
-        game_id = test_game_session
+        game = self._create_test_data(create_guild, create_channel, create_user, create_game)
+
         notif_id = str(uuid4())
         notification_time = datetime.now(UTC).replace(tzinfo=None) + timedelta(minutes=10)
 
-        db_session.execute(
+        admin_db_sync.execute(
             text(
                 """
                 INSERT INTO notification_schedule
@@ -374,18 +284,18 @@ class TestNotificationDaemonIntegration:
             ),
             {
                 "id": notif_id,
-                "game_id": game_id,
+                "game_id": game["id"],
                 "reminder_minutes": 60,
                 "notification_time": notification_time,
                 "game_scheduled_at": notification_time + timedelta(minutes=60),
                 "sent": False,
             },
         )
-        db_session.commit()
+        admin_db_sync.commit()
 
         time.sleep(2)
 
-        result = db_session.execute(
+        result = admin_db_sync.execute(
             text("SELECT sent FROM notification_schedule WHERE id = :id"),
             {"id": notif_id},
         ).fetchone()
