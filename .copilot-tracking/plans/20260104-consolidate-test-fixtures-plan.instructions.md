@@ -57,7 +57,7 @@ Consolidate 100+ duplicated test fixtures into a single shared location with fac
 
 ### [ ] Phase 1: Migrate Sync-Based Integration Tests
 
-- [ ] Task 1.1: Migrate `test_notification_daemon.py`
+- [x] Task 1.1: Migrate `test_notification_daemon.py`
   - Details: [.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md](.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md) (Lines 137-165)
 
 - [ ] Task 1.2: Migrate `test_status_transitions.py`
