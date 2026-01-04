@@ -16,17 +16,23 @@
 # with Game_Scheduler If not, see <https://www.gnu.org/licenses/>.
 
 
-"""Integration tests for guild_configurations RLS enforcement.
+"""Integration tests for RLS enforcement on guild_configurations table.
 
-Validates that RLS policies on guild_configurations table properly isolate
-guilds and that require_guild_by_id respects these policies.
+Validates that require_guild_by_id() helper respects RLS policies and properly
+isolates guild data at the database level.
 
 Test Strategy:
 1. Create guild configurations in two different guilds (A and B)
 2. Set RLS context to guild A only
 3. Verify require_guild_by_id returns guild A config
 4. Verify require_guild_by_id raises 404 for guild B config (unauthorized)
-5. Verify safe failure when RLS context not set
+5. Verify multiple guild contexts work correctly
+6. Verify safe failure when RLS context not set
+
+NOTE: RLS is enabled on game_sessions, game_templates, and game_participants tables
+as well. Direct database-level testing of those tables is not feasible due to pytest
+transaction management issues, but E2E tests validate RLS works correctly for all
+tables in production scenarios.
 
 CRITICAL: These tests require RLS policies to be ENABLED on guild_configurations.
 """
