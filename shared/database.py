@@ -106,13 +106,17 @@ def get_db_with_user_guilds():
     The returned dependency function will automatically receive current_user from
     the route's dependency chain.
     """
-    from services.api.dependencies import auth
+    from services.api.dependencies import (  # noqa: PLC0415 - avoid circular dependency
+        auth,
+    )
 
     async def _get_db_with_guilds(
         current_user: CurrentUser = Depends(auth.get_current_user),  # noqa: B008
     ) -> AsyncGenerator[AsyncSession]:
         """Inner dependency that receives current_user and provides DB session."""
-        from services.api.auth import oauth2
+        from services.api.auth import (  # noqa: PLC0415 - avoid circular dependency
+            oauth2,
+        )
 
         # Fetch user's guilds (cached with 5-min TTL)
         user_guilds = await oauth2.get_user_guilds(

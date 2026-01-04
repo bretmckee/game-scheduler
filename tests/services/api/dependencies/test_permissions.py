@@ -18,7 +18,8 @@
 
 """Unit tests for permission check dependencies."""
 
-from unittest.mock import AsyncMock, patch
+import logging
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
@@ -31,7 +32,6 @@ from shared.schemas import auth as auth_schemas
 @pytest.fixture
 def mock_current_user():
     """Create mock current user."""
-    from unittest.mock import MagicMock
 
     mock_user = MagicMock()
     mock_user.discord_id = "user123"
@@ -307,7 +307,6 @@ async def test_require_bot_manager_no_permission(mock_current_user, mock_role_se
 @pytest.mark.asyncio
 async def test_verify_guild_membership_success():
     """Test verify_guild_membership with member returns guilds."""
-    from unittest.mock import MagicMock
 
     mock_user = MagicMock()
     mock_user.discord_id = "user123"
@@ -335,7 +334,6 @@ async def test_verify_guild_membership_success():
 @pytest.mark.asyncio
 async def test_verify_guild_membership_not_member():
     """Test verify_guild_membership with non-member raises 404."""
-    from unittest.mock import MagicMock
 
     mock_user = MagicMock()
     mock_user.discord_id = "user123"
@@ -365,7 +363,6 @@ async def test_verify_guild_membership_not_member():
 @pytest.mark.asyncio
 async def test_verify_guild_membership_no_session():
     """Test verify_guild_membership with no session raises 401."""
-    from unittest.mock import MagicMock
 
     mock_user = MagicMock()
     mock_user.discord_id = "user123"
@@ -390,7 +387,6 @@ async def test_verify_guild_membership_no_session():
 @pytest.mark.asyncio
 async def test_verify_template_access_success():
     """Test verify_template_access with authorized user."""
-    from unittest.mock import MagicMock
 
     mock_template = MagicMock()
     mock_template.id = "template123"
@@ -421,7 +417,6 @@ async def test_verify_template_access_success():
 @pytest.mark.asyncio
 async def test_verify_template_access_not_member():
     """Test verify_template_access returns 404 for non-member."""
-    from unittest.mock import MagicMock
 
     mock_template = MagicMock()
     mock_template.id = "template123"
@@ -454,7 +449,6 @@ async def test_verify_template_access_not_member():
 @pytest.mark.asyncio
 async def test_verify_template_access_guild_not_found():
     """Test verify_template_access with missing guild."""
-    from unittest.mock import MagicMock
 
     mock_template = MagicMock()
     mock_template.id = "template123"
@@ -475,7 +469,6 @@ async def test_verify_template_access_guild_not_found():
 @pytest.mark.asyncio
 async def test_verify_game_access_success():
     """Test verify_game_access with authorized user."""
-    from unittest.mock import MagicMock
 
     mock_game = MagicMock()
     mock_game.id = "game123"
@@ -508,7 +501,6 @@ async def test_verify_game_access_success():
 @pytest.mark.asyncio
 async def test_verify_game_access_not_member():
     """Test verify_game_access returns 404 for non-member."""
-    from unittest.mock import MagicMock
 
     mock_game = MagicMock()
     mock_game.id = "game123"
@@ -542,7 +534,6 @@ async def test_verify_game_access_not_member():
 @pytest.mark.asyncio
 async def test_verify_game_access_role_check_success():
     """Test verify_game_access with player role restrictions passes."""
-    from unittest.mock import MagicMock
 
     mock_game = MagicMock()
     mock_game.id = "game123"
@@ -579,7 +570,6 @@ async def test_verify_game_access_role_check_success():
 @pytest.mark.asyncio
 async def test_verify_game_access_role_check_fails():
     """Test verify_game_access returns 403 when user lacks player roles."""
-    from unittest.mock import MagicMock
 
     mock_game = MagicMock()
     mock_game.id = "game123"
@@ -615,7 +605,6 @@ async def test_verify_game_access_role_check_fails():
 @pytest.mark.asyncio
 async def test_check_guild_membership_exception_handling(caplog):
     """Test _check_guild_membership returns False on exception."""
-    import logging
 
     caplog.set_level(logging.ERROR)
 
@@ -751,7 +740,6 @@ async def test_require_administrator_no_session(mock_current_user, mock_role_ser
 @pytest.mark.asyncio
 async def test_verify_game_access_guild_not_found():
     """Test verify_game_access with missing guild."""
-    from unittest.mock import MagicMock
 
     mock_game = MagicMock()
     mock_game.id = "game123"
@@ -791,7 +779,6 @@ async def test_resolve_guild_id_guild_not_found():
 @pytest.mark.asyncio
 async def test_resolve_guild_id_uuid_success():
     """Test _resolve_guild_id successfully resolves UUID to Discord guild ID."""
-    from unittest.mock import MagicMock
 
     mock_db = AsyncMock()
     mock_guild_config = MagicMock()
@@ -811,7 +798,6 @@ async def test_resolve_guild_id_uuid_success():
 @pytest.mark.asyncio
 async def test_can_manage_game_user_is_host():
     """Test can_manage_game returns True when user is host."""
-    from unittest.mock import MagicMock
 
     mock_user = MagicMock()
     mock_user.discord_id = "user123"
@@ -842,7 +828,6 @@ async def test_can_manage_game_user_is_host():
 @pytest.mark.asyncio
 async def test_can_manage_game_user_is_bot_manager():
     """Test can_manage_game returns True when user is bot manager."""
-    from unittest.mock import MagicMock
 
     mock_user = MagicMock()
     mock_user.discord_id = "user123"
@@ -878,7 +863,6 @@ async def test_can_manage_game_user_is_bot_manager():
 @pytest.mark.asyncio
 async def test_can_manage_game_user_unauthorized():
     """Test can_manage_game returns False when user is neither host nor bot manager."""
-    from unittest.mock import MagicMock
 
     mock_user = MagicMock()
     mock_user.discord_id = "user123"
@@ -914,7 +898,6 @@ async def test_can_manage_game_user_unauthorized():
 @pytest.mark.asyncio
 async def test_can_manage_game_no_token():
     """Test can_manage_game handles None token gracefully."""
-    from unittest.mock import MagicMock
 
     mock_user = MagicMock()
     mock_user.discord_id = "user123"
@@ -950,7 +933,6 @@ async def test_can_manage_game_no_token():
 @pytest.mark.asyncio
 async def test_can_export_game_user_is_host():
     """Test can_export_game returns True when user is host."""
-    from unittest.mock import MagicMock
 
     mock_current_user = MagicMock()
     mock_current_user.user = MagicMock()
@@ -982,7 +964,6 @@ async def test_can_export_game_user_is_host():
 @pytest.mark.asyncio
 async def test_can_export_game_user_is_participant():
     """Test can_export_game returns True when user is participant."""
-    from unittest.mock import MagicMock
 
     mock_current_user = MagicMock()
     mock_current_user.user = MagicMock()
@@ -1018,7 +999,6 @@ async def test_can_export_game_user_is_participant():
 @pytest.mark.asyncio
 async def test_can_export_game_user_is_bot_manager():
     """Test can_export_game returns True when user is bot manager."""
-    from unittest.mock import MagicMock
 
     mock_current_user = MagicMock()
     mock_current_user.user = MagicMock()
@@ -1051,7 +1031,6 @@ async def test_can_export_game_user_is_bot_manager():
 @pytest.mark.asyncio
 async def test_can_export_game_user_unauthorized():
     """Test can_export_game returns False when user lacks all permissions."""
-    from unittest.mock import MagicMock
 
     mock_current_user = MagicMock()
     mock_current_user.user = MagicMock()
@@ -1084,7 +1063,6 @@ async def test_can_export_game_user_unauthorized():
 @pytest.mark.asyncio
 async def test_can_export_game_participant_user_is_none():
     """Test can_export_game handles participant with None user."""
-    from unittest.mock import MagicMock
 
     mock_current_user = MagicMock()
     mock_current_user.user = MagicMock()

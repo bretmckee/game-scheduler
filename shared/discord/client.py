@@ -674,8 +674,9 @@ def _get_global_client() -> DiscordAPIClient:
     """
     global _global_client_instance
     if _global_client_instance is None:
-        # Import here to avoid circular dependency
-        from services.api.dependencies.discord import get_discord_client
+        from services.api.dependencies.discord import (  # noqa: PLC0415
+            get_discord_client,
+        )
 
         _global_client_instance = get_discord_client()
     return _global_client_instance

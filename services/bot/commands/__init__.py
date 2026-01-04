@@ -31,7 +31,7 @@ async def setup_commands(bot: "GameSchedulerBot") -> None:
     Args:
         bot: Bot instance to register commands with
     """
-    from services.bot.commands import (
+    from services.bot.commands import (  # noqa: PLC0415 - lazy load command modules
         list_games,
         my_games,
     )

@@ -38,6 +38,7 @@ from services.api.services import notification_schedule as notification_schedule
 from services.api.services import participant_resolver as resolver_module
 from services.api.services.notification_schedule import schedule_join_notification
 from shared.discord import client as discord_client_module
+from shared.message_formats import DMFormats
 from shared.messaging import events as messaging_events
 from shared.messaging import publisher as messaging_publisher
 from shared.models import channel as channel_model
@@ -48,6 +49,7 @@ from shared.models import participant as participant_model
 from shared.models import template as template_model
 from shared.models import user as user_model
 from shared.models.participant import ParticipantType
+from shared.models.signup_method import SignupMethod
 from shared.schemas import game as game_schemas
 from shared.utils.games import resolve_max_players
 from shared.utils.participant_sorting import partition_participants
@@ -272,8 +274,6 @@ class GameService:
         allowed_player_role_ids = template.allowed_player_role_ids
 
         # Resolve signup method: request → template default → SELF_SIGNUP fallback
-        from shared.models.signup_method import SignupMethod
-
         signup_method = (
             game_data.signup_method
             or template.default_signup_method
@@ -623,12 +623,10 @@ class GameService:
             if participant_data.get("participant_id"):
                 existing_participant_ids.add(participant_data["participant_id"])
             elif str(participant_data.get("mention", "")).strip():
-                mentions_with_positions.append(
-                    (
-                        str(participant_data["mention"]),
-                        int(participant_data.get("position", 0)),
-                    )
-                )
+                mentions_with_positions.append((
+                    str(participant_data["mention"]),
+                    int(participant_data.get("position", 0)),
+                ))
 
         # Remove pre-filled participants not in the existing list
         for p in current_participants:
@@ -869,8 +867,9 @@ class GameService:
         if game is None:
             raise ValueError("Game not found")
 
-        # Import here to avoid circular dependency
-        from services.api.dependencies import permissions as permissions_deps
+        from services.api.dependencies import (  # noqa: PLC0415
+            permissions as permissions_deps,
+        )
 
         # Check authorization: host, Bot Manager, or admin
         can_manage = await permissions_deps.can_manage_game(
@@ -995,8 +994,9 @@ class GameService:
         if game is None:
             raise ValueError("Game not found")
 
-        # Import here to avoid circular dependency
-        from services.api.dependencies import permissions as permissions_deps
+        from services.api.dependencies import (  # noqa: PLC0415
+            permissions as permissions_deps,
+        )
 
         # Check authorization: host, Bot Manager, or admin
         can_manage = await permissions_deps.can_manage_game(
@@ -1319,8 +1319,6 @@ class GameService:
             discord_id: Discord ID of promoted user
         """
         scheduled_at_unix = int(game.scheduled_at.timestamp())
-
-        from shared.message_formats import DMFormats
 
         message = DMFormats.promotion(game.title, scheduled_at_unix)
 

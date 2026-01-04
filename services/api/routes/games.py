@@ -22,8 +22,9 @@ Game management REST API endpoints.
 Provides CRUD operations for game sessions with validation and authorization.
 """
 
+import json
 import logging
-from datetime import UTC
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
@@ -90,8 +91,10 @@ async def _get_game_service(
     db: AsyncSession = Depends(database.get_db),
 ) -> games_service.GameService:
     """Get game service instance with dependencies and set guild context."""
-    from services.api.auth import oauth2
-    from shared.data_access.guild_isolation import set_current_guild_ids
+    from services.api.auth import oauth2  # noqa: PLC0415 - avoid circular dependency
+    from shared.data_access.guild_isolation import (  # noqa: PLC0415
+        set_current_guild_ids,
+    )
 
     # Fetch user's guilds and set context for RLS
     # Cache is seeded in integration tests to avoid Discord API calls
@@ -145,9 +148,6 @@ async def create_game(
     """
     try:
         # Parse JSON fields from form data
-        import json
-        from datetime import datetime
-
         reminder_minutes_list = None
         if reminder_minutes:
             reminder_minutes_list = json.loads(reminder_minutes)
@@ -343,9 +343,6 @@ async def update_game(
     """
     try:
         # Parse JSON fields from form data
-        import json
-        from datetime import datetime
-
         scheduled_at_datetime = None
         if scheduled_at:
             scheduled_at_datetime = datetime.fromisoformat(scheduled_at.replace("Z", "+00:00"))

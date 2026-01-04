@@ -27,7 +27,9 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from services.api.auth.tokens import encrypt_token
 from shared.cache.client import RedisClient
+from shared.cache.keys import CacheKeys
 from shared.data_access.guild_isolation import clear_current_guild_ids
 from shared.database import engine
 from shared.models.channel import ChannelConfiguration
@@ -140,7 +142,6 @@ async def seed_user_guilds_cache(
         user_discord_id: Discord user ID
         guild_ids: List of guild Discord IDs the user should have access to
     """
-    from shared.cache.keys import CacheKeys
 
     user_guilds_key = CacheKeys.user_guilds(user_discord_id)
     guilds_data = [
@@ -171,7 +172,6 @@ async def seed_user_session(
         user_id: User UUID
         access_token: Access token to store (will be encrypted)
     """
-    from services.api.auth.tokens import encrypt_token
 
     session_key = f"session:{session_token}"
     session_data = {

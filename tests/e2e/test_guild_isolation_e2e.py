@@ -28,6 +28,9 @@ Tests are marked with xfail until RLS is enabled in Phase 3.2+.
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from sqlalchemy import text
+
+from tests.shared.polling import wait_for_db_condition_async
 
 pytestmark = pytest.mark.e2e
 
@@ -35,8 +38,6 @@ pytestmark = pytest.mark.e2e
 @pytest.fixture
 async def guild_a_template_id(db_session, discord_guild_id, discord_channel_id, synced_guild):
     """Get default template ID for Guild A."""
-    from sqlalchemy import text
-
     # Get Guild A database ID
     guild_result = await db_session.execute(
         text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
@@ -63,8 +64,6 @@ async def guild_a_game_id(
     guild_a_template_id,
 ):
     """Create a game in Guild A for isolation testing."""
-    from tests.shared.polling import wait_for_db_condition_async
-
     game_time = datetime.now(UTC) + timedelta(hours=24)
 
     game_data = {
@@ -104,8 +103,6 @@ async def guild_b_game_id(
     guild_b_template_id,
 ):
     """Create a game in Guild B for isolation testing."""
-    from tests.shared.polling import wait_for_db_condition_async
-
     game_time = datetime.now(UTC) + timedelta(hours=24)
 
     # First, sync Guild B
@@ -275,8 +272,6 @@ async def test_templates_isolated_across_guilds(
     - User A lists templates for Guild A → sees only Guild A templates
     - User A attempts to access Guild B template → 404
     """
-    from sqlalchemy import text
-
     # Get Guild A database UUID
     result_a = await db_session.execute(
         text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
@@ -344,8 +339,6 @@ async def test_participants_isolated_across_guilds(
     assert response_b.status_code == 200
 
     # Wait for participants to be created
-    from tests.shared.polling import wait_for_db_condition_async
-
     def check_participant_exists(result):
         return result is not None
 

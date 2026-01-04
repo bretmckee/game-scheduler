@@ -18,6 +18,8 @@
 
 """Guild configuration service for create and update operations."""
 
+import asyncio
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -100,8 +102,6 @@ async def sync_user_guilds(db: AsyncSession, access_token: str, user_id: str) ->
     }
 
     # Respect Discord rate limit (1 req/sec for /users/@me/guilds)
-    import asyncio
-
     await asyncio.sleep(1.1)
 
     # Fetch bot's current guilds

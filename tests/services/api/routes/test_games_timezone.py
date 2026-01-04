@@ -23,6 +23,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from services.api.routes.games import _build_game_response
 from shared.models.channel import ChannelConfiguration
 from shared.models.game import GameSession
 from shared.models.guild import GuildConfiguration
@@ -83,8 +84,6 @@ async def test_scheduled_at_has_utc_marker(
     game.participants = []
     game.created_at = datetime(2025, 11, 26, 10, 0, 0)
     game.updated_at = datetime(2025, 11, 26, 10, 0, 0)
-
-    from services.api.routes.games import _build_game_response
 
     response = await _build_game_response(game)
 
@@ -154,8 +153,6 @@ async def test_created_updated_have_utc_marker(
     game.created_at = datetime(2025, 11, 26, 10, 0, 0)
     game.updated_at = datetime(2025, 11, 26, 11, 0, 0)
 
-    from services.api.routes.games import _build_game_response
-
     response = await _build_game_response(game)
 
     assert response.created_at.endswith("Z")
@@ -223,8 +220,6 @@ async def test_midnight_utc_not_offset(
     game.created_at = datetime(2025, 11, 26, 10, 0, 0)
     game.updated_at = datetime(2025, 11, 26, 10, 0, 0)
 
-    from services.api.routes.games import _build_game_response
-
     response = await _build_game_response(game)
 
     # Verify ISO format
@@ -284,8 +279,6 @@ async def test_various_times_consistent(
         (18, 45, 0, "18:45:00"),  # Evening
         (23, 59, 59, "23:59:59"),  # End of day
     ]
-
-    from services.api.routes.games import _build_game_response
 
     for hour, minute, second, time_str in test_times:
         scheduled_time = datetime(2025, 11, 27, hour, minute, second)

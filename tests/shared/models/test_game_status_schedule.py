@@ -21,7 +21,7 @@
 from datetime import timedelta
 
 from shared.models import GameStatusSchedule
-from shared.models.base import utc_now
+from shared.models.base import generate_uuid, utc_now
 
 
 class TestGameStatusScheduleModel:
@@ -53,7 +53,6 @@ class TestGameStatusScheduleModel:
 
     def test_id_generation(self):
         """ID can be generated using default function."""
-        from shared.models.base import generate_uuid
 
         schedule = GameStatusSchedule(
             id=generate_uuid(),

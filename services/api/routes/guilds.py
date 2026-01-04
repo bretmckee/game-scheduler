@@ -344,7 +344,9 @@ async def validate_mention(
         return guild_schemas.ValidateMentionResponse(valid=True, error=None)
 
     # Query Discord API to validate @mention
-    from services.api.services.participant_resolver import ParticipantResolver
+    from services.api.services.participant_resolver import (  # noqa: PLC0415
+        ParticipantResolver,
+    )
 
     discord_client_instance = get_discord_client()
     resolver = ParticipantResolver(discord_client_instance)

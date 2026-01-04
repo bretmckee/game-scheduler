@@ -42,6 +42,7 @@ from shared.messaging.infrastructure import QUEUE_BOT_EVENTS
 from shared.models.participant import ParticipantType
 from shared.models.signup_method import SignupMethod
 from shared.utils.discord_tokens import extract_bot_discord_id
+from tests.integration.conftest import seed_user_guilds_cache
 from tests.shared.auth_helpers import cleanup_test_session, create_test_session
 
 pytestmark = pytest.mark.integration
@@ -193,7 +194,6 @@ def test_template(db_session, redis_client, test_user):
     # Seed Redis cache with all test data in single event loop
     async def seed_cache():
         # User guilds for RLS context (Phase 2 guild isolation)
-        from tests.integration.conftest import seed_user_guilds_cache
 
         await seed_user_guilds_cache(redis_client, test_user["discord_id"], [guild_id])
 
@@ -250,9 +250,10 @@ def test_template(db_session, redis_client, test_user):
             "name": "INT_TEST Template",
             "description": "Integration test template",
             "channel_id": channel_config_id,  # FK to channel_configurations.id
-            "allowed_signup_methods": json.dumps(
-                [SignupMethod.SELF_SIGNUP.value, SignupMethod.HOST_SELECTED.value]
-            ),
+            "allowed_signup_methods": json.dumps([
+                SignupMethod.SELF_SIGNUP.value,
+                SignupMethod.HOST_SELECTED.value,
+            ]),
             "default_signup_method": SignupMethod.HOST_SELECTED.value,
             "created_at": datetime.now(UTC),
             "updated_at": datetime.now(UTC),

@@ -33,7 +33,9 @@ from unittest.mock import MagicMock
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from services.api.services.games import GameService
 from shared.cache.client import RedisClient
+from shared.messaging.publisher import EventPublisher
 from shared.models.channel import ChannelConfiguration
 from shared.models.game import GameSession, GameStatus
 from shared.models.guild import GuildConfiguration
@@ -264,8 +266,6 @@ async def test_get_game_returns_any_game_without_guild_filter(db, game_a, game_b
     SECURITY GAP: This documents current insecure behavior.
     After migration: get_game should require guild_id parameter and enforce filtering.
     """
-    from services.api.services.games import GameService
-    from shared.messaging.publisher import EventPublisher
 
     service = GameService(
         db=db,
@@ -292,8 +292,6 @@ async def test_list_games_filters_by_guild_when_specified(
     db, game_a, game_b, guild_a_id, guild_b_id
 ):
     """Verify list_games correctly filters by guild_id when parameter provided."""
-    from services.api.services.games import GameService
-    from shared.messaging.publisher import EventPublisher
 
     service = GameService(
         db=db,
@@ -322,8 +320,6 @@ async def test_list_games_filters_by_guild_when_specified(
 @pytest.mark.asyncio
 async def test_list_games_with_channel_filter(db, game_a, channel_a, guild_a_id):
     """Verify list_games respects channel filter within guild."""
-    from services.api.services.games import GameService
-    from shared.messaging.publisher import EventPublisher
 
     service = GameService(
         db=db,
@@ -344,8 +340,6 @@ async def test_list_games_with_channel_filter(db, game_a, channel_a, guild_a_id)
 @pytest.mark.asyncio
 async def test_list_games_with_status_filter(db, game_a, guild_a_id):
     """Verify list_games respects status filter."""
-    from services.api.services.games import GameService
-    from shared.messaging.publisher import EventPublisher
 
     service = GameService(
         db=db,
@@ -372,8 +366,6 @@ async def test_list_games_with_status_filter(db, game_a, guild_a_id):
 @pytest.mark.asyncio
 async def test_list_games_pagination(db, guild_a_id, channel_a, template_a, user_a):
     """Verify list_games pagination works correctly."""
-    from services.api.services.games import GameService
-    from shared.messaging.publisher import EventPublisher
 
     # Create multiple games
     for i in range(5):
@@ -418,8 +410,6 @@ async def test_list_games_pagination(db, guild_a_id, channel_a, template_a, user
 @pytest.mark.asyncio
 async def test_guild_isolation_in_list_games(db, game_a, game_b, guild_a_id, guild_b_id):
     """Verify complete guild isolation in list_games across multiple operations."""
-    from services.api.services.games import GameService
-    from shared.messaging.publisher import EventPublisher
 
     service = GameService(
         db=db,

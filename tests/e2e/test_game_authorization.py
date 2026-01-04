@@ -22,10 +22,13 @@ Tests game creation and deletion authorization using real API infrastructure.
 Uses E2E guild/channel/user data seeded by init service.
 """
 
+import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import text
+
+from shared.models.template import GameTemplate
 
 pytestmark = pytest.mark.e2e
 
@@ -76,10 +79,6 @@ async def template_id(db_session, test_guild_id, test_channel_id):
     Creates a template that allows any guild member to host games,
     ensuring real E2E user can successfully create games without mocking roles.
     """
-    import uuid
-
-    from shared.models.template import GameTemplate
-
     template = GameTemplate(
         id=str(uuid.uuid4()),
         guild_id=test_guild_id,

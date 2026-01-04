@@ -50,7 +50,7 @@ from tests.e2e.conftest import (
     wait_for_db_condition,
     wait_for_game_message_id,
 )
-from tests.e2e.helpers.discord import DMType
+from tests.e2e.helpers.discord import DiscordTestHelper, DMType
 
 pytestmark = pytest.mark.e2e
 
@@ -129,8 +129,6 @@ async def test_template_id(db_session, test_guild_id, synced_guild):
 @pytest.fixture
 async def main_bot_helper(discord_main_bot_token):
     """Create Discord helper for main bot (sends notifications)."""
-    from tests.e2e.helpers.discord import DiscordTestHelper
-
     helper = DiscordTestHelper(discord_main_bot_token)
     await helper.connect()
     yield helper

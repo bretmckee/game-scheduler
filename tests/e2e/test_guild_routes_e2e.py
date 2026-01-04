@@ -29,6 +29,7 @@ which provides defense-in-depth before full RLS is enabled.
 """
 
 import pytest
+from sqlalchemy import text
 
 pytestmark = pytest.mark.e2e
 
@@ -36,8 +37,6 @@ pytestmark = pytest.mark.e2e
 @pytest.fixture
 async def guild_a_db_id(db_session, discord_guild_id):
     """Get Guild A database UUID (User A's guild)."""
-    from sqlalchemy import text
-
     result = await db_session.execute(
         text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
         {"guild_id": discord_guild_id},

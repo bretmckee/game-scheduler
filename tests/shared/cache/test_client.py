@@ -23,6 +23,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+import shared.cache.client
 from shared.cache.client import RedisClient, get_redis_client
 
 
@@ -280,7 +281,6 @@ class TestGetRedisClient:
             mock_class.return_value = mock_instance
 
             # Reset the singleton
-            import shared.cache.client
 
             shared.cache.client._redis_client = None
 

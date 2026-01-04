@@ -35,6 +35,7 @@ from services.bot.utils.discord_format import (
     format_user_or_placeholder,
 )
 from services.bot.views.game_view import GameView
+from shared.models.game import GameStatus
 from shared.utils.limits import MAX_STRING_DISPLAY_LENGTH
 
 
@@ -186,12 +187,10 @@ class GameMessageFormatter:
             links_value = f"📅 [Add to Calendar]({calendar_url})"
             embed.add_field(name="Links", value=links_value, inline=True)
 
-        from shared.models.game import GameStatus as GameStatusEnum
-
         # Get display name from enum if possible, fallback to raw status
         status_display = status
         try:
-            status_display = GameStatusEnum(status).display_name
+            status_display = GameStatus(status).display_name
         except (ValueError, AttributeError):
             pass
 

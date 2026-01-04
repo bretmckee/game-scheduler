@@ -95,8 +95,7 @@ class GameCreateRequest(BaseModel):
         """Validate signup method is a valid value."""
         if v is None:
             return v
-        # Import here to avoid circular dependency
-        from shared.models.signup_method import SignupMethod
+        from shared.models.signup_method import SignupMethod  # noqa: PLC0415
 
         valid_values = [method.value for method in SignupMethod]
         if v not in valid_values:

@@ -37,6 +37,7 @@ from sqlalchemy.orm import sessionmaker
 from shared.cache.client import RedisClient
 from shared.cache.keys import CacheKeys
 from shared.utils.discord_tokens import extract_bot_discord_id
+from tests.integration.conftest import seed_user_guilds_cache
 from tests.shared.auth_helpers import cleanup_test_session, create_test_session
 
 pytestmark = pytest.mark.integration
@@ -203,7 +204,6 @@ async def test_cleared_reminder_minutes_not_reverted_to_template_default(
     bot_manager_role_ids = guild_config_row[1] or []
 
     # User guilds for RLS context (Phase 2 guild isolation)
-    from tests.integration.conftest import seed_user_guilds_cache
 
     await seed_user_guilds_cache(redis_client, TEST_BOT_DISCORD_ID, [guild_discord_id])
 
@@ -322,7 +322,6 @@ async def test_cleared_optional_text_fields_not_reverted_to_template_defaults(
     bot_manager_role_ids = guild_config_row[1] or []
 
     # User guilds for RLS context (Phase 2 guild isolation)
-    from tests.integration.conftest import seed_user_guilds_cache
 
     await seed_user_guilds_cache(redis_client, TEST_BOT_DISCORD_ID, [guild_discord_id])
 

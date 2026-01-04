@@ -22,7 +22,7 @@ import logging
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 
-from icalendar import Calendar, Event
+from icalendar import Alarm, Calendar, Event
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -210,8 +210,6 @@ class CalendarExportService:
         Returns:
             VALARM component
         """
-        from icalendar import Alarm
-
         alarm = Alarm()
         alarm.add("action", "DISPLAY")
         alarm.add("description", "Game starting soon!")

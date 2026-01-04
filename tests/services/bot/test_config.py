@@ -21,6 +21,7 @@
 import os
 from unittest.mock import patch
 
+from services.bot import config as config_module
 from services.bot.config import BotConfig, get_config
 
 
@@ -110,8 +111,6 @@ class TestGetConfig:
     def test_get_config_returns_singleton(self) -> None:
         """Test that get_config returns the same instance on multiple calls."""
         with patch.dict(os.environ, {"DISCORD_BOT_TOKEN": "token", "DISCORD_BOT_CLIENT_ID": "123"}):
-            from services.bot import config as config_module
-
             config_module._config = None
 
             config1 = get_config()
@@ -122,8 +121,6 @@ class TestGetConfig:
     def test_get_config_creates_instance(self) -> None:
         """Test that get_config creates a valid BotConfig instance."""
         with patch.dict(os.environ, {"DISCORD_BOT_TOKEN": "token", "DISCORD_BOT_CLIENT_ID": "123"}):
-            from services.bot import config as config_module
-
             config_module._config = None
 
             config = get_config()

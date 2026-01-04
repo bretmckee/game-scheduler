@@ -23,7 +23,7 @@ import os
 from logging.config import fileConfig
 
 from alembic_utils.replaceable_entity import register_entities
-from sqlalchemy import pool
+from sqlalchemy import engine_from_config, pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
@@ -114,8 +114,6 @@ def run_migrations_online() -> None:
 
 def run_sync_migrations() -> None:
     """Run migrations using synchronous engine."""
-    from sqlalchemy import engine_from_config
-
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",

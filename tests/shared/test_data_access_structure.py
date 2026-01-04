@@ -22,20 +22,19 @@ Verifies that the guild-scoped query wrapper module structure is correctly set u
 and can be imported. This is the foundation test for Task 1.1.
 """
 
+import shared.data_access
+import shared.data_access.guild_queries
+from shared.data_access import guild_queries
+
 
 def test_data_access_module_imports():
     """Verify data_access module and submodules can be imported."""
-    import shared.data_access
-    import shared.data_access.guild_queries
-
     assert hasattr(shared.data_access, "guild_queries")
     assert shared.data_access.guild_queries.__doc__ is not None
 
 
 def test_guild_queries_module_structure():
     """Verify guild_queries module has correct structure and documentation."""
-    from shared.data_access import guild_queries
-
     assert guild_queries.__name__ == "shared.data_access.guild_queries"
     assert "guild isolation" in guild_queries.__doc__.lower()
     assert "required guild_id" in guild_queries.__doc__.lower()

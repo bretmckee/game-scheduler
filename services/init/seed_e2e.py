@@ -31,6 +31,7 @@ from uuid import uuid4
 from sqlalchemy import text
 
 from shared.database import get_sync_db_session
+from shared.utils.discord_tokens import extract_bot_discord_id
 
 logger = logging.getLogger(__name__)
 
@@ -76,8 +77,6 @@ def seed_e2e_data() -> bool:
 
     try:
         # Extract bot Discord ID from token
-        from shared.utils.discord_tokens import extract_bot_discord_id
-
         bot_discord_id = extract_bot_discord_id(admin_bot_token)
         with get_sync_db_session() as session:
             now = datetime.now(UTC).replace(tzinfo=None)

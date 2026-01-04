@@ -23,6 +23,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from services.bot.views.game_view import GameView
+from shared.models.signup_method import SignupMethod
 
 
 class TestGameView:
@@ -193,7 +194,6 @@ class TestGameView:
     @pytest.mark.asyncio
     async def test_initializes_with_self_signup_method(self):
         """Test GameView with SELF_SIGNUP method enables join button."""
-        from shared.models.signup_method import SignupMethod
 
         view = GameView(game_id="test-game-id", signup_method=SignupMethod.SELF_SIGNUP.value)
         assert view.signup_method == SignupMethod.SELF_SIGNUP.value
@@ -202,7 +202,6 @@ class TestGameView:
     @pytest.mark.asyncio
     async def test_initializes_with_host_selected_method(self):
         """Test GameView with HOST_SELECTED method disables join button."""
-        from shared.models.signup_method import SignupMethod
 
         view = GameView(game_id="test-game-id", signup_method=SignupMethod.HOST_SELECTED.value)
         assert view.signup_method == SignupMethod.HOST_SELECTED.value
@@ -211,7 +210,6 @@ class TestGameView:
     @pytest.mark.asyncio
     async def test_host_selected_overrides_other_states(self):
         """Test HOST_SELECTED disables join button even when game has space."""
-        from shared.models.signup_method import SignupMethod
 
         view = GameView(
             game_id="test-game-id",
@@ -226,7 +224,6 @@ class TestGameView:
     @pytest.mark.asyncio
     async def test_from_game_data_with_self_signup(self):
         """Test creating view from game data with SELF_SIGNUP method."""
-        from shared.models.signup_method import SignupMethod
 
         view = GameView.from_game_data(
             game_id="test-id",
@@ -240,7 +237,6 @@ class TestGameView:
     @pytest.mark.asyncio
     async def test_from_game_data_with_host_selected(self):
         """Test creating view from game data with HOST_SELECTED method."""
-        from shared.models.signup_method import SignupMethod
 
         view = GameView.from_game_data(
             game_id="test-id",
@@ -255,7 +251,6 @@ class TestGameView:
     @pytest.mark.asyncio
     async def test_host_selected_leave_button_always_enabled_when_not_started(self):
         """Test HOST_SELECTED games allow players to leave via button."""
-        from shared.models.signup_method import SignupMethod
 
         view = GameView(
             game_id="test-game-id",
@@ -269,7 +264,6 @@ class TestGameView:
     @pytest.mark.asyncio
     async def test_update_button_states_with_host_selected_method(self):
         """Test updating button states with HOST_SELECTED method."""
-        from shared.models.signup_method import SignupMethod
 
         view = GameView(game_id="test-id", signup_method=SignupMethod.SELF_SIGNUP.value)
         assert not view.join_button.disabled

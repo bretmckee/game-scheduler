@@ -25,6 +25,7 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
 
@@ -102,8 +103,6 @@ async def callback(
         ) from e
 
     discord_id = user_data["id"]
-
-    from sqlalchemy import select
 
     result = await db.execute(
         select(user_model.User).where(user_model.User.discord_id == discord_id)

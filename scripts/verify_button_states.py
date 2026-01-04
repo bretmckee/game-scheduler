@@ -5,6 +5,7 @@ Usage: python scripts/verify_button_states.py <game_id>
 """
 
 import asyncio
+import os
 import sys
 from pathlib import Path
 
@@ -19,8 +20,6 @@ from shared.models.game import GameSession
 
 async def verify_game_buttons(game_id: str):
     """Verify button states for a game."""
-    import os
-
     db_url = os.getenv(
         "DATABASE_URL", "postgresql+asyncpg://gamebot:gamebot@localhost:5432/gamebot"
     )

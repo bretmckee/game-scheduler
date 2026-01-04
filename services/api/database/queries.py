@@ -73,7 +73,7 @@ async def require_guild_by_id(
     Raises:
         HTTPException(404): If guild not found OR user not authorized
     """
-    from services.api.auth import oauth2
+    from services.api.auth import oauth2  # noqa: PLC0415 - avoid circular dependency
 
     # Ensure RLS context is set (idempotent - only fetches if not already set)
     if get_current_guild_ids() is None:

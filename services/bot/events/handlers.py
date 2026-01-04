@@ -21,6 +21,7 @@
 import asyncio
 import logging
 from collections.abc import Callable
+from datetime import datetime
 from typing import Any
 
 import discord
@@ -34,6 +35,7 @@ from shared.cache.client import get_redis_client
 from shared.cache.keys import CacheKeys
 from shared.cache.ttl import CacheTTL
 from shared.database import get_db_session
+from shared.message_formats import DMFormats
 from shared.messaging.consumer import EventConsumer
 from shared.messaging.events import (
     Event,
@@ -507,8 +509,6 @@ class EventHandlers:
                     )
                     return
 
-                from shared.message_formats import DMFormats
-
                 # Format message based on signup_instructions presence
                 if game.signup_instructions:
                     message = DMFormats.join_with_instructions(
@@ -604,8 +604,6 @@ class EventHandlers:
             is_waitlist: Whether participant is on waitlist
             is_host: Whether recipient is the game host
         """
-        from shared.message_formats import DMFormats
-
         if is_host:
             message = DMFormats.reminder_host(game_title, game_time_unix)
         else:
@@ -688,15 +686,11 @@ class EventHandlers:
 
             # Send DM to removed user
             if discord_id:
-                from shared.message_formats import DMFormats
-
                 logger.info(
                     f"Preparing to send removal DM to user {discord_id} for game {game_title}"
                 )
                 dm_message = DMFormats.removal(game_title)
                 if game_scheduled_at:
-                    from datetime import datetime
-
                     try:
                         scheduled_dt = datetime.fromisoformat(game_scheduled_at)
                         dm_message += f" scheduled for <t:{int(scheduled_dt.timestamp())}:F>"
@@ -914,9 +908,9 @@ class EventHandlers:
         Returns:
             GameSession with participants loaded, or None if not found
         """
-        from uuid import UUID
+        from uuid import UUID  # noqa: PLC0415 - avoid top-level UUID conflict
 
-        from sqlalchemy.orm import selectinload
+        from sqlalchemy.orm import selectinload  # noqa: PLC0415
 
         result = await db.execute(
             select(GameSession)

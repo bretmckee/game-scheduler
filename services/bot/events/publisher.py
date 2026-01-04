@@ -19,6 +19,7 @@
 """Bot event publisher wrapper for RabbitMQ messaging."""
 
 import logging
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -81,8 +82,6 @@ class BotEventPublisher:
             scheduled_at: ISO 8601 UTC timestamp string
             signup_method: Method used for player signups
         """
-        from datetime import datetime
-
         scheduled_at_dt = datetime.fromisoformat(scheduled_at.replace("Z", "+00:00"))
 
         event_data = GameCreatedEvent(

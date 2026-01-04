@@ -18,6 +18,7 @@
 
 """Tests for waitlist promotion notifications in game service."""
 
+import traceback
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -290,13 +291,11 @@ async def test_promotion_when_participant_removed(
     notify_calls_list = []
 
     async def track_notify_promotions(game, promoted_discord_ids):
-        notify_calls_list.append(
-            {
-                "game_id": game.id,
-                "promoted_discord_ids": promoted_discord_ids,
-                "current_participants": [p.user.discord_id for p in game.participants if p.user],
-            }
-        )
+        notify_calls_list.append({
+            "game_id": game.id,
+            "promoted_discord_ids": promoted_discord_ids,
+            "current_participants": [p.user.discord_id for p in game.participants if p.user],
+        })
         print("\n_notify_promoted_users called!")
         print(f"  promoted_discord_ids: {promoted_discord_ids}")
         print(f"  current participants: {[p.user.discord_id for p in game.participants if p.user]}")
@@ -336,8 +335,6 @@ async def test_promotion_when_participant_removed(
                     print(f"Result participants: {len(result.participants) if result else 0}")
                 except Exception as e:
                     print(f"\nUpdate failed with exception: {type(e).__name__}: {e}")
-                    import traceback
-
                     traceback.print_exc()
                     raise
 

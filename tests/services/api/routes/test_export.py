@@ -26,6 +26,9 @@ from fastapi import status
 from fastapi.testclient import TestClient
 
 from services.api.app import create_app
+from services.api.dependencies import auth as auth_deps
+from services.api.dependencies import permissions as permissions_deps
+from services.api.routes.export import generate_calendar_filename
 from shared.models.game import GameSession
 from shared.models.guild import GuildConfiguration
 from shared.models.participant import GameParticipant, ParticipantType
@@ -85,8 +88,6 @@ def test_export_game_as_host_success(app, mock_user, mock_game):
     mock_role_service = AsyncMock()
 
     # Override dependencies
-    from services.api.dependencies import auth as auth_deps
-    from services.api.dependencies import permissions as permissions_deps
 
     async def override_get_current_user():
         return mock_user
@@ -145,8 +146,6 @@ def test_export_game_not_found(app, mock_user):
     mock_role_service = AsyncMock()
 
     # Override dependencies
-    from services.api.dependencies import auth as auth_deps
-    from services.api.dependencies import permissions as permissions_deps
 
     async def override_get_current_user():
         return mock_user
@@ -195,8 +194,6 @@ def test_export_game_permission_denied(app, mock_user, mock_game):
     mock_role_service = AsyncMock()
 
     # Override dependencies
-    from services.api.dependencies import auth as auth_deps
-    from services.api.dependencies import permissions as permissions_deps
 
     async def override_get_current_user():
         return mock_user
@@ -264,8 +261,6 @@ def test_export_game_as_participant(app, mock_user, mock_game):
     mock_role_service = AsyncMock()
 
     # Override dependencies
-    from services.api.dependencies import auth as auth_deps
-    from services.api.dependencies import permissions as permissions_deps
 
     async def override_get_current_user():
         return mock_user
@@ -304,7 +299,6 @@ def test_export_game_as_participant(app, mock_user, mock_game):
 
 def test_generate_calendar_filename_basic():
     """Test filename generation with basic title."""
-    from services.api.routes.export import generate_calendar_filename
 
     filename = generate_calendar_filename("D&D Campaign", datetime(2025, 11, 15))
     assert filename == "D-D-Campaign_2025-11-15.ics"
@@ -312,7 +306,6 @@ def test_generate_calendar_filename_basic():
 
 def test_generate_calendar_filename_special_chars():
     """Test filename generation removes special characters."""
-    from services.api.routes.export import generate_calendar_filename
 
     filename = generate_calendar_filename("Poker Night!", datetime(2025, 12, 25))
     assert filename == "Poker-Night_2025-12-25.ics"
@@ -320,7 +313,6 @@ def test_generate_calendar_filename_special_chars():
 
 def test_generate_calendar_filename_multiple_spaces():
     """Test filename generation normalizes spaces."""
-    from services.api.routes.export import generate_calendar_filename
 
     filename = generate_calendar_filename("Weekly  Game   Night", datetime(2025, 1, 10))
     assert filename == "Weekly-Game-Night_2025-01-10.ics"
@@ -328,7 +320,6 @@ def test_generate_calendar_filename_multiple_spaces():
 
 def test_generate_calendar_filename_long_title():
     """Test filename generation truncates long titles."""
-    from services.api.routes.export import generate_calendar_filename
 
     long_title = "A" * 150
     filename = generate_calendar_filename(long_title, datetime(2025, 6, 1))
@@ -338,7 +329,6 @@ def test_generate_calendar_filename_long_title():
 
 def test_generate_calendar_filename_emoji_and_unicode():
     """Test filename generation handles emoji and unicode."""
-    from services.api.routes.export import generate_calendar_filename
 
     filename = generate_calendar_filename("🎲 Game Night 🎮", datetime(2025, 3, 15))
     assert filename == "Game-Night_2025-03-15.ics"
@@ -346,7 +336,6 @@ def test_generate_calendar_filename_emoji_and_unicode():
 
 def test_generate_calendar_filename_only_special_chars():
     """Test filename generation with title containing only special characters."""
-    from services.api.routes.export import generate_calendar_filename
 
     filename = generate_calendar_filename("!@#$%", datetime(2025, 7, 20))
     assert filename == "_2025-07-20.ics"

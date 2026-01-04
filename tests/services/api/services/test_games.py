@@ -24,6 +24,7 @@ from datetime import UTC
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.api.services import games as games_service
@@ -32,12 +33,15 @@ from shared.discord import client as discord_client_module
 from shared.messaging import publisher as messaging_publisher
 from shared.models import channel as channel_model
 from shared.models import game as game_model
+from shared.models import game_status_schedule as game_status_schedule_model
 from shared.models import guild as guild_model
 from shared.models import participant as participant_model
 from shared.models import template as template_model
 from shared.models import user as user_model
 from shared.models.participant import ParticipantType
+from shared.models.signup_method import SignupMethod
 from shared.schemas import game as game_schemas
+from shared.schemas.auth import CurrentUser
 
 
 @pytest.fixture
@@ -735,9 +739,6 @@ async def test_list_games_with_filters(game_service, mock_db, sample_guild):
 @pytest.mark.asyncio
 async def test_update_game_success(game_service, mock_db, sample_user, sample_guild):
     """Test updating game by host."""
-    from datetime import datetime
-
-    from shared.schemas.auth import CurrentUser
 
     game_id = str(uuid.uuid4())
     channel_id = str(uuid.uuid4())
@@ -752,7 +753,7 @@ async def test_update_game_success(game_service, mock_db, sample_user, sample_gu
         host_id=sample_user.id,
         guild_id=sample_guild.id,
         channel_id=channel_id,
-        scheduled_at=datetime.now(UTC).replace(tzinfo=None),
+        scheduled_at=datetime.datetime.now(UTC).replace(tzinfo=None),
         status="SCHEDULED",
     )
     mock_game.host = sample_user
@@ -792,7 +793,6 @@ async def test_update_game_success(game_service, mock_db, sample_user, sample_gu
 @pytest.mark.asyncio
 async def test_update_game_where_field(game_service, mock_db, sample_user, sample_guild):
     """Test updating game where field."""
-    from shared.schemas.auth import CurrentUser
 
     game_id = str(uuid.uuid4())
     channel_id = str(uuid.uuid4())
@@ -838,7 +838,6 @@ async def test_update_game_where_field(game_service, mock_db, sample_user, sampl
 @pytest.mark.asyncio
 async def test_update_game_not_host(game_service, mock_db, sample_user, sample_guild):
     """Test updating game by non-host raises ValueError."""
-    from shared.schemas.auth import CurrentUser
 
     game_id = str(uuid.uuid4())
     other_user_id = str(uuid.uuid4())
@@ -881,7 +880,6 @@ async def test_update_game_not_host(game_service, mock_db, sample_user, sample_g
 @pytest.mark.asyncio
 async def test_delete_game_success(game_service, mock_db, sample_user, sample_guild):
     """Test deleting game by host."""
-    from shared.schemas.auth import CurrentUser
 
     game_id = str(uuid.uuid4())
     channel_id = str(uuid.uuid4())
@@ -990,7 +988,6 @@ async def test_join_game_already_joined(
     sample_channel,
 ):
     """Test joining same game twice raises ValueError due to IntegrityError."""
-    from sqlalchemy.exc import IntegrityError
 
     game_id = str(uuid.uuid4())
     mock_game = game_model.GameSession(
@@ -1147,7 +1144,6 @@ async def test_leave_game_not_participant(game_service, mock_db, sample_user):
 @pytest.mark.asyncio
 async def test_ensure_in_progress_schedule_creates_new(game_service, mock_db, sample_game_data):
     """Test _ensure_in_progress_schedule creates new schedule when none exists."""
-    from shared.models import game_status_schedule as game_status_schedule_model
 
     game = game_model.GameSession(
         id=str(uuid.uuid4()),
@@ -1174,7 +1170,6 @@ async def test_ensure_in_progress_schedule_creates_new(game_service, mock_db, sa
 @pytest.mark.asyncio
 async def test_ensure_in_progress_schedule_updates_existing(game_service, mock_db):
     """Test _ensure_in_progress_schedule updates existing schedule."""
-    from shared.models import game_status_schedule as game_status_schedule_model
 
     old_time = datetime.datetime.now(datetime.UTC)
     new_time = old_time + datetime.timedelta(hours=1)
@@ -1208,7 +1203,6 @@ async def test_ensure_in_progress_schedule_updates_existing(game_service, mock_d
 @pytest.mark.asyncio
 async def test_ensure_completed_schedule_creates_new(game_service, mock_db):
     """Test _ensure_completed_schedule creates new schedule when none exists."""
-    from shared.models import game_status_schedule as game_status_schedule_model
 
     scheduled_time = datetime.datetime.now(datetime.UTC)
     game = game_model.GameSession(
@@ -1237,7 +1231,6 @@ async def test_ensure_completed_schedule_creates_new(game_service, mock_db):
 @pytest.mark.asyncio
 async def test_ensure_completed_schedule_uses_default_duration(game_service, mock_db):
     """Test _ensure_completed_schedule uses DEFAULT_GAME_DURATION_MINUTES when duration is None."""
-    from shared.models import game_status_schedule as game_status_schedule_model
 
     scheduled_time = datetime.datetime.now(datetime.UTC)
     game = game_model.GameSession(
@@ -1263,7 +1256,6 @@ async def test_ensure_completed_schedule_uses_default_duration(game_service, moc
 @pytest.mark.asyncio
 async def test_ensure_completed_schedule_updates_existing(game_service, mock_db):
     """Test _ensure_completed_schedule updates existing schedule."""
-    from shared.models import game_status_schedule as game_status_schedule_model
 
     old_time = datetime.datetime.now(datetime.UTC)
     new_scheduled_time = old_time + datetime.timedelta(hours=2)
@@ -1333,7 +1325,6 @@ async def test_update_status_schedules_for_scheduled_game(game_service, mock_db)
 @pytest.mark.asyncio
 async def test_update_status_schedules_deletes_for_non_scheduled_game(game_service, mock_db):
     """Test _update_status_schedules deletes all schedules for non-SCHEDULED game."""
-    from shared.models import game_status_schedule as game_status_schedule_model
 
     game = game_model.GameSession(
         id=str(uuid.uuid4()),
@@ -1375,7 +1366,6 @@ async def test_update_status_schedules_deletes_for_non_scheduled_game(game_servi
 @pytest.mark.asyncio
 async def test_update_status_schedules_updates_existing_schedules(game_service, mock_db):
     """Test _update_status_schedules updates existing schedules for SCHEDULED game."""
-    from shared.models import game_status_schedule as game_status_schedule_model
 
     old_time = datetime.datetime.now(datetime.UTC)
     new_time = old_time + datetime.timedelta(days=1)
@@ -1436,7 +1426,6 @@ async def test_create_game_creates_status_schedules(
     sample_user,
 ):
     """Test create_game creates both IN_PROGRESS and COMPLETED status schedules."""
-    from shared.models import game_status_schedule as game_status_schedule_model
 
     scheduled_time = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
     game_data = game_schemas.GameCreateRequest(
@@ -1959,7 +1948,6 @@ async def test_create_game_explicit_signup_method(
     sample_user,
 ):
     """Test creating game with explicit signup method."""
-    from shared.models.signup_method import SignupMethod
 
     game_data = game_schemas.GameCreateRequest(
         template_id=sample_template.id,
@@ -2032,7 +2020,6 @@ async def test_create_game_uses_template_default_signup_method(
     sample_user,
 ):
     """Test creating game uses template default signup method when not specified."""
-    from shared.models.signup_method import SignupMethod
 
     template_with_default = template_model.GameTemplate(
         id=str(uuid.uuid4()),
@@ -2117,7 +2104,6 @@ async def test_create_game_defaults_to_self_signup(
     sample_user,
 ):
     """Test creating game defaults to SELF_SIGNUP when no method specified."""
-    from shared.models.signup_method import SignupMethod
 
     game_data = game_schemas.GameCreateRequest(
         template_id=sample_template.id,
@@ -2188,7 +2174,6 @@ async def test_create_game_validates_signup_method_against_allowed_list(
     sample_user,
 ):
     """Test creating game validates signup method against template's allowed list."""
-    from shared.models.signup_method import SignupMethod
 
     template_with_restrictions = template_model.GameTemplate(
         id=str(uuid.uuid4()),
@@ -2246,7 +2231,6 @@ async def test_create_game_allows_any_method_when_allowed_list_is_none(
     sample_user,
 ):
     """Test creating game allows any signup method when template has no restrictions."""
-    from shared.models.signup_method import SignupMethod
 
     sample_template.allowed_signup_methods = None
 
@@ -2322,7 +2306,6 @@ async def test_create_game_allows_any_method_when_allowed_list_is_empty(
     sample_user,
 ):
     """Test creating game allows any signup method when template has empty allowed list."""
-    from shared.models.signup_method import SignupMethod
 
     sample_template.allowed_signup_methods = []
 

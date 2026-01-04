@@ -23,7 +23,7 @@ from uuid import UUID
 
 import pytest
 
-from services.bot.events.publisher import BotEventPublisher
+from services.bot.events.publisher import BotEventPublisher, get_bot_publisher
 from shared.messaging.events import Event, EventType
 
 
@@ -139,7 +139,6 @@ async def test_publish_game_updated(bot_publisher, mock_publisher):
 @pytest.mark.asyncio
 async def test_get_bot_publisher_singleton():
     """Test get_bot_publisher returns singleton instance."""
-    from services.bot.events.publisher import get_bot_publisher
 
     publisher1 = get_bot_publisher()
     publisher2 = get_bot_publisher()

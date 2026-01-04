@@ -73,10 +73,10 @@ class GameSchedulerBot(commands.Bot):
         """Initialize bot components before connecting to Gateway."""
         logger.info("Running bot setup hook")
 
-        from services.bot.commands import setup_commands
-        from services.bot.events.handlers import EventHandlers
-        from services.bot.events.publisher import BotEventPublisher
-        from services.bot.handlers import ButtonHandler
+        from services.bot.commands import setup_commands  # noqa: PLC0415 - lazy load
+        from services.bot.events.handlers import EventHandlers  # noqa: PLC0415
+        from services.bot.events.publisher import BotEventPublisher  # noqa: PLC0415
+        from services.bot.handlers import ButtonHandler  # noqa: PLC0415
 
         await setup_commands(self)
         logger.info("Commands registered successfully")

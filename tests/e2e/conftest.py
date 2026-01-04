@@ -30,8 +30,12 @@ from typing import Any, TypeVar
 
 import httpx
 import pytest
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from shared.utils.discord_tokens import extract_bot_discord_id
+from tests.e2e.helpers.discord import DiscordTestHelper
+from tests.shared.auth_helpers import cleanup_test_session, create_test_session
 from tests.shared.polling import wait_for_db_condition_async
 
 T = TypeVar("T")
@@ -276,7 +280,6 @@ def http_client(api_base_url):
 @pytest.fixture
 async def discord_helper(discord_token):
     """Create and connect Discord test helper."""
-    from tests.e2e.helpers.discord import DiscordTestHelper
 
     helper = DiscordTestHelper(discord_token)
     await helper.connect()
@@ -287,7 +290,6 @@ async def discord_helper(discord_token):
 @pytest.fixture(scope="session")
 def bot_discord_id(discord_token):
     """Extract bot Discord ID from token."""
-    from tests.e2e.utils.tokens import extract_bot_discord_id
 
     return extract_bot_discord_id(discord_token)
 
@@ -295,9 +297,6 @@ def bot_discord_id(discord_token):
 @pytest.fixture(scope="function")
 async def authenticated_admin_client(api_base_url, bot_discord_id, discord_token):
     """HTTP client authenticated as admin bot."""
-    import httpx
-
-    from tests.shared.auth_helpers import cleanup_test_session, create_test_session
 
     client = httpx.AsyncClient(base_url=api_base_url, timeout=10.0)
 
@@ -339,9 +338,6 @@ async def synced_guild(authenticated_admin_client, discord_guild_id):
 @pytest.fixture(scope="function")
 async def authenticated_client_b(api_base_url, discord_user_b_id, discord_user_b_token):
     """HTTP client authenticated as User B (Guild B member)."""
-    import httpx
-
-    from tests.shared.auth_helpers import cleanup_test_session, create_test_session
 
     client = httpx.AsyncClient(base_url=api_base_url, timeout=10.0)
 
@@ -357,7 +353,6 @@ async def authenticated_client_b(api_base_url, discord_user_b_id, discord_user_b
 @pytest.fixture(scope="function")
 async def guild_b_db_id(db_session, discord_guild_b_id):
     """Get database UUID for Guild B."""
-    from sqlalchemy import text
 
     result = await db_session.execute(
         text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
@@ -374,7 +369,6 @@ async def guild_b_db_id(db_session, discord_guild_b_id):
 @pytest.fixture(scope="function")
 async def guild_b_template_id(db_session, guild_b_db_id):
     """Get default template UUID for Guild B."""
-    from sqlalchemy import text
 
     result = await db_session.execute(
         text("SELECT id FROM game_templates WHERE guild_id = :guild_id AND is_default = true"),

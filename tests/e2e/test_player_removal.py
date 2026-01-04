@@ -40,6 +40,7 @@ E2E data seeded by init service:
 Note: Admin bot (from DISCORD_ADMIN_BOT_TOKEN) creates game and removes test user.
 """
 
+import json
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
@@ -47,7 +48,7 @@ import pytest
 from sqlalchemy import text
 
 from tests.e2e.conftest import TimeoutType, wait_for_game_message_id
-from tests.e2e.helpers.discord import DMType
+from tests.e2e.helpers.discord import DiscordTestHelper, DMType
 
 pytestmark = pytest.mark.e2e
 
@@ -126,7 +127,6 @@ async def test_template_id(db_session, test_guild_id, synced_guild):
 @pytest.fixture
 async def main_bot_helper(discord_main_bot_token):
     """Create Discord helper for main bot (sends notifications)."""
-    from tests.e2e.helpers.discord import DiscordTestHelper
 
     helper = DiscordTestHelper(discord_main_bot_token)
     await helper.connect()
@@ -165,8 +165,6 @@ async def test_player_removal_sends_dm_and_updates_message(
     read DMs sent to other bots. Test user (DISCORD_USER_ID) is the
     participant being removed and receiving the DM.
     """
-    import json
-
     scheduled_time = datetime.now(UTC) + timedelta(hours=2)
     game_title = f"E2E Removal Test {uuid4().hex[:8]}"
 

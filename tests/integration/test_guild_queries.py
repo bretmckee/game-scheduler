@@ -35,11 +35,15 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from shared.data_access import guild_queries
+from shared.models.channel import ChannelConfiguration
+from shared.models.game import GameSession
+from shared.models.guild import GuildConfiguration
 from shared.models.participant import ParticipantType
+from shared.models.user import User
 
 pytestmark = pytest.mark.integration
 
@@ -97,7 +101,6 @@ def guild_b_id():
 @pytest.fixture
 async def guild_b_config(db, guild_b_id):
     """Create GuildConfiguration for guild_b for multi-guild testing."""
-    from shared.models.guild import GuildConfiguration
 
     guild_config = GuildConfiguration(
         id=guild_b_id,
@@ -111,8 +114,6 @@ async def guild_b_config(db, guild_b_id):
 @pytest.fixture
 async def channel_id(db, guild_a_id):
     """Test channel ID with database record - cleaned up by session rollback."""
-    from shared.models.channel import ChannelConfiguration
-    from shared.models.guild import GuildConfiguration
 
     # Create guild configuration record first
     guild_config = GuildConfiguration(
@@ -138,7 +139,6 @@ async def channel_id(db, guild_a_id):
 @pytest.fixture
 async def user_id(db):
     """Test user ID with database record."""
-    from shared.models.user import User
 
     user = User(
         id=str(uuid.uuid4()),
@@ -232,7 +232,6 @@ async def test_list_games_returns_only_guild_games(
 @pytest.mark.asyncio
 async def test_list_games_respects_channel_filter(db, guild_a_id, sample_game_data):
     """Verify list_games filters by channel when specified."""
-    from shared.models.channel import ChannelConfiguration
 
     channel_1 = str(uuid.uuid4())
     channel_2 = str(uuid.uuid4())
@@ -564,9 +563,6 @@ async def test_update_template_succeeds_for_correct_guild(db, guild_a_id, sample
 @pytest.mark.xfail(reason="RLS may add overhead - needs performance tuning")
 async def test_wrapper_overhead_acceptable(db, guild_a_id, sample_game_data):
     """Verify wrapper adds < 100% overhead compared to direct query."""
-    from sqlalchemy import select
-
-    from shared.models.game import GameSession
 
     game = await guild_queries.create_game(db, guild_a_id, sample_game_data)
     await db.commit()
@@ -596,9 +592,6 @@ async def test_wrapper_overhead_acceptable(db, guild_a_id, sample_game_data):
 @pytest.mark.xfail(reason="RLS may add overhead - needs performance tuning")
 async def test_list_operations_no_n_plus_1(db, guild_a_id, sample_game_data):
     """Verify list operations have < 100% overhead vs direct query."""
-    from sqlalchemy import select
-
-    from shared.models.game import GameSession
 
     for i in range(10):
         await guild_queries.create_game(db, guild_a_id, {**sample_game_data, "title": f"Game {i}"})

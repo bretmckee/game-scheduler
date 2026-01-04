@@ -30,7 +30,7 @@ from aio_pika import DeliveryMode, ExchangeType, Message
 from aio_pika.abc import AbstractChannel, AbstractRobustConnection
 
 from shared.messaging.config import get_rabbitmq_connection
-from shared.messaging.events import Event
+from shared.messaging.events import Event, EventType
 
 logger = logging.getLogger(__name__)
 
@@ -131,8 +131,6 @@ class EventPublisher:
             data: Event payload.
             trace_id: Optional correlation ID.
         """
-        from shared.messaging.events import EventType
-
         event = Event(
             event_type=EventType(event_type),
             data=data,
