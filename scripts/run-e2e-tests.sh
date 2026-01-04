@@ -33,6 +33,10 @@ if [ -z "$DISCORD_GUILD_A_ID" ] || [ -z "$DISCORD_GUILD_A_CHANNEL_ID" ]; then
 fi
 
 cleanup() {
+  if [ -n "$SKIP_CLEANUP" ]; then
+    echo "Skipping e2e test environment cleanup (SKIP_CLEANUP is set)"
+    return
+  fi
   echo "Cleaning up e2e test environment..."
   docker compose --env-file "$ENV_FILE" down -v
 }

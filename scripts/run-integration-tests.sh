@@ -8,6 +8,10 @@ set -e
 ENV_FILE="config/env.int"
 
 cleanup() {
+  if [ -n "$SKIP_CLEANUP" ]; then
+    echo "Skipping integration test environment cleanup (SKIP_CLEANUP is set)"
+    return
+  fi
   echo "Cleaning up integration test environment..."
   docker compose --env-file "$ENV_FILE" down -v
 }
