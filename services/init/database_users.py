@@ -145,9 +145,60 @@ def create_database_users() -> None:
                 )
                 logger.info(f"✓ Permissions granted to '{app_user}'")
 
+                bot_user = os.getenv("POSTGRES_BOT_USER", "gamebot_bot")
+                bot_password = os.getenv("POSTGRES_BOT_PASSWORD")
+
+                if not bot_password:
+                    logger.warning("POSTGRES_BOT_PASSWORD not set, skipping bot user creation")
+                else:
+                    logger.info(
+                        f"Creating bot user '{bot_user}' (BYPASSRLS for bot/daemon services)..."
+                    )
+                    cursor.execute(
+                        f"""
+                        DO $$
+                        BEGIN
+                            IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = %s) THEN
+                                CREATE USER {bot_user} WITH PASSWORD %s LOGIN BYPASSRLS;
+                                COMMENT ON ROLE {bot_user} IS
+                                    'Bot/daemon user - bypasses RLS (all guilds by design)';
+                                RAISE NOTICE 'Created bot user: {bot_user}';
+                            ELSE
+                                RAISE NOTICE 'Bot user already exists: {bot_user}';
+                            END IF;
+                        END
+                        $$;
+                        """,
+                        (bot_user, bot_password),
+                    )
+                    logger.info(f"✓ Bot user '{bot_user}' ready")
+
+                    logger.info(f"Granting permissions to '{bot_user}'...")
+                    cursor.execute(
+                        f"""
+                        GRANT CONNECT ON DATABASE {postgres_db} TO {bot_user};
+                        GRANT USAGE ON SCHEMA public TO {bot_user};
+                        GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
+                            ON ALL TABLES IN SCHEMA public TO {bot_user};
+                        GRANT USAGE, SELECT, UPDATE
+                            ON ALL SEQUENCES IN SCHEMA public TO {bot_user};
+                        GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO {bot_user};
+                        ALTER DEFAULT PRIVILEGES FOR ROLE {app_user} IN SCHEMA public
+                            GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
+                            ON TABLES TO {bot_user};
+                        ALTER DEFAULT PRIVILEGES FOR ROLE {app_user} IN SCHEMA public
+                            GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO {bot_user};
+                        ALTER DEFAULT PRIVILEGES FOR ROLE {app_user} IN SCHEMA public
+                            GRANT EXECUTE ON FUNCTIONS TO {bot_user};
+                        """
+                    )
+                    logger.info(f"✓ Permissions granted to '{bot_user}'")
+
                 logger.info("Database users configured successfully")
                 logger.info(f"  - Admin user (future use): {admin_user}")
-                logger.info(f"  - App user (migrations + runtime with RLS): {app_user}")
+                logger.info(f"  - App user (API with RLS): {app_user}")
+                if bot_password:
+                    logger.info(f"  - Bot user (bot/daemons, bypasses RLS): {bot_user}")
 
         except psycopg2.Error as e:
             logger.error(f"Failed to create database users: {e}")
