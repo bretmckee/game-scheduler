@@ -12,6 +12,246 @@
 2. **DO NOT bypass RLS** - Introduces security vulnerability and architectural complexity
 3. **Guild context already known** - Bot handlers have `interaction.guild_id` available, no RabbitMQ changes needed
 
+## Current Implementation Status
+
+### Database User Architecture (As Implemented)
+
+**Current setup (verified from codebase analysis)**:
+
+**Step 1: Bootstrap with PostgreSQL default superuser**
+- User: `postgres` (created automatically by PostgreSQL)
+- Purpose: Bootstrap database and create application users
+- Used by: Init service only (services/init/database_users.py)
+- Connection: Via `POSTGRES_USER` and `POSTGRES_PASSWORD` env vars
+
+**Step 2: Init service creates application users**
+- Creates `gamebot_admin` (SUPERUSER) - **Currently unused**
+- Creates `gamebot_app` (non-superuser, LOGIN) - **Currently used by everything**
+- Grants privileges to `gamebot_app` via wildcard patterns
+- Code: services/init/database_users.py lines 93-146
+
+**Step 3: All migrations and services use `gamebot_app`**
+- Migrations: Run via Alembic using `DATABASE_URL` env var (points to gamebot_app)
+- Tables: Owned by `gamebot_app` (created during migrations)
+- API service: Connects as `gamebot_app`
+- Bot service: Connects as `gamebot_app`
+- Daemon services: Connect as `gamebot_app`
+
+**Key finding**: Current architecture is **already Phase 1 ready**:
+- ✅ `gamebot_app` is non-superuser → RLS will be enforced when enabled
+- ✅ `gamebot_app` owns tables → Has full CRUD privileges
+- ✅ All services use same user → Consistent during Phase 1
+- ⚠️ `gamebot_admin` exists but unused → Available for Phase 2 migration strategy
+
+### Current Database Initialization Flow
+
+```
+1. Docker starts postgres container
+   └─ Creates default 'postgres' superuser automatically
+
+2. Init service connects as 'postgres' superuser
+   └─ Runs services/init/database_users.py
+
+3. Database user creation (via postgres superuser)
+   ├─ Creates gamebot_admin (SUPERUSER, unused)
+   └─ Creates gamebot_app (non-superuser, LOGIN)
+       └─ Grants CONNECT, USAGE, CREATE on database/schema
+       └─ Grants SELECT, INSERT, UPDATE, DELETE on all tables
+       └─ Sets ALTER DEFAULT PRIVILEGES for future objects
+
+4. Init service runs Alembic migrations
+   └─ Connects as gamebot_app (via DATABASE_URL env var)
+   └─ Creates tables owned by gamebot_app
+   └─ Tables inherit privileges from DEFAULT PRIVILEGES
+
+5. All services start
+   ├─ API: Connects as gamebot_app
+   ├─ Bot: Connects as gamebot_app
+   └─ Daemons: Connect as gamebot_app
+```
+
+**Environment variable configuration** (from config/env.dev):
+```bash
+# Bootstrap user (only for init service user creation)
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=dev_password_change_in_prod
+
+# Admin user (created but unused)
+POSTGRES_ADMIN_USER=gamebot_admin
+POSTGRES_ADMIN_PASSWORD=dev_admin_password_change_in_prod
+
+# App user (used by migrations and all services)
+POSTGRES_APP_USER=gamebot_app
+POSTGRES_APP_PASSWORD=dev_app_password_change_in_prod
+
+# Migration URL (uses gamebot_app)
+ADMIN_DATABASE_URL=postgresql+asyncpg://gamebot_admin:...@postgres:5432/game_scheduler
+
+# Runtime URL (uses gamebot_app)
+DATABASE_URL=postgresql+asyncpg://gamebot_app:...@postgres:5432/game_scheduler
+```
+
+**Note**: Despite the name `ADMIN_DATABASE_URL`, Alembic actually uses `DATABASE_URL` (verified in alembic/env.py line 44), so migrations run as `gamebot_app`.
+
+## PostgreSQL Permission Architecture
+
+### Object Hierarchy
+
+```
+PostgreSQL Cluster (server instance, listens on port 5432)
+└── Database (isolated namespace, cannot query across databases)
+    └── Schema (organizational namespace, default: 'public')
+        └── Tables, Views, Functions, Sequences (data objects)
+```
+
+**Full path**: `game_scheduler.public.game_sessions` (typically written as just `game_sessions`)
+
+**Your project**:
+- Cluster: Docker container named `postgres`
+- Database: `game_scheduler`
+- Schema: `public` (implicit, not explicitly referenced)
+- Tables: `game_sessions`, `guild_configurations`, `participants`, etc.
+
+### Permission Checking Layers
+
+PostgreSQL checks permissions in this order:
+
+**1. Connection Authentication (pg_hba.conf)**
+- Question: Can this user connect from this host?
+- Example: `host game_scheduler gamebot_app 172.16.0.0/12 scram-sha-256`
+
+**2. Database-Level Privileges**
+- Question: Can this user connect to this database?
+- Example: `GRANT CONNECT ON DATABASE game_scheduler TO gamebot_app;`
+
+**3. Schema-Level Privileges**
+- Question: Can this user see objects in this schema?
+- Example: `GRANT USAGE ON SCHEMA public TO gamebot_app;`
+
+**4. Table-Level Privileges**
+- Question: Can this user SELECT/INSERT/UPDATE/DELETE on this table?
+- Example: `GRANT SELECT, INSERT, UPDATE, DELETE ON game_sessions TO gamebot_app;`
+- Check process:
+  1. User attempts: `SELECT * FROM game_sessions`
+  2. PostgreSQL checks: "Does gamebot_app have SELECT privilege?"
+  3. If YES → Continue to RLS
+  4. If NO → Error: "permission denied for table game_sessions"
+
+**5. Row-Level Security (RLS)**
+- Question: Which ROWS can this user see/modify?
+- Example: `CREATE POLICY guild_isolation ON game_sessions USING (guild_id = ANY(...))`
+- Check process:
+  1. Table privileges already passed (user CAN access table)
+  2. RLS policy filters which rows are visible
+  3. Query becomes: `SELECT * FROM game_sessions WHERE <RLS_POLICY>`
+  4. User only sees rows that pass RLS policy
+- **RLS bypass conditions**:
+  - User is SUPERUSER → RLS not evaluated
+  - User has BYPASSRLS privilege → RLS not evaluated
+  - RLS is disabled on table → RLS not evaluated
+
+### Table Ownership vs Privileges
+
+**Table ownership** (what `gamebot_app` currently has):
+- Tables are owned by the user who created them
+- In your project: `gamebot_app` runs migrations → owns all tables
+- Owner can: ALTER, DROP, GRANT privileges on table
+- Owner bypasses table-level permission checks (implicitly has all privileges)
+- **CRITICAL**: Owner does NOT bypass RLS unless also SUPERUSER
+
+**Why this matters**:
+```sql
+-- gamebot_app runs migrations
+CREATE TABLE game_sessions (...);  -- Owned by gamebot_app
+
+-- gamebot_app doesn't need explicit GRANT (it's the owner)
+SELECT * FROM game_sessions;  -- ✅ Works (owner has implicit ALL privileges)
+
+-- But RLS still applies (gamebot_app is NOT SUPERUSER)
+-- RLS policy will filter rows even though gamebot_app owns the table
+```
+
+**Three-user privilege levels**:
+
+1. **`postgres` (SUPERUSER)** - Used for bootstrapping
+   - ✅ Bypasses ALL permission checks (table + RLS)
+   - ✅ Can CREATE/ALTER/DROP tables
+   - ✅ Can GRANT privileges to other users
+   - ⚠️ Too powerful for application use
+
+2. **`gamebot_admin` (SUPERUSER)** - Reserved for Phase 2 migrations
+   - ✅ Same powers as postgres
+   - ✅ Bypasses RLS (superuser attribute)
+   - ⚠️ Currently unused in your project
+
+3. **`gamebot_app` (non-superuser, owner)** - Current primary user
+   - ✅ Owns all tables → Implicit full CRUD access
+   - ✅ Can ALTER/DROP owned tables
+   - ❌ **Subject to RLS policies** (not SUPERUSER)
+   - ✅ **Perfect for Phase 1** (RLS enforcement works)
+
+4. **`gamebot_bot` (BYPASSRLS, non-superuser)** - Phase 2 addition
+   - ✅ Bypasses RLS policies (BYPASSRLS privilege)
+   - ❌ Subject to table privilege checks (needs GRANT)
+   - ❌ Cannot CREATE/ALTER/DROP tables
+   - ✅ Least privilege for bot/daemon services
+
+### PostgreSQL GRANT Patterns
+
+**Wildcard grants for existing objects**:
+```sql
+-- Grant on ALL current tables/sequences/functions
+GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
+    ON ALL TABLES IN SCHEMA public TO gamebot_bot;
+GRANT USAGE, SELECT, UPDATE
+    ON ALL SEQUENCES IN SCHEMA public TO gamebot_bot;
+GRANT EXECUTE
+    ON ALL FUNCTIONS IN SCHEMA public TO gamebot_bot;
+```
+
+**Auto-grant for future objects**:
+```sql
+-- Grant on future tables created by gamebot_app
+ALTER DEFAULT PRIVILEGES FOR ROLE gamebot_app IN SCHEMA public
+    GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
+    ON TABLES TO gamebot_bot;
+ALTER DEFAULT PRIVILEGES FOR ROLE gamebot_app IN SCHEMA public
+    GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO gamebot_bot;
+ALTER DEFAULT PRIVILEGES FOR ROLE gamebot_app IN SCHEMA public
+    GRANT EXECUTE ON FUNCTIONS TO gamebot_bot;
+```
+
+**Why you need both**:
+- `GRANT ... ON ALL TABLES` → Affects tables that exist NOW
+- `ALTER DEFAULT PRIVILEGES` → Affects tables created AFTER this command
+- `FOR ROLE gamebot_app` → Critical: Specifies WHO creates the future tables
+
+**Example timeline**:
+```
+1. Create gamebot_bot user
+2. GRANT ... ON ALL TABLES
+   → gamebot_bot can access game_sessions, participants (existing)
+3. ALTER DEFAULT PRIVILEGES FOR ROLE gamebot_app
+   → Set up auto-grant when gamebot_app creates tables
+4. Migration creates new table: user_preferences (owned by gamebot_app)
+5. gamebot_bot automatically has access (because of step 3)
+```
+
+**Current issue in database_users.py** (lines 138-143):
+```python
+# Missing "FOR ROLE gamebot_app" clause
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO {app_user};
+```
+
+This grants privileges when `postgres` creates tables, but since migrations run as `gamebot_app`, this doesn't help. Should be:
+```python
+ALTER DEFAULT PRIVILEGES FOR ROLE gamebot_app IN SCHEMA public
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO {app_user};
+```
+
+However, since `gamebot_app` owns the tables, this is redundant (owners already have full privileges).
+
 ## Research Context
 
 ### Current Bot Architecture
@@ -473,3 +713,221 @@ GRANT USAGE, SELECT ON ALL SEQUENCES TO gamebot_bot;
 5. Verify API still enforces RLS for user requests (uses `gamebot_app`)
 
 **Performance impact**: Saves 50-100μs per query (0.05-0.3% of total request time). Minor optimization, but architecturally cleaner.
+
+### Phase 2 Implementation Checklist
+
+**Prerequisite**: Phase 1 complete and validated (RLS policies enabled and working)
+
+#### Step 1: Create `gamebot_bot` Database User
+
+**File**: `services/init/database_users.py`
+
+Add after gamebot_app creation (after line 146):
+
+```python
+bot_user = os.getenv("POSTGRES_BOT_USER", "gamebot_bot")
+bot_password = os.getenv("POSTGRES_BOT_PASSWORD")
+
+if not bot_password:
+    logger.warning("POSTGRES_BOT_PASSWORD not set, skipping bot user creation")
+    return
+
+logger.info(f"Creating bot user '{bot_user}' (BYPASSRLS for bot/daemon services)...")
+cursor.execute(
+    f"""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = %s) THEN
+            CREATE USER {bot_user} WITH PASSWORD %s LOGIN BYPASSRLS;
+            COMMENT ON ROLE {bot_user} IS
+                'Bot/daemon user - bypasses RLS (member of all guilds by design)';
+            RAISE NOTICE 'Created bot user: {bot_user}';
+        ELSE
+            RAISE NOTICE 'Bot user already exists: {bot_user}';
+        END IF;
+    END
+    $$;
+    """,
+    (bot_user, bot_password),
+)
+logger.info(f"✓ Bot user '{bot_user}' ready")
+
+logger.info(f"Granting permissions to '{bot_user}'...")
+cursor.execute(
+    f"""
+    GRANT CONNECT ON DATABASE {postgres_db} TO {bot_user};
+    GRANT USAGE ON SCHEMA public TO {bot_user};
+    GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
+        ON ALL TABLES IN SCHEMA public TO {bot_user};
+    GRANT USAGE, SELECT, UPDATE
+        ON ALL SEQUENCES IN SCHEMA public TO {bot_user};
+    GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO {bot_user};
+    ALTER DEFAULT PRIVILEGES FOR ROLE {app_user} IN SCHEMA public
+        GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
+        ON TABLES TO {bot_user};
+    ALTER DEFAULT PRIVILEGES FOR ROLE {app_user} IN SCHEMA public
+        GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO {bot_user};
+    ALTER DEFAULT PRIVILEGES FOR ROLE {app_user} IN SCHEMA public
+        GRANT EXECUTE ON FUNCTIONS TO {bot_user};
+    """
+)
+logger.info(f"✓ Permissions granted to '{bot_user}'")
+
+logger.info("Database users configured successfully")
+logger.info(f"  - Admin user (future use): {admin_user}")
+logger.info(f"  - App user (API with RLS): {app_user}")
+logger.info(f"  - Bot user (bot/daemons, bypasses RLS): {bot_user}")
+```
+
+#### Step 2: Update Environment Variables
+
+**Files**: All environment files in `config/` and `config.template/`
+
+Add after `POSTGRES_APP_PASSWORD` (maintaining order across all files):
+
+**Template** (`config.template/env.template`):
+```bash
+# PostgreSQL bot user for bot/daemon services (non-superuser with BYPASSRLS)
+POSTGRES_BOT_USER=gamebot_bot
+
+# PostgreSQL bot password
+# SECURITY: Change from default in production
+POSTGRES_BOT_PASSWORD=dev_bot_password_change_in_prod
+
+# Full PostgreSQL connection URL for bot/daemon services (uses bot user, bypasses RLS)
+# Format: postgresql+asyncpg://USER:PASSWORD@HOST:PORT/DATABASE
+BOT_DATABASE_URL=postgresql+asyncpg://gamebot_bot:dev_bot_password_change_in_prod@postgres:5432/game_scheduler
+```
+
+**Dev** (`config/env.dev`):
+```bash
+POSTGRES_BOT_USER=gamebot_bot
+POSTGRES_BOT_PASSWORD=dev_bot_password_change_in_prod
+BOT_DATABASE_URL=postgresql+asyncpg://gamebot_bot:dev_bot_password_change_in_prod@postgres:5432/game_scheduler
+```
+
+**Staging** (`config/env.staging`):
+```bash
+POSTGRES_BOT_USER=gamebot_bot
+POSTGRES_BOT_PASSWORD=staging_bot_password_change_me
+BOT_DATABASE_URL=postgresql+asyncpg://gamebot_bot:staging_bot_password_change_me@postgres:5432/game_scheduler
+```
+
+**Production** (`config/env.prod`):
+```bash
+POSTGRES_BOT_USER=gamebot_bot
+POSTGRES_BOT_PASSWORD=prod_bot_password_change_in_prod
+BOT_DATABASE_URL=postgresql+asyncpg://gamebot_bot:prod_bot_password_change_in_prod@postgres:5432/game_scheduler
+```
+
+**Integration** (`config/env.int`):
+```bash
+POSTGRES_BOT_USER=gamebot_bot
+POSTGRES_BOT_PASSWORD=integration_bot_password
+BOT_DATABASE_URL=postgresql+asyncpg://gamebot_bot:integration_bot_password@postgres:5432/game_scheduler_integration
+```
+
+**E2E** (`config/env.e2e`):
+```bash
+POSTGRES_BOT_USER=gamebot_bot
+POSTGRES_BOT_PASSWORD=e2e_bot_password
+BOT_DATABASE_URL=postgresql+asyncpg://gamebot_bot:e2e_bot_password@postgres:5432/game_scheduler_e2e
+```
+
+#### Step 3: Update Docker Compose Service Configurations
+
+**File**: `compose.yaml`
+
+**Bot service**:
+```yaml
+bot:
+  environment:
+    DATABASE_URL: ${BOT_DATABASE_URL}  # Changed from ${DATABASE_URL}
+```
+
+**Notification daemon**:
+```yaml
+notification-daemon:
+  environment:
+    DATABASE_URL: ${BOT_DATABASE_URL}  # Changed from ${DATABASE_URL}
+```
+
+**Status transition daemon**:
+```yaml
+status-transition-daemon:
+  environment:
+    DATABASE_URL: ${BOT_DATABASE_URL}  # Changed from ${DATABASE_URL}
+```
+
+**Init service** (optional - switch to admin user for migrations):
+```yaml
+init:
+  environment:
+    DATABASE_URL: ${ADMIN_DATABASE_URL}  # Changed from ${DATABASE_URL}
+    POSTGRES_BOT_USER: ${POSTGRES_BOT_USER}
+    POSTGRES_BOT_PASSWORD: ${POSTGRES_BOT_PASSWORD}
+```
+
+**API service** (no change - stays on gamebot_app):
+```yaml
+api:
+  environment:
+    DATABASE_URL: ${DATABASE_URL}  # Still uses gamebot_app (RLS enforced)
+```
+
+#### Step 4: Remove Guild Context Management from Bot/Daemons
+
+**Files to update**:
+- Bot handlers: Remove `set_current_guild_ids()` calls
+- Daemon services: Remove RLS context setting code
+
+Since bot/daemons now use `gamebot_bot` with BYPASSRLS, they don't need to set guild context.
+
+#### Step 5: Validation Testing
+
+**Test 1: Bot bypasses RLS**
+```python
+# In bot service, query should return all guilds
+games = await db.execute(select(GameSession).where(GameSession.status == "SCHEDULED"))
+# Should return games from ALL guilds (no RLS filtering)
+```
+
+**Test 2: API enforces RLS**
+```python
+# In API service, query should filter by user's guilds
+games = await db.execute(select(GameSession).where(GameSession.status == "SCHEDULED"))
+# Should return games ONLY from user's accessible guilds (RLS active)
+```
+
+**Test 3: Verify user privileges**
+```sql
+-- Connect to database
+\c game_scheduler
+
+-- Check gamebot_bot has BYPASSRLS
+SELECT rolname, rolsuper, rolbypassrls
+FROM pg_roles
+WHERE rolname IN ('gamebot_admin', 'gamebot_app', 'gamebot_bot');
+
+-- Expected results:
+-- gamebot_admin | t | t (superuser + bypassrls)
+-- gamebot_app   | f | f (normal user, RLS enforced)
+-- gamebot_bot   | f | t (not super, but bypasses RLS)
+```
+
+#### Step 6: Migration Order (First Deployment)
+
+1. Deploy updated code with new database user creation logic
+2. Init service creates `gamebot_bot` user on startup
+3. Restart bot and daemon services (will connect with new BOT_DATABASE_URL)
+4. Verify no errors in logs
+5. Monitor for cross-guild data leakage (should not occur)
+
+#### Rollback Plan
+
+If issues occur:
+1. Revert environment variables: `BOT_DATABASE_URL` → `DATABASE_URL`
+2. Restart bot/daemon services (back to `gamebot_app`)
+3. RLS context management may need to be re-added if removed in Step 4
+
+**Bot user remains in database** - harmless if unused
