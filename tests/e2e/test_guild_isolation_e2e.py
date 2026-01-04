@@ -143,7 +143,6 @@ async def guild_b_game_id(
     await authenticated_client_b.delete(f"/api/v1/games/{game_id}")
 
 
-@pytest.mark.xfail(reason="RLS not yet enabled - will pass after Phase 3.2+", strict=False)
 async def test_user_cannot_list_games_from_other_guilds(
     authenticated_admin_client,
     authenticated_client_b,
@@ -184,7 +183,6 @@ async def test_user_cannot_list_games_from_other_guilds(
     )
 
 
-@pytest.mark.xfail(reason="RLS not yet enabled - will pass after Phase 3.2+", strict=False)
 async def test_user_cannot_get_game_from_other_guild_by_id(
     authenticated_admin_client,
     guild_b_game_id,
@@ -203,7 +201,6 @@ async def test_user_cannot_get_game_from_other_guild_by_id(
     )
 
 
-@pytest.mark.xfail(reason="RLS not yet enabled - will pass after Phase 3.2+", strict=False)
 async def test_user_cannot_join_game_from_other_guild(
     authenticated_admin_client,
     guild_b_game_id,
@@ -224,7 +221,6 @@ async def test_user_cannot_join_game_from_other_guild(
     )
 
 
-@pytest.mark.xfail(reason="RLS not yet enabled - will pass after Phase 3.2+", strict=False)
 async def test_user_cannot_update_game_from_other_guild(
     authenticated_admin_client,
     guild_b_game_id,
@@ -246,7 +242,6 @@ async def test_user_cannot_update_game_from_other_guild(
     )
 
 
-@pytest.mark.xfail(reason="RLS not yet enabled - will pass after Phase 3.2+", strict=False)
 async def test_user_cannot_delete_game_from_other_guild(
     authenticated_admin_client,
     guild_b_game_id,
@@ -265,7 +260,6 @@ async def test_user_cannot_delete_game_from_other_guild(
     )
 
 
-@pytest.mark.xfail(reason="RLS not yet enabled - will pass after Phase 3.2+", strict=False)
 async def test_templates_isolated_across_guilds(
     authenticated_admin_client,
     authenticated_client_b,
@@ -325,7 +319,6 @@ async def test_templates_isolated_across_guilds(
     )
 
 
-@pytest.mark.xfail(reason="RLS not yet enabled - will pass after Phase 3.2+", strict=False)
 async def test_participants_isolated_across_guilds(
     db_session,
     authenticated_admin_client,
