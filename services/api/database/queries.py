@@ -88,8 +88,7 @@ async def require_guild_by_id(
             detail=not_found_detail,
         )
 
-    # Defense in depth: Manual authorization check
-    # (RLS will also enforce at database level once enabled)
+    # Defense in depth: Manual authorization check (RLS also enforces at DB level)
     authorized_guild_ids = get_current_guild_ids()
     if authorized_guild_ids is None or guild_config.guild_id not in authorized_guild_ids:
         raise HTTPException(
