@@ -34,3 +34,45 @@ Implement separate BYPASSRLS database user for bot and daemon services to elimin
 ### Removed
 
 **Note**: Phase 3 tasks (remove guild context management from bot/daemon services) determined to be not applicable. Bot and daemon services never implemented guild context management code - they relied on explicit JOIN/WHERE conditions for guild filtering. No code removal needed since bot/daemons now bypass RLS using gamebot_bot user with BYPASSRLS privilege.
+
+## Release Summary
+
+**Total Files Affected**: 14
+
+### Files Created (0)
+
+None - all changes were modifications to existing files.
+
+### Files Modified (14)
+
+- services/init/database_users.py - Added gamebot_bot user creation with BYPASSRLS privilege (non-superuser) and comprehensive table/sequence/function permissions
+- config.template/env.template - Added bot user environment variables (POSTGRES_BOT_USER, POSTGRES_BOT_PASSWORD, BOT_DATABASE_URL)
+- config/env.dev - Added bot user credentials for development environment
+- config/env.staging - Added bot user credentials for staging environment
+- config/env.prod - Added bot user credentials for production environment
+- config/env.int - Added bot user credentials for integration testing environment
+- config/env.e2e - Added bot user credentials for end-to-end testing environment
+- compose.yaml - Updated init service to pass bot user credentials, bot service to use BOT_DATABASE_URL, and both daemon services to use BOT_DATABASE_URL
+- compose.int.yaml - Added bot user environment variables to integration test service
+- tests/integration/conftest.py - Updated fixtures to use admin database connection for bypassing RLS during test data setup
+- tests/integration/test_rls_api_enforcement.py - Added explicit RLS context setting via set_config for API enforcement validation
+- tests/integration/test_rls_bot_bypass.py - Enabled and updated bot bypass test to use BOT_DATABASE_URL
+
+### Files Removed (0)
+
+None - no files were removed in this implementation.
+
+### Dependencies & Infrastructure
+
+- **New Dependencies**: None - utilized existing PostgreSQL BYPASSRLS privilege
+- **Updated Dependencies**: None
+- **Infrastructure Changes**: Three-user database architecture now operational (postgres for bootstrap, gamebot_admin for migrations, gamebot_app for API with RLS, gamebot_bot for bot/daemons with BYPASSRLS)
+- **Configuration Updates**: All environment files updated with bot user credentials; Docker Compose services reconfigured for proper database user separation
+
+### Deployment Notes
+
+1. **First Deployment**: Init service will create gamebot_bot user on startup automatically
+2. **Service Restart**: Bot and daemon services will connect with new BOT_DATABASE_URL (gamebot_bot user)
+3. **No Downtime**: Changes are backward-compatible; services will continue functioning during migration
+4. **Validation**: Monitor logs for database connection errors; verify no cross-guild data access issues
+5. **Rollback**: If issues occur, revert environment variables (BOT_DATABASE_URL → DATABASE_URL) and restart affected services
