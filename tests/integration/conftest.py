@@ -24,7 +24,6 @@ from datetime import UTC, datetime, timedelta
 
 import pika
 import pytest
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from services.api.auth.tokens import encrypt_token
@@ -91,10 +90,30 @@ def db_url():
     return raw_url.replace("postgresql://", "postgresql+asyncpg://")
 
 
+@pytest.fixture(scope="session")
+def admin_db_url():
+    """Get admin database URL from environment for fixture creation (bypasses all restrictions)."""
+    raw_url = os.getenv(
+        "ADMIN_DATABASE_URL",
+        "postgresql://gamebot_admin:integration_admin_password@postgres:5432/game_scheduler_integration",
+    )
+    return raw_url.replace("postgresql://", "postgresql+asyncpg://")
+
+
 @pytest.fixture
 async def async_engine(db_url):
     """Create async engine for integration tests."""
     engine_instance = create_async_engine(db_url, echo=False)
+    yield engine_instance
+    await engine_instance.dispose()
+
+
+@pytest.fixture
+async def admin_async_engine(admin_db_url):
+    """Create async engine using admin user (superuser, bypasses all restrictions)
+    for fixture creation.
+    """
+    engine_instance = create_async_engine(admin_db_url, echo=False)
     yield engine_instance
     await engine_instance.dispose()
 
@@ -112,9 +131,29 @@ def async_session_factory(async_engine):
 
 
 @pytest.fixture
+def admin_async_session_factory(admin_async_engine):
+    """Create session factory using admin user (superuser) for fixtures."""
+    return async_sessionmaker(
+        admin_async_engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+        autocommit=False,
+        autoflush=False,
+    )
+
+
+@pytest.fixture
 async def db(async_session_factory):
     """Provide async database session with automatic rollback after test."""
     async with async_session_factory() as session:
+        yield session
+        await session.rollback()
+
+
+@pytest.fixture
+async def admin_db(admin_async_session_factory):
+    """Provide async database session using admin user (superuser) for fixture creation."""
+    async with admin_async_session_factory() as session:
         yield session
         await session.rollback()
 
@@ -196,72 +235,60 @@ def guild_b_id():
 
 
 @pytest.fixture
-async def guild_a_config(db, guild_a_id):
-    """Create GuildConfiguration for guild A."""
+async def guild_a_config(admin_db, guild_a_id):
+    """Create GuildConfiguration for guild A using admin user (superuser)."""
     guild_config = GuildConfiguration(
         id=guild_a_id,
         guild_id=str(uuid.uuid4())[:18],
     )
-    db.add(guild_config)
-    await db.flush()
+    admin_db.add(guild_config)
+    await admin_db.commit()
     return guild_config
 
 
 @pytest.fixture
-async def guild_b_config(db, guild_b_id):
-    """Create GuildConfiguration for guild B."""
+async def guild_b_config(admin_db, guild_b_id):
+    """Create GuildConfiguration for guild B using admin user (superuser)."""
     guild_config = GuildConfiguration(
         id=guild_b_id,
         guild_id=str(uuid.uuid4())[:18],
     )
-    db.add(guild_config)
-    await db.flush()
+    admin_db.add(guild_config)
+    await admin_db.commit()
     return guild_config
 
 
 @pytest.fixture
-async def channel_a(db, guild_a_id, guild_a_config):
+async def channel_a(admin_db, guild_a_id, guild_a_config):
     """Test channel for guild A."""
-    await db.execute(
-        text("SELECT set_config('app.current_guild_ids', :guild_ids, false)"),
-        {"guild_ids": guild_a_id},
-    )
     channel = ChannelConfiguration(
         id=str(uuid.uuid4()),
         guild_id=guild_a_id,
         channel_id=str(uuid.uuid4())[:18],
         is_active=True,
     )
-    db.add(channel)
-    await db.flush()
+    admin_db.add(channel)
+    await admin_db.commit()
     return channel
 
 
 @pytest.fixture
-async def channel_b(db, guild_b_id, guild_b_config):
+async def channel_b(admin_db, guild_b_id, guild_b_config):
     """Test channel for guild B."""
-    await db.execute(
-        text("SELECT set_config('app.current_guild_ids', :guild_ids, false)"),
-        {"guild_ids": guild_b_id},
-    )
     channel = ChannelConfiguration(
         id=str(uuid.uuid4()),
         guild_id=guild_b_id,
         channel_id=str(uuid.uuid4())[:18],
         is_active=True,
     )
-    db.add(channel)
-    await db.flush()
+    admin_db.add(channel)
+    await admin_db.commit()
     return channel
 
 
 @pytest.fixture
-async def template_a(db, guild_a_id, channel_a):
+async def template_a(admin_db, guild_a_id, channel_a):
     """Test template for guild A."""
-    await db.execute(
-        text("SELECT set_config('app.current_guild_ids', :guild_ids, false)"),
-        {"guild_ids": guild_a_id},
-    )
     template = GameTemplate(
         id=str(uuid.uuid4()),
         guild_id=guild_a_id,
@@ -272,18 +299,14 @@ async def template_a(db, guild_a_id, channel_a):
         is_default=True,
         max_players=4,
     )
-    db.add(template)
-    await db.flush()
+    admin_db.add(template)
+    await admin_db.commit()
     return template
 
 
 @pytest.fixture
-async def template_b(db, guild_b_id, channel_b):
+async def template_b(admin_db, guild_b_id, channel_b):
     """Test template for guild B."""
-    await db.execute(
-        text("SELECT set_config('app.current_guild_ids', :guild_ids, false)"),
-        {"guild_ids": guild_b_id},
-    )
     template = GameTemplate(
         id=str(uuid.uuid4()),
         guild_id=guild_b_id,
@@ -294,42 +317,38 @@ async def template_b(db, guild_b_id, channel_b):
         is_default=True,
         max_players=4,
     )
-    db.add(template)
-    await db.flush()
+    admin_db.add(template)
+    await admin_db.commit()
     return template
 
 
 @pytest.fixture
-async def user_a(db):
+async def user_a(admin_db):
     """Test user for guild A scenarios."""
     user = User(
         id=str(uuid.uuid4()),
         discord_id=str(uuid.uuid4())[:18],
     )
-    db.add(user)
-    await db.flush()
+    admin_db.add(user)
+    await admin_db.commit()
     return user
 
 
 @pytest.fixture
-async def user_b(db):
+async def user_b(admin_db):
     """Test user for guild B scenarios."""
     user = User(
         id=str(uuid.uuid4()),
         discord_id=str(uuid.uuid4())[:18],
     )
-    db.add(user)
-    await db.flush()
+    admin_db.add(user)
+    await admin_db.commit()
     return user
 
 
 @pytest.fixture
-async def game_a(db, guild_a_id, channel_a, template_a, user_a):
+async def game_a(admin_db, guild_a_id, channel_a, template_a, user_a):
     """Test game in guild A."""
-    await db.execute(
-        text("SELECT set_config('app.current_guild_ids', :guild_ids, false)"),
-        {"guild_ids": guild_a_id},
-    )
     game = GameSession(
         id=str(uuid.uuid4()),
         guild_id=guild_a_id,
@@ -342,18 +361,14 @@ async def game_a(db, guild_a_id, channel_a, template_a, user_a):
         max_players=4,
         status=GameStatus.SCHEDULED,
     )
-    db.add(game)
-    await db.flush()
+    admin_db.add(game)
+    await admin_db.commit()
     return game
 
 
 @pytest.fixture
-async def game_b(db, guild_b_id, channel_b, template_b, user_b):
+async def game_b(admin_db, guild_b_id, channel_b, template_b, user_b):
     """Test game in guild B."""
-    await db.execute(
-        text("SELECT set_config('app.current_guild_ids', :guild_ids, false)"),
-        {"guild_ids": guild_b_id},
-    )
     game = GameSession(
         id=str(uuid.uuid4()),
         guild_id=guild_b_id,
@@ -366,6 +381,6 @@ async def game_b(db, guild_b_id, channel_b, template_b, user_b):
         max_players=4,
         status=GameStatus.SCHEDULED,
     )
-    db.add(game)
-    await db.flush()
+    admin_db.add(game)
+    await admin_db.commit()
     return game

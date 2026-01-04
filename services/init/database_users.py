@@ -134,12 +134,23 @@ def create_database_users() -> None:
                     GRANT USAGE, SELECT, UPDATE
                         ON ALL SEQUENCES IN SCHEMA public TO {app_user};
                     GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO {app_user};
-                    ALTER DEFAULT PRIVILEGES IN SCHEMA public
+
+                    -- Set default privileges for tables created by postgres superuser
+                    ALTER DEFAULT PRIVILEGES FOR ROLE {postgres_user} IN SCHEMA public
                         GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
                         ON TABLES TO {app_user};
-                    ALTER DEFAULT PRIVILEGES IN SCHEMA public
+                    ALTER DEFAULT PRIVILEGES FOR ROLE {postgres_user} IN SCHEMA public
                         GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO {app_user};
-                    ALTER DEFAULT PRIVILEGES IN SCHEMA public
+                    ALTER DEFAULT PRIVILEGES FOR ROLE {postgres_user} IN SCHEMA public
+                        GRANT EXECUTE ON FUNCTIONS TO {app_user};
+
+                    -- Set default privileges for tables created by admin user (migrations)
+                    ALTER DEFAULT PRIVILEGES FOR ROLE {admin_user} IN SCHEMA public
+                        GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
+                        ON TABLES TO {app_user};
+                    ALTER DEFAULT PRIVILEGES FOR ROLE {admin_user} IN SCHEMA public
+                        GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO {app_user};
+                    ALTER DEFAULT PRIVILEGES FOR ROLE {admin_user} IN SCHEMA public
                         GRANT EXECUTE ON FUNCTIONS TO {app_user};
                     """
                 )
@@ -183,12 +194,23 @@ def create_database_users() -> None:
                         GRANT USAGE, SELECT, UPDATE
                             ON ALL SEQUENCES IN SCHEMA public TO {bot_user};
                         GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO {bot_user};
-                        ALTER DEFAULT PRIVILEGES FOR ROLE {app_user} IN SCHEMA public
+
+                        -- Set default privileges for tables created by postgres superuser
+                        ALTER DEFAULT PRIVILEGES FOR ROLE {postgres_user} IN SCHEMA public
                             GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
                             ON TABLES TO {bot_user};
-                        ALTER DEFAULT PRIVILEGES FOR ROLE {app_user} IN SCHEMA public
+                        ALTER DEFAULT PRIVILEGES FOR ROLE {postgres_user} IN SCHEMA public
                             GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO {bot_user};
-                        ALTER DEFAULT PRIVILEGES FOR ROLE {app_user} IN SCHEMA public
+                        ALTER DEFAULT PRIVILEGES FOR ROLE {postgres_user} IN SCHEMA public
+                            GRANT EXECUTE ON FUNCTIONS TO {bot_user};
+
+                        -- Set default privileges for tables created by admin user (migrations)
+                        ALTER DEFAULT PRIVILEGES FOR ROLE {admin_user} IN SCHEMA public
+                            GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
+                            ON TABLES TO {bot_user};
+                        ALTER DEFAULT PRIVILEGES FOR ROLE {admin_user} IN SCHEMA public
+                            GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO {bot_user};
+                        ALTER DEFAULT PRIVILEGES FOR ROLE {admin_user} IN SCHEMA public
                             GRANT EXECUTE ON FUNCTIONS TO {bot_user};
                         """
                     )

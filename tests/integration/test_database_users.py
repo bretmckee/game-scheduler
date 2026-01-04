@@ -46,28 +46,35 @@ def postgres_connection():
 
 
 def test_database_users_exist(postgres_connection):
-    """Verify that both gamebot_admin and gamebot_app users exist."""
+    """Verify that all three application users exist with correct privileges."""
     with postgres_connection.cursor() as cursor:
         cursor.execute(
             """
-            SELECT rolname, rolsuper
+            SELECT rolname, rolsuper, rolbypassrls
             FROM pg_catalog.pg_roles
-            WHERE rolname IN ('gamebot_admin', 'gamebot_app')
+            WHERE rolname IN ('gamebot_admin', 'gamebot_app', 'gamebot_bot')
             ORDER BY rolname;
             """
         )
         users = cursor.fetchall()
 
-    assert len(users) == 2, "Expected exactly 2 users (gamebot_admin, gamebot_app)"
+    assert len(users) == 3, "Expected exactly 3 users (gamebot_admin, gamebot_app, gamebot_bot)"
 
-    admin_user, admin_is_super = users[0]
-    app_user, app_is_super = users[1]
+    admin_user, admin_is_super, admin_bypass_rls = users[0]
+    app_user, app_is_super, app_bypass_rls = users[1]
+    bot_user, bot_is_super, bot_bypass_rls = users[2]
 
     assert admin_user == "gamebot_admin", "Admin user should be gamebot_admin"
-    assert admin_is_super, "Admin user should be superuser"
+    assert admin_is_super, "Admin user should be superuser (implicitly bypasses RLS)"
+    # Note: Superusers bypass RLS at runtime even without explicit BYPASSRLS attribute
 
     assert app_user == "gamebot_app", "App user should be gamebot_app"
     assert not app_is_super, "App user should NOT be superuser (for RLS enforcement)"
+    assert not app_bypass_rls, "App user should NOT have BYPASSRLS (RLS enforced)"
+
+    assert bot_user == "gamebot_bot", "Bot user should be gamebot_bot"
+    assert not bot_is_super, "Bot user should NOT be superuser (security principle)"
+    assert bot_bypass_rls, "Bot user should have BYPASSRLS (system service)"
 
 
 def test_app_user_has_connect_permission(postgres_connection):
