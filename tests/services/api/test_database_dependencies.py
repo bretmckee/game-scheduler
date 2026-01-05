@@ -53,16 +53,25 @@ def mock_user_guilds():
 @pytest.mark.asyncio
 async def test_get_db_with_user_guilds_sets_context(mock_current_user, mock_user_guilds):
     """Enhanced dependency sets guild_ids in ContextVar."""
-    with patch("services.api.auth.oauth2.get_user_guilds", return_value=mock_user_guilds):
+    mock_db_session = AsyncMock()
+
+    with (
+        patch("services.api.auth.oauth2.get_user_guilds", return_value=mock_user_guilds),
+        patch("shared.database.AsyncSessionLocal", return_value=mock_db_session),
+        patch(
+            "services.api.database.queries.convert_discord_guild_ids_to_uuids",
+            return_value=["uuid1", "uuid2"],
+        ),
+    ):
         # Factory function returns the actual dependency
         dependency_func = get_db_with_user_guilds()
         # Call the dependency with mock_current_user
         generator = dependency_func(mock_current_user)
         try:
             async for _session in generator:
-                # Inside context, guild_ids should be set
+                # Inside context, guild_ids should be set to UUIDs
                 guild_ids = get_current_guild_ids()
-                assert guild_ids == ["guild_1", "guild_2"]
+                assert guild_ids == ["uuid1", "uuid2"]
                 break  # Only need to test context setting
         finally:
             # Properly close generator
@@ -72,7 +81,16 @@ async def test_get_db_with_user_guilds_sets_context(mock_current_user, mock_user
 @pytest.mark.asyncio
 async def test_get_db_with_user_guilds_clears_context_on_exit(mock_current_user, mock_user_guilds):
     """Enhanced dependency clears ContextVar in finally block."""
-    with patch("services.api.auth.oauth2.get_user_guilds", return_value=mock_user_guilds):
+    mock_db_session = AsyncMock()
+
+    with (
+        patch("services.api.auth.oauth2.get_user_guilds", return_value=mock_user_guilds),
+        patch("shared.database.AsyncSessionLocal", return_value=mock_db_session),
+        patch(
+            "services.api.database.queries.convert_discord_guild_ids_to_uuids",
+            return_value=["uuid1", "uuid2"],
+        ),
+    ):
         # Factory function returns the actual dependency
         dependency_func = get_db_with_user_guilds()
         async for _session in dependency_func(mock_current_user):
@@ -88,7 +106,16 @@ async def test_get_db_with_user_guilds_clears_context_on_exception(
     mock_current_user, mock_user_guilds
 ):
     """Enhanced dependency clears ContextVar even if exception raised."""
-    with patch("services.api.auth.oauth2.get_user_guilds", return_value=mock_user_guilds):
+    mock_db_session = AsyncMock()
+
+    with (
+        patch("services.api.auth.oauth2.get_user_guilds", return_value=mock_user_guilds),
+        patch("shared.database.AsyncSessionLocal", return_value=mock_db_session),
+        patch(
+            "services.api.database.queries.convert_discord_guild_ids_to_uuids",
+            return_value=["uuid1", "uuid2"],
+        ),
+    ):
         # Factory function returns the actual dependency
         dependency_func = get_db_with_user_guilds()
         generator = dependency_func(mock_current_user)

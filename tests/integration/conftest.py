@@ -60,6 +60,38 @@ def rabbitmq_channel(rabbitmq_connection):
     channel.close()
 
 
+# ============================================================================
+# RabbitMQ Helper Functions
+# ============================================================================
+
+
+def get_queue_message_count(channel, queue_name):
+    """Get number of messages in queue."""
+    result = channel.queue_declare(queue=queue_name, durable=True, passive=True)
+    return result.method.message_count
+
+
+def consume_one_message(channel, queue_name, timeout=5):
+    """Consume one message from queue with timeout."""
+    for method, properties, body in channel.consume(
+        queue_name, auto_ack=False, inactivity_timeout=timeout
+    ):
+        if method is None:
+            return None, None, None
+        channel.basic_ack(method.delivery_tag)
+        channel.cancel()
+        return method, properties, body
+    return None, None, None
+
+
+def purge_queue(channel, queue_name):
+    """Purge all messages from a queue."""
+    try:
+        channel.queue_purge(queue_name)
+    except Exception:
+        pass
+
+
 @pytest.fixture(autouse=True, scope="function")
 async def cleanup_guild_context():
     """Ensure guild context is cleared before and after each test."""

@@ -42,86 +42,13 @@ from shared.messaging.infrastructure import (
     QUEUE_NOTIFICATION,
     QUEUE_NOTIFICATION_DLQ,
 )
+from tests.integration.conftest import (
+    consume_one_message,
+    get_queue_message_count,
+    purge_queue,
+)
 
 pytestmark = pytest.mark.integration
-
-
-@pytest.fixture(scope="module")
-def rabbitmq_url():
-    """Get RabbitMQ URL from environment."""
-    return os.getenv("RABBITMQ_URL", "amqp://guest:guest@rabbitmq:5672/")
-
-
-@pytest.fixture
-def rabbitmq_connection(rabbitmq_url):
-    """Create RabbitMQ connection for test setup/assertions."""
-    connection = pika.BlockingConnection(pika.URLParameters(rabbitmq_url))
-    yield connection
-    connection.close()
-
-
-@pytest.fixture
-def rabbitmq_channel(rabbitmq_connection):
-    """Create RabbitMQ channel for test operations."""
-    channel = rabbitmq_connection.channel()
-    yield channel
-    channel.close()
-
-
-def purge_queue(channel, queue_name):
-    """Purge all messages from a queue."""
-    try:
-        channel.queue_purge(queue_name)
-    except Exception:
-        pass
-
-
-def publish_event_with_ttl(channel, routing_key, event, ttl_ms=1000):
-    """
-    Publish event with short TTL to trigger DLQ entry.
-
-    This simulates the normal flow where messages with TTL expire
-    and enter the DLQ when not consumed in time.
-    """
-    properties = pika.BasicProperties(
-        delivery_mode=pika.DeliveryMode.Persistent,
-        content_type="application/json",
-        expiration=str(ttl_ms),
-    )
-
-    channel.basic_publish(
-        exchange=MAIN_EXCHANGE,
-        routing_key=routing_key,
-        body=event.model_dump_json().encode(),
-        properties=properties,
-    )
-
-
-def get_queue_message_count(channel, queue_name):
-    """Get number of messages in queue."""
-    result = channel.queue_declare(queue=queue_name, durable=True, passive=True)
-    return result.method.message_count
-
-
-def consume_one_message(channel, queue_name, timeout=5):
-    """Consume one message from queue with timeout."""
-    for method, properties, body in channel.consume(
-        queue_name, auto_ack=False, inactivity_timeout=timeout
-    ):
-        if method is None:
-            return None, None, None
-        channel.basic_ack(method.delivery_tag)
-        channel.cancel()
-        return method, properties, body
-    return None, None, None
-
-
-def get_queue_arguments(channel, queue_name):
-    """Get queue configuration arguments."""
-    result = channel.queue_declare(queue=queue_name, durable=True, passive=True)
-    # Arguments are available via management API or queue.declare response
-    # For passive declare, we can't get arguments directly, but we can verify queue exists
-    return result
 
 
 def publish_to_dlq_with_metadata(

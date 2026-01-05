@@ -60,10 +60,10 @@ Consolidate 100+ duplicated test fixtures into a single shared location with fac
 - [x] Task 1.1: Migrate `test_notification_daemon.py`
   - Details: [.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md](.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md) (Lines 137-165)
 
-- [ ] Task 1.2: Migrate `test_status_transitions.py`
+- [x] Task 1.2: Migrate `test_status_transitions.py`
   - Details: [.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md](.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md) (Lines 167-185)
 
-- [ ] Task 1.3: Migrate `test_retry_daemon.py`
+- [x] Task 1.3: Migrate `test_retry_daemon.py`
   - Details: [.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md](.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md) (Lines 187-205)
 
 - [ ] Task 1.4: Migrate `test_template_default_overrides.py`

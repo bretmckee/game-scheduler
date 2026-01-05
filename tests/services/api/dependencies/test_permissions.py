@@ -399,7 +399,7 @@ async def test_verify_template_access_success():
 
     with (
         patch(
-            "services.api.database.queries.get_guild_by_id",
+            "services.api.database.queries.require_guild_by_id",
             return_value=mock_guild_config,
         ),
         patch(
@@ -483,7 +483,7 @@ async def test_verify_game_access_success():
 
     with (
         patch(
-            "services.api.database.queries.get_guild_by_id",
+            "services.api.database.queries.require_guild_by_id",
             return_value=mock_guild_config,
         ),
         patch(
@@ -549,7 +549,7 @@ async def test_verify_game_access_role_check_success():
 
     with (
         patch(
-            "services.api.database.queries.get_guild_by_id",
+            "services.api.database.queries.require_guild_by_id",
             return_value=mock_guild_config,
         ),
         patch(
@@ -585,7 +585,7 @@ async def test_verify_game_access_role_check_fails():
 
     with (
         patch(
-            "services.api.database.queries.get_guild_by_id",
+            "services.api.database.queries.require_guild_by_id",
             return_value=mock_guild_config,
         ),
         patch(

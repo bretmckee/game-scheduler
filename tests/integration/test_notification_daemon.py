@@ -31,28 +31,10 @@ from sqlalchemy import text
 
 from services.scheduler.postgres_listener import PostgresNotificationListener
 from shared.messaging.infrastructure import QUEUE_BOT_EVENTS
+from tests.integration.conftest import get_queue_message_count
 from tests.shared.polling import wait_for_db_condition_sync
 
 pytestmark = pytest.mark.integration
-
-
-def get_queue_message_count(channel, queue_name):
-    """Get number of messages in queue."""
-    result = channel.queue_declare(queue=queue_name, durable=True, passive=True)
-    return result.method.message_count
-
-
-def consume_one_message(channel, queue_name, timeout=5):
-    """Consume one message from queue with timeout."""
-    for method, properties, body in channel.consume(
-        queue_name, auto_ack=False, inactivity_timeout=timeout
-    ):
-        if method is None:
-            return None, None, None
-        channel.basic_ack(method.delivery_tag)
-        channel.cancel()
-        return method, properties, body
-    return None, None, None
 
 
 @pytest.fixture
@@ -69,20 +51,6 @@ def clean_notification_schedule(rabbitmq_channel):
 
 class TestPostgresListenerIntegration:
     """Integration tests for PostgreSQL LISTEN/NOTIFY."""
-
-    @staticmethod
-    def _create_test_data(create_guild, create_channel, create_user, create_game):
-        """Helper to create standard test data."""
-        guild = create_guild()
-        channel = create_channel(guild_id=guild["id"])
-        user = create_user()
-        game = create_game(
-            guild_id=guild["id"],
-            channel_id=channel["id"],
-            host_id=user["id"],
-            title="Test Game",
-        )
-        return game
 
     def test_listener_connects_to_real_database(self, admin_db_url_sync):
         """Listener can connect to actual PostgreSQL database."""
@@ -113,10 +81,7 @@ class TestPostgresListenerIntegration:
         admin_db_url_sync,
         admin_db_sync,
         clean_notification_schedule,
-        create_guild,
-        create_channel,
-        create_user,
-        create_game,
+        test_game_environment,
     ):
         """Listener receives NOTIFY events from PostgreSQL trigger."""
         listener = PostgresNotificationListener(admin_db_url_sync)
@@ -125,7 +90,7 @@ class TestPostgresListenerIntegration:
             listener.connect()
             listener.listen("notification_schedule_changed")
 
-            game = self._create_test_data(create_guild, create_channel, create_user, create_game)
+            env = test_game_environment()
             notification_time = datetime.now(UTC).replace(tzinfo=None) + timedelta(minutes=5)
 
             admin_db_sync.execute(
@@ -140,7 +105,7 @@ class TestPostgresListenerIntegration:
                 ),
                 {
                     "id": str(uuid4()),
-                    "game_id": game["id"],
+                    "game_id": env["game"]["id"],
                     "reminder_minutes": 60,
                     "notification_time": notification_time,
                     "game_scheduled_at": notification_time + timedelta(minutes=60),
@@ -190,32 +155,15 @@ class TestNotificationDaemonIntegration:
     notifications correctly.
     """
 
-    @staticmethod
-    def _create_test_data(create_guild, create_channel, create_user, create_game):
-        """Helper to create standard test data."""
-        guild = create_guild()
-        channel = create_channel(guild_id=guild["id"])
-        user = create_user()
-        game = create_game(
-            guild_id=guild["id"],
-            channel_id=channel["id"],
-            host_id=user["id"],
-            title="Test Game",
-        )
-        return game
-
     def test_daemon_processes_due_notification(
         self,
         admin_db_sync,
         clean_notification_schedule,
         rabbitmq_channel,
-        create_guild,
-        create_channel,
-        create_user,
-        create_game,
+        test_game_environment,
     ):
         """Test that running notification-daemon processes due notifications."""
-        game = self._create_test_data(create_guild, create_channel, create_user, create_game)
+        env = test_game_environment()
 
         notif_id = str(uuid4())
         notification_time = datetime.now(UTC).replace(tzinfo=None) - timedelta(minutes=1)
@@ -232,7 +180,7 @@ class TestNotificationDaemonIntegration:
             ),
             {
                 "id": notif_id,
-                "game_id": game["id"],
+                "game_id": env["game"]["id"],
                 "reminder_minutes": 60,
                 "notification_time": notification_time,
                 "game_scheduled_at": notification_time + timedelta(minutes=60),
@@ -261,13 +209,10 @@ class TestNotificationDaemonIntegration:
         admin_db_sync,
         clean_notification_schedule,
         rabbitmq_channel,
-        create_guild,
-        create_channel,
-        create_user,
-        create_game,
+        test_game_environment,
     ):
         """Test that running daemon doesn't process future notifications."""
-        game = self._create_test_data(create_guild, create_channel, create_user, create_game)
+        env = test_game_environment()
 
         notif_id = str(uuid4())
         notification_time = datetime.now(UTC).replace(tzinfo=None) + timedelta(minutes=10)
@@ -284,7 +229,7 @@ class TestNotificationDaemonIntegration:
             ),
             {
                 "id": notif_id,
-                "game_id": game["id"],
+                "game_id": env["game"]["id"],
                 "reminder_minutes": 60,
                 "notification_time": notification_time,
                 "game_scheduled_at": notification_time + timedelta(minutes=60),

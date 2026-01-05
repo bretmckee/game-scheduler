@@ -29,7 +29,6 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from shared.data_access.guild_isolation import (
     clear_current_guild_ids,
-    set_current_guild_ids,
 )
 from shared.schemas.auth import CurrentUser
 
@@ -117,15 +116,17 @@ def get_db_with_user_guilds():
         from services.api.auth import (  # noqa: PLC0415 - avoid circular dependency
             oauth2,
         )
+        from services.api.database import queries  # noqa: PLC0415
 
-        # Fetch user's guilds (cached with 5-min TTL)
+        # Fetch user's guilds (cached with 5-min TTL) - returns Discord IDs
         user_guilds = await oauth2.get_user_guilds(
             current_user.access_token, current_user.user.discord_id
         )
-        guild_ids = [g["id"] for g in user_guilds]
+        discord_guild_ids = [g["id"] for g in user_guilds]
 
-        # Store in request-scoped context
-        set_current_guild_ids(guild_ids)
+        # Set up RLS context and convert Discord IDs to database UUIDs
+        async with AsyncSessionLocal() as temp_session:
+            await queries.setup_rls_and_convert_guild_ids(temp_session, discord_guild_ids)
 
         # Yield session - event listener will set RLS on next query
         async with AsyncSessionLocal() as session:
