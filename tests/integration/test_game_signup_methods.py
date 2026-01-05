@@ -25,24 +25,18 @@ through the entire HTTP/auth/service/messaging stack.
 Uses fake Discord credentials since integration tests don't connect to Discord.
 """
 
-import asyncio
 import json
-import os
 import time
 from datetime import UTC, datetime, timedelta
 
-import httpx
 import pytest
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import text
 
-from shared.cache.keys import CacheKeys
 from shared.messaging.infrastructure import QUEUE_BOT_EVENTS
 from shared.models.participant import ParticipantType
 from shared.models.signup_method import SignupMethod
 from shared.utils.discord_tokens import extract_bot_discord_id
-from tests.integration.conftest import consume_one_message, seed_user_guilds_cache
-from tests.shared.auth_helpers import cleanup_test_session, create_test_session
+from tests.integration.conftest import consume_one_message
 
 pytestmark = pytest.mark.integration
 
@@ -51,255 +45,61 @@ TEST_DISCORD_TOKEN = "MTQ0NDA3ODM4NjM4MDAxMzY0OA.GvmbbW.fake_token_for_integrati
 TEST_BOT_DISCORD_ID = extract_bot_discord_id(TEST_DISCORD_TOKEN)
 
 
-@pytest.fixture(scope="module")
-def db_url():
-    """Get database URL from environment, converting asyncpg to psycopg2 for sync tests."""
-    raw_url = os.getenv(
-        "DATABASE_URL",
-        "postgresql://gamebot:dev_password_change_in_prod@postgres:5432/game_scheduler",
-    )
-    # Convert postgresql+asyncpg:// to postgresql:// for synchronous tests
-    return raw_url.replace("postgresql+asyncpg://", "postgresql://")
+def _create_test_user(create_user):
+    """Helper to create test user for API requests."""
+    return create_user(discord_user_id=TEST_BOT_DISCORD_ID)
 
 
-@pytest.fixture
-def db_session(db_url):
-    """Create database session for testing."""
-    engine = create_engine(db_url)
-    session_factory = sessionmaker(bind=engine)
-    session = session_factory()
-    yield session
-    session.close()
-    engine.dispose()
-
-
-@pytest.fixture
-def clean_test_data(db_session):
-    """Clean up test data before and after tests."""
-    # Collect host user IDs from test game sessions before deleting them
-    host_ids_result = db_session.execute(
-        text("SELECT DISTINCT host_id FROM game_sessions WHERE title LIKE 'INT_TEST%'")
-    )
-    host_ids = [row[0] for row in host_ids_result.fetchall()]
-
-    # Delete test game sessions (cascades to participants via FK)
-    db_session.execute(text("DELETE FROM game_sessions WHERE title LIKE 'INT_TEST%'"))
-    # Delete test templates
-    db_session.execute(text("DELETE FROM game_templates WHERE name LIKE 'INT_TEST%'"))
-    # Delete test users - host users from games plus the bot user
-    if host_ids:
-        placeholders = ",".join([f":id{i}" for i in range(len(host_ids))])
-        params = {f"id{i}": host_id for i, host_id in enumerate(host_ids)}
-        params["discord_id"] = TEST_BOT_DISCORD_ID
-        db_session.execute(
-            text(f"DELETE FROM users WHERE id IN ({placeholders}) OR discord_id = :discord_id"),
-            params,
-        )
-    else:
-        db_session.execute(
-            text("DELETE FROM users WHERE discord_id = :discord_id"),
-            {"discord_id": TEST_BOT_DISCORD_ID},
-        )
-    db_session.commit()
-
-    yield
-
-    # Same cleanup after test
-    host_ids_result = db_session.execute(
-        text("SELECT DISTINCT host_id FROM game_sessions WHERE title LIKE 'INT_TEST%'")
-    )
-    host_ids = [row[0] for row in host_ids_result.fetchall()]
-
-    db_session.execute(text("DELETE FROM game_sessions WHERE title LIKE 'INT_TEST%'"))
-    db_session.execute(text("DELETE FROM game_templates WHERE name LIKE 'INT_TEST%'"))
-    if host_ids:
-        placeholders = ",".join([f":id{i}" for i in range(len(host_ids))])
-        params = {f"id{i}": host_id for i, host_id in enumerate(host_ids)}
-        params["discord_id"] = TEST_BOT_DISCORD_ID
-        db_session.execute(
-            text(f"DELETE FROM users WHERE id IN ({placeholders}) OR discord_id = :discord_id"),
-            params,
-        )
-    else:
-        db_session.execute(
-            text("DELETE FROM users WHERE discord_id = :discord_id"),
-            {"discord_id": TEST_BOT_DISCORD_ID},
-        )
-    db_session.commit()
-
-
-@pytest.fixture
-def test_user(db_session, clean_test_data):
-    """Create test user for API requests."""
-    user_id = "test-user-signup-int"
-
-    db_session.execute(
-        text(
-            "INSERT INTO users (id, discord_id, created_at, updated_at) "
-            "VALUES (:id, :discord_id, :created_at, :updated_at)"
-        ),
-        {
-            "id": user_id,
-            "discord_id": TEST_BOT_DISCORD_ID,
-            "created_at": datetime.now(UTC),
-            "updated_at": datetime.now(UTC),
-        },
-    )
-    db_session.commit()
-
-    return {"id": user_id, "discord_id": TEST_BOT_DISCORD_ID}
-
-
-@pytest.fixture
-def test_template(db_session, redis_client, test_user):
-    """Create test template with signup method configuration."""
-    template_id = "test-template-signup-int"
-    guild_config_id = "test-guild-signup-int"
-    guild_id = "123456789012345678"
-    channel_config_id = "test-channel-signup-int"
-    channel_id = "987654321098765432"
+def _create_test_template(
+    create_guild, create_channel, create_template, seed_redis_cache, test_user
+):
+    """Helper to create test template with signup method configuration."""
+    guild_discord_id = "123456789012345678"
+    channel_discord_id = "987654321098765432"
     bot_manager_role_id = "999888777666555444"
 
-    # Ensure guild exists with bot_manager_role_ids
-    db_session.execute(
-        text(
-            "INSERT INTO guild_configurations "
-            "(id, guild_id, bot_manager_role_ids, created_at, updated_at) "
-            "VALUES (:id, :guild_id, :bot_manager_role_ids, :created_at, :updated_at) "
-            "ON CONFLICT (guild_id) DO UPDATE SET "
-            "bot_manager_role_ids = EXCLUDED.bot_manager_role_ids"
-        ),
-        {
-            "id": guild_config_id,
-            "guild_id": guild_id,
-            "bot_manager_role_ids": json.dumps([bot_manager_role_id]),
-            "created_at": datetime.now(UTC),
-            "updated_at": datetime.now(UTC),
-        },
+    guild = create_guild(discord_guild_id=guild_discord_id, bot_manager_roles=[bot_manager_role_id])
+    channel = create_channel(guild_id=guild["id"], discord_channel_id=channel_discord_id)
+
+    # Seed Redis cache with all test data
+    seed_redis_cache(
+        user_discord_id=test_user["discord_id"],
+        guild_discord_id=guild_discord_id,
+        channel_discord_id=channel_discord_id,
+        user_roles=[bot_manager_role_id, guild_discord_id],
+        bot_manager_roles=[bot_manager_role_id],
     )
 
-    # Seed Redis cache with all test data in single event loop
-    async def seed_cache():
-        # User guilds for RLS context (Phase 2 guild isolation)
-
-        await seed_user_guilds_cache(redis_client, test_user["discord_id"], [guild_id])
-
-        # User roles for bot manager permission
-        user_roles_key = CacheKeys.user_roles(test_user["discord_id"], guild_id)
-        await redis_client.set_json(user_roles_key, [bot_manager_role_id, guild_id], ttl=3600)
-
-        # Channel metadata to bypass Discord API calls
-        channel_cache_key = CacheKeys.discord_channel(channel_id)
-        await redis_client.set_json(
-            channel_cache_key,
-            {"id": channel_id, "name": "test-channel", "type": 0, "guild_id": guild_id},
-            ttl=3600,
-        )
-
-        # Guild metadata to bypass Discord API calls
-        guild_cache_key = CacheKeys.discord_guild(guild_id)
-        await redis_client.set_json(
-            guild_cache_key,
-            {"id": guild_id, "name": "Test Guild", "icon": None},
-            ttl=3600,
-        )
-
-    asyncio.run(seed_cache())
-
-    # Ensure channel exists (guild_id FK references guild_configurations.id)
-    db_session.execute(
-        text(
-            "INSERT INTO channel_configurations (id, channel_id, guild_id, created_at, updated_at) "
-            "VALUES (:id, :channel_id, :guild_id, :created_at, :updated_at) "
-            "ON CONFLICT (channel_id) DO NOTHING"
-        ),
-        {
-            "id": channel_config_id,
-            "channel_id": channel_id,
-            "guild_id": guild_config_id,  # FK to guild_configurations.id
-            "created_at": datetime.now(UTC),
-            "updated_at": datetime.now(UTC),
-        },
+    template = create_template(
+        guild_id=guild["id"],
+        channel_id=channel["id"],
+        name="INT_TEST Template",
+        description="Integration test template",
+        allowed_signup_methods=[
+            SignupMethod.SELF_SIGNUP.value,
+            SignupMethod.HOST_SELECTED.value,
+        ],
+        default_signup_method=SignupMethod.HOST_SELECTED.value,
     )
-
-    # Create template with both signup methods allowed, HOST_SELECTED default
-    db_session.execute(
-        text(
-            "INSERT INTO game_templates "
-            "(id, guild_id, name, description, channel_id, "
-            "allowed_signup_methods, default_signup_method, created_at, updated_at) "
-            "VALUES (:id, :guild_id, :name, :description, :channel_id, "
-            ":allowed_signup_methods, :default_signup_method, :created_at, :updated_at)"
-        ),
-        {
-            "id": template_id,
-            "guild_id": guild_config_id,  # FK to guild_configurations.id
-            "name": "INT_TEST Template",
-            "description": "Integration test template",
-            "channel_id": channel_config_id,  # FK to channel_configurations.id
-            "allowed_signup_methods": json.dumps([
-                SignupMethod.SELF_SIGNUP.value,
-                SignupMethod.HOST_SELECTED.value,
-            ]),
-            "default_signup_method": SignupMethod.HOST_SELECTED.value,
-            "created_at": datetime.now(UTC),
-            "updated_at": datetime.now(UTC),
-        },
-    )
-    db_session.commit()
 
     return {
-        "id": template_id,
-        "guild_id": guild_id,  # Discord guild ID
-        "channel_id": channel_id,  # Discord channel ID
-        "guild_config_id": guild_config_id,  # UUID FK
-        "channel_config_id": channel_config_id,  # UUID FK
+        "id": template["id"],
+        "guild_id": guild_discord_id,  # Discord guild ID
+        "channel_id": channel_discord_id,  # Discord channel ID
+        "guild_config_id": guild["id"],  # UUID FK
+        "channel_config_id": channel["id"],  # UUID FK
     }
 
 
-@pytest.fixture
-def authenticated_client(api_base_url, test_user):
-    """Create authenticated HTTP client for API requests."""
-    session_token = None
-
-    def _create_client():
-        nonlocal session_token
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            session_token, session_data = loop.run_until_complete(
-                create_test_session(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
-            )
-        finally:
-            loop.close()
-
-        client = httpx.Client(
-            base_url=api_base_url,
-            timeout=30.0,
-            cookies={"session_token": session_token},
-        )
-        return client
-
-    client = _create_client()
-    yield client
-
-    client.close()
-
-    if session_token:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            loop.run_until_complete(cleanup_test_session(session_token))
-        finally:
-            loop.close()
-
-
 def test_api_creates_game_with_explicit_signup_method_in_rabbitmq_message(
-    db_session,
+    admin_db_sync,
     rabbitmq_channel,
-    test_user,
-    test_template,
-    authenticated_client,
+    create_user,
+    create_guild,
+    create_channel,
+    create_template,
+    seed_redis_cache,
+    create_authenticated_client,
 ):
     """
     Verify API game creation with explicit signup method produces correct RabbitMQ message.
@@ -307,6 +107,12 @@ def test_api_creates_game_with_explicit_signup_method_in_rabbitmq_message(
     Flow: HTTP POST → API (authenticated) → Database → RabbitMQ → Bot Queue
     Validates that signup_method flows through entire stack including HTTP layer.
     """
+    test_user = _create_test_user(create_user)
+    test_template = _create_test_template(
+        create_guild, create_channel, create_template, seed_redis_cache, test_user
+    )
+    authenticated_client = create_authenticated_client(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+
     rabbitmq_channel.queue_purge(QUEUE_BOT_EVENTS)
 
     scheduled_at = (datetime.now(UTC) + timedelta(days=1)).isoformat()
@@ -327,7 +133,7 @@ def test_api_creates_game_with_explicit_signup_method_in_rabbitmq_message(
     game_id = game_data["id"]
 
     # Verify database record
-    result = db_session.execute(
+    result = admin_db_sync.execute(
         text("SELECT signup_method FROM game_sessions WHERE id = :game_id"),
         {"game_id": game_id},
     ).fetchone()
@@ -348,17 +154,26 @@ def test_api_creates_game_with_explicit_signup_method_in_rabbitmq_message(
 
 
 def test_api_uses_template_default_signup_method_when_not_specified(
-    db_session,
+    admin_db_sync,
     rabbitmq_channel,
-    test_user,
-    test_template,
-    authenticated_client,
+    create_user,
+    create_guild,
+    create_channel,
+    create_template,
+    seed_redis_cache,
+    create_authenticated_client,
 ):
     """
     Verify API game creation without explicit signup method uses template default.
 
     Template has default_signup_method=HOST_SELECTED, should be used automatically.
     """
+    test_user = _create_test_user(create_user)
+    test_template = _create_test_template(
+        create_guild, create_channel, create_template, seed_redis_cache, test_user
+    )
+    authenticated_client = create_authenticated_client(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+
     rabbitmq_channel.queue_purge(QUEUE_BOT_EVENTS)
 
     scheduled_at = (datetime.now(UTC) + timedelta(days=1)).isoformat()
@@ -379,7 +194,7 @@ def test_api_uses_template_default_signup_method_when_not_specified(
     game_id = game_data["id"]
 
     # Verify database
-    result = db_session.execute(
+    result = admin_db_sync.execute(
         text("SELECT signup_method FROM game_sessions WHERE id = :game_id"),
         {"game_id": game_id},
     ).fetchone()
@@ -396,11 +211,14 @@ def test_api_uses_template_default_signup_method_when_not_specified(
 
 
 def test_api_creates_host_selected_game_with_initial_participants(
-    db_session,
+    admin_db_sync,
     rabbitmq_channel,
-    test_user,
-    test_template,
-    authenticated_client,
+    create_user,
+    create_guild,
+    create_channel,
+    create_template,
+    seed_redis_cache,
+    create_authenticated_client,
 ):
     """
     Verify HOST_SELECTED games can be created with pre-populated participants.
@@ -408,6 +226,12 @@ def test_api_creates_host_selected_game_with_initial_participants(
     Tests integration between signup_method and initial_participants features.
     Validates that HOST_SELECTED mode works correctly with participant pre-population.
     """
+    test_user = _create_test_user(create_user)
+    test_template = _create_test_template(
+        create_guild, create_channel, create_template, seed_redis_cache, test_user
+    )
+    authenticated_client = create_authenticated_client(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+
     rabbitmq_channel.queue_purge(QUEUE_BOT_EVENTS)
 
     scheduled_at = (datetime.now(UTC) + timedelta(days=1)).isoformat()
@@ -433,7 +257,7 @@ def test_api_creates_host_selected_game_with_initial_participants(
     game_id = game_data["id"]
 
     # Verify database has participants with correct position_type
-    results = db_session.execute(
+    results = admin_db_sync.execute(
         text(
             "SELECT position_type, position, display_name FROM game_participants "
             "WHERE game_session_id = :game_id ORDER BY position"
