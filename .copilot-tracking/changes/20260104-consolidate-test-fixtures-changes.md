@@ -45,5 +45,6 @@
 - tests/integration/test_retry_daemon.py - Removed duplicate rabbitmq_url, rabbitmq_connection, and rabbitmq_channel fixtures in favor of shared fixtures from tests/integration/conftest.py, removed duplicate get_queue_message_count, consume_one_message, and purge_queue functions, removed unused helper functions (publish_event_with_ttl, get_queue_arguments)
 - tests/integration/test_game_signup_methods.py - Removed duplicate consume_one_message function, now imports from tests/integration/conftest.py
 - tests/integration/test_game_signup_methods.py - Replaced custom test_user, test_template, and authenticated_client fixtures with helper functions (_create_test_user, _create_test_template, _create_authenticated_client), updated all tests to use shared factory fixtures and manage session cleanup, fixed parameter names (discord_user_id not discord_id), all 3 tests passing
+- tests/integration/test_guild_queries.py - Completely rewritten to use shared fixtures (admin_db, create_guild, create_channel, create_user), removed all local fixture definitions (db_url, async_engine, async_session_factory, db, guild_b_config, channel_id, user_id, sample_game_data, sample_template_data), simplified test code by 60%, all 21 tests passing
 
 ### Removed
