@@ -36,13 +36,12 @@ import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
-from shared.cache.client import RedisClient
 from shared.cache.keys import CacheKeys
 from shared.messaging.infrastructure import QUEUE_BOT_EVENTS
 from shared.models.participant import ParticipantType
 from shared.models.signup_method import SignupMethod
 from shared.utils.discord_tokens import extract_bot_discord_id
-from tests.integration.conftest import seed_user_guilds_cache
+from tests.integration.conftest import consume_one_message, seed_user_guilds_cache
 from tests.shared.auth_helpers import cleanup_test_session, create_test_session
 
 pytestmark = pytest.mark.integration
@@ -63,12 +62,6 @@ def db_url():
     return raw_url.replace("postgresql+asyncpg://", "postgresql://")
 
 
-@pytest.fixture(scope="module")
-def api_base_url():
-    """Get API base URL from environment."""
-    return os.getenv("API_BASE_URL", "http://api:8000")
-
-
 @pytest.fixture
 def db_session(db_url):
     """Create database session for testing."""
@@ -78,12 +71,6 @@ def db_session(db_url):
     yield session
     session.close()
     engine.dispose()
-
-
-@pytest.fixture
-def redis_client():
-    """Create Redis client for cache seeding."""
-    return RedisClient()
 
 
 @pytest.fixture
@@ -305,19 +292,6 @@ def authenticated_client(api_base_url, test_user):
             loop.run_until_complete(cleanup_test_session(session_token))
         finally:
             loop.close()
-
-
-def consume_one_message(channel, queue_name, timeout=5):
-    """Consume one message from queue with timeout."""
-    for method, properties, body in channel.consume(
-        queue_name, auto_ack=False, inactivity_timeout=timeout
-    ):
-        if method is None:
-            return None, None, None
-        channel.basic_ack(method.delivery_tag)
-        channel.cancel()
-        return method, properties, body
-    return None, None, None
 
 
 def test_api_creates_game_with_explicit_signup_method_in_rabbitmq_message(

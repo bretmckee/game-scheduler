@@ -88,22 +88,9 @@ async def _validate_image_upload(file: UploadFile, field_name: str) -> None:
 
 async def _get_game_service(
     current_user: auth_schemas.CurrentUser = Depends(auth_deps.get_current_user),
-    db: AsyncSession = Depends(database.get_db),
+    db: AsyncSession = Depends(database.get_db_with_user_guilds()),
 ) -> games_service.GameService:
-    """Get game service instance with dependencies and set guild context."""
-    from services.api.auth import oauth2  # noqa: PLC0415 - avoid circular dependency
-    from shared.data_access.guild_isolation import (  # noqa: PLC0415
-        set_current_guild_ids,
-    )
-
-    # Fetch user's guilds and set context for RLS
-    # Cache is seeded in integration tests to avoid Discord API calls
-    user_guilds = await oauth2.get_user_guilds(
-        current_user.access_token, current_user.user.discord_id
-    )
-    guild_ids = [g["id"] for g in user_guilds]
-    set_current_guild_ids(guild_ids)
-
+    """Get game service instance with dependencies (RLS context already set by db dependency)."""
     event_publisher = messaging_publisher.EventPublisher()
     discord_client = get_discord_client()
     participant_resolver = resolver_module.ParticipantResolver(discord_client)

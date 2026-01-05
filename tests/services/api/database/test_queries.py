@@ -44,7 +44,7 @@ async def test_require_guild_by_id_success_context_already_set():
     with (
         patch(
             "services.api.database.queries.get_current_guild_ids",
-            return_value=[guild_discord_id],
+            return_value=[guild_uuid],  # Context now stores UUIDs
         ),
         patch("services.api.database.queries.get_guild_by_id", return_value=mock_guild),
         patch("services.api.auth.oauth2.get_user_guilds") as mock_get_guilds,
@@ -75,13 +75,17 @@ async def test_require_guild_by_id_success_context_not_set():
     with (
         patch(
             "services.api.database.queries.get_current_guild_ids",
-            side_effect=[None, [guild_discord_id]],
+            side_effect=[None, [guild_uuid]],  # Second call returns UUID
         ),
         patch("services.api.database.queries.set_current_guild_ids") as mock_set_context,
         patch("services.api.database.queries.get_guild_by_id", return_value=mock_guild),
         patch(
             "services.api.auth.oauth2.get_user_guilds", return_value=mock_user_guilds
         ) as mock_get_guilds,
+        patch(
+            "services.api.database.queries.convert_discord_guild_ids_to_uuids",
+            return_value=[guild_uuid],  # Conversion returns UUID
+        ),
     ):
         # Act
         result = await queries.require_guild_by_id(
@@ -91,7 +95,7 @@ async def test_require_guild_by_id_success_context_not_set():
         # Assert
         assert result == mock_guild
         mock_get_guilds.assert_called_once_with(access_token, user_discord_id)
-        mock_set_context.assert_called_once_with([guild_discord_id])
+        mock_set_context.assert_called_once_with([guild_uuid])  # Now sets UUID
 
 
 @pytest.mark.asyncio
@@ -124,8 +128,8 @@ async def test_require_guild_by_id_user_not_authorized():
     """Guild exists but user NOT in guild → HTTPException(404) to prevent info disclosure."""
     # Arrange
     guild_uuid = str(uuid4())
+    other_guild_uuid = str(uuid4())
     guild_discord_id = "123456789"
-    other_guild_id = "999999999"
     user_discord_id = "987654321"
     access_token = "test_token"
 
@@ -135,7 +139,7 @@ async def test_require_guild_by_id_user_not_authorized():
     with (
         patch(
             "services.api.database.queries.get_current_guild_ids",
-            return_value=[other_guild_id],
+            return_value=[other_guild_uuid],  # User authorized for different guild UUID
         ),
         patch("services.api.database.queries.get_guild_by_id", return_value=mock_guild),
     ):
@@ -169,6 +173,10 @@ async def test_require_guild_by_id_context_none_after_query():
         patch(
             "services.api.auth.oauth2.get_user_guilds",
             return_value=[{"id": guild_discord_id}],
+        ),
+        patch(
+            "services.api.database.queries.convert_discord_guild_ids_to_uuids",
+            return_value=[],  # Conversion returns empty list
         ),
     ):
         # Act & Assert
@@ -212,8 +220,8 @@ async def test_require_guild_by_id_multiple_guilds_authorized():
     """User member of multiple guilds, one matches target → success."""
     # Arrange
     guild_uuid = str(uuid4())
+    other_guild_uuid = str(uuid4())
     guild_discord_id = "123456789"
-    other_guild_id = "999999999"
     user_discord_id = "987654321"
     access_token = "test_token"
 
@@ -223,7 +231,7 @@ async def test_require_guild_by_id_multiple_guilds_authorized():
     with (
         patch(
             "services.api.database.queries.get_current_guild_ids",
-            return_value=[other_guild_id, guild_discord_id],
+            return_value=[other_guild_uuid, guild_uuid],  # Multiple guild UUIDs
         ),
         patch("services.api.database.queries.get_guild_by_id", return_value=mock_guild),
     ):
@@ -251,7 +259,7 @@ async def test_require_guild_by_id_idempotent_context_set():
     with (
         patch(
             "services.api.database.queries.get_current_guild_ids",
-            return_value=[guild_discord_id],
+            return_value=[guild_uuid],  # Context has UUID
         ),
         patch("services.api.database.queries.set_current_guild_ids") as mock_set_context,
         patch("services.api.database.queries.get_guild_by_id", return_value=mock_guild),
@@ -291,11 +299,15 @@ async def test_require_guild_by_id_oauth2_get_user_guilds_called_only_when_neede
     with (
         patch(
             "services.api.database.queries.get_current_guild_ids",
-            side_effect=[None, [guild_discord_id]],
+            side_effect=[None, [guild_uuid]],  # Second call returns UUID
         ),
         patch("services.api.database.queries.set_current_guild_ids"),
         patch("services.api.database.queries.get_guild_by_id", return_value=mock_guild),
         patch("services.api.auth.oauth2.get_user_guilds", side_effect=get_guilds_mock),
+        patch(
+            "services.api.database.queries.convert_discord_guild_ids_to_uuids",
+            return_value=[guild_uuid],  # Mock conversion
+        ),
     ):
         # Act
         await queries.require_guild_by_id(mock_db, guild_uuid, access_token, user_discord_id)

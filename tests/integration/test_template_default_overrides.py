@@ -25,19 +25,13 @@ Bug fix verification for: Template defaults should only pre-fill the form,
 not override explicit user choices (including clearing fields).
 """
 
-import os
-import uuid
 from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import text
 
-from shared.cache.client import RedisClient
-from shared.cache.keys import CacheKeys
 from shared.utils.discord_tokens import extract_bot_discord_id
-from tests.integration.conftest import seed_user_guilds_cache
 from tests.shared.auth_helpers import cleanup_test_session, create_test_session
 
 pytestmark = pytest.mark.integration
@@ -46,175 +40,44 @@ TEST_DISCORD_TOKEN = "MTQ0NDA3ODM4NjM4MDAxMzY0OA.GvmbbW.fake_token_for_integrati
 TEST_BOT_DISCORD_ID = extract_bot_discord_id(TEST_DISCORD_TOKEN)
 
 
-@pytest.fixture(scope="module")
-def db_url():
-    """Get database URL from environment, converting asyncpg to psycopg2 for sync tests."""
-    raw_url = os.getenv(
-        "DATABASE_URL",
-        "postgresql://gamebot:dev_password_change_in_prod@postgres:5432/game_scheduler",
-    )
-    # Convert postgresql+asyncpg:// to postgresql:// for synchronous tests
-    return raw_url.replace("postgresql+asyncpg://", "postgresql://")
-
-
-@pytest.fixture(scope="module")
-def api_base_url():
-    """Get API base URL from environment."""
-    return os.getenv("API_BASE_URL", "http://api:8000")
-
-
-@pytest.fixture
-def db_session(db_url):
-    """Create database session for testing."""
-    engine = create_engine(db_url)
-    session_factory = sessionmaker(bind=engine)
-    session = session_factory()
-    yield session
-    session.close()
-    engine.dispose()
-
-
-@pytest.fixture
-def redis_client():
-    """Create Redis client for cache seeding."""
-    return RedisClient()
-
-
-@pytest.fixture
-def clean_test_data(db_session):
-    """Clean up test data before and after tests."""
-    # Collect host user IDs from test game sessions before deleting them
-    host_ids_result = db_session.execute(
-        text("SELECT DISTINCT host_id FROM game_sessions WHERE title LIKE 'TEMPLATE_TEST%'")
-    )
-    host_ids = [row[0] for row in host_ids_result.fetchall()]
-
-    # Delete test game sessions (cascades to participants via FK)
-    db_session.execute(text("DELETE FROM game_sessions WHERE title LIKE 'TEMPLATE_TEST%'"))
-    # Delete test templates
-    db_session.execute(text("DELETE FROM game_templates WHERE name LIKE 'TEMPLATE_TEST%'"))
-    # Delete test users - host users from games plus the bot user
-    if host_ids:
-        placeholders = ",".join([f":id{i}" for i in range(len(host_ids))])
-        params = {f"id{i}": host_id for i, host_id in enumerate(host_ids)}
-        params["discord_id"] = TEST_BOT_DISCORD_ID
-        db_session.execute(
-            text(f"DELETE FROM users WHERE id IN ({placeholders}) OR discord_id = :discord_id"),
-            params,
-        )
-    else:
-        db_session.execute(
-            text("DELETE FROM users WHERE discord_id = :discord_id"),
-            {"discord_id": TEST_BOT_DISCORD_ID},
-        )
-    db_session.commit()
-
-    yield
-
-    # Same cleanup after test
-    host_ids_result = db_session.execute(
-        text("SELECT DISTINCT host_id FROM game_sessions WHERE title LIKE 'TEMPLATE_TEST%'")
-    )
-    host_ids = [row[0] for row in host_ids_result.fetchall()]
-
-    db_session.execute(text("DELETE FROM game_sessions WHERE title LIKE 'TEMPLATE_TEST%'"))
-    db_session.execute(text("DELETE FROM game_templates WHERE name LIKE 'TEMPLATE_TEST%'"))
-    if host_ids:
-        placeholders = ",".join([f":id{i}" for i in range(len(host_ids))])
-        params = {f"id{i}": host_id for i, host_id in enumerate(host_ids)}
-        params["discord_id"] = TEST_BOT_DISCORD_ID
-        db_session.execute(
-            text(f"DELETE FROM users WHERE id IN ({placeholders}) OR discord_id = :discord_id"),
-            params,
-        )
-    else:
-        db_session.execute(
-            text("DELETE FROM users WHERE discord_id = :discord_id"),
-            {"discord_id": TEST_BOT_DISCORD_ID},
-        )
-    db_session.commit()
-
-
 @pytest.mark.asyncio
 async def test_cleared_reminder_minutes_not_reverted_to_template_default(
-    db_session, api_base_url, redis_client, clean_test_data
+    admin_db_sync,
+    create_guild,
+    create_channel,
+    create_user,
+    create_template,
+    seed_redis_cache,
+    api_base_url,
 ):
     """Verify that clearing reminder_minutes in form doesn't revert to template default."""
-    # Get test guild and channel
-    channel_result = db_session.execute(
-        text("SELECT id, guild_id FROM channel_configurations LIMIT 1")
-    ).fetchone()
-    assert channel_result, "No channels found in test database"
-    channel_id, guild_id = channel_result
-
-    # Create test user
-    user_id = str(uuid.uuid4())
-    db_session.execute(
-        text(
-            """
-            INSERT INTO users (id, discord_id)
-            VALUES (:id, :discord_id)
-            ON CONFLICT (discord_id) DO NOTHING
-            """
-        ),
-        {"id": user_id, "discord_id": TEST_BOT_DISCORD_ID},
-    )
-    db_session.commit()
-
-    # Get guild Discord ID for @everyone role (Discord convention: @everyone role ID = guild ID)
-    guild_discord_id_result = db_session.execute(
-        text("SELECT guild_id FROM guild_configurations WHERE id = :id"),
-        {"id": guild_id},
-    )
-    guild_discord_id = guild_discord_id_result.scalar()
+    # Create test environment with factory fixtures
+    guild = create_guild()
+    channel = create_channel(guild_id=guild["id"])
+    create_user(discord_user_id=TEST_BOT_DISCORD_ID)
 
     # Create template WITH reminder minutes set
-    template_result = db_session.execute(
-        text(
-            """
-            INSERT INTO game_templates
-            (id, guild_id, channel_id, name, description, max_players, reminder_minutes,
-             "where", signup_instructions, expected_duration_minutes,
-             default_signup_method, allowed_signup_methods, allowed_host_role_ids)
-            VALUES (gen_random_uuid(), :guild_id, :channel_id, 'TEMPLATE_TEST Template',
-                    'Template with defaults', 10, '[60, 15]'::json,
-                    'Discord Voice', 'Please be on time', 120,
-                    'SELF_SIGNUP', '["SELF_SIGNUP", "HOST_SELECTED"]'::json,
-                    jsonb_build_array(:guild_discord_id))
-            RETURNING id
-            """
-        ),
-        {
-            "guild_id": guild_id,
-            "channel_id": channel_id,
-            "guild_discord_id": guild_discord_id,
-        },
+    template = create_template(
+        guild_id=guild["id"],
+        channel_id=channel["id"],
+        name="TEMPLATE_TEST Template",
+        description="Template with defaults",
+        max_players=10,
+        reminder_minutes=[60, 15],
+        where="Discord Voice",
+        signup_instructions="Please be on time",
+        expected_duration_minutes=120,
     )
-    template_id = template_result.scalar()
-    db_session.commit()
-
-    # Seed cache with bot manager role for permission check
-    # Get Discord guild ID and bot manager role from guild configuration
-    guild_config_result = db_session.execute(
-        text("SELECT guild_id, bot_manager_role_ids FROM guild_configurations WHERE id = :id"),
-        {"id": guild_id},
-    )
-    guild_config_row = guild_config_result.fetchone()
-    guild_discord_id = guild_config_row[0]
-    bot_manager_role_ids = guild_config_row[1] or []
-
-    # User guilds for RLS context (Phase 2 guild isolation)
-
-    await seed_user_guilds_cache(redis_client, TEST_BOT_DISCORD_ID, [guild_discord_id])
-
-    # Add guild_id as a role (Discord convention - guild membership = guild_id role)
-    # and any bot_manager_role_ids if configured
-    user_roles = [guild_discord_id] + bot_manager_role_ids
-    user_roles_key = CacheKeys.user_roles(TEST_BOT_DISCORD_ID, guild_discord_id)
-    await redis_client.set_json(user_roles_key, user_roles, ttl=3600)
 
     # Create authenticated session
     session_token, session_data = await create_test_session(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+
+    # Seed cache with guild/role data (session already created above)
+    await seed_redis_cache(
+        user_discord_id=TEST_BOT_DISCORD_ID,
+        guild_discord_id=guild["guild_id"],
+        channel_discord_id=channel["channel_id"],
+    )
 
     try:
         async with httpx.AsyncClient(
@@ -227,7 +90,7 @@ async def test_cleared_reminder_minutes_not_reverted_to_template_default(
             response = await client.post(
                 "/api/v1/games",
                 data={
-                    "template_id": template_id,
+                    "template_id": template["id"],
                     "title": "TEMPLATE_TEST Game No Reminders",
                     "description": "Test game without reminders",
                     "scheduled_at": scheduled_at.isoformat(),
@@ -239,7 +102,7 @@ async def test_cleared_reminder_minutes_not_reverted_to_template_default(
             game_id = response.json()["id"]
 
             # Verify game was created with NO reminders (not template default)
-            game = db_session.execute(
+            game = admin_db_sync.execute(
                 text("SELECT reminder_minutes FROM game_sessions WHERE id = :id"),
                 {"id": game_id},
             ).fetchone()
@@ -255,84 +118,41 @@ async def test_cleared_reminder_minutes_not_reverted_to_template_default(
 
 @pytest.mark.asyncio
 async def test_cleared_optional_text_fields_not_reverted_to_template_defaults(
-    db_session, api_base_url, redis_client, clean_test_data
+    admin_db_sync,
+    create_guild,
+    create_channel,
+    create_user,
+    create_template,
+    seed_redis_cache,
+    api_base_url,
 ):
     """Verify that clearing optional text fields doesn't revert to template defaults."""
-    # Get test guild and channel
-    channel_result = db_session.execute(
-        text("SELECT id, guild_id FROM channel_configurations LIMIT 1")
-    ).fetchone()
-    assert channel_result, "No channels found in test database"
-    channel_id, guild_id = channel_result
-
-    # Create test user
-    user_id = str(uuid.uuid4())
-    db_session.execute(
-        text(
-            """
-            INSERT INTO users (id, discord_id)
-            VALUES (:id, :discord_id)
-            ON CONFLICT (discord_id) DO NOTHING
-            """
-        ),
-        {"id": user_id, "discord_id": TEST_BOT_DISCORD_ID},
-    )
-    db_session.commit()
-
-    # Get guild Discord ID for @everyone role (Discord convention: @everyone role ID = guild ID)
-    guild_discord_id_result = db_session.execute(
-        text("SELECT guild_id FROM guild_configurations WHERE id = :id"),
-        {"id": guild_id},
-    )
-    guild_discord_id = guild_discord_id_result.scalar()
+    # Create test environment with factory fixtures
+    guild = create_guild()
+    channel = create_channel(guild_id=guild["id"])
+    create_user(discord_user_id=TEST_BOT_DISCORD_ID)
 
     # Create template WITH all optional fields set
-    template_result = db_session.execute(
-        text(
-            """
-            INSERT INTO game_templates
-            (id, guild_id, channel_id, name, description, max_players,
-             "where", signup_instructions, expected_duration_minutes,
-             default_signup_method, allowed_signup_methods, allowed_host_role_ids)
-            VALUES (gen_random_uuid(), :guild_id, :channel_id, 'TEMPLATE_TEST Full Template',
-                    'Template with all defaults', 10,
-                    'Discord Voice', 'Please be on time', 120,
-                    'SELF_SIGNUP', '["SELF_SIGNUP", "HOST_SELECTED"]'::json,
-                    jsonb_build_array(:guild_discord_id))
-            RETURNING id
-            """
-        ),
-        {
-            "guild_id": guild_id,
-            "channel_id": channel_id,
-            "guild_discord_id": guild_discord_id,
-        },
+    template = create_template(
+        guild_id=guild["id"],
+        channel_id=channel["id"],
+        name="TEMPLATE_TEST Full Template",
+        description="Template with all defaults",
+        max_players=10,
+        where="Discord Voice",
+        signup_instructions="Please be on time",
+        expected_duration_minutes=120,
     )
-    template_id = template_result.scalar()
-    db_session.commit()
-
-    # Seed cache with bot manager role for permission check
-    # Get Discord guild ID and bot manager role from guild configuration
-    guild_config_result = db_session.execute(
-        text("SELECT guild_id, bot_manager_role_ids FROM guild_configurations WHERE id = :id"),
-        {"id": guild_id},
-    )
-    guild_config_row = guild_config_result.fetchone()
-    guild_discord_id = guild_config_row[0]
-    bot_manager_role_ids = guild_config_row[1] or []
-
-    # User guilds for RLS context (Phase 2 guild isolation)
-
-    await seed_user_guilds_cache(redis_client, TEST_BOT_DISCORD_ID, [guild_discord_id])
-
-    # Add guild_id as a role (Discord convention - guild membership = guild_id role)
-    # and any bot_manager_role_ids if configured
-    user_roles = [guild_discord_id] + bot_manager_role_ids
-    user_roles_key = CacheKeys.user_roles(TEST_BOT_DISCORD_ID, guild_discord_id)
-    await redis_client.set_json(user_roles_key, user_roles, ttl=3600)
 
     # Create authenticated session
     session_token, session_data = await create_test_session(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+
+    # Seed cache with guild/role data (session already created above)
+    await seed_redis_cache(
+        user_discord_id=TEST_BOT_DISCORD_ID,
+        guild_discord_id=guild["guild_id"],
+        channel_discord_id=channel["channel_id"],
+    )
 
     try:
         async with httpx.AsyncClient(
@@ -347,7 +167,7 @@ async def test_cleared_optional_text_fields_not_reverted_to_template_defaults(
             response = await client.post(
                 "/api/v1/games",
                 data={
-                    "template_id": template_id,
+                    "template_id": template["id"],
                     "title": "TEMPLATE_TEST Game Cleared Fields",
                     "description": "Test game with cleared fields",
                     "scheduled_at": scheduled_at.isoformat(),
@@ -362,7 +182,7 @@ async def test_cleared_optional_text_fields_not_reverted_to_template_defaults(
             game_id = response.json()["id"]
 
             # Verify game was created with empty/null values (not template defaults)
-            game = db_session.execute(
+            game = admin_db_sync.execute(
                 text(
                     """
                     SELECT "where", signup_instructions, max_players,

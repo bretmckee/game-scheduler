@@ -156,7 +156,7 @@ class TestTemplateAccessAuthorization:
         mock_db = AsyncMock()
 
         with patch(
-            "services.api.database.queries.get_guild_by_id",
+            "services.api.database.queries.require_guild_by_id",
             return_value=mock_guild_config,
         ):
             with patch(
@@ -179,7 +179,7 @@ class TestTemplateAccessAuthorization:
         mock_db = AsyncMock()
 
         with patch(
-            "services.api.database.queries.get_guild_by_id",
+            "services.api.database.queries.require_guild_by_id",
             return_value=mock_guild_config,
         ):
             with patch(
@@ -197,7 +197,11 @@ class TestTemplateAccessAuthorization:
         """Template with non-existent guild returns 404."""
         mock_db = AsyncMock()
 
-        with patch("services.api.database.queries.get_guild_by_id", return_value=None):
+        # require_guild_by_id now raises HTTPException instead of returning None
+        with patch(
+            "services.api.database.queries.require_guild_by_id",
+            side_effect=HTTPException(status_code=404, detail="Template not found"),
+        ):
             with pytest.raises(HTTPException) as exc_info:
                 await permissions.verify_template_access(
                     mock_template, "user123", "test_token", mock_db
@@ -217,7 +221,7 @@ class TestGameAccessAuthorization:
         mock_role_service = AsyncMock()
 
         with patch(
-            "services.api.database.queries.get_guild_by_id",
+            "services.api.database.queries.require_guild_by_id",
             return_value=mock_guild_config,
         ):
             with patch(
@@ -240,7 +244,7 @@ class TestGameAccessAuthorization:
         mock_role_service.has_any_role = AsyncMock(return_value=False)
 
         with patch(
-            "services.api.database.queries.get_guild_by_id",
+            "services.api.database.queries.require_guild_by_id",
             return_value=mock_guild_config,
         ):
             with patch(
@@ -263,7 +267,7 @@ class TestGameAccessAuthorization:
         mock_role_service.has_any_role = AsyncMock(return_value=True)
 
         with patch(
-            "services.api.database.queries.get_guild_by_id",
+            "services.api.database.queries.require_guild_by_id",
             return_value=mock_guild_config,
         ):
             with patch(
@@ -286,7 +290,7 @@ class TestGameAccessAuthorization:
         mock_role_service = AsyncMock()
 
         with patch(
-            "services.api.database.queries.get_guild_by_id",
+            "services.api.database.queries.require_guild_by_id",
             return_value=mock_guild_config,
         ):
             with patch(
@@ -306,7 +310,11 @@ class TestGameAccessAuthorization:
         mock_db = AsyncMock()
         mock_role_service = AsyncMock()
 
-        with patch("services.api.database.queries.get_guild_by_id", return_value=None):
+        # require_guild_by_id now raises HTTPException instead of returning None
+        with patch(
+            "services.api.database.queries.require_guild_by_id",
+            side_effect=HTTPException(status_code=404, detail="Game not found"),
+        ):
             with pytest.raises(HTTPException) as exc_info:
                 await permissions.verify_game_access(
                     mock_game, "user123", "test_token", mock_db, mock_role_service
@@ -602,7 +610,7 @@ class TestInformationDisclosurePrevention:
         mock_db = AsyncMock()
 
         with patch(
-            "services.api.database.queries.get_guild_by_id",
+            "services.api.database.queries.require_guild_by_id",
             return_value=mock_guild_config,
         ):
             with patch(
@@ -624,7 +632,7 @@ class TestInformationDisclosurePrevention:
         mock_role_service = AsyncMock()
 
         with patch(
-            "services.api.database.queries.get_guild_by_id",
+            "services.api.database.queries.require_guild_by_id",
             return_value=mock_guild_config,
         ):
             with patch(
@@ -652,7 +660,7 @@ class TestInformationDisclosurePrevention:
         mock_role_service.has_any_role = AsyncMock(return_value=False)
 
         with patch(
-            "services.api.database.queries.get_guild_by_id",
+            "services.api.database.queries.require_guild_by_id",
             return_value=mock_guild_config,
         ):
             with patch(

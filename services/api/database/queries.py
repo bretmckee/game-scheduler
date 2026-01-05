@@ -18,8 +18,10 @@
 
 """Database query functions for guild and channel configurations."""
 
+import logging
+
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from starlette import status
@@ -30,6 +32,70 @@ from shared.data_access.guild_isolation import (
 )
 from shared.models.channel import ChannelConfiguration
 from shared.models.guild import GuildConfiguration
+
+logger = logging.getLogger(__name__)
+
+
+async def setup_rls_and_convert_guild_ids(
+    db: AsyncSession, discord_guild_ids: list[str]
+) -> list[str]:
+    """
+    Set up RLS context and convert Discord guild IDs to database UUIDs.
+
+    This function handles the chicken-and-egg problem with RLS:
+    1. Explicitly sets RLS context at SQL level (ContextVar doesn't propagate reliably)
+    2. Queries guild_configurations to convert Discord IDs to UUIDs
+    3. Updates ContextVar with UUIDs for subsequent queries
+
+    Args:
+        db: Database session
+        discord_guild_ids: List of Discord guild IDs (snowflakes)
+
+    Returns:
+        List of database UUIDs (GuildConfiguration.id) for guilds that exist
+    """
+    # Set ContextVar first (for any other code that checks it)
+    set_current_guild_ids(discord_guild_ids)
+
+    # Explicitly set RLS context at SQL level
+    # ContextVar doesn't propagate reliably to sync session event listeners
+    discord_ids_csv = ",".join(discord_guild_ids)
+    await db.execute(text(f"SET LOCAL app.current_guild_ids = '{discord_ids_csv}'"))
+    logger.debug(f"Set RLS context to Discord IDs: {discord_ids_csv}")
+
+    # Convert Discord IDs to database UUIDs
+    guild_uuids = await convert_discord_guild_ids_to_uuids(db, discord_guild_ids)
+    logger.debug(f"Converted to {len(guild_uuids)} UUIDs: {guild_uuids}")
+
+    # Update ContextVar with UUIDs for remaining queries
+    set_current_guild_ids(guild_uuids)
+
+    return guild_uuids
+
+
+async def convert_discord_guild_ids_to_uuids(
+    db: AsyncSession, discord_guild_ids: list[str]
+) -> list[str]:
+    """
+    Convert Discord guild IDs (snowflakes) to database UUIDs for RLS context.
+
+    Requires RLS context to be set with Discord snowflakes before calling.
+    The RLS policy on guild_configurations checks both id and guild_id fields.
+
+    Args:
+        db: Database session
+        discord_guild_ids: List of Discord guild IDs (snowflakes)
+
+    Returns:
+        List of database UUIDs (GuildConfiguration.id) for guilds that exist
+    """
+    logger.debug(f"Converting {len(discord_guild_ids)} Discord IDs: {discord_guild_ids}")
+    result = await db.execute(
+        select(GuildConfiguration.id).where(GuildConfiguration.guild_id.in_(discord_guild_ids))
+    )
+    guild_uuids = [row[0] for row in result]
+    logger.debug(f"Converted to {len(guild_uuids)} UUIDs: {guild_uuids}")
+    return guild_uuids
 
 
 async def get_guild_by_id(db: AsyncSession, guild_id: str) -> GuildConfiguration | None:
@@ -78,8 +144,9 @@ async def require_guild_by_id(
     # Ensure RLS context is set (idempotent - only fetches if not already set)
     if get_current_guild_ids() is None:
         user_guilds = await oauth2.get_user_guilds(access_token, user_discord_id)
-        guild_ids = [g["id"] for g in user_guilds]
-        set_current_guild_ids(guild_ids)
+        discord_guild_ids = [g["id"] for g in user_guilds]
+        guild_uuids = await convert_discord_guild_ids_to_uuids(db, discord_guild_ids)
+        set_current_guild_ids(guild_uuids)
 
     guild_config = await get_guild_by_id(db, guild_id)
     if not guild_config:
@@ -89,8 +156,15 @@ async def require_guild_by_id(
         )
 
     # Defense in depth: Manual authorization check (RLS also enforces at DB level)
-    authorized_guild_ids = get_current_guild_ids()
-    if authorized_guild_ids is None or guild_config.guild_id not in authorized_guild_ids:
+    # Check guild UUID is in user's authorized guild list
+    authorized_guild_uuids = get_current_guild_ids()
+    if authorized_guild_uuids is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=not_found_detail,
+        )
+
+    if guild_config.id not in authorized_guild_uuids:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=not_found_detail,

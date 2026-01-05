@@ -34,6 +34,7 @@ Architecture:
 
 import asyncio
 import json
+import logging
 import os
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -50,6 +51,8 @@ from sqlalchemy.orm import sessionmaker
 from services.api.auth.tokens import encrypt_token
 from shared.cache.client import RedisClient
 from shared.cache.keys import CacheKeys
+
+logger = logging.getLogger(__name__)
 
 # ============================================================================
 # Database URL Fixtures (Session Scope)
@@ -102,37 +105,61 @@ def bot_db_url():
 @pytest.fixture
 def admin_db_sync(admin_db_url_sync):
     """
-    Synchronous admin session with automatic cleanup.
+    Synchronous admin session with cleanup at START (not end).
 
     Use for: Daemon tests, raw SQL operations, fixture creation
-    Cleanup: Automatic DELETE of all test data after test completes
+    Cleanup: DELETE all test data BEFORE test starts (from previous runs)
+
+    This pattern leaves data in database after test failure for debugging.
     """
-    engine = create_engine(admin_db_url_sync)
-    session_factory = sessionmaker(bind=engine)
-    session = session_factory()
-
-    yield session
-
-    # Critical: rollback before close to release locks
-    session.rollback()
-    session.close()
-    engine.dispose()
-
-    # Separate cleanup session after test session closed
+    print("[FIXTURE] admin_db_sync: Creating cleanup session")
     cleanup_engine = create_engine(admin_db_url_sync)
     cleanup_session = sessionmaker(bind=cleanup_engine)()
 
     try:
-        # Use DELETE not TRUNCATE (avoids daemon lock conflicts)
+        # Clean up any leftover data from previous test runs
+        print("[FIXTURE] admin_db_sync: Cleaning up previous test data")
         cleanup_session.execute(text("DELETE FROM game_sessions"))
+        print("[FIXTURE] admin_db_sync: Deleted game_sessions")
         cleanup_session.execute(text("DELETE FROM game_templates"))
+        print("[FIXTURE] admin_db_sync: Deleted game_templates")
         cleanup_session.execute(text("DELETE FROM channel_configurations"))
+        print("[FIXTURE] admin_db_sync: Deleted channel_configurations")
         cleanup_session.execute(text("DELETE FROM users"))
+        print("[FIXTURE] admin_db_sync: Deleted users")
         cleanup_session.execute(text("DELETE FROM guild_configurations"))
+        print("[FIXTURE] admin_db_sync: Deleted guild_configurations")
         cleanup_session.commit()
+        print("[FIXTURE] admin_db_sync: Cleanup committed")
+
+        # Show database state after cleanup
+        result = cleanup_session.execute(text("SELECT COUNT(*) FROM guild_configurations"))
+        guild_count = result.scalar()
+        result = cleanup_session.execute(text("SELECT COUNT(*) FROM game_templates"))
+        template_count = result.scalar()
+        result = cleanup_session.execute(text("SELECT COUNT(*) FROM users"))
+        user_count = result.scalar()
+        print(
+            f"[FIXTURE] admin_db_sync: Database state - guilds: {guild_count}, "
+            f"templates: {template_count}, users: {user_count}"
+        )
     finally:
         cleanup_session.close()
         cleanup_engine.dispose()
+
+    # Now create the session for the test to use
+    print("[FIXTURE] admin_db_sync: Creating test session")
+    engine = create_engine(admin_db_url_sync)
+    session_factory = sessionmaker(bind=engine)
+    session = session_factory()
+
+    print("[FIXTURE] admin_db_sync: Yielding session to test")
+    yield session
+
+    print("[FIXTURE] admin_db_sync: Test complete, closing session (data remains for debugging)")
+    session.close()
+    engine.dispose()
+    print("[FIXTURE] admin_db_sync: Teardown complete")
 
 
 @pytest.fixture
@@ -177,6 +204,12 @@ async def bot_db(bot_db_url):
 # ============================================================================
 # Redis Client Fixtures
 # ============================================================================
+
+
+@pytest.fixture(scope="module")
+def api_base_url():
+    """Get API base URL from environment."""
+    return os.getenv("API_BASE_URL", "http://api:8000")
 
 
 @pytest.fixture
@@ -390,6 +423,10 @@ def create_guild(admin_db_sync):
         guild_db_id = str(uuid.uuid4())
         guild_discord_id = discord_guild_id or str(uuid.uuid4())[:18]
 
+        print(
+            f"[FACTORY] create_guild: Creating guild db_id={guild_db_id} "
+            f"discord_id={guild_discord_id}"
+        )
         admin_db_sync.execute(
             text(
                 "INSERT INTO guild_configurations "
@@ -404,7 +441,9 @@ def create_guild(admin_db_sync):
                 "updated_at": datetime.now(UTC),
             },
         )
+        print("[FACTORY] create_guild: INSERT executed, calling commit()")
         admin_db_sync.commit()
+        print(f"[FACTORY] create_guild: Committed guild {guild_db_id}")
 
         return {
             "id": guild_db_id,
@@ -426,6 +465,10 @@ def create_channel(admin_db_sync):
         channel_db_id = str(uuid.uuid4())
         channel_discord_id = discord_channel_id or str(uuid.uuid4())[:18]
 
+        print(
+            f"[FACTORY] create_channel: Creating channel db_id={channel_db_id} "
+            f"discord_id={channel_discord_id}"
+        )
         admin_db_sync.execute(
             text(
                 "INSERT INTO channel_configurations "
@@ -440,7 +483,9 @@ def create_channel(admin_db_sync):
                 "updated_at": datetime.now(UTC),
             },
         )
+        print("[FACTORY] create_channel: INSERT executed, calling commit()")
         admin_db_sync.commit()
+        print(f"[FACTORY] create_channel: Committed channel {channel_db_id}")
 
         return {
             "id": channel_db_id,
@@ -459,6 +504,9 @@ def create_user(admin_db_sync):
         user_db_id = str(uuid.uuid4())
         user_discord_id = discord_user_id or str(uuid.uuid4())[:18]
 
+        print(
+            f"[FACTORY] create_user: Creating user db_id={user_db_id} discord_id={user_discord_id}"
+        )
         admin_db_sync.execute(
             text(
                 "INSERT INTO users (id, discord_id, created_at, updated_at) "
@@ -471,7 +519,9 @@ def create_user(admin_db_sync):
                 "updated_at": datetime.now(UTC),
             },
         )
+        print("[FACTORY] create_user: INSERT executed, calling commit()")
         admin_db_sync.commit()
+        print(f"[FACTORY] create_user: Committed user {user_db_id}")
 
         return {"id": user_db_id, "discord_id": user_discord_id}
 
@@ -490,6 +540,10 @@ def create_template(admin_db_sync):
         max_players: int = 4,
         allowed_signup_methods: list[str] | None = None,
         default_signup_method: str = "SELF_SIGNUP",
+        reminder_minutes: list[int] | None = None,
+        expected_duration_minutes: int | None = None,
+        where: str | None = None,
+        signup_instructions: str | None = None,
         **kwargs,
     ) -> dict:
         template_db_id = str(uuid.uuid4())
@@ -498,9 +552,12 @@ def create_template(admin_db_sync):
             text(
                 "INSERT INTO game_templates "
                 "(id, guild_id, channel_id, name, description, max_players, "
-                "allowed_signup_methods, default_signup_method, created_at, updated_at) "
-                "VALUES (:id, :guild_id, :channel_id, :name, :description, :max_players, "
-                ":allowed_signup_methods, :default_signup_method, :created_at, :updated_at)"
+                "allowed_signup_methods, default_signup_method, reminder_minutes, "
+                'expected_duration_minutes, "where", signup_instructions, created_at, updated_at) '
+                "VALUES (:id, :guild_id, :channel_id, :name, :description, "
+                ":max_players, :allowed_signup_methods, :default_signup_method, "
+                ":reminder_minutes, :expected_duration_minutes, :where, "
+                ":signup_instructions, :created_at, :updated_at)"
             ),
             {
                 "id": template_db_id,
@@ -511,11 +568,17 @@ def create_template(admin_db_sync):
                 "max_players": max_players,
                 "allowed_signup_methods": json.dumps(allowed_signup_methods or ["SELF_SIGNUP"]),
                 "default_signup_method": default_signup_method,
+                "reminder_minutes": (json.dumps(reminder_minutes) if reminder_minutes else None),
+                "expected_duration_minutes": expected_duration_minutes,
+                "where": where,
+                "signup_instructions": signup_instructions,
                 "created_at": datetime.now(UTC),
                 "updated_at": datetime.now(UTC),
             },
         )
+        print(f"[FACTORY] create_template: INSERT executed for {template_db_id}, calling commit()")
         admin_db_sync.commit()
+        print(f"[FACTORY] create_template: Committed template {template_db_id}")
 
         return {
             "id": template_db_id,
@@ -615,5 +678,51 @@ def test_environment(create_guild, create_channel, create_user):
         user = create_user(discord_user_id=discord_user_id)
 
         return {"guild": guild, "channel": channel, "user": user}
+
+    return _create
+
+
+@pytest.fixture
+def test_game_environment(test_environment, create_game):
+    """
+    Create complete test environment with game (guild + channel + user + game).
+
+    Returns dict with all objects for daemon/integration tests that need a game.
+
+    Example:
+        env = test_game_environment()
+        notification_id = insert_notification(game_id=env["game"]["id"])
+
+    Customization:
+        env = test_game_environment(title="Custom Game", max_players=6)
+    """
+
+    def _create(
+        discord_guild_id: str | None = None,
+        discord_channel_id: str | None = None,
+        discord_user_id: str | None = None,
+        bot_manager_roles: list[str] | None = None,
+        **game_kwargs,
+    ) -> dict:
+        env = test_environment(
+            discord_guild_id=discord_guild_id,
+            discord_channel_id=discord_channel_id,
+            discord_user_id=discord_user_id,
+            bot_manager_roles=bot_manager_roles,
+        )
+
+        game = create_game(
+            guild_id=env["guild"]["id"],
+            channel_id=env["channel"]["id"],
+            host_id=env["user"]["id"],
+            **game_kwargs,
+        )
+
+        return {
+            "guild": env["guild"],
+            "channel": env["channel"],
+            "user": env["user"],
+            "game": game,
+        }
 
     return _create
