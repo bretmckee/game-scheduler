@@ -39,6 +39,7 @@ import os
 import uuid
 from datetime import UTC, datetime, timedelta
 
+import httpx
 import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.ext.asyncio import (
@@ -51,6 +52,7 @@ from sqlalchemy.orm import sessionmaker
 from services.api.auth.tokens import encrypt_token
 from shared.cache.client import RedisClient
 from shared.cache.keys import CacheKeys
+from tests.shared.auth_helpers import cleanup_test_session, create_test_session
 
 logger = logging.getLogger(__name__)
 
@@ -210,6 +212,59 @@ async def bot_db(bot_db_url):
 def api_base_url():
     """Get API base URL from environment."""
     return os.getenv("API_BASE_URL", "http://api:8000")
+
+
+@pytest.fixture
+def create_authenticated_client(api_base_url):
+    """
+    Factory to create authenticated HTTP clients.
+
+    Creates sync httpx.Client instances with session authentication.
+    Automatically manages session creation and cleanup.
+
+    Usage:
+        client = create_authenticated_client(discord_token, discord_id)
+        response = client.get("/api/v1/...")
+        # Cleanup happens automatically
+
+    Args:
+        discord_token: Discord bot/user token to authenticate with
+        discord_id: Discord ID to associate with the session
+
+    Returns:
+        Configured httpx.Client with session cookie set
+    """
+    clients_to_cleanup = []
+
+    def _create(discord_token: str, discord_id: str) -> httpx.Client:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            session_token, session_data = loop.run_until_complete(
+                create_test_session(discord_token, discord_id)
+            )
+        finally:
+            loop.close()
+
+        client = httpx.Client(
+            base_url=api_base_url,
+            timeout=30.0,
+            cookies={"session_token": session_token},
+        )
+        clients_to_cleanup.append((client, session_token))
+        return client
+
+    yield _create
+
+    # Cleanup all created clients
+    for client, session_token in clients_to_cleanup:
+        client.close()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(cleanup_test_session(session_token))
+        finally:
+            loop.close()
 
 
 @pytest.fixture

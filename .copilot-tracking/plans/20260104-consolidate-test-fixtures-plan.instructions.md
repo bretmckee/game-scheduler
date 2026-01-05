@@ -55,7 +55,7 @@ Consolidate 100+ duplicated test fixtures into a single shared location with fac
 - [x] Task 0.3: Verify fixture tests pass without deadlocks
   - Details: [.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md](.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md) (Lines 122-135)
 
-### [ ] Phase 1: Migrate Sync-Based Integration Tests
+### [x] Phase 1: Migrate Sync-Based Integration Tests
 
 - [x] Task 1.1: Migrate `test_notification_daemon.py`
   - Details: [.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md](.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md) (Lines 137-165)
@@ -66,10 +66,10 @@ Consolidate 100+ duplicated test fixtures into a single shared location with fac
 - [x] Task 1.3: Migrate `test_retry_daemon.py`
   - Details: [.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md](.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md) (Lines 187-205)
 
-- [ ] Task 1.4: Migrate `test_template_default_overrides.py`
+- [x] Task 1.4: Migrate `test_template_default_overrides.py`
   - Details: [.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md](.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md) (Lines 207-230)
 
-- [ ] Task 1.5: Migrate `test_game_signup_methods.py`
+- [x] Task 1.5: Migrate `test_game_signup_methods.py`
   - Details: [.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md](.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md) (Lines 232-260)
 
 ### [ ] Phase 2: Migrate Async ORM Integration Tests

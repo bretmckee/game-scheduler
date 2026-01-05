@@ -9,7 +9,7 @@
 
 **Phase 0 Complete**: Created comprehensive shared fixtures in [tests/conftest.py](tests/conftest.py) with validation tests in [tests/integration/test_shared_fixtures.py](tests/integration/test_shared_fixtures.py). All 31 validation tests passing without deadlocks.
 
-**Phase 1 In Progress**: Migrating sync-based integration tests to use shared factory fixtures.
+**Phase 1 Complete**: Migrated all sync-based integration tests to use shared factory fixtures.
 
 **Key Achievements**:
 - Consolidated database session fixtures (admin_db_sync, admin_db, app_db, bot_db) with automatic cleanup
@@ -21,10 +21,12 @@
 - Task 1.1: Migrated test_notification_daemon.py to use shared fixtures (6 tests: 5 passed, 1 xpassed)
 - Task 1.2: Migrated test_status_transitions.py to use shared fixtures (3 tests passed)
 - Task 1.3: Migrated test_retry_daemon.py to use shared RabbitMQ fixtures (5 tests passed)
+- Task 1.4: Migrated test_template_default_overrides.py (tests passing)
+- Task 1.5: Migrated test_game_signup_methods.py - replaced custom fixtures with helper functions (3 tests passing)
 - Consolidated RabbitMQ helper functions (get_queue_message_count, consume_one_message, purge_queue) to tests/integration/conftest.py
 - Eliminated duplicate _create_test_data helper methods across test files
 
-**Next Steps**: Continue Phase 1 - Tasks 1.4-1.5
+**Next Steps**: Phase 2 - Migrate async ORM integration tests
 
 ## Changes
 
@@ -42,5 +44,6 @@
 - tests/integration/test_status_transitions.py - Removed custom db_url, db_session, and test_game_session fixtures, replaced with shared admin_db_sync and test_game_environment fixtures, updated all test functions to use factory pattern, removed unused sqlalchemy imports (create_engine, sessionmaker), removed duplicate get_queue_message_count and consume_one_message functions
 - tests/integration/test_retry_daemon.py - Removed duplicate rabbitmq_url, rabbitmq_connection, and rabbitmq_channel fixtures in favor of shared fixtures from tests/integration/conftest.py, removed duplicate get_queue_message_count, consume_one_message, and purge_queue functions, removed unused helper functions (publish_event_with_ttl, get_queue_arguments)
 - tests/integration/test_game_signup_methods.py - Removed duplicate consume_one_message function, now imports from tests/integration/conftest.py
+- tests/integration/test_game_signup_methods.py - Replaced custom test_user, test_template, and authenticated_client fixtures with helper functions (_create_test_user, _create_test_template, _create_authenticated_client), updated all tests to use shared factory fixtures and manage session cleanup, fixed parameter names (discord_user_id not discord_id), all 3 tests passing
 
 ### Removed
