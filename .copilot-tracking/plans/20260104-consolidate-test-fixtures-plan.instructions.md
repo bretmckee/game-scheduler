@@ -77,7 +77,7 @@ Consolidate 100+ duplicated test fixtures into a single shared location with fac
 - [x] Task 2.1: Migrate `test_guild_queries.py`
   - Details: [.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md](.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md) (Lines 262-280)
 
-- [ ] Task 2.2: Migrate `test_games_route_guild_isolation.py`
+- [x] Task 2.2: Migrate `test_games_route_guild_isolation.py`
   - Details: [.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md](.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md) (Lines 282-305)
 
 ### [ ] Phase 3: Consolidate E2E Test Fixtures
