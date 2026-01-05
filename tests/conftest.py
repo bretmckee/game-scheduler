@@ -738,7 +738,7 @@ def test_environment(create_guild, create_channel, create_user):
 
 
 @pytest.fixture
-def test_game_environment(test_environment, create_game):
+def test_game_environment(test_environment, create_template, create_game):
     """
     Create complete test environment with game (guild + channel + user + game).
 
@@ -750,6 +750,8 @@ def test_game_environment(test_environment, create_game):
 
     Customization:
         env = test_game_environment(title="Custom Game", max_players=6)
+        env = test_game_environment(with_template=True)  # Include template
+        env = test_game_environment(with_template=True, with_game=False)  # Template only, no game
     """
 
     def _create(
@@ -757,6 +759,8 @@ def test_game_environment(test_environment, create_game):
         discord_channel_id: str | None = None,
         discord_user_id: str | None = None,
         bot_manager_roles: list[str] | None = None,
+        with_template: bool = False,
+        with_game: bool = True,
         **game_kwargs,
     ) -> dict:
         env = test_environment(
@@ -766,18 +770,35 @@ def test_game_environment(test_environment, create_game):
             bot_manager_roles=bot_manager_roles,
         )
 
-        game = create_game(
-            guild_id=env["guild"]["id"],
-            channel_id=env["channel"]["id"],
-            host_id=env["user"]["id"],
-            **game_kwargs,
-        )
+        template = None
+        if with_template:
+            template = create_template(
+                guild_id=env["guild"]["id"],
+                channel_id=env["channel"]["id"],
+            )
+            game_kwargs.setdefault("template_id", template["id"])
 
-        return {
+        game = None
+        if with_game:
+            game = create_game(
+                guild_id=env["guild"]["id"],
+                channel_id=env["channel"]["id"],
+                host_id=env["user"]["id"],
+                **game_kwargs,
+            )
+
+        result = {
             "guild": env["guild"],
             "channel": env["channel"],
             "user": env["user"],
-            "game": game,
         }
+
+        if game:
+            result["game"] = game
+
+        if template:
+            result["template"] = template
+
+        return result
 
     return _create

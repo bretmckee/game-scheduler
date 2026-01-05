@@ -29,6 +29,7 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
 
 import pytest
+from sqlalchemy import text
 
 from services.api.services.games import GameService
 from shared.messaging.publisher import EventPublisher
@@ -38,88 +39,93 @@ pytestmark = pytest.mark.integration
 
 
 @pytest.mark.asyncio
-async def test_get_game_returns_any_game_without_guild_filter(
-    admin_db, create_guild, create_channel, create_user, create_template, create_game
+@pytest.mark.parametrize(
+    "db_fixture,guild_context,expected_games",
+    [
+        ("admin_db", None, ["game_a", "game_b"]),  # Admin sees all
+        ("app_db", "guild_a", ["game_a"]),  # Guild A context sees only game A
+        ("app_db", "guild_b", ["game_b"]),  # Guild B context sees only game B
+        ("app_db", None, []),  # No guild context sees nothing (RLS blocks all)
+    ],
+)
+async def test_get_game_with_different_database_sessions(
+    request,
+    admin_db,
+    app_db,
+    test_game_environment,
+    db_fixture,
+    guild_context,
+    expected_games,
 ):
-    """Verify current GameService.get_game: returns any game by ID, NO guild filtering.
+    """Verify get_game respects RLS guild filtering based on database session and context.
 
-    SECURITY GAP: This documents current insecure behavior.
-    After migration: get_game should require guild_id parameter and enforce filtering.
+    Tests that:
+    - admin_db (BYPASSRLS) sees all games regardless of guild
+    - app_db with guild context sees only games from that guild
+    - app_db without guild context sees no games (RLS blocks all)
+
+    This validates that RLS is working correctly and admin bypass is expected behavior,
+    not a security flaw.
     """
-    # Create test data for two guilds
-    guild_a = create_guild()
-    channel_a = create_channel(guild_id=guild_a["id"])
-    user_a = create_user()
-    template_a = create_template(guild_id=guild_a["id"], channel_id=channel_a["id"])
-    game_a = create_game(
-        guild_id=guild_a["id"],
-        channel_id=channel_a["id"],
-        template_id=template_a["id"],
-        host_id=user_a["id"],
-        title="Game A",
-    )
+    # Create test data for two guilds using composite fixture
+    env_a = test_game_environment(title="Game A")
+    env_b = test_game_environment(title="Game B")
 
-    guild_b = create_guild()
-    channel_b = create_channel(guild_id=guild_b["id"])
-    user_b = create_user()
-    template_b = create_template(guild_id=guild_b["id"], channel_id=channel_b["id"])
-    game_b = create_game(
-        guild_id=guild_b["id"],
-        channel_id=channel_b["id"],
-        template_id=template_b["id"],
-        host_id=user_b["id"],
-        title="Game B",
-    )
+    guild_a = env_a["guild"]
+    game_a = env_a["game"]
+    guild_b = env_b["guild"]
+    game_b = env_b["game"]
+
+    # Get the appropriate database session for this test case
+    db_session = request.getfixturevalue(db_fixture)
+
+    # Set guild context if specified
+    if guild_context:
+        guild_id = guild_a["id"] if guild_context == "guild_a" else guild_b["id"]
+        await db_session.execute(
+            text("SELECT set_config('app.current_guild_ids', :guild_ids, false)"),
+            {"guild_ids": guild_id},
+        )
 
     service = GameService(
-        db=admin_db,
+        db=db_session,
         event_publisher=EventPublisher(),
         discord_client=MagicMock(),
         participant_resolver=MagicMock(),
     )
 
-    await admin_db.commit()
-
-    # Current: get_game returns ANY game by ID
+    # Test game A
     result_a = await service.get_game(game_a["id"])
-    assert result_a is not None
-    assert result_a.id == game_a["id"]
+    if "game_a" in expected_games:
+        assert result_a is not None, (
+            f"Expected game A to be visible with {db_fixture}/{guild_context}"
+        )
+        assert result_a.id == game_a["id"]
+    else:
+        assert result_a is None, f"Expected game A to be filtered with {db_fixture}/{guild_context}"
 
-    # SECURITY GAP: Also returns game from different guild
+    # Test game B
     result_b = await service.get_game(game_b["id"])
-    assert result_b is not None
-    assert result_b.id == game_b["id"]
+    if "game_b" in expected_games:
+        assert result_b is not None, (
+            f"Expected game B to be visible with {db_fixture}/{guild_context}"
+        )
+        assert result_b.id == game_b["id"]
+    else:
+        assert result_b is None, f"Expected game B to be filtered with {db_fixture}/{guild_context}"
 
 
 @pytest.mark.asyncio
-async def test_list_games_filters_by_guild_when_specified(
-    admin_db, create_guild, create_channel, create_user, create_template, create_game
-):
+async def test_list_games_filters_by_guild_when_specified(admin_db, test_game_environment):
     """Verify list_games correctly filters by guild_id when parameter provided."""
     # Create test data for two guilds
-    guild_a = create_guild()
-    channel_a = create_channel(guild_id=guild_a["id"])
-    user_a = create_user()
-    template_a = create_template(guild_id=guild_a["id"], channel_id=channel_a["id"])
-    game_a = create_game(
-        guild_id=guild_a["id"],
-        channel_id=channel_a["id"],
-        template_id=template_a["id"],
-        host_id=user_a["id"],
-        title="Game A",
-    )
+    env_a = test_game_environment(title="Game A")
+    env_b = test_game_environment(title="Game B")
 
-    guild_b = create_guild()
-    channel_b = create_channel(guild_id=guild_b["id"])
-    user_b = create_user()
-    template_b = create_template(guild_id=guild_b["id"], channel_id=channel_b["id"])
-    game_b = create_game(
-        guild_id=guild_b["id"],
-        channel_id=channel_b["id"],
-        template_id=template_b["id"],
-        host_id=user_b["id"],
-        title="Game B",
-    )
+    guild_a = env_a["guild"]
+    game_a = env_a["game"]
+    guild_b = env_b["guild"]
+    game_b = env_b["game"]
 
     service = GameService(
         db=admin_db,
@@ -146,21 +152,12 @@ async def test_list_games_filters_by_guild_when_specified(
 
 
 @pytest.mark.asyncio
-async def test_list_games_with_channel_filter(
-    admin_db, create_guild, create_channel, create_user, create_template, create_game
-):
+async def test_list_games_with_channel_filter(admin_db, test_game_environment):
     """Verify list_games respects channel filter within guild."""
-    guild = create_guild()
-    channel = create_channel(guild_id=guild["id"])
-    user = create_user()
-    template = create_template(guild_id=guild["id"], channel_id=channel["id"])
-    game = create_game(
-        guild_id=guild["id"],
-        channel_id=channel["id"],
-        template_id=template["id"],
-        host_id=user["id"],
-        title="Test Game",
-    )
+    env = test_game_environment()
+    guild = env["guild"]
+    channel = env["channel"]
+    game = env["game"]
 
     service = GameService(
         db=admin_db,
@@ -179,28 +176,26 @@ async def test_list_games_with_channel_filter(
 
 
 @pytest.mark.asyncio
-async def test_list_games_with_status_filter(
-    admin_db, create_guild, create_channel, create_user, create_template
-):
+async def test_list_games_with_status_filter(admin_db, test_environment):
     """Verify list_games respects status filter."""
-    guild = create_guild()
-    channel = create_channel(guild_id=guild["id"])
-    user = create_user()
-    template = create_template(guild_id=guild["id"], channel_id=channel["id"])
+    env = test_environment()
+    guild = env["guild"]
+    channel = env["channel"]
+    user = env["user"]
 
     # Create game directly in async session
     game = GameSession(
         guild_id=guild["id"],
         channel_id=channel["id"],
-        template_id=template["id"],
         host_id=user["id"],
         title="Test Game",
-        scheduled_at=datetime.now(UTC).replace(tzinfo=None) + timedelta(hours=2),
+        scheduled_at=datetime.now(UTC).replace(tzinfo=None) + timedelta(days=1),
         max_players=4,
         status=GameStatus.SCHEDULED,
     )
     admin_db.add(game)
     await admin_db.commit()
+    await admin_db.refresh(game)
 
     service = GameService(
         db=admin_db,
@@ -209,9 +204,10 @@ async def test_list_games_with_status_filter(
         participant_resolver=MagicMock(),
     )
 
-    # List scheduled games
+    # List scheduled games - should find the game we created
     games, total = await service.list_games(guild_id=guild["id"], status="SCHEDULED")
     assert total == 1
+    assert games[0].id == game.id
     assert games[0].status == GameStatus.SCHEDULED
 
     # List completed games (should be empty)
@@ -223,13 +219,12 @@ async def test_list_games_with_status_filter(
 
 
 @pytest.mark.asyncio
-async def test_list_games_pagination(
-    admin_db, create_guild, create_channel, create_user, create_template
-):
+async def test_list_games_pagination(admin_db, test_environment, create_template):
     """Verify list_games pagination works correctly."""
-    guild = create_guild()
-    channel = create_channel(guild_id=guild["id"])
-    user = create_user()
+    env = test_environment()
+    guild = env["guild"]
+    channel = env["channel"]
+    user = env["user"]
     template = create_template(guild_id=guild["id"], channel_id=channel["id"])
 
     # Create multiple games
@@ -272,34 +267,16 @@ async def test_list_games_pagination(
 
 
 @pytest.mark.asyncio
-async def test_guild_isolation_in_list_games(
-    admin_db, create_guild, create_channel, create_user, create_template, create_game
-):
+async def test_guild_isolation_in_list_games(admin_db, test_game_environment):
     """Verify complete guild isolation in list_games across multiple operations."""
     # Create test data for two guilds
-    guild_a = create_guild()
-    channel_a = create_channel(guild_id=guild_a["id"])
-    user_a = create_user()
-    template_a = create_template(guild_id=guild_a["id"], channel_id=channel_a["id"])
-    game_a = create_game(
-        guild_id=guild_a["id"],
-        channel_id=channel_a["id"],
-        template_id=template_a["id"],
-        host_id=user_a["id"],
-        title="Game A",
-    )
+    env_a = test_game_environment(title="Game A")
+    env_b = test_game_environment(title="Game B")
 
-    guild_b = create_guild()
-    channel_b = create_channel(guild_id=guild_b["id"])
-    user_b = create_user()
-    template_b = create_template(guild_id=guild_b["id"], channel_id=channel_b["id"])
-    game_b = create_game(
-        guild_id=guild_b["id"],
-        channel_id=channel_b["id"],
-        template_id=template_b["id"],
-        host_id=user_b["id"],
-        title="Game B",
-    )
+    guild_a = env_a["guild"]
+    game_a = env_a["game"]
+    guild_b = env_b["guild"]
+    game_b = env_b["game"]
 
     service = GameService(
         db=admin_db,
