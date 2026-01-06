@@ -77,15 +77,14 @@ async def test_require_guild_by_id_success_context_not_set():
             "services.api.database.queries.get_current_guild_ids",
             side_effect=[None, [guild_uuid]],  # Second call returns UUID
         ),
-        patch("services.api.database.queries.set_current_guild_ids") as mock_set_context,
         patch("services.api.database.queries.get_guild_by_id", return_value=mock_guild),
         patch(
             "services.api.auth.oauth2.get_user_guilds", return_value=mock_user_guilds
         ) as mock_get_guilds,
         patch(
-            "services.api.database.queries.convert_discord_guild_ids_to_uuids",
-            return_value=[guild_uuid],  # Conversion returns UUID
-        ),
+            "services.api.database.queries.setup_rls_and_convert_guild_ids",
+            return_value=[guild_uuid],
+        ) as mock_setup_rls,
     ):
         # Act
         result = await queries.require_guild_by_id(
@@ -95,7 +94,7 @@ async def test_require_guild_by_id_success_context_not_set():
         # Assert
         assert result == mock_guild
         mock_get_guilds.assert_called_once_with(access_token, user_discord_id)
-        mock_set_context.assert_called_once_with([guild_uuid])  # Now sets UUID
+        mock_setup_rls.assert_called_once_with(mock_db, [guild_discord_id])
 
 
 @pytest.mark.asyncio

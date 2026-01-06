@@ -145,8 +145,7 @@ async def require_guild_by_id(
     if get_current_guild_ids() is None:
         user_guilds = await oauth2.get_user_guilds(access_token, user_discord_id)
         discord_guild_ids = [g["id"] for g in user_guilds]
-        guild_uuids = await convert_discord_guild_ids_to_uuids(db, discord_guild_ids)
-        set_current_guild_ids(guild_uuids)
+        await setup_rls_and_convert_guild_ids(db, discord_guild_ids)
 
     guild_config = await get_guild_by_id(db, guild_id)
     if not guild_config:
@@ -156,15 +155,20 @@ async def require_guild_by_id(
         )
 
     # Defense in depth: Manual authorization check (RLS also enforces at DB level)
-    # Check guild UUID is in user's authorized guild list
-    authorized_guild_uuids = get_current_guild_ids()
-    if authorized_guild_uuids is None:
+    # Check guild UUID OR Discord guild ID is in user's authorized guild list
+    # (Context can contain either UUIDs or Discord IDs depending on setup path)
+    authorized_guild_ids = get_current_guild_ids()
+    if authorized_guild_ids is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=not_found_detail,
         )
 
-    if guild_config.id not in authorized_guild_uuids:
+    # Check if either UUID or Discord ID is in the authorized list
+    if (
+        guild_config.id not in authorized_guild_ids
+        and guild_config.guild_id not in authorized_guild_ids
+    ):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=not_found_detail,

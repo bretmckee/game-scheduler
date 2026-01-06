@@ -72,7 +72,7 @@ Consolidate 100+ duplicated test fixtures into a single shared location with fac
 - [x] Task 1.5: Migrate `test_game_signup_methods.py`
   - Details: [.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md](.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md) (Lines 232-260)
 
-### [ ] Phase 2: Migrate Async ORM Integration Tests
+### [x] Phase 2: Migrate Async ORM Integration Tests
 
 - [x] Task 2.1: Migrate `test_guild_queries.py`
   - Details: [.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md](.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md) (Lines 262-280)
