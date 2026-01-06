@@ -239,24 +239,121 @@ This test validates RLS - ensure it uses admin_db for setup, app_db for testing.
 ### Task 3.1: Identify e2e-specific vs shared fixtures
 
 Audit `tests/e2e/conftest.py` and determine which fixtures should:
-- KEEP: E2E-specific (Discord tokens, authenticated clients, timeouts, helpers)
+- KEEP: E2E-specific (Discord tokens, authenticated clients, helpers)
 - MIGRATE: Data creation (guild/channel/user/game factories)
-- MIGRATE: Database access (use admin_db_sync, admin_db from tests/conftest.py)
+- MIGRATE: Database access (use admin_db from tests/conftest.py)
+- DELETE: Duplicate fixtures (api_base_url, http_client, timeouts)
 
-Document migration plan for e2e fixtures.
+Document migration plan for e2e fixtures and remove duplicates.
+
+**E2E FIXTURE MIGRATION PLAN**:
+
+**USE from shared tests/conftest.py (already exist)**:
+- `api_base_url` - API base URL (already removed duplicate ✓)
+- `test_timeouts` - Timeout values (already consolidated with alias ✓)
+- `admin_db` / `admin_db_sync` - Database sessions with automatic cleanup
+- `create_guild()` - Guild factory
+- `create_channel()` - Channel factory
+- `create_user()` - User factory
+- `create_template()` - Template factory
+- `create_game()` - Game factory
+- `seed_redis_cache()` - Redis cache seeding factory
+- `test_environment()` - Composite fixture (guild + channel + user)
+- `test_game_environment()` - Composite fixture with game
+- `create_authenticated_client()` - Sync authenticated client factory
+
+**USE from tests/shared/polling.py (already exist)**:
+- `wait_for_db_condition_async()` - Async database polling
+- `wait_for_db_condition_sync()` - Sync database polling
+
+**MIGRATE to shared tests/conftest.py (create new)**:
+- `create_authenticated_client_async()` - Async authenticated client factory
+  - Replaces: `authenticated_admin_client`, `authenticated_client_b` fixtures
+  - Tests call: `await create_authenticated_client_async(token, discord_id)`
+
+**MIGRATE to tests/shared/polling.py (create new)**:
+- `wait_for_game_message_id()` - Poll for game message_id population
+  - Useful for both integration and E2E tests
+
+**DELETE from tests/e2e/conftest.py (duplicates or replaced)**:
+- `database_url` - Use `admin_db_url` from shared
+- `db_engine` - Use `admin_db` session fixture from shared
+- `db_session` - Use `admin_db` session fixture from shared
+- `guild_b_db_id` - Tests call `create_guild(discord_guild_id=discord_guild_b_id)`
+- `guild_b_template_id` - Tests call `create_template(guild_id=...)`
+- `authenticated_admin_client` - Tests call async factory
+- `authenticated_client_b` - Tests call async factory
+- `http_client` - Tests use authenticated clients or httpx.Client directly
+- `wait_for_db_condition()` - Wrapper unnecessary, use shared polling directly
+- `e2e_timeouts` - Remove alias, use `test_timeouts` directly (Task 3.2)
+
+**KEEP in tests/e2e/conftest.py (truly E2E-specific)**:
+- `discord_token` - Discord admin bot A token (session)
+- `discord_main_bot_token` - Main bot token for notifications (session)
+- `discord_guild_id` - Test Discord guild A ID (session)
+- `discord_channel_id` - Test Discord channel A ID (session)
+- `discord_user_id` - Test Discord user ID (session)
+- `discord_guild_b_id` - Guild B for isolation testing (session)
+- `discord_channel_b_id` - Channel in Guild B (session)
+- `discord_user_b_id` - User B ID (session)
+- `discord_user_b_token` - User B bot token (session)
+- `discord_helper` - Discord test helper wrapper (function)
+- `bot_discord_id` - Extract bot ID from token (session)
+- `synced_guild` - Guild sync workflow fixture (function)
+
+**RESULT**: E2E conftest reduced from ~24 fixtures to ~12 fixtures (all truly E2E-specific)
 
 - **Files**:
-  - [tests/e2e/conftest.py](tests/e2e/conftest.py) - Analyze fixtures
+  - [tests/e2e/conftest.py](tests/e2e/conftest.py) - Analyze fixtures, delete duplicates
+  - [tests/conftest.py](tests/conftest.py) - Already has api_base_url, test_timeouts
 - **Success**:
-  - Clear list of fixtures to keep vs migrate
-  - Migration approach documented
+  - Clear migration plan documented above
+  - Duplicate fixtures removed from e2e conftest (api_base_url ✓)
+  - Timeout consolidation complete (test_timeouts ✓)
+- **Duplicates Removed**:
+  - `api_base_url` - deleted from e2e, use shared version ✓
+  - `TimeoutType` and timeouts - migrated to shared conftest as `test_timeouts` ✓
 - **Research References**:
   - [Research Lines 807-825](../research/20260104-consolidate-test-fixtures-research.md#L807-L825) - Phase 3 approach
   - [Research Lines 58-75](../research/20260104-consolidate-test-fixtures-research.md#L58-L75) - E2E fixture landscape
 - **Dependencies**:
   - Phase 0 complete
 
-### Task 3.2: Migrate 12 e2e test files to shared fixtures
+### Task 3.2: Remove e2e_timeouts backward-compatible alias
+
+Replace all uses of `e2e_timeouts` fixture with `test_timeouts` across E2E tests.
+
+Simple mechanical replacement:
+- Change function parameter: `e2e_timeouts` → `test_timeouts`
+- All usage already via dict keys (no code changes in function bodies)
+- Remove `e2e_timeouts` fixture from tests/e2e/conftest.py
+
+Affected files (~50 occurrences across 12 test files):
+- test_game_announcement.py
+- test_game_cancellation.py
+- test_game_reminder.py
+- test_game_status_transitions.py
+- test_game_update.py
+- test_join_notification.py
+- test_player_removal.py
+- test_signup_methods.py
+- test_user_join.py
+- test_waitlist_promotion.py
+- (and 2 more)
+
+- **Files**:
+  - [tests/e2e/conftest.py](tests/e2e/conftest.py) - Remove e2e_timeouts alias fixture
+  - [tests/e2e/*.py](tests/e2e/) - Replace e2e_timeouts → test_timeouts in ~12 files
+- **Success**:
+  - All e2e tests use test_timeouts directly
+  - e2e_timeouts fixture deleted
+  - All e2e tests pass
+- **Research References**:
+  - [Research Lines 807-825](../research/20260104-consolidate-test-fixtures-research.md#L807-L825) - Phase 3 consolidation approach
+- **Dependencies**:
+  - Task 3.1 complete (analysis done)
+
+### Task 3.3: Migrate 12 e2e test files to shared fixtures
 
 Update all e2e test files to use factory fixtures from `tests/conftest.py`.
 
