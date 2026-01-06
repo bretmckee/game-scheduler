@@ -35,14 +35,26 @@ pytestmark = pytest.mark.e2e
 
 
 @pytest.fixture
-async def guild_a_db_id(db_session, discord_guild_id):
+async def guild_a_db_id(admin_db, discord_guild_id):
     """Get Guild A database UUID (User A's guild)."""
-    result = await db_session.execute(
+    result = await admin_db.execute(
         text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
         {"guild_id": discord_guild_id},
     )
     row = result.fetchone()
     assert row, f"Guild A {discord_guild_id} not found in database"
+    return row[0]
+
+
+@pytest.fixture
+async def guild_b_db_id(admin_db, discord_guild_b_id):
+    """Get Guild B database UUID (User B's guild)."""
+    result = await admin_db.execute(
+        text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
+        {"guild_id": discord_guild_b_id},
+    )
+    row = result.fetchone()
+    assert row, f"Guild B {discord_guild_b_id} not found in database"
     return row[0]
 
 

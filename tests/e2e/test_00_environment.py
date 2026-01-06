@@ -134,9 +134,9 @@ async def test_discord_user_exists(discord_token, discord_user_id):
 
 
 @pytest.mark.asyncio
-async def test_database_seeded(db_session, discord_guild_id, discord_channel_id, discord_user_id):
+async def test_database_seeded(admin_db, discord_guild_id, discord_channel_id, discord_user_id):
     """Verify init service seeded the database with test data."""
-    result = await db_session.execute(
+    result = await admin_db.execute(
         text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
         {"guild_id": discord_guild_id},
     )
@@ -146,7 +146,7 @@ async def test_database_seeded(db_session, discord_guild_id, discord_channel_id,
         f"Init service may have failed to seed E2E data"
     )
 
-    result = await db_session.execute(
+    result = await admin_db.execute(
         text("SELECT id FROM channel_configurations WHERE channel_id = :channel_id"),
         {"channel_id": discord_channel_id},
     )
@@ -156,7 +156,7 @@ async def test_database_seeded(db_session, discord_guild_id, discord_channel_id,
         f"Init service may have failed to seed E2E data"
     )
 
-    result = await db_session.execute(
+    result = await admin_db.execute(
         text("SELECT id FROM users WHERE discord_id = :discord_id"),
         {"discord_id": discord_user_id},
     )
@@ -177,9 +177,9 @@ async def test_discord_helper_fixture(discord_helper, discord_channel_id):
     assert channel is not None, "Should be able to fetch test channel using fixture"
 
 
-def test_api_accessible(http_client):
+async def test_api_accessible(authenticated_admin_client):
     """Verify API service is running and accessible."""
-    response = http_client.get("/health")
+    response = await authenticated_admin_client.get("/health")
     assert response.status_code == 200, (
         f"API health check failed with status {response.status_code}"
     )
@@ -281,10 +281,10 @@ async def test_user_b_exists(discord_user_b_token, discord_user_b_id):
 
 @pytest.mark.asyncio
 async def test_guild_b_database_seeded(
-    db_session, discord_guild_b_id, discord_channel_b_id, discord_user_b_id
+    admin_db, discord_guild_b_id, discord_channel_b_id, discord_user_b_id
 ):
     """Verify init service seeded Guild B data in database."""
-    result = await db_session.execute(
+    result = await admin_db.execute(
         text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
         {"guild_id": discord_guild_b_id},
     )
@@ -294,7 +294,7 @@ async def test_guild_b_database_seeded(
         f"Init service may have failed to seed Guild B data"
     )
 
-    result = await db_session.execute(
+    result = await admin_db.execute(
         text("SELECT id FROM channel_configurations WHERE channel_id = :channel_id"),
         {"channel_id": discord_channel_b_id},
     )
@@ -304,7 +304,7 @@ async def test_guild_b_database_seeded(
         f"Init service may have failed to seed Guild B data"
     )
 
-    result = await db_session.execute(
+    result = await admin_db.execute(
         text("SELECT id FROM users WHERE discord_id = :discord_id"),
         {"discord_id": discord_user_b_id},
     )
@@ -316,9 +316,9 @@ async def test_guild_b_database_seeded(
 
 
 @pytest.mark.asyncio
-async def test_guild_b_has_default_template(db_session, discord_guild_b_id):
+async def test_guild_b_has_default_template(admin_db, discord_guild_b_id):
     """Verify Guild B has a default game template."""
-    result = await db_session.execute(
+    result = await admin_db.execute(
         text(
             "SELECT t.id FROM game_templates t "
             "JOIN guild_configurations g ON t.guild_id = g.id "

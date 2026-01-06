@@ -36,10 +36,10 @@ pytestmark = pytest.mark.e2e
 
 
 @pytest.fixture
-async def guild_a_template_id(db_session, discord_guild_id, discord_channel_id, synced_guild):
+async def guild_a_template_id(admin_db, discord_guild_id, discord_channel_id, synced_guild):
     """Get default template ID for Guild A."""
     # Get Guild A database ID
-    guild_result = await db_session.execute(
+    guild_result = await admin_db.execute(
         text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
         {"guild_id": discord_guild_id},
     )
@@ -48,7 +48,7 @@ async def guild_a_template_id(db_session, discord_guild_id, discord_channel_id, 
     guild_a_db_id = guild_row[0]
 
     # Get default template
-    result = await db_session.execute(
+    result = await admin_db.execute(
         text("SELECT id FROM game_templates WHERE guild_id = :guild_id AND is_default = true"),
         {"guild_id": guild_a_db_id},
     )
@@ -58,8 +58,30 @@ async def guild_a_template_id(db_session, discord_guild_id, discord_channel_id, 
 
 
 @pytest.fixture
+async def guild_b_template_id(admin_db, discord_guild_b_id, synced_guild_b):
+    """Get default template ID for Guild B."""
+    # Get Guild B database ID
+    guild_result = await admin_db.execute(
+        text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
+        {"guild_id": discord_guild_b_id},
+    )
+    guild_row = guild_result.fetchone()
+    assert guild_row, f"Guild B {discord_guild_b_id} not found in database"
+    guild_b_db_id = guild_row[0]
+
+    # Get default template
+    result = await admin_db.execute(
+        text("SELECT id FROM game_templates WHERE guild_id = :guild_id AND is_default = true"),
+        {"guild_id": guild_b_db_id},
+    )
+    row = result.fetchone()
+    assert row, "Guild B default template not found"
+    return row[0]
+
+
+@pytest.fixture
 async def guild_a_game_id(
-    db_session,
+    admin_db,
     authenticated_admin_client,
     guild_a_template_id,
 ):
@@ -82,7 +104,7 @@ async def guild_a_game_id(
         return result is not None
 
     await wait_for_db_condition_async(
-        db_session,
+        admin_db,
         "SELECT id FROM game_sessions WHERE id = :game_id",
         {"game_id": game_id},
         check_game_exists,
@@ -98,7 +120,7 @@ async def guild_a_game_id(
 
 @pytest.fixture
 async def guild_b_game_id(
-    db_session,
+    admin_db,
     authenticated_client_b,
     guild_b_template_id,
 ):
@@ -126,7 +148,7 @@ async def guild_b_game_id(
         return result is not None
 
     await wait_for_db_condition_async(
-        db_session,
+        admin_db,
         "SELECT id FROM game_sessions WHERE id = :game_id",
         {"game_id": game_id},
         check_game_exists,
@@ -260,7 +282,7 @@ async def test_user_cannot_delete_game_from_other_guild(
 async def test_templates_isolated_across_guilds(
     authenticated_admin_client,
     authenticated_client_b,
-    db_session,
+    admin_db,
     discord_guild_id,
     discord_guild_b_id,
     guild_b_template_id,
@@ -273,7 +295,7 @@ async def test_templates_isolated_across_guilds(
     - User A attempts to access Guild B template → 404
     """
     # Get Guild A database UUID
-    result_a = await db_session.execute(
+    result_a = await admin_db.execute(
         text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
         {"guild_id": discord_guild_id},
     )
@@ -282,7 +304,7 @@ async def test_templates_isolated_across_guilds(
     guild_a_db_id = str(row_a[0])  # Convert UUID to string
 
     # Get Guild B database UUID
-    result_b = await db_session.execute(
+    result_b = await admin_db.execute(
         text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
         {"guild_id": discord_guild_b_id},
     )
@@ -315,7 +337,7 @@ async def test_templates_isolated_across_guilds(
 
 
 async def test_participants_isolated_across_guilds(
-    db_session,
+    admin_db,
     authenticated_admin_client,
     authenticated_client_b,
     guild_a_game_id,
@@ -343,7 +365,7 @@ async def test_participants_isolated_across_guilds(
         return result is not None
 
     await wait_for_db_condition_async(
-        db_session,
+        admin_db,
         "SELECT id FROM game_participants WHERE game_session_id = :game_id",
         {"game_id": guild_a_game_id},
         check_participant_exists,
@@ -352,7 +374,7 @@ async def test_participants_isolated_across_guilds(
     )
 
     await wait_for_db_condition_async(
-        db_session,
+        admin_db,
         "SELECT id FROM game_participants WHERE game_session_id = :game_id",
         {"game_id": guild_b_game_id},
         check_participant_exists,

@@ -48,88 +48,15 @@ from tests.e2e.conftest import TimeoutType, wait_for_game_message_id
 pytestmark = pytest.mark.e2e
 
 
-@pytest.fixture
-async def clean_test_data(db_session):
-    """Clean up only game-related test data before and after test."""
-    await db_session.execute(text("DELETE FROM notification_schedule"))
-    await db_session.execute(text("DELETE FROM game_participants"))
-    await db_session.execute(text("DELETE FROM game_sessions"))
-    await db_session.commit()
-
-    yield
-
-    await db_session.execute(text("DELETE FROM notification_schedule"))
-    await db_session.execute(text("DELETE FROM game_participants"))
-    await db_session.execute(text("DELETE FROM game_sessions"))
-    await db_session.commit()
-
-
-@pytest.fixture
-async def test_guild_id(db_session, discord_guild_id):
-    """Get database ID for test guild (seeded by init service)."""
-    result = await db_session.execute(
-        text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
-        {"guild_id": discord_guild_id},
-    )
-    row = result.fetchone()
-    if not row:
-        pytest.fail(f"Test guild {discord_guild_id} not found - init seed may have failed")
-    return row[0]
-
-
-@pytest.fixture
-async def test_channel_id(db_session, discord_channel_id):
-    """Get database ID for test channel (seeded by init service)."""
-    result = await db_session.execute(
-        text("SELECT id FROM channel_configurations WHERE channel_id = :channel_id"),
-        {"channel_id": discord_channel_id},
-    )
-    row = result.fetchone()
-    if not row:
-        pytest.fail(f"Test channel {discord_channel_id} not found - init seed may have failed")
-    return row[0]
-
-
-@pytest.fixture
-async def test_host_id(db_session, discord_user_id):
-    """Get database ID for test user (seeded by init service)."""
-    result = await db_session.execute(
-        text("SELECT id FROM users WHERE discord_id = :discord_id"),
-        {"discord_id": discord_user_id},
-    )
-    row = result.fetchone()
-    if not row:
-        pytest.fail(f"Test user {discord_user_id} not found - init seed may have failed")
-    return row[0]
-
-
-@pytest.fixture
-async def test_template_id(db_session, test_guild_id, synced_guild):
-    """Get default template ID for test guild (created by guild sync)."""
-    result = await db_session.execute(
-        text("SELECT id FROM game_templates WHERE guild_id = :guild_id AND is_default = true"),
-        {"guild_id": test_guild_id},
-    )
-    row = result.fetchone()
-    if not row:
-        pytest.fail(
-            f"Default template not found for guild {test_guild_id} - "
-            "guild sync may not have created default template"
-        )
-    return row[0]
-
-
 @pytest.mark.asyncio
 async def test_user_join_updates_participant_count(
     authenticated_admin_client,
-    db_session,
+    admin_db,
     discord_helper,
-    test_guild_id,
-    test_channel_id,
-    test_template_id,
+    discord_guild_id,
     discord_channel_id,
     bot_discord_id,
-    clean_test_data,
+    synced_guild,
     test_timeouts,
 ):
     """
@@ -141,6 +68,22 @@ async def test_user_join_updates_participant_count(
     - Discord message updates with incremented participant count
     - Participant list shows joined bot
     """
+    result = await admin_db.execute(
+        text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
+        {"guild_id": discord_guild_id},
+    )
+    row = result.fetchone()
+    assert row, f"Test guild {discord_guild_id} not found"
+    test_guild_id = row[0]
+
+    result = await admin_db.execute(
+        text("SELECT id FROM game_templates WHERE guild_id = :guild_id AND is_default = true"),
+        {"guild_id": test_guild_id},
+    )
+    row = result.fetchone()
+    assert row, f"Default template not found for guild {test_guild_id}"
+    test_template_id = row[0]
+
     scheduled_time = datetime.now(UTC) + timedelta(hours=2)
     game_title = f"E2E Join Test {uuid4().hex[:8]}"
 
@@ -158,11 +101,11 @@ async def test_user_join_updates_participant_count(
     print(f"\n[TEST] Game created with ID: {game_id}")
 
     # Refresh the session to ensure we see committed data
-    db_session.expire_all()
-    await db_session.commit()
+    admin_db.expire_all()
+    await admin_db.commit()
 
     # Check game and host details
-    result = await db_session.execute(
+    result = await admin_db.execute(
         text("SELECT id, host_id FROM game_sessions WHERE id = :game_id"),
         {"game_id": game_id},
     )
@@ -173,7 +116,7 @@ async def test_user_join_updates_participant_count(
         print(f"[DEBUG] Host ID: {game_row[1]}")
 
     # Check bot user details
-    result = await db_session.execute(
+    result = await admin_db.execute(
         text("SELECT id, discord_id FROM users WHERE discord_id = :discord_id"),
         {"discord_id": bot_discord_id},
     )
@@ -186,7 +129,7 @@ async def test_user_join_updates_participant_count(
             print(f"[DEBUG] Bot is host: {bot_user[0] == game_row[1]}")
 
     # Check ALL participants (including any with NULL user_id)
-    result = await db_session.execute(
+    result = await admin_db.execute(
         text(
             "SELECT id, game_session_id, user_id, display_name, position_type, position "
             "FROM game_participants WHERE game_session_id = :game_id"
@@ -203,7 +146,7 @@ async def test_user_join_updates_participant_count(
 
     # Check if bot already has a participant record
     if bot_user:
-        result = await db_session.execute(
+        result = await admin_db.execute(
             text(
                 "SELECT id, game_session_id, user_id, display_name "
                 "FROM game_participants WHERE user_id = :user_id"
@@ -219,7 +162,7 @@ async def test_user_join_updates_participant_count(
             )
 
     message_id = await wait_for_game_message_id(
-        db_session, game_id, timeout=test_timeouts[TimeoutType.DB_WRITE]
+        admin_db, game_id, timeout=test_timeouts[TimeoutType.DB_WRITE]
     )
     print(f"[TEST] Message ID: {message_id}")
     assert message_id is not None, "Message ID should be populated after announcement"

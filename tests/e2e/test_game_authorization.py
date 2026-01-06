@@ -34,51 +34,28 @@ pytestmark = pytest.mark.e2e
 
 
 @pytest.fixture
-async def test_guild_id(db_session, discord_guild_id):
-    """Get database ID for test guild (seeded by init service)."""
-    result = await db_session.execute(
-        text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
-        {"guild_id": discord_guild_id},
-    )
-    row = result.fetchone()
-    if not row:
-        pytest.fail(f"Test guild {discord_guild_id} not found - init seed may have failed")
-    return row[0]
-
-
-@pytest.fixture
-async def test_channel_id(db_session, discord_channel_id):
-    """Get database ID for test channel (seeded by init service)."""
-    result = await db_session.execute(
-        text("SELECT id FROM channel_configurations WHERE channel_id = :channel_id"),
-        {"channel_id": discord_channel_id},
-    )
-    row = result.fetchone()
-    if not row:
-        pytest.fail(f"Test channel {discord_channel_id} not found - init seed may have failed")
-    return row[0]
-
-
-@pytest.fixture
-async def test_host_id(db_session, discord_user_id):
-    """Get database ID for test host user (seeded by init service)."""
-    result = await db_session.execute(
-        text("SELECT id FROM users WHERE discord_id = :discord_id"),
-        {"discord_id": discord_user_id},
-    )
-    row = result.fetchone()
-    if not row:
-        pytest.fail(f"Test user {discord_user_id} not found - init seed may have failed")
-    return row[0]
-
-
-@pytest.fixture
-async def template_id(db_session, test_guild_id, test_channel_id):
+async def template_id(admin_db, discord_guild_id, discord_channel_id, synced_guild):
     """Create test template for E2E guild with no role restrictions.
 
     Creates a template that allows any guild member to host games,
     ensuring real E2E user can successfully create games without mocking roles.
     """
+    result = await admin_db.execute(
+        text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
+        {"guild_id": discord_guild_id},
+    )
+    row = result.fetchone()
+    assert row, f"Test guild {discord_guild_id} not found"
+    test_guild_id = row[0]
+
+    result = await admin_db.execute(
+        text("SELECT id FROM channel_configurations WHERE channel_id = :channel_id"),
+        {"channel_id": discord_channel_id},
+    )
+    row = result.fetchone()
+    assert row, f"Test channel {discord_channel_id} not found"
+    test_channel_id = row[0]
+
     template = GameTemplate(
         id=str(uuid.uuid4()),
         guild_id=test_guild_id,
@@ -90,25 +67,25 @@ async def template_id(db_session, test_guild_id, test_channel_id):
         max_players=4,
         allowed_host_role_ids=[],  # Empty = anyone in guild can host
     )
-    db_session.add(template)
-    await db_session.commit()
+    admin_db.add(template)
+    await admin_db.commit()
 
     yield str(template.id)
 
     # Cleanup - delete any games using this template first
-    await db_session.execute(
+    await admin_db.execute(
         text("DELETE FROM game_sessions WHERE template_id = :id"),
         {"id": str(template.id)},
     )
-    await db_session.execute(
+    await admin_db.execute(
         text("DELETE FROM game_templates WHERE id = :id"), {"id": str(template.id)}
     )
-    await db_session.commit()
+    await admin_db.commit()
 
 
 @pytest.mark.asyncio
 async def test_create_game_with_authorization(
-    authenticated_admin_client, template_id, test_host_id, discord_user_id
+    authenticated_admin_client, template_id, discord_user_id
 ):
     """Verify game creation succeeds with real user authorization.
 
@@ -139,7 +116,7 @@ async def test_create_game_with_authorization(
 
 @pytest.mark.asyncio
 async def test_delete_game_authorization(
-    authenticated_admin_client, template_id, db_session, test_host_id, discord_user_id
+    authenticated_admin_client, template_id, admin_db, discord_user_id
 ):
     """Verify game deletion authorization with real user and roles.
 
@@ -164,7 +141,7 @@ async def test_delete_game_authorization(
     assert delete_response.status_code == 204
 
     # Verify game status is CANCELED (not physically deleted)
-    result = await db_session.execute(
+    result = await admin_db.execute(
         text("SELECT id, status FROM game_sessions WHERE id = :game_id"),
         {"game_id": game_id},
     )
@@ -186,7 +163,7 @@ async def test_delete_game_authorization(
 
 @pytest.mark.e2e
 async def test_delete_game_authorization_forbidden(
-    authenticated_admin_client, template_id, test_host_id, discord_user_id
+    authenticated_admin_client, template_id, discord_user_id
 ):
     """Verify 403 when guild member without permission tries to delete game.
 

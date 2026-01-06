@@ -29,8 +29,7 @@ from typing import Any, TypeVar
 
 import httpx
 import pytest
-from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.utils.discord_tokens import extract_bot_discord_id
 from tests.conftest import TimeoutType  # Re-export for backward compatibility
@@ -200,41 +199,6 @@ def discord_user_b_token():
     return user_b_token
 
 
-@pytest.fixture(scope="session")
-def database_url():
-    """Construct database URL from environment variables."""
-    return (
-        f"postgresql+asyncpg://{os.environ['POSTGRES_USER']}:{os.environ['POSTGRES_PASSWORD']}"
-        f"@{os.environ['POSTGRES_HOST']}:{os.environ['POSTGRES_PORT']}/{os.environ['POSTGRES_DB']}"
-    )
-
-
-@pytest.fixture(scope="function")
-async def db_engine(database_url):
-    """Create async database engine for E2E tests."""
-    engine = create_async_engine(database_url, future=True)
-    yield engine
-    await engine.dispose()
-
-
-@pytest.fixture(scope="function")
-async def db_session(db_engine):
-    """Provide async database session for individual tests."""
-    async_session = async_sessionmaker(db_engine, expire_on_commit=False, class_=AsyncSession)
-    async with async_session() as session:
-        yield session
-
-
-@pytest.fixture(scope="function")
-def http_client(api_base_url):
-    """Provide HTTP client for API requests."""
-    client = httpx.Client(base_url=api_base_url, timeout=10.0)
-    try:
-        yield client
-    finally:
-        client.close()
-
-
 @pytest.fixture
 async def discord_helper(discord_token):
     """Create and connect Discord test helper."""
@@ -294,6 +258,24 @@ async def synced_guild(authenticated_admin_client, discord_guild_id):
 
 
 @pytest.fixture(scope="function")
+async def synced_guild_b(authenticated_client_b, discord_guild_b_id):
+    """
+    Sync Guild B using the API endpoint and return sync results.
+
+    Calls /api/v1/guilds/sync with the User B token.
+    Returns the sync response containing new_guilds and new_channels counts.
+    """
+    response = await authenticated_client_b.post("/api/v1/guilds/sync")
+
+    assert response.status_code == 200, (
+        f"Guild B sync failed: {response.status_code} - {response.text}"
+    )
+
+    sync_results = response.json()
+    return sync_results
+
+
+@pytest.fixture(scope="function")
 async def authenticated_client_b(api_base_url, discord_user_b_id, discord_user_b_token):
     """HTTP client authenticated as User B (Guild B member)."""
 
@@ -306,33 +288,3 @@ async def authenticated_client_b(api_base_url, discord_user_b_id, discord_user_b
 
     await cleanup_test_session(session_token)
     await client.aclose()
-
-
-@pytest.fixture(scope="function")
-async def guild_b_db_id(db_session, discord_guild_b_id):
-    """Get database UUID for Guild B."""
-
-    result = await db_session.execute(
-        text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
-        {"guild_id": discord_guild_b_id},
-    )
-    row = result.fetchone()
-    if not row:
-        pytest.fail(
-            f"Guild B {discord_guild_b_id} not found in database - init seed may have failed"
-        )
-    return row[0]
-
-
-@pytest.fixture(scope="function")
-async def guild_b_template_id(db_session, guild_b_db_id):
-    """Get default template UUID for Guild B."""
-
-    result = await db_session.execute(
-        text("SELECT id FROM game_templates WHERE guild_id = :guild_id AND is_default = true"),
-        {"guild_id": guild_b_db_id},
-    )
-    row = result.fetchone()
-    if not row:
-        pytest.fail("Guild B default template not found - init seed may have failed")
-    return row[0]
