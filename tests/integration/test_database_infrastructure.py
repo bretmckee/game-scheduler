@@ -37,10 +37,17 @@ pytestmark = pytest.mark.integration
 
 @pytest.fixture(scope="module")
 def db_url():
-    """Get database URL from environment, converting asyncpg to psycopg2 for sync tests."""
+    """Get database URL from environment, converting asyncpg to psycopg2 for sync tests.
+
+    Uses ADMIN_DATABASE_URL for infrastructure tests since these tests query
+    metadata (information_schema) and should not be subject to RLS restrictions.
+    """
     raw_url = os.getenv(
-        "DATABASE_URL",
-        "postgresql://gamebot:dev_password_change_in_prod@postgres:5432/game_scheduler",
+        "ADMIN_DATABASE_URL",
+        os.getenv(
+            "DATABASE_URL",
+            "postgresql://gamebot:dev_password_change_in_prod@postgres:5432/game_scheduler",
+        ),
     )
     # Convert postgresql+asyncpg:// to postgresql:// for synchronous tests
     return raw_url.replace("postgresql+asyncpg://", "postgresql://")
@@ -254,9 +261,9 @@ def test_notification_schedule_foreign_keys(db_session):
         )
     )
 
-    fks = {
-        row[0]: {"table": row[1], "column": row[2], "delete": row[4]} for row in result.fetchall()
-    }
+    rows = result.fetchall()
+
+    fks = {row[0]: {"table": row[1], "column": row[2], "delete": row[4]} for row in rows}
 
     # Verify game_id foreign key with CASCADE delete
     assert "game_id" in fks, "Missing foreign key on game_id"
