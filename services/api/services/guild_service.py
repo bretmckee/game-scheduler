@@ -20,13 +20,14 @@
 
 import asyncio
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.api.database import queries
 from services.api.dependencies.discord import get_discord_client
 from services.api.services import channel_service
 from services.api.services import template_service as template_service_module
+from shared.data_access.guild_isolation import get_current_guild_ids
 from shared.models.guild import GuildConfiguration
 
 
@@ -108,10 +109,19 @@ async def sync_user_guilds(db: AsyncSession, access_token: str, user_id: str) ->
     bot_guilds = await discord_client.get_guilds()
     bot_guild_ids = {guild["id"] for guild in bot_guilds}
 
-    # Compute new guilds: (bot guilds ∩ user admin guilds) - existing guilds
+    # Compute candidate guilds: (bot guilds ∩ user admin guilds)
+    # These are guilds the user has MANAGE_GUILD permission for AND bot is in
     candidate_guild_ids = admin_guild_ids & bot_guild_ids
 
-    # Get existing guild configs
+    # Set RLS context to include ALL candidate guilds
+    # This allows us to check which ones already exist AND insert new ones
+    # Security: Only including guilds user is admin of (verified by Discord API)
+    current_guild_ids = get_current_guild_ids() or []
+    expanded_guild_ids = list(set(current_guild_ids) | candidate_guild_ids)
+    expanded_ids_csv = ",".join(expanded_guild_ids)
+    await db.execute(text(f"SET LOCAL app.current_guild_ids = '{expanded_ids_csv}'"))
+
+    # Now query for existing guilds with proper RLS context set
     result = await db.execute(select(GuildConfiguration))
     existing_guilds = result.scalars().all()
     existing_guild_ids = {guild.guild_id for guild in existing_guilds}
