@@ -142,7 +142,7 @@ async def test_game_status_transitions_update_message(
     discord_channel_id,
     discord_user_id,
     clean_test_data,
-    e2e_timeouts,
+    test_timeouts,
 ):
     """
     E2E: Game status transitions trigger Discord message updates.
@@ -204,7 +204,7 @@ async def test_game_status_transitions_update_message(
     assert schedules[1][0] == "COMPLETED", "Second schedule should be COMPLETED"
 
     message_id = await wait_for_game_message_id(
-        db_session, game_id, timeout=e2e_timeouts[TimeoutType.DB_WRITE]
+        db_session, game_id, timeout=test_timeouts[TimeoutType.DB_WRITE]
     )
     assert message_id is not None, "Message ID should be populated after announcement"
 
@@ -218,7 +218,7 @@ async def test_game_status_transitions_update_message(
     message = await discord_helper.wait_for_message(
         channel_id=discord_channel_id,
         message_id=message_id,
-        timeout=e2e_timeouts[TimeoutType.MESSAGE_CREATE],
+        timeout=test_timeouts[TimeoutType.MESSAGE_CREATE],
     )
     assert message is not None, "Discord message should exist after game creation"
     assert len(message.embeds) == 1, "Message should have one embed"
@@ -238,7 +238,7 @@ async def test_game_status_transitions_update_message(
         "SELECT status FROM game_sessions WHERE id = :game_id",
         {"game_id": game_id},
         lambda row: row[0] == GameStatus.IN_PROGRESS.value,
-        timeout=e2e_timeouts[TimeoutType.STATUS_TRANSITION],
+        timeout=test_timeouts[TimeoutType.STATUS_TRANSITION],
         interval=5,
         description="game status transition to IN_PROGRESS",
     )
@@ -251,7 +251,7 @@ async def test_game_status_transitions_update_message(
             and msg.embeds[0].footer
             and GameStatus.IN_PROGRESS.display_name in msg.embeds[0].footer.text
         ),
-        timeout=e2e_timeouts[TimeoutType.STATUS_TRANSITION] + 10,
+        timeout=test_timeouts[TimeoutType.STATUS_TRANSITION] + 10,
         interval=2.0,
         description="message update with IN_PROGRESS status",
     )
@@ -270,7 +270,7 @@ async def test_game_status_transitions_update_message(
         "SELECT status FROM game_sessions WHERE id = :game_id",
         {"game_id": game_id},
         lambda row: row[0] == GameStatus.COMPLETED.value,
-        timeout=e2e_timeouts[TimeoutType.STATUS_TRANSITION],
+        timeout=test_timeouts[TimeoutType.STATUS_TRANSITION],
         interval=5,
         description="game status transition to COMPLETED",
     )
@@ -283,7 +283,7 @@ async def test_game_status_transitions_update_message(
             and msg.embeds[0].footer
             and GameStatus.COMPLETED.display_name in msg.embeds[0].footer.text
         ),
-        timeout=e2e_timeouts[TimeoutType.STATUS_TRANSITION] + 10,
+        timeout=test_timeouts[TimeoutType.STATUS_TRANSITION] + 10,
         interval=2.0,
         description="message update with COMPLETED status",
     )

@@ -130,7 +130,7 @@ async def test_game_update_refreshes_message(
     discord_channel_id,
     discord_user_id,
     clean_test_data,
-    e2e_timeouts,
+    test_timeouts,
 ):
     """
     E2E: Updating game via API refreshes Discord message with new content.
@@ -159,7 +159,7 @@ async def test_game_update_refreshes_message(
     print(f"\n[TEST] Game created with ID: {game_id}")
 
     original_message_id = await wait_for_game_message_id(
-        db_session, game_id, timeout=e2e_timeouts[TimeoutType.DB_WRITE]
+        db_session, game_id, timeout=test_timeouts[TimeoutType.DB_WRITE]
     )
     print(f"[TEST] Original message_id: {original_message_id}")
     assert original_message_id is not None, "Message ID should be populated after announcement"
@@ -167,7 +167,7 @@ async def test_game_update_refreshes_message(
     message = await discord_helper.wait_for_message(
         channel_id=discord_channel_id,
         message_id=original_message_id,
-        timeout=e2e_timeouts[TimeoutType.MESSAGE_CREATE],
+        timeout=test_timeouts[TimeoutType.MESSAGE_CREATE],
     )
     assert message is not None, "Discord message should exist after creation"
     assert len(message.embeds) == 1, "Message should have one embed"
@@ -205,7 +205,7 @@ async def test_game_update_refreshes_message(
         channel_id=discord_channel_id,
         message_id=updated_message_id,
         check_func=lambda msg: msg.embeds and msg.embeds[0].title == updated_title,
-        timeout=e2e_timeouts[TimeoutType.MESSAGE_UPDATE],
+        timeout=test_timeouts[TimeoutType.MESSAGE_UPDATE],
         description="game title update",
     )
     assert updated_message is not None, "Discord message should still exist after update"

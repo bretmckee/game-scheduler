@@ -145,7 +145,7 @@ async def test_join_notification_with_signup_instructions(
     discord_channel_id,
     discord_user_id,
     clean_test_data,
-    e2e_timeouts,
+    test_timeouts,
 ):
     """
     E2E: Join notification delivers DM with signup instructions to participant.
@@ -186,12 +186,12 @@ async def test_join_notification_with_signup_instructions(
     print(f"[TEST] Test user {discord_user_id} added as initial participant")
 
     message_id = await wait_for_game_message_id(
-        db_session, game_id, timeout=e2e_timeouts[TimeoutType.DB_WRITE]
+        db_session, game_id, timeout=test_timeouts[TimeoutType.DB_WRITE]
     )
     await main_bot_helper.wait_for_message(
         channel_id=discord_channel_id,
         message_id=message_id,
-        timeout=e2e_timeouts[TimeoutType.MESSAGE_CREATE],
+        timeout=test_timeouts[TimeoutType.MESSAGE_CREATE],
     )
 
     # Verify notification_schedule entry created
@@ -232,7 +232,7 @@ async def test_join_notification_with_signup_instructions(
         user_id=discord_user_id,
         game_title=game_title,
         dm_type=DMType.JOIN,
-        timeout=e2e_timeouts[TimeoutType.DM_SCHEDULED],
+        timeout=test_timeouts[TimeoutType.DM_SCHEDULED],
         interval=5,
     )
 
@@ -277,7 +277,7 @@ async def test_join_notification_without_signup_instructions(
     discord_channel_id,
     discord_user_id,
     clean_test_data,
-    e2e_timeouts,
+    test_timeouts,
 ):
     """
     E2E: Join notification delivers generic DM when no signup instructions.
@@ -311,12 +311,12 @@ async def test_join_notification_without_signup_instructions(
     print(f"[TEST] Test user {discord_user_id} added as initial participant")
 
     message_id = await wait_for_game_message_id(
-        db_session, game_id, timeout=e2e_timeouts[TimeoutType.DB_WRITE]
+        db_session, game_id, timeout=test_timeouts[TimeoutType.DB_WRITE]
     )
     await main_bot_helper.wait_for_message(
         channel_id=discord_channel_id,
         message_id=message_id,
-        timeout=e2e_timeouts[TimeoutType.MESSAGE_CREATE],
+        timeout=test_timeouts[TimeoutType.MESSAGE_CREATE],
     )
 
     # Verify notification_schedule entry created

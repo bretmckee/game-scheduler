@@ -139,7 +139,7 @@ async def test_waitlist_promotion_sends_dm(
     discord_user_id,
     discord_guild_id,
     clean_test_data,
-    e2e_timeouts,
+    test_timeouts,
 ):
     """
     E2E: Waitlist user promoted via trigger and receives DM.
@@ -172,7 +172,7 @@ async def test_waitlist_promotion_sends_dm(
     print(f"✓ Created game {game_id} with placeholder + test user (overflow)")
 
     message_id = await wait_for_game_message_id(
-        db_session, game_id, timeout=e2e_timeouts[TimeoutType.DB_WRITE]
+        db_session, game_id, timeout=test_timeouts[TimeoutType.DB_WRITE]
     )
     assert message_id is not None, "Message ID should be populated after announcement"
 
@@ -180,7 +180,7 @@ async def test_waitlist_promotion_sends_dm(
     await discord_helper.wait_for_message(
         channel_id=discord_channel_id,
         message_id=message_id,
-        timeout=e2e_timeouts[TimeoutType.MESSAGE_CREATE],
+        timeout=test_timeouts[TimeoutType.MESSAGE_CREATE],
     )
 
     # Verify initial message shows 1/1 confirmed with test user in overflow
@@ -228,7 +228,7 @@ async def test_waitlist_promotion_sends_dm(
         user_id=discord_user_id,
         game_title=game_title,
         dm_type=DMType.PROMOTION,
-        timeout=e2e_timeouts[TimeoutType.DM_IMMEDIATE],
+        timeout=test_timeouts[TimeoutType.DM_IMMEDIATE],
     )
 
     # Wait for Discord message to be updated with new participant count
@@ -243,7 +243,7 @@ async def test_waitlist_promotion_sends_dm(
                 if field.name and "Participants" in field.name
             )
         ),
-        timeout=e2e_timeouts[TimeoutType.MESSAGE_UPDATE] + 5,
+        timeout=test_timeouts[TimeoutType.MESSAGE_UPDATE] + 5,
         interval=2.0,
         description=f"message update to show {expected_player_count} after promotion",
     )

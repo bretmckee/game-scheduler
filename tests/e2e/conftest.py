@@ -44,16 +44,6 @@ __all__ = ["TimeoutType"]
 T = TypeVar("T")
 
 
-@pytest.fixture(scope="session")
-def e2e_timeouts(test_timeouts):
-    """
-    Backward-compatible alias for test_timeouts fixture.
-
-    E2E tests can use either 'test_timeouts' or 'e2e_timeouts'.
-    """
-    return test_timeouts
-
-
 async def wait_for_db_condition(
     db_session: AsyncSession,
     query: str,
