@@ -1,6 +1,6 @@
 ---
 description: "Game Scheduler Integration and E2E tests"
-applyTo: "**/tests/integration**.py, **/tests/e2e**.py"
+applyTo: "**/tests/integration**.py, **/tests/e2e**.py, scripts/run-integration-tests.sh, scripts/run-e2e-tests.sh"
 ---
 
 ## General Instructions
@@ -19,33 +19,35 @@ applyTo: "**/tests/integration**.py, **/tests/e2e**.py"
 
 ## Reducing Test Cycle Time for Debugging
 
-When debugging individual tests, you can reduce cycle time with this workflow:
-
-### 1. Start Infrastructure Once
+When debugging individual tests, you can reduce cycle time by skipping the automatic cleanup:
 
 ```bash
-# For integration tests
-docker compose --env-file config/env.int up -d --build system-ready
+# For integration tests - skip cleanup to keep infrastructure running
+SKIP_CLEANUP=1 scripts/run-integration-tests.sh [pytest-options]
 
-# For e2e tests
-docker compose --env-file config/env.e2e up -d --build system-ready
+# For e2e tests - skip cleanup to keep infrastructure running
+SKIP_CLEANUP=1 scripts/run-e2e-tests.sh [pytest-options]
 ```
 
-### 2. Run Tests Iteratively
+After the first run, infrastructure remains running and subsequent test runs are faster. When done debugging:
 
 ```bash
-# For integration tests
-docker compose --env-file config/env.int run --build --rm integration-tests [pytest-options]
+# Clean up integration test environment
+docker compose --env-file config/env.int down -v
 
-# For e2e tests
-docker compose --env-file config/env.e2e run --build --rm integration-tests [pytest-options]
+# Clean up e2e test environment
+docker compose --env-file config/env.e2e down -v
 ```
 
 **Important notes:**
 - The container entrypoint is `pytest`, so you can pass any pytest options or specific test paths
-- Keep the `--build` option to pick up code changes
-- Use `--no-deps` to prevent restarting system services
-- If you make changes to system services, rebuild them separately:
+- The `SKIP_CLEANUP` variable prevents automatic teardown of the test environment to allow the service logs to be inspected
+- The `--build` flag in the scripts rebuilds the test container to pick up test code changes
+- To pick up changes in services (API, bot, daemon, etc.), rebuild them separately:
   ```bash
-  docker compose --env-file config/env.<type> up -d --build system-ready
+  # For integration tests
+  docker compose --env-file config/env.int build
+
+  # For e2e tests
+  docker compose --env-file config/env.e2e build
   ```
