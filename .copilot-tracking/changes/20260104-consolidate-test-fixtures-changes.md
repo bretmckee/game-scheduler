@@ -11,6 +11,10 @@
 
 **Phase 1 Complete**: Migrated all sync-based integration tests to use shared factory fixtures.
 
+**Phase 2 Complete**: Migrated all async ORM integration tests to use shared factory fixtures.
+
+**Phase 3 In Progress**: Task 3.1 complete - identified which E2E fixtures to keep vs migrate.
+
 **Key Achievements**:
 - Consolidated database session fixtures (admin_db_sync, admin_db, app_db, bot_db) with automatic cleanup
 - Implemented factory pattern for data creation (create_guild, create_channel, create_user, create_template, create_game)
@@ -25,8 +29,18 @@
 - Task 1.5: Migrated test_game_signup_methods.py - replaced custom fixtures with helper functions (3 tests passing)
 - Consolidated RabbitMQ helper functions (get_queue_message_count, consume_one_message, purge_queue) to tests/integration/conftest.py
 - Eliminated duplicate _create_test_data helper methods across test files
+- Task 2.1: Migrated test_guild_queries.py - eliminated 12 local fixtures, reduced test code by 60%
+- Task 2.2: Migrated test_games_route_guild_isolation.py - eliminated 14 local fixtures, reduced file by 26%
+- **Task 3.1 Complete**: Analyzed tests/e2e/conftest.py and documented migration plan:
+  - KEEP: 10 E2E-specific fixtures (Discord tokens/IDs, auth helpers, synced_guild)
+  - MIGRATE: 2 new fixtures to shared (create_authenticated_client_async, wait_for_game_message_id)
+  - DELETE: 9 duplicate/redundant fixtures (database sessions, data creation, simple clients)
+  - Individual test files: Use factory fixtures instead of custom data creation
+  - **Timeout consolidation**: Moved TimeoutType enum and test_timeouts fixture from E2E to shared conftest
+  - **Duplicate removal**: Deleted api_base_url from e2e conftest (already in shared conftest)
+  - **Task 3.2 added**: Remove e2e_timeouts backward-compatible alias (~50 occurrences in 12 files)
 
-**Next Steps**: Phase 2 - Migrate async ORM integration tests
+**Next Steps**: Phase 3 Task 3.2 - Remove e2e_timeouts alias, then Task 3.3 - Migrate 12 e2e test files
 
 ## Changes
 
@@ -47,5 +61,8 @@
 - tests/integration/test_game_signup_methods.py - Replaced custom test_user, test_template, and authenticated_client fixtures with helper functions (_create_test_user, _create_test_template, _create_authenticated_client), updated all tests to use shared factory fixtures and manage session cleanup, fixed parameter names (discord_user_id not discord_id), all 3 tests passing
 - tests/integration/test_guild_queries.py - Completely rewritten to use shared fixtures (admin_db, create_guild, create_channel, create_user), removed all local fixture definitions (db_url, async_engine, async_session_factory, db, guild_b_config, channel_id, user_id, sample_game_data, sample_template_data), simplified test code by 60%, all 21 tests passing
 - tests/integration/test_games_route_guild_isolation.py - Completely rewritten to use shared fixtures (admin_db, create_guild, create_channel, create_user, create_template, create_game), removed all local fixture definitions (db_url, async_engine, async_session_factory, db, redis_client, guild_a_id, guild_b_id, guild_a_config, guild_b_config, channel_a, channel_b, template_a, template_b, user_a, user_b, game_a, game_b), simplified from 434 lines to 319 lines (26% reduction), all 6 tests passing
+- tests/conftest.py - Added TimeoutType enum and test_timeouts fixture (session-scoped) to provide standard timeout values for polling operations in both integration and E2E tests
+- tests/e2e/conftest.py - Removed duplicate TimeoutType enum and e2e_timeouts implementation, added import of TimeoutType from tests.conftest, replaced e2e_timeouts with backward-compatible alias that wraps test_timeouts fixture
+- tests/e2e/conftest.py - Removed duplicate api_base_url fixture (already exists in shared tests/conftest.py with environment variable support)
 
 ### Removed

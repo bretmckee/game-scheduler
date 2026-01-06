@@ -38,6 +38,7 @@ import logging
 import os
 import uuid
 from datetime import UTC, datetime, timedelta
+from enum import StrEnum
 
 import httpx
 import pytest
@@ -55,6 +56,53 @@ from shared.cache.keys import CacheKeys
 from tests.shared.auth_helpers import cleanup_test_session, create_test_session
 
 logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# Test Timeout Configuration (Session Scope)
+# ============================================================================
+
+
+class TimeoutType(StrEnum):
+    """Test timeout operation types for polling operations."""
+
+    MESSAGE_CREATE = "message_create"
+    MESSAGE_UPDATE = "message_update"
+    DM_IMMEDIATE = "dm_immediate"
+    DM_SCHEDULED = "dm_scheduled"
+    STATUS_TRANSITION = "status_transition"
+    DB_WRITE = "db_write"
+
+
+@pytest.fixture(scope="session")
+def test_timeouts() -> dict[TimeoutType, int]:
+    """
+    Standard timeout values for test polling operations.
+
+    Used by both integration and E2E tests for consistent timeout handling.
+
+    Returns dict with TimeoutType keys and timeout values (in seconds):
+    - MESSAGE_CREATE: Discord message creation (10s)
+    - MESSAGE_UPDATE: Discord message edit/refresh (10s)
+    - DM_IMMEDIATE: DMs sent immediately by API events (10s)
+    - DM_SCHEDULED: DMs sent by notification daemon polling (150s)
+    - STATUS_TRANSITION: Status transitions via daemon polling (150s)
+    - DB_WRITE: Database write operations (5s)
+
+    These values balance reliability (generous timeouts for daemon operations)
+    with test speed (short timeouts for immediate operations).
+
+    Can be overridden in CI environments by adjusting values here.
+    """
+    return {
+        TimeoutType.MESSAGE_CREATE: 10,
+        TimeoutType.MESSAGE_UPDATE: 10,
+        TimeoutType.DM_IMMEDIATE: 10,
+        TimeoutType.DM_SCHEDULED: 150,
+        TimeoutType.STATUS_TRANSITION: 150,
+        TimeoutType.DB_WRITE: 5,
+    }
+
 
 # ============================================================================
 # Database URL Fixtures (Session Scope)

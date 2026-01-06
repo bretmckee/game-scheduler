@@ -25,7 +25,6 @@ and HTTP clients needed by E2E tests.
 
 import os
 from collections.abc import Callable
-from enum import StrEnum
 from typing import Any, TypeVar
 
 import httpx
@@ -34,50 +33,25 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from shared.utils.discord_tokens import extract_bot_discord_id
+from tests.conftest import TimeoutType  # Re-export for backward compatibility
 from tests.e2e.helpers.discord import DiscordTestHelper
 from tests.shared.auth_helpers import cleanup_test_session, create_test_session
 from tests.shared.polling import wait_for_db_condition_async
 
+# Export TimeoutType so e2e tests can import it from here
+__all__ = ["TimeoutType"]
+
 T = TypeVar("T")
 
 
-class TimeoutType(StrEnum):
-    """E2E test timeout operation types."""
-
-    MESSAGE_CREATE = "message_create"
-    MESSAGE_UPDATE = "message_update"
-    DM_IMMEDIATE = "dm_immediate"
-    DM_SCHEDULED = "dm_scheduled"
-    STATUS_TRANSITION = "status_transition"
-    DB_WRITE = "db_write"
-
-
 @pytest.fixture(scope="session")
-def e2e_timeouts() -> dict[TimeoutType, int]:
+def e2e_timeouts(test_timeouts):
     """
-    Standard timeout values for E2E test polling operations.
+    Backward-compatible alias for test_timeouts fixture.
 
-    Returns dict with TimeoutType keys and timeout values (in seconds):
-    - MESSAGE_CREATE: Discord message creation (10s)
-    - MESSAGE_UPDATE: Discord message edit/refresh (10s)
-    - DM_IMMEDIATE: DMs sent immediately by API events (10s)
-    - DM_SCHEDULED: DMs sent by notification daemon polling (150s)
-    - STATUS_TRANSITION: Status transitions via daemon polling (150s)
-    - DB_WRITE: Database write operations (5s)
-
-    These values balance reliability (generous timeouts for daemon operations)
-    with test speed (short timeouts for immediate operations).
-
-    Can be overridden in CI environments by adjusting values here.
+    E2E tests can use either 'test_timeouts' or 'e2e_timeouts'.
     """
-    return {
-        TimeoutType.MESSAGE_CREATE: 10,
-        TimeoutType.MESSAGE_UPDATE: 10,
-        TimeoutType.DM_IMMEDIATE: 10,
-        TimeoutType.DM_SCHEDULED: 150,
-        TimeoutType.STATUS_TRANSITION: 150,
-        TimeoutType.DB_WRITE: 5,
-    }
+    return test_timeouts
 
 
 async def wait_for_db_condition(
@@ -259,12 +233,6 @@ async def db_session(db_engine):
     async_session = async_sessionmaker(db_engine, expire_on_commit=False, class_=AsyncSession)
     async with async_session() as session:
         yield session
-
-
-@pytest.fixture(scope="session")
-def api_base_url():
-    """Provide API base URL for E2E tests."""
-    return "http://api:8000"
 
 
 @pytest.fixture(scope="function")
