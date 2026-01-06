@@ -47,89 +47,15 @@ from tests.e2e.conftest import TimeoutType, wait_for_game_message_id
 pytestmark = pytest.mark.e2e
 
 
-@pytest.fixture
-async def clean_test_data(db_session):
-    """Clean up only game-related test data before and after test."""
-    await db_session.execute(text("DELETE FROM notification_schedule"))
-    await db_session.execute(text("DELETE FROM game_participants"))
-    await db_session.execute(text("DELETE FROM game_sessions"))
-    await db_session.commit()
-
-    yield
-
-    await db_session.execute(text("DELETE FROM notification_schedule"))
-    await db_session.execute(text("DELETE FROM game_participants"))
-    await db_session.execute(text("DELETE FROM game_sessions"))
-    await db_session.commit()
-
-
-@pytest.fixture
-async def test_guild_id(db_session, discord_guild_id):
-    """Get database ID for test guild (seeded by init service)."""
-    result = await db_session.execute(
-        text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
-        {"guild_id": discord_guild_id},
-    )
-    row = result.fetchone()
-    if not row:
-        pytest.fail(f"Test guild {discord_guild_id} not found - init seed may have failed")
-    return row[0]
-
-
-@pytest.fixture
-async def test_channel_id(db_session, discord_channel_id):
-    """Get database ID for test channel (seeded by init service)."""
-    result = await db_session.execute(
-        text("SELECT id FROM channel_configurations WHERE channel_id = :channel_id"),
-        {"channel_id": discord_channel_id},
-    )
-    row = result.fetchone()
-    if not row:
-        pytest.fail(f"Test channel {discord_channel_id} not found - init seed may have failed")
-    return row[0]
-
-
-@pytest.fixture
-async def test_host_id(db_session, discord_user_id):
-    """Get database ID for test user (seeded by init service)."""
-    result = await db_session.execute(
-        text("SELECT id FROM users WHERE discord_id = :discord_id"),
-        {"discord_id": discord_user_id},
-    )
-    row = result.fetchone()
-    if not row:
-        pytest.fail(f"Test user {discord_user_id} not found - init seed may have failed")
-    return row[0]
-
-
-@pytest.fixture
-async def test_template_id(db_session, test_guild_id, synced_guild):
-    """Get default template ID for test guild (created by guild sync)."""
-    result = await db_session.execute(
-        text("SELECT id FROM game_templates WHERE guild_id = :guild_id AND is_default = true"),
-        {"guild_id": test_guild_id},
-    )
-    row = result.fetchone()
-    if not row:
-        pytest.fail(
-            f"Default template not found for guild {test_guild_id} - "
-            "guild sync may not have created default template"
-        )
-    return row[0]
-
-
 @pytest.mark.asyncio
 async def test_game_creation_posts_announcement_to_discord(
     authenticated_admin_client,
-    db_session,
+    admin_db,
     discord_helper,
-    test_guild_id,
-    test_channel_id,
-    test_host_id,
-    test_template_id,
+    discord_guild_id,
     discord_channel_id,
     discord_user_id,
-    clean_test_data,
+    synced_guild,
     test_timeouts,
 ):
     """
@@ -141,6 +67,22 @@ async def test_game_creation_posts_announcement_to_discord(
     - Message contains embed with correct content
     - Embed contains game details (title, host mention, player count)
     """
+    result = await admin_db.execute(
+        text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
+        {"guild_id": discord_guild_id},
+    )
+    row = result.fetchone()
+    assert row, f"Test guild {discord_guild_id} not found"
+    test_guild_id = row[0]
+
+    result = await admin_db.execute(
+        text("SELECT id FROM game_templates WHERE guild_id = :guild_id AND is_default = true"),
+        {"guild_id": test_guild_id},
+    )
+    row = result.fetchone()
+    assert row, f"Default template not found for guild {test_guild_id}"
+    test_template_id = row[0]
+
     scheduled_time = datetime.now(UTC) + timedelta(hours=2)
     game_title = f"E2E Test Game {uuid4().hex[:8]}"
     game_data = {
@@ -157,7 +99,7 @@ async def test_game_creation_posts_announcement_to_discord(
     print(f"\n[TEST] Game created with ID: {game_id}")
 
     message_id = await wait_for_game_message_id(
-        db_session, game_id, timeout=test_timeouts[TimeoutType.DB_WRITE]
+        admin_db, game_id, timeout=test_timeouts[TimeoutType.DB_WRITE]
     )
 
     print(f"[TEST] Database - message_id: {message_id}")

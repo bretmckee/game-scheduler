@@ -88,8 +88,11 @@ Consolidate 100+ duplicated test fixtures into a single shared location with fac
 - [x] Task 3.2: Remove e2e_timeouts backward-compatible alias
   - Details: [.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md](.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md) (Lines 322-354)
 
-- [ ] Task 3.3: Migrate 12 e2e test files to shared fixtures
+- [x] Task 3.3: Migrate 12 e2e test files to shared fixtures
   - Details: [.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md](.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md) (Lines 356-384)
+  - Completed: All 13 E2E test files migrated to admin_db with inline ID fetching
+  - Infrastructure: Added ADMIN_DATABASE_URL, created synced_guild_b fixture
+  - Validation: All 55 E2E tests passing
 
 ### [ ] Phase 4: Delete Redundant Fixtures
 

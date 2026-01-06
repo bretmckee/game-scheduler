@@ -40,54 +40,9 @@ async def main_bot_helper(discord_main_bot_token):
     await helper.disconnect()
 
 
-@pytest.fixture
-async def clean_test_data(db_session):
-    """Clean up only game-related test data before and after test."""
-    await db_session.execute(text("DELETE FROM notification_schedule"))
-    await db_session.execute(text("DELETE FROM game_participants"))
-    await db_session.execute(text("DELETE FROM game_sessions"))
-    await db_session.commit()
-
-    yield
-
-    await db_session.execute(text("DELETE FROM notification_schedule"))
-    await db_session.execute(text("DELETE FROM game_participants"))
-    await db_session.execute(text("DELETE FROM game_sessions"))
-    await db_session.commit()
-
-
-@pytest.fixture
-async def test_guild_id(db_session, discord_guild_id):
-    """Get database ID for test guild (seeded by init service)."""
-    result = await db_session.execute(
-        text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
-        {"guild_id": discord_guild_id},
-    )
-    row = result.fetchone()
-    if not row:
-        pytest.fail(f"Test guild {discord_guild_id} not found - init seed may have failed")
-    return row[0]
-
-
-@pytest.fixture
-async def test_template_id(db_session, test_guild_id, synced_guild):
-    """Get default template ID for test guild (created by guild sync)."""
-    result = await db_session.execute(
-        text("SELECT id FROM game_templates WHERE guild_id = :guild_id AND is_default = true"),
-        {"guild_id": test_guild_id},
-    )
-    row = result.fetchone()
-    if not row:
-        pytest.fail(
-            f"Default template not found for guild {test_guild_id} - "
-            "guild sync may not have created default template"
-        )
-    return row[0]
-
-
 async def trigger_promotion_via_removal(
     authenticated_admin_client,
-    db_session,
+    admin_db,
     game_id: str,
     placeholder_participant_id: str,
 ) -> str:
@@ -103,7 +58,7 @@ async def trigger_promotion_via_removal(
 
 async def trigger_promotion_via_max_players_increase(
     authenticated_admin_client,
-    db_session,
+    admin_db,
     game_id: str,
     placeholder_participant_id: str,
 ) -> str:
@@ -131,14 +86,13 @@ async def test_waitlist_promotion_sends_dm(
     expected_player_count: str,
     test_desc: str,
     authenticated_admin_client,
-    db_session,
+    admin_db,
     discord_helper,
     main_bot_helper,
-    test_template_id,
     discord_channel_id,
     discord_user_id,
     discord_guild_id,
-    clean_test_data,
+    synced_guild,
     test_timeouts,
 ):
     """
@@ -151,6 +105,22 @@ async def test_waitlist_promotion_sends_dm(
     - Test user receives promotion DM
     - Discord message updated with new participant count
     """
+    result = await admin_db.execute(
+        text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
+        {"guild_id": discord_guild_id},
+    )
+    row = result.fetchone()
+    assert row, f"Test guild {discord_guild_id} not found"
+    test_guild_id = row[0]
+
+    result = await admin_db.execute(
+        text("SELECT id FROM game_templates WHERE guild_id = :guild_id AND is_default = true"),
+        {"guild_id": test_guild_id},
+    )
+    row = result.fetchone()
+    assert row, f"Default template not found for guild {test_guild_id}"
+    test_template_id = row[0]
+
     game_title = f"E2E Promotion ({test_desc}) {datetime.now(UTC).isoformat()}"
     scheduled_at = datetime.now(UTC) + timedelta(hours=2)
 
@@ -172,7 +142,7 @@ async def test_waitlist_promotion_sends_dm(
     print(f"✓ Created game {game_id} with placeholder + test user (overflow)")
 
     message_id = await wait_for_game_message_id(
-        db_session, game_id, timeout=test_timeouts[TimeoutType.DB_WRITE]
+        admin_db, game_id, timeout=test_timeouts[TimeoutType.DB_WRITE]
     )
     assert message_id is not None, "Message ID should be populated after announcement"
 
@@ -205,7 +175,7 @@ async def test_waitlist_promotion_sends_dm(
     print("✓ Initial message shows 1/1 with Reserved, test user in overflow")
 
     # Get placeholder participant ID for removal trigger
-    result = await db_session.execute(
+    result = await admin_db.execute(
         text(
             """
             SELECT id FROM game_participants
@@ -219,7 +189,7 @@ async def test_waitlist_promotion_sends_dm(
 
     # Trigger promotion using provided strategy
     trigger_message = await trigger_func(
-        authenticated_admin_client, db_session, game_id, placeholder_participant_id
+        authenticated_admin_client, admin_db, game_id, placeholder_participant_id
     )
     print(f"✓ {trigger_message}")
 

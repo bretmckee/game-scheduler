@@ -44,8 +44,26 @@
   - Replaced all e2e_timeouts[TimeoutType] usages with test_timeouts[TimeoutType] across test bodies
   - Deleted e2e_timeouts fixture from tests/e2e/conftest.py
   - All E2E tests now use test_timeouts directly from shared conftest
+- **Task 3.3 Complete**: Migrated all 13 E2E test files to use shared fixtures (admin_db):
+  - **Completed**: tests/e2e/test_game_announcement.py - Removed all 5 custom fixtures, uses admin_db with inline ID fetching
+  - **Completed**: tests/e2e/test_game_cancellation.py - Migrated to admin_db, fixed db_session reference at line 119
+  - **Completed**: tests/e2e/test_waitlist_promotion.py - Migrated helper functions to use admin_db
+  - **Completed**: tests/e2e/test_game_reminder.py - Migrated to admin_db
+  - **Completed**: tests/e2e/test_game_update.py - Migrated to admin_db, fixed db_session reference at line 133
+  - **Completed**: tests/e2e/test_game_status_transitions.py - Migrated to admin_db
+  - **Completed**: tests/e2e/test_join_notification.py - Both test functions updated with ID fetching
+  - **Completed**: tests/e2e/test_player_removal.py - Migrated to admin_db
+  - **Completed**: tests/e2e/test_user_join.py - Migrated to admin_db
+  - **Completed**: tests/e2e/test_signup_methods.py - 5 test functions migrated
+  - **Completed**: tests/e2e/test_game_authorization.py - 3 test functions migrated
+  - **Completed**: tests/e2e/test_00_environment.py - Migrated db_session→admin_db, http_client→authenticated_admin_client
+  - **Completed**: tests/e2e/test_guild_routes_e2e.py - Migrated to admin_db, added guild_b_db_id fixture
+  - **Completed**: tests/e2e/test_guild_isolation_e2e.py - Migrated to admin_db, added guild_b_template_id fixture
+  - **Infrastructure**: Added ADMIN_DATABASE_URL to compose.e2e.yaml environment
+  - **Infrastructure**: Created synced_guild_b fixture in tests/e2e/conftest.py
+  - **Validation**: All 55 E2E tests passing
 
-**Next Steps**: Phase 3 Task 3.3 - Migrate 12 e2e test files
+**Next Steps**: Task 3.3 complete. Phase 3 complete.
 
 ## Changes
 
@@ -80,5 +98,8 @@
 - tests/e2e/test_user_join.py - Replaced e2e_timeouts parameter with test_timeouts in test function signature, replaced 3 e2e_timeouts[TimeoutType] usages with test_timeouts[TimeoutType]
 - tests/e2e/test_waitlist_promotion.py - Replaced e2e_timeouts parameter with test_timeouts in test function signature, replaced 4 e2e_timeouts[TimeoutType] usages with test_timeouts[TimeoutType]
 - tests/e2e/conftest.py - Removed e2e_timeouts backward-compatible alias fixture
+- tests/e2e/conftest.py - Removed duplicate database fixtures (database_url, db_engine, db_session, http_client, guild_b_db_id, guild_b_template_id), cleaned up unused imports (async_sessionmaker, create_async_engine)
+- tests/e2e/test_game_announcement.py - Removed all custom fixtures (clean_test_data, test_guild_id, test_channel_id, test_host_id, test_template_id), updated test to use admin_db and fetch IDs directly with inline SQL queries
+- tests/e2e/test_waitlist_promotion.py - Removed all custom fixtures (clean_test_data, test_guild_id, test_template_id), updated test and helper functions (trigger_promotion_via_removal, trigger_promotion_via_max_players_increase) to use admin_db and fetch IDs directly
 
 ### Removed

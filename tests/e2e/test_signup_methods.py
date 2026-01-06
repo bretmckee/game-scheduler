@@ -51,59 +51,14 @@ from tests.e2e.conftest import TimeoutType, wait_for_game_message_id
 pytestmark = pytest.mark.e2e
 
 
-@pytest.fixture
-async def clean_test_data(db_session):
-    """Clean up only game-related test data before and after test."""
-    await db_session.execute(text("DELETE FROM notification_schedule"))
-    await db_session.execute(text("DELETE FROM game_participants"))
-    await db_session.execute(text("DELETE FROM game_sessions"))
-    await db_session.commit()
-
-    yield
-
-    await db_session.execute(text("DELETE FROM notification_schedule"))
-    await db_session.execute(text("DELETE FROM game_participants"))
-    await db_session.execute(text("DELETE FROM game_sessions"))
-    await db_session.commit()
-
-
-@pytest.fixture
-async def test_guild_id(db_session, discord_guild_id):
-    """Get database ID for test guild (seeded by init service)."""
-    result = await db_session.execute(
-        text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
-        {"guild_id": discord_guild_id},
-    )
-    row = result.fetchone()
-    if not row:
-        pytest.fail(f"Test guild {discord_guild_id} not found - init seed may have failed")
-    return row[0]
-
-
-@pytest.fixture
-async def test_template_id(db_session, test_guild_id, synced_guild):
-    """Get default template ID for test guild (created by guild sync)."""
-    result = await db_session.execute(
-        text("SELECT id FROM game_templates WHERE guild_id = :guild_id AND is_default = true"),
-        {"guild_id": test_guild_id},
-    )
-    row = result.fetchone()
-    if not row:
-        pytest.fail(
-            f"Default template not found for guild {test_guild_id} - "
-            "guild sync may not have created default template"
-        )
-    return row[0]
-
-
 @pytest.mark.asyncio
 async def test_self_signup_enables_join_button(
     authenticated_admin_client,
-    db_session,
+    admin_db,
     discord_helper,
-    test_template_id,
+    discord_guild_id,
     discord_channel_id,
-    clean_test_data,
+    synced_guild,
     test_timeouts,
 ):
     """
@@ -114,6 +69,22 @@ async def test_self_signup_enables_join_button(
     - Discord message posted with join button enabled
     - Button state persists when re-fetching message
     """
+    result = await admin_db.execute(
+        text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
+        {"guild_id": discord_guild_id},
+    )
+    row = result.fetchone()
+    assert row, f"Test guild {discord_guild_id} not found"
+    test_guild_id = row[0]
+
+    result = await admin_db.execute(
+        text("SELECT id FROM game_templates WHERE guild_id = :guild_id AND is_default = true"),
+        {"guild_id": test_guild_id},
+    )
+    row = result.fetchone()
+    assert row, f"Default template not found for guild {test_guild_id}"
+    test_template_id = row[0]
+
     scheduled_time = datetime.now(UTC) + timedelta(hours=2)
     game_title = f"E2E Self Signup Test {uuid4().hex[:8]}"
 
@@ -131,11 +102,11 @@ async def test_self_signup_enables_join_button(
     game_id = response.json()["id"]
     print(f"\n[TEST] Game created with ID: {game_id}, signup_method: SELF_SIGNUP")
 
-    db_session.expire_all()
-    await db_session.commit()
+    admin_db.expire_all()
+    await admin_db.commit()
 
     message_id = await wait_for_game_message_id(
-        db_session, game_id, test_timeouts[TimeoutType.MESSAGE_CREATE]
+        admin_db, game_id, test_timeouts[TimeoutType.MESSAGE_CREATE]
     )
     print(f"[TEST] Message ID retrieved: {message_id}")
 
@@ -169,11 +140,11 @@ async def test_self_signup_enables_join_button(
 @pytest.mark.asyncio
 async def test_host_selected_disables_join_button(
     authenticated_admin_client,
-    db_session,
+    admin_db,
     discord_helper,
-    test_template_id,
+    discord_guild_id,
     discord_channel_id,
-    clean_test_data,
+    synced_guild,
     test_timeouts,
 ):
     """
@@ -184,6 +155,22 @@ async def test_host_selected_disables_join_button(
     - Discord message posted with join button disabled
     - Button state persists when re-fetching message
     """
+    result = await admin_db.execute(
+        text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
+        {"guild_id": discord_guild_id},
+    )
+    row = result.fetchone()
+    assert row, f"Test guild {discord_guild_id} not found"
+    test_guild_id = row[0]
+
+    result = await admin_db.execute(
+        text("SELECT id FROM game_templates WHERE guild_id = :guild_id AND is_default = true"),
+        {"guild_id": test_guild_id},
+    )
+    row = result.fetchone()
+    assert row, f"Default template not found for guild {test_guild_id}"
+    test_template_id = row[0]
+
     scheduled_time = datetime.now(UTC) + timedelta(hours=2)
     game_title = f"E2E Host Selected Test {uuid4().hex[:8]}"
 
@@ -201,11 +188,11 @@ async def test_host_selected_disables_join_button(
     game_id = response.json()["id"]
     print(f"\n[TEST] Game created with ID: {game_id}, signup_method: HOST_SELECTED")
 
-    db_session.expire_all()
-    await db_session.commit()
+    admin_db.expire_all()
+    await admin_db.commit()
 
     message_id = await wait_for_game_message_id(
-        db_session, game_id, test_timeouts[TimeoutType.MESSAGE_CREATE]
+        admin_db, game_id, test_timeouts[TimeoutType.MESSAGE_CREATE]
     )
     print(f"[TEST] Message ID retrieved: {message_id}")
 
@@ -249,11 +236,11 @@ async def test_host_selected_disables_join_button(
 @pytest.mark.asyncio
 async def test_signup_method_defaults_to_self_signup(
     authenticated_admin_client,
-    db_session,
+    admin_db,
     discord_helper,
-    test_template_id,
+    discord_guild_id,
     discord_channel_id,
-    clean_test_data,
+    synced_guild,
     test_timeouts,
 ):
     """
@@ -264,6 +251,22 @@ async def test_signup_method_defaults_to_self_signup(
     - Database defaults to SELF_SIGNUP
     - Discord message has enabled join button
     """
+    result = await admin_db.execute(
+        text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
+        {"guild_id": discord_guild_id},
+    )
+    row = result.fetchone()
+    assert row, f"Test guild {discord_guild_id} not found"
+    test_guild_id = row[0]
+
+    result = await admin_db.execute(
+        text("SELECT id FROM game_templates WHERE guild_id = :guild_id AND is_default = true"),
+        {"guild_id": test_guild_id},
+    )
+    row = result.fetchone()
+    assert row, f"Default template not found for guild {test_guild_id}"
+    test_template_id = row[0]
+
     scheduled_time = datetime.now(UTC) + timedelta(hours=2)
     game_title = f"E2E Default Signup Test {uuid4().hex[:8]}"
 
@@ -281,11 +284,11 @@ async def test_signup_method_defaults_to_self_signup(
     game_id = response.json()["id"]
     print(f"\n[TEST] Game created with ID: {game_id}, no signup_method specified")
 
-    db_session.expire_all()
-    await db_session.commit()
+    admin_db.expire_all()
+    await admin_db.commit()
 
     # Verify database stored SELF_SIGNUP as default
-    result = await db_session.execute(
+    result = await admin_db.execute(
         text("SELECT signup_method FROM game_sessions WHERE id = :game_id"),
         {"game_id": game_id},
     )
@@ -297,7 +300,7 @@ async def test_signup_method_defaults_to_self_signup(
     print(f"[TEST] ✓ Database signup_method defaulted to: {row[0]}")
 
     message_id = await wait_for_game_message_id(
-        db_session, game_id, test_timeouts[TimeoutType.MESSAGE_CREATE]
+        admin_db, game_id, test_timeouts[TimeoutType.MESSAGE_CREATE]
     )
 
     message = await discord_helper.wait_for_message(
@@ -314,11 +317,11 @@ async def test_signup_method_defaults_to_self_signup(
 @pytest.mark.asyncio
 async def test_edit_game_signup_method_self_to_host(
     authenticated_admin_client,
-    db_session,
+    admin_db,
     discord_helper,
-    test_template_id,
+    discord_guild_id,
     discord_channel_id,
-    clean_test_data,
+    synced_guild,
     test_timeouts,
 ):
     """
@@ -330,6 +333,22 @@ async def test_edit_game_signup_method_self_to_host(
     - Database updated correctly
     - Discord message button state changes to disabled
     """
+    result = await admin_db.execute(
+        text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
+        {"guild_id": discord_guild_id},
+    )
+    row = result.fetchone()
+    assert row, f"Test guild {discord_guild_id} not found"
+    test_guild_id = row[0]
+
+    result = await admin_db.execute(
+        text("SELECT id FROM game_templates WHERE guild_id = :guild_id AND is_default = true"),
+        {"guild_id": test_guild_id},
+    )
+    row = result.fetchone()
+    assert row, f"Default template not found for guild {test_guild_id}"
+    test_template_id = row[0]
+
     scheduled_time = datetime.now(UTC) + timedelta(hours=2)
     game_title = f"E2E Edit Signup Test {uuid4().hex[:8]}"
 
@@ -348,11 +367,11 @@ async def test_edit_game_signup_method_self_to_host(
     game_id = response.json()["id"]
     print(f"\n[TEST] Game created with ID: {game_id}, signup_method: SELF_SIGNUP")
 
-    db_session.expire_all()
-    await db_session.commit()
+    admin_db.expire_all()
+    await admin_db.commit()
 
     message_id = await wait_for_game_message_id(
-        db_session, game_id, test_timeouts[TimeoutType.MESSAGE_CREATE]
+        admin_db, game_id, test_timeouts[TimeoutType.MESSAGE_CREATE]
     )
 
     # Verify initial button state is enabled
@@ -376,11 +395,11 @@ async def test_edit_game_signup_method_self_to_host(
     assert response.status_code == 200, f"Failed to update game: {response.text}"
     print("[TEST] Game updated to signup_method: HOST_SELECTED")
 
-    db_session.expire_all()
-    await db_session.commit()
+    admin_db.expire_all()
+    await admin_db.commit()
 
     # Verify database updated
-    result = await db_session.execute(
+    result = await admin_db.execute(
         text("SELECT signup_method FROM game_sessions WHERE id = :game_id"),
         {"game_id": game_id},
     )
@@ -408,11 +427,11 @@ async def test_edit_game_signup_method_self_to_host(
 @pytest.mark.asyncio
 async def test_edit_game_signup_method_host_to_self(
     authenticated_admin_client,
-    db_session,
+    admin_db,
     discord_helper,
-    test_template_id,
+    discord_guild_id,
     discord_channel_id,
-    clean_test_data,
+    synced_guild,
     test_timeouts,
 ):
     """
@@ -424,6 +443,22 @@ async def test_edit_game_signup_method_host_to_self(
     - Database updated correctly
     - Discord message button state changes to enabled
     """
+    result = await admin_db.execute(
+        text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
+        {"guild_id": discord_guild_id},
+    )
+    row = result.fetchone()
+    assert row, f"Test guild {discord_guild_id} not found"
+    test_guild_id = row[0]
+
+    result = await admin_db.execute(
+        text("SELECT id FROM game_templates WHERE guild_id = :guild_id AND is_default = true"),
+        {"guild_id": test_guild_id},
+    )
+    row = result.fetchone()
+    assert row, f"Default template not found for guild {test_guild_id}"
+    test_template_id = row[0]
+
     scheduled_time = datetime.now(UTC) + timedelta(hours=2)
     game_title = f"E2E Edit Signup Reverse {uuid4().hex[:8]}"
 
@@ -442,11 +477,11 @@ async def test_edit_game_signup_method_host_to_self(
     game_id = response.json()["id"]
     print(f"\n[TEST] Game created with ID: {game_id}, signup_method: HOST_SELECTED")
 
-    db_session.expire_all()
-    await db_session.commit()
+    admin_db.expire_all()
+    await admin_db.commit()
 
     message_id = await wait_for_game_message_id(
-        db_session, game_id, test_timeouts[TimeoutType.MESSAGE_CREATE]
+        admin_db, game_id, test_timeouts[TimeoutType.MESSAGE_CREATE]
     )
 
     # Verify initial button state is disabled
@@ -470,11 +505,11 @@ async def test_edit_game_signup_method_host_to_self(
     assert response.status_code == 200, f"Failed to update game: {response.text}"
     print("[TEST] Game updated to signup_method: SELF_SIGNUP")
 
-    db_session.expire_all()
-    await db_session.commit()
+    admin_db.expire_all()
+    await admin_db.commit()
 
     # Verify database updated
-    result = await db_session.execute(
+    result = await admin_db.execute(
         text("SELECT signup_method FROM game_sessions WHERE id = :game_id"),
         {"game_id": game_id},
     )

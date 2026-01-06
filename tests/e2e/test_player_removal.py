@@ -54,77 +54,6 @@ pytestmark = pytest.mark.e2e
 
 
 @pytest.fixture
-async def clean_test_data(db_session):
-    """Clean up only game-related test data before and after test."""
-    await db_session.execute(text("DELETE FROM notification_schedule"))
-    await db_session.execute(text("DELETE FROM game_participants"))
-    await db_session.execute(text("DELETE FROM game_sessions"))
-    await db_session.commit()
-
-    yield
-
-    await db_session.execute(text("DELETE FROM notification_schedule"))
-    await db_session.execute(text("DELETE FROM game_participants"))
-    await db_session.execute(text("DELETE FROM game_sessions"))
-    await db_session.commit()
-
-
-@pytest.fixture
-async def test_guild_id(db_session, discord_guild_id):
-    """Get database ID for test guild (seeded by init service)."""
-    result = await db_session.execute(
-        text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
-        {"guild_id": discord_guild_id},
-    )
-    row = result.fetchone()
-    if not row:
-        pytest.fail(f"Test guild {discord_guild_id} not found - init seed may have failed")
-    return row[0]
-
-
-@pytest.fixture
-async def test_channel_id(db_session, discord_channel_id):
-    """Get database ID for test channel (seeded by init service)."""
-    result = await db_session.execute(
-        text("SELECT id FROM channel_configurations WHERE channel_id = :channel_id"),
-        {"channel_id": discord_channel_id},
-    )
-    row = result.fetchone()
-    if not row:
-        pytest.fail(f"Test channel {discord_channel_id} not found - init seed may have failed")
-    return row[0]
-
-
-@pytest.fixture
-async def test_host_id(db_session, discord_user_id):
-    """Get database ID for test user (seeded by init service)."""
-    result = await db_session.execute(
-        text("SELECT id FROM users WHERE discord_id = :discord_id"),
-        {"discord_id": discord_user_id},
-    )
-    row = result.fetchone()
-    if not row:
-        pytest.fail(f"Test user {discord_user_id} not found - init seed may have failed")
-    return row[0]
-
-
-@pytest.fixture
-async def test_template_id(db_session, test_guild_id, synced_guild):
-    """Get default template ID for test guild (created by guild sync)."""
-    result = await db_session.execute(
-        text("SELECT id FROM game_templates WHERE guild_id = :guild_id AND is_default = true"),
-        {"guild_id": test_guild_id},
-    )
-    row = result.fetchone()
-    if not row:
-        pytest.fail(
-            f"Default template not found for guild {test_guild_id} - "
-            "guild sync may not have created default template"
-        )
-    return row[0]
-
-
-@pytest.fixture
 async def main_bot_helper(discord_main_bot_token):
     """Create Discord helper for main bot (sends notifications)."""
 
@@ -137,16 +66,14 @@ async def main_bot_helper(discord_main_bot_token):
 @pytest.mark.asyncio
 async def test_player_removal_sends_dm_and_updates_message(
     authenticated_admin_client,
-    db_session,
+    admin_db,
     discord_helper,
     main_bot_helper,
-    test_guild_id,
-    test_channel_id,
-    test_template_id,
+    discord_guild_id,
     discord_channel_id,
     discord_user_id,
     bot_discord_id,
-    clean_test_data,
+    synced_guild,
     test_timeouts,
 ):
     """
@@ -165,6 +92,22 @@ async def test_player_removal_sends_dm_and_updates_message(
     read DMs sent to other bots. Test user (DISCORD_USER_ID) is the
     participant being removed and receiving the DM.
     """
+    result = await admin_db.execute(
+        text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
+        {"guild_id": discord_guild_id},
+    )
+    row = result.fetchone()
+    assert row, f"Test guild {discord_guild_id} not found"
+    test_guild_id = row[0]
+
+    result = await admin_db.execute(
+        text("SELECT id FROM game_templates WHERE guild_id = :guild_id AND is_default = true"),
+        {"guild_id": test_guild_id},
+    )
+    row = result.fetchone()
+    assert row, f"Default template not found for guild {test_guild_id}"
+    test_template_id = row[0]
+
     scheduled_time = datetime.now(UTC) + timedelta(hours=2)
     game_title = f"E2E Removal Test {uuid4().hex[:8]}"
 
@@ -183,7 +126,7 @@ async def test_player_removal_sends_dm_and_updates_message(
     print(f"\n[TEST] Game created with ID: {game_id}")
 
     message_id = await wait_for_game_message_id(
-        db_session, game_id, timeout=test_timeouts[TimeoutType.DB_WRITE]
+        admin_db, game_id, timeout=test_timeouts[TimeoutType.DB_WRITE]
     )
     print(f"[TEST] Message ID: {message_id}")
     assert message_id is not None, "Message ID should be populated after announcement"
@@ -194,7 +137,7 @@ async def test_player_removal_sends_dm_and_updates_message(
         timeout=test_timeouts[TimeoutType.MESSAGE_CREATE],
     )
 
-    result = await db_session.execute(
+    result = await admin_db.execute(
         text("SELECT id FROM game_participants WHERE game_session_id = :game_id"),
         {"game_id": game_id},
     )
