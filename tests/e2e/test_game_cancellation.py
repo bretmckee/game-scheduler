@@ -130,7 +130,7 @@ async def test_game_cancellation_updates_message(
     test_template_id,
     discord_channel_id,
     discord_user_id,
-    e2e_timeouts,
+    test_timeouts,
     clean_test_data,
 ):
     """
@@ -159,14 +159,14 @@ async def test_game_cancellation_updates_message(
     game_id = response.json()["id"]
 
     original_message_id = await wait_for_game_message_id(
-        db_session, game_id, timeout=e2e_timeouts[TimeoutType.DB_WRITE]
+        db_session, game_id, timeout=test_timeouts[TimeoutType.DB_WRITE]
     )
     assert original_message_id is not None, "message_id should be populated after announcement"
 
     original_message = await discord_helper.wait_for_message(
         channel_id=discord_channel_id,
         message_id=original_message_id,
-        timeout=e2e_timeouts[TimeoutType.MESSAGE_CREATE],
+        timeout=test_timeouts[TimeoutType.MESSAGE_CREATE],
     )
     assert original_message is not None, "Discord message should exist before cancellation"
     assert len(original_message.embeds) == 1
@@ -193,7 +193,7 @@ async def test_game_cancellation_updates_message(
                     or "canceled" in msg.embeds[0].footer.text.lower()
                 )
             ),
-            timeout=e2e_timeouts[TimeoutType.MESSAGE_UPDATE],
+            timeout=test_timeouts[TimeoutType.MESSAGE_UPDATE],
             description="cancellation status in footer",
         )
 

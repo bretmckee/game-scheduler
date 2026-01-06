@@ -147,7 +147,7 @@ async def test_game_reminder_dm_delivery(
     discord_channel_id,
     discord_user_id,
     clean_test_data,
-    e2e_timeouts,
+    test_timeouts,
 ):
     """
     E2E: Game reminder triggers DM delivery to test user.
@@ -185,12 +185,12 @@ async def test_game_reminder_dm_delivery(
     print(f"[TEST] Test user added as initial participant (discord_id: {discord_user_id})")
 
     message_id = await wait_for_game_message_id(
-        db_session, game_id, timeout=e2e_timeouts[TimeoutType.DB_WRITE]
+        db_session, game_id, timeout=test_timeouts[TimeoutType.DB_WRITE]
     )
     await main_bot_helper.wait_for_message(
         channel_id=discord_channel_id,
         message_id=message_id,
-        timeout=e2e_timeouts[TimeoutType.MESSAGE_CREATE],
+        timeout=test_timeouts[TimeoutType.MESSAGE_CREATE],
     )
 
     # Wait for reminder to be scheduled (may take a moment after game creation)
@@ -200,7 +200,7 @@ async def test_game_reminder_dm_delivery(
         "WHERE game_id = :game_id AND reminder_minutes = 1",
         {"game_id": game_id},
         lambda row: row[0] > 0,
-        timeout=e2e_timeouts[TimeoutType.DB_WRITE],
+        timeout=test_timeouts[TimeoutType.DB_WRITE],
         interval=1,
         description="reminder schedule creation",
     )
@@ -212,7 +212,7 @@ async def test_game_reminder_dm_delivery(
         user_id=discord_user_id,
         game_title=game_title,
         dm_type=DMType.REMINDER,
-        timeout=e2e_timeouts[TimeoutType.DM_SCHEDULED],
+        timeout=test_timeouts[TimeoutType.DM_SCHEDULED],
         interval=5,
     )
 

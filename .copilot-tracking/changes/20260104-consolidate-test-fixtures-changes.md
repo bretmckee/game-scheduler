@@ -13,7 +13,7 @@
 
 **Phase 2 Complete**: Migrated all async ORM integration tests to use shared factory fixtures.
 
-**Phase 3 In Progress**: Task 3.1 complete - identified which E2E fixtures to keep vs migrate.
+**Phase 3 In Progress**: Task 3.1 complete - identified which E2E fixtures to keep vs migrate. Task 3.2 complete - removed e2e_timeouts backward-compatible alias.
 
 **Key Achievements**:
 - Consolidated database session fixtures (admin_db_sync, admin_db, app_db, bot_db) with automatic cleanup
@@ -39,8 +39,13 @@
   - **Timeout consolidation**: Moved TimeoutType enum and test_timeouts fixture from E2E to shared conftest
   - **Duplicate removal**: Deleted api_base_url from e2e conftest (already in shared conftest)
   - **Task 3.2 added**: Remove e2e_timeouts backward-compatible alias (~50 occurrences in 12 files)
+- **Task 3.2 Complete**: Removed e2e_timeouts backward-compatible alias from all E2E tests:
+  - Replaced all 62 occurrences of e2e_timeouts parameter with test_timeouts in 11 test function signatures
+  - Replaced all e2e_timeouts[TimeoutType] usages with test_timeouts[TimeoutType] across test bodies
+  - Deleted e2e_timeouts fixture from tests/e2e/conftest.py
+  - All E2E tests now use test_timeouts directly from shared conftest
 
-**Next Steps**: Phase 3 Task 3.2 - Remove e2e_timeouts alias, then Task 3.3 - Migrate 12 e2e test files
+**Next Steps**: Phase 3 Task 3.3 - Migrate 12 e2e test files
 
 ## Changes
 
@@ -64,5 +69,16 @@
 - tests/conftest.py - Added TimeoutType enum and test_timeouts fixture (session-scoped) to provide standard timeout values for polling operations in both integration and E2E tests
 - tests/e2e/conftest.py - Removed duplicate TimeoutType enum and e2e_timeouts implementation, added import of TimeoutType from tests.conftest, replaced e2e_timeouts with backward-compatible alias that wraps test_timeouts fixture
 - tests/e2e/conftest.py - Removed duplicate api_base_url fixture (already exists in shared tests/conftest.py with environment variable support)
+- tests/e2e/test_game_announcement.py - Replaced e2e_timeouts parameter with test_timeouts in test function signature, replaced e2e_timeouts[TimeoutType] usage with test_timeouts[TimeoutType]
+- tests/e2e/test_game_cancellation.py - Replaced e2e_timeouts parameter with test_timeouts in test function signature, replaced 3 e2e_timeouts[TimeoutType] usages with test_timeouts[TimeoutType]
+- tests/e2e/test_game_reminder.py - Replaced e2e_timeouts parameter with test_timeouts in test function signature, replaced 4 e2e_timeouts[TimeoutType] usages with test_timeouts[TimeoutType]
+- tests/e2e/test_game_status_transitions.py - Replaced e2e_timeouts parameter with test_timeouts in test function signature, replaced 6 e2e_timeouts[TimeoutType] usages with test_timeouts[TimeoutType]
+- tests/e2e/test_game_update.py - Replaced e2e_timeouts parameter with test_timeouts in test function signature, replaced 3 e2e_timeouts[TimeoutType] usages with test_timeouts[TimeoutType]
+- tests/e2e/test_join_notification.py - Replaced e2e_timeouts parameter with test_timeouts in 2 test function signatures, replaced 6 e2e_timeouts[TimeoutType] usages with test_timeouts[TimeoutType]
+- tests/e2e/test_player_removal.py - Replaced e2e_timeouts parameter with test_timeouts in test function signature, replaced 4 e2e_timeouts[TimeoutType] usages with test_timeouts[TimeoutType]
+- tests/e2e/test_signup_methods.py - Replaced e2e_timeouts parameter with test_timeouts in 5 test function signatures, replaced 10 e2e_timeouts[TimeoutType] usages with test_timeouts[TimeoutType]
+- tests/e2e/test_user_join.py - Replaced e2e_timeouts parameter with test_timeouts in test function signature, replaced 3 e2e_timeouts[TimeoutType] usages with test_timeouts[TimeoutType]
+- tests/e2e/test_waitlist_promotion.py - Replaced e2e_timeouts parameter with test_timeouts in test function signature, replaced 4 e2e_timeouts[TimeoutType] usages with test_timeouts[TimeoutType]
+- tests/e2e/conftest.py - Removed e2e_timeouts backward-compatible alias fixture
 
 ### Removed

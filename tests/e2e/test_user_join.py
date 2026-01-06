@@ -130,7 +130,7 @@ async def test_user_join_updates_participant_count(
     discord_channel_id,
     bot_discord_id,
     clean_test_data,
-    e2e_timeouts,
+    test_timeouts,
 ):
     """
     E2E: Bot joining game via API updates Discord message participant count.
@@ -219,7 +219,7 @@ async def test_user_join_updates_participant_count(
             )
 
     message_id = await wait_for_game_message_id(
-        db_session, game_id, timeout=e2e_timeouts[TimeoutType.DB_WRITE]
+        db_session, game_id, timeout=test_timeouts[TimeoutType.DB_WRITE]
     )
     print(f"[TEST] Message ID: {message_id}")
     assert message_id is not None, "Message ID should be populated after announcement"
@@ -227,7 +227,7 @@ async def test_user_join_updates_participant_count(
     initial_message = await discord_helper.wait_for_message(
         channel_id=discord_channel_id,
         message_id=message_id,
-        timeout=e2e_timeouts[TimeoutType.MESSAGE_CREATE],
+        timeout=test_timeouts[TimeoutType.MESSAGE_CREATE],
     )
     assert initial_message is not None, "Discord message should exist after creation"
     assert len(initial_message.embeds) == 1, "Message should have one embed"
@@ -257,7 +257,7 @@ async def test_user_join_updates_participant_count(
             and msg.embeds[0].fields
             and any("1/4" in field.name for field in msg.embeds[0].fields if field.name)
         ),
-        timeout=e2e_timeouts[TimeoutType.MESSAGE_UPDATE],
+        timeout=test_timeouts[TimeoutType.MESSAGE_UPDATE],
         description="participant count update to 1/4",
     )
     assert updated_message is not None, "Discord message should be updated after join"

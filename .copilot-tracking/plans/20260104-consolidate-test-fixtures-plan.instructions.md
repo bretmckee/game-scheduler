@@ -85,7 +85,7 @@ Consolidate 100+ duplicated test fixtures into a single shared location with fac
 - [x] Task 3.1: Identify e2e-specific vs shared fixtures
   - Details: [.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md](.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md) (Lines 239-320)
 
-- [ ] Task 3.2: Remove e2e_timeouts backward-compatible alias
+- [x] Task 3.2: Remove e2e_timeouts backward-compatible alias
   - Details: [.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md](.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md) (Lines 322-354)
 
 - [ ] Task 3.3: Migrate 12 e2e test files to shared fixtures

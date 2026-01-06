@@ -104,7 +104,7 @@ async def test_self_signup_enables_join_button(
     test_template_id,
     discord_channel_id,
     clean_test_data,
-    e2e_timeouts,
+    test_timeouts,
 ):
     """
     E2E: Game with SELF_SIGNUP method has enabled join button.
@@ -135,14 +135,14 @@ async def test_self_signup_enables_join_button(
     await db_session.commit()
 
     message_id = await wait_for_game_message_id(
-        db_session, game_id, e2e_timeouts[TimeoutType.MESSAGE_CREATE]
+        db_session, game_id, test_timeouts[TimeoutType.MESSAGE_CREATE]
     )
     print(f"[TEST] Message ID retrieved: {message_id}")
 
     message = await discord_helper.wait_for_message(
         discord_channel_id,
         message_id,
-        timeout=e2e_timeouts[TimeoutType.MESSAGE_CREATE],
+        timeout=test_timeouts[TimeoutType.MESSAGE_CREATE],
     )
     print("[TEST] Message fetched, checking button state")
 
@@ -174,7 +174,7 @@ async def test_host_selected_disables_join_button(
     test_template_id,
     discord_channel_id,
     clean_test_data,
-    e2e_timeouts,
+    test_timeouts,
 ):
     """
     E2E: Game with HOST_SELECTED method has disabled join button.
@@ -205,14 +205,14 @@ async def test_host_selected_disables_join_button(
     await db_session.commit()
 
     message_id = await wait_for_game_message_id(
-        db_session, game_id, e2e_timeouts[TimeoutType.MESSAGE_CREATE]
+        db_session, game_id, test_timeouts[TimeoutType.MESSAGE_CREATE]
     )
     print(f"[TEST] Message ID retrieved: {message_id}")
 
     message = await discord_helper.wait_for_message(
         discord_channel_id,
         message_id,
-        timeout=e2e_timeouts[TimeoutType.MESSAGE_CREATE],
+        timeout=test_timeouts[TimeoutType.MESSAGE_CREATE],
     )
     print("[TEST] Message fetched, checking button state")
 
@@ -254,7 +254,7 @@ async def test_signup_method_defaults_to_self_signup(
     test_template_id,
     discord_channel_id,
     clean_test_data,
-    e2e_timeouts,
+    test_timeouts,
 ):
     """
     E2E: Game without explicit signup_method defaults to SELF_SIGNUP with enabled button.
@@ -297,13 +297,13 @@ async def test_signup_method_defaults_to_self_signup(
     print(f"[TEST] ✓ Database signup_method defaulted to: {row[0]}")
 
     message_id = await wait_for_game_message_id(
-        db_session, game_id, e2e_timeouts[TimeoutType.MESSAGE_CREATE]
+        db_session, game_id, test_timeouts[TimeoutType.MESSAGE_CREATE]
     )
 
     message = await discord_helper.wait_for_message(
         discord_channel_id,
         message_id,
-        timeout=e2e_timeouts[TimeoutType.MESSAGE_CREATE],
+        timeout=test_timeouts[TimeoutType.MESSAGE_CREATE],
     )
 
     join_button = message.components[0].children[0]
@@ -319,7 +319,7 @@ async def test_edit_game_signup_method_self_to_host(
     test_template_id,
     discord_channel_id,
     clean_test_data,
-    e2e_timeouts,
+    test_timeouts,
 ):
     """
     E2E: Editing game from SELF_SIGNUP to HOST_SELECTED updates button state.
@@ -352,14 +352,14 @@ async def test_edit_game_signup_method_self_to_host(
     await db_session.commit()
 
     message_id = await wait_for_game_message_id(
-        db_session, game_id, e2e_timeouts[TimeoutType.MESSAGE_CREATE]
+        db_session, game_id, test_timeouts[TimeoutType.MESSAGE_CREATE]
     )
 
     # Verify initial button state is enabled
     initial_message = await discord_helper.wait_for_message(
         discord_channel_id,
         message_id,
-        timeout=e2e_timeouts[TimeoutType.MESSAGE_CREATE],
+        timeout=test_timeouts[TimeoutType.MESSAGE_CREATE],
     )
     initial_button = initial_message.components[0].children[0]
     assert not initial_button.disabled, "Initial button should be ENABLED"
@@ -396,7 +396,7 @@ async def test_edit_game_signup_method_self_to_host(
         discord_channel_id,
         message_id,
         lambda msg: msg.components[0].children[0].disabled,
-        timeout=e2e_timeouts[TimeoutType.MESSAGE_UPDATE],
+        timeout=test_timeouts[TimeoutType.MESSAGE_UPDATE],
         description="button disabled after signup method change",
     )
 
@@ -413,7 +413,7 @@ async def test_edit_game_signup_method_host_to_self(
     test_template_id,
     discord_channel_id,
     clean_test_data,
-    e2e_timeouts,
+    test_timeouts,
 ):
     """
     E2E: Editing game from HOST_SELECTED to SELF_SIGNUP enables button.
@@ -446,14 +446,14 @@ async def test_edit_game_signup_method_host_to_self(
     await db_session.commit()
 
     message_id = await wait_for_game_message_id(
-        db_session, game_id, e2e_timeouts[TimeoutType.MESSAGE_CREATE]
+        db_session, game_id, test_timeouts[TimeoutType.MESSAGE_CREATE]
     )
 
     # Verify initial button state is disabled
     initial_message = await discord_helper.wait_for_message(
         discord_channel_id,
         message_id,
-        timeout=e2e_timeouts[TimeoutType.MESSAGE_CREATE],
+        timeout=test_timeouts[TimeoutType.MESSAGE_CREATE],
     )
     initial_button = initial_message.components[0].children[0]
     assert initial_button.disabled, "Initial button should be DISABLED"
@@ -490,7 +490,7 @@ async def test_edit_game_signup_method_host_to_self(
         discord_channel_id,
         message_id,
         lambda msg: not msg.components[0].children[0].disabled,
-        timeout=e2e_timeouts[TimeoutType.MESSAGE_UPDATE],
+        timeout=test_timeouts[TimeoutType.MESSAGE_UPDATE],
         description="button enabled after signup method change",
     )
 
