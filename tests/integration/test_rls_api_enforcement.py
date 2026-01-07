@@ -33,44 +33,17 @@ CRITICAL: These tests require:
 - API service using DATABASE_URL with gamebot_app user (no BYPASSRLS)
 """
 
-import os
-
 import pytest
 from sqlalchemy import select, text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from shared.models.game import GameSession
 
 pytestmark = pytest.mark.integration
 
 
-@pytest.fixture
-async def app_db_session():
-    """Create database session using gamebot_app user (API user with RLS enforced)."""
-    raw_url = os.getenv("DATABASE_URL")
-    if not raw_url:
-        pytest.skip("DATABASE_URL not set")
-
-    app_url = raw_url.replace("postgresql://", "postgresql+asyncpg://")
-    app_engine = create_async_engine(app_url, echo=False)
-    app_session_factory = async_sessionmaker(
-        app_engine,
-        class_=AsyncSession,
-        expire_on_commit=False,
-        autocommit=False,
-        autoflush=False,
-    )
-
-    async with app_session_factory() as session:
-        yield session
-        await session.rollback()
-
-    await app_engine.dispose()
-
-
 @pytest.mark.asyncio
 async def test_api_queries_filtered_by_rls_with_guild_context(
-    admin_db, app_db_session, create_guild, create_channel, create_user, create_game
+    admin_db, app_db, create_guild, create_channel, create_user, create_game
 ):
     """API queries with RLS context set should only return games from authorized guilds."""
     guild_a = create_guild()
@@ -84,12 +57,12 @@ async def test_api_queries_filtered_by_rls_with_guild_context(
     game_b = create_game(guild_id=guild_b["id"], channel_id=channel_b["id"], host_id=user_b["id"])
 
     # Set RLS context on this session's connection
-    await app_db_session.execute(
+    await app_db.execute(
         text("SELECT set_config('app.current_guild_ids', :guild_ids, false)"),
         {"guild_ids": guild_a["id"]},
     )
 
-    result = await app_db_session.execute(
+    result = await app_db.execute(
         select(GameSession).where(GameSession.id.in_([game_a["id"], game_b["id"]]))
     )
     games = result.scalars().all()
@@ -102,7 +75,7 @@ async def test_api_queries_filtered_by_rls_with_guild_context(
 
 @pytest.mark.asyncio
 async def test_api_queries_return_empty_without_guild_context(
-    admin_db, app_db_session, create_guild, create_channel, create_user, create_game
+    admin_db, app_db, create_guild, create_channel, create_user, create_game
 ):
     """API queries without RLS context should return no results (RLS blocks all)."""
     guild_a = create_guild()
@@ -115,7 +88,7 @@ async def test_api_queries_return_empty_without_guild_context(
     user_b = create_user()
     game_b = create_game(guild_id=guild_b["id"], channel_id=channel_b["id"], host_id=user_b["id"])
 
-    result = await app_db_session.execute(
+    result = await app_db.execute(
         select(GameSession).where(GameSession.id.in_([game_a["id"], game_b["id"]]))
     )
     games = result.scalars().all()
@@ -125,7 +98,7 @@ async def test_api_queries_return_empty_without_guild_context(
 
 @pytest.mark.asyncio
 async def test_api_queries_with_multiple_guild_context(
-    admin_db, app_db_session, create_guild, create_channel, create_user, create_game
+    admin_db, app_db, create_guild, create_channel, create_user, create_game
 ):
     """API queries with multiple guilds in context should return games from all specified guilds."""
     guild_a = create_guild()
@@ -140,12 +113,12 @@ async def test_api_queries_with_multiple_guild_context(
 
     # Set RLS context with both guild IDs
     guild_ids_str = f"{guild_a['id']},{guild_b['id']}"
-    await app_db_session.execute(
+    await app_db.execute(
         text("SELECT set_config('app.current_guild_ids', :guild_ids, false)"),
         {"guild_ids": guild_ids_str},
     )
 
-    result = await app_db_session.execute(
+    result = await app_db.execute(
         select(GameSession).where(GameSession.id.in_([game_a["id"], game_b["id"]]))
     )
     games = result.scalars().all()
@@ -157,9 +130,9 @@ async def test_api_queries_with_multiple_guild_context(
 
 
 @pytest.mark.asyncio
-async def test_rls_policies_enabled_on_game_sessions(app_db_session):
+async def test_rls_policies_enabled_on_game_sessions(app_db):
     """Verify RLS is enabled on game_sessions table for gamebot_app user."""
-    result = await app_db_session.execute(
+    result = await app_db.execute(
         text(
             """
             SELECT relrowsecurity, relforcerowsecurity
