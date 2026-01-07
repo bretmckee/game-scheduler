@@ -288,3 +288,12 @@ async def authenticated_client_b(api_base_url, discord_user_b_id, discord_user_b
 
     await cleanup_test_session(session_token)
     await client.aclose()
+
+
+@pytest.fixture
+async def main_bot_helper(discord_main_bot_token):
+    """Create Discord helper for main bot (sends notifications)."""
+    helper = DiscordTestHelper(discord_main_bot_token)
+    await helper.connect()
+    yield helper
+    await helper.disconnect()

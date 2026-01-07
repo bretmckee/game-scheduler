@@ -52,24 +52,24 @@ Eliminate remaining duplicate test fixtures in integration and e2e tests by usin
 - [x] Task 1.3: Verify RLS integration tests pass with shared fixtures
   - Details: .copilot-tracking/details/20260107-remaining-fixture-duplication-details.md (Lines 86-95)
 
-### [ ] Phase 2: Consolidate E2E Main Bot Helper Fixture
+### [x] Phase 2: Consolidate E2E Main Bot Helper Fixture
 
-- [ ] Task 2.1: Add main_bot_helper fixture to tests/e2e/conftest.py
+- [x] Task 2.1: Add main_bot_helper fixture to tests/e2e/conftest.py
   - Details: .copilot-tracking/details/20260107-remaining-fixture-duplication-details.md (Lines 97-119)
 
-- [ ] Task 2.2: Remove main_bot_helper from test_join_notification.py
+- [x] Task 2.2: Remove main_bot_helper from test_join_notification.py
   - Details: .copilot-tracking/details/20260107-remaining-fixture-duplication-details.md (Lines 121-129)
 
-- [ ] Task 2.3: Remove main_bot_helper from test_game_reminder.py
+- [x] Task 2.3: Remove main_bot_helper from test_game_reminder.py
   - Details: .copilot-tracking/details/20260107-remaining-fixture-duplication-details.md (Lines 131-139)
 
-- [ ] Task 2.4: Remove main_bot_helper from test_player_removal.py
+- [x] Task 2.4: Remove main_bot_helper from test_player_removal.py
   - Details: .copilot-tracking/details/20260107-remaining-fixture-duplication-details.md (Lines 141-149)
 
-- [ ] Task 2.5: Remove main_bot_helper from test_waitlist_promotion.py
+- [x] Task 2.5: Remove main_bot_helper from test_waitlist_promotion.py
   - Details: .copilot-tracking/details/20260107-remaining-fixture-duplication-details.md (Lines 151-159)
 
-- [ ] Task 2.6: Verify all e2e tests pass with consolidated fixture
+- [x] Task 2.6: Verify all e2e tests pass with consolidated fixture
   - Details: .copilot-tracking/details/20260107-remaining-fixture-duplication-details.md (Lines 161-170)
 
 ### [ ] Phase 3: Final Validation
