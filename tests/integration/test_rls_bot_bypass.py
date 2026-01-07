@@ -70,35 +70,57 @@ async def bot_db_session():
 
 
 @pytest.mark.asyncio
-async def test_bot_queries_bypass_rls_see_all_guilds(bot_db_session, game_a, game_b):
+async def test_bot_queries_bypass_rls_see_all_guilds(
+    admin_db, bot_db_session, create_guild, create_channel, create_user, create_game
+):
     """Bot queries without guild context should see games from ALL guilds (RLS bypassed)."""
+    guild_a = create_guild()
+    channel_a = create_channel(guild_id=guild_a["id"])
+    user_a = create_user()
+    game_a = create_game(guild_id=guild_a["id"], channel_id=channel_a["id"], host_id=user_a["id"])
+
+    guild_b = create_guild()
+    channel_b = create_channel(guild_id=guild_b["id"])
+    user_b = create_user()
+    game_b = create_game(guild_id=guild_b["id"], channel_id=channel_b["id"], host_id=user_b["id"])
+
     result = await bot_db_session.execute(
-        select(GameSession).where(GameSession.id.in_([game_a.id, game_b.id]))
+        select(GameSession).where(GameSession.id.in_([game_a["id"], game_b["id"]]))
     )
     games = result.scalars().all()
 
     assert len(games) == 2, "Bot should see games from ALL guilds (BYPASSRLS privilege)"
     game_ids = [g.id for g in games]
-    assert game_a.id in game_ids, "Guild A game should be visible to bot"
-    assert game_b.id in game_ids, "Guild B game should be visible to bot"
+    assert game_a["id"] in game_ids, "Guild A game should be visible to bot"
+    assert game_b["id"] in game_ids, "Guild B game should be visible to bot"
 
 
 @pytest.mark.asyncio
 async def test_bot_queries_ignore_guild_context_if_set(
-    bot_db_session, game_a, game_b, guild_a_config
+    admin_db, bot_db_session, create_guild, create_channel, create_user, create_game
 ):
     """Bot queries should see all guilds even if guild context is set (BYPASSRLS active)."""
-    set_current_guild_ids([guild_a_config.guild_id])
+    guild_a = create_guild()
+    channel_a = create_channel(guild_id=guild_a["id"])
+    user_a = create_user()
+    game_a = create_game(guild_id=guild_a["id"], channel_id=channel_a["id"], host_id=user_a["id"])
+
+    guild_b = create_guild()
+    channel_b = create_channel(guild_id=guild_b["id"])
+    user_b = create_user()
+    game_b = create_game(guild_id=guild_b["id"], channel_id=channel_b["id"], host_id=user_b["id"])
+
+    set_current_guild_ids([guild_a["guild_id"]])
 
     result = await bot_db_session.execute(
-        select(GameSession).where(GameSession.id.in_([game_a.id, game_b.id]))
+        select(GameSession).where(GameSession.id.in_([game_a["id"], game_b["id"]]))
     )
     games = result.scalars().all()
 
     assert len(games) == 2, "Bot should still see ALL guilds (BYPASSRLS ignores context)"
     game_ids = [g.id for g in games]
-    assert game_a.id in game_ids, "Guild A game visible"
-    assert game_b.id in game_ids, "Guild B game visible (not filtered)"
+    assert game_a["id"] in game_ids, "Guild A game visible"
+    assert game_b["id"] in game_ids, "Guild B game visible (not filtered)"
 
 
 @pytest.mark.asyncio

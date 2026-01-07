@@ -372,14 +372,14 @@ async def redis_client_async():
 
 
 @pytest.fixture
-def seed_redis_cache(redis_client):
+def seed_redis_cache():
     """
     Factory fixture to seed Redis cache with Discord metadata.
 
     Returns async function that seeds multiple cache keys at once.
     Designed to bypass Discord API calls in tests.
 
-    Uses redis_client (sync fixture), so works in both sync and async tests.
+    Creates its own Redis connection to avoid event loop conflicts.
 
     Cache Keys Seeded:
     1. CacheKeys.user_guilds(user_discord_id) - RLS context
@@ -427,62 +427,70 @@ def seed_redis_cache(redis_client):
             session_user_id: User database UUID for session (optional)
             session_access_token: Discord access token for session (optional)
         """
-        # User guilds (RLS context) - Required for guild isolation
-        user_guilds_key = CacheKeys.user_guilds(user_discord_id)
-        guilds_data = [
-            {
-                "id": guild_discord_id,
-                "name": f"Test Guild {guild_discord_id[:8]}",
-                "permissions": "2147483647",  # Administrator permissions
-            }
-        ]
-        await redis_client.set_json(user_guilds_key, guilds_data, ttl=300)
+        # Create fresh Redis connection in current event loop
+        redis_client = RedisClient()
+        await redis_client.connect()
 
-        # User roles (permissions) - Default to guild membership
-        if user_roles is None:
-            user_roles = [guild_discord_id]  # Discord convention: guild membership = guild_id role
-        if bot_manager_roles:
-            user_roles = user_roles + bot_manager_roles
-
-        user_roles_key = CacheKeys.user_roles(user_discord_id, guild_discord_id)
-        await redis_client.set_json(user_roles_key, user_roles, ttl=3600)
-
-        # Channel metadata (if channel interactions needed)
-        if channel_discord_id:
-            channel_key = CacheKeys.discord_channel(channel_discord_id)
-            await redis_client.set_json(
-                channel_key,
+        try:
+            # User guilds (RLS context) - Required for guild isolation
+            user_guilds_key = CacheKeys.user_guilds(user_discord_id)
+            guilds_data = [
                 {
-                    "id": channel_discord_id,
-                    "name": "test-channel",
-                    "type": 0,  # GUILD_TEXT
-                    "guild_id": guild_discord_id,
+                    "id": guild_discord_id,
+                    "name": f"Test Guild {guild_discord_id[:8]}",
+                    "permissions": "2147483647",  # Administrator permissions
+                }
+            ]
+            await redis_client.set_json(user_guilds_key, guilds_data, ttl=300)
+
+            # User roles (permissions) - Default to guild membership
+            if user_roles is None:
+                # Discord convention: guild membership = guild_id role
+                user_roles = [guild_discord_id]
+            if bot_manager_roles:
+                user_roles = user_roles + bot_manager_roles
+
+            user_roles_key = CacheKeys.user_roles(user_discord_id, guild_discord_id)
+            await redis_client.set_json(user_roles_key, user_roles, ttl=3600)
+
+            # Channel metadata (if channel interactions needed)
+            if channel_discord_id:
+                channel_key = CacheKeys.discord_channel(channel_discord_id)
+                await redis_client.set_json(
+                    channel_key,
+                    {
+                        "id": channel_discord_id,
+                        "name": "test-channel",
+                        "type": 0,  # GUILD_TEXT
+                        "guild_id": guild_discord_id,
+                    },
+                    ttl=3600,
+                )
+
+            # Guild metadata (always seed for guild name/icon)
+            guild_key = CacheKeys.discord_guild(guild_discord_id)
+            await redis_client.set_json(
+                guild_key,
+                {
+                    "id": guild_discord_id,
+                    "name": "Test Guild",
+                    "icon": None,
                 },
                 ttl=3600,
             )
 
-        # Guild metadata (always seed for guild name/icon)
-        guild_key = CacheKeys.discord_guild(guild_discord_id)
-        await redis_client.set_json(
-            guild_key,
-            {
-                "id": guild_discord_id,
-                "name": "Test Guild",
-                "icon": None,
-            },
-            ttl=3600,
-        )
-
-        # Session (if authentication needed)
-        if session_token and session_user_id and session_access_token:
-            session_key = CacheKeys.session(session_token)
-            session_data = {
-                "user_id": session_user_id,
-                "access_token": encrypt_token(session_access_token),
-                "refresh_token": encrypt_token("mock_refresh_token"),
-                "expires_at": (datetime.now(UTC) + timedelta(hours=1)).isoformat(),
-            }
-            await redis_client.set_json(session_key, session_data, ttl=3600)
+            # Session (if authentication needed)
+            if session_token and session_user_id and session_access_token:
+                session_key = CacheKeys.session(session_token)
+                session_data = {
+                    "user_id": session_user_id,
+                    "access_token": encrypt_token(session_access_token),
+                    "refresh_token": encrypt_token("mock_refresh_token"),
+                    "expires_at": (datetime.now(UTC) + timedelta(hours=1)).isoformat(),
+                }
+                await redis_client.set_json(session_key, session_data, ttl=3600)
+        finally:
+            await redis_client.disconnect()
 
     def _sync_wrapper(*args, **kwargs):
         """Wrapper that runs seed in the redis_client's event loop for sync tests."""
