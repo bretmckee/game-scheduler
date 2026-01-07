@@ -143,6 +143,13 @@ repos:
         always_run: true
         verbose: true
 
+  # Cognitive complexity checking
+  - repo: https://github.com/rohaquinlop/complexipy-pre-commit
+    rev: v4.2.0
+    hooks:
+      - id: complexipy
+        args: ['--max-complexity-allowed', '49']
+
   # Optional/Manual hooks - run with: pre-commit run <hook-id> --hook-stage manual
   - repo: local
     hooks:
