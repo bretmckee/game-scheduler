@@ -70,31 +70,53 @@ async def app_db_session():
 
 @pytest.mark.asyncio
 async def test_api_queries_filtered_by_rls_with_guild_context(
-    app_db_session, game_a, game_b, guild_a_config
+    admin_db, app_db_session, create_guild, create_channel, create_user, create_game
 ):
     """API queries with RLS context set should only return games from authorized guilds."""
+    guild_a = create_guild()
+    channel_a = create_channel(guild_id=guild_a["id"])
+    user_a = create_user()
+    game_a = create_game(guild_id=guild_a["id"], channel_id=channel_a["id"], host_id=user_a["id"])
+
+    guild_b = create_guild()
+    channel_b = create_channel(guild_id=guild_b["id"])
+    user_b = create_user()
+    game_b = create_game(guild_id=guild_b["id"], channel_id=channel_b["id"], host_id=user_b["id"])
+
     # Set RLS context on this session's connection
     await app_db_session.execute(
         text("SELECT set_config('app.current_guild_ids', :guild_ids, false)"),
-        {"guild_ids": guild_a_config.id},
+        {"guild_ids": guild_a["id"]},
     )
 
     result = await app_db_session.execute(
-        select(GameSession).where(GameSession.id.in_([game_a.id, game_b.id]))
+        select(GameSession).where(GameSession.id.in_([game_a["id"], game_b["id"]]))
     )
     games = result.scalars().all()
 
     guild_ids_returned = [game.guild_id for game in games]
-    assert game_a.id in [g.id for g in games], "Guild A game should be visible"
-    assert game_b.id not in [g.id for g in games], "Guild B game should be filtered"
-    assert guild_a_config.id in guild_ids_returned, "Only guild A games should be returned"
+    assert game_a["id"] in [g.id for g in games], "Guild A game should be visible"
+    assert game_b["id"] not in [g.id for g in games], "Guild B game should be filtered"
+    assert guild_a["id"] in guild_ids_returned, "Only guild A games should be returned"
 
 
 @pytest.mark.asyncio
-async def test_api_queries_return_empty_without_guild_context(app_db_session, game_a, game_b):
+async def test_api_queries_return_empty_without_guild_context(
+    admin_db, app_db_session, create_guild, create_channel, create_user, create_game
+):
     """API queries without RLS context should return no results (RLS blocks all)."""
+    guild_a = create_guild()
+    channel_a = create_channel(guild_id=guild_a["id"])
+    user_a = create_user()
+    game_a = create_game(guild_id=guild_a["id"], channel_id=channel_a["id"], host_id=user_a["id"])
+
+    guild_b = create_guild()
+    channel_b = create_channel(guild_id=guild_b["id"])
+    user_b = create_user()
+    game_b = create_game(guild_id=guild_b["id"], channel_id=channel_b["id"], host_id=user_b["id"])
+
     result = await app_db_session.execute(
-        select(GameSession).where(GameSession.id.in_([game_a.id, game_b.id]))
+        select(GameSession).where(GameSession.id.in_([game_a["id"], game_b["id"]]))
     )
     games = result.scalars().all()
 
@@ -103,25 +125,35 @@ async def test_api_queries_return_empty_without_guild_context(app_db_session, ga
 
 @pytest.mark.asyncio
 async def test_api_queries_with_multiple_guild_context(
-    app_db_session, game_a, game_b, guild_a_config, guild_b_config
+    admin_db, app_db_session, create_guild, create_channel, create_user, create_game
 ):
     """API queries with multiple guilds in context should return games from all specified guilds."""
+    guild_a = create_guild()
+    channel_a = create_channel(guild_id=guild_a["id"])
+    user_a = create_user()
+    game_a = create_game(guild_id=guild_a["id"], channel_id=channel_a["id"], host_id=user_a["id"])
+
+    guild_b = create_guild()
+    channel_b = create_channel(guild_id=guild_b["id"])
+    user_b = create_user()
+    game_b = create_game(guild_id=guild_b["id"], channel_id=channel_b["id"], host_id=user_b["id"])
+
     # Set RLS context with both guild IDs
-    guild_ids_str = f"{guild_a_config.id},{guild_b_config.id}"
+    guild_ids_str = f"{guild_a['id']},{guild_b['id']}"
     await app_db_session.execute(
         text("SELECT set_config('app.current_guild_ids', :guild_ids, false)"),
         {"guild_ids": guild_ids_str},
     )
 
     result = await app_db_session.execute(
-        select(GameSession).where(GameSession.id.in_([game_a.id, game_b.id]))
+        select(GameSession).where(GameSession.id.in_([game_a["id"], game_b["id"]]))
     )
     games = result.scalars().all()
 
     assert len(games) == 2, "Should see games from both guilds when both are in context"
     game_ids = [g.id for g in games]
-    assert game_a.id in game_ids, "Guild A game should be visible"
-    assert game_b.id in game_ids, "Guild B game should be visible"
+    assert game_a["id"] in game_ids, "Guild A game should be visible"
+    assert game_b["id"] in game_ids, "Guild B game should be visible"
 
 
 @pytest.mark.asyncio

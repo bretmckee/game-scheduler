@@ -80,7 +80,7 @@ Consolidate 100+ duplicated test fixtures into a single shared location with fac
 - [x] Task 2.2: Migrate `test_games_route_guild_isolation.py`
   - Details: [.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md](.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md) (Lines 282-305)
 
-### [ ] Phase 3: Consolidate E2E Test Fixtures
+### [x] Phase 3: Consolidate E2E Test Fixtures
 
 - [x] Task 3.1: Identify e2e-specific vs shared fixtures
   - Details: [.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md](.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md) (Lines 239-320)
@@ -94,13 +94,19 @@ Consolidate 100+ duplicated test fixtures into a single shared location with fac
   - Infrastructure: Added ADMIN_DATABASE_URL, created synced_guild_b fixture
   - Validation: All 55 E2E tests passing
 
-### [ ] Phase 4: Delete Redundant Fixtures
+### [x] Phase 4: Delete Redundant Fixtures
 
-- [ ] Task 4.1: Delete deprecated fixtures from `tests/integration/conftest.py`
+- [x] Task 4.1: Delete deprecated fixtures from `tests/integration/conftest.py`
   - Details: [.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md](.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md) (Lines 362-385)
+  - Completed: Migrated 3 RLS test files to factory fixtures
+  - Completed: Deleted all deprecated fixtures from tests/integration/conftest.py
+  - Files reduced: From 419 lines to 106 lines (75% reduction)
 
-- [ ] Task 4.2: Verify all tests still pass after cleanup
+- [x] Task 4.2: Verify all tests still pass after cleanup
   - Details: [.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md](.copilot-tracking/details/20260104-consolidate-test-fixtures-details.md) (Lines 387-400)
+  - Completed: Fixed test_rls_enforcement.py (db → app_db fixture)
+  - Completed: Fixed seed_redis_cache event loop conflict (create own connection)
+  - Validation: All 129 integration tests passing
 
 ## Dependencies
 

@@ -13,7 +13,9 @@
 
 **Phase 2 Complete**: Migrated all async ORM integration tests to use shared factory fixtures.
 
-**Phase 3 In Progress**: Task 3.1 complete - identified which E2E fixtures to keep vs migrate. Task 3.2 complete - removed e2e_timeouts backward-compatible alias.
+**Phase 3 Complete**: All E2E test fixtures consolidated and migrated.
+
+**Phase 4 Complete**: All deprecated fixtures deleted from tests/integration/conftest.py. All integration tests passing after cleanup (129 tests).
 
 **Key Achievements**:
 - Consolidated database session fixtures (admin_db_sync, admin_db, app_db, bot_db) with automatic cleanup
@@ -101,5 +103,11 @@
 - tests/e2e/conftest.py - Removed duplicate database fixtures (database_url, db_engine, db_session, http_client, guild_b_db_id, guild_b_template_id), cleaned up unused imports (async_sessionmaker, create_async_engine)
 - tests/e2e/test_game_announcement.py - Removed all custom fixtures (clean_test_data, test_guild_id, test_channel_id, test_host_id, test_template_id), updated test to use admin_db and fetch IDs directly with inline SQL queries
 - tests/e2e/test_waitlist_promotion.py - Removed all custom fixtures (clean_test_data, test_guild_id, test_template_id), updated test and helper functions (trigger_promotion_via_removal, trigger_promotion_via_max_players_increase) to use admin_db and fetch IDs directly
+- tests/integration/test_rls_bot_bypass.py - Migrated to use factory fixtures (create_guild, create_channel, create_user, create_game) instead of deprecated game_a/game_b fixtures
+- tests/integration/test_rls_enforcement.py - Migrated all 7 test functions to use factory fixtures (create_guild) instead of deprecated guild_a_config/guild_b_config fixtures, replaced db with app_db fixture parameter
+- tests/integration/test_rls_api_enforcement.py - Migrated all 3 test functions to use factory fixtures (create_guild, create_channel, create_user, create_game) instead of deprecated fixtures
+- tests/integration/conftest.py - Deleted all deprecated data-fetching fixtures (guild_a_id, guild_b_id, guild_a_config, guild_b_config, channel_a, channel_b, template_a, template_b, user_a, user_b, game_a, game_b), removed obsolete database session fixtures (db_url, admin_db_url, async_engine, admin_async_engine, async_session_factory, admin_async_session_factory, db, admin_db, redis_client), removed helper functions (seed_user_guilds_cache, seed_user_session), cleaned up all unused imports, reduced file from 419 lines to 106 lines (75% reduction)
+- tests/conftest.py - Fixed seed_redis_cache to create its own RedisClient connection in current event loop instead of depending on redis_client fixture, preventing event loop conflicts when used from async tests
+- tests/e2e/test_join_notification.py - Fixed E501 line-too-long lint error by splitting signup_instructions string across multiple lines
 
 ### Removed
