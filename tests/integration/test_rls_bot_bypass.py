@@ -33,11 +33,8 @@ CRITICAL: These tests require:
 - RLS policies ENABLED on game_sessions table (but bypassed by gamebot_bot)
 """
 
-import os
-
 import pytest
 from sqlalchemy import select, text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from shared.data_access.guild_isolation import set_current_guild_ids
 from shared.models.game import GameSession
@@ -45,33 +42,9 @@ from shared.models.game import GameSession
 pytestmark = pytest.mark.integration
 
 
-@pytest.fixture
-async def bot_db_session():
-    """Create database session using gamebot_bot user (bot/daemon user with BYPASSRLS)."""
-    raw_url = os.getenv("BOT_DATABASE_URL")
-    if not raw_url:
-        pytest.skip("BOT_DATABASE_URL not set")
-
-    bot_url = raw_url.replace("postgresql://", "postgresql+asyncpg://")
-    bot_engine = create_async_engine(bot_url, echo=False)
-    bot_session_factory = async_sessionmaker(
-        bot_engine,
-        class_=AsyncSession,
-        expire_on_commit=False,
-        autocommit=False,
-        autoflush=False,
-    )
-
-    async with bot_session_factory() as session:
-        yield session
-        await session.rollback()
-
-    await bot_engine.dispose()
-
-
 @pytest.mark.asyncio
 async def test_bot_queries_bypass_rls_see_all_guilds(
-    admin_db, bot_db_session, create_guild, create_channel, create_user, create_game
+    admin_db, bot_db, create_guild, create_channel, create_user, create_game
 ):
     """Bot queries without guild context should see games from ALL guilds (RLS bypassed)."""
     guild_a = create_guild()
@@ -84,7 +57,7 @@ async def test_bot_queries_bypass_rls_see_all_guilds(
     user_b = create_user()
     game_b = create_game(guild_id=guild_b["id"], channel_id=channel_b["id"], host_id=user_b["id"])
 
-    result = await bot_db_session.execute(
+    result = await bot_db.execute(
         select(GameSession).where(GameSession.id.in_([game_a["id"], game_b["id"]]))
     )
     games = result.scalars().all()
@@ -97,7 +70,7 @@ async def test_bot_queries_bypass_rls_see_all_guilds(
 
 @pytest.mark.asyncio
 async def test_bot_queries_ignore_guild_context_if_set(
-    admin_db, bot_db_session, create_guild, create_channel, create_user, create_game
+    admin_db, bot_db, create_guild, create_channel, create_user, create_game
 ):
     """Bot queries should see all guilds even if guild context is set (BYPASSRLS active)."""
     guild_a = create_guild()
@@ -112,7 +85,7 @@ async def test_bot_queries_ignore_guild_context_if_set(
 
     set_current_guild_ids([guild_a["guild_id"]])
 
-    result = await bot_db_session.execute(
+    result = await bot_db.execute(
         select(GameSession).where(GameSession.id.in_([game_a["id"], game_b["id"]]))
     )
     games = result.scalars().all()
@@ -124,9 +97,9 @@ async def test_bot_queries_ignore_guild_context_if_set(
 
 
 @pytest.mark.asyncio
-async def test_bot_user_has_bypassrls_privilege(bot_db_session):
+async def test_bot_user_has_bypassrls_privilege(bot_db):
     """Verify gamebot_bot user has BYPASSRLS privilege (not superuser)."""
-    result = await bot_db_session.execute(
+    result = await bot_db.execute(
         text(
             """
             SELECT rolsuper, rolbypassrls
@@ -144,9 +117,9 @@ async def test_bot_user_has_bypassrls_privilege(bot_db_session):
 
 
 @pytest.mark.asyncio
-async def test_bot_connection_uses_correct_database_user(bot_db_session):
+async def test_bot_connection_uses_correct_database_user(bot_db):
     """Verify bot session is actually using gamebot_bot user."""
-    result = await bot_db_session.execute(text("SELECT current_user"))
+    result = await bot_db.execute(text("SELECT current_user"))
     current_user = result.scalar()
 
     assert current_user == "gamebot_bot", "Bot session should use gamebot_bot user"
