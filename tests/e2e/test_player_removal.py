@@ -48,19 +48,9 @@ import pytest
 from sqlalchemy import text
 
 from tests.e2e.conftest import TimeoutType, wait_for_game_message_id
-from tests.e2e.helpers.discord import DiscordTestHelper, DMType
+from tests.e2e.helpers.discord import DMType
 
 pytestmark = pytest.mark.e2e
-
-
-@pytest.fixture
-async def main_bot_helper(discord_main_bot_token):
-    """Create Discord helper for main bot (sends notifications)."""
-
-    helper = DiscordTestHelper(discord_main_bot_token)
-    await helper.connect()
-    yield helper
-    await helper.disconnect()
 
 
 @pytest.mark.asyncio
