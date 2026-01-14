@@ -54,6 +54,7 @@ htmlcov/
 .tox/
 coverage.xml
 .complexipy_cache/
+report/
 
 # OS
 .DS_Store

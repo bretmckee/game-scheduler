@@ -1,0 +1,22 @@
+{
+  "threshold": 5,
+  "reporters": ["console"],
+  "ignore": [
+    "**/__pycache__/**",
+    "**/node_modules/**",
+    "**/coverage/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/.venv/**",
+    "**/venv/**",
+    "**/*.min.js",
+    "**/tests/**",
+    "**/alembic/versions/**",
+    "**/__init__.py"
+  ],
+  "format": ["python", "typescript", "javascript"],
+  "minLines": 6,
+  "minTokens": 50,
+  "mode": "mild",
+  "output": "./report/jscpd"
+}

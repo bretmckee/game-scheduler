@@ -153,6 +153,16 @@ repos:
         types: [python]
         pass_filenames: false
 
+  # Duplicate code detection
+  - repo: local
+    hooks:
+      - id: jscpd
+        name: Check for duplicate code
+        entry: bash -c 'npx --yes jscpd services shared frontend/src --config .jscpd.json'
+        language: system
+        pass_filenames: false
+        types_or: [python, ts, tsx, javascript]
+
   # Optional/Manual hooks - run with: pre-commit run <hook-id> --hook-stage manual
   - repo: local
     hooks:
