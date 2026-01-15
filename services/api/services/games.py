@@ -193,6 +193,63 @@ class GameService:
 
         return actual_host_user_id, host_user
 
+    def _resolve_template_fields(
+        self,
+        game_data: game_schemas.GameCreateRequest,
+        template: template_model.GameTemplate,
+    ) -> dict[str, Any]:
+        """
+        Resolve game fields from request data and template defaults.
+
+        Returns:
+            Dictionary of resolved field values with keys: max_players,
+            reminder_minutes, expected_duration_minutes, where,
+            signup_instructions, signup_method
+        """
+        max_players = resolve_max_players(
+            game_data.max_players if game_data.max_players is not None else template.max_players
+        )
+        reminder_minutes = (
+            game_data.reminder_minutes
+            if game_data.reminder_minutes is not None
+            else (template.reminder_minutes or [60, 15])
+        )
+        expected_duration_minutes = (
+            game_data.expected_duration_minutes
+            if game_data.expected_duration_minutes is not None
+            else template.expected_duration_minutes
+        )
+        where = game_data.where if game_data.where is not None else template.where
+        signup_instructions = (
+            game_data.signup_instructions
+            if game_data.signup_instructions is not None
+            else template.signup_instructions
+        )
+
+        signup_method = (
+            game_data.signup_method
+            or template.default_signup_method
+            or SignupMethod.SELF_SIGNUP.value
+        )
+
+        # Validate signup method against template's allowed list if specified
+        if template.allowed_signup_methods:
+            if signup_method not in template.allowed_signup_methods:
+                allowed_str = ", ".join(template.allowed_signup_methods)
+                raise ValueError(
+                    f"Signup method '{signup_method}' not allowed for this template. "
+                    f"Allowed methods: {allowed_str}"
+                )
+
+        return {
+            "max_players": max_players,
+            "reminder_minutes": reminder_minutes,
+            "expected_duration_minutes": expected_duration_minutes,
+            "where": where,
+            "signup_instructions": signup_instructions,
+            "signup_method": signup_method,
+        }
+
     async def create_game(
         self,
         game_data: game_schemas.GameCreateRequest,
@@ -269,47 +326,13 @@ class GameService:
         if channel_config is None:
             raise ValueError(f"Channel configuration not found for ID: {template.channel_id}")
 
-        # Use template defaults for optional fields
-        max_players = resolve_max_players(
-            game_data.max_players if game_data.max_players is not None else template.max_players
-        )
-        reminder_minutes = (
-            game_data.reminder_minutes
-            if game_data.reminder_minutes is not None
-            else (template.reminder_minutes or [60, 15])
-        )
-        expected_duration_minutes = (
-            game_data.expected_duration_minutes
-            if game_data.expected_duration_minutes is not None
-            else template.expected_duration_minutes
-        )
-        where = game_data.where if game_data.where is not None else template.where
-        signup_instructions = (
-            game_data.signup_instructions
-            if game_data.signup_instructions is not None
-            else template.signup_instructions
-        )
+        # Resolve field values from request and template
+        resolved_fields = self._resolve_template_fields(game_data, template)
 
         # Locked fields from template
         channel_id = template.channel_id
         notify_role_ids = template.notify_role_ids
         allowed_player_role_ids = template.allowed_player_role_ids
-
-        # Resolve signup method: request → template default → SELF_SIGNUP fallback
-        signup_method = (
-            game_data.signup_method
-            or template.default_signup_method
-            or SignupMethod.SELF_SIGNUP.value
-        )
-
-        # Validate signup method against template's allowed list if specified
-        if template.allowed_signup_methods:
-            if signup_method not in template.allowed_signup_methods:
-                allowed_str = ", ".join(template.allowed_signup_methods)
-                raise ValueError(
-                    f"Signup method '{signup_method}' not allowed for this template. "
-                    f"Allowed methods: {allowed_str}"
-                )
 
         # Resolve initial participants if provided
         valid_participants: list[dict[str, Any]] = []
@@ -344,19 +367,19 @@ class GameService:
             id=game_model.generate_uuid(),
             title=game_data.title,
             description=game_data.description,
-            signup_instructions=signup_instructions,
+            signup_instructions=resolved_fields["signup_instructions"],
             scheduled_at=scheduled_at_naive,
-            where=where,
+            where=resolved_fields["where"],
             template_id=template.id,
             guild_id=guild_config.id,
             channel_id=channel_id,
             host_id=host_user.id,
-            max_players=max_players,
-            reminder_minutes=reminder_minutes,
-            expected_duration_minutes=expected_duration_minutes,
+            max_players=resolved_fields["max_players"],
+            reminder_minutes=resolved_fields["reminder_minutes"],
+            expected_duration_minutes=resolved_fields["expected_duration_minutes"],
             notify_role_ids=notify_role_ids,
             allowed_player_role_ids=allowed_player_role_ids,
-            signup_method=signup_method,
+            signup_method=resolved_fields["signup_method"],
             status=game_model.GameStatus.SCHEDULED.value,
             thumbnail_data=thumbnail_data,
             thumbnail_mime_type=thumbnail_mime_type,
@@ -412,7 +435,7 @@ class GameService:
 
         # Populate notification schedule
         schedule_service = notification_schedule_service.NotificationScheduleService(self.db)
-        await schedule_service.populate_schedule(game, reminder_minutes)
+        await schedule_service.populate_schedule(game, resolved_fields["reminder_minutes"])
 
         # Populate status transition schedule for SCHEDULED games
         if game.status == game_model.GameStatus.SCHEDULED.value:
@@ -427,7 +450,9 @@ class GameService:
             self.db.add(in_progress_schedule)
 
             # Create COMPLETED transition at scheduled time + duration
-            duration_minutes = expected_duration_minutes or DEFAULT_GAME_DURATION_MINUTES
+            duration_minutes = (
+                resolved_fields["expected_duration_minutes"] or DEFAULT_GAME_DURATION_MINUTES
+            )
             completion_time = game.scheduled_at + datetime.timedelta(minutes=duration_minutes)
 
             completed_schedule = game_status_schedule_model.GameStatusSchedule(
