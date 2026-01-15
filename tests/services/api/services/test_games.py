@@ -29,6 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.api.services import games as games_service
 from services.api.services import participant_resolver as resolver_module
+from services.api.services.games import DEFAULT_GAME_DURATION_MINUTES
 from shared.discord import client as discord_client_module
 from shared.messaging import publisher as messaging_publisher
 from shared.models import channel as channel_model
@@ -806,7 +807,11 @@ async def test_create_participant_records_with_placeholder(
     game_id = str(uuid.uuid4())
 
     valid_participants = [
-        {"type": "placeholder", "display_name": "John Doe", "original_input": "John Doe"}
+        {
+            "type": "placeholder",
+            "display_name": "John Doe",
+            "original_input": "John Doe",
+        }
     ]
 
     mock_db.flush = AsyncMock()
@@ -880,6 +885,115 @@ async def test_create_participant_records_empty_list(
 
     mock_db.add.assert_not_called()
     mock_db.flush.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_create_game_status_schedules_for_scheduled_game(
+    game_service,
+    mock_db,
+):
+    """Test _create_game_status_schedules creates both schedules for SCHEDULED game."""
+    scheduled_time = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+    game = game_model.GameSession(
+        id=str(uuid.uuid4()),
+        title="Test Game",
+        scheduled_at=scheduled_time,
+        status=game_model.GameStatus.SCHEDULED.value,
+    )
+
+    expected_duration = 90
+    await game_service._create_game_status_schedules(game, expected_duration)
+
+    assert mock_db.add.call_count == 2
+    added_schedules = [call[0][0] for call in mock_db.add.call_args_list]
+
+    # Verify IN_PROGRESS schedule
+    in_progress_schedule = next(
+        s for s in added_schedules if s.target_status == game_model.GameStatus.IN_PROGRESS.value
+    )
+    assert in_progress_schedule.game_id == game.id
+    assert in_progress_schedule.transition_time == scheduled_time
+    assert in_progress_schedule.executed is False
+
+    # Verify COMPLETED schedule
+    completed_schedule = next(
+        s for s in added_schedules if s.target_status == game_model.GameStatus.COMPLETED.value
+    )
+    assert completed_schedule.game_id == game.id
+    assert completed_schedule.transition_time == scheduled_time + datetime.timedelta(
+        minutes=expected_duration
+    )
+    assert completed_schedule.executed is False
+
+
+@pytest.mark.asyncio
+async def test_create_game_status_schedules_uses_default_duration_when_none(
+    game_service,
+    mock_db,
+):
+    """Test _create_game_status_schedules uses default duration when None."""
+    scheduled_time = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+    game = game_model.GameSession(
+        id=str(uuid.uuid4()),
+        title="Test Game",
+        scheduled_at=scheduled_time,
+        status=game_model.GameStatus.SCHEDULED.value,
+    )
+
+    await game_service._create_game_status_schedules(game, None)
+
+    assert mock_db.add.call_count == 2
+    added_schedules = [call[0][0] for call in mock_db.add.call_args_list]
+
+    # Verify COMPLETED schedule uses default duration
+    completed_schedule = next(
+        s for s in added_schedules if s.target_status == game_model.GameStatus.COMPLETED.value
+    )
+    expected_completion = scheduled_time + datetime.timedelta(minutes=DEFAULT_GAME_DURATION_MINUTES)
+    assert completed_schedule.transition_time == expected_completion
+
+
+@pytest.mark.asyncio
+async def test_create_game_status_schedules_skips_non_scheduled_game(
+    game_service,
+    mock_db,
+):
+    """Test _create_game_status_schedules does not create schedules for non-SCHEDULED games."""
+    game = game_model.GameSession(
+        id=str(uuid.uuid4()),
+        title="Test Game",
+        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        status=game_model.GameStatus.IN_PROGRESS.value,
+    )
+
+    await game_service._create_game_status_schedules(game, 90)
+
+    mock_db.add.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_create_game_status_schedules_with_custom_duration(
+    game_service,
+    mock_db,
+):
+    """Test _create_game_status_schedules uses custom duration when provided."""
+    scheduled_time = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+    game = game_model.GameSession(
+        id=str(uuid.uuid4()),
+        title="Test Game",
+        scheduled_at=scheduled_time,
+        status=game_model.GameStatus.SCHEDULED.value,
+    )
+
+    custom_duration = 180
+    await game_service._create_game_status_schedules(game, custom_duration)
+
+    added_schedules = [call[0][0] for call in mock_db.add.call_args_list]
+    completed_schedule = next(
+        s for s in added_schedules if s.target_status == game_model.GameStatus.COMPLETED.value
+    )
+    expected_completion = scheduled_time + datetime.timedelta(minutes=custom_duration)
+    assert completed_schedule.transition_time == expected_completion
 
 
 @pytest.mark.asyncio

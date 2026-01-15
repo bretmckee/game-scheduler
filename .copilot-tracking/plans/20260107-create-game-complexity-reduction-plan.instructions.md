@@ -91,16 +91,26 @@ Refactor the 344-line `GameService::create_game()` method to reduce cyclomatic c
 - [x] Task 4.5: Verify tests pass
   - Details: .copilot-tracking/changes/20260107-create-game-complexity-reduction-changes.md (Phase 4, Task 4.5)
 
-### [ ] Phase 5: Status Schedule Creation Extraction
+### [x] Phase 5: Status Schedule Creation Extraction
 
-- [ ] Task 5.1: Create `_create_game_status_schedules()` method
+- [x] Task 5.1: Create `_create_game_status_schedules()` method
   - Details: .copilot-tracking/details/20260107-create-game-complexity-reduction-details.md (Lines 162-178)
+  - Completed: .copilot-tracking/changes/20260107-create-game-complexity-reduction-changes.md (Phase 5, Task 5.1)
 
-- [ ] Task 5.2: Update `create_game()` to call new method
+- [x] Task 5.2: Update `create_game()` to call new method
   - Details: .copilot-tracking/details/20260107-create-game-complexity-reduction-details.md (Lines 180-187)
+  - Completed: .copilot-tracking/changes/20260107-create-game-complexity-reduction-changes.md (Phase 5, Task 5.2)
 
-- [ ] Task 5.3: Verify tests pass and complexity reduced
+- [x] Task 5.3: Add unit tests for extracted method
   - Details: .copilot-tracking/details/20260107-create-game-complexity-reduction-details.md (Lines 189-197)
+  - Completed: .copilot-tracking/changes/20260107-create-game-complexity-reduction-changes.md (Phase 5, Task 5.3)
+
+- [x] Task 5.4: Remove redundant integration tests
+  - Completed: .copilot-tracking/changes/20260107-create-game-complexity-reduction-changes.md (Phase 5, Task 5.4)
+
+- [x] Task 5.5: Verify tests pass and complexity reduced
+  - Details: .copilot-tracking/details/20260107-create-game-complexity-reduction-details.md (Lines 189-197)
+  - Completed: .copilot-tracking/changes/20260107-create-game-complexity-reduction-changes.md (Phase 5, Task 5.5)
 
 ### [ ] Phase 6: Optional Further Refinements
 
