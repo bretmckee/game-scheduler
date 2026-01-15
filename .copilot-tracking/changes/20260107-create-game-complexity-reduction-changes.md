@@ -90,6 +90,95 @@ Refactor the 344-line `GameService::create_game()` method to reduce cyclomatic c
 - All error handling preserved
 
 **Code Location**: [services/api/services/games.py](services/api/services/games.py#L250-L252)
+### Task 3.2: Update `create_game()` to use resolved fields dictionary
+
+**Status**: ✅ Completed
+
+**Changes**:
+- Replaced 52 lines of field resolution logic (lines 343-394 in old version) with 3-line method call at [services/api/services/games.py](services/api/services/games.py#L341-L343)
+- Original logic including:
+  - Individual ternary operations for 5 fields
+  - signup_method resolution with 3-level fallback
+  - Signup method validation
+- Replaced with:
+  ```python
+  # Resolve field values from request and template
+  resolved_fields = self._resolve_template_fields(game_data, template)
+  ```
+- Updated all 8 references throughout the method to use `resolved_fields` dictionary:
+  - `signup_instructions` → `resolved_fields["signup_instructions"]`
+  - `where` → `resolved_fields["where"]`
+  - `max_players` → `resolved_fields["max_players"]`
+  - `reminder_minutes` → `resolved_fields["reminder_minutes"]` (2 uses)
+  - `expected_duration_minutes` → `resolved_fields["expected_duration_minutes"]` (2 uses)
+  - `signup_method` → `resolved_fields["signup_method"]`
+- No functional changes to behavior
+- All validation and error handling preserved
+
+**Code Location**: [services/api/services/games.py](services/api/services/games.py#L341-L343)
+
+### Task 3.3: Add unit tests for `_resolve_template_fields()`
+
+**Status**: ✅ Completed
+
+**Changes**:
+- Added 9 comprehensive unit tests for `_resolve_template_fields()` method at [tests/services/api/services/test_games.py](tests/services/api/services/test_games.py#L204-L560)
+- Tests cover all functionality:
+  - `test_resolve_template_fields_uses_request_values` - Request values take precedence
+  - `test_resolve_template_fields_uses_template_defaults` - Template defaults used when request is None
+  - `test_resolve_template_fields_handles_empty_string_overrides` - Empty strings override template
+  - `test_resolve_template_fields_uses_default_reminder_when_template_none` - Default [60, 15] fallback
+  - `test_resolve_template_fields_empty_reminder_list_overrides_template` - Empty list overrides
+  - `test_resolve_template_fields_signup_method_fallback_chain` - 3-level fallback to SELF_SIGNUP
+  - `test_resolve_template_fields_validates_signup_method_against_allowed_list` - Validation error
+  - `test_resolve_template_fields_allows_any_method_when_allowed_list_none` - No restrictions
+  - `test_resolve_template_fields_allows_any_method_when_allowed_list_empty` - Empty list = no restrictions
+- All tests use simple, fast unit test approach without async or database mocking
+- Directly test the extracted method logic in isolation
+
+**Code Location**: [tests/services/api/services/test_games.py](tests/services/api/services/test_games.py#L204-L560)
+
+### Task 3.4: Remove redundant integration tests
+
+**Status**: ✅ Completed
+
+**Changes**:
+- Removed 7 integration tests that were made redundant by the new unit tests:
+  1. `test_create_game_with_empty_reminders_overrides_template` - replaced by unit test
+  2. `test_create_game_with_cleared_optional_fields_overrides_template` - replaced by unit test
+  3. `test_create_game_explicit_signup_method` - replaced by unit test
+  4. `test_create_game_uses_template_default_signup_method` - replaced by unit test
+  5. `test_create_game_defaults_to_self_signup` - replaced by unit test
+  6. `test_create_game_allows_any_method_when_allowed_list_is_none` - replaced by unit test
+  7. `test_create_game_allows_any_method_when_allowed_list_is_empty` - replaced by unit test
+- **Kept** `test_create_game_validates_signup_method_against_allowed_list` - valuable integration test for error handling through full flow
+- Total test count changed: 50 → 52 tests (9 added, 7 removed)
+- All remaining tests pass successfully
+- Test suite runs faster with unit tests replacing slow integration tests
+
+**Code Location**: [tests/services/api/services/test_games.py](tests/services/api/services/test_games.py)
+
+## Phase 3 Summary
+
+**Status**: ✅ All tasks completed
+
+**Overall Impact**:
+- Extracted 52 lines of template field resolution logic into focused `_resolve_template_fields()` method
+- Reduced `create_game()` method from ~200 lines to ~155 lines
+- Added comprehensive unit test coverage for extracted logic
+- Improved test suite with faster unit tests replacing redundant integration tests
+- Maintained 100% test coverage and all tests passing
+- No functional changes to behavior
+
+**Complexity Verification**:
+- ✅ No C901 (cyclomatic complexity) violations on `create_game()`
+- ⚠️  Still has PLR0912 (13 branches > 12 threshold)
+- ⚠️  Still has PLR0915 (58 statements > 50 threshold)
+- 📊 Progress: Reduced from baseline of 24 cyclomatic complexity (estimated ~20-22 now based on extracted method)
+- 🎯 Target: Need further extraction to reach <15 cyclomatic, <20 cognitive complexity
+- Note: `_resolve_template_fields()` is clean with no complexity violations
+
+**Next Phase Needed**: Phase 4 (Participant Record Creation) and Phase 5 (Status Schedule Creation) required to meet final complexity targets.
 
 ### Task 2.3: Verify tests pass and complexity reduced
 
@@ -140,3 +229,23 @@ Refactor the 344-line `GameService::create_game()` method to reduce cyclomatic c
 - All pre-commit hooks pass
 
 **Code Location**: [tests/services/api/services/test_games.py](tests/services/api/services/test_games.py#L208-L392)
+## Phase 3: Template Field Resolution Extraction - In Progress
+
+### Task 3.1: Create `_resolve_template_fields()` method
+
+**Status**: ✅ Completed
+
+**Implementation**:
+- Created new private method `_resolve_template_fields()` at line 195 in [services/api/services/games.py](services/api/services/games.py#L195-L259)
+- Method signature: `def _resolve_template_fields(self, game_data, template) -> dict[str, Any]`
+- Extracted all field resolution logic including:
+  - max_players with resolve_max_players() helper
+  - reminder_minutes with fallback to [60, 15]
+  - expected_duration_minutes
+  - where
+  - signup_instructions
+  - signup_method with validation against template's allowed_signup_methods
+- Returns dictionary with all 6 resolved field values
+- All ternary operations and fallback logic preserved exactly
+
+**Code Location**: [services/api/services/games.py](services/api/services/games.py#L195-L259)

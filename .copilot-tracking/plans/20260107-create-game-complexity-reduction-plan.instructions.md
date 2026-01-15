@@ -57,15 +57,21 @@ Refactor the 344-line `GameService::create_game()` method to reduce cyclomatic c
 - [x] Task 2.3: Verify tests pass and complexity reduced
   - Details: .copilot-tracking/details/20260107-create-game-complexity-reduction-details.md (Lines 76-84)
 
-### [ ] Phase 3: Template Field Resolution Extraction
+### [x] Phase 3: Template Field Resolution Extraction
 
-- [ ] Task 3.1: Create `_resolve_template_fields()` method
+- [x] Task 3.1: Create `_resolve_template_fields()` method
   - Details: .copilot-tracking/details/20260107-create-game-complexity-reduction-details.md (Lines 86-103)
 
-- [ ] Task 3.2: Update `create_game()` to use resolved fields dictionary
+- [x] Task 3.2: Update `create_game()` to use resolved fields dictionary
   - Details: .copilot-tracking/details/20260107-create-game-complexity-reduction-details.md (Lines 105-113)
 
-- [ ] Task 3.3: Verify tests pass and complexity reduced
+- [x] Task 3.3: Add unit tests for extracted method
+  - Details: .copilot-tracking/changes/20260107-create-game-complexity-reduction-changes.md (Phase 3, Task 3.3)
+
+- [x] Task 3.4: Remove redundant integration tests
+  - Details: .copilot-tracking/changes/20260107-create-game-complexity-reduction-changes.md (Phase 3, Task 3.4)
+
+- [x] Task 3.5: Verify tests pass and complexity reduced
   - Details: .copilot-tracking/details/20260107-create-game-complexity-reduction-details.md (Lines 115-123)
 
 ### [ ] Phase 4: Participant Record Creation Extraction
