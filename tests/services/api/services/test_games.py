@@ -204,6 +204,306 @@ def setup_create_game_mocks(
     mock_db.add.side_effect = mock_add_side_effect
 
 
+# Tests for _resolve_game_host() method
+
+
+@pytest.mark.asyncio
+async def test_resolve_game_host_no_override_uses_requester(
+    game_service, mock_db, sample_game_data, sample_guild, sample_user
+):
+    """Test _resolve_game_host returns requester when no host override specified."""
+    sample_game_data.host = None
+
+    # Mock database lookup for requester
+    host_result = MagicMock()
+    host_result.scalar_one_or_none.return_value = sample_user
+    mock_db.execute = AsyncMock(return_value=host_result)
+
+    host_user_id, host_user = await game_service._resolve_game_host(
+        sample_game_data, sample_guild, sample_user.id, "token"
+    )
+
+    assert host_user_id == sample_user.id
+    assert host_user == sample_user
+
+
+@pytest.mark.asyncio
+async def test_resolve_game_host_empty_string_uses_requester(
+    game_service, mock_db, sample_game_data, sample_guild, sample_user
+):
+    """Test _resolve_game_host treats empty string as no override."""
+    sample_game_data.host = "  "
+
+    host_result = MagicMock()
+    host_result.scalar_one_or_none.return_value = sample_user
+    mock_db.execute = AsyncMock(return_value=host_result)
+
+    host_user_id, host_user = await game_service._resolve_game_host(
+        sample_game_data, sample_guild, sample_user.id, "token"
+    )
+
+    assert host_user_id == sample_user.id
+    assert host_user == sample_user
+
+
+@pytest.mark.asyncio
+async def test_resolve_game_host_requester_not_found_raises_error(
+    game_service, mock_db, sample_game_data, sample_guild
+):
+    """Test _resolve_game_host raises ValueError when requester not found with override."""
+    sample_game_data.host = "@someone"
+    requester_id = str(uuid.uuid4())
+
+    # Mock requester lookup returning None
+    requester_result = MagicMock()
+    requester_result.scalar_one_or_none.return_value = None
+    mock_db.execute = AsyncMock(return_value=requester_result)
+
+    with pytest.raises(ValueError, match="Requester user not found"):
+        await game_service._resolve_game_host(sample_game_data, sample_guild, requester_id, "token")
+
+
+@pytest.mark.asyncio
+async def test_resolve_game_host_non_bot_manager_cannot_override(
+    game_service,
+    mock_db,
+    mock_participant_resolver,
+    sample_game_data,
+    sample_guild,
+    sample_user,
+):
+    """Test _resolve_game_host raises error when non-bot-manager tries to override."""
+    sample_game_data.host = "@otheruser"
+
+    # Mock requester lookup
+    requester_result = MagicMock()
+    requester_result.scalar_one_or_none.return_value = sample_user
+    mock_db.execute = AsyncMock(return_value=requester_result)
+
+    # Mock role service to deny bot manager permission
+    mock_role_service = AsyncMock()
+    mock_role_service.check_bot_manager_permission = AsyncMock(return_value=False)
+
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
+        with pytest.raises(ValueError, match="Only bot managers can specify the game host"):
+            await game_service._resolve_game_host(
+                sample_game_data, sample_guild, sample_user.id, "token"
+            )
+
+
+@pytest.mark.asyncio
+async def test_resolve_game_host_bot_manager_can_override_with_existing_user(
+    game_service,
+    mock_db,
+    mock_participant_resolver,
+    sample_game_data,
+    sample_guild,
+    sample_user,
+):
+    """Test _resolve_game_host allows bot manager to override with existing user."""
+    other_user = user_model.User(
+        id=str(uuid.uuid4()),
+        discord_id="999",
+    )
+    sample_game_data.host = "@otheruser"
+
+    # Mock database calls: requester lookup, then resolved host lookup
+    requester_result = MagicMock()
+    requester_result.scalar_one_or_none.return_value = sample_user
+
+    resolved_host_result = MagicMock()
+    resolved_host_result.scalar_one_or_none.return_value = other_user
+
+    final_host_result = MagicMock()
+    final_host_result.scalar_one_or_none.return_value = other_user
+
+    mock_db.execute = AsyncMock(
+        side_effect=[requester_result, resolved_host_result, final_host_result]
+    )
+
+    # Mock participant resolver
+    mock_participant_resolver.resolve_initial_participants = AsyncMock(
+        return_value=(
+            [{"type": "discord", "discord_id": "999"}],
+            [],
+        )
+    )
+
+    # Mock role service to allow bot manager
+    mock_role_service = AsyncMock()
+    mock_role_service.check_bot_manager_permission = AsyncMock(return_value=True)
+
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
+        host_user_id, host_user = await game_service._resolve_game_host(
+            sample_game_data, sample_guild, sample_user.id, "token"
+        )
+
+    assert host_user_id == other_user.id
+    assert host_user == other_user
+
+
+@pytest.mark.asyncio
+async def test_resolve_game_host_bot_manager_creates_new_user(
+    game_service,
+    mock_db,
+    mock_participant_resolver,
+    sample_game_data,
+    sample_guild,
+    sample_user,
+):
+    """Test _resolve_game_host creates new user when host doesn't exist in database."""
+    sample_game_data.host = "@newuser"
+
+    # Mock database calls
+    requester_result = MagicMock()
+    requester_result.scalar_one_or_none.return_value = sample_user
+
+    # Host doesn't exist initially
+    resolved_host_result = MagicMock()
+    resolved_host_result.scalar_one_or_none.return_value = None
+
+    # After creation, host exists
+    created_user = user_model.User(
+        id=str(uuid.uuid4()),
+        discord_id="888",
+    )
+    final_host_result = MagicMock()
+    final_host_result.scalar_one_or_none.return_value = created_user
+
+    mock_db.execute = AsyncMock(
+        side_effect=[requester_result, resolved_host_result, final_host_result]
+    )
+    mock_db.add = MagicMock()
+    mock_db.flush = AsyncMock()
+
+    # Mock participant resolver
+    mock_participant_resolver.resolve_initial_participants = AsyncMock(
+        return_value=(
+            [
+                {
+                    "type": "discord",
+                    "discord_id": "888",
+                }
+            ],
+            [],
+        )
+    )
+
+    # Mock role service
+    mock_role_service = AsyncMock()
+    mock_role_service.check_bot_manager_permission = AsyncMock(return_value=True)
+
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
+        host_user_id, host_user = await game_service._resolve_game_host(
+            sample_game_data, sample_guild, sample_user.id, "token"
+        )
+
+    assert host_user == created_user
+    mock_db.add.assert_called_once()
+    mock_db.flush.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_resolve_game_host_invalid_mention_raises_validation_error(
+    game_service,
+    mock_db,
+    mock_participant_resolver,
+    sample_game_data,
+    sample_guild,
+    sample_user,
+):
+    """Test _resolve_game_host raises ValidationError for invalid mention."""
+    sample_game_data.host = "@invaliduser"
+
+    requester_result = MagicMock()
+    requester_result.scalar_one_or_none.return_value = sample_user
+    mock_db.execute = AsyncMock(return_value=requester_result)
+
+    # Mock participant resolver to return validation error
+    mock_participant_resolver.resolve_initial_participants = AsyncMock(
+        return_value=(
+            [],
+            [{"input": "@invaliduser", "reason": "User not found", "suggestions": []}],
+        )
+    )
+
+    mock_role_service = AsyncMock()
+    mock_role_service.check_bot_manager_permission = AsyncMock(return_value=True)
+
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
+        with pytest.raises(resolver_module.ValidationError):
+            await game_service._resolve_game_host(
+                sample_game_data, sample_guild, sample_user.id, "token"
+            )
+
+
+@pytest.mark.asyncio
+async def test_resolve_game_host_placeholder_not_allowed(
+    game_service,
+    mock_db,
+    mock_participant_resolver,
+    sample_game_data,
+    sample_guild,
+    sample_user,
+):
+    """Test _resolve_game_host rejects placeholder (non-Discord) host."""
+    sample_game_data.host = "PlaceholderName"
+
+    requester_result = MagicMock()
+    requester_result.scalar_one_or_none.return_value = sample_user
+    mock_db.execute = AsyncMock(return_value=requester_result)
+
+    # Mock participant resolver to return placeholder type
+    mock_participant_resolver.resolve_initial_participants = AsyncMock(
+        return_value=(
+            [{"type": "placeholder", "display_name": "PlaceholderName"}],
+            [],
+        )
+    )
+
+    mock_role_service = AsyncMock()
+    mock_role_service.check_bot_manager_permission = AsyncMock(return_value=True)
+
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
+        with pytest.raises(resolver_module.ValidationError) as exc_info:
+            await game_service._resolve_game_host(
+                sample_game_data, sample_guild, sample_user.id, "token"
+            )
+
+        assert "must be a Discord user" in str(exc_info.value.invalid_mentions[0]["reason"])
+
+
+@pytest.mark.asyncio
+async def test_resolve_game_host_resolution_failure_wraps_exception(
+    game_service,
+    mock_db,
+    mock_participant_resolver,
+    sample_game_data,
+    sample_guild,
+    sample_user,
+):
+    """Test _resolve_game_host wraps non-ValidationError exceptions."""
+    sample_game_data.host = "@someuser"
+
+    requester_result = MagicMock()
+    requester_result.scalar_one_or_none.return_value = sample_user
+    mock_db.execute = AsyncMock(return_value=requester_result)
+
+    # Mock participant resolver to raise generic exception
+    mock_participant_resolver.resolve_initial_participants = AsyncMock(
+        side_effect=Exception("Network error")
+    )
+
+    mock_role_service = AsyncMock()
+    mock_role_service.check_bot_manager_permission = AsyncMock(return_value=True)
+
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
+        with pytest.raises(ValueError, match="Failed to resolve host mention"):
+            await game_service._resolve_game_host(
+                sample_game_data, sample_guild, sample_user.id, "token"
+            )
+
+
 @pytest.mark.asyncio
 async def test_create_game_without_participants(
     game_service,

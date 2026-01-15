@@ -38,23 +38,23 @@ Refactor the 344-line `GameService::create_game()` method to reduce cyclomatic c
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Test Harness Validation
+### [x] Phase 1: Test Harness Validation
 
-- [ ] Task 1.1: Review existing test coverage for `create_game()`
+- [x] Task 1.1: Review existing test coverage for `create_game()`
   - Details: .copilot-tracking/details/20260107-create-game-complexity-reduction-details.md (Lines 20-32)
 
-- [ ] Task 1.2: Run tests to establish baseline
+- [x] Task 1.2: Run tests to establish baseline
   - Details: .copilot-tracking/details/20260107-create-game-complexity-reduction-details.md (Lines 34-42)
 
-### [ ] Phase 2: Host Resolution Extraction
+### [x] Phase 2: Host Resolution Extraction
 
-- [ ] Task 2.1: Create `_resolve_game_host()` method
+- [x] Task 2.1: Create `_resolve_game_host()` method
   - Details: .copilot-tracking/details/20260107-create-game-complexity-reduction-details.md (Lines 44-63)
 
-- [ ] Task 2.2: Update `create_game()` to call new method
+- [x] Task 2.2: Update `create_game()` to call new method
   - Details: .copilot-tracking/details/20260107-create-game-complexity-reduction-details.md (Lines 65-74)
 
-- [ ] Task 2.3: Verify tests pass and complexity reduced
+- [x] Task 2.3: Verify tests pass and complexity reduced
   - Details: .copilot-tracking/details/20260107-create-game-complexity-reduction-details.md (Lines 76-84)
 
 ### [ ] Phase 3: Template Field Resolution Extraction
