@@ -74,16 +74,22 @@ Refactor the 344-line `GameService::create_game()` method to reduce cyclomatic c
 - [x] Task 3.5: Verify tests pass and complexity reduced
   - Details: .copilot-tracking/details/20260107-create-game-complexity-reduction-details.md (Lines 115-123)
 
-### [ ] Phase 4: Participant Record Creation Extraction
+### [x] Phase 4: Participant Record Creation Extraction
 
-- [ ] Task 4.1: Create `_create_participant_records()` method
+- [x] Task 4.1: Create `_create_participant_records()` method
   - Details: .copilot-tracking/details/20260107-create-game-complexity-reduction-details.md (Lines 125-141)
 
-- [ ] Task 4.2: Update `create_game()` to call new method
+- [x] Task 4.2: Update `create_game()` to call new method
   - Details: .copilot-tracking/details/20260107-create-game-complexity-reduction-details.md (Lines 143-150)
 
-- [ ] Task 4.3: Verify tests pass and complexity reduced
-  - Details: .copilot-tracking/details/20260107-create-game-complexity-reduction-details.md (Lines 152-160)
+- [x] Task 4.3: Create unit tests for extracted method
+  - Details: .copilot-tracking/changes/20260107-create-game-complexity-reduction-changes.md (Phase 4, Task 4.3)
+
+- [x] Task 4.4: Simplify redundant create_game tests
+  - Details: .copilot-tracking/changes/20260107-create-game-complexity-reduction-changes.md (Phase 4, Task 4.4)
+
+- [x] Task 4.5: Verify tests pass
+  - Details: .copilot-tracking/changes/20260107-create-game-complexity-reduction-changes.md (Phase 4, Task 4.5)
 
 ### [ ] Phase 5: Status Schedule Creation Extraction
 

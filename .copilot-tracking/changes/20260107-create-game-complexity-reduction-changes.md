@@ -249,3 +249,91 @@ Refactor the 344-line `GameService::create_game()` method to reduce cyclomatic c
 - All ternary operations and fallback logic preserved exactly
 
 **Code Location**: [services/api/services/games.py](services/api/services/games.py#L195-L259)
+## Phase 4: Participant Record Creation Extraction - Completed
+
+### Task 4.1: Create `_create_participant_records()` method
+
+**Status**: ✅ Completed
+
+**Implementation**:
+- Created new async private method `_create_participant_records()`
+- Method signature: `async def _create_participant_records(self, game_id: str, valid_participants: list[dict[str, Any]]) -> None`
+- Extracted participant creation loop (lines 397-424 from original create_game)
+- Handles both Discord users and placeholder participants
+- Preserves type discrimination logic with if/else for participant["type"]
+- Sequential position assignment starting at 1
+- Database flush operation included at method end
+- Complexity: cyclomatic ~2, cognitive ~5
+
+**Code Location**: [services/api/services/games.py](services/api/services/games.py#L197-L237)
+
+**Key Features**:
+- Enumerate with start=1 for sequential positions
+- Discord user path: calls ensure_user_exists, creates GameParticipant with user_id
+- Placeholder path: creates GameParticipant with display_name, null user_id
+- Both paths set position_type=HOST_ADDED
+- Single flush after all participants added
+
+### Task 4.2: Update `create_game()` to call new method
+
+**Status**: ✅ Completed
+
+**Changes**:
+- Replaced inline participant loop (18 lines) with single method call
+- New call: `await self._create_participant_records(game.id, valid_participants)`
+- Simplified comment from 2 lines to 1 line
+- All logic preserved in extracted method
+- Code at [services/api/services/games.py](services/api/services/games.py#L433-L434)
+
+**Impact**:
+- Removed nested conditional (if participant["type"] == "discord")
+- Reduced local variable scope
+- Eliminated enumerate loop from create_game
+- Cleaner separation of concerns
+
+### Task 4.3: Create unit tests for extracted method
+
+**Status**: ✅ Completed
+
+**New Tests Added**:
+1. `test_create_participant_records_with_discord_user` - Verifies Discord user participant creation
+2. `test_create_participant_records_with_placeholder` - Verifies placeholder participant creation
+3. `test_create_participant_records_with_mixed_participants` - Tests 4 mixed participants with correct sequential positions
+4. `test_create_participant_records_empty_list` - Tests empty participant list handling
+
+**Code Location**: [tests/services/api/services/test_games.py](tests/services/api/services/test_games.py#L772-L884)
+
+**Coverage**:
+- Discord user type with ensure_user_exists mock verification
+- Placeholder type with display_name verification
+- Mixed participants verifying position sequence (1, 2, 3, 4)
+- Empty list edge case
+- All paths through type discrimination logic
+
+### Task 4.4: Simplify redundant create_game tests
+
+**Status**: ✅ Completed
+
+**Changes**:
+- Simplified `test_create_game_with_valid_participants` docstring from "with valid initial participants" to "resolves and delegates participant creation"
+- Test now focuses on resolution and delegation, not detailed participant creation
+- Removed redundant assertions about participant details (now covered by unit tests)
+- Kept essential mock verification for resolve_initial_participants
+
+**Code Location**: [tests/services/api/services/test_games.py](tests/services/api/services/test_games.py#L1001-L1061)
+
+**Rationale**:
+- Detailed participant creation logic now tested in `_create_participant_records()` unit tests
+- create_game tests should focus on orchestration, not implementation details
+- Reduces test coupling to implementation specifics
+
+### Task 4.5: Verify tests pass
+
+**Status**: ✅ Completed
+
+**Results**:
+- All 4 new unit tests for `_create_participant_records()` pass
+- All 56 GameService tests pass (was 52, now 56 with 4 new tests)
+- Test execution time: 0.79s
+- No test failures or regressions
+- Verification command: `uv run pytest tests/services/api/services/test_games.py -q`

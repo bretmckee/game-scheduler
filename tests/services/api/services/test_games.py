@@ -769,6 +769,120 @@ async def test_resolve_game_host_resolution_failure_wraps_exception(
 
 
 @pytest.mark.asyncio
+async def test_create_participant_records_with_discord_user(
+    game_service,
+    mock_db,
+    mock_participant_resolver,
+):
+    """Test _create_participant_records creates Discord user participant."""
+    game_id = str(uuid.uuid4())
+    discord_user = user_model.User(id=str(uuid.uuid4()), discord_id="123456")
+
+    valid_participants = [{"type": "discord", "discord_id": "123456", "original_input": "@user1"}]
+
+    mock_participant_resolver.ensure_user_exists = AsyncMock(return_value=discord_user)
+    mock_db.flush = AsyncMock()
+
+    await game_service._create_participant_records(game_id, valid_participants)
+
+    mock_participant_resolver.ensure_user_exists.assert_called_once_with(mock_db, "123456")
+    mock_db.add.assert_called_once()
+    added_participant = mock_db.add.call_args[0][0]
+    assert isinstance(added_participant, participant_model.GameParticipant)
+    assert added_participant.game_session_id == game_id
+    assert added_participant.user_id == discord_user.id
+    assert added_participant.display_name is None
+    assert added_participant.position_type == ParticipantType.HOST_ADDED
+    assert added_participant.position == 1
+    mock_db.flush.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_create_participant_records_with_placeholder(
+    game_service,
+    mock_db,
+):
+    """Test _create_participant_records creates placeholder participant."""
+    game_id = str(uuid.uuid4())
+
+    valid_participants = [
+        {"type": "placeholder", "display_name": "John Doe", "original_input": "John Doe"}
+    ]
+
+    mock_db.flush = AsyncMock()
+
+    await game_service._create_participant_records(game_id, valid_participants)
+
+    mock_db.add.assert_called_once()
+    added_participant = mock_db.add.call_args[0][0]
+    assert isinstance(added_participant, participant_model.GameParticipant)
+    assert added_participant.game_session_id == game_id
+    assert added_participant.user_id is None
+    assert added_participant.display_name == "John Doe"
+    assert added_participant.position_type == ParticipantType.HOST_ADDED
+    assert added_participant.position == 1
+    mock_db.flush.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_create_participant_records_with_mixed_participants(
+    game_service,
+    mock_db,
+    mock_participant_resolver,
+):
+    """Test _create_participant_records handles mixed Discord and placeholder participants."""
+    game_id = str(uuid.uuid4())
+    discord_user1 = user_model.User(id=str(uuid.uuid4()), discord_id="111")
+    discord_user2 = user_model.User(id=str(uuid.uuid4()), discord_id="222")
+
+    valid_participants = [
+        {"type": "discord", "discord_id": "111", "original_input": "@user1"},
+        {"type": "placeholder", "display_name": "Alice", "original_input": "Alice"},
+        {"type": "discord", "discord_id": "222", "original_input": "@user2"},
+        {"type": "placeholder", "display_name": "Bob", "original_input": "Bob"},
+    ]
+
+    mock_participant_resolver.ensure_user_exists = AsyncMock(
+        side_effect=[discord_user1, discord_user2]
+    )
+    mock_db.flush = AsyncMock()
+
+    await game_service._create_participant_records(game_id, valid_participants)
+
+    assert mock_participant_resolver.ensure_user_exists.call_count == 2
+    assert mock_db.add.call_count == 4
+
+    # Verify positions are sequential starting at 1
+    added_participants = [call[0][0] for call in mock_db.add.call_args_list]
+    assert added_participants[0].position == 1
+    assert added_participants[0].user_id == discord_user1.id
+    assert added_participants[1].position == 2
+    assert added_participants[1].display_name == "Alice"
+    assert added_participants[2].position == 3
+    assert added_participants[2].user_id == discord_user2.id
+    assert added_participants[3].position == 4
+    assert added_participants[3].display_name == "Bob"
+    mock_db.flush.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_create_participant_records_empty_list(
+    game_service,
+    mock_db,
+):
+    """Test _create_participant_records handles empty participant list."""
+    game_id = str(uuid.uuid4())
+    valid_participants = []
+
+    mock_db.flush = AsyncMock()
+
+    await game_service._create_participant_records(game_id, valid_participants)
+
+    mock_db.add.assert_not_called()
+    mock_db.flush.assert_called_once()
+
+
+@pytest.mark.asyncio
 async def test_create_game_without_participants(
     game_service,
     mock_db,
@@ -891,7 +1005,7 @@ async def test_create_game_with_valid_participants(
     sample_channel,
     sample_user,
 ):
-    """Test creating game with valid initial participants."""
+    """Test creating game resolves and delegates participant creation."""
     sample_game_data.initial_participants = ["@user1", "Placeholder"]
 
     created_game = game_model.GameSession(

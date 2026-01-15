@@ -193,6 +193,45 @@ class GameService:
 
         return actual_host_user_id, host_user
 
+    async def _create_participant_records(
+        self,
+        game_id: str,
+        valid_participants: list[dict[str, Any]],
+    ) -> None:
+        """
+        Create participant records for pre-filled participants.
+
+        Handles both Discord users and placeholder participants, assigning
+        sequential positions starting at 1.
+
+        Args:
+            game_id: ID of the game session
+            valid_participants: List of validated participant data dictionaries
+        """
+        for position, participant_data in enumerate(valid_participants, start=1):
+            if participant_data["type"] == "discord":
+                user = await self.participant_resolver.ensure_user_exists(
+                    self.db, participant_data["discord_id"]
+                )
+                participant = participant_model.GameParticipant(
+                    game_session_id=game_id,
+                    user_id=user.id,
+                    display_name=None,
+                    position_type=ParticipantType.HOST_ADDED,
+                    position=position,
+                )
+            else:  # placeholder
+                participant = participant_model.GameParticipant(
+                    game_session_id=game_id,
+                    user_id=None,
+                    display_name=participant_data["display_name"],
+                    position_type=ParticipantType.HOST_ADDED,
+                    position=position,
+                )
+            self.db.add(participant)
+
+        await self.db.flush()
+
     def _resolve_template_fields(
         self,
         game_data: game_schemas.GameCreateRequest,
@@ -390,31 +429,8 @@ class GameService:
         self.db.add(game)
         await self.db.flush()
 
-        # Assign sequential positions to pre-populated participants
-        # Position starts at 1 and increments for each pre-filled participant
-        for position, participant_data in enumerate(valid_participants, start=1):
-            if participant_data["type"] == "discord":
-                user = await self.participant_resolver.ensure_user_exists(
-                    self.db, participant_data["discord_id"]
-                )
-                participant = participant_model.GameParticipant(
-                    game_session_id=game.id,
-                    user_id=user.id,
-                    display_name=None,
-                    position_type=ParticipantType.HOST_ADDED,
-                    position=position,
-                )
-            else:  # placeholder
-                participant = participant_model.GameParticipant(
-                    game_session_id=game.id,
-                    user_id=None,
-                    display_name=participant_data["display_name"],
-                    position_type=ParticipantType.HOST_ADDED,
-                    position=position,
-                )
-            self.db.add(participant)
-
-        await self.db.flush()
+        # Create participant records for pre-filled participants
+        await self._create_participant_records(game.id, valid_participants)
 
         # Reload game with participants to check confirmed vs waitlisted
         # Use selectinload to eager load participants AND their nested user relationships
