@@ -232,6 +232,47 @@ class GameService:
 
         await self.db.flush()
 
+    async def _create_game_status_schedules(
+        self,
+        game: game_model.GameSession,
+        expected_duration_minutes: int | None,
+    ) -> None:
+        """
+        Create status transition schedules for scheduled games.
+
+        Creates IN_PROGRESS transition at scheduled time and COMPLETED transition
+        at scheduled time + duration. Only creates schedules if game is SCHEDULED.
+
+        Args:
+            game: The game session to create schedules for
+            expected_duration_minutes: Expected game duration, uses default if None
+        """
+        if game.status != game_model.GameStatus.SCHEDULED.value:
+            return
+
+        # Create IN_PROGRESS transition at scheduled time
+        in_progress_schedule = game_status_schedule_model.GameStatusSchedule(
+            id=str(uuid.uuid4()),
+            game_id=game.id,
+            target_status=game_model.GameStatus.IN_PROGRESS.value,
+            transition_time=game.scheduled_at,
+            executed=False,
+        )
+        self.db.add(in_progress_schedule)
+
+        # Create COMPLETED transition at scheduled time + duration
+        duration_minutes = expected_duration_minutes or DEFAULT_GAME_DURATION_MINUTES
+        completion_time = game.scheduled_at + datetime.timedelta(minutes=duration_minutes)
+
+        completed_schedule = game_status_schedule_model.GameStatusSchedule(
+            id=str(uuid.uuid4()),
+            game_id=game.id,
+            target_status=game_model.GameStatus.COMPLETED.value,
+            transition_time=completion_time,
+            executed=False,
+        )
+        self.db.add(completed_schedule)
+
     def _resolve_template_fields(
         self,
         game_data: game_schemas.GameCreateRequest,
@@ -454,31 +495,7 @@ class GameService:
         await schedule_service.populate_schedule(game, resolved_fields["reminder_minutes"])
 
         # Populate status transition schedule for SCHEDULED games
-        if game.status == game_model.GameStatus.SCHEDULED.value:
-            # Create IN_PROGRESS transition at scheduled time
-            in_progress_schedule = game_status_schedule_model.GameStatusSchedule(
-                id=str(uuid.uuid4()),
-                game_id=game.id,
-                target_status=game_model.GameStatus.IN_PROGRESS.value,
-                transition_time=game.scheduled_at,
-                executed=False,
-            )
-            self.db.add(in_progress_schedule)
-
-            # Create COMPLETED transition at scheduled time + duration
-            duration_minutes = (
-                resolved_fields["expected_duration_minutes"] or DEFAULT_GAME_DURATION_MINUTES
-            )
-            completion_time = game.scheduled_at + datetime.timedelta(minutes=duration_minutes)
-
-            completed_schedule = game_status_schedule_model.GameStatusSchedule(
-                id=str(uuid.uuid4()),
-                game_id=game.id,
-                target_status=game_model.GameStatus.COMPLETED.value,
-                transition_time=completion_time,
-                executed=False,
-            )
-            self.db.add(completed_schedule)
+        await self._create_game_status_schedules(game, resolved_fields["expected_duration_minutes"])
 
         await self.db.commit()
 
