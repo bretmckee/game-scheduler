@@ -25,6 +25,7 @@ import datetime
 import logging
 import uuid
 from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import Any
 
 from sqlalchemy import func
@@ -58,6 +59,16 @@ logger = logging.getLogger(__name__)
 
 # Default game duration when expected_duration_minutes is not set
 DEFAULT_GAME_DURATION_MINUTES = 60
+
+
+@dataclass
+class GameMediaAttachments:
+    """Media attachments for game creation."""
+
+    thumbnail_data: bytes | None = None
+    thumbnail_mime_type: str | None = None
+    image_data: bytes | None = None
+    image_mime_type: str | None = None
 
 
 class GameService:
@@ -330,6 +341,111 @@ class GameService:
             "signup_method": signup_method,
         }
 
+    async def _load_game_dependencies(
+        self, template_id: str
+    ) -> tuple[
+        template_model.GameTemplate,
+        guild_model.GuildConfiguration,
+        channel_model.ChannelConfiguration,
+    ]:
+        """
+        Load and validate template, guild, and channel configurations.
+
+        Args:
+            template_id: Template UUID to load dependencies for
+
+        Returns:
+            Tuple of (template, guild_config, channel_config)
+
+        Raises:
+            ValueError: If template, guild config, or channel config not found
+        """
+        template_result = await self.db.execute(
+            select(template_model.GameTemplate).where(template_model.GameTemplate.id == template_id)
+        )
+        template = template_result.scalar_one_or_none()
+        if template is None:
+            raise ValueError(f"Template not found for ID: {template_id}")
+
+        guild_result = await self.db.execute(
+            select(guild_model.GuildConfiguration).where(
+                guild_model.GuildConfiguration.id == template.guild_id
+            )
+        )
+        guild_config = guild_result.scalar_one_or_none()
+        if guild_config is None:
+            raise ValueError(f"Guild configuration not found for ID: {template.guild_id}")
+
+        channel_result = await self.db.execute(
+            select(channel_model.ChannelConfiguration).where(
+                channel_model.ChannelConfiguration.id == template.channel_id
+            )
+        )
+        channel_config = channel_result.scalar_one_or_none()
+        if channel_config is None:
+            raise ValueError(f"Channel configuration not found for ID: {template.channel_id}")
+
+        return template, guild_config, channel_config
+
+    def _build_game_session(
+        self,
+        game_data: game_schemas.GameCreateRequest,
+        template: template_model.GameTemplate,
+        guild_config: guild_model.GuildConfiguration,
+        host_user: user_model.User,
+        resolved_fields: dict[str, Any],
+        media: GameMediaAttachments,
+    ) -> game_model.GameSession:
+        """
+        Build GameSession instance with normalized data.
+
+        Args:
+            game_data: Game creation request data
+            template: Game template configuration
+            guild_config: Guild configuration
+            host_user: Host user record
+            resolved_fields: Resolved template field values
+            media: Media attachment data (thumbnail and banner image)
+
+        Returns:
+            GameSession instance ready for persistence
+        """
+        channel_id = template.channel_id
+        notify_role_ids = template.notify_role_ids
+        allowed_player_role_ids = template.allowed_player_role_ids
+
+        # Database stores timestamps as naive UTC, so convert timezone-aware inputs
+        if game_data.scheduled_at.tzinfo is not None:
+            scheduled_at_naive = game_data.scheduled_at.astimezone(datetime.UTC).replace(
+                tzinfo=None
+            )
+        else:
+            scheduled_at_naive = game_data.scheduled_at
+
+        return game_model.GameSession(
+            id=game_model.generate_uuid(),
+            title=game_data.title,
+            description=game_data.description,
+            signup_instructions=resolved_fields["signup_instructions"],
+            scheduled_at=scheduled_at_naive,
+            where=resolved_fields["where"],
+            template_id=template.id,
+            guild_id=guild_config.id,
+            channel_id=channel_id,
+            host_id=host_user.id,
+            max_players=resolved_fields["max_players"],
+            reminder_minutes=resolved_fields["reminder_minutes"],
+            expected_duration_minutes=resolved_fields["expected_duration_minutes"],
+            notify_role_ids=notify_role_ids,
+            allowed_player_role_ids=allowed_player_role_ids,
+            signup_method=resolved_fields["signup_method"],
+            status=game_model.GameStatus.SCHEDULED.value,
+            thumbnail_data=media.thumbnail_data,
+            thumbnail_mime_type=media.thumbnail_mime_type,
+            image_data=media.image_data,
+            image_mime_type=media.image_mime_type,
+        )
+
     async def create_game(
         self,
         game_data: game_schemas.GameCreateRequest,
@@ -359,25 +475,10 @@ class GameService:
             ValidationError: If @mentions cannot be resolved
             ValueError: If template not found or user unauthorized
         """
-        # Get template
-        template_result = await self.db.execute(
-            select(template_model.GameTemplate).where(
-                template_model.GameTemplate.id == game_data.template_id
-            )
+        # Load template, guild, and channel configurations
+        template, guild_config, channel_config = await self._load_game_dependencies(
+            game_data.template_id
         )
-        template = template_result.scalar_one_or_none()
-        if template is None:
-            raise ValueError(f"Template not found for ID: {game_data.template_id}")
-
-        # Get guild config for permission checks
-        guild_result = await self.db.execute(
-            select(guild_model.GuildConfiguration).where(
-                guild_model.GuildConfiguration.id == template.guild_id
-            )
-        )
-        guild_config = guild_result.scalar_one_or_none()
-        if guild_config is None:
-            raise ValueError(f"Guild configuration not found for ID: {template.guild_id}")
 
         # Resolve host (handles bot manager override)
         actual_host_user_id, host_user = await self._resolve_game_host(
@@ -396,23 +497,8 @@ class GameService:
         if not can_host:
             raise ValueError("User does not have permission to create games with this template")
 
-        # Get channel config
-        channel_result = await self.db.execute(
-            select(channel_model.ChannelConfiguration).where(
-                channel_model.ChannelConfiguration.id == template.channel_id
-            )
-        )
-        channel_config = channel_result.scalar_one_or_none()
-        if channel_config is None:
-            raise ValueError(f"Channel configuration not found for ID: {template.channel_id}")
-
         # Resolve field values from request and template
         resolved_fields = self._resolve_template_fields(game_data, template)
-
-        # Locked fields from template
-        channel_id = template.channel_id
-        notify_role_ids = template.notify_role_ids
-        allowed_player_role_ids = template.allowed_player_role_ids
 
         # Resolve initial participants if provided
         valid_participants: list[dict[str, Any]] = []
@@ -433,38 +519,16 @@ class GameService:
                     valid_participants=[p["original_input"] for p in valid_participants],
                 )
 
-        # Create game session
-        # Database stores timestamps as naive UTC, so convert timezone-aware inputs
-        if game_data.scheduled_at.tzinfo is not None:
-            scheduled_at_naive = game_data.scheduled_at.astimezone(datetime.UTC).replace(
-                tzinfo=None
-            )
-        else:
-            # Already naive, assume UTC
-            scheduled_at_naive = game_data.scheduled_at
-
-        game = game_model.GameSession(
-            id=game_model.generate_uuid(),
-            title=game_data.title,
-            description=game_data.description,
-            signup_instructions=resolved_fields["signup_instructions"],
-            scheduled_at=scheduled_at_naive,
-            where=resolved_fields["where"],
-            template_id=template.id,
-            guild_id=guild_config.id,
-            channel_id=channel_id,
-            host_id=host_user.id,
-            max_players=resolved_fields["max_players"],
-            reminder_minutes=resolved_fields["reminder_minutes"],
-            expected_duration_minutes=resolved_fields["expected_duration_minutes"],
-            notify_role_ids=notify_role_ids,
-            allowed_player_role_ids=allowed_player_role_ids,
-            signup_method=resolved_fields["signup_method"],
-            status=game_model.GameStatus.SCHEDULED.value,
+        # Build game session with media attachments
+        media = GameMediaAttachments(
             thumbnail_data=thumbnail_data,
             thumbnail_mime_type=thumbnail_mime_type,
             image_data=image_data,
             image_mime_type=image_mime_type,
+        )
+
+        game = self._build_game_session(
+            game_data, template, guild_config, host_user, resolved_fields, media
         )
 
         self.db.add(game)

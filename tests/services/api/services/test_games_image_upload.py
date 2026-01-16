@@ -157,10 +157,10 @@ async def test_create_game_with_thumbnail(
     template_result.scalar_one_or_none.return_value = sample_template
     guild_result = MagicMock()
     guild_result.scalar_one_or_none.return_value = sample_guild
-    user_result = MagicMock()
-    user_result.scalar_one_or_none.return_value = sample_user
     channel_result = MagicMock()
     channel_result.scalar_one_or_none.return_value = sample_channel
+    user_result = MagicMock()
+    user_result.scalar_one_or_none.return_value = sample_user
     reload_result = MagicMock()
     reload_result.scalar_one.return_value = expected_game
     get_game_result = MagicMock()
@@ -170,8 +170,8 @@ async def test_create_game_with_thumbnail(
         side_effect=[
             template_result,
             guild_result,
-            user_result,
             channel_result,
+            user_result,
             reload_result,
             get_game_result,
         ]
@@ -247,10 +247,10 @@ async def test_create_game_with_both_images(
     template_result.scalar_one_or_none.return_value = sample_template
     guild_result = MagicMock()
     guild_result.scalar_one_or_none.return_value = sample_guild
-    user_result = MagicMock()
-    user_result.scalar_one_or_none.return_value = sample_user
     channel_result = MagicMock()
     channel_result.scalar_one_or_none.return_value = sample_channel
+    user_result = MagicMock()
+    user_result.scalar_one_or_none.return_value = sample_user
     reload_result = MagicMock()
     reload_result.scalar_one.return_value = expected_game
     get_game_result = MagicMock()
@@ -260,8 +260,8 @@ async def test_create_game_with_both_images(
         side_effect=[
             template_result,
             guild_result,
-            user_result,
             channel_result,
+            user_result,
             reload_result,
             get_game_result,
         ]
