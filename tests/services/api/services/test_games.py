@@ -29,7 +29,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.api.services import games as games_service
 from services.api.services import participant_resolver as resolver_module
-from services.api.services.games import DEFAULT_GAME_DURATION_MINUTES, GameMediaAttachments
+from services.api.services.games import (
+    DEFAULT_GAME_DURATION_MINUTES,
+    GameMediaAttachments,
+)
 from shared.discord import client as discord_client_module
 from shared.messaging import publisher as messaging_publisher
 from shared.models import channel as channel_model
@@ -1153,6 +1156,129 @@ async def test_build_game_session_timezone_normalization_naive(
     # Should remain naive
     assert game.scheduled_at.tzinfo is None
     assert game.scheduled_at == scheduled_at_naive
+
+
+@pytest.mark.asyncio
+async def test_setup_game_schedules_with_reminders_and_duration(
+    game_service,
+    mock_db,
+):
+    """Test _setup_game_schedules calls all schedule methods with parameters."""
+    scheduled_time = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+    game = game_model.GameSession(
+        id=str(uuid.uuid4()),
+        title="Test Game",
+        scheduled_at=scheduled_time,
+        status=game_model.GameStatus.SCHEDULED.value,
+    )
+
+    reminder_minutes = [30, 60]
+    expected_duration_minutes = 120
+
+    with (
+        patch.object(
+            game_service,
+            "_schedule_join_notifications_for_game",
+            new_callable=AsyncMock,
+        ) as mock_join_notifications,
+        patch(
+            "services.api.services.games.notification_schedule_service.NotificationScheduleService"
+        ) as mock_schedule_service_class,
+        patch.object(
+            game_service, "_create_game_status_schedules", new_callable=AsyncMock
+        ) as mock_status_schedules,
+    ):
+        mock_schedule_service = AsyncMock()
+        mock_schedule_service.populate_schedule = AsyncMock()
+        mock_schedule_service_class.return_value = mock_schedule_service
+
+        await game_service._setup_game_schedules(game, reminder_minutes, expected_duration_minutes)
+
+        mock_join_notifications.assert_called_once_with(game)
+        mock_schedule_service.populate_schedule.assert_called_once_with(game, reminder_minutes)
+        mock_status_schedules.assert_called_once_with(game, expected_duration_minutes)
+
+
+@pytest.mark.asyncio
+async def test_setup_game_schedules_without_reminders(
+    game_service,
+    mock_db,
+):
+    """Test _setup_game_schedules handles empty reminder list."""
+    scheduled_time = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+    game = game_model.GameSession(
+        id=str(uuid.uuid4()),
+        title="Test Game",
+        scheduled_at=scheduled_time,
+        status=game_model.GameStatus.SCHEDULED.value,
+    )
+
+    reminder_minutes: list[int] = []
+    expected_duration_minutes = 120
+
+    with (
+        patch.object(
+            game_service,
+            "_schedule_join_notifications_for_game",
+            new_callable=AsyncMock,
+        ) as mock_join_notifications,
+        patch(
+            "services.api.services.games.notification_schedule_service.NotificationScheduleService"
+        ) as mock_schedule_service_class,
+        patch.object(
+            game_service, "_create_game_status_schedules", new_callable=AsyncMock
+        ) as mock_status_schedules,
+    ):
+        mock_schedule_service = AsyncMock()
+        mock_schedule_service.populate_schedule = AsyncMock()
+        mock_schedule_service_class.return_value = mock_schedule_service
+
+        await game_service._setup_game_schedules(game, reminder_minutes, expected_duration_minutes)
+
+        mock_join_notifications.assert_called_once_with(game)
+        mock_schedule_service.populate_schedule.assert_called_once_with(game, reminder_minutes)
+        mock_status_schedules.assert_called_once_with(game, expected_duration_minutes)
+
+
+@pytest.mark.asyncio
+async def test_setup_game_schedules_without_duration(
+    game_service,
+    mock_db,
+):
+    """Test _setup_game_schedules handles None duration."""
+    scheduled_time = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+    game = game_model.GameSession(
+        id=str(uuid.uuid4()),
+        title="Test Game",
+        scheduled_at=scheduled_time,
+        status=game_model.GameStatus.SCHEDULED.value,
+    )
+
+    reminder_minutes = [60]
+    expected_duration_minutes = None
+
+    with (
+        patch.object(
+            game_service,
+            "_schedule_join_notifications_for_game",
+            new_callable=AsyncMock,
+        ) as mock_join_notifications,
+        patch(
+            "services.api.services.games.notification_schedule_service.NotificationScheduleService"
+        ) as mock_schedule_service_class,
+        patch.object(
+            game_service, "_create_game_status_schedules", new_callable=AsyncMock
+        ) as mock_status_schedules,
+    ):
+        mock_schedule_service = AsyncMock()
+        mock_schedule_service.populate_schedule = AsyncMock()
+        mock_schedule_service_class.return_value = mock_schedule_service
+
+        await game_service._setup_game_schedules(game, reminder_minutes, expected_duration_minutes)
+
+        mock_join_notifications.assert_called_once_with(game)
+        mock_schedule_service.populate_schedule.assert_called_once_with(game, reminder_minutes)
+        mock_status_schedules.assert_called_once_with(game, None)
 
 
 @pytest.mark.asyncio

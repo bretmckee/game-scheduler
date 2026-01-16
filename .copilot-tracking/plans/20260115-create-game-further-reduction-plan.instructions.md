@@ -60,15 +60,15 @@ Extract helper methods from create_game() to reduce length from 179 lines to ~60
 - [x] Task A.7: Remove redundant create_game() tests
   - Details: .copilot-tracking/details/20260115-create-game-further-reduction-details.md (Lines 194-212)
 
-### [ ] Phase B: Extract Schedule Orchestration
+### [x] Phase B: Extract Schedule Orchestration
 
-- [ ] Task B.1: Extract _setup_game_schedules() helper method
+- [x] Task B.1: Extract _setup_game_schedules() helper method
   - Details: .copilot-tracking/details/20260115-create-game-further-reduction-details.md (Lines 216-242)
 
-- [ ] Task B.2: Add unit tests for _setup_game_schedules()
+- [x] Task B.2: Add unit tests for _setup_game_schedules()
   - Details: .copilot-tracking/details/20260115-create-game-further-reduction-details.md (Lines 244-267)
 
-- [ ] Task B.3: Refactor create_game() to use schedule helper
+- [x] Task B.3: Refactor create_game() to use schedule helper
   - Details: .copilot-tracking/details/20260115-create-game-further-reduction-details.md (Lines 269-287)
 
 ### [ ] Phase C: Validation and Metrics
