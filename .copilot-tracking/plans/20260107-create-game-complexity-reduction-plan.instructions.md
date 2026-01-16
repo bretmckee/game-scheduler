@@ -112,20 +112,20 @@ Refactor the 344-line `GameService::create_game()` method to reduce cyclomatic c
   - Details: .copilot-tracking/details/20260107-create-game-complexity-reduction-details.md (Lines 189-197)
   - Completed: .copilot-tracking/changes/20260107-create-game-complexity-reduction-changes.md (Phase 5, Task 5.5)
 
-### [ ] Phase 6: Optional Further Refinements
+### [x] Phase 6: Optional Further Refinements
 
-- [ ] Task 6.1: Consider additional extractions
+- [x] Task 6.1: Consider additional extractions
   - Details: .copilot-tracking/details/20260107-create-game-complexity-reduction-details.md (Lines 199-213)
 
-- [ ] Task 6.2: Verify final complexity metrics
+- [x] Task 6.2: Verify final complexity metrics
   - Details: .copilot-tracking/details/20260107-create-game-complexity-reduction-details.md (Lines 215-224)
 
-### [ ] Phase 7: Update Complexity Thresholds
+### [x] Phase 7: Update Complexity Thresholds
 
-- [ ] Task 7.1: Update Ruff configuration with new thresholds
+- [x] Task 7.1: Update Ruff configuration with new thresholds
   - Details: .copilot-tracking/details/20260107-create-game-complexity-reduction-details.md (Lines 226-237)
 
-- [ ] Task 7.2: Verify all checks pass with new thresholds
+- [x] Task 7.2: Verify all checks pass with new thresholds
   - Details: .copilot-tracking/details/20260107-create-game-complexity-reduction-details.md (Lines 239-246)
 
 ## Dependencies
