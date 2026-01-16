@@ -37,27 +37,27 @@ Extract helper methods from create_game() to reduce length from 179 lines to ~60
 
 ## Implementation Checklist
 
-### [ ] Phase A: Extract Dependency Loading and Game Builder
+### [x] Phase A: Extract Dependency Loading and Game Builder
 
-- [ ] Task A.1: Create GameMediaAttachments dataclass
+- [x] Task A.1: Create GameMediaAttachments dataclass
   - Details: .copilot-tracking/details/20260115-create-game-further-reduction-details.md (Lines 15-35)
 
-- [ ] Task A.2: Extract _load_game_dependencies() helper method
+- [x] Task A.2: Extract _load_game_dependencies() helper method
   - Details: .copilot-tracking/details/20260115-create-game-further-reduction-details.md (Lines 37-66)
 
-- [ ] Task A.3: Add unit tests for _load_game_dependencies()
+- [x] Task A.3: Add unit tests for _load_game_dependencies()
   - Details: .copilot-tracking/details/20260115-create-game-further-reduction-details.md (Lines 68-95)
 
-- [ ] Task A.4: Extract _build_game_session() helper method
+- [x] Task A.4: Extract _build_game_session() helper method
   - Details: .copilot-tracking/details/20260115-create-game-further-reduction-details.md (Lines 97-134)
 
-- [ ] Task A.5: Add unit tests for _build_game_session()
+- [x] Task A.5: Add unit tests for _build_game_session()
   - Details: .copilot-tracking/details/20260115-create-game-further-reduction-details.md (Lines 136-162)
 
-- [ ] Task A.6: Refactor create_game() to use new helper methods
+- [x] Task A.6: Refactor create_game() to use new helper methods
   - Details: .copilot-tracking/details/20260115-create-game-further-reduction-details.md (Lines 164-192)
 
-- [ ] Task A.7: Remove redundant create_game() tests
+- [x] Task A.7: Remove redundant create_game() tests
   - Details: .copilot-tracking/details/20260115-create-game-further-reduction-details.md (Lines 194-212)
 
 ### [ ] Phase B: Extract Schedule Orchestration
