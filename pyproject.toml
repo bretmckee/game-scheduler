@@ -72,10 +72,10 @@ select = ["E", "F", "I", "N", "W", "B", "C4", "UP", "PLR2004", "PLC0415", "C901"
 ignore = []
 
 [tool.ruff.lint.mccabe]
-max-complexity = 25
+max-complexity = 17
 
 [tool.complexipy]
-max-complexity-allowed = 49
+max-complexity-allowed = 20
 paths = ["services", "shared"]
 exclude = []
 
