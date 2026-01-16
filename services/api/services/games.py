@@ -446,6 +446,30 @@ class GameService:
             image_mime_type=media.image_mime_type,
         )
 
+    async def _setup_game_schedules(
+        self,
+        game: game_model.GameSession,
+        reminder_minutes: list[int],
+        expected_duration_minutes: int | None,
+    ) -> None:
+        """
+        Set up all game schedules (join notifications, reminders, status transitions).
+
+        Args:
+            game: Game session to schedule notifications for
+            reminder_minutes: List of minutes before game to send reminders
+            expected_duration_minutes: Expected game duration in minutes (for status transitions)
+        """
+        # Schedule join notifications for newly added participants
+        await self._schedule_join_notifications_for_game(game)
+
+        # Populate reminder notification schedule
+        schedule_service = notification_schedule_service.NotificationScheduleService(self.db)
+        await schedule_service.populate_schedule(game, reminder_minutes)
+
+        # Populate status transition schedule for SCHEDULED games
+        await self._create_game_status_schedules(game, expected_duration_minutes)
+
     async def create_game(
         self,
         game_data: game_schemas.GameCreateRequest,
@@ -551,15 +575,12 @@ class GameService:
         )
         game = result.scalar_one()
 
-        # Schedule join notifications for newly added participants
-        await self._schedule_join_notifications_for_game(game)
-
-        # Populate notification schedule
-        schedule_service = notification_schedule_service.NotificationScheduleService(self.db)
-        await schedule_service.populate_schedule(game, resolved_fields["reminder_minutes"])
-
-        # Populate status transition schedule for SCHEDULED games
-        await self._create_game_status_schedules(game, resolved_fields["expected_duration_minutes"])
+        # Set up all game schedules (join notifications, reminders, status transitions)
+        await self._setup_game_schedules(
+            game,
+            resolved_fields["reminder_minutes"],
+            resolved_fields["expected_duration_minutes"],
+        )
 
         await self.db.commit()
 
