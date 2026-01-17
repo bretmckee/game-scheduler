@@ -15,6 +15,7 @@ Systematically refactor high-complexity functions to reduce cyclomatic complexit
 
 - [tests/services/api/routes/test_games_helpers.py](tests/services/api/routes/test_games_helpers.py) - Unit tests for extracted helper functions (_parse_update_form_data and _process_image_upload)
 - [tests/services/api/services/test_update_game_fields_helpers.py](tests/services/api/services/test_update_game_fields_helpers.py) - Unit tests for _update_game_fields extracted helpers covering field updates, timezone handling, and schedule flags
+- [tests/services/bot/formatters/test_game_message.py](tests/services/bot/formatters/test_game_message.py) - Added 17 unit tests for create_game_embed extracted helpers (TestGameMessageFormatterHelpers class) covering description truncation, URL generation, author configuration, game time fields, participant fields, and footer/links
 
 ### Modified
 
@@ -23,9 +24,11 @@ Systematically refactor high-complexity functions to reduce cyclomatic complexit
 - [services/api/services/display_names.py](services/api/services/display_names.py) - Extracted _check_cache_for_users(), _fetch_and_cache_display_names_avatars(), and _create_fallback_user_data() helpers, refactored resolve_display_names_and_avatars() to reduce complexity from C:12/Cog:19 to below thresholds
 - [services/api/services/participant_resolver.py](services/api/services/participant_resolver.py) - Extracted _resolve_discord_mention_format(), _resolve_user_friendly_mention(), and _create_placeholder_participant() helpers, refactored resolve_initial_participants() to reduce complexity from C:12/Cog:20 to B:7
 - [services/bot/events/handlers.py](services/bot/events/handlers.py) - Extracted _update_message_for_player_removal(), _build_removal_dm_message(), and _notify_removed_player() helpers, refactored _handle_player_removed() to reduce complexity from C:12/Cog:18 to below thresholds
+- [services/bot/formatters/game_message.py](services/bot/formatters/game_message.py) - Extracted _prepare_description_and_urls(), _configure_embed_author(), _add_game_time_fields(), _add_participant_fields(), and _add_footer_and_links() helpers, refactored create_game_embed() to reduce complexity from C:14/Cog:17 to below thresholds
 - [tests/services/api/services/test_display_names.py](tests/services/api/services/test_display_names.py) - Added 10 unit tests for extracted helper methods covering cache checking, Discord API fetching, and fallback data creation
 - [tests/services/api/services/test_games.py](tests/services/api/services/test_games.py) - Added 15 unit tests for _update_prefilled_participants extracted helpers covering participant separation, removal, and position updates; added 13 unit tests for update_game extracted helpers covering state capture, image updates, schedule processing, and promotion detection
 - [tests/services/api/services/test_participant_resolver.py](tests/services/api/services/test_participant_resolver.py) - Added 13 unit tests for extracted helper methods covering Discord mention format resolution, user-friendly mention search, and placeholder participant creation
 - [tests/services/bot/events/test_handlers.py](tests/services/bot/events/test_handlers.py) - Added 9 unit tests for _handle_player_removed extracted helpers covering message updates, DM notification building, and player notification
+- [tests/services/bot/formatters/test_game_message.py](tests/services/bot/formatters/test_game_message.py) - Added 17 unit tests for create_game_embed extracted helpers (TestGameMessageFormatterHelpers class) covering description truncation, URL generation, author configuration, game time fields, participant fields, and footer/links
 
 ### Removed

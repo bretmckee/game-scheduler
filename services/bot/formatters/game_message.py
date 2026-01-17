@@ -47,6 +47,168 @@ class GameMessageFormatter:
     """
 
     @staticmethod
+    def _prepare_description_and_urls(
+        description: str,
+        game_id: str | None,
+        thumbnail_url: str | None,
+        image_url: str | None,
+    ) -> tuple[str, str | None, str | None, str | None]:
+        """Prepare truncated description and URLs for embed.
+
+        Args:
+            description: Original game description
+            game_id: Optional game UUID
+            thumbnail_url: Optional thumbnail URL
+            image_url: Optional image URL
+
+        Returns:
+            Tuple of (truncated_description, calendar_url, thumbnail_url, image_url)
+        """
+        truncated_description = description
+        if description and len(description) > MAX_STRING_DISPLAY_LENGTH:
+            truncated_description = description[: MAX_STRING_DISPLAY_LENGTH - 3] + "..."
+
+        calendar_url = None
+        if game_id:
+            config = get_config()
+            calendar_url = f"{config.frontend_url}/download-calendar/{game_id}"
+
+        return truncated_description, calendar_url, thumbnail_url, image_url
+
+    @staticmethod
+    def _configure_embed_author(
+        embed: discord.Embed,
+        host_id: str,
+        host_display_name: str | None,
+        host_avatar_url: str | None,
+    ) -> None:
+        """Configure embed author with host information.
+
+        Args:
+            embed: Discord embed to configure
+            host_id: Discord ID of the game host
+            host_display_name: Optional display name for host
+            host_avatar_url: Optional host avatar URL
+        """
+        if host_display_name:
+            author_name = f"@{host_display_name}"
+        else:
+            author_name = host_id if not host_id.isdigit() else "@User"
+
+        if host_avatar_url:
+            embed.set_author(name=author_name, icon_url=host_avatar_url)
+        else:
+            embed.set_author(name=author_name)
+
+    @staticmethod
+    def _add_game_time_fields(
+        embed: discord.Embed,
+        scheduled_at: datetime,
+        host_id: str,
+        expected_duration_minutes: int | None,
+        where: str | None,
+        channel_id: str | None,
+    ) -> None:
+        """Add game time, host, duration, location, and channel fields.
+
+        Args:
+            embed: Discord embed to configure
+            scheduled_at: When game is scheduled
+            host_id: Discord ID of host
+            expected_duration_minutes: Optional game duration
+            where: Optional game location
+            channel_id: Optional voice channel ID
+        """
+        game_time_value = (
+            f"{format_discord_timestamp(scheduled_at, 'F')} "
+            f"({format_discord_timestamp(scheduled_at, 'R')})"
+        )
+        embed.add_field(name="Game Time", value=game_time_value, inline=False)
+
+        formatted_host = format_user_or_placeholder(host_id)
+        embed.add_field(name="Host", value=formatted_host, inline=True)
+
+        if expected_duration_minutes:
+            duration_text = format_duration(expected_duration_minutes)
+            embed.add_field(name="Run Time", value=duration_text, inline=True)
+        else:
+            embed.add_field(name="\u200b", value="\u200b", inline=True)
+
+        if where:
+            embed.add_field(name="Where", value=where, inline=True)
+        else:
+            embed.add_field(name="\u200b", value="\u200b", inline=True)
+
+        if channel_id:
+            embed.add_field(name="Voice Channel", value=f"<#{channel_id}>", inline=False)
+
+    @staticmethod
+    def _add_participant_fields(
+        embed: discord.Embed,
+        participant_ids: list[str],
+        overflow_ids: list[str],
+        current_count: int,
+        max_players: int,
+    ) -> None:
+        """Add participant and waitlist fields to embed.
+
+        Args:
+            embed: Discord embed to configure
+            participant_ids: List of confirmed participant IDs
+            overflow_ids: List of waitlisted participant IDs
+            current_count: Current participant count
+            max_players: Maximum allowed participants
+        """
+        if participant_ids:
+            embed.add_field(
+                name=f"Participants ({current_count}/{max_players})",
+                value=format_participant_list(participant_ids, max_display=15, start_number=1),
+                inline=True,
+            )
+        else:
+            embed.add_field(
+                name=f"Participants ({current_count}/{max_players})",
+                value="No participants yet",
+                inline=True,
+            )
+
+        if overflow_ids:
+            start_num = len(participant_ids) + 1
+            overflow_text = format_participant_list(
+                overflow_ids, max_display=10, start_number=start_num
+            )
+            embed.add_field(
+                name=f"Waitlisted ({len(overflow_ids)})",
+                value=overflow_text,
+                inline=True,
+            )
+
+    @staticmethod
+    def _add_footer_and_links(
+        embed: discord.Embed,
+        status: str,
+        calendar_url: str | None,
+    ) -> None:
+        """Add links field and footer to embed.
+
+        Args:
+            embed: Discord embed to configure
+            status: Game status
+            calendar_url: Optional calendar download URL
+        """
+        if calendar_url:
+            links_value = f"📅 [Add to Calendar]({calendar_url})"
+            embed.add_field(name="Links", value=links_value, inline=True)
+
+        status_display = status
+        try:
+            status_display = GameStatus(status).display_name
+        except (ValueError, AttributeError):
+            pass
+
+        embed.set_footer(text=f"Status: {status_display}")
+
+    @staticmethod
     def create_game_embed(
         game_title: str,
         description: str,
@@ -91,15 +253,11 @@ class GameMessageFormatter:
         Returns:
             Configured Discord embed
         """
-        # Truncate description for Discord message
-        truncated_description = description
-        if description and len(description) > MAX_STRING_DISPLAY_LENGTH:
-            truncated_description = description[: MAX_STRING_DISPLAY_LENGTH - 3] + "..."
-
-        calendar_url = None
-        if game_id:
-            config = get_config()
-            calendar_url = f"{config.frontend_url}/download-calendar/{game_id}"
+        truncated_description, calendar_url, thumb_url, img_url = (
+            GameMessageFormatter._prepare_description_and_urls(
+                description, game_id, thumbnail_url, image_url
+            )
+        )
 
         embed = discord.Embed(
             title=game_title,
@@ -107,95 +265,24 @@ class GameMessageFormatter:
             color=GameMessageFormatter._get_status_color(status),
         )
 
-        # Set author with @username for Discord IDs or plain name for placeholders
-        if host_display_name:
-            # Discord user - prefix with @
-            author_name = f"@{host_display_name}"
-        else:
-            # Placeholder or unknown - use as-is without @ prefix
-            author_name = host_id if not host_id.isdigit() else "@User"
-
-        if host_avatar_url:
-            embed.set_author(name=author_name, icon_url=host_avatar_url)
-        else:
-            embed.set_author(name=author_name)
-
-        # Set thumbnail or image if provided
-        if thumbnail_url:
-            embed.set_thumbnail(url=thumbnail_url)
-        if image_url:
-            embed.set_image(url=image_url)
-
-        # Game Time field: Date/time with timezone and relative time (full width)
-        game_time_value = (
-            f"{format_discord_timestamp(scheduled_at, 'F')} "
-            f"({format_discord_timestamp(scheduled_at, 'R')})"
+        GameMessageFormatter._configure_embed_author(
+            embed, host_id, host_display_name, host_avatar_url
         )
-        embed.add_field(name="Game Time", value=game_time_value, inline=False)
 
-        # Host field with mention or placeholder (Discord will render mentions in field values)
-        formatted_host = format_user_or_placeholder(host_id)
-        embed.add_field(name="Host", value=formatted_host, inline=True)
+        if thumb_url:
+            embed.set_thumbnail(url=thumb_url)
+        if img_url:
+            embed.set_image(url=img_url)
 
-        # Run Time field (if present)
-        if expected_duration_minutes:
-            duration_text = format_duration(expected_duration_minutes)
-            embed.add_field(name="Run Time", value=duration_text, inline=True)
-        else:
-            # Add empty field to maintain layout
-            embed.add_field(name="\u200b", value="\u200b", inline=True)
+        GameMessageFormatter._add_game_time_fields(
+            embed, scheduled_at, host_id, expected_duration_minutes, where, channel_id
+        )
 
-        # Where field (if present)
-        if where:
-            embed.add_field(name="Where", value=where, inline=True)
-        else:
-            # Add empty field to maintain layout
-            embed.add_field(name="\u200b", value="\u200b", inline=True)
+        GameMessageFormatter._add_participant_fields(
+            embed, participant_ids, overflow_ids, current_count, max_players
+        )
 
-        # Voice Channel field (if present)
-        if channel_id:
-            embed.add_field(name="Voice Channel", value=f"<#{channel_id}>", inline=False)
-
-        # Participants field with numbered list
-        if participant_ids:
-            embed.add_field(
-                name=f"Participants ({current_count}/{max_players})",
-                value=format_participant_list(participant_ids, max_display=15, start_number=1),
-                inline=True,
-            )
-        else:
-            embed.add_field(
-                name=f"Participants ({current_count}/{max_players})",
-                value="No participants yet",
-                inline=True,
-            )
-
-        # Waitlisted field with numbered list (continues numbering)
-        if overflow_ids:
-            start_num = len(participant_ids) + 1
-            overflow_text = format_participant_list(
-                overflow_ids, max_display=10, start_number=start_num
-            )
-            embed.add_field(
-                name=f"Waitlisted ({len(overflow_ids)})",
-                value=overflow_text,
-                inline=True,
-            )
-
-        # Links field (if calendar URL present)
-        if calendar_url:
-            links_value = f"📅 [Add to Calendar]({calendar_url})"
-            embed.add_field(name="Links", value=links_value, inline=True)
-
-        # Get display name from enum if possible, fallback to raw status
-        status_display = status
-        try:
-            status_display = GameStatus(status).display_name
-        except (ValueError, AttributeError):
-            pass
-
-        # Footer with status only (Discord timestamp format doesn't work in footers)
-        embed.set_footer(text=f"Status: {status_display}")
+        GameMessageFormatter._add_footer_and_links(embed, status, calendar_url)
 
         return embed
 
