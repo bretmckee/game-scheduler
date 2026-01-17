@@ -615,49 +615,74 @@ async def leave_game(
         raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail=str(e)) from None
 
 
-async def _build_game_response(
+async def _resolve_display_data(
     game: game_model.GameSession,
-) -> game_schemas.GameResponse:
+    partitioned: participant_sorting.PartitionedParticipants,
+) -> tuple[dict[str, dict[str, str | None]], str | None]:
     """
-    Build GameResponse from GameSession model with resolved display names.
+    Resolve display names and avatars for participants and host.
 
     Args:
-        game: Game session model with participants and guild loaded
+        game: Game session model with guild loaded
+        partitioned: Partitioned participant data
 
     Returns:
-        Game response schema with resolved display names and sorted participants
+        Tuple of (display_data_map, host_discord_id)
     """
-    participant_count = len(game.participants)
-
-    partitioned = participant_sorting.partition_participants(game.participants, game.max_players)
-
     discord_user_ids = [p.user.discord_id for p in partitioned.all_sorted if p.user is not None]
 
-    # Add host to the list of users to resolve
     host_discord_id = game.host.discord_id if game.host else None
     if host_discord_id and host_discord_id not in discord_user_ids:
         discord_user_ids.append(host_discord_id)
 
-    display_name_resolver = await display_names_module.get_display_name_resolver()
     display_data_map = {}
+    if discord_user_ids and game.guild_id:
+        display_name_resolver = await display_names_module.get_display_name_resolver()
+        guild_discord_id = game.guild.guild_id
+        display_data_map = await display_name_resolver.resolve_display_names_and_avatars(
+            guild_discord_id, discord_user_ids
+        )
 
-    if discord_user_ids:
-        if game.guild_id:
-            guild_discord_id = game.guild.guild_id
-            display_data_map = await display_name_resolver.resolve_display_names_and_avatars(
-                guild_discord_id, discord_user_ids
-            )
+    return display_data_map, host_discord_id
 
-    # Fetch channel name from Discord API with caching
+
+async def _fetch_discord_names(
+    game: game_model.GameSession,
+) -> tuple[str | None, str | None]:
+    """
+    Fetch channel and guild names from Discord API.
+
+    Args:
+        game: Game session model with channel and guild loaded
+
+    Returns:
+        Tuple of (channel_name, guild_name)
+    """
     channel_name = None
     if game.channel:
         channel_name = await fetch_channel_name_safe(game.channel.channel_id)
 
-    # Fetch guild name from Discord API with caching
     guild_name = None
     if game.guild:
         guild_name = await fetch_guild_name_safe(game.guild.guild_id)
 
+    return channel_name, guild_name
+
+
+def _build_participant_responses(
+    partitioned: participant_sorting.PartitionedParticipants,
+    display_data_map: dict[str, dict[str, str | None]],
+) -> list[participant_schemas.ParticipantResponse]:
+    """
+    Build ParticipantResponse objects from partitioned participants.
+
+    Args:
+        partitioned: Partitioned participant data
+        display_data_map: Mapping of discord IDs to display data
+
+    Returns:
+        List of participant response objects
+    """
     participant_responses = []
     for participant in partitioned.all_sorted:
         discord_id = participant.user.discord_id if participant.user else None
@@ -682,14 +707,32 @@ async def _build_game_response(
             )
         )
 
-    # Build host participant response
+    return participant_responses
+
+
+def _build_host_response(
+    game: game_model.GameSession,
+    host_discord_id: str | None,
+    display_data_map: dict[str, dict[str, str | None]],
+) -> participant_schemas.ParticipantResponse:
+    """
+    Build host participant response object.
+
+    Args:
+        game: Game session model
+        host_discord_id: Discord ID of the host
+        display_data_map: Mapping of discord IDs to display data
+
+    Returns:
+        Host participant response object
+    """
     host_display_name = None
     host_avatar_url = None
     if host_discord_id and host_discord_id in display_data_map:
         host_display_name = display_data_map[host_discord_id]["display_name"]
         host_avatar_url = display_data_map[host_discord_id]["avatar_url"]
 
-    host_response = participant_schemas.ParticipantResponse(
+    return participant_schemas.ParticipantResponse(
         id=game.host_id,
         game_session_id=game.id,
         user_id=game.host_id,
@@ -700,6 +743,27 @@ async def _build_game_response(
         position_type=ParticipantType.SELF_ADDED,
         position=0,
     )
+
+
+async def _build_game_response(
+    game: game_model.GameSession,
+) -> game_schemas.GameResponse:
+    """
+    Build GameResponse from GameSession model with resolved display names.
+
+    Args:
+        game: Game session model with participants and guild loaded
+
+    Returns:
+        Game response schema with resolved display names and sorted participants
+    """
+    participant_count = len(game.participants)
+    partitioned = participant_sorting.partition_participants(game.participants, game.max_players)
+
+    display_data_map, host_discord_id = await _resolve_display_data(game, partitioned)
+    channel_name, guild_name = await _fetch_discord_names(game)
+    participant_responses = _build_participant_responses(partitioned, display_data_map)
+    host_response = _build_host_response(game, host_discord_id, display_data_map)
 
     return game_schemas.GameResponse(
         id=game.id,

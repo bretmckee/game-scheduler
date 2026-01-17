@@ -19,18 +19,26 @@
 """
 Unit tests for games route helper functions.
 
-Tests the extracted helper functions from update_game refactoring.
+Tests the extracted helper functions from update_game and _build_game_response refactoring.
 """
 
 import json
 from datetime import UTC, datetime
 from io import BytesIO
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import HTTPException, UploadFile
 
-from services.api.routes.games import _parse_update_form_data, _process_image_upload
+from services.api.routes.games import (
+    _build_host_response,
+    _build_participant_responses,
+    _fetch_discord_names,
+    _parse_update_form_data,
+    _process_image_upload,
+    _resolve_display_data,
+)
+from shared.models.participant import ParticipantType
 
 
 class TestParseUpdateFormData:
@@ -228,3 +236,179 @@ class TestProcessImageUpload:
 
         assert exc_info.value.status_code == 400
         assert "less than 5MB" in exc_info.value.detail
+
+
+class TestBuildGameResponseHelpers:
+    """Tests for _build_game_response helper functions."""
+
+    @patch("services.api.routes.games.display_names_module.get_display_name_resolver")
+    async def test_resolve_display_data_with_participants_and_host(
+        self, mock_get_resolver, sample_game, sample_partitioned_participants
+    ):
+        """Resolve display data for participants and host."""
+        mock_resolver = AsyncMock()
+        mock_resolver.resolve_display_names_and_avatars = AsyncMock(
+            return_value={
+                "discord123": {"display_name": "User1", "avatar_url": "http://avatar1.com"},
+                "discord456": {"display_name": "User2", "avatar_url": "http://avatar2.com"},
+                "host_discord": {"display_name": "Host", "avatar_url": "http://host.com"},
+            }
+        )
+        mock_get_resolver.return_value = mock_resolver
+
+        sample_game.host = MagicMock()
+        sample_game.host.discord_id = "host_discord"
+        sample_game.guild_id = "guild123"
+        sample_game.guild = MagicMock()
+        sample_game.guild.guild_id = "guild123"
+
+        display_data_map, host_discord_id = await _resolve_display_data(
+            sample_game, sample_partitioned_participants
+        )
+
+        assert host_discord_id == "host_discord"
+        assert "discord123" in display_data_map
+        assert "host_discord" in display_data_map
+        mock_resolver.resolve_display_names_and_avatars.assert_called_once()
+
+    async def test_resolve_display_data_without_guild(
+        self, sample_game, sample_partitioned_participants
+    ):
+        """Display data map empty when no guild."""
+        sample_game.guild_id = None
+
+        display_data_map, host_discord_id = await _resolve_display_data(
+            sample_game, sample_partitioned_participants
+        )
+
+        assert display_data_map == {}
+        assert host_discord_id is None
+
+    @patch("services.api.routes.games.fetch_guild_name_safe")
+    @patch("services.api.routes.games.fetch_channel_name_safe")
+    async def test_fetch_discord_names_with_channel_and_guild(
+        self, mock_fetch_channel, mock_fetch_guild, sample_game
+    ):
+        """Fetch both channel and guild names."""
+        mock_fetch_channel.return_value = "general"
+        mock_fetch_guild.return_value = "Test Guild"
+
+        sample_game.channel = MagicMock()
+        sample_game.channel.channel_id = "channel123"
+        sample_game.guild = MagicMock()
+        sample_game.guild.guild_id = "guild123"
+
+        channel_name, guild_name = await _fetch_discord_names(sample_game)
+
+        assert channel_name == "general"
+        assert guild_name == "Test Guild"
+        mock_fetch_channel.assert_called_once_with("channel123")
+        mock_fetch_guild.assert_called_once_with("guild123")
+
+    async def test_fetch_discord_names_without_channel_and_guild(self, sample_game):
+        """Return None when no channel or guild."""
+        sample_game.channel = None
+        sample_game.guild = None
+
+        channel_name, guild_name = await _fetch_discord_names(sample_game)
+
+        assert channel_name is None
+        assert guild_name is None
+
+    def test_build_participant_responses(self, sample_partitioned_participants):
+        """Build participant response list from partitioned data."""
+        display_data_map = {
+            "discord123": {"display_name": "User1", "avatar_url": "http://avatar1.com"},
+            "discord456": {"display_name": "User2", "avatar_url": "http://avatar2.com"},
+        }
+
+        responses = _build_participant_responses(sample_partitioned_participants, display_data_map)
+
+        assert len(responses) == 2
+        assert responses[0].discord_id == "discord123"
+        assert responses[0].display_name == "User1"
+        assert responses[0].avatar_url == "http://avatar1.com"
+        assert responses[1].discord_id == "discord456"
+        assert responses[1].display_name == "User2"
+
+    def test_build_participant_responses_with_placeholder(self, sample_partitioned_participants):
+        """Build participant responses with placeholder participant."""
+        sample_partitioned_participants.all_sorted[0].user = None
+        sample_partitioned_participants.all_sorted[0].display_name = "Placeholder"
+
+        responses = _build_participant_responses(sample_partitioned_participants, {})
+
+        assert len(responses) == 2
+        assert responses[0].discord_id is None
+        assert responses[0].display_name == "Placeholder"
+        assert responses[0].avatar_url is None
+
+    def test_build_host_response_with_display_data(self, sample_game):
+        """Build host response with display data."""
+        display_data_map = {
+            "host_discord": {"display_name": "Host", "avatar_url": "http://host.com"}
+        }
+
+        response = _build_host_response(sample_game, "host_discord", display_data_map)
+
+        assert response.id == sample_game.host_id
+        assert response.discord_id == "host_discord"
+        assert response.display_name == "Host"
+        assert response.avatar_url == "http://host.com"
+        assert response.position_type == ParticipantType.SELF_ADDED
+        assert response.position == 0
+
+    def test_build_host_response_without_display_data(self, sample_game):
+        """Build host response without display data."""
+        response = _build_host_response(sample_game, "host_discord", {})
+
+        assert response.id == sample_game.host_id
+        assert response.discord_id == "host_discord"
+        assert response.display_name is None
+        assert response.avatar_url is None
+
+
+@pytest.fixture
+def sample_game():
+    """Create sample game for testing."""
+    game = MagicMock()
+    game.id = "game123"
+    game.host_id = "host123"
+    game.host = MagicMock()
+    game.host.discord_id = None
+    game.created_at = datetime(2026, 1, 15, 10, 0, 0, tzinfo=UTC)
+    game.participants = []
+    game.guild_id = "guild123"
+    game.channel = None
+    game.guild = None
+    return game
+
+
+@pytest.fixture
+def sample_partitioned_participants():
+    """Create sample partitioned participants."""
+    part1 = MagicMock()
+    part1.id = "part1"
+    part1.game_session_id = "game123"
+    part1.user_id = "user1"
+    part1.user = MagicMock()
+    part1.user.discord_id = "discord123"
+    part1.display_name = "OldName1"
+    part1.joined_at = datetime(2026, 1, 15, 10, 0, 0, tzinfo=UTC)
+    part1.position_type = ParticipantType.SELF_ADDED
+    part1.position = 1
+
+    part2 = MagicMock()
+    part2.id = "part2"
+    part2.game_session_id = "game123"
+    part2.user_id = "user2"
+    part2.user = MagicMock()
+    part2.user.discord_id = "discord456"
+    part2.display_name = "OldName2"
+    part2.joined_at = datetime(2026, 1, 15, 10, 5, 0, tzinfo=UTC)
+    part2.position_type = ParticipantType.SELF_ADDED
+    part2.position = 2
+
+    partitioned = MagicMock()
+    partitioned.all_sorted = [part1, part2]
+    return partitioned
