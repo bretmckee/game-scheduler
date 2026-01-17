@@ -3041,3 +3041,242 @@ async def test_create_game_validates_signup_method_against_allowed_list(
                 host_user_id=sample_user.id,
                 access_token="token",
             )
+
+
+# Tests for _separate_existing_and_new_participants
+
+
+def test_separate_existing_and_new_participants_with_existing_only(game_service):
+    """Test separation with only existing participant IDs."""
+    participant_data = [
+        {"participant_id": "id-1", "position": 1},
+        {"participant_id": "id-2", "position": 2},
+        {"participant_id": "id-3", "position": 3},
+    ]
+
+    existing_ids, mentions = game_service._separate_existing_and_new_participants(participant_data)
+
+    assert existing_ids == {"id-1", "id-2", "id-3"}
+    assert mentions == []
+
+
+def test_separate_existing_and_new_participants_with_mentions_only(game_service):
+    """Test separation with only new mentions."""
+    participant_data = [
+        {"mention": "@user1", "position": 1},
+        {"mention": "@user2", "position": 2},
+        {"mention": "placeholder", "position": 3},
+    ]
+
+    existing_ids, mentions = game_service._separate_existing_and_new_participants(participant_data)
+
+    assert existing_ids == set()
+    assert mentions == [("@user1", 1), ("@user2", 2), ("placeholder", 3)]
+
+
+def test_separate_existing_and_new_participants_mixed(game_service):
+    """Test separation with both existing IDs and new mentions."""
+    participant_data = [
+        {"participant_id": "id-1", "position": 1},
+        {"mention": "@user1", "position": 2},
+        {"participant_id": "id-2", "position": 3},
+        {"mention": "placeholder", "position": 4},
+    ]
+
+    existing_ids, mentions = game_service._separate_existing_and_new_participants(participant_data)
+
+    assert existing_ids == {"id-1", "id-2"}
+    assert mentions == [("@user1", 2), ("placeholder", 4)]
+
+
+def test_separate_existing_and_new_participants_ignores_empty_mentions(game_service):
+    """Test that empty or whitespace-only mentions are ignored."""
+    participant_data = [
+        {"participant_id": "id-1", "position": 1},
+        {"mention": "", "position": 2},
+        {"mention": "   ", "position": 3},
+        {"mention": "@user1", "position": 4},
+    ]
+
+    existing_ids, mentions = game_service._separate_existing_and_new_participants(participant_data)
+
+    assert existing_ids == {"id-1"}
+    assert mentions == [("@user1", 4)]
+
+
+def test_separate_existing_and_new_participants_uses_default_position(game_service):
+    """Test that position defaults to 0 when not provided."""
+    participant_data = [
+        {"mention": "@user1"},
+        {"mention": "@user2", "position": 5},
+    ]
+
+    existing_ids, mentions = game_service._separate_existing_and_new_participants(participant_data)
+
+    assert existing_ids == set()
+    assert mentions == [("@user1", 0), ("@user2", 5)]
+
+
+# Tests for _remove_outdated_participants
+
+
+@pytest.mark.asyncio
+async def test_remove_outdated_participants_removes_missing_ids(game_service):
+    """Test that participants not in existing_ids are deleted."""
+    participant1 = MagicMock(id="id-1")
+    participant2 = MagicMock(id="id-2")
+    participant3 = MagicMock(id="id-3")
+    current_participants = [participant1, participant2, participant3]
+
+    existing_ids = {"id-1", "id-3"}
+
+    await game_service._remove_outdated_participants(current_participants, existing_ids)
+
+    game_service.db.delete.assert_called_once_with(participant2)
+
+
+@pytest.mark.asyncio
+async def test_remove_outdated_participants_keeps_all_when_all_present(game_service):
+    """Test that no participants are deleted when all IDs are in existing_ids."""
+    participant1 = MagicMock(id="id-1")
+    participant2 = MagicMock(id="id-2")
+    current_participants = [participant1, participant2]
+
+    existing_ids = {"id-1", "id-2"}
+
+    await game_service._remove_outdated_participants(current_participants, existing_ids)
+
+    game_service.db.delete.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_remove_outdated_participants_removes_multiple(game_service):
+    """Test that multiple outdated participants are deleted."""
+    participant1 = MagicMock(id="id-1")
+    participant2 = MagicMock(id="id-2")
+    participant3 = MagicMock(id="id-3")
+    participant4 = MagicMock(id="id-4")
+    current_participants = [participant1, participant2, participant3, participant4]
+
+    existing_ids = {"id-2"}
+
+    await game_service._remove_outdated_participants(current_participants, existing_ids)
+
+    assert game_service.db.delete.call_count == 3
+    game_service.db.delete.assert_any_call(participant1)
+    game_service.db.delete.assert_any_call(participant3)
+    game_service.db.delete.assert_any_call(participant4)
+
+
+@pytest.mark.asyncio
+async def test_remove_outdated_participants_empty_list(game_service):
+    """Test that no deletions occur with empty participant list."""
+    current_participants = []
+    existing_ids = {"id-1"}
+
+    await game_service._remove_outdated_participants(current_participants, existing_ids)
+
+    game_service.db.delete.assert_not_called()
+
+
+# Tests for _update_participant_positions
+
+
+def test_update_participant_positions_updates_matching_ids(game_service):
+    """Test that positions are updated for matching participant IDs."""
+    participant1 = MagicMock(id="id-1", position=0)
+    participant2 = MagicMock(id="id-2", position=0)
+    participant3 = MagicMock(id="id-3", position=0)
+    current_participants = [participant1, participant2, participant3]
+
+    participant_data = [
+        {"participant_id": "id-1", "position": 10},
+        {"participant_id": "id-2", "position": 20},
+        {"participant_id": "id-3", "position": 30},
+    ]
+
+    game_service._update_participant_positions(current_participants, participant_data)
+
+    assert participant1.position == 10
+    assert participant2.position == 20
+    assert participant3.position == 30
+
+
+def test_update_participant_positions_ignores_non_matching_ids(game_service):
+    """Test that positions are not changed for non-matching IDs."""
+    participant1 = MagicMock(id="id-1", position=5)
+    participant2 = MagicMock(id="id-2", position=10)
+    current_participants = [participant1, participant2]
+
+    participant_data = [
+        {"participant_id": "id-99", "position": 100},
+    ]
+
+    game_service._update_participant_positions(current_participants, participant_data)
+
+    assert participant1.position == 5
+    assert participant2.position == 10
+
+
+def test_update_participant_positions_ignores_mentions(game_service):
+    """Test that mention-only data (no participant_id) is ignored."""
+    participant1 = MagicMock(id="id-1", position=5)
+    participant2 = MagicMock(id="id-2", position=10)
+    current_participants = [participant1, participant2]
+
+    participant_data = [
+        {"mention": "@user1", "position": 100},
+        {"mention": "placeholder", "position": 200},
+    ]
+
+    game_service._update_participant_positions(current_participants, participant_data)
+
+    assert participant1.position == 5
+    assert participant2.position == 10
+
+
+def test_update_participant_positions_partial_updates(game_service):
+    """Test that only specified participants are updated."""
+    participant1 = MagicMock(id="id-1", position=5)
+    participant2 = MagicMock(id="id-2", position=10)
+    participant3 = MagicMock(id="id-3", position=15)
+    current_participants = [participant1, participant2, participant3]
+
+    participant_data = [
+        {"participant_id": "id-1", "position": 100},
+        {"participant_id": "id-3", "position": 300},
+    ]
+
+    game_service._update_participant_positions(current_participants, participant_data)
+
+    assert participant1.position == 100
+    assert participant2.position == 10
+    assert participant3.position == 300
+
+
+def test_update_participant_positions_uses_default_position(game_service):
+    """Test that position defaults to 0 when not provided."""
+    participant1 = MagicMock(id="id-1", position=5)
+    current_participants = [participant1]
+
+    participant_data = [
+        {"participant_id": "id-1"},
+    ]
+
+    game_service._update_participant_positions(current_participants, participant_data)
+
+    assert participant1.position == 0
+
+
+def test_update_participant_positions_empty_data(game_service):
+    """Test that no changes occur with empty participant data."""
+    participant1 = MagicMock(id="id-1", position=5)
+    participant2 = MagicMock(id="id-2", position=10)
+    current_participants = [participant1, participant2]
+
+    participant_data = []
+
+    game_service._update_participant_positions(current_participants, participant_data)
+
+    assert participant1.position == 5
+    assert participant2.position == 10

@@ -838,6 +838,69 @@ class GameService:
                 await self.db.delete(participant)
         await self.db.flush()
 
+    def _separate_existing_and_new_participants(
+        self, participant_data_list: list[dict[str, Any]]
+    ) -> tuple[set[str], list[tuple[str, int]]]:
+        """
+        Separate existing participant IDs from new mentions.
+
+        Args:
+            participant_data_list: List of participant data dicts
+
+        Returns:
+            Tuple of (existing_participant_ids, mentions_with_positions)
+        """
+        existing_participant_ids = set()
+        mentions_with_positions = []
+
+        for participant_data in participant_data_list:
+            if participant_data.get("participant_id"):
+                existing_participant_ids.add(participant_data["participant_id"])
+            elif str(participant_data.get("mention", "")).strip():
+                mentions_with_positions.append((
+                    str(participant_data["mention"]),
+                    int(participant_data.get("position", 0)),
+                ))
+
+        return existing_participant_ids, mentions_with_positions
+
+    async def _remove_outdated_participants(
+        self,
+        current_participants: Sequence[participant_model.GameParticipant],
+        existing_participant_ids: set[str],
+    ) -> None:
+        """
+        Remove pre-filled participants not in the existing list.
+
+        Args:
+            current_participants: Current host-added participants
+            existing_participant_ids: Set of participant IDs to keep
+        """
+        for p in current_participants:
+            if p.id not in existing_participant_ids:
+                await self.db.delete(p)
+
+    def _update_participant_positions(
+        self,
+        current_participants: Sequence[participant_model.GameParticipant],
+        participant_data_list: list[dict[str, Any]],
+    ) -> None:
+        """
+        Update positions for existing participants.
+
+        Args:
+            current_participants: Current host-added participants
+            participant_data_list: List of participant data dicts with positions
+        """
+        for participant_data in participant_data_list:
+            if participant_data.get("participant_id"):
+                participant_id = str(participant_data["participant_id"])
+                position = int(participant_data.get("position", 0))
+                for p in current_participants:
+                    if p.id == participant_id:
+                        p.position = position
+                        break
+
     async def _update_prefilled_participants(
         self,
         game: game_model.GameSession,
@@ -863,32 +926,16 @@ class GameService:
         current_participants = current_prefilled.scalars().all()
 
         # Separate existing participants (by ID) from new mentions
-        existing_participant_ids = set()
-        mentions_with_positions = []
-
-        for participant_data in participant_data_list:
-            if participant_data.get("participant_id"):
-                existing_participant_ids.add(participant_data["participant_id"])
-            elif str(participant_data.get("mention", "")).strip():
-                mentions_with_positions.append((
-                    str(participant_data["mention"]),
-                    int(participant_data.get("position", 0)),
-                ))
+        (
+            existing_participant_ids,
+            mentions_with_positions,
+        ) = self._separate_existing_and_new_participants(participant_data_list)
 
         # Remove pre-filled participants not in the existing list
-        for p in current_participants:
-            if p.id not in existing_participant_ids:
-                await self.db.delete(p)
+        await self._remove_outdated_participants(current_participants, existing_participant_ids)
 
         # Update positions for existing participants
-        for participant_data in participant_data_list:
-            if participant_data.get("participant_id"):
-                participant_id = str(participant_data["participant_id"])
-                position = int(participant_data.get("position", 0))
-                for p in current_participants:
-                    if p.id == participant_id:
-                        p.position = position
-                        break
+        self._update_participant_positions(current_participants, participant_data_list)
 
         await self.db.flush()
 
