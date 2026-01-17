@@ -142,6 +142,98 @@ class DisplayNameResolver:
 
         return result
 
+    async def _check_cache_for_users(
+        self, guild_id: str, user_ids: list[str]
+    ) -> tuple[dict[str, dict[str, str | None]], list[str]]:
+        """
+        Check cache for user display names and avatars.
+
+        Args:
+            guild_id: Discord guild ID
+            user_ids: List of user IDs to check
+
+        Returns:
+            Tuple of (cached_results, uncached_ids)
+        """
+        cached_results = {}
+        uncached_ids = []
+
+        for user_id in user_ids:
+            cache_key = cache_keys.CacheKeys.display_name_avatar(user_id, guild_id)
+            if self.cache:
+                cached = await self.cache.get(cache_key)
+                if cached:
+                    try:
+                        cached_results[user_id] = json.loads(cached)
+                        continue
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+            uncached_ids.append(user_id)
+
+        return cached_results, uncached_ids
+
+    async def _fetch_and_cache_display_names_avatars(
+        self, guild_id: str, uncached_ids: list[str]
+    ) -> dict[str, dict[str, str | None]]:
+        """
+        Fetch display names and avatars from Discord API and cache them.
+
+        Args:
+            guild_id: Discord guild ID
+            uncached_ids: User IDs not found in cache
+
+        Returns:
+            Dictionary mapping user IDs to display_name and avatar_url
+        """
+        result = {}
+        members = await self.discord_api.get_guild_members_batch(guild_id, uncached_ids)
+
+        for member in members:
+            user_id = member["user"]["id"]
+            display_name = (
+                member.get("nick")
+                or member["user"].get("global_name")
+                or member["user"]["username"]
+            )
+
+            member_avatar = member.get("avatar")
+            user_avatar = member["user"].get("avatar")
+            avatar_url = self._build_avatar_url(user_id, guild_id, member_avatar, user_avatar)
+
+            user_data = {"display_name": display_name, "avatar_url": avatar_url}
+            result[user_id] = user_data
+
+            if self.cache:
+                cache_key = cache_keys.CacheKeys.display_name_avatar(user_id, guild_id)
+                await self.cache.set(
+                    cache_key,
+                    json.dumps(user_data),
+                    ttl=cache_ttl.CacheTTL.DISPLAY_NAME,
+                )
+
+        found_ids = {m["user"]["id"] for m in members}
+        for user_id in uncached_ids:
+            if user_id not in found_ids:
+                result[user_id] = {"display_name": "Unknown User", "avatar_url": None}
+
+        return result
+
+    @staticmethod
+    def _create_fallback_user_data(user_ids: list[str]) -> dict[str, dict[str, str | None]]:
+        """
+        Create fallback user data for error cases.
+
+        Args:
+            user_ids: User IDs to create fallback data for
+
+        Returns:
+            Dictionary mapping user IDs to fallback display names
+        """
+        return {
+            user_id: {"display_name": f"User#{user_id[-4:]}", "avatar_url": None}
+            for user_id in user_ids
+        }
+
     async def resolve_display_names_and_avatars(
         self, guild_id: str, user_ids: list[str]
     ) -> dict[str, dict[str, str | None]]:
@@ -159,64 +251,18 @@ class DisplayNameResolver:
         Returns:
             Dictionary mapping user IDs to dicts with display_name and avatar_url
         """
-        result = {}
-        uncached_ids = []
-
-        for user_id in user_ids:
-            cache_key = cache_keys.CacheKeys.display_name_avatar(user_id, guild_id)
-            if self.cache:
-                cached = await self.cache.get(cache_key)
-                if cached:
-                    try:
-                        result[user_id] = json.loads(cached)
-                        continue
-                    except (json.JSONDecodeError, TypeError):
-                        pass
-            uncached_ids.append(user_id)
+        result, uncached_ids = await self._check_cache_for_users(guild_id, user_ids)
 
         if uncached_ids:
             try:
-                members = await self.discord_api.get_guild_members_batch(guild_id, uncached_ids)
-
-                for member in members:
-                    user_id = member["user"]["id"]
-                    display_name = (
-                        member.get("nick")
-                        or member["user"].get("global_name")
-                        or member["user"]["username"]
-                    )
-
-                    member_avatar = member.get("avatar")
-                    user_avatar = member["user"].get("avatar")
-                    avatar_url = self._build_avatar_url(
-                        user_id, guild_id, member_avatar, user_avatar
-                    )
-
-                    user_data = {"display_name": display_name, "avatar_url": avatar_url}
-                    result[user_id] = user_data
-
-                    if self.cache:
-                        cache_key = cache_keys.CacheKeys.display_name_avatar(user_id, guild_id)
-                        await self.cache.set(
-                            cache_key,
-                            json.dumps(user_data),
-                            ttl=cache_ttl.CacheTTL.DISPLAY_NAME,
-                        )
-
-                found_ids = {m["user"]["id"] for m in members}
-                for user_id in uncached_ids:
-                    if user_id not in found_ids:
-                        user_data = {"display_name": "Unknown User", "avatar_url": None}
-                        result[user_id] = user_data
-
+                fetched_data = await self._fetch_and_cache_display_names_avatars(
+                    guild_id, uncached_ids
+                )
+                result.update(fetched_data)
             except discord_client.DiscordAPIError as e:
                 logger.error(f"Failed to fetch display names and avatars: {e}")
-                for user_id in uncached_ids:
-                    user_data = {
-                        "display_name": f"User#{user_id[-4:]}",
-                        "avatar_url": None,
-                    }
-                    result[user_id] = user_data
+                fallback_data = self._create_fallback_user_data(uncached_ids)
+                result.update(fallback_data)
 
         return result
 
