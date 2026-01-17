@@ -387,3 +387,312 @@ class TestRetryDaemon:
 
             # Should NACK message due to RuntimeError
             mock_channel.basic_nack.assert_called_once_with(1, requeue=True)
+
+
+class TestRetryDaemonHelpers:
+    """Test suite for RetryDaemon extracted helper methods."""
+
+    @pytest.fixture
+    def daemon(self):
+        """Create RetryDaemon instance for testing."""
+        return RetryDaemon(
+            rabbitmq_url="amqp://guest:guest@localhost:5672/",
+            retry_interval_seconds=60,
+        )
+
+    def test_check_dlq_depth(self, daemon):
+        """Test _check_dlq_depth returns message count."""
+        mock_channel = Mock()
+        Method = namedtuple("Method", ["message_count"])
+        mock_queue_state = Mock()
+        mock_queue_state.method = Method(message_count=42)
+        mock_channel.queue_declare.return_value = mock_queue_state
+
+        result = daemon._check_dlq_depth(mock_channel, QUEUE_BOT_EVENTS_DLQ)
+
+        assert result == 42
+        mock_channel.queue_declare.assert_called_once_with(queue=QUEUE_BOT_EVENTS_DLQ, durable=True)
+
+    def test_process_single_message_success(self, daemon):
+        """Test _process_single_message successfully processes a message."""
+        mock_publisher = Mock()
+        daemon.publisher = mock_publisher
+
+        mock_channel = Mock()
+        mock_method = Mock()
+        mock_method.delivery_tag = 123
+
+        mock_properties = Mock()
+        mock_properties.message_id = "msg-456"
+        mock_properties.headers = {"x-death": [{"routing-keys": ["game.created"]}]}
+        mock_properties.routing_key = "game.created"
+
+        event = Event(
+            event_type=EventType.GAME_CREATED,
+            data={"game_id": "789"},
+        )
+        body = event.model_dump_json().encode()
+
+        result = daemon._process_single_message(
+            mock_channel,
+            QUEUE_BOT_EVENTS_DLQ,
+            mock_method,
+            mock_properties,
+            body,
+        )
+
+        assert result is True
+        mock_publisher.publish.assert_called_once()
+        mock_channel.basic_ack.assert_called_once_with(123)
+
+    def test_process_single_message_with_retry_count(self, daemon):
+        """Test _process_single_message records retry count from x-death."""
+        mock_publisher = Mock()
+        daemon.publisher = mock_publisher
+
+        mock_channel = Mock()
+        mock_method = Mock()
+        mock_method.delivery_tag = 123
+
+        mock_properties = Mock()
+        mock_properties.message_id = "msg-456"
+        mock_properties.headers = {
+            "x-death": [
+                {
+                    "routing-keys": ["game.created"],
+                    "count": 5,
+                }
+            ]
+        }
+        mock_properties.routing_key = "game.created"
+
+        event = Event(
+            event_type=EventType.GAME_CREATED,
+            data={"game_id": "789"},
+        )
+        body = event.model_dump_json().encode()
+
+        result = daemon._process_single_message(
+            mock_channel,
+            QUEUE_BOT_EVENTS_DLQ,
+            mock_method,
+            mock_properties,
+            body,
+        )
+
+        assert result is True
+
+    def test_process_single_message_publisher_not_initialized(self, daemon):
+        """Test _process_single_message handles missing publisher."""
+        daemon.publisher = None
+
+        mock_channel = Mock()
+        mock_method = Mock()
+        mock_method.delivery_tag = 123
+
+        mock_properties = Mock()
+        mock_properties.message_id = "msg-456"
+        mock_properties.headers = None
+        mock_properties.routing_key = "game.created"
+
+        event = Event(
+            event_type=EventType.GAME_CREATED,
+            data={"game_id": "789"},
+        )
+        body = event.model_dump_json().encode()
+
+        result = daemon._process_single_message(
+            mock_channel,
+            QUEUE_BOT_EVENTS_DLQ,
+            mock_method,
+            mock_properties,
+            body,
+        )
+
+        assert result is False
+        mock_channel.basic_nack.assert_called_once_with(123, requeue=True)
+
+    def test_process_single_message_publish_failure(self, daemon):
+        """Test _process_single_message handles publish errors."""
+        mock_publisher = Mock()
+        mock_publisher.publish.side_effect = Exception("Publish failed")
+        daemon.publisher = mock_publisher
+
+        mock_channel = Mock()
+        mock_method = Mock()
+        mock_method.delivery_tag = 123
+
+        mock_properties = Mock()
+        mock_properties.message_id = "msg-456"
+        mock_properties.headers = None
+        mock_properties.routing_key = "game.created"
+
+        event = Event(
+            event_type=EventType.GAME_CREATED,
+            data={"game_id": "789"},
+        )
+        body = event.model_dump_json().encode()
+
+        result = daemon._process_single_message(
+            mock_channel,
+            QUEUE_BOT_EVENTS_DLQ,
+            mock_method,
+            mock_properties,
+            body,
+        )
+
+        assert result is False
+        mock_channel.basic_nack.assert_called_once_with(123, requeue=True)
+
+    def test_process_single_message_invalid_json(self, daemon):
+        """Test _process_single_message handles invalid JSON."""
+        mock_publisher = Mock()
+        daemon.publisher = mock_publisher
+
+        mock_channel = Mock()
+        mock_method = Mock()
+        mock_method.delivery_tag = 123
+
+        mock_properties = Mock()
+        mock_properties.message_id = "msg-456"
+        mock_properties.headers = None
+        mock_properties.routing_key = "game.created"
+
+        body = b"invalid json"
+
+        result = daemon._process_single_message(
+            mock_channel,
+            QUEUE_BOT_EVENTS_DLQ,
+            mock_method,
+            mock_properties,
+            body,
+        )
+
+        assert result is False
+        mock_channel.basic_nack.assert_called_once_with(123, requeue=True)
+
+    def test_consume_and_process_messages(self, daemon):
+        """Test _consume_and_process_messages processes all messages."""
+        mock_channel = Mock()
+
+        Method = namedtuple("Method", ["delivery_tag"])
+        mock_method1 = Method(delivery_tag=1)
+        mock_method2 = Method(delivery_tag=2)
+
+        mock_properties1 = Mock()
+        mock_properties2 = Mock()
+
+        event1 = Event(event_type=EventType.GAME_CREATED, data={})
+        event2 = Event(event_type=EventType.GAME_UPDATED, data={})
+
+        body1 = event1.model_dump_json().encode()
+        body2 = event2.model_dump_json().encode()
+
+        mock_channel.consume.return_value = [
+            (mock_method1, mock_properties1, body1),
+            (mock_method2, mock_properties2, body2),
+        ]
+
+        with patch.object(daemon, "_process_single_message") as mock_process:
+            mock_process.side_effect = [True, True]
+
+            processed, failed = daemon._consume_and_process_messages(
+                mock_channel, QUEUE_BOT_EVENTS_DLQ, 2
+            )
+
+        assert processed == 2
+        assert failed == 0
+        assert mock_process.call_count == 2
+
+    def test_consume_and_process_messages_with_failures(self, daemon):
+        """Test _consume_and_process_messages counts failures."""
+        mock_channel = Mock()
+
+        Method = namedtuple("Method", ["delivery_tag"])
+        mock_method1 = Method(delivery_tag=1)
+        mock_method2 = Method(delivery_tag=2)
+        mock_method3 = Method(delivery_tag=3)
+
+        mock_properties = Mock()
+        event = Event(event_type=EventType.GAME_CREATED, data={})
+        body = event.model_dump_json().encode()
+
+        mock_channel.consume.return_value = [
+            (mock_method1, mock_properties, body),
+            (mock_method2, mock_properties, body),
+            (mock_method3, mock_properties, body),
+        ]
+
+        with patch.object(daemon, "_process_single_message") as mock_process:
+            mock_process.side_effect = [True, False, True]
+
+            processed, failed = daemon._consume_and_process_messages(
+                mock_channel, QUEUE_BOT_EVENTS_DLQ, 3
+            )
+
+        assert processed == 2
+        assert failed == 1
+
+    def test_consume_and_process_messages_stops_at_count(self, daemon):
+        """Test _consume_and_process_messages stops at expected count."""
+        mock_channel = Mock()
+
+        Method = namedtuple("Method", ["delivery_tag"])
+        mock_method = Method(delivery_tag=1)
+        mock_properties = Mock()
+        event = Event(event_type=EventType.GAME_CREATED, data={})
+        body = event.model_dump_json().encode()
+
+        # Provide more messages than expected
+        mock_channel.consume.return_value = [
+            (mock_method, mock_properties, body),
+            (mock_method, mock_properties, body),
+            (mock_method, mock_properties, body),
+        ]
+
+        with patch.object(daemon, "_process_single_message") as mock_process:
+            mock_process.return_value = True
+
+            processed, failed = daemon._consume_and_process_messages(
+                mock_channel, QUEUE_BOT_EVENTS_DLQ, 2
+            )
+
+        # Should stop after processing expected count
+        assert processed == 2
+        assert failed == 0
+        assert mock_process.call_count == 2
+
+    @patch("services.retry.retry_daemon.time")
+    def test_update_health_tracking_success(self, mock_time, daemon):
+        """Test _update_health_tracking records success."""
+        mock_time.time.return_value = 1234567890.0
+
+        daemon._update_health_tracking(QUEUE_BOT_EVENTS_DLQ, processed=5, failed=0)
+
+        assert daemon.last_successful_processing_time[QUEUE_BOT_EVENTS_DLQ] == 1234567890.0
+        assert daemon.consecutive_failures[QUEUE_BOT_EVENTS_DLQ] == 0
+
+    @patch("services.retry.retry_daemon.time")
+    def test_update_health_tracking_partial_success(self, mock_time, daemon):
+        """Test _update_health_tracking with some processed messages."""
+        mock_time.time.return_value = 1234567890.0
+
+        daemon._update_health_tracking(QUEUE_BOT_EVENTS_DLQ, processed=3, failed=2)
+
+        assert daemon.last_successful_processing_time[QUEUE_BOT_EVENTS_DLQ] == 1234567890.0
+        assert daemon.consecutive_failures[QUEUE_BOT_EVENTS_DLQ] == 0
+
+    def test_update_health_tracking_all_failed(self, daemon):
+        """Test _update_health_tracking increments failure count."""
+        daemon.consecutive_failures[QUEUE_BOT_EVENTS_DLQ] = 2
+
+        daemon._update_health_tracking(QUEUE_BOT_EVENTS_DLQ, processed=0, failed=5)
+
+        assert daemon.consecutive_failures[QUEUE_BOT_EVENTS_DLQ] == 3
+        assert QUEUE_BOT_EVENTS_DLQ not in daemon.last_successful_processing_time
+
+    def test_update_health_tracking_no_failures_from_zero(self, daemon):
+        """Test _update_health_tracking with no failures from clean state."""
+        daemon._update_health_tracking(QUEUE_BOT_EVENTS_DLQ, processed=0, failed=0)
+
+        assert daemon.consecutive_failures[QUEUE_BOT_EVENTS_DLQ] == 0
