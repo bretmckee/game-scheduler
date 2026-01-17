@@ -637,6 +637,87 @@ class EventHandlers:
                 f"game={notification.game_id}, type={notification.notification_type}"
             )
 
+    async def _update_message_for_player_removal(
+        self, game_id: str, message_id: str, channel_id: str
+    ) -> None:
+        """
+        Update Discord message to reflect player removal.
+
+        Args:
+            game_id: Game ID
+            message_id: Discord message ID
+            channel_id: Discord channel ID
+        """
+        async with get_db_session() as db:
+            game = await self._get_game_with_participants(db, game_id)
+            if not game:
+                logger.error(f"Game not found: {game_id}")
+                return
+
+            channel = self.bot.get_channel(int(channel_id))
+            if not channel:
+                channel = await self.bot.fetch_channel(int(channel_id))
+
+            if not channel or not isinstance(channel, discord.TextChannel):
+                logger.error(f"Invalid or inaccessible channel: {channel_id}")
+                return
+
+            try:
+                message = await channel.fetch_message(int(message_id))
+                content, embed, view = await self._create_game_announcement(game)
+                await message.edit(content=content, embed=embed, view=view)
+                logger.info(f"Updated game message after participant removal: {message_id}")
+
+            except discord.NotFound:
+                logger.warning(f"Game message not found: {message_id}")
+            except Exception as e:
+                logger.error(f"Failed to update game message: {e}", exc_info=True)
+
+    def _build_removal_dm_message(self, game_title: str, game_scheduled_at: str | None) -> str:
+        """
+        Build DM message for removed player.
+
+        Args:
+            game_title: Title of the game
+            game_scheduled_at: ISO format scheduled time, if any
+
+        Returns:
+            Formatted DM message
+        """
+        dm_message = DMFormats.removal(game_title)
+        if game_scheduled_at:
+            try:
+                scheduled_dt = datetime.fromisoformat(game_scheduled_at)
+                dm_message += f" scheduled for <t:{int(scheduled_dt.timestamp())}:F>"
+            except (ValueError, TypeError):
+                pass
+        return dm_message
+
+    async def _notify_removed_player(
+        self, discord_id: str | None, game_title: str, game_scheduled_at: str | None
+    ) -> None:
+        """
+        Send DM notification to removed player.
+
+        Args:
+            discord_id: Discord user ID
+            game_title: Title of the game
+            game_scheduled_at: ISO format scheduled time, if any
+        """
+        if not discord_id:
+            logger.warning("No discord_id provided for removal DM")
+            return
+
+        logger.info(f"Preparing to send removal DM to user {discord_id} for game {game_title}")
+        dm_message = self._build_removal_dm_message(game_title, game_scheduled_at)
+
+        logger.info(f"Sending DM to {discord_id}: {dm_message}")
+        success = await self._send_dm(discord_id, dm_message)
+        if success:
+            logger.info(f"✓ Successfully sent removal DM to user {discord_id}")
+        else:
+            logger.warning(f"Failed to send removal DM to user {discord_id}")
+
     async def _handle_player_removed(self, data: dict[str, Any]) -> None:
         """
         Handle game.player_removed event by updating Discord message and notifying user.
@@ -656,55 +737,8 @@ class EventHandlers:
             return
 
         try:
-            # Update Discord message to reflect removal
-            async with get_db_session() as db:
-                game = await self._get_game_with_participants(db, game_id)
-                if not game:
-                    logger.error(f"Game not found: {game_id}")
-                    return
-
-                channel = self.bot.get_channel(int(channel_id))
-                if not channel:
-                    channel = await self.bot.fetch_channel(int(channel_id))
-
-                if not channel or not isinstance(channel, discord.TextChannel):
-                    logger.error(f"Invalid or inaccessible channel: {channel_id}")
-                    return
-
-                try:
-                    message = await channel.fetch_message(int(message_id))
-
-                    content, embed, view = await self._create_game_announcement(game)
-
-                    await message.edit(content=content, embed=embed, view=view)
-                    logger.info(f"Updated game message after participant removal: {message_id}")
-
-                except discord.NotFound:
-                    logger.warning(f"Game message not found: {message_id}")
-                except Exception as e:
-                    logger.error(f"Failed to update game message: {e}", exc_info=True)
-
-            # Send DM to removed user
-            if discord_id:
-                logger.info(
-                    f"Preparing to send removal DM to user {discord_id} for game {game_title}"
-                )
-                dm_message = DMFormats.removal(game_title)
-                if game_scheduled_at:
-                    try:
-                        scheduled_dt = datetime.fromisoformat(game_scheduled_at)
-                        dm_message += f" scheduled for <t:{int(scheduled_dt.timestamp())}:F>"
-                    except (ValueError, TypeError):
-                        pass
-
-                logger.info(f"Sending DM to {discord_id}: {dm_message}")
-                success = await self._send_dm(discord_id, dm_message)
-                if success:
-                    logger.info(f"✓ Successfully sent removal DM to user {discord_id}")
-                else:
-                    logger.warning(f"Failed to send removal DM to user {discord_id}")
-            else:
-                logger.warning("No discord_id provided for removal DM")
+            await self._update_message_for_player_removal(game_id, message_id, channel_id)
+            await self._notify_removed_player(discord_id, game_title, game_scheduled_at)
 
         except Exception as e:
             logger.error(f"Failed to handle participant removal: {e}", exc_info=True)
