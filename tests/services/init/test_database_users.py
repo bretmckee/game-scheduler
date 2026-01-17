@@ -1,0 +1,218 @@
+#!/usr/bin/env python3
+# Copyright 2025 Bret McKee (bret.mckee@gmail.com)
+#
+# This file is part of Game_Scheduler. (https://github.com/game-scheduler)
+#
+# Game_Scheduler is free software: you can redistribute it and/or
+# modify it under the terms of the GNU Affero General Public License as published
+# by the Free Software Foundation, either version 3 of the License, or (at your
+# option) any later version.
+#
+# Game_Scheduler is distributed in the hope that it will be
+# useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General
+# Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License along
+# with Game_Scheduler If not, see <https://www.gnu.org/licenses/>.
+
+
+"""
+Unit tests for database user creation helpers.
+
+Tests the extracted helper methods for admin, app, and bot user creation
+and permission granting.
+"""
+
+from unittest.mock import MagicMock
+
+from services.init.database_users import (
+    _create_admin_user,
+    _create_app_user,
+    _create_bot_user,
+    _grant_permissions,
+)
+
+
+class TestCreateAdminUser:
+    """Test admin user creation helper."""
+
+    def test_creates_admin_user_with_correct_sql(self):
+        """Verify admin user is created with SUPERUSER privilege."""
+        cursor = MagicMock()
+
+        _create_admin_user(cursor, "test_admin", "test_password")
+
+        assert cursor.execute.called
+        sql_call = cursor.execute.call_args[0][0]
+        params = cursor.execute.call_args[0][1]
+
+        assert "CREATE USER test_admin" in sql_call
+        assert "SUPERUSER" in sql_call
+        assert "Superuser for Alembic migrations" in sql_call
+        assert params == ("test_admin", "test_password")
+
+    def test_checks_for_existing_user(self):
+        """Verify SQL checks if user already exists before creating."""
+        cursor = MagicMock()
+
+        _create_admin_user(cursor, "existing_admin", "password")
+
+        sql = cursor.execute.call_args[0][0]
+        assert "IF NOT EXISTS" in sql
+        assert "SELECT FROM pg_catalog.pg_roles WHERE rolname = %s" in sql
+
+    def test_adds_role_comment(self):
+        """Verify COMMENT is added to explain role purpose."""
+        cursor = MagicMock()
+
+        _create_admin_user(cursor, "admin_user", "pwd")
+
+        sql = cursor.execute.call_args[0][0]
+        assert "COMMENT ON ROLE" in sql
+
+
+class TestCreateAppUser:
+    """Test application user creation helper."""
+
+    def test_creates_app_user_without_superuser(self):
+        """Verify app user is created WITHOUT SUPERUSER for RLS enforcement."""
+        cursor = MagicMock()
+
+        _create_app_user(cursor, "test_app", "test_password")
+
+        sql = cursor.execute.call_args[0][0]
+        params = cursor.execute.call_args[0][1]
+
+        assert "CREATE USER test_app" in sql
+        assert "LOGIN" in sql
+        assert "SUPERUSER" not in sql
+        assert "Non-privileged user for application runtime" in sql
+        assert params == ("test_app", "test_password")
+
+    def test_checks_for_existing_app_user(self):
+        """Verify SQL checks if app user already exists."""
+        cursor = MagicMock()
+
+        _create_app_user(cursor, "existing_app", "password")
+
+        sql = cursor.execute.call_args[0][0]
+        assert "IF NOT EXISTS" in sql
+        assert "SELECT FROM pg_catalog.pg_roles WHERE rolname = %s" in sql
+
+
+class TestCreateBotUser:
+    """Test bot user creation helper."""
+
+    def test_creates_bot_user_with_bypassrls(self):
+        """Verify bot user is created with BYPASSRLS privilege."""
+        cursor = MagicMock()
+
+        _create_bot_user(cursor, "test_bot", "test_password")
+
+        sql = cursor.execute.call_args[0][0]
+        params = cursor.execute.call_args[0][1]
+
+        assert "CREATE USER test_bot" in sql
+        assert "BYPASSRLS" in sql
+        assert "Bot/daemon user - bypasses RLS" in sql
+        assert params == ("test_bot", "test_password")
+
+    def test_bot_user_not_superuser(self):
+        """Verify bot user doesn't get SUPERUSER (security principle)."""
+        cursor = MagicMock()
+
+        _create_bot_user(cursor, "bot_user", "password")
+
+        sql = cursor.execute.call_args[0][0]
+        assert "SUPERUSER" not in sql
+
+    def test_checks_for_existing_bot_user(self):
+        """Verify SQL checks if bot user already exists."""
+        cursor = MagicMock()
+
+        _create_bot_user(cursor, "existing_bot", "password")
+
+        sql = cursor.execute.call_args[0][0]
+        assert "IF NOT EXISTS" in sql
+
+
+class TestGrantPermissions:
+    """Test permission granting helper."""
+
+    def test_grants_connect_permission(self):
+        """Verify CONNECT permission is granted on database."""
+        cursor = MagicMock()
+
+        _grant_permissions(cursor, "target_user", "postgres", "admin", "testdb")
+
+        sql = cursor.execute.call_args[0][0]
+        assert "GRANT CONNECT ON DATABASE testdb TO target_user" in sql
+
+    def test_grants_schema_permissions(self):
+        """Verify USAGE and CREATE permissions granted on public schema."""
+        cursor = MagicMock()
+
+        _grant_permissions(cursor, "target_user", "postgres", "admin", "testdb")
+
+        sql = cursor.execute.call_args[0][0]
+        assert "GRANT USAGE, CREATE ON SCHEMA public TO target_user" in sql
+
+    def test_grants_table_permissions(self):
+        """Verify comprehensive table permissions are granted."""
+        cursor = MagicMock()
+
+        _grant_permissions(cursor, "target_user", "postgres", "admin", "testdb")
+
+        sql = cursor.execute.call_args[0][0]
+        assert "SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER" in sql
+        assert "ON ALL TABLES IN SCHEMA public TO target_user" in sql
+
+    def test_grants_sequence_permissions(self):
+        """Verify sequence permissions are granted."""
+        cursor = MagicMock()
+
+        _grant_permissions(cursor, "target_user", "postgres", "admin", "testdb")
+
+        sql = cursor.execute.call_args[0][0]
+        assert "GRANT USAGE, SELECT, UPDATE" in sql
+        assert "ON ALL SEQUENCES IN SCHEMA public TO target_user" in sql
+
+    def test_grants_function_permissions(self):
+        """Verify EXECUTE permission on functions is granted."""
+        cursor = MagicMock()
+
+        _grant_permissions(cursor, "target_user", "postgres", "admin", "testdb")
+
+        sql = cursor.execute.call_args[0][0]
+        assert "GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO target_user" in sql
+
+    def test_sets_default_privileges_for_postgres_user(self):
+        """Verify default privileges set for objects created by postgres superuser."""
+        cursor = MagicMock()
+
+        _grant_permissions(cursor, "target_user", "postgres_super", "admin", "testdb")
+
+        sql = cursor.execute.call_args[0][0]
+        assert "ALTER DEFAULT PRIVILEGES FOR ROLE postgres_super" in sql
+        assert "ON TABLES TO target_user" in sql
+        assert "ON SEQUENCES TO target_user" in sql
+        assert "ON FUNCTIONS TO target_user" in sql
+
+    def test_sets_default_privileges_for_admin_user(self):
+        """Verify default privileges set for objects created by admin user (migrations)."""
+        cursor = MagicMock()
+
+        _grant_permissions(cursor, "target_user", "postgres", "migration_admin", "testdb")
+
+        sql = cursor.execute.call_args[0][0]
+        assert "ALTER DEFAULT PRIVILEGES FOR ROLE migration_admin" in sql
+        assert "ON TABLES TO target_user" in sql
+
+    def test_single_execute_call(self):
+        """Verify all permissions granted in single SQL execution."""
+        cursor = MagicMock()
+
+        _grant_permissions(cursor, "target_user", "postgres", "admin", "testdb")
+
+        assert cursor.execute.call_count == 1
