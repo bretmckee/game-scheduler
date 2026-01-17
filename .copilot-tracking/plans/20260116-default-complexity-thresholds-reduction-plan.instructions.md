@@ -93,7 +93,7 @@ Target functions with cognitive complexity 20-27.
   - Extracted 4 helper methods with 11 comprehensive unit tests
   - Successfully reduced cognitive complexity below threshold
 
-- [ ] Task 3.3: Refactor events/handlers.py `_handle_game_cancelled` (Cog:24)
+- [x] Task 3.3: Refactor events/handlers.py `_handle_game_cancelled` (Cog:24→≤10) **COMPLETE**
   - Details: .copilot-tracking/details/20260116-default-complexity-thresholds-reduction-details.md (Lines 245-258)
 
 - [x] Task 3.4: Refactor services/games.py `_resolve_template_fields` (Cog:23)
