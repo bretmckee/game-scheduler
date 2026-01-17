@@ -127,7 +127,7 @@ Target remaining cognitive complexity violations to reach default threshold of 1
 - [x] Task 4.3: Refactor events/handlers.py `_refresh_game_message` (Cog:18)
   - Details: .copilot-tracking/details/20260116-default-complexity-thresholds-reduction-details.md (Lines 355-368)
 
-- [ ] Task 4.4: Refactor services/guild_service.py `sync_user_guilds` (Cog:18)
+- [x] Task 4.4: Refactor services/guild_service.py `sync_user_guilds` (Cog:18)
   - Details: .copilot-tracking/details/20260116-default-complexity-thresholds-reduction-details.md (Lines 370-383)
 
 - [ ] Task 4.5: Refactor remaining functions with Cog:16-17

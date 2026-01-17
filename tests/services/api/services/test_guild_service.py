@@ -175,3 +175,271 @@ async def test_sync_user_guilds_expands_rls_context_for_new_guilds(
     assert result["new_channels"] == 0
     mock_db.add.assert_called_once()
     mock_db.commit.assert_awaited()
+
+
+class TestSyncUserGuildsHelpers:
+    """Unit tests for sync_user_guilds helper methods."""
+
+    @pytest.mark.asyncio
+    async def test_compute_candidate_guild_ids_with_admin_permissions(self):
+        """Test computing candidate guild IDs when user has admin permissions."""
+        mock_discord_client = AsyncMock()
+        manage_guild = 0x00000020
+
+        # User has MANAGE_GUILD for guilds A and B
+        mock_discord_client.get_guilds = AsyncMock(
+            side_effect=[
+                # User guilds
+                [
+                    {"id": "guild_a", "permissions": str(manage_guild)},
+                    {"id": "guild_b", "permissions": str(manage_guild)},
+                    {"id": "guild_c", "permissions": "0"},  # No MANAGE_GUILD
+                ],
+                # Bot guilds
+                [
+                    {"id": "guild_a"},
+                    {"id": "guild_d"},
+                ],
+            ]
+        )
+
+        result = await guild_service._compute_candidate_guild_ids(
+            mock_discord_client, "access_token", "user_id"
+        )
+
+        # Should only include guild_a (user admin AND bot present)
+        assert result == {"guild_a"}
+
+    @pytest.mark.asyncio
+    async def test_compute_candidate_guild_ids_with_no_overlap(self):
+        """Test computing candidate guild IDs when there's no overlap."""
+        mock_discord_client = AsyncMock()
+        manage_guild = 0x00000020
+
+        mock_discord_client.get_guilds = AsyncMock(
+            side_effect=[
+                # User guilds
+                [{"id": "guild_a", "permissions": str(manage_guild)}],
+                # Bot guilds (different)
+                [{"id": "guild_b"}],
+            ]
+        )
+
+        result = await guild_service._compute_candidate_guild_ids(
+            mock_discord_client, "access_token", "user_id"
+        )
+
+        assert result == set()
+
+    @pytest.mark.asyncio
+    async def test_compute_candidate_guild_ids_with_no_admin_permissions(self):
+        """Test computing candidate guild IDs when user has no admin permissions."""
+        mock_discord_client = AsyncMock()
+
+        mock_discord_client.get_guilds = AsyncMock(
+            side_effect=[
+                # User guilds (no MANAGE_GUILD)
+                [
+                    {"id": "guild_a", "permissions": "0"},
+                    {"id": "guild_b", "permissions": "8"},  # Other permission
+                ],
+                # Bot guilds
+                [{"id": "guild_a"}],
+            ]
+        )
+
+        result = await guild_service._compute_candidate_guild_ids(
+            mock_discord_client, "access_token", "user_id"
+        )
+
+        assert result == set()
+
+    @pytest.mark.asyncio
+    @patch("services.api.services.guild_service.get_current_guild_ids")
+    async def test_expand_rls_context_for_guilds_with_existing_context(
+        self, mock_get_current_guild_ids
+    ):
+        """Test expanding RLS context with existing guild IDs."""
+        mock_db = AsyncMock()
+        mock_get_current_guild_ids.return_value = ["existing_1", "existing_2"]
+
+        candidate_guild_ids = {"new_1", "new_2"}
+
+        await guild_service._expand_rls_context_for_guilds(mock_db, candidate_guild_ids)
+
+        # Verify SQL was executed with all guild IDs
+        mock_db.execute.assert_awaited_once()
+        call_args = mock_db.execute.call_args[0][0]
+        sql_str = str(call_args)
+
+        assert "SET LOCAL app.current_guild_ids" in sql_str
+        # All IDs should be present
+        assert "existing_1" in sql_str
+        assert "existing_2" in sql_str
+        assert "new_1" in sql_str
+        assert "new_2" in sql_str
+
+    @pytest.mark.asyncio
+    @patch("services.api.services.guild_service.get_current_guild_ids")
+    async def test_expand_rls_context_for_guilds_with_no_existing_context(
+        self, mock_get_current_guild_ids
+    ):
+        """Test expanding RLS context when no existing context."""
+        mock_db = AsyncMock()
+        mock_get_current_guild_ids.return_value = None
+
+        candidate_guild_ids = {"guild_1", "guild_2"}
+
+        await guild_service._expand_rls_context_for_guilds(mock_db, candidate_guild_ids)
+
+        # Verify SQL was executed with candidate guild IDs
+        mock_db.execute.assert_awaited_once()
+        call_args = mock_db.execute.call_args[0][0]
+        sql_str = str(call_args)
+
+        assert "SET LOCAL app.current_guild_ids" in sql_str
+        assert "guild_1" in sql_str
+        assert "guild_2" in sql_str
+
+    @pytest.mark.asyncio
+    async def test_get_existing_guild_ids_with_guilds(self):
+        """Test getting existing guild IDs when guilds exist."""
+        mock_db = AsyncMock()
+
+        # Mock existing guilds
+        guild1 = MagicMock()
+        guild1.guild_id = "guild_a"
+        guild2 = MagicMock()
+        guild2.guild_id = "guild_b"
+
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = [guild1, guild2]
+        mock_db.execute = AsyncMock(return_value=mock_result)
+
+        result = await guild_service._get_existing_guild_ids(mock_db)
+
+        assert result == {"guild_a", "guild_b"}
+
+    @pytest.mark.asyncio
+    async def test_get_existing_guild_ids_with_no_guilds(self):
+        """Test getting existing guild IDs when no guilds exist."""
+        mock_db = AsyncMock()
+
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = []
+        mock_db.execute = AsyncMock(return_value=mock_result)
+
+        result = await guild_service._get_existing_guild_ids(mock_db)
+
+        assert result == set()
+
+    @pytest.mark.asyncio
+    @patch("services.api.services.guild_service.template_service_module.TemplateService")
+    @patch("services.api.services.guild_service.queries.get_channel_by_discord_id")
+    @patch("services.api.services.guild_service.channel_service.create_channel_config")
+    async def test_create_guild_with_channels_and_template_with_text_channels(
+        self, mock_create_channel, mock_get_channel, mock_template_service_class
+    ):
+        """Test creating guild with text channels and template."""
+        mock_db = AsyncMock()
+        mock_db.add = Mock()
+        mock_db.commit = AsyncMock()
+        mock_db.refresh = AsyncMock()
+
+        mock_discord_client = AsyncMock()
+        mock_discord_client.get_guild_channels = AsyncMock(
+            return_value=[
+                {"id": "channel_1", "type": 0, "name": "general"},
+                {"id": "channel_2", "type": 0, "name": "gaming"},
+                {"id": "channel_3", "type": 2, "name": "voice"},  # Not text channel
+            ]
+        )
+
+        # Mock channel config retrieval for template creation
+        mock_channel_config = MagicMock()
+        mock_channel_config.id = "channel_config_uuid"
+        mock_get_channel.return_value = mock_channel_config
+
+        # Mock template service
+        mock_template_service = AsyncMock()
+        mock_template_service_class.return_value = mock_template_service
+
+        (
+            guilds_created,
+            channels_created,
+        ) = await guild_service._create_guild_with_channels_and_template(
+            mock_db, mock_discord_client, "guild_123"
+        )
+
+        # Verify results
+        assert guilds_created == 1
+        assert channels_created == 2  # Only text channels
+
+        # Verify guild was created
+        mock_db.add.assert_called()
+        mock_db.commit.assert_awaited()
+
+        # Verify channel configs were created (2 text channels)
+        assert mock_create_channel.call_count == 2
+
+        # Verify template was created for first text channel
+        mock_template_service.create_default_template.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_create_guild_with_channels_and_template_with_no_channels(self):
+        """Test creating guild when no channels exist."""
+        mock_db = AsyncMock()
+        mock_db.add = Mock()
+        mock_db.commit = AsyncMock()
+        mock_db.refresh = AsyncMock()
+
+        mock_discord_client = AsyncMock()
+        mock_discord_client.get_guild_channels = AsyncMock(return_value=[])
+
+        (
+            guilds_created,
+            channels_created,
+        ) = await guild_service._create_guild_with_channels_and_template(
+            mock_db, mock_discord_client, "guild_123"
+        )
+
+        # Verify results
+        assert guilds_created == 1
+        assert channels_created == 0
+
+        # Verify guild was created
+        mock_db.add.assert_called()
+        mock_db.commit.assert_awaited()
+
+    @pytest.mark.asyncio
+    @patch("services.api.services.guild_service.channel_service.create_channel_config")
+    async def test_create_guild_with_channels_and_template_with_only_voice_channels(
+        self, mock_create_channel
+    ):
+        """Test creating guild when only voice channels exist."""
+        mock_db = AsyncMock()
+        mock_db.add = Mock()
+        mock_db.commit = AsyncMock()
+        mock_db.refresh = AsyncMock()
+
+        mock_discord_client = AsyncMock()
+        mock_discord_client.get_guild_channels = AsyncMock(
+            return_value=[
+                {"id": "voice_1", "type": 2, "name": "Voice 1"},
+                {"id": "voice_2", "type": 2, "name": "Voice 2"},
+            ]
+        )
+
+        (
+            guilds_created,
+            channels_created,
+        ) = await guild_service._create_guild_with_channels_and_template(
+            mock_db, mock_discord_client, "guild_123"
+        )
+
+        # Verify results
+        assert guilds_created == 1
+        assert channels_created == 0  # No text channels
+
+        # Verify channel creation was never called
+        mock_create_channel.assert_not_called()

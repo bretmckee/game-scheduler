@@ -44,6 +44,8 @@ Systematically refactor high-complexity functions to reduce cyclomatic complexit
 - [tests/services/bot/formatters/test_game_message.py](tests/services/bot/formatters/test_game_message.py) - Added 17 unit tests for create_game_embed extracted helpers (TestGameMessageFormatterHelpers class) covering description truncation, URL generation, author configuration, game time fields, participant fields, and footer/links
 - [tests/services/retry/test_retry_daemon.py](tests/services/retry/test_retry_daemon.py) - Added TestRetryDaemonHelpers test class with 13 unit tests for extracted helpers covering DLQ depth checking, single message processing (success/failure/validation), message consumption, and health tracking
 - [pyproject.toml](pyproject.toml) - Phase 2: Lowered cyclomatic complexity threshold from 17 to 10 (default) after verifying all code complies
+- [services/api/services/guild_service.py](services/api/services/guild_service.py) - Phase 4: Extracted _compute_candidate_guild_ids(), _expand_rls_context_for_guilds(), _get_existing_guild_ids(), and _create_guild_with_channels_and_template() helpers, refactored sync_user_guilds() to reduce cognitive complexity from Cog:17 to Cog:2 (88% reduction)
+- [tests/services/api/services/test_guild_service.py](tests/services/api/services/test_guild_service.py) - Phase 4: Added TestSyncUserGuildsHelpers class with 11 unit tests for extracted helpers covering guild ID computation, RLS context expansion, existing guild queries, and guild/channel/template creation
 
 ### Removed
 
