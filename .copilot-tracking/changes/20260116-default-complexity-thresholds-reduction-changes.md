@@ -76,7 +76,13 @@ Systematically refactor high-complexity functions to reduce cyclomatic complexit
   - Extracted `_send_host_reminder()` for host notification
   - Added 11 unit tests in [tests/services/bot/events/test_handlers.py](tests/services/bot/events/test_handlers.py:1179-1414)
   - Successfully reduced cognitive complexity from 23→below threshold
-- [ ] **Task 3.3**: Continue with remaining Phase 3 functions from plan
+- [x] **Task 3.3**: Refactored `_handle_game_cancelled` (services/bot/events/handlers.py:780-848) - Cog: 24→≤10
+  - Extracted `_validate_cancellation_event_data()` for event data validation
+  - Extracted `_fetch_and_validate_channel()` for Discord channel fetching/validation
+  - Extracted `_update_cancelled_game_message()` for message update logic
+  - Added 12 unit tests in [tests/services/bot/events/test_handlers.py](tests/services/bot/events/test_handlers.py:1449-1650)
+  - Successfully reduced cognitive complexity from 24→below threshold
+- [ ] **Task 3.4**: Continue with remaining Phase 3 functions from plan
 
 ### Phase 4: Remaining Cognitive Violations (16-19) (Not Started)
 
