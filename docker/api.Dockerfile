@@ -1,8 +1,15 @@
+# syntax=docker/dockerfile:1
 # Multi-stage build for FastAPI Service
 FROM python:3.13-slim AS base
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
+# Configure apt to keep downloaded packages for cache mount
+RUN rm -f /etc/apt/apt.conf.d/docker-clean; \
+    echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
+
+# Install system dependencies with cache mount
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y \
     gcc \
     postgresql-client \
     curl \
@@ -11,14 +18,16 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Install uv for dependency management
-RUN pip install --no-cache-dir uv
+# Install uv for dependency management with cache mount
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --no-cache-dir uv
 
 # Copy dependency files
 COPY pyproject.toml ./
 
 # Install Python dependencies only (without the package itself)
-RUN uv pip install --system .
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install --system .
 
 # Copy source code to match git working directory state
 COPY shared/ ./shared/
@@ -68,7 +77,9 @@ CMD ["uvicorn", "services.api.main:app", "--host", "0.0.0.0", "--port", "8000", 
 FROM python:3.13-slim AS production
 
 # Install runtime dependencies
-RUN apt-get update && apt-get install -y \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y \
     postgresql-client \
     curl \
     && rm -rf /var/lib/apt/lists/*
