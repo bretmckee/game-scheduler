@@ -22,6 +22,8 @@ Systematically refactor high-complexity functions to reduce cyclomatic complexit
 - [services/api/routes/games.py](services/api/routes/games.py) - Extracted _parse_update_form_data() and _process_image_upload() helpers, refactored update_game() to reduce complexity from C:14 to A:5
 - [services/api/services/games.py](services/api/services/games.py) - Extracted _update_simple_text_fields(), _update_scheduled_at_field(), _update_schedule_affecting_fields(), and _update_remaining_fields() helpers, refactored _update_game_fields() to reduce complexity from C:13/Cog:16 to below thresholds; extracted _separate_existing_and_new_participants(), _remove_outdated_participants(), and _update_participant_positions() helpers, refactored _update_prefilled_participants() to reduce complexity from C:11/Cog:17 to A:2; extracted _capture_old_state(), _update_image_fields(), _process_game_update_schedules(), and _detect_and_notify_promotions() helpers, refactored update_game() to reduce complexity from C:13/Cog:17 to B:6
 - [services/api/services/display_names.py](services/api/services/display_names.py) - Extracted _check_cache_for_users(), _fetch_and_cache_display_names_avatars(), and _create_fallback_user_data() helpers, refactored resolve_display_names_and_avatars() to reduce complexity from C:12/Cog:19 to below thresholds
+- [services/api/services/games.py](services/api/services/games.py) - Phase 2: Extracted _verify_bot_manager_permission(), _resolve_and_validate_host_participant(), and _get_or_create_user_by_discord_id() helpers, refactored _resolve_game_host() to reduce cognitive complexity from Cog:21 to below threshold
+- [services/bot/events/handlers.py](services/bot/events/handlers.py) - Phase 2: Extracted _validate_game_for_reminder(), _partition_and_filter_participants(), _send_participant_reminders(), and _send_host_reminder() helpers, refactored _handle_game_reminder() to reduce cognitive complexity from Cog:23 to below threshold
 - [services/api/services/participant_resolver.py](services/api/services/participant_resolver.py) - Extracted _resolve_discord_mention_format(), _resolve_user_friendly_mention(), and _create_placeholder_participant() helpers, refactored resolve_initial_participants() to reduce complexity from C:12/Cog:20 to B:7
 - [services/bot/events/handlers.py](services/bot/events/handlers.py) - Extracted _update_message_for_player_removal(), _build_removal_dm_message(), and _notify_removed_player() helpers, refactored _handle_player_removed() to reduce complexity from C:12/Cog:18 to below thresholds
 - [services/bot/formatters/game_message.py](services/bot/formatters/game_message.py) - Extracted _prepare_description_and_urls(), _configure_embed_author(), _add_game_time_fields(), _add_participant_fields(), and _add_footer_and_links() helpers, refactored create_game_embed() to reduce complexity from C:14/Cog:17 to below thresholds
@@ -31,8 +33,54 @@ Systematically refactor high-complexity functions to reduce cyclomatic complexit
 - [tests/services/api/services/test_display_names.py](tests/services/api/services/test_display_names.py) - Added 10 unit tests for extracted helper methods covering cache checking, Discord API fetching, and fallback data creation
 - [tests/services/api/services/test_games.py](tests/services/api/services/test_games.py) - Added 15 unit tests for _update_prefilled_participants extracted helpers covering participant separation, removal, and position updates; added 13 unit tests for update_game extracted helpers covering state capture, image updates, schedule processing, and promotion detection
 - [tests/services/api/services/test_participant_resolver.py](tests/services/api/services/test_participant_resolver.py) - Added 13 unit tests for extracted helper methods covering Discord mention format resolution, user-friendly mention search, and placeholder participant creation
+- [tests/services/api/services/test_games.py](tests/services/api/services/test_games.py) - Phase 2: Added 9 unit tests for _resolve_game_host extracted helpers covering bot manager permission verification, host participant resolution/validation, and user retrieval/creation
+- [tests/services/bot/events/test_handlers.py](tests/services/bot/events/test_handlers.py) - Phase 2: Added 11 unit tests for _handle_game_reminder extracted helpers covering game validation, participant partitioning/filtering, reminder sending, and host notification
 - [tests/services/bot/events/test_handlers.py](tests/services/bot/events/test_handlers.py) - Added 9 unit tests for _handle_player_removed extracted helpers covering message updates, DM notification building, and player notification
 - [tests/services/bot/formatters/test_game_message.py](tests/services/bot/formatters/test_game_message.py) - Added 17 unit tests for create_game_embed extracted helpers (TestGameMessageFormatterHelpers class) covering description truncation, URL generation, author configuration, game time fields, participant fields, and footer/links
 - [tests/services/retry/test_retry_daemon.py](tests/services/retry/test_retry_daemon.py) - Added TestRetryDaemonHelpers test class with 13 unit tests for extracted helpers covering DLQ depth checking, single message processing (success/failure/validation), message consumption, and health tracking
+- [pyproject.toml](pyproject.toml) - Phase 2: Lowered cyclomatic complexity threshold from 17 to 10 (default) after verifying all code complies
 
 ### Removed
+
+## Implementation Progress
+
+### Phase 1: Dual-Violation Functions (C:17/Cog:20) ✓
+
+- [x] **Task 1.1-1.8**: Refactored 8 dual-violation functions (COMPLETE)
+- [x] **Task 1.9**: ~~Lower thresholds to C901=12, complexipy=17~~ **DEFERRED** - Cannot lower thresholds while violations remain. Will lower thresholds after ALL refactoring complete (end of Phase 4).
+
+**Rationale**: Lowering thresholds mid-refactoring would cause pre-commit hooks to fail on remaining violations. Threshold reduction must occur AFTER all code complies.
+
+### Phase 2: Remaining Cyclomatic Violations ✓
+
+**Goal**: Fix remaining cyclomatic complexity violations to enable C901=10 threshold
+
+- [x] **Task 2.1**: Verified no remaining C901 violations exist (Phase 1 resolved all)
+- [x] **Task 2.2**: Lowered C901 threshold to 10 (default) in [pyproject.toml](pyproject.toml:83)
+- **Result**: All code now complies with cyclomatic complexity ≤10
+
+### Phase 3: High Cognitive Complexity (20-27) (In Progress)
+
+**Goal**: Reduce high cognitive complexity functions below 20
+
+- [x] **Task 3.1**: Refactored `_resolve_game_host` (services/api/services/games.py:98-206) - Cog: 21→≤10
+  - Extracted `_verify_bot_manager_permission()` for permission validation
+  - Extracted `_resolve_and_validate_host_participant()` for participant resolution
+  - Extracted `_get_or_create_user_by_discord_id()` for user retrieval/creation
+  - Added 9 unit tests in [tests/services/api/services/test_games.py](tests/services/api/services/test_games.py:3654-3894)
+  - Successfully reduced cognitive complexity from 21→below threshold
+- [x] **Task 3.2**: Refactored `_handle_game_reminder` (services/bot/events/handlers.py:355-467) - Cog: 23→≤10
+  - Extracted `_validate_game_for_reminder()` for game state validation
+  - Extracted `_partition_and_filter_participants()` for participant processing
+  - Extracted `_send_participant_reminders()` for batch DM sending
+  - Extracted `_send_host_reminder()` for host notification
+  - Added 11 unit tests in [tests/services/bot/events/test_handlers.py](tests/services/bot/events/test_handlers.py:1179-1414)
+  - Successfully reduced cognitive complexity from 23→below threshold
+- [ ] **Task 3.3**: Continue with remaining Phase 3 functions from plan
+
+### Phase 4: Remaining Cognitive Violations (16-19) (Not Started)
+
+**Goal**: Complete cognitive complexity reduction to enable complexipy=15 threshold
+
+- [ ] **Task 4.1**: Address remaining cognitive complexity violations
+- [ ] **Task 4.2**: Lower BOTH thresholds to defaults (C901=10, complexipy=15) after verification

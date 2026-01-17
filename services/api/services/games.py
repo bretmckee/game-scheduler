@@ -53,7 +53,10 @@ from shared.models.participant import ParticipantType
 from shared.models.signup_method import SignupMethod
 from shared.schemas import game as game_schemas
 from shared.utils.games import resolve_max_players
-from shared.utils.participant_sorting import PartitionedParticipants, partition_participants
+from shared.utils.participant_sorting import (
+    PartitionedParticipants,
+    partition_participants,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +98,93 @@ class GameService:
         self.discord_client = discord_client
         self.participant_resolver = participant_resolver
 
+    async def _verify_bot_manager_permission(
+        self,
+        requester_user_id: str,
+        guild_id: str,
+        access_token: str,
+    ) -> None:
+        """Verify requester has bot manager permission."""
+        requester_result = await self.db.execute(
+            select(user_model.User).where(user_model.User.id == requester_user_id)
+        )
+        requester_user = requester_result.scalar_one_or_none()
+        if requester_user is None:
+            raise ValueError(f"Requester user not found for ID: {requester_user_id}")
+
+        role_service = roles_module.get_role_service()
+        is_bot_manager = await role_service.check_bot_manager_permission(
+            requester_user.discord_id,
+            guild_id,
+            self.db,
+            access_token,
+        )
+
+        if not is_bot_manager:
+            raise ValueError("Only bot managers can specify the game host")
+
+    async def _resolve_and_validate_host_participant(
+        self,
+        host_mention: str,
+        guild_id: str,
+        access_token: str,
+    ) -> dict[str, Any]:
+        """Resolve host mention to a Discord user participant."""
+        (
+            resolved_hosts,
+            validation_errors,
+        ) = await self.participant_resolver.resolve_initial_participants(
+            guild_id,
+            [host_mention],
+            access_token,
+        )
+
+        if validation_errors:
+            raise resolver_module.ValidationError(
+                invalid_mentions=validation_errors,
+                valid_participants=[],
+            )
+
+        if not resolved_hosts:
+            raise ValueError(f"Could not resolve host: {host_mention}")
+
+        if resolved_hosts[0].get("type") != "discord":
+            raise resolver_module.ValidationError(
+                invalid_mentions=[
+                    {
+                        "input": host_mention,
+                        "reason": (
+                            "Game host must be a Discord user (use @username format). "
+                            "Placeholder strings are not allowed for the host field."
+                        ),
+                        "suggestions": [],
+                    }
+                ],
+                valid_participants=[],
+            )
+
+        return resolved_hosts[0]
+
+    async def _get_or_create_user_by_discord_id(
+        self,
+        discord_id: str,
+    ) -> user_model.User:
+        """Get existing user or create new one for Discord ID."""
+        host_user_result = await self.db.execute(
+            select(user_model.User).where(user_model.User.discord_id == discord_id)
+        )
+        resolved_host_user = host_user_result.scalar_one_or_none()
+
+        if resolved_host_user is None:
+            resolved_host_user = user_model.User(
+                id=user_model.generate_uuid(),
+                discord_id=discord_id,
+            )
+            self.db.add(resolved_host_user)
+            await self.db.flush()
+
+        return resolved_host_user
+
     async def _resolve_game_host(
         self,
         game_data: game_schemas.GameCreateRequest,
@@ -121,73 +211,21 @@ class GameService:
         actual_host_user_id = requester_user_id
 
         if game_data.host and game_data.host.strip():
-            role_service = roles_module.get_role_service()
-            requester_result = await self.db.execute(
-                select(user_model.User).where(user_model.User.id == requester_user_id)
-            )
-            requester_user = requester_result.scalar_one_or_none()
-            if requester_user is None:
-                raise ValueError(f"Requester user not found for ID: {requester_user_id}")
-
-            is_bot_manager = await role_service.check_bot_manager_permission(
-                requester_user.discord_id,
+            await self._verify_bot_manager_permission(
+                requester_user_id,
                 guild_config.guild_id,
-                self.db,
                 access_token,
             )
 
-            if not is_bot_manager:
-                raise ValueError("Only bot managers can specify the game host")
-
             try:
-                (
-                    resolved_hosts,
-                    validation_errors,
-                ) = await self.participant_resolver.resolve_initial_participants(
+                resolved_host = await self._resolve_and_validate_host_participant(
+                    game_data.host,
                     guild_config.guild_id,
-                    [game_data.host],
                     access_token,
                 )
 
-                if validation_errors:
-                    raise resolver_module.ValidationError(
-                        invalid_mentions=validation_errors,
-                        valid_participants=[],
-                    )
-
-                if not resolved_hosts:
-                    raise ValueError(f"Could not resolve host: {game_data.host}")
-
-                if resolved_hosts[0].get("type") != "discord":
-                    raise resolver_module.ValidationError(
-                        invalid_mentions=[
-                            {
-                                "input": game_data.host,
-                                "reason": (
-                                    "Game host must be a Discord user (use @username format). "
-                                    "Placeholder strings are not allowed for the host field."
-                                ),
-                                "suggestions": [],
-                            }
-                        ],
-                        valid_participants=[],
-                    )
-
-                host_discord_id = resolved_hosts[0]["discord_id"]
-
-                host_user_result = await self.db.execute(
-                    select(user_model.User).where(user_model.User.discord_id == host_discord_id)
-                )
-                resolved_host_user = host_user_result.scalar_one_or_none()
-
-                if resolved_host_user is None:
-                    resolved_host_user = user_model.User(
-                        id=user_model.generate_uuid(),
-                        discord_id=host_discord_id,
-                    )
-                    self.db.add(resolved_host_user)
-                    await self.db.flush()
-
+                host_discord_id = resolved_host["discord_id"]
+                resolved_host_user = await self._get_or_create_user_by_discord_id(host_discord_id)
                 actual_host_user_id = resolved_host_user.id
 
             except resolver_module.ValidationError:

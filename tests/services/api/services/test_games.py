@@ -3644,3 +3644,241 @@ async def test_detect_and_notify_promotions_no_promotions(game_service):
         await game_service._detect_and_notify_promotions(game, old_partitioned)
 
         mock_notify.assert_not_called()
+
+
+# ==============================================================================
+# Helper Method Tests: _resolve_game_host Extraction (Phase 2 Task 2.1)
+# ==============================================================================
+
+
+@pytest.mark.asyncio
+async def test_verify_bot_manager_permission_success(
+    game_service,
+    mock_db,
+):
+    """Test successful bot manager permission verification."""
+    user_id = str(uuid.uuid4())
+    guild_id = "guild123"
+    access_token = "token123"
+
+    user = user_model.User(id=user_id, discord_id="discord123")
+
+    mock_db.execute = AsyncMock(
+        return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=user))
+    )
+
+    mock_role_service = MagicMock()
+    mock_role_service.check_bot_manager_permission = AsyncMock(return_value=True)
+
+    with patch(
+        "services.api.services.games.roles_module.get_role_service",
+        return_value=mock_role_service,
+    ):
+        await game_service._verify_bot_manager_permission(
+            user_id,
+            guild_id,
+            access_token,
+        )
+
+        mock_role_service.check_bot_manager_permission.assert_called_once_with(
+            "discord123",
+            guild_id,
+            mock_db,
+            access_token,
+        )
+
+
+@pytest.mark.asyncio
+async def test_verify_bot_manager_permission_user_not_found(
+    game_service,
+    mock_db,
+):
+    """Test permission check with non-existent user."""
+    user_id = str(uuid.uuid4())
+    guild_id = "guild123"
+    access_token = "token123"
+
+    mock_db.execute = AsyncMock(
+        return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None))
+    )
+
+    with pytest.raises(ValueError, match="Requester user not found"):
+        await game_service._verify_bot_manager_permission(
+            user_id,
+            guild_id,
+            access_token,
+        )
+
+
+@pytest.mark.asyncio
+async def test_verify_bot_manager_permission_not_manager(
+    game_service,
+    mock_db,
+):
+    """Test permission check with non-manager user."""
+    user_id = str(uuid.uuid4())
+    guild_id = "guild123"
+    access_token = "token123"
+
+    user = user_model.User(id=user_id, discord_id="discord123")
+
+    mock_db.execute = AsyncMock(
+        return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=user))
+    )
+
+    mock_role_service = MagicMock()
+    mock_role_service.check_bot_manager_permission = AsyncMock(return_value=False)
+
+    with patch(
+        "services.api.services.games.roles_module.get_role_service",
+        return_value=mock_role_service,
+    ):
+        with pytest.raises(ValueError, match="Only bot managers can specify the game host"):
+            await game_service._verify_bot_manager_permission(
+                user_id,
+                guild_id,
+                access_token,
+            )
+
+
+@pytest.mark.asyncio
+async def test_resolve_and_validate_host_participant_success(game_service):
+    """Test successful host participant resolution."""
+    host_mention = "@testuser"
+    guild_id = "guild123"
+    access_token = "token123"
+
+    resolved_host = {
+        "type": "discord",
+        "discord_id": "discord123",
+        "display_name": "Test User",
+    }
+
+    game_service.participant_resolver.resolve_initial_participants = AsyncMock(
+        return_value=([resolved_host], [])
+    )
+
+    result = await game_service._resolve_and_validate_host_participant(
+        host_mention,
+        guild_id,
+        access_token,
+    )
+
+    assert result == resolved_host
+
+
+@pytest.mark.asyncio
+async def test_resolve_and_validate_host_participant_validation_error(game_service):
+    """Test host resolution with validation errors."""
+    host_mention = "@invaliduser"
+    guild_id = "guild123"
+    access_token = "token123"
+
+    validation_error = {
+        "input": host_mention,
+        "reason": "User not found",
+        "suggestions": [],
+    }
+
+    game_service.participant_resolver.resolve_initial_participants = AsyncMock(
+        return_value=([], [validation_error])
+    )
+
+    with pytest.raises(resolver_module.ValidationError):
+        await game_service._resolve_and_validate_host_participant(
+            host_mention,
+            guild_id,
+            access_token,
+        )
+
+
+@pytest.mark.asyncio
+async def test_resolve_and_validate_host_participant_no_results(game_service):
+    """Test host resolution with no results."""
+    host_mention = "@testuser"
+    guild_id = "guild123"
+    access_token = "token123"
+
+    game_service.participant_resolver.resolve_initial_participants = AsyncMock(
+        return_value=([], [])
+    )
+
+    with pytest.raises(ValueError, match="Could not resolve host"):
+        await game_service._resolve_and_validate_host_participant(
+            host_mention,
+            guild_id,
+            access_token,
+        )
+
+
+@pytest.mark.asyncio
+async def test_resolve_and_validate_host_participant_placeholder(game_service):
+    """Test host resolution rejecting placeholder participants."""
+    host_mention = "Placeholder Name"
+    guild_id = "guild123"
+    access_token = "token123"
+
+    resolved_host = {
+        "type": "placeholder",
+        "display_name": "Placeholder Name",
+    }
+
+    game_service.participant_resolver.resolve_initial_participants = AsyncMock(
+        return_value=([resolved_host], [])
+    )
+
+    with pytest.raises(resolver_module.ValidationError) as exc_info:
+        await game_service._resolve_and_validate_host_participant(
+            host_mention,
+            guild_id,
+            access_token,
+        )
+
+    assert exc_info.value.invalid_mentions[0]["reason"] == (
+        "Game host must be a Discord user (use @username format). "
+        "Placeholder strings are not allowed for the host field."
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_or_create_user_by_discord_id_existing(
+    game_service,
+    mock_db,
+):
+    """Test retrieving existing user by Discord ID."""
+    discord_id = "discord123"
+    existing_user = user_model.User(
+        id=str(uuid.uuid4()),
+        discord_id=discord_id,
+    )
+
+    mock_db.execute = AsyncMock(
+        return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=existing_user))
+    )
+
+    result = await game_service._get_or_create_user_by_discord_id(discord_id)
+
+    assert result == existing_user
+    mock_db.add.assert_not_called()
+    mock_db.flush.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_get_or_create_user_by_discord_id_new(
+    game_service,
+    mock_db,
+):
+    """Test creating new user for Discord ID."""
+    discord_id = "discord123"
+
+    mock_db.execute = AsyncMock(
+        return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None))
+    )
+    mock_db.flush = AsyncMock()
+
+    result = await game_service._get_or_create_user_by_discord_id(discord_id)
+
+    assert result.discord_id == discord_id
+    assert result.id is not None
+    mock_db.add.assert_called_once()
+    mock_db.flush.assert_called_once()
