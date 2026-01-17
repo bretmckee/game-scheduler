@@ -144,11 +144,14 @@ repos:
         verbose: true
 
   # Cognitive complexity checking
-  - repo: https://github.com/rohaquinlop/complexipy-pre-commit
-    rev: v4.2.0
+  - repo: local
     hooks:
       - id: complexipy
-        args: ['--max-complexity-allowed', '49']
+        name: complexipy cognitive complexity check
+        entry: uv run complexipy
+        language: system
+        types: [python]
+        pass_filenames: false
 
   # Optional/Manual hooks - run with: pre-commit run <hook-id> --hook-stage manual
   - repo: local

@@ -53,6 +53,15 @@ dependencies = [
     "pytest-cov>=6.0.0",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.8.0",
+    "mypy>=1.10.0",
+    "diff-cover>=9.2.0",
+    "complexipy>=4.2.0",
+    "pre-commit>=4.0.0",
+]
+
 [project.urls]
 Repository = "https://github.com/game-scheduler"
 Issues = "https://github.com/game-scheduler/issues"
@@ -76,7 +85,7 @@ max-complexity = 17
 
 [tool.complexipy]
 max-complexity-allowed = 20
-paths = ["services", "shared"]
+paths = ["services", "shared", "scripts"]
 exclude = []
 
 [tool.ruff.lint.per-file-ignores]
