@@ -355,6 +355,202 @@ class TestGameMessageFormatter:
             assert "Reminder" in call_kwargs["title"]
 
 
+class TestGameMessageFormatterHelpers:
+    """Tests for GameMessageFormatter helper methods."""
+
+    def test_prepare_description_and_urls_truncates_long_description(self):
+        """Test that long descriptions are truncated with ellipsis."""
+        long_description = "A" * 1000
+        game_id = "test-game-id"
+
+        with patch("services.bot.formatters.game_message.get_config") as mock_config:
+            mock_config.return_value.frontend_url = "https://example.com"
+
+            (
+                truncated,
+                calendar_url,
+                thumb,
+                img,
+            ) = GameMessageFormatter._prepare_description_and_urls(
+                long_description, game_id, None, None
+            )
+
+        assert len(truncated) == 100
+        assert truncated.endswith("...")
+        assert calendar_url == "https://example.com/download-calendar/test-game-id"
+
+    def test_prepare_description_and_urls_keeps_short_description(self):
+        """Test that short descriptions are not truncated."""
+        description = "Short description"
+
+        truncated, calendar_url, thumb, img = GameMessageFormatter._prepare_description_and_urls(
+            description, None, None, None
+        )
+
+        assert truncated == description
+        assert calendar_url is None
+
+    def test_prepare_description_and_urls_without_game_id(self):
+        """Test that calendar URL is None when game_id is not provided."""
+        description = "Test"
+
+        truncated, calendar_url, thumb, img = GameMessageFormatter._prepare_description_and_urls(
+            description, None, None, None
+        )
+
+        assert truncated == description
+        assert calendar_url is None
+
+    def test_prepare_description_and_urls_preserves_image_urls(self):
+        """Test that thumbnail and image URLs are preserved."""
+        description = "Test"
+        thumbnail_url = "https://example.com/thumb.jpg"
+        image_url = "https://example.com/image.jpg"
+
+        truncated, calendar_url, thumb, img = GameMessageFormatter._prepare_description_and_urls(
+            description, None, thumbnail_url, image_url
+        )
+
+        assert thumb == thumbnail_url
+        assert img == image_url
+
+    def test_configure_embed_author_with_display_name_and_avatar(self):
+        """Test configuring embed author with display name and avatar."""
+        embed = MagicMock()
+        host_id = "123456789"
+        display_name = "TestUser"
+        avatar_url = "https://example.com/avatar.jpg"
+
+        GameMessageFormatter._configure_embed_author(embed, host_id, display_name, avatar_url)
+
+        embed.set_author.assert_called_once_with(name="@TestUser", icon_url=avatar_url)
+
+    def test_configure_embed_author_with_display_name_no_avatar(self):
+        """Test configuring embed author with display name but no avatar."""
+        embed = MagicMock()
+        host_id = "123456789"
+        display_name = "TestUser"
+
+        GameMessageFormatter._configure_embed_author(embed, host_id, display_name, None)
+
+        embed.set_author.assert_called_once_with(name="@TestUser")
+
+    def test_configure_embed_author_without_display_name(self):
+        """Test configuring embed author without display name."""
+        embed = MagicMock()
+        host_id = "PlaceholderName"
+
+        GameMessageFormatter._configure_embed_author(embed, host_id, None, None)
+
+        embed.set_author.assert_called_once_with(name="PlaceholderName")
+
+    def test_configure_embed_author_numeric_host_id_without_display_name(self):
+        """Test configuring embed author with numeric ID but no display name."""
+        embed = MagicMock()
+        host_id = "123456789"
+
+        GameMessageFormatter._configure_embed_author(embed, host_id, None, None)
+
+        embed.set_author.assert_called_once_with(name="@User")
+
+    def test_add_game_time_fields_with_all_fields(self):
+        """Test adding all game time related fields."""
+        embed = MagicMock()
+        scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
+
+        GameMessageFormatter._add_game_time_fields(
+            embed, scheduled_at, "123456789", 120, "Online", "987654321"
+        )
+
+        assert embed.add_field.call_count == 5
+
+    def test_add_game_time_fields_without_duration(self):
+        """Test adding fields without duration (uses empty field)."""
+        embed = MagicMock()
+        scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
+
+        GameMessageFormatter._add_game_time_fields(
+            embed, scheduled_at, "123456789", None, "Online", None
+        )
+
+        calls = [call[1] for call in embed.add_field.call_args_list]
+        assert any(c.get("name") == "\u200b" for c in calls)
+
+    def test_add_game_time_fields_without_location(self):
+        """Test adding fields without location (uses empty field)."""
+        embed = MagicMock()
+        scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
+
+        GameMessageFormatter._add_game_time_fields(
+            embed, scheduled_at, "123456789", 120, None, None
+        )
+
+        calls = [call[1] for call in embed.add_field.call_args_list]
+        assert any(c.get("name") == "\u200b" for c in calls)
+
+    def test_add_participant_fields_with_participants(self):
+        """Test adding participant fields with confirmed participants."""
+        embed = MagicMock()
+
+        GameMessageFormatter._add_participant_fields(embed, ["111", "222", "333"], [], 3, 5)
+
+        embed.add_field.assert_called_once()
+        call_kwargs = embed.add_field.call_args[1]
+        assert "Participants (3/5)" in call_kwargs["name"]
+
+    def test_add_participant_fields_without_participants(self):
+        """Test adding participant fields without any participants."""
+        embed = MagicMock()
+
+        GameMessageFormatter._add_participant_fields(embed, [], [], 0, 5)
+
+        embed.add_field.assert_called_once()
+        call_kwargs = embed.add_field.call_args[1]
+        assert "Participants (0/5)" in call_kwargs["name"]
+        assert "No participants yet" in call_kwargs["value"]
+
+    def test_add_participant_fields_with_waitlist(self):
+        """Test adding participant fields with waitlisted participants."""
+        embed = MagicMock()
+
+        GameMessageFormatter._add_participant_fields(embed, ["111", "222"], ["333", "444"], 2, 2)
+
+        assert embed.add_field.call_count == 2
+        calls = [call[1] for call in embed.add_field.call_args_list]
+        assert any("Waitlisted (2)" in c.get("name", "") for c in calls)
+
+    def test_add_footer_and_links_with_calendar_url(self):
+        """Test adding footer and links when calendar URL is present."""
+        embed = MagicMock()
+        calendar_url = "https://example.com/calendar"
+
+        GameMessageFormatter._add_footer_and_links(embed, "SCHEDULED", calendar_url)
+
+        embed.add_field.assert_called_once()
+        call_kwargs = embed.add_field.call_args[1]
+        assert "Links" in call_kwargs["name"]
+        assert calendar_url in call_kwargs["value"]
+        embed.set_footer.assert_called_once()
+
+    def test_add_footer_and_links_without_calendar_url(self):
+        """Test adding footer without calendar URL."""
+        embed = MagicMock()
+
+        GameMessageFormatter._add_footer_and_links(embed, "SCHEDULED", None)
+
+        embed.add_field.assert_not_called()
+        embed.set_footer.assert_called_once()
+
+    def test_add_footer_and_links_uses_display_name_for_status(self):
+        """Test that footer uses GameStatus display name."""
+        embed = MagicMock()
+
+        GameMessageFormatter._add_footer_and_links(embed, "SCHEDULED", None)
+
+        call_kwargs = embed.set_footer.call_args[1]
+        assert "Scheduled" in call_kwargs["text"]
+
+
 class TestFormatGameAnnouncement:
     """Tests for format_game_announcement function."""
 
