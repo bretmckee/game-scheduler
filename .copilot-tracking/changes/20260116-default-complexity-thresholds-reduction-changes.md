@@ -43,7 +43,7 @@ Systematically refactor high-complexity functions to reduce cyclomatic complexit
 - [tests/services/bot/events/test_handlers.py](tests/services/bot/events/test_handlers.py) - Added 9 unit tests for _handle_player_removed extracted helpers covering message updates, DM notification building, and player notification
 - [tests/services/bot/formatters/test_game_message.py](tests/services/bot/formatters/test_game_message.py) - Added 17 unit tests for create_game_embed extracted helpers (TestGameMessageFormatterHelpers class) covering description truncation, URL generation, author configuration, game time fields, participant fields, and footer/links
 - [tests/services/retry/test_retry_daemon.py](tests/services/retry/test_retry_daemon.py) - Added TestRetryDaemonHelpers test class with 13 unit tests for extracted helpers covering DLQ depth checking, single message processing (success/failure/validation), message consumption, and health tracking
-- [pyproject.toml](pyproject.toml) - Phase 2: Lowered cyclomatic complexity threshold from 17 to 10 (default) after verifying all code complies
+- [pyproject.toml](pyproject.toml:83,87) - Phase 2: Lowered cyclomatic complexity threshold from 17 to 10 (default) after verifying all code complies; Phase 4 Task 4.6: Lowered cognitive complexity threshold from 25 to 15 (default) - **PRIMARY GOAL ACHIEVED**
 - [services/api/services/guild_service.py](services/api/services/guild_service.py) - Phase 4: Extracted _compute_candidate_guild_ids(), _expand_rls_context_for_guilds(), _get_existing_guild_ids(), and _create_guild_with_channels_and_template() helpers, refactored sync_user_guilds() to reduce cognitive complexity from Cog:17 to Cog:2 (88% reduction)
 - [tests/services/api/services/test_guild_service.py](tests/services/api/services/test_guild_service.py) - Phase 4: Added TestSyncUserGuildsHelpers class with 11 unit tests for extracted helpers covering guild ID computation, RLS context expansion, existing guild queries, and guild/channel/template creation
 
@@ -155,4 +155,11 @@ Systematically refactor high-complexity functions to reduce cyclomatic complexit
     - Added 7 unit tests in [tests/services/api/services/test_participant_resolver.py](tests/services/api/services/test_participant_resolver.py:711-857) covering all input types
     - Successfully reduced cognitive complexity from 16→≤15
   - **Verification**: All functions now pass `uv run complexipy -mx 15 --failed` with zero violations
-- [ ] **Task 4.5**: Lower BOTH thresholds to defaults (C901=10, complexipy=15) after verification
+- [x] **Task 4.5**: Lower BOTH thresholds to defaults (C901=10, complexipy=15) after verification **COMPLETE**
+  - Note: Task 4.5 merged into Task 4.4 - all refactoring completed before threshold changes
+- [x] **Task 4.6**: Final verification and threshold update **COMPLETE**
+  - **Verification Command**: `uv run complexipy services/ shared/ -mx 15`
+  - **Result**: ✅ All 809 functions PASSED with zero violations
+  - **Action Taken**: Updated [pyproject.toml](pyproject.toml:87) max-complexity-allowed from 25→15 (default)
+  - **Cyclomatic Complexity**: Already at C901=10 (default) from Phase 2
+  - **Cognitive Complexity**: Now at complexipy=15 (default) - **PRIMARY GOAL ACHIEVED**
