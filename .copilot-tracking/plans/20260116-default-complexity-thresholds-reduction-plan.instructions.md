@@ -105,8 +105,8 @@ Target functions with cognitive complexity 20-27.
   - Extracted 4 helper methods with 10 comprehensive unit tests
   - Successfully reduced cognitive complexity from 19 to 8 (58% reduction)
 
-- [ ] Task 3.6: Refactor commands/list_games.py `list_games_command` (Cog:20)
-  - Details: .copilot-tracking/details/20260116-default-complexity-thresholds-reduction-details.md (Lines 290-303)
+- [x] Task 3.6: Refactor commands/list_games.py `list_games_command` (Cog:20)
+  - Details: .copilot-tracking/details/20260116-default-complexity-thresholds-reduction-details.md (Lines 319-345)
 
 - [ ] Task 3.7: Verify Phase 1 functions if not yet at Cog≤17
   - Details: .copilot-tracking/details/20260116-default-complexity-thresholds-reduction-details.md (Lines 305-312)
