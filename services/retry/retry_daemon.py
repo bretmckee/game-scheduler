@@ -124,6 +124,145 @@ class RetryDaemon:
         logger.info("Retry daemon shutting down")
         self._cleanup()
 
+    def _check_dlq_depth(self, channel, dlq_name: str) -> int:
+        """
+        Check the number of messages in a DLQ.
+
+        Args:
+            channel: RabbitMQ channel
+            dlq_name: Name of the dead letter queue
+
+        Returns:
+            Number of messages in the queue
+        """
+        queue_state = channel.queue_declare(queue=dlq_name, durable=True)
+        return queue_state.method.message_count
+
+    def _process_single_message(
+        self,
+        channel,
+        dlq_name: str,
+        method,
+        properties,
+        body: bytes,
+    ) -> bool:
+        """
+        Process a single message from the DLQ.
+
+        Args:
+            channel: RabbitMQ channel
+            dlq_name: Name of the DLQ being processed
+            method: Message method frame
+            properties: Message properties
+            body: Message body
+
+        Returns:
+            True if message was successfully processed, False otherwise
+        """
+        with tracer.start_as_current_span(
+            "retry.process_message",
+            attributes={
+                "retry.dlq_name": dlq_name,
+                "messaging.message_id": properties.message_id or "unknown",
+            },
+        ) as msg_span:
+            try:
+                routing_key = self._get_routing_key(properties)
+                event = Event.model_validate_json(body)
+
+                # Add detailed span attributes
+                msg_span.set_attribute("retry.routing_key", routing_key)
+                msg_span.set_attribute("retry.event_type", event.event_type)
+                if properties.headers and "x-death" in properties.headers:
+                    deaths = properties.headers["x-death"]
+                    if deaths and len(deaths) > 0:
+                        retry_count = deaths[0].get("count", 0)
+                        msg_span.set_attribute("retry.retry_count", retry_count)
+
+                if self.publisher is None:
+                    raise RuntimeError("Publisher not initialized")
+
+                # Republish without TTL to prevent re-entering DLQ
+                self.publisher.publish(event, routing_key=routing_key, expiration_ms=None)
+
+                channel.basic_ack(method.delivery_tag)
+
+                # Record successful processing
+                self.messages_processed_counter.add(
+                    1,
+                    attributes={
+                        "dlq_name": dlq_name,
+                        "event_type": event.event_type,
+                        "routing_key": routing_key,
+                    },
+                )
+                return True
+
+            except Exception as e:
+                logger.error(
+                    f"Failed to republish message from {dlq_name}: {e}",
+                    exc_info=True,
+                )
+                # NACK with requeue - message stays in DLQ for next cycle
+                channel.basic_nack(method.delivery_tag, requeue=True)
+
+                # Record failed processing
+                self.messages_failed_counter.add(
+                    1,
+                    attributes={
+                        "dlq_name": dlq_name,
+                        "error_type": type(e).__name__,
+                    },
+                )
+                msg_span.record_exception(e)
+                return False
+
+    def _consume_and_process_messages(
+        self, channel, dlq_name: str, message_count: int
+    ) -> tuple[int, int]:
+        """
+        Consume and process messages from DLQ.
+
+        Args:
+            channel: RabbitMQ channel
+            dlq_name: Name of the DLQ being processed
+            message_count: Expected number of messages
+
+        Returns:
+            Tuple of (processed_count, failed_count)
+        """
+        processed = 0
+        failed = 0
+
+        for method, properties, body in channel.consume(dlq_name, auto_ack=False):
+            success = self._process_single_message(channel, dlq_name, method, properties, body)
+
+            if success:
+                processed += 1
+            else:
+                failed += 1
+
+            if processed >= message_count:
+                break
+
+        return processed, failed
+
+    def _update_health_tracking(self, dlq_name: str, processed: int, failed: int) -> None:
+        """
+        Update health tracking metrics.
+
+        Args:
+            dlq_name: Name of the DLQ
+            processed: Number of successfully processed messages
+            failed: Number of failed messages
+        """
+        if processed > 0 or failed == 0:
+            self.last_successful_processing_time[dlq_name] = time.time()
+            self.consecutive_failures[dlq_name] = 0
+        else:
+            current_failures = self.consecutive_failures.get(dlq_name, 0)
+            self.consecutive_failures[dlq_name] = current_failures + 1
+
     def _process_dlq(self, dlq_name: str) -> None:
         """
         Process messages from one DLQ.
@@ -144,9 +283,7 @@ class RetryDaemon:
                 connection = pika.BlockingConnection(pika.URLParameters(self.rabbitmq_url))
                 channel = connection.channel()
 
-                queue_state = channel.queue_declare(queue=dlq_name, durable=True)
-                message_count = queue_state.method.message_count
-
+                message_count = self._check_dlq_depth(channel, dlq_name)
                 span.set_attribute("retry.dlq.message_count", message_count)
 
                 if message_count == 0:
@@ -157,87 +294,16 @@ class RetryDaemon:
 
                 logger.info(f"Processing {message_count} messages from {dlq_name}")
 
-                processed = 0
-                failed = 0
-
-                for method, properties, body in channel.consume(dlq_name, auto_ack=False):
-                    # Create child span for individual message processing
-                    with tracer.start_as_current_span(
-                        "retry.process_message",
-                        attributes={
-                            "retry.dlq_name": dlq_name,
-                            "messaging.message_id": properties.message_id or "unknown",
-                        },
-                    ) as msg_span:
-                        try:
-                            routing_key = self._get_routing_key(properties)
-
-                            event = Event.model_validate_json(body)
-
-                            # Add detailed span attributes
-                            msg_span.set_attribute("retry.routing_key", routing_key)
-                            msg_span.set_attribute("retry.event_type", event.event_type)
-                            if properties.headers and "x-death" in properties.headers:
-                                deaths = properties.headers["x-death"]
-                                if deaths and len(deaths) > 0:
-                                    retry_count = deaths[0].get("count", 0)
-                                    msg_span.set_attribute("retry.retry_count", retry_count)
-
-                            if self.publisher is None:
-                                raise RuntimeError("Publisher not initialized")
-
-                            # Republish without TTL to prevent re-entering DLQ
-                            self.publisher.publish(
-                                event, routing_key=routing_key, expiration_ms=None
-                            )
-
-                            channel.basic_ack(method.delivery_tag)
-                            processed += 1
-
-                            # Record successful processing
-                            self.messages_processed_counter.add(
-                                1,
-                                attributes={
-                                    "dlq_name": dlq_name,
-                                    "event_type": event.event_type,
-                                    "routing_key": routing_key,
-                                },
-                            )
-
-                            if processed >= message_count:
-                                break
-
-                        except Exception as e:
-                            logger.error(
-                                f"Failed to republish message from {dlq_name}: {e}",
-                                exc_info=True,
-                            )
-                            # NACK with requeue - message stays in DLQ for next cycle
-                            channel.basic_nack(method.delivery_tag, requeue=True)
-                            failed += 1
-
-                            # Record failed processing
-                            self.messages_failed_counter.add(
-                                1,
-                                attributes={
-                                    "dlq_name": dlq_name,
-                                    "error_type": type(e).__name__,
-                                },
-                            )
-                            msg_span.record_exception(e)
+                processed, failed = self._consume_and_process_messages(
+                    channel, dlq_name, message_count
+                )
 
                 channel.cancel()
                 connection.close()
 
                 logger.info(f"Republished {processed} messages from {dlq_name}")
 
-                # Update health tracking
-                if processed > 0 or failed == 0:
-                    self.last_successful_processing_time[dlq_name] = time.time()
-                    self.consecutive_failures[dlq_name] = 0
-                else:
-                    current_failures = self.consecutive_failures.get(dlq_name, 0)
-                    self.consecutive_failures[dlq_name] = current_failures + 1
+                self._update_health_tracking(dlq_name, processed, failed)
 
                 span.set_attribute("retry.processed_count", processed)
                 span.set_attribute("retry.failed_count", failed)
