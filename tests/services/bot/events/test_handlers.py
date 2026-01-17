@@ -2028,3 +2028,337 @@ async def test_handle_game_cancelled_handles_exception(event_handlers):
         mock_db.return_value.__aexit__ = AsyncMock()
 
         await event_handlers._handle_game_cancelled(data)
+
+
+# --- _refresh_game_message Helper Tests ---
+
+
+class TestRefreshGameMessageHelpers:
+    """Tests for _refresh_game_message extracted helper methods."""
+
+    @pytest.mark.asyncio
+    async def test_fetch_game_for_refresh_success(self, event_handlers, sample_game):
+        """Test successful game fetch with message_id."""
+        mock_db = MagicMock()
+        sample_game.message_id = "123456789"
+
+        with patch.object(
+            event_handlers,
+            "_get_game_with_participants",
+            new=AsyncMock(return_value=sample_game),
+        ):
+            result = await event_handlers._fetch_game_for_refresh(mock_db, sample_game.id)
+
+        assert result is sample_game
+
+    @pytest.mark.asyncio
+    async def test_fetch_game_for_refresh_no_game(self, event_handlers):
+        """Test game fetch when game not found."""
+        mock_db = MagicMock()
+        game_id = str(uuid4())
+
+        with patch.object(
+            event_handlers,
+            "_get_game_with_participants",
+            new=AsyncMock(return_value=None),
+        ):
+            result = await event_handlers._fetch_game_for_refresh(mock_db, game_id)
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_fetch_game_for_refresh_no_message_id(self, event_handlers, sample_game):
+        """Test game fetch when game has no message_id."""
+        mock_db = MagicMock()
+        sample_game.message_id = None
+
+        with patch.object(
+            event_handlers,
+            "_get_game_with_participants",
+            new=AsyncMock(return_value=sample_game),
+        ):
+            result = await event_handlers._fetch_game_for_refresh(mock_db, sample_game.id)
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_validate_channel_for_refresh_success(self, event_handlers, mock_bot):
+        """Test successful channel validation."""
+        channel_id = "123456789"
+        mock_channel = MagicMock(spec=discord.TextChannel)
+        mock_bot.get_channel.return_value = mock_channel
+
+        with patch("services.bot.events.handlers.get_discord_client") as mock_discord_api:
+            mock_api = AsyncMock()
+            mock_api.fetch_channel.return_value = {"id": channel_id}
+            mock_discord_api.return_value = mock_api
+
+            result = await event_handlers._validate_channel_for_refresh(channel_id)
+
+        assert result is mock_channel
+
+    @pytest.mark.asyncio
+    async def test_validate_channel_for_refresh_api_fails(self, event_handlers, mock_bot):
+        """Test channel validation when API fetch fails."""
+        channel_id = "123456789"
+
+        with patch("services.bot.events.handlers.get_discord_client") as mock_discord_api:
+            mock_api = AsyncMock()
+            mock_api.fetch_channel.return_value = None
+            mock_discord_api.return_value = mock_api
+
+            result = await event_handlers._validate_channel_for_refresh(channel_id)
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_validate_channel_for_refresh_with_fetch(self, event_handlers, mock_bot):
+        """Test channel validation with bot fetch when get fails."""
+        channel_id = "123456789"
+        mock_channel = MagicMock(spec=discord.TextChannel)
+        mock_bot.get_channel.return_value = None
+        mock_bot.fetch_channel.return_value = mock_channel
+
+        with patch("services.bot.events.handlers.get_discord_client") as mock_discord_api:
+            mock_api = AsyncMock()
+            mock_api.fetch_channel.return_value = {"id": channel_id}
+            mock_discord_api.return_value = mock_api
+
+            result = await event_handlers._validate_channel_for_refresh(channel_id)
+
+        assert result is mock_channel
+        mock_bot.fetch_channel.assert_called_once_with(int(channel_id))
+
+    @pytest.mark.asyncio
+    async def test_validate_channel_for_refresh_invalid_type(self, event_handlers, mock_bot):
+        """Test channel validation when channel is not TextChannel."""
+        channel_id = "123456789"
+        mock_channel = MagicMock(spec=discord.VoiceChannel)
+        mock_bot.get_channel.return_value = mock_channel
+
+        with patch("services.bot.events.handlers.get_discord_client") as mock_discord_api:
+            mock_api = AsyncMock()
+            mock_api.fetch_channel.return_value = {"id": channel_id}
+            mock_discord_api.return_value = mock_api
+
+            result = await event_handlers._validate_channel_for_refresh(channel_id)
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_fetch_message_for_refresh_success(self, event_handlers):
+        """Test successful message fetch."""
+        message_id = "123456789"
+        mock_message = MagicMock(spec=discord.Message)
+        mock_channel = AsyncMock(spec=discord.TextChannel)
+        mock_channel.fetch_message.return_value = mock_message
+
+        result = await event_handlers._fetch_message_for_refresh(mock_channel, message_id)
+
+        assert result is mock_message
+        mock_channel.fetch_message.assert_called_once_with(int(message_id))
+
+    @pytest.mark.asyncio
+    async def test_fetch_message_for_refresh_not_found(self, event_handlers):
+        """Test message fetch when message not found."""
+        message_id = "123456789"
+        mock_channel = AsyncMock(spec=discord.TextChannel)
+        mock_channel.fetch_message.side_effect = discord.NotFound(MagicMock(), "Not found")
+
+        result = await event_handlers._fetch_message_for_refresh(mock_channel, message_id)
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_update_game_message_content(self, event_handlers, sample_game):
+        """Test message content update."""
+        mock_message = AsyncMock(spec=discord.Message)
+        mock_content = "Test content"
+        mock_embed = MagicMock(spec=discord.Embed)
+        mock_view = MagicMock()
+
+        with patch.object(
+            event_handlers,
+            "_create_game_announcement",
+            new=AsyncMock(return_value=(mock_content, mock_embed, mock_view)),
+        ):
+            await event_handlers._update_game_message_content(mock_message, sample_game)
+
+        mock_message.edit.assert_called_once_with(
+            content=mock_content, embed=mock_embed, view=mock_view
+        )
+
+    @pytest.mark.asyncio
+    async def test_set_message_refresh_throttle(self, event_handlers):
+        """Test setting Redis throttle key."""
+        game_id = str(uuid4())
+        mock_redis = AsyncMock()
+
+        with patch("services.bot.events.handlers.get_redis_client") as mock_get_redis:
+            mock_get_redis.return_value = mock_redis
+
+            await event_handlers._set_message_refresh_throttle(game_id)
+
+        mock_redis.set.assert_called_once()
+        call_args = mock_redis.set.call_args
+        assert game_id in call_args[0][0]
+        assert call_args[0][1] == "1"
+
+
+# --- _refresh_game_message Integration Tests ---
+
+
+@pytest.mark.asyncio
+async def test_refresh_game_message_success(event_handlers, sample_game, mock_bot):
+    """Test successful game message refresh through all steps."""
+    sample_game.message_id = "123456789"
+
+    # Add mock channel config to sample_game
+    mock_channel_config = MagicMock()
+    mock_channel_config.channel_id = "123456789"
+    sample_game.channel = mock_channel_config
+
+    mock_message = AsyncMock(spec=discord.Message)
+    mock_channel = MagicMock(spec=discord.TextChannel)
+    mock_db_instance = MagicMock()
+
+    with (
+        patch("services.bot.events.handlers.get_db_session") as mock_db,
+        patch.object(
+            event_handlers, "_fetch_game_for_refresh", return_value=sample_game
+        ) as mock_fetch,
+        patch.object(
+            event_handlers, "_validate_channel_for_refresh", return_value=mock_channel
+        ) as mock_validate,
+        patch.object(
+            event_handlers, "_fetch_message_for_refresh", return_value=mock_message
+        ) as mock_fetch_msg,
+        patch.object(event_handlers, "_update_game_message_content") as mock_update,
+        patch.object(event_handlers, "_set_message_refresh_throttle") as mock_throttle,
+    ):
+        mock_db.return_value.__aenter__.return_value = mock_db_instance
+        mock_db.return_value.__aexit__.return_value = None
+
+        await event_handlers._refresh_game_message(sample_game.id)
+
+        mock_fetch.assert_called_once_with(mock_db_instance, sample_game.id)
+        mock_validate.assert_called_once_with(str(sample_game.channel.channel_id))
+        mock_fetch_msg.assert_called_once_with(mock_channel, sample_game.message_id)
+        mock_update.assert_called_once_with(mock_message, sample_game)
+        mock_throttle.assert_called_once_with(sample_game.id)
+
+
+@pytest.mark.asyncio
+async def test_refresh_game_message_game_not_found(event_handlers, mock_bot):
+    """Test refresh when game not found or has no message_id."""
+    game_id = str(uuid4())
+    mock_db_instance = MagicMock()
+
+    with (
+        patch("services.bot.events.handlers.get_db_session") as mock_db,
+        patch.object(event_handlers, "_fetch_game_for_refresh", return_value=None) as mock_fetch,
+        patch.object(event_handlers, "_validate_channel_for_refresh") as mock_validate,
+        patch.object(event_handlers, "_update_game_message_content") as mock_update,
+    ):
+        mock_db.return_value.__aenter__.return_value = mock_db_instance
+        mock_db.return_value.__aexit__.return_value = None
+
+        await event_handlers._refresh_game_message(game_id)
+
+        mock_fetch.assert_called_once_with(mock_db_instance, game_id)
+        mock_validate.assert_not_called()
+        mock_update.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_refresh_game_message_channel_validation_fails(event_handlers, sample_game, mock_bot):
+    """Test refresh when channel validation fails."""
+    sample_game.message_id = "123456789"
+
+    # Add mock channel config to sample_game
+    mock_channel_config = MagicMock()
+    mock_channel_config.channel_id = "123456789"
+    sample_game.channel = mock_channel_config
+
+    mock_db_instance = MagicMock()
+
+    with (
+        patch("services.bot.events.handlers.get_db_session") as mock_db,
+        patch.object(
+            event_handlers, "_fetch_game_for_refresh", return_value=sample_game
+        ) as mock_fetch,
+        patch.object(
+            event_handlers, "_validate_channel_for_refresh", return_value=None
+        ) as mock_validate,
+        patch.object(event_handlers, "_fetch_message_for_refresh") as mock_fetch_msg,
+        patch.object(event_handlers, "_update_game_message_content") as mock_update,
+    ):
+        mock_db.return_value.__aenter__.return_value = mock_db_instance
+        mock_db.return_value.__aexit__.return_value = None
+
+        await event_handlers._refresh_game_message(sample_game.id)
+
+        mock_fetch.assert_called_once()
+        mock_validate.assert_called_once()
+        mock_fetch_msg.assert_not_called()
+        mock_update.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_refresh_game_message_message_not_found(event_handlers, sample_game, mock_bot):
+    """Test refresh when Discord message not found."""
+    sample_game.message_id = "123456789"
+
+    # Add mock channel config to sample_game
+    mock_channel_config = MagicMock()
+    mock_channel_config.channel_id = "123456789"
+    sample_game.channel = mock_channel_config
+
+    mock_channel = MagicMock(spec=discord.TextChannel)
+    mock_db_instance = MagicMock()
+
+    with (
+        patch("services.bot.events.handlers.get_db_session") as mock_db,
+        patch.object(
+            event_handlers, "_fetch_game_for_refresh", return_value=sample_game
+        ) as mock_fetch,
+        patch.object(
+            event_handlers, "_validate_channel_for_refresh", return_value=mock_channel
+        ) as mock_validate,
+        patch.object(
+            event_handlers, "_fetch_message_for_refresh", return_value=None
+        ) as mock_fetch_msg,
+        patch.object(event_handlers, "_update_game_message_content") as mock_update,
+        patch.object(event_handlers, "_set_message_refresh_throttle") as mock_throttle,
+    ):
+        mock_db.return_value.__aenter__.return_value = mock_db_instance
+        mock_db.return_value.__aexit__.return_value = None
+
+        await event_handlers._refresh_game_message(sample_game.id)
+
+        mock_fetch.assert_called_once()
+        mock_validate.assert_called_once()
+        mock_fetch_msg.assert_called_once()
+        mock_update.assert_not_called()
+        mock_throttle.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_refresh_game_message_handles_exception(event_handlers, sample_game, mock_bot):
+    """Test refresh handles exceptions gracefully."""
+    mock_db_instance = MagicMock()
+
+    with (
+        patch("services.bot.events.handlers.get_db_session") as mock_db,
+        patch.object(
+            event_handlers,
+            "_fetch_game_for_refresh",
+            side_effect=Exception("Database error"),
+        ) as mock_fetch,
+    ):
+        mock_db.return_value.__aenter__.return_value = mock_db_instance
+        mock_db.return_value.__aexit__.return_value = None
+
+        await event_handlers._refresh_game_message(sample_game.id)
+
+        mock_fetch.assert_called_once()
