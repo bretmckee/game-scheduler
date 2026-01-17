@@ -18,5 +18,7 @@ Systematically refactor high-complexity functions to reduce cyclomatic complexit
 ### Modified
 
 - [services/api/routes/games.py](services/api/routes/games.py) - Extracted _parse_update_form_data() and _process_image_upload() helpers, refactored update_game() to reduce complexity from C:14 to A:5
+- [services/api/services/display_names.py](services/api/services/display_names.py) - Extracted _check_cache_for_users(), _fetch_and_cache_display_names_avatars(), and _create_fallback_user_data() helpers, refactored resolve_display_names_and_avatars() to reduce complexity from C:12/Cog:19 to below thresholds
+- [tests/services/api/services/test_display_names.py](tests/services/api/services/test_display_names.py) - Added 10 unit tests for extracted helper methods covering cache checking, Discord API fetching, and fallback data creation
 
 ### Removed
