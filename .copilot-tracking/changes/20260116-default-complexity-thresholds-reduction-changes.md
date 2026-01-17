@@ -82,7 +82,11 @@ Systematically refactor high-complexity functions to reduce cyclomatic complexit
   - Extracted `_update_cancelled_game_message()` for message update logic
   - Added 12 unit tests in [tests/services/bot/events/test_handlers.py](tests/services/bot/events/test_handlers.py:1449-1650)
   - Successfully reduced cognitive complexity from 24→below threshold
-- [ ] **Task 3.4**: Continue with remaining Phase 3 functions from plan
+- [x] **Task 3.4**: Verified `_resolve_template_fields` (services/api/services/games.py:325-380) - Cog: 10 (Already compliant)
+  - Function already refactored in prior create_game complexity reduction work (commit 3769f01)
+  - Current cognitive complexity: 10 (well below threshold of 15)
+  - Has 9 comprehensive unit tests covering all scenarios
+  - No additional work needed - task already complete
 
 ### Phase 4: Remaining Cognitive Violations (16-19) (Not Started)
 
