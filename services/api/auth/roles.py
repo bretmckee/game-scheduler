@@ -93,6 +93,49 @@ class RoleVerificationService:
             logger.error(f"Unexpected error fetching user roles: {e}")
             return []
 
+    def _find_guild_data(self, guilds: list[dict], guild_id: str) -> dict | None:
+        """
+        Find guild data in list of guilds.
+
+        Args:
+            guilds: List of guild data dictionaries
+            guild_id: Discord guild ID to find
+
+        Returns:
+            Guild data dict if found, None otherwise
+        """
+        for guild_data in guilds:
+            if guild_data["id"] == guild_id:
+                return guild_data
+        return None
+
+    def _has_administrator_permission(self, user_permissions: int) -> bool:
+        """
+        Check if user has ADMINISTRATOR permission.
+
+        Args:
+            user_permissions: User's permission flags as integer
+
+        Returns:
+            True if user has ADMINISTRATOR permission
+        """
+        return bool(user_permissions & DiscordPermissions.ADMINISTRATOR)
+
+    def _has_any_requested_permission(
+        self, user_permissions: int, permissions: tuple[int, ...]
+    ) -> bool:
+        """
+        Check if user has any of the requested permissions.
+
+        Args:
+            user_permissions: User's permission flags as integer
+            permissions: Tuple of permission flags to check
+
+        Returns:
+            True if user has any of the requested permissions
+        """
+        return any(user_permissions & permission for permission in permissions)
+
     async def has_permissions(
         self, user_id: str, guild_id: str, access_token: str, *permissions: int
     ) -> bool:
@@ -113,23 +156,17 @@ class RoleVerificationService:
         """
         try:
             guilds = await self.discord_client.get_guilds(token=access_token, user_id=user_id)
+            guild_data = self._find_guild_data(guilds, guild_id)
 
-            for guild_data in guilds:
-                if guild_data["id"] == guild_id:
-                    user_permissions = int(guild_data.get("permissions", 0))
+            if not guild_data:
+                return False
 
-                    # ADMINISTRATOR grants all permissions
-                    if user_permissions & DiscordPermissions.ADMINISTRATOR:
-                        return True
+            user_permissions = int(guild_data.get("permissions", 0))
 
-                    # Check if user has any of the requested permissions
-                    for permission in permissions:
-                        if user_permissions & permission:
-                            return True
+            if self._has_administrator_permission(user_permissions):
+                return True
 
-                    return False
-
-            return False
+            return self._has_any_requested_permission(user_permissions, permissions)
 
         except Exception as e:
             logger.error(f"Error checking permissions: {e}")

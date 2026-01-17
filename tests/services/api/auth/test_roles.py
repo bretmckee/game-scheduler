@@ -24,6 +24,7 @@ import pytest
 
 from services.api.auth import roles
 from shared.discord import client as discord_client
+from shared.utils.discord import DiscordPermissions
 
 
 @pytest.fixture
@@ -233,6 +234,122 @@ async def test_has_any_role_multiple_matches(role_service):
         has_role = await role_service.has_any_role("user123", "guild456", ["role1", "role2"])
 
     assert has_role is True
+
+
+class TestHasPermissionsHelpers:
+    """Unit tests for has_permissions extracted helper methods."""
+
+    def test_find_guild_data_found(self, role_service):
+        """Test _find_guild_data returns guild when found."""
+        guilds = [
+            {"id": "guild1", "name": "Guild 1"},
+            {"id": "guild2", "name": "Guild 2"},
+            {"id": "guild3", "name": "Guild 3"},
+        ]
+
+        result = role_service._find_guild_data(guilds, "guild2")
+
+        assert result == {"id": "guild2", "name": "Guild 2"}
+
+    def test_find_guild_data_not_found(self, role_service):
+        """Test _find_guild_data returns None when guild not found."""
+        guilds = [
+            {"id": "guild1", "name": "Guild 1"},
+            {"id": "guild2", "name": "Guild 2"},
+        ]
+
+        result = role_service._find_guild_data(guilds, "guild999")
+
+        assert result is None
+
+    def test_find_guild_data_empty_list(self, role_service):
+        """Test _find_guild_data returns None for empty guild list."""
+        result = role_service._find_guild_data([], "guild1")
+
+        assert result is None
+
+    def test_has_administrator_permission_true(self, role_service):
+        """Test _has_administrator_permission returns True for admin."""
+        permissions = DiscordPermissions.ADMINISTRATOR
+
+        result = role_service._has_administrator_permission(permissions)
+
+        assert result is True
+
+    def test_has_administrator_permission_with_other_permissions(self, role_service):
+        """Test _has_administrator_permission with combined permissions."""
+        permissions = DiscordPermissions.ADMINISTRATOR | DiscordPermissions.MANAGE_GUILD
+
+        result = role_service._has_administrator_permission(permissions)
+
+        assert result is True
+
+    def test_has_administrator_permission_false(self, role_service):
+        """Test _has_administrator_permission returns False without admin."""
+        permissions = DiscordPermissions.MANAGE_GUILD | DiscordPermissions.MANAGE_CHANNELS
+
+        result = role_service._has_administrator_permission(permissions)
+
+        assert result is False
+
+    def test_has_administrator_permission_zero(self, role_service):
+        """Test _has_administrator_permission returns False for zero permissions."""
+        result = role_service._has_administrator_permission(0)
+
+        assert result is False
+
+    def test_has_any_requested_permission_single_match(self, role_service):
+        """Test _has_any_requested_permission with single matching permission."""
+        user_permissions = DiscordPermissions.MANAGE_GUILD
+        requested_permissions = (DiscordPermissions.MANAGE_GUILD,)
+
+        result = role_service._has_any_requested_permission(user_permissions, requested_permissions)
+
+        assert result is True
+
+    def test_has_any_requested_permission_multiple_match(self, role_service):
+        """Test _has_any_requested_permission with multiple matching permissions."""
+        user_permissions = (
+            DiscordPermissions.MANAGE_GUILD
+            | DiscordPermissions.MANAGE_CHANNELS
+            | DiscordPermissions.MANAGE_ROLES
+        )
+        requested_permissions = (
+            DiscordPermissions.MANAGE_GUILD,
+            DiscordPermissions.MANAGE_ROLES,
+        )
+
+        result = role_service._has_any_requested_permission(user_permissions, requested_permissions)
+
+        assert result is True
+
+    def test_has_any_requested_permission_no_match(self, role_service):
+        """Test _has_any_requested_permission with no matching permissions."""
+        user_permissions = DiscordPermissions.SEND_MESSAGES | DiscordPermissions.ADD_REACTIONS
+        requested_permissions = (
+            DiscordPermissions.MANAGE_GUILD,
+            DiscordPermissions.MANAGE_ROLES,
+        )
+
+        result = role_service._has_any_requested_permission(user_permissions, requested_permissions)
+
+        assert result is False
+
+    def test_has_any_requested_permission_empty_requested(self, role_service):
+        """Test _has_any_requested_permission with empty permissions tuple."""
+        user_permissions = DiscordPermissions.MANAGE_GUILD
+
+        result = role_service._has_any_requested_permission(user_permissions, ())
+
+        assert result is False
+
+    def test_has_any_requested_permission_zero_user_permissions(self, role_service):
+        """Test _has_any_requested_permission with zero user permissions."""
+        requested_permissions = (DiscordPermissions.MANAGE_GUILD,)
+
+        result = role_service._has_any_requested_permission(0, requested_permissions)
+
+        assert result is False
 
 
 def test_get_role_service_singleton():
