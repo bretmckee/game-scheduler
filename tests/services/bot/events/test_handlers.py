@@ -19,7 +19,7 @@
 """Unit tests for bot event handlers."""
 
 import asyncio
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -28,6 +28,8 @@ import pytest
 
 from services.bot.events.handlers import EventHandlers
 from shared.messaging.events import EventType
+from shared.models import participant as participant_model
+from shared.models.base import utc_now
 from shared.models.game import GameSession, GameStatus
 from shared.models.participant import ParticipantType
 from shared.models.user import User
@@ -1161,4 +1163,281 @@ async def test_notify_removed_player_dm_failure(event_handlers):
         mock_logger.warning.assert_called()
         assert any(
             "Failed to send removal DM" in str(call) for call in mock_logger.warning.call_args_list
+        )
+
+
+# ==============================================================================
+# Helper Method Tests: _handle_game_reminder Extraction (Phase 2 Task 2.2)
+# ==============================================================================
+
+
+@pytest.mark.asyncio
+async def test_validate_game_for_reminder_already_started(event_handlers):
+    """Test validation rejects game that already started."""
+    game = GameSession(
+        id=str(uuid4()),
+        scheduled_at=utc_now() - timedelta(hours=1),
+        status="SCHEDULED",
+    )
+
+    result = await event_handlers._validate_game_for_reminder(game, game.id)
+
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_validate_game_for_reminder_wrong_status(event_handlers):
+    """Test validation rejects non-scheduled game."""
+    game = GameSession(
+        id=str(uuid4()),
+        scheduled_at=utc_now() + timedelta(hours=1),
+        status="COMPLETED",
+    )
+
+    result = await event_handlers._validate_game_for_reminder(game, game.id)
+
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_validate_game_for_reminder_valid(event_handlers):
+    """Test validation accepts valid scheduled game."""
+    game = GameSession(
+        id=str(uuid4()),
+        scheduled_at=utc_now() + timedelta(hours=1),
+        status="SCHEDULED",
+    )
+
+    result = await event_handlers._validate_game_for_reminder(game, game.id)
+
+    assert result is True
+
+
+def test_partition_and_filter_participants_with_users(event_handlers):
+    """Test partitioning with real user participants."""
+    user1 = User(id=str(uuid4()), discord_id="user1")
+    user2 = User(id=str(uuid4()), discord_id="user2")
+    user3 = User(id=str(uuid4()), discord_id="user3")
+
+    participants = [
+        participant_model.GameParticipant(
+            id="p1",
+            game_session_id="game1",
+            user_id=user1.id,
+            user=user1,
+            position=0,
+            position_type=ParticipantType.SELF_ADDED,
+        ),
+        participant_model.GameParticipant(
+            id="p2",
+            game_session_id="game1",
+            user_id=user2.id,
+            user=user2,
+            position=1,
+            position_type=ParticipantType.SELF_ADDED,
+        ),
+        participant_model.GameParticipant(
+            id="p3",
+            game_session_id="game1",
+            user_id=user3.id,
+            user=user3,
+            position=2,
+            position_type=ParticipantType.SELF_ADDED,
+        ),
+    ]
+
+    game = GameSession(
+        id="game1",
+        max_players=2,
+        participants=participants,
+    )
+
+    confirmed, overflow = event_handlers._partition_and_filter_participants(game)
+
+    assert len(confirmed) == 2
+    assert len(overflow) == 1
+    assert confirmed[0].user == user1
+    assert confirmed[1].user == user2
+    assert overflow[0].user == user3
+
+
+def test_partition_and_filter_participants_excludes_placeholders(event_handlers):
+    """Test filtering excludes placeholder participants."""
+    user1 = User(id=str(uuid4()), discord_id="user1")
+
+    participants = [
+        participant_model.GameParticipant(
+            id="p1",
+            game_session_id="game1",
+            user_id=user1.id,
+            user=user1,
+            position=0,
+            position_type=ParticipantType.SELF_ADDED,
+        ),
+        participant_model.GameParticipant(
+            id="p2",
+            game_session_id="game1",
+            user_id=None,
+            user=None,
+            position=1,
+            position_type=ParticipantType.HOST_ADDED,
+        ),
+    ]
+
+    game = GameSession(
+        id="game1",
+        max_players=2,
+        participants=participants,
+    )
+
+    confirmed, overflow = event_handlers._partition_and_filter_participants(game)
+
+    assert len(confirmed) == 1
+    assert len(overflow) == 0
+    assert confirmed[0].user == user1
+
+
+@pytest.mark.asyncio
+async def test_send_participant_reminders_success(event_handlers):
+    """Test sending reminders to participants."""
+    user1 = User(id=str(uuid4()), discord_id="user1")
+    user2 = User(id=str(uuid4()), discord_id="user2")
+
+    participants_list = [
+        participant_model.GameParticipant(
+            id="p1",
+            game_session_id="game1",
+            user_id=user1.id,
+            user=user1,
+            position=0,
+            position_type=ParticipantType.SELF_ADDED,
+        ),
+        participant_model.GameParticipant(
+            id="p2",
+            game_session_id="game1",
+            user_id=user2.id,
+            user=user2,
+            position=1,
+            position_type=ParticipantType.SELF_ADDED,
+        ),
+    ]
+
+    with patch.object(event_handlers, "_send_reminder_dm", new=AsyncMock()) as mock_send:
+        await event_handlers._send_participant_reminders(
+            participants_list,
+            "Test Game",
+            1234567890,
+            is_waitlist=False,
+        )
+
+        assert mock_send.call_count == 2
+        mock_send.assert_any_await(
+            user_discord_id="user1",
+            game_title="Test Game",
+            game_time_unix=1234567890,
+            reminder_minutes=0,
+            is_waitlist=False,
+        )
+        mock_send.assert_any_await(
+            user_discord_id="user2",
+            game_title="Test Game",
+            game_time_unix=1234567890,
+            reminder_minutes=0,
+            is_waitlist=False,
+        )
+
+
+@pytest.mark.asyncio
+async def test_send_participant_reminders_handles_errors(event_handlers):
+    """Test error handling when sending reminders."""
+    user1 = User(id=str(uuid4()), discord_id="user1")
+
+    participants_list = [
+        participant_model.GameParticipant(
+            id="p1",
+            game_session_id="game1",
+            user_id=user1.id,
+            user=user1,
+            position=0,
+            position_type=ParticipantType.SELF_ADDED,
+        ),
+    ]
+
+    with patch.object(
+        event_handlers,
+        "_send_reminder_dm",
+        new=AsyncMock(side_effect=Exception("DM failed")),
+    ):
+        await event_handlers._send_participant_reminders(
+            participants_list,
+            "Test Game",
+            1234567890,
+            is_waitlist=False,
+        )
+
+
+@pytest.mark.asyncio
+async def test_send_host_reminder_success(event_handlers):
+    """Test sending reminder to game host."""
+    host = User(id=str(uuid4()), discord_id="host123")
+
+    with patch.object(event_handlers, "_send_reminder_dm", new=AsyncMock()) as mock_send:
+        await event_handlers._send_host_reminder(
+            host,
+            "Test Game",
+            1234567890,
+        )
+
+        mock_send.assert_awaited_once_with(
+            user_discord_id="host123",
+            game_title="Test Game",
+            game_time_unix=1234567890,
+            reminder_minutes=0,
+            is_waitlist=False,
+            is_host=True,
+        )
+
+
+@pytest.mark.asyncio
+async def test_send_host_reminder_no_host(event_handlers):
+    """Test handling when no host present."""
+    with patch.object(event_handlers, "_send_reminder_dm", new=AsyncMock()) as mock_send:
+        await event_handlers._send_host_reminder(
+            None,
+            "Test Game",
+            1234567890,
+        )
+
+        mock_send.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_send_host_reminder_no_discord_id(event_handlers):
+    """Test handling when host has no Discord ID."""
+    host = User(id=str(uuid4()), discord_id=None)
+
+    with patch.object(event_handlers, "_send_reminder_dm", new=AsyncMock()) as mock_send:
+        await event_handlers._send_host_reminder(
+            host,
+            "Test Game",
+            1234567890,
+        )
+
+        mock_send.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_send_host_reminder_handles_error(event_handlers):
+    """Test error handling when sending host reminder."""
+    host = User(id=str(uuid4()), discord_id="host123")
+
+    with patch.object(
+        event_handlers,
+        "_send_reminder_dm",
+        new=AsyncMock(side_effect=Exception("DM failed")),
+    ):
+        await event_handlers._send_host_reminder(
+            host,
+            "Test Game",
+            1234567890,
         )

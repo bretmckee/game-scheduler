@@ -81,7 +81,7 @@ select = ["E", "F", "I", "N", "W", "B", "C4", "UP", "PLR2004", "PLC0415", "C901"
 ignore = []
 
 [tool.ruff.lint.mccabe]
-max-complexity = 17
+max-complexity = 10
 
 [tool.complexipy]
 max-complexity-allowed = 25
