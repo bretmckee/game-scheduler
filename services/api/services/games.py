@@ -676,6 +676,107 @@ class GameService:
 
         return list(games), total
 
+    def _update_simple_text_fields(
+        self,
+        game: game_model.GameSession,
+        update_data: game_schemas.GameUpdateRequest,
+    ) -> None:
+        """
+        Update simple text fields that don't affect schedules.
+
+        Args:
+            game: Game session to update
+            update_data: Update data
+        """
+        if update_data.title is not None:
+            game.title = update_data.title
+        if update_data.description is not None:
+            game.description = update_data.description
+        if update_data.signup_instructions is not None:
+            game.signup_instructions = update_data.signup_instructions
+        if update_data.where is not None:
+            game.where = update_data.where
+
+    def _update_scheduled_at_field(
+        self,
+        game: game_model.GameSession,
+        update_data: game_schemas.GameUpdateRequest,
+    ) -> bool:
+        """
+        Update scheduled_at field with timezone handling.
+
+        Args:
+            game: Game session to update
+            update_data: Update data
+
+        Returns:
+            True if schedule needs update, False otherwise
+        """
+        if update_data.scheduled_at is None:
+            return False
+
+        if update_data.scheduled_at.tzinfo is not None:
+            game.scheduled_at = update_data.scheduled_at.astimezone(datetime.UTC).replace(
+                tzinfo=None
+            )
+        else:
+            game.scheduled_at = update_data.scheduled_at
+        return True
+
+    def _update_schedule_affecting_fields(
+        self,
+        game: game_model.GameSession,
+        update_data: game_schemas.GameUpdateRequest,
+    ) -> bool:
+        """
+        Update fields that affect notification schedules.
+
+        Args:
+            game: Game session to update
+            update_data: Update data
+
+        Returns:
+            True if schedule needs update, False otherwise
+        """
+        schedule_needs_update = False
+
+        if update_data.reminder_minutes is not None:
+            game.reminder_minutes = update_data.reminder_minutes
+            schedule_needs_update = True
+
+        return schedule_needs_update
+
+    def _update_remaining_fields(
+        self,
+        game: game_model.GameSession,
+        update_data: game_schemas.GameUpdateRequest,
+    ) -> bool:
+        """
+        Update remaining fields (max_players, duration, roles, status, signup_method).
+
+        Args:
+            game: Game session to update
+            update_data: Update data
+
+        Returns:
+            True if status schedule needs update, False otherwise
+        """
+        status_schedule_needs_update = False
+
+        if update_data.max_players is not None:
+            game.max_players = update_data.max_players
+        if update_data.expected_duration_minutes is not None:
+            game.expected_duration_minutes = update_data.expected_duration_minutes
+        if update_data.notify_role_ids is not None:
+            game.notify_role_ids = update_data.notify_role_ids
+        if update_data.status is not None:
+            game.status = update_data.status
+            status_schedule_needs_update = True
+        if update_data.signup_method is not None:
+            game.signup_method = update_data.signup_method
+
+        return status_schedule_needs_update
+
     def _update_game_fields(
         self,
         game: game_model.GameSession,
@@ -691,41 +792,22 @@ class GameService:
         Returns:
             Tuple of (schedule_needs_update, status_schedule_needs_update)
         """
-        schedule_needs_update = False
-        status_schedule_needs_update = False
+        # Update simple text fields that don't affect schedules
+        self._update_simple_text_fields(game, update_data)
 
-        if update_data.title is not None:
-            game.title = update_data.title
-        if update_data.description is not None:
-            game.description = update_data.description
-        if update_data.signup_instructions is not None:
-            game.signup_instructions = update_data.signup_instructions
-        if update_data.scheduled_at is not None:
-            # Database stores timestamps as naive UTC, so convert timezone-aware inputs
-            if update_data.scheduled_at.tzinfo is not None:
-                game.scheduled_at = update_data.scheduled_at.astimezone(datetime.UTC).replace(
-                    tzinfo=None
-                )
-            else:
-                game.scheduled_at = update_data.scheduled_at
+        # Update scheduled_at with timezone handling (affects both schedules)
+        scheduled_at_updated = self._update_scheduled_at_field(game, update_data)
+
+        # Update fields that affect notification schedules
+        schedule_needs_update = self._update_schedule_affecting_fields(game, update_data)
+
+        # Update remaining fields (max_players, duration, roles, status, signup_method)
+        status_schedule_needs_update = self._update_remaining_fields(game, update_data)
+
+        # scheduled_at affects both schedules
+        if scheduled_at_updated:
             schedule_needs_update = True
             status_schedule_needs_update = True
-        if update_data.where is not None:
-            game.where = update_data.where
-        if update_data.max_players is not None:
-            game.max_players = update_data.max_players
-        if update_data.reminder_minutes is not None:
-            game.reminder_minutes = update_data.reminder_minutes
-            schedule_needs_update = True
-        if update_data.expected_duration_minutes is not None:
-            game.expected_duration_minutes = update_data.expected_duration_minutes
-        if update_data.notify_role_ids is not None:
-            game.notify_role_ids = update_data.notify_role_ids
-        if update_data.status is not None:
-            game.status = update_data.status
-            status_schedule_needs_update = True
-        if update_data.signup_method is not None:
-            game.signup_method = update_data.signup_method
 
         return schedule_needs_update, status_schedule_needs_update
 
