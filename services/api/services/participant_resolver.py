@@ -243,6 +243,43 @@ class ParticipantResolver:
             "original_input": input_text,
         }
 
+    async def _process_single_participant_input(
+        self,
+        guild_discord_id: str,
+        input_text: str,
+        access_token: str,
+    ) -> tuple[dict | None, dict | None]:
+        """
+        Process a single participant input and resolve to participant or error.
+
+        Args:
+            guild_discord_id: Discord guild snowflake ID
+            input_text: Single participant input (@mention, <@id>, or placeholder)
+            access_token: User's access token for Discord API calls
+
+        Returns:
+            Tuple of (participant_dict, error_dict) - one will be None
+        """
+        input_text = input_text.strip()
+
+        if not input_text:
+            return None, None
+
+        mention_match = self._discord_mention_pattern.match(input_text)
+        if mention_match:
+            discord_id = mention_match.group(1)
+            return await self._resolve_discord_mention_format(
+                guild_discord_id, input_text, discord_id
+            )
+
+        if input_text.startswith("@"):
+            mention_text = input_text[1:].lower()
+            return await self._resolve_user_friendly_mention(
+                guild_discord_id, input_text, mention_text, access_token
+            )
+
+        return self._create_placeholder_participant(input_text), None
+
     async def resolve_initial_participants(
         self,
         guild_discord_id: str,
@@ -268,37 +305,14 @@ class ParticipantResolver:
         validation_errors: list[dict[str, Any]] = []
 
         for input_text in participant_inputs:
-            input_text = input_text.strip()
+            participant, error = await self._process_single_participant_input(
+                guild_discord_id, input_text, access_token
+            )
 
-            if not input_text:
-                continue
-
-            # Check for Discord internal mention format: <@discord_id>
-            mention_match = self._discord_mention_pattern.match(input_text)
-            if mention_match:
-                discord_id = mention_match.group(1)
-                participant, error = await self._resolve_discord_mention_format(
-                    guild_discord_id, input_text, discord_id
-                )
-                if participant:
-                    valid_participants.append(participant)
-                else:
-                    validation_errors.append(error)
-                continue
-
-            # Check for user-friendly @mention
-            if input_text.startswith("@"):
-                mention_text = input_text[1:].lower()
-                participant, error = await self._resolve_user_friendly_mention(
-                    guild_discord_id, input_text, mention_text, access_token
-                )
-                if participant:
-                    valid_participants.append(participant)
-                else:
-                    validation_errors.append(error)
-            else:
-                # Placeholder string - always valid
-                valid_participants.append(self._create_placeholder_participant(input_text))
+            if participant:
+                valid_participants.append(participant)
+            if error:
+                validation_errors.append(error)
 
         return valid_participants, validation_errors
 

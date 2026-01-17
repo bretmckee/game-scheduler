@@ -699,3 +699,153 @@ def test_create_placeholder_participant_special_chars(resolver):
     assert participant["type"] == "placeholder"
     assert participant["display_name"] == "Player #1 (Team A)"
     assert participant["original_input"] == "Player #1 (Team A)"
+
+
+@pytest.mark.asyncio
+async def test_process_single_participant_input_discord_mention(resolver, mock_discord_client):
+    """Test _process_single_participant_input with Discord mention format."""
+    mock_discord_client.get_guild_member = AsyncMock(
+        return_value={
+            "user": {
+                "id": "12345678901234567",
+                "username": "testuser",
+                "global_name": "Test User",
+            },
+            "nick": "TestNick",
+        }
+    )
+
+    participant, error = await resolver._process_single_participant_input(
+        guild_discord_id="999",
+        input_text="<@12345678901234567>",
+        access_token="token",
+    )
+
+    assert participant is not None
+    assert participant["type"] == "discord"
+    assert participant["discord_id"] == "12345678901234567"
+    assert error is None
+
+
+@pytest.mark.asyncio
+async def test_process_single_participant_input_user_friendly_mention(
+    resolver, mock_discord_client
+):
+    """Test _process_single_participant_input with @username format."""
+    mock_session = AsyncMock()
+    mock_response = MagicMock()
+    mock_response.status = 200
+    mock_response.json = AsyncMock(
+        return_value=[
+            {
+                "user": {
+                    "id": "987654321",
+                    "username": "testuser",
+                },
+                "nick": None,
+            }
+        ]
+    )
+    mock_context = MagicMock()
+    mock_context.__aenter__ = AsyncMock(return_value=mock_response)
+    mock_context.__aexit__ = AsyncMock(return_value=None)
+    mock_session.get = MagicMock(return_value=mock_context)
+    mock_discord_client._get_session.return_value = mock_session
+
+    participant, error = await resolver._process_single_participant_input(
+        guild_discord_id="999",
+        input_text="@testuser",
+        access_token="token",
+    )
+
+    assert participant is not None
+    assert participant["type"] == "discord"
+    assert participant["discord_id"] == "987654321"
+    assert error is None
+
+
+@pytest.mark.asyncio
+async def test_process_single_participant_input_placeholder(resolver):
+    """Test _process_single_participant_input with placeholder string."""
+    participant, error = await resolver._process_single_participant_input(
+        guild_discord_id="999",
+        input_text="Player One",
+        access_token="token",
+    )
+
+    assert participant is not None
+    assert participant["type"] == "placeholder"
+    assert participant["display_name"] == "Player One"
+    assert error is None
+
+
+@pytest.mark.asyncio
+async def test_process_single_participant_input_empty_string(resolver):
+    """Test _process_single_participant_input with empty string."""
+    participant, error = await resolver._process_single_participant_input(
+        guild_discord_id="999",
+        input_text="",
+        access_token="token",
+    )
+
+    assert participant is None
+    assert error is None
+
+
+@pytest.mark.asyncio
+async def test_process_single_participant_input_whitespace_only(resolver):
+    """Test _process_single_participant_input with whitespace-only string."""
+    participant, error = await resolver._process_single_participant_input(
+        guild_discord_id="999",
+        input_text="   ",
+        access_token="token",
+    )
+
+    assert participant is None
+    assert error is None
+
+
+@pytest.mark.asyncio
+async def test_process_single_participant_input_discord_mention_not_found(
+    resolver, mock_discord_client
+):
+    """Test _process_single_participant_input when Discord user not found."""
+    mock_discord_client.get_guild_member = AsyncMock(
+        side_effect=discord_client_module.DiscordAPIError(404, "Not Found")
+    )
+
+    participant, error = await resolver._process_single_participant_input(
+        guild_discord_id="999",
+        input_text="<@12345678901234567>",
+        access_token="token",
+    )
+
+    assert participant is None
+    assert error is not None
+    assert error["input"] == "<@12345678901234567>"
+
+
+@pytest.mark.asyncio
+async def test_process_single_participant_input_user_friendly_mention_not_found(
+    resolver, mock_discord_client
+):
+    """Test _process_single_participant_input when @username not found."""
+    mock_session = AsyncMock()
+    mock_response = MagicMock()
+    mock_response.status = 200
+    mock_response.json = AsyncMock(return_value=[])
+    mock_context = MagicMock()
+    mock_context.__aenter__ = AsyncMock(return_value=mock_response)
+    mock_context.__aexit__ = AsyncMock(return_value=None)
+    mock_session.get = MagicMock(return_value=mock_context)
+    mock_discord_client._get_session.return_value = mock_session
+
+    participant, error = await resolver._process_single_participant_input(
+        guild_discord_id="999",
+        input_text="@unknownuser",
+        access_token="token",
+    )
+
+    assert participant is None
+    assert error is not None
+    assert error["input"] == "@unknownuser"
