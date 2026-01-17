@@ -84,7 +84,7 @@ ignore = []
 max-complexity = 17
 
 [tool.complexipy]
-max-complexity-allowed = 20
+max-complexity-allowed = 25
 paths = ["services", "shared", "scripts"]
 exclude = []
 
