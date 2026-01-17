@@ -53,7 +53,7 @@ from shared.models.participant import ParticipantType
 from shared.models.signup_method import SignupMethod
 from shared.schemas import game as game_schemas
 from shared.utils.games import resolve_max_players
-from shared.utils.participant_sorting import partition_participants
+from shared.utils.participant_sorting import PartitionedParticipants, partition_participants
 
 logger = logging.getLogger(__name__)
 
@@ -1127,6 +1127,115 @@ class GameService:
             )
             self.db.add(completed_schedule)
 
+    def _capture_old_state(
+        self, game: game_model.GameSession
+    ) -> tuple[int, list[participant_model.GameParticipant], PartitionedParticipants]:
+        """
+        Capture game participant state before updates for promotion detection.
+
+        Args:
+            game: Game session before updates
+
+        Returns:
+            Tuple of (old_max_players, old_participants_snapshot, old_partitioned)
+        """
+        old_max_players = resolve_max_players(game.max_players)
+        old_participants_snapshot = [
+            participant_model.GameParticipant(
+                id=p.id,
+                game_session_id=p.game_session_id,
+                user_id=p.user_id,
+                user=p.user,
+                display_name=p.display_name,
+                position=p.position,
+                position_type=p.position_type,
+                joined_at=p.joined_at,
+            )
+            for p in game.participants
+        ]
+        old_partitioned = partition_participants(old_participants_snapshot, old_max_players)
+        return old_max_players, old_participants_snapshot, old_partitioned
+
+    def _update_image_fields(
+        self,
+        game: game_model.GameSession,
+        thumbnail_data: bytes | None,
+        thumbnail_mime_type: str | None,
+        image_data: bytes | None,
+        image_mime_type: str | None,
+    ) -> None:
+        """
+        Update game thumbnail and banner images.
+
+        Args:
+            game: Game session to update
+            thumbnail_data: Optional thumbnail binary data (empty bytes to remove)
+            thumbnail_mime_type: Optional thumbnail MIME type
+            image_data: Optional banner image binary data (empty bytes to remove)
+            image_mime_type: Optional banner MIME type
+        """
+        if thumbnail_data is not None:
+            if thumbnail_data == b"":
+                game.thumbnail_data = None
+                game.thumbnail_mime_type = None
+            else:
+                game.thumbnail_data = thumbnail_data
+                game.thumbnail_mime_type = thumbnail_mime_type
+
+        if image_data is not None:
+            if image_data == b"":
+                game.image_data = None
+                game.image_mime_type = None
+            else:
+                game.image_data = image_data
+                game.image_mime_type = image_mime_type
+
+    async def _process_game_update_schedules(
+        self,
+        game: game_model.GameSession,
+        schedule_needs_update: bool,
+        status_schedule_needs_update: bool,
+    ) -> None:
+        """
+        Update notification and status transition schedules if needed.
+
+        Args:
+            game: Game session
+            schedule_needs_update: Whether notification schedule needs update
+            status_schedule_needs_update: Whether status schedule needs update
+        """
+        if schedule_needs_update:
+            reminder_minutes = (
+                game.reminder_minutes if game.reminder_minutes is not None else [60, 15]
+            )
+            schedule_service = notification_schedule_service.NotificationScheduleService(self.db)
+            await schedule_service.update_schedule(game, reminder_minutes)
+
+        if status_schedule_needs_update:
+            await self._update_status_schedules(game)
+
+    async def _detect_and_notify_promotions(
+        self,
+        game: game_model.GameSession,
+        old_partitioned: PartitionedParticipants,
+    ) -> None:
+        """
+        Detect waitlist promotions and notify promoted users.
+
+        Args:
+            game: Updated game session
+            old_partitioned: Partitioned participants before update
+        """
+        new_max_players = resolve_max_players(game.max_players)
+        new_partitioned = partition_participants(game.participants, new_max_players)
+        promoted_discord_ids = new_partitioned.cleared_waitlist(old_partitioned)
+
+        if promoted_discord_ids:
+            await self._notify_promoted_users(
+                game=game,
+                promoted_discord_ids=promoted_discord_ids,
+            )
+
     async def update_game(
         self,
         game_id: str,
@@ -1181,23 +1290,7 @@ class GameService:
             )
 
         # Capture current participant state for promotion detection
-        # Must capture actual participant data before any modifications
-        # because SQLAlchemy relationships update even with list() shallow copy
-        old_max_players = resolve_max_players(game.max_players)
-        old_participants_snapshot = [
-            participant_model.GameParticipant(
-                id=p.id,
-                game_session_id=p.game_session_id,
-                user_id=p.user_id,
-                user=p.user,  # Reference is OK since user objects aren't modified
-                display_name=p.display_name,
-                position=p.position,
-                position_type=p.position_type,
-                joined_at=p.joined_at,
-            )
-            for p in game.participants
-        ]
-        old_partitioned = partition_participants(old_participants_snapshot, old_max_players)
+        old_max_players, old_participants_snapshot, old_partitioned = self._capture_old_state(game)
 
         # Update game fields
         schedule_needs_update, status_schedule_needs_update = self._update_game_fields(
@@ -1205,21 +1298,9 @@ class GameService:
         )
 
         # Update images if provided
-        if thumbnail_data is not None:
-            if thumbnail_data == b"":
-                game.thumbnail_data = None
-                game.thumbnail_mime_type = None
-            else:
-                game.thumbnail_data = thumbnail_data
-                game.thumbnail_mime_type = thumbnail_mime_type
-
-        if image_data is not None:
-            if image_data == b"":
-                game.image_data = None
-                game.image_mime_type = None
-            else:
-                game.image_data = image_data
-                game.image_mime_type = image_mime_type
+        self._update_image_fields(
+            game, thumbnail_data, thumbnail_mime_type, image_data, image_mime_type
+        )
 
         # Handle participant removals
         if update_data.removed_participant_ids:
@@ -1229,17 +1310,10 @@ class GameService:
         if update_data.participants is not None:
             await self._update_prefilled_participants(game, update_data.participants)
 
-        # Update notification schedule if needed
-        if schedule_needs_update:
-            reminder_minutes = (
-                game.reminder_minutes if game.reminder_minutes is not None else [60, 15]
-            )
-            schedule_service = notification_schedule_service.NotificationScheduleService(self.db)
-            await schedule_service.update_schedule(game, reminder_minutes)
-
-        # Update status transition schedules if needed
-        if status_schedule_needs_update:
-            await self._update_status_schedules(game)
+        # Update schedules if needed
+        await self._process_game_update_schedules(
+            game, schedule_needs_update, status_schedule_needs_update
+        )
 
         await self.db.commit()
 
@@ -1251,16 +1325,8 @@ class GameService:
         if game is None:
             raise ValueError("Failed to reload updated game")
 
-        # Detect promotions from overflow to confirmed participants
-        new_max_players = resolve_max_players(game.max_players)
-        new_partitioned = partition_participants(game.participants, new_max_players)
-        promoted_discord_ids = new_partitioned.cleared_waitlist(old_partitioned)
-
-        if promoted_discord_ids:
-            await self._notify_promoted_users(
-                game=game,
-                promoted_discord_ids=promoted_discord_ids,
-            )
+        # Detect promotions and notify promoted users
+        await self._detect_and_notify_promotions(game, old_partitioned)
 
         # Publish game.updated event
         await self._publish_game_updated(game)

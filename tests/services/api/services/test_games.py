@@ -46,6 +46,8 @@ from shared.models.participant import ParticipantType
 from shared.models.signup_method import SignupMethod
 from shared.schemas import game as game_schemas
 from shared.schemas.auth import CurrentUser
+from shared.utils.games import DEFAULT_MAX_PLAYERS
+from shared.utils.participant_sorting import partition_participants
 
 
 @pytest.fixture
@@ -3280,3 +3282,365 @@ def test_update_participant_positions_empty_data(game_service):
 
     assert participant1.position == 5
     assert participant2.position == 10
+
+
+# Tests for update_game helper methods
+
+
+def test_capture_old_state(game_service):
+    """Test capturing participant state before updates."""
+    user1 = user_model.User(id=str(uuid.uuid4()), discord_id="user1")
+    user2 = user_model.User(id=str(uuid.uuid4()), discord_id="user2")
+
+    participant1 = participant_model.GameParticipant(
+        id="p1",
+        game_session_id="game1",
+        user_id=user1.id,
+        user=user1,
+        display_name="User 1",
+        position=0,
+        position_type=ParticipantType.SELF_ADDED,
+        joined_at=datetime.datetime.now(UTC),
+    )
+    participant2 = participant_model.GameParticipant(
+        id="p2",
+        game_session_id="game1",
+        user_id=user2.id,
+        user=user2,
+        display_name="User 2",
+        position=1,
+        position_type=ParticipantType.SELF_ADDED,
+        joined_at=datetime.datetime.now(UTC),
+    )
+
+    game = game_model.GameSession(
+        id="game1",
+        max_players=2,
+        participants=[participant1, participant2],
+    )
+
+    old_max_players, old_snapshot, old_partitioned = game_service._capture_old_state(game)
+
+    assert old_max_players == 2
+    assert len(old_snapshot) == 2
+    assert old_snapshot[0].id == "p1"
+    assert old_snapshot[1].id == "p2"
+    assert len(old_partitioned.confirmed) == 2
+
+
+def test_capture_old_state_with_unlimited_players(game_service):
+    """Test capturing state with unlimited players (None max_players)."""
+    user1 = user_model.User(id=str(uuid.uuid4()), discord_id="user1")
+
+    participant1 = participant_model.GameParticipant(
+        id="p1",
+        game_session_id="game1",
+        user_id=user1.id,
+        user=user1,
+        display_name="User 1",
+        position=0,
+        position_type=ParticipantType.SELF_ADDED,
+        joined_at=datetime.datetime.now(UTC),
+    )
+
+    game = game_model.GameSession(
+        id="game1",
+        max_players=None,
+        participants=[participant1],
+    )
+
+    old_max_players, old_snapshot, old_partitioned = game_service._capture_old_state(game)
+
+    assert old_max_players == DEFAULT_MAX_PLAYERS
+    assert len(old_snapshot) == 1
+
+
+def test_update_image_fields_sets_thumbnail(game_service):
+    """Test setting thumbnail data."""
+    game = game_model.GameSession(
+        id="game1",
+        thumbnail_data=None,
+        thumbnail_mime_type=None,
+    )
+
+    game_service._update_image_fields(
+        game,
+        thumbnail_data=b"thumbnail_bytes",
+        thumbnail_mime_type="image/png",
+        image_data=None,
+        image_mime_type=None,
+    )
+
+    assert game.thumbnail_data == b"thumbnail_bytes"
+    assert game.thumbnail_mime_type == "image/png"
+
+
+def test_update_image_fields_removes_thumbnail(game_service):
+    """Test removing thumbnail by passing empty bytes."""
+    game = game_model.GameSession(
+        id="game1",
+        thumbnail_data=b"existing",
+        thumbnail_mime_type="image/png",
+    )
+
+    game_service._update_image_fields(
+        game,
+        thumbnail_data=b"",
+        thumbnail_mime_type="",
+        image_data=None,
+        image_mime_type=None,
+    )
+
+    assert game.thumbnail_data is None
+    assert game.thumbnail_mime_type is None
+
+
+def test_update_image_fields_sets_banner(game_service):
+    """Test setting banner image data."""
+    game = game_model.GameSession(
+        id="game1",
+        image_data=None,
+        image_mime_type=None,
+    )
+
+    game_service._update_image_fields(
+        game,
+        thumbnail_data=None,
+        thumbnail_mime_type=None,
+        image_data=b"image_bytes",
+        image_mime_type="image/jpeg",
+    )
+
+    assert game.image_data == b"image_bytes"
+    assert game.image_mime_type == "image/jpeg"
+
+
+def test_update_image_fields_removes_banner(game_service):
+    """Test removing banner image by passing empty bytes."""
+    game = game_model.GameSession(
+        id="game1",
+        image_data=b"existing",
+        image_mime_type="image/jpeg",
+    )
+
+    game_service._update_image_fields(
+        game,
+        thumbnail_data=None,
+        thumbnail_mime_type=None,
+        image_data=b"",
+        image_mime_type="",
+    )
+
+    assert game.image_data is None
+    assert game.image_mime_type is None
+
+
+def test_update_image_fields_no_changes(game_service):
+    """Test that passing None for all images makes no changes."""
+    game = game_model.GameSession(
+        id="game1",
+        thumbnail_data=b"thumb",
+        thumbnail_mime_type="image/png",
+        image_data=b"banner",
+        image_mime_type="image/jpeg",
+    )
+
+    game_service._update_image_fields(
+        game,
+        thumbnail_data=None,
+        thumbnail_mime_type=None,
+        image_data=None,
+        image_mime_type=None,
+    )
+
+    assert game.thumbnail_data == b"thumb"
+    assert game.thumbnail_mime_type == "image/png"
+    assert game.image_data == b"banner"
+    assert game.image_mime_type == "image/jpeg"
+
+
+@pytest.mark.asyncio
+async def test_process_game_update_schedules_both_flags(game_service, mock_db):
+    """Test updating both notification and status schedules."""
+    game = game_model.GameSession(
+        id="game1",
+        reminder_minutes=[30, 10],
+        scheduled_at=datetime.datetime(2026, 1, 20, 10, 0, tzinfo=UTC),
+        expected_duration_minutes=120,
+    )
+
+    with patch(
+        "services.api.services.games.notification_schedule_service.NotificationScheduleService"
+    ) as mock_schedule_service_class:
+        mock_schedule_service = AsyncMock()
+        mock_schedule_service.update_schedule = AsyncMock()
+        mock_schedule_service_class.return_value = mock_schedule_service
+
+        with patch.object(game_service, "_update_status_schedules", new=AsyncMock()) as mock_status:
+            await game_service._process_game_update_schedules(
+                game, schedule_needs_update=True, status_schedule_needs_update=True
+            )
+
+            mock_schedule_service.update_schedule.assert_called_once_with(game, [30, 10])
+            mock_status.assert_called_once_with(game)
+
+
+@pytest.mark.asyncio
+async def test_process_game_update_schedules_only_notification(game_service, mock_db):
+    """Test updating only notification schedule."""
+    game = game_model.GameSession(
+        id="game1",
+        reminder_minutes=None,
+        scheduled_at=datetime.datetime(2026, 1, 20, 10, 0, tzinfo=UTC),
+    )
+
+    with patch(
+        "services.api.services.games.notification_schedule_service.NotificationScheduleService"
+    ) as mock_schedule_service_class:
+        mock_schedule_service = AsyncMock()
+        mock_schedule_service.update_schedule = AsyncMock()
+        mock_schedule_service_class.return_value = mock_schedule_service
+
+        with patch.object(game_service, "_update_status_schedules", new=AsyncMock()) as mock_status:
+            await game_service._process_game_update_schedules(
+                game, schedule_needs_update=True, status_schedule_needs_update=False
+            )
+
+            mock_schedule_service.update_schedule.assert_called_once_with(game, [60, 15])
+            mock_status.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_process_game_update_schedules_only_status(game_service, mock_db):
+    """Test updating only status schedule."""
+    game = game_model.GameSession(
+        id="game1",
+        scheduled_at=datetime.datetime(2026, 1, 20, 10, 0, tzinfo=UTC),
+        expected_duration_minutes=90,
+    )
+
+    with patch(
+        "services.api.services.games.notification_schedule_service.NotificationScheduleService"
+    ) as mock_schedule_service_class:
+        mock_schedule_service = AsyncMock()
+        mock_schedule_service_class.return_value = mock_schedule_service
+
+        with patch.object(game_service, "_update_status_schedules", new=AsyncMock()) as mock_status:
+            await game_service._process_game_update_schedules(
+                game, schedule_needs_update=False, status_schedule_needs_update=True
+            )
+
+            mock_schedule_service.update_schedule.assert_not_called()
+            mock_status.assert_called_once_with(game)
+
+
+@pytest.mark.asyncio
+async def test_process_game_update_schedules_neither(game_service, mock_db):
+    """Test with no schedule updates needed."""
+    game = game_model.GameSession(id="game1")
+
+    with patch(
+        "services.api.services.games.notification_schedule_service.NotificationScheduleService"
+    ) as mock_schedule_service_class:
+        mock_schedule_service = AsyncMock()
+        mock_schedule_service_class.return_value = mock_schedule_service
+
+        with patch.object(game_service, "_update_status_schedules", new=AsyncMock()) as mock_status:
+            await game_service._process_game_update_schedules(
+                game, schedule_needs_update=False, status_schedule_needs_update=False
+            )
+
+            mock_schedule_service.update_schedule.assert_not_called()
+            mock_status.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_detect_and_notify_promotions_with_promotions(game_service):
+    """Test detecting and notifying promoted users."""
+    user1 = user_model.User(id=str(uuid.uuid4()), discord_id="user1")
+    user2 = user_model.User(id=str(uuid.uuid4()), discord_id="user2")
+    user3 = user_model.User(id=str(uuid.uuid4()), discord_id="user3")
+
+    # Create old state with 2 confirmed, 1 overflow
+    old_participants = [
+        participant_model.GameParticipant(
+            id="p1",
+            game_session_id="game1",
+            user_id=user1.id,
+            user=user1,
+            position=0,
+            position_type=ParticipantType.SELF_ADDED,
+        ),
+        participant_model.GameParticipant(
+            id="p2",
+            game_session_id="game1",
+            user_id=user2.id,
+            user=user2,
+            position=1,
+            position_type=ParticipantType.SELF_ADDED,
+        ),
+        participant_model.GameParticipant(
+            id="p3",
+            game_session_id="game1",
+            user_id=user3.id,
+            user=user3,
+            position=2,
+            position_type=ParticipantType.SELF_ADDED,
+        ),
+    ]
+
+    old_partitioned = partition_participants(old_participants, 2)
+
+    # New state: max_players increased to 3, all confirmed
+    game = game_model.GameSession(
+        id="game1",
+        max_players=3,
+        participants=old_participants,
+    )
+
+    with patch.object(game_service, "_notify_promoted_users", new=AsyncMock()) as mock_notify:
+        await game_service._detect_and_notify_promotions(game, old_partitioned)
+
+        mock_notify.assert_called_once()
+        call_args = mock_notify.call_args
+        assert call_args[1]["game"] == game
+        assert "user3" in call_args[1]["promoted_discord_ids"]
+
+
+@pytest.mark.asyncio
+async def test_detect_and_notify_promotions_no_promotions(game_service):
+    """Test with no promotions detected."""
+    user1 = user_model.User(id=str(uuid.uuid4()), discord_id="user1")
+    user2 = user_model.User(id=str(uuid.uuid4()), discord_id="user2")
+
+    old_participants = [
+        participant_model.GameParticipant(
+            id="p1",
+            game_session_id="game1",
+            user_id=user1.id,
+            user=user1,
+            position=0,
+            position_type=ParticipantType.SELF_ADDED,
+        ),
+        participant_model.GameParticipant(
+            id="p2",
+            game_session_id="game1",
+            user_id=user2.id,
+            user=user2,
+            position=1,
+            position_type=ParticipantType.SELF_ADDED,
+        ),
+    ]
+
+    old_partitioned = partition_participants(old_participants, 2)
+
+    game = game_model.GameSession(
+        id="game1",
+        max_players=2,
+        participants=old_participants,
+    )
+
+    with patch.object(game_service, "_notify_promoted_users", new=AsyncMock()) as mock_notify:
+        await game_service._detect_and_notify_promotions(game, old_partitioned)
+
+        mock_notify.assert_not_called()
