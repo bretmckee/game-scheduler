@@ -103,6 +103,98 @@ async def _get_game_service(
     )
 
 
+def _parse_update_form_data(
+    scheduled_at: str | None,
+    reminder_minutes: str | None,
+    notify_role_ids: str | None,
+    participants: str | None,
+    removed_participant_ids: str | None,
+) -> tuple[
+    datetime | None,
+    list[int] | None,
+    list[str] | None,
+    list[dict] | None,
+    list[str] | None,
+]:
+    """
+    Parse JSON fields from form data for game update.
+
+    Args:
+        scheduled_at: ISO datetime string
+        reminder_minutes: JSON array of reminder minutes
+        notify_role_ids: JSON array of role IDs
+        participants: JSON array of participant objects
+        removed_participant_ids: JSON array of participant IDs to remove
+
+    Returns:
+        Tuple of (scheduled_at_datetime, reminder_minutes_list, notify_role_ids_list,
+                  participants_list, removed_participant_ids_list)
+    """
+    scheduled_at_datetime = None
+    if scheduled_at:
+        scheduled_at_datetime = datetime.fromisoformat(scheduled_at.replace("Z", "+00:00"))
+
+    reminder_minutes_list = None
+    if reminder_minutes:
+        reminder_minutes_list = json.loads(reminder_minutes)
+
+    notify_role_ids_list = None
+    if notify_role_ids:
+        notify_role_ids_list = json.loads(notify_role_ids)
+
+    participants_list = None
+    if participants:
+        participants_list = json.loads(participants)
+
+    removed_participant_ids_list = None
+    if removed_participant_ids:
+        removed_participant_ids_list = json.loads(removed_participant_ids)
+
+    return (
+        scheduled_at_datetime,
+        reminder_minutes_list,
+        notify_role_ids_list,
+        participants_list,
+        removed_participant_ids_list,
+    )
+
+
+async def _process_image_upload(
+    file: UploadFile | None,
+    remove_flag: bool,
+    field_name: str,
+    game_id: str,
+) -> tuple[bytes | None, str | None]:
+    """
+    Process image upload for game update.
+
+    Args:
+        file: Uploaded file or None
+        remove_flag: Whether to remove existing image
+        field_name: Name of field for logging ("thumbnail" or "image")
+        game_id: Game ID for logging
+
+    Returns:
+        Tuple of (image_data, mime_type) where empty bytes means removal
+    """
+    if remove_flag:
+        logger.info(f"Removing {field_name} for game {game_id}")
+        return b"", ""
+
+    if file:
+        logger.info(
+            f"Received {field_name} upload for game {game_id}: "
+            f"filename={file.filename}, content_type={file.content_type}, "
+            f"size={file.size}"
+        )
+        await _validate_image_upload(file, field_name)
+        image_data = await file.read()
+        logger.info(f"{field_name.capitalize()} read: {len(image_data)} bytes")
+        return image_data, file.content_type
+
+    return None, None
+
+
 @router.post(
     "",
     response_model=game_schemas.GameResponse,
@@ -329,28 +421,18 @@ async def update_game(
     Accepts multipart/form-data for file uploads.
     """
     try:
-        # Parse JSON fields from form data
-        scheduled_at_datetime = None
-        if scheduled_at:
-            scheduled_at_datetime = datetime.fromisoformat(scheduled_at.replace("Z", "+00:00"))
+        # Parse form data
+        (
+            scheduled_at_datetime,
+            reminder_minutes_list,
+            notify_role_ids_list,
+            participants_list,
+            removed_participant_ids_list,
+        ) = _parse_update_form_data(
+            scheduled_at, reminder_minutes, notify_role_ids, participants, removed_participant_ids
+        )
 
-        reminder_minutes_list = None
-        if reminder_minutes:
-            reminder_minutes_list = json.loads(reminder_minutes)
-
-        notify_role_ids_list = None
-        if notify_role_ids:
-            notify_role_ids_list = json.loads(notify_role_ids)
-
-        participants_list = None
-        if participants:
-            participants_list = json.loads(participants)
-
-        removed_participant_ids_list = None
-        if removed_participant_ids:
-            removed_participant_ids_list = json.loads(removed_participant_ids)
-
-        # Build update request object
+        # Build update request
         update_data = game_schemas.GameUpdateRequest(
             title=title,
             description=description,
@@ -367,42 +449,13 @@ async def update_game(
             removed_participant_ids=removed_participant_ids_list,
         )
 
-        # Handle thumbnail
-        thumbnail_data = None
-        thumbnail_mime = None
-        if remove_thumbnail:
-            logger.info(f"Removing thumbnail for game {game_id}")
-            thumbnail_data = b""
-            thumbnail_mime = ""
-        elif thumbnail:
-            logger.info(
-                f"Received thumbnail upload for game {game_id}: "
-                f"filename={thumbnail.filename}, content_type={thumbnail.content_type}, "
-                f"size={thumbnail.size}"
-            )
-            await _validate_image_upload(thumbnail, "thumbnail")
-            thumbnail_data = await thumbnail.read()
-            thumbnail_mime = thumbnail.content_type
-            logger.info(f"Thumbnail read: {len(thumbnail_data)} bytes")
+        # Process file uploads
+        thumbnail_data, thumbnail_mime = await _process_image_upload(
+            thumbnail, remove_thumbnail, "thumbnail", game_id
+        )
+        image_data, image_mime = await _process_image_upload(image, remove_image, "image", game_id)
 
-        # Handle image
-        image_data = None
-        image_mime = None
-        if remove_image:
-            logger.info(f"Removing banner image for game {game_id}")
-            image_data = b""
-            image_mime = ""
-        elif image:
-            logger.info(
-                f"Received image upload for game {game_id}: "
-                f"filename={image.filename}, content_type={image.content_type}, "
-                f"size={image.size}"
-            )
-            await _validate_image_upload(image, "image")
-            image_data = await image.read()
-            image_mime = image.content_type
-            logger.info(f"Banner image read: {len(image_data)} bytes")
-
+        # Update game via service
         game = await game_service.update_game(
             game_id=game_id,
             update_data=update_data,
