@@ -429,7 +429,11 @@ async def update_game(
             participants_list,
             removed_participant_ids_list,
         ) = _parse_update_form_data(
-            scheduled_at, reminder_minutes, notify_role_ids, participants, removed_participant_ids
+            scheduled_at,
+            reminder_minutes,
+            notify_role_ids,
+            participants,
+            removed_participant_ids,
         )
 
         # Build update request
