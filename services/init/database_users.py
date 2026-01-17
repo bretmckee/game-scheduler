@@ -37,6 +37,142 @@ from opentelemetry import trace
 logger = logging.getLogger(__name__)
 
 
+def _create_admin_user(cursor, admin_user: str, admin_password: str) -> None:
+    """
+    Create admin superuser for migrations and database administration.
+
+    Args:
+        cursor: Database cursor for executing SQL
+        admin_user: Username for admin account
+        admin_password: Password for admin account
+    """
+    logger.info(f"Creating admin user '{admin_user}' (superuser)...")
+    cursor.execute(
+        f"""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = %s) THEN
+                CREATE USER {admin_user} WITH PASSWORD %s SUPERUSER;
+                COMMENT ON ROLE {admin_user} IS
+                    'Superuser for Alembic migrations and database administration';
+                RAISE NOTICE 'Created admin user: {admin_user}';
+            ELSE
+                RAISE NOTICE 'Admin user already exists: {admin_user}';
+            END IF;
+        END
+        $$;
+        """,
+        (admin_user, admin_password),
+    )
+    logger.info(f"✓ Admin user '{admin_user}' ready")
+
+
+def _create_app_user(cursor, app_user: str, app_password: str) -> None:
+    """
+    Create non-privileged application user with RLS enforcement.
+
+    Args:
+        cursor: Database cursor for executing SQL
+        app_user: Username for application account
+        app_password: Password for application account
+    """
+    logger.info(f"Creating application user '{app_user}' (non-superuser for RLS)...")
+    cursor.execute(
+        f"""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = %s) THEN
+                CREATE USER {app_user} WITH PASSWORD %s LOGIN;
+                COMMENT ON ROLE {app_user} IS
+                    'Non-privileged user for application runtime (RLS enforced)';
+                RAISE NOTICE 'Created app user: {app_user}';
+            ELSE
+                RAISE NOTICE 'App user already exists: {app_user}';
+            END IF;
+        END
+        $$;
+        """,
+        (app_user, app_password),
+    )
+    logger.info(f"✓ Application user '{app_user}' ready")
+
+
+def _grant_permissions(
+    cursor, target_user: str, postgres_user: str, admin_user: str, postgres_db: str
+) -> None:
+    """
+    Grant comprehensive database permissions to target user.
+
+    Args:
+        cursor: Database cursor for executing SQL
+        target_user: User to grant permissions to
+        postgres_user: PostgreSQL superuser name
+        admin_user: Admin user name for default privileges
+        postgres_db: Database name
+    """
+    logger.info(f"Granting permissions to '{target_user}'...")
+    cursor.execute(
+        f"""
+        GRANT CONNECT ON DATABASE {postgres_db} TO {target_user};
+        GRANT USAGE, CREATE ON SCHEMA public TO {target_user};
+        GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
+            ON ALL TABLES IN SCHEMA public TO {target_user};
+        GRANT USAGE, SELECT, UPDATE
+            ON ALL SEQUENCES IN SCHEMA public TO {target_user};
+        GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO {target_user};
+
+        -- Set default privileges for tables created by postgres superuser
+        ALTER DEFAULT PRIVILEGES FOR ROLE {postgres_user} IN SCHEMA public
+            GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
+            ON TABLES TO {target_user};
+        ALTER DEFAULT PRIVILEGES FOR ROLE {postgres_user} IN SCHEMA public
+            GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO {target_user};
+        ALTER DEFAULT PRIVILEGES FOR ROLE {postgres_user} IN SCHEMA public
+            GRANT EXECUTE ON FUNCTIONS TO {target_user};
+
+        -- Set default privileges for tables created by admin user (migrations)
+        ALTER DEFAULT PRIVILEGES FOR ROLE {admin_user} IN SCHEMA public
+            GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
+            ON TABLES TO {target_user};
+        ALTER DEFAULT PRIVILEGES FOR ROLE {admin_user} IN SCHEMA public
+            GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO {target_user};
+        ALTER DEFAULT PRIVILEGES FOR ROLE {admin_user} IN SCHEMA public
+            GRANT EXECUTE ON FUNCTIONS TO {target_user};
+        """
+    )
+    logger.info(f"✓ Permissions granted to '{target_user}'")
+
+
+def _create_bot_user(cursor, bot_user: str, bot_password: str) -> None:
+    """
+    Create bot user with BYPASSRLS for bot and daemon services.
+
+    Args:
+        cursor: Database cursor for executing SQL
+        bot_user: Username for bot account
+        bot_password: Password for bot account
+    """
+    logger.info(f"Creating bot user '{bot_user}' (BYPASSRLS for bot/daemon services)...")
+    cursor.execute(
+        f"""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = %s) THEN
+                CREATE USER {bot_user} WITH PASSWORD %s LOGIN BYPASSRLS;
+                COMMENT ON ROLE {bot_user} IS
+                    'Bot/daemon user - bypasses RLS (all guilds by design)';
+                RAISE NOTICE 'Created bot user: {bot_user}';
+            ELSE
+                RAISE NOTICE 'Bot user already exists: {bot_user}';
+            END IF;
+        END
+        $$;
+        """,
+        (bot_user, bot_password),
+    )
+    logger.info(f"✓ Bot user '{bot_user}' ready")
+
+
 def create_database_users() -> None:
     """
     Create database users with appropriate privileges for RLS enforcement.
@@ -84,143 +220,25 @@ def create_database_users() -> None:
             conn.autocommit = True
 
             with conn.cursor() as cursor:
-                logger.info(f"Creating admin user '{admin_user}' (superuser)...")
-                cursor.execute(
-                    f"""
-                    DO $$
-                    BEGIN
-                        IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = %s) THEN
-                            CREATE USER {admin_user} WITH PASSWORD %s SUPERUSER;
-                            COMMENT ON ROLE {admin_user} IS
-                                'Superuser for Alembic migrations and database administration';
-                            RAISE NOTICE 'Created admin user: {admin_user}';
-                        ELSE
-                            RAISE NOTICE 'Admin user already exists: {admin_user}';
-                        END IF;
-                    END
-                    $$;
-                    """,
-                    (admin_user, admin_password),
-                )
-                logger.info(f"✓ Admin user '{admin_user}' ready")
-
-                logger.info(f"Creating application user '{app_user}' (non-superuser for RLS)...")
-                cursor.execute(
-                    f"""
-                    DO $$
-                    BEGIN
-                        IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = %s) THEN
-                            CREATE USER {app_user} WITH PASSWORD %s LOGIN;
-                            COMMENT ON ROLE {app_user} IS
-                                'Non-privileged user for application runtime (RLS enforced)';
-                            RAISE NOTICE 'Created app user: {app_user}';
-                        ELSE
-                            RAISE NOTICE 'App user already exists: {app_user}';
-                        END IF;
-                    END
-                    $$;
-                    """,
-                    (app_user, app_password),
-                )
-                logger.info(f"✓ Application user '{app_user}' ready")
-
-                logger.info(f"Granting permissions to '{app_user}'...")
-                cursor.execute(
-                    f"""
-                    GRANT CONNECT ON DATABASE {postgres_db} TO {app_user};
-                    GRANT USAGE, CREATE ON SCHEMA public TO {app_user};
-                    GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
-                        ON ALL TABLES IN SCHEMA public TO {app_user};
-                    GRANT USAGE, SELECT, UPDATE
-                        ON ALL SEQUENCES IN SCHEMA public TO {app_user};
-                    GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO {app_user};
-
-                    -- Set default privileges for tables created by postgres superuser
-                    ALTER DEFAULT PRIVILEGES FOR ROLE {postgres_user} IN SCHEMA public
-                        GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
-                        ON TABLES TO {app_user};
-                    ALTER DEFAULT PRIVILEGES FOR ROLE {postgres_user} IN SCHEMA public
-                        GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO {app_user};
-                    ALTER DEFAULT PRIVILEGES FOR ROLE {postgres_user} IN SCHEMA public
-                        GRANT EXECUTE ON FUNCTIONS TO {app_user};
-
-                    -- Set default privileges for tables created by admin user (migrations)
-                    ALTER DEFAULT PRIVILEGES FOR ROLE {admin_user} IN SCHEMA public
-                        GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
-                        ON TABLES TO {app_user};
-                    ALTER DEFAULT PRIVILEGES FOR ROLE {admin_user} IN SCHEMA public
-                        GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO {app_user};
-                    ALTER DEFAULT PRIVILEGES FOR ROLE {admin_user} IN SCHEMA public
-                        GRANT EXECUTE ON FUNCTIONS TO {app_user};
-                    """
-                )
-                logger.info(f"✓ Permissions granted to '{app_user}'")
+                _create_admin_user(cursor, admin_user, admin_password)
+                _create_app_user(cursor, app_user, app_password)
+                _grant_permissions(cursor, app_user, postgres_user, admin_user, postgres_db)
 
                 bot_user = os.getenv("POSTGRES_BOT_USER", "gamebot_bot")
                 bot_password = os.getenv("POSTGRES_BOT_PASSWORD")
 
-                if not bot_password:
-                    logger.warning("POSTGRES_BOT_PASSWORD not set, skipping bot user creation")
-                else:
-                    logger.info(
-                        f"Creating bot user '{bot_user}' (BYPASSRLS for bot/daemon services)..."
-                    )
-                    cursor.execute(
-                        f"""
-                        DO $$
-                        BEGIN
-                            IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = %s) THEN
-                                CREATE USER {bot_user} WITH PASSWORD %s LOGIN BYPASSRLS;
-                                COMMENT ON ROLE {bot_user} IS
-                                    'Bot/daemon user - bypasses RLS (all guilds by design)';
-                                RAISE NOTICE 'Created bot user: {bot_user}';
-                            ELSE
-                                RAISE NOTICE 'Bot user already exists: {bot_user}';
-                            END IF;
-                        END
-                        $$;
-                        """,
-                        (bot_user, bot_password),
-                    )
-                    logger.info(f"✓ Bot user '{bot_user}' ready")
-
-                    logger.info(f"Granting permissions to '{bot_user}'...")
-                    cursor.execute(
-                        f"""
-                        GRANT CONNECT ON DATABASE {postgres_db} TO {bot_user};
-                        GRANT USAGE ON SCHEMA public TO {bot_user};
-                        GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
-                            ON ALL TABLES IN SCHEMA public TO {bot_user};
-                        GRANT USAGE, SELECT, UPDATE
-                            ON ALL SEQUENCES IN SCHEMA public TO {bot_user};
-                        GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO {bot_user};
-
-                        -- Set default privileges for tables created by postgres superuser
-                        ALTER DEFAULT PRIVILEGES FOR ROLE {postgres_user} IN SCHEMA public
-                            GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
-                            ON TABLES TO {bot_user};
-                        ALTER DEFAULT PRIVILEGES FOR ROLE {postgres_user} IN SCHEMA public
-                            GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO {bot_user};
-                        ALTER DEFAULT PRIVILEGES FOR ROLE {postgres_user} IN SCHEMA public
-                            GRANT EXECUTE ON FUNCTIONS TO {bot_user};
-
-                        -- Set default privileges for tables created by admin user (migrations)
-                        ALTER DEFAULT PRIVILEGES FOR ROLE {admin_user} IN SCHEMA public
-                            GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
-                            ON TABLES TO {bot_user};
-                        ALTER DEFAULT PRIVILEGES FOR ROLE {admin_user} IN SCHEMA public
-                            GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO {bot_user};
-                        ALTER DEFAULT PRIVILEGES FOR ROLE {admin_user} IN SCHEMA public
-                            GRANT EXECUTE ON FUNCTIONS TO {bot_user};
-                        """
-                    )
-                    logger.info(f"✓ Permissions granted to '{bot_user}'")
-
-                logger.info("Database users configured successfully")
-                logger.info(f"  - Admin user (future use): {admin_user}")
-                logger.info(f"  - App user (API with RLS): {app_user}")
                 if bot_password:
+                    _create_bot_user(cursor, bot_user, bot_password)
+                    _grant_permissions(cursor, bot_user, postgres_user, admin_user, postgres_db)
+                    logger.info("Database users configured successfully")
+                    logger.info(f"  - Admin user (future use): {admin_user}")
+                    logger.info(f"  - App user (API with RLS): {app_user}")
                     logger.info(f"  - Bot user (bot/daemons, bypasses RLS): {bot_user}")
+                else:
+                    logger.warning("POSTGRES_BOT_PASSWORD not set, skipping bot user creation")
+                    logger.info("Database users configured successfully")
+                    logger.info(f"  - Admin user (future use): {admin_user}")
+                    logger.info(f"  - App user (API with RLS): {app_user}")
 
         except psycopg2.Error as e:
             logger.error(f"Failed to create database users: {e}")
