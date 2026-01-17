@@ -43,7 +43,7 @@ Systematically refactor high-complexity functions to enable reducing cyclomatic 
 
 Target functions violating both cyclomatic (>10) and cognitive (>15) thresholds.
 
-- [ ] Task 1.1: Refactor routes/games.py `update_game` (C:14/Cog:20)
+- [x] Task 1.1: Refactor routes/games.py `update_game` (C:14/Cog:20)
   - Details: .copilot-tracking/details/20260116-default-complexity-thresholds-reduction-details.md (Lines 25-40)
 
 - [ ] Task 1.2: Refactor services/display_names.py `resolve_display_names_and_avatars` (C:12/Cog:19)
