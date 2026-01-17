@@ -114,6 +114,7 @@ def _create_guild_entities(
         },
     )
 
+    channel_config_id = str(uuid4())
     session.execute(
         text(
             "INSERT INTO channel_configurations "
@@ -121,7 +122,7 @@ def _create_guild_entities(
             "VALUES (:id, :channel_id, :guild_id, :created_at, :updated_at)"
         ),
         {
-            "id": str(uuid4()),
+            "id": channel_config_id,
             "channel_id": guild_config.channel_id,
             "guild_id": guild_id,
             "created_at": now,
@@ -138,7 +139,7 @@ def _create_guild_entities(
         {
             "id": str(uuid4()),
             "guild_id": guild_id,
-            "channel_id": str(uuid4()),
+            "channel_id": channel_config_id,
             "name": f"Default E2E Template ({guild_config.guild_name})",
             "is_default": True,
             "created_at": now,

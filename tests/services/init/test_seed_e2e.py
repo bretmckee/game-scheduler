@@ -131,9 +131,8 @@ class TestCreateGuildEntities:
         """Should insert guild, channel, template, and user entities."""
         mock_uuid4.side_effect = [
             "guild-id",
-            "channel-id",
+            "channel-config-id",
             "template-id",
-            "template-channel-id",
             "user-id",
         ]
         mock_now = Mock()
@@ -161,9 +160,8 @@ class TestCreateGuildEntities:
         """Should insert bot user when bot_id parameter is provided."""
         mock_uuid4.side_effect = [
             "guild-id",
-            "channel-id",
+            "channel-config-id",
             "template-id",
-            "template-channel-id",
             "user-id",
             "bot-user-id",
         ]
@@ -188,9 +186,8 @@ class TestCreateGuildEntities:
         """Should use values from GuildConfig in database inserts."""
         mock_uuid4.side_effect = [
             "guild-id",
-            "channel-id",
+            "channel-config-id",
             "template-id",
-            "template-channel-id",
             "user-id",
         ]
         mock_now = Mock()
@@ -218,6 +215,8 @@ class TestCreateGuildEntities:
 
         template_insert_params = execute_calls[2][0][1]
         assert "Specific Guild Name" in template_insert_params["name"]
+        # Verify template references the channel_configurations record ID (foreign key)
+        assert template_insert_params["channel_id"] == channel_insert_params["id"]
 
         user_insert_params = execute_calls[3][0][1]
         assert user_insert_params["discord_id"] == "specific-user-id"
