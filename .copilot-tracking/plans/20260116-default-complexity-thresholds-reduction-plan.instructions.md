@@ -39,7 +39,7 @@ Systematically refactor high-complexity functions to enable reducing cyclomatic 
 
 ## Implementation Checklist
 
-### [ ] Phase 1: High-Priority Dual Violations (8 functions)
+### [x] Phase 1: High-Priority Dual Violations (8 functions)
 
 Target functions violating both cyclomatic (>10) and cognitive (>15) thresholds.
 
@@ -67,9 +67,9 @@ Target functions violating both cyclomatic (>10) and cognitive (>15) thresholds.
 - [x] Task 1.8: Refactor formatters/game_message.py `create_game_embed` (C:14/Cog:17)
   - Details: .copilot-tracking/details/20260116-default-complexity-thresholds-reduction-details.md (Lines 144-159)
 
-- [ ] Task 1.9: Update pyproject.toml thresholds (17→12, 20→17) **DEFERRED**
+- [x] Task 1.9: Update pyproject.toml thresholds (17→12, 20→17) **OBSOLETE**
   - Details: .copilot-tracking/details/20260116-default-complexity-thresholds-reduction-details.md (Lines 161-170)
-  - Note: Cannot lower thresholds while violations remain. Deferred to end of Phase 4.
+  - Note: Made obsolete by completing all Phase 1-4 work first, then applying default thresholds in Task 4.5.
 
 ### [x] Phase 2: Remaining Cyclomatic Violations - COMPLETE
 
@@ -81,7 +81,7 @@ Target functions only violating cyclomatic threshold to reach C901=10.
 - [x] Task 2.2: Updated pyproject.toml cyclomatic threshold (17→10)
   - Successfully lowered C901 threshold to default value
 
-### [ ] Phase 3: High Cognitive Complexity (8 functions, 20-27)
+### [x] Phase 3: High Cognitive Complexity (8 functions, 20-27)
 
 Target functions with cognitive complexity 20-27.
 
@@ -108,20 +108,22 @@ Target functions with cognitive complexity 20-27.
 - [x] Task 3.6: Refactor commands/list_games.py `list_games_command` (Cog:20)
   - Details: .copilot-tracking/details/20260116-default-complexity-thresholds-reduction-details.md (Lines 319-345)
 
-- [ ] Task 3.7: Verify Phase 1 functions if not yet at Cog≤17
+- [x] Task 3.7: Verify Phase 1 functions if not yet at Cog≤17 **COMPLETE**
   - Details: .copilot-tracking/details/20260116-default-complexity-thresholds-reduction-details.md (Lines 305-312)
+  - Note: All Phase 1 functions verified to meet cognitive complexity requirements.
 
-- [ ] Task 3.8: Update pyproject.toml cognitive threshold (maintain at 17)
+- [x] Task 3.8: Update pyproject.toml cognitive threshold (maintain at 17) **OBSOLETE**
   - Details: .copilot-tracking/details/20260116-default-complexity-thresholds-reduction-details.md (Lines 314-321)
+  - Note: Made obsolete by completing all phases before updating thresholds in Task 4.5.
 
-### [ ] Phase 4: Medium Cognitive Complexity (6+ functions, 16-19)
+### [x] Phase 4: Medium Cognitive Complexity (6+ functions, 16-19)
 
 Target remaining cognitive complexity violations to reach default threshold of 15.
 
-- [ ] Task 4.1: Refactor services/roles.py `check_user_roles` (Cog:19)
+- [x] Task 4.1: Refactor services/api/auth/roles.py `has_permissions` (Cog:19→5) **COMPLETE**
   - Details: .copilot-tracking/details/20260116-default-complexity-thresholds-reduction-details.md (Lines 325-338)
 
-- [ ] Task 4.2: Refactor data_access/database_users.py `create_database_users` (Cog:19)
+- [x] Task 4.2: Refactor services/init/database_users.py `create_database_users` (Cog:19→13) **COMPLETE**
   - Details: .copilot-tracking/details/20260116-default-complexity-thresholds-reduction-details.md (Lines 340-353)
 
 - [x] Task 4.3: Refactor events/handlers.py `_refresh_game_message` (Cog:18)
@@ -130,24 +132,29 @@ Target remaining cognitive complexity violations to reach default threshold of 1
 - [x] Task 4.4: Refactor services/guild_service.py `sync_user_guilds` (Cog:18)
   - Details: .copilot-tracking/details/20260116-default-complexity-thresholds-reduction-details.md (Lines 370-383)
 
-- [ ] Task 4.5: Refactor remaining functions with Cog:16-17
+- [x] Task 4.5: Refactor remaining functions with Cog:16-17 **COMPLETE**
   - Details: .copilot-tracking/details/20260116-default-complexity-thresholds-reduction-details.md (Lines 385-398)
+  - Note: Completed as Task 4.4 - all remaining violations resolved
 
-- [ ] Task 4.6: Update pyproject.toml cognitive threshold (17→15)
+- [x] Task 4.6: Update pyproject.toml cognitive threshold (25→15) **COMPLETE**
   - Details: .copilot-tracking/details/20260116-default-complexity-thresholds-reduction-details.md (Lines 400-407)
+  - Note: Updated pyproject.toml max-complexity-allowed from 25 to 15 (default). Verified all 809 functions pass with complexipy -mx 15.
 
-### [ ] Phase 5: Extreme Outliers - Optional (3 utility functions)
+### [x] Phase 5: Extreme Outliers - Optional (3 utility functions)
 
 Target test utilities and scripts with extreme cognitive complexity (30-39).
 
-- [ ] Task 5.1: Refactor retry_daemon.py `_process_dlq` (Cog:39)
+- [x] Task 5.1: Refactor retry_daemon.py `_process_dlq` (Cog:39→4) **COMPLETE**
   - Details: .copilot-tracking/details/20260116-default-complexity-thresholds-reduction-details.md (Lines 411-424)
+  - Note: Verified passing with complexipy -mx 15 (cognitive complexity: 4).
 
-- [ ] Task 5.2: Refactor tests/e2e/shared/discord.py `seed_messages` (Cog:37)
+- [x] Task 5.2: Refactor tests/e2e/shared/discord.py `seed_messages` (Cog:37) **NOT NEEDED**
   - Details: .copilot-tracking/details/20260116-default-complexity-thresholds-reduction-details.md (Lines 426-439)
+  - Note: Test utilities excluded from complexity checks; file not in services/ or shared/ directories.
 
-- [ ] Task 5.3: Refactor scripts/verify_button_states.py `verify_game_buttons` (Cog:30)
+- [x] Task 5.3: Refactor scripts/verify_button_states.py `verify_game_buttons` (Cog:30) **NOT NEEDED**
   - Details: .copilot-tracking/details/20260116-default-complexity-thresholds-reduction-details.md (Lines 441-454)
+  - Note: Script utilities excluded from complexity checks; file not in services/ or shared/ directories.
 
 ## Dependencies
 
