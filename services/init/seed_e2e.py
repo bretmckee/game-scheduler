@@ -25,15 +25,143 @@ Only runs when TEST_ENVIRONMENT=true.
 
 import logging
 import os
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import uuid4
 
 from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 from shared.database import get_sync_db_session
 from shared.utils.discord_tokens import extract_bot_discord_id
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class E2EConfig:
+    """E2E test environment configuration."""
+
+    guild_a_id: str
+    channel_a_id: str
+    user_id: str
+    bot_token: str
+    guild_b_id: str
+    channel_b_id: str
+    user_b_id: str
+
+
+@dataclass
+class GuildConfig:
+    """Configuration for seeding a single guild."""
+
+    guild_id: str
+    channel_id: str
+    user_id: str
+    guild_name: str
+
+
+def _validate_e2e_config() -> E2EConfig | None:
+    """Validate and load E2E test configuration from environment."""
+    if os.getenv("TEST_ENVIRONMENT") != "true":
+        logger.info("Skipping E2E seed - TEST_ENVIRONMENT not set to 'true'")
+        return None
+
+    config_dict = {
+        "guild_a_id": os.getenv("DISCORD_GUILD_A_ID"),
+        "channel_a_id": os.getenv("DISCORD_GUILD_A_CHANNEL_ID"),
+        "user_id": os.getenv("DISCORD_USER_ID"),
+        "bot_token": os.getenv("DISCORD_ADMIN_BOT_A_TOKEN"),
+        "guild_b_id": os.getenv("DISCORD_GUILD_B_ID"),
+        "channel_b_id": os.getenv("DISCORD_GUILD_B_CHANNEL_ID"),
+        "user_b_id": os.getenv("DISCORD_ADMIN_BOT_B_CLIENT_ID"),
+    }
+
+    if not all(config_dict.values()):
+        logger.warning("Skipping E2E seed - missing DISCORD_* environment variables")
+        return None
+
+    return E2EConfig(**config_dict)
+
+
+def _guild_exists(session: Session, guild_id: str) -> bool:
+    """Check if guild already exists in database."""
+    result = session.execute(
+        text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
+        {"guild_id": guild_id},
+    )
+    return result.fetchone() is not None
+
+
+def _create_guild_entities(
+    session: Session, guild_config: GuildConfig, bot_id: str | None = None
+) -> None:
+    """Create guild, channel, template, and user entities."""
+    now = datetime.now(UTC).replace(tzinfo=None)
+    guild_id = str(uuid4())
+
+    session.execute(
+        text(
+            "INSERT INTO guild_configurations "
+            "(id, guild_id, created_at, updated_at) "
+            "VALUES (:id, :guild_id, :created_at, :updated_at)"
+        ),
+        {
+            "id": guild_id,
+            "guild_id": guild_config.guild_id,
+            "created_at": now,
+            "updated_at": now,
+        },
+    )
+
+    session.execute(
+        text(
+            "INSERT INTO channel_configurations "
+            "(id, channel_id, guild_id, created_at, updated_at) "
+            "VALUES (:id, :channel_id, :guild_id, :created_at, :updated_at)"
+        ),
+        {
+            "id": str(uuid4()),
+            "channel_id": guild_config.channel_id,
+            "guild_id": guild_id,
+            "created_at": now,
+            "updated_at": now,
+        },
+    )
+
+    session.execute(
+        text(
+            "INSERT INTO game_templates "
+            "(id, guild_id, channel_id, name, is_default, created_at, updated_at) "
+            "VALUES (:id, :guild_id, :channel_id, :name, :is_default, :created_at, :updated_at)"
+        ),
+        {
+            "id": str(uuid4()),
+            "guild_id": guild_id,
+            "channel_id": str(uuid4()),
+            "name": f"Default E2E Template ({guild_config.guild_name})",
+            "is_default": True,
+            "created_at": now,
+            "updated_at": now,
+        },
+    )
+
+    for user_id in [guild_config.user_id] + ([bot_id] if bot_id else []):
+        session.execute(
+            text(
+                "INSERT INTO users (id, discord_id, created_at, updated_at) "
+                "VALUES (:id, :discord_id, :created_at, :updated_at) "
+                "ON CONFLICT (discord_id) DO NOTHING"
+            ),
+            {
+                "id": str(uuid4()),
+                "discord_id": user_id,
+                "created_at": now,
+                "updated_at": now,
+            },
+        )
+
+    logger.info(f"Created guild entities for {guild_config.guild_name}")
 
 
 def seed_e2e_data() -> bool:
@@ -50,215 +178,41 @@ def seed_e2e_data() -> bool:
     Returns:
         True if seeding succeeded, False otherwise
     """
-    if os.getenv("TEST_ENVIRONMENT") != "true":
-        logger.info("Skipping E2E seed - TEST_ENVIRONMENT not set to 'true'")
+    config = _validate_e2e_config()
+    if not config:
         return True
 
-    discord_guild_id = os.getenv("DISCORD_GUILD_A_ID")
-    discord_channel_id = os.getenv("DISCORD_GUILD_A_CHANNEL_ID")
-    discord_user_id = os.getenv("DISCORD_USER_ID")  # Regular test user
-    admin_bot_token = os.getenv("DISCORD_ADMIN_BOT_A_TOKEN")
-
-    if not all([discord_guild_id, discord_channel_id, discord_user_id, admin_bot_token]):
-        logger.warning("Skipping E2E seed - missing DISCORD_* environment variables")
-        return True
-
-    # Guild B configuration for cross-guild isolation tests (required)
-    discord_guild_b_id = os.getenv("DISCORD_GUILD_B_ID")
-    discord_channel_b_id = os.getenv("DISCORD_GUILD_B_CHANNEL_ID")
-    discord_user_b_id = os.getenv("DISCORD_ADMIN_BOT_B_CLIENT_ID")
-
-    if not all([discord_guild_b_id, discord_channel_b_id, discord_user_b_id]):
-        logger.info(
-            "Missing Guild B configuration: DISCORD_GUILD_B_ID, DISCORD_GUILD_B_CHANNEL_ID, "
-            "and DISCORD_ADMIN_BOT_B_CLIENT_ID are required for cross-guild isolation testing"
-        )
-        return False
+    bot_id = extract_bot_discord_id(config.bot_token)
+    logger.info(f"Extracted bot Discord ID: {bot_id}")
 
     try:
-        # Extract bot Discord ID from token
-        bot_discord_id = extract_bot_discord_id(admin_bot_token)
         with get_sync_db_session() as session:
-            now = datetime.now(UTC).replace(tzinfo=None)
-
-            # Check if guild already exists
-            result = session.execute(
-                text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
-                {"guild_id": discord_guild_id},
-            )
-            existing_guild = result.fetchone()
-
-            if existing_guild:
-                logger.info(f"E2E test guild {discord_guild_id} already exists, skipping seed")
+            if _guild_exists(session, config.guild_a_id):
+                logger.info(f"E2E test guild {config.guild_a_id} already exists, skipping seed")
                 return True
 
-            guild_id = str(uuid4())
-            channel_id = str(uuid4())
-            user_id = str(uuid4())
-            bot_user_id = str(uuid4())
-            template_id = str(uuid4())
-
-            logger.info(f"Seeding E2E test data for guild {discord_guild_id}")
-            logger.info(f"Seeding bot user with Discord ID: {bot_discord_id}")
-
-            session.execute(
-                text(
-                    "INSERT INTO guild_configurations "
-                    "(id, guild_id, created_at, updated_at) "
-                    "VALUES (:id, :guild_id, :created_at, :updated_at)"
-                ),
-                {
-                    "id": guild_id,
-                    "guild_id": discord_guild_id,
-                    "created_at": now,
-                    "updated_at": now,
-                },
+            guild_a_config = GuildConfig(
+                guild_id=config.guild_a_id,
+                channel_id=config.channel_a_id,
+                user_id=config.user_id,
+                guild_name="Guild A",
             )
-
-            session.execute(
-                text(
-                    "INSERT INTO channel_configurations "
-                    "(id, channel_id, guild_id, created_at, updated_at) "
-                    "VALUES (:id, :channel_id, :guild_id, :created_at, :updated_at)"
-                ),
-                {
-                    "id": channel_id,
-                    "channel_id": discord_channel_id,
-                    "guild_id": guild_id,
-                    "created_at": now,
-                    "updated_at": now,
-                },
-            )
-
-            session.execute(
-                text(
-                    "INSERT INTO game_templates "
-                    "(id, guild_id, channel_id, name, is_default, "
-                    "created_at, updated_at) "
-                    "VALUES (:id, :guild_id, :channel_id, :name, :is_default, "
-                    ":created_at, :updated_at)"
-                ),
-                {
-                    "id": template_id,
-                    "guild_id": guild_id,
-                    "channel_id": channel_id,
-                    "name": "Default E2E Template",
-                    "is_default": True,
-                    "created_at": now,
-                    "updated_at": now,
-                },
-            )
-
-            session.execute(
-                text(
-                    "INSERT INTO users (id, discord_id, created_at, updated_at) "
-                    "VALUES (:id, :discord_id, :created_at, :updated_at) "
-                    "ON CONFLICT (discord_id) DO NOTHING"
-                ),
-                {
-                    "id": user_id,
-                    "discord_id": discord_user_id,
-                    "created_at": now,
-                    "updated_at": now,
-                },
-            )
-
-            session.execute(
-                text(
-                    "INSERT INTO users (id, discord_id, created_at, updated_at) "
-                    "VALUES (:id, :discord_id, :created_at, :updated_at) "
-                    "ON CONFLICT (discord_id) DO NOTHING"
-                ),
-                {
-                    "id": bot_user_id,
-                    "discord_id": bot_discord_id,
-                    "created_at": now,
-                    "updated_at": now,
-                },
-            )
-
+            _create_guild_entities(session, guild_a_config, bot_id)
             logger.info("E2E test data seeded successfully (guild A, channel A, users, template)")
 
-            # Seed Guild B and User B for cross-guild isolation testing (required)
-            logger.info(f"Seeding Guild B for cross-guild isolation testing: {discord_guild_b_id}")
+            logger.info(f"Seeding Guild B for cross-guild isolation testing: {config.guild_b_id}")
 
-            # Check if Guild B already exists
-            result_b = session.execute(
-                text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
-                {"guild_id": discord_guild_b_id},
-            )
-            existing_guild_b = result_b.fetchone()
-
-            if not existing_guild_b:
-                guild_b_id = str(uuid4())
-                channel_b_id = str(uuid4())
-                user_b_id = str(uuid4())
-                template_b_id = str(uuid4())
-
-                session.execute(
-                    text(
-                        "INSERT INTO guild_configurations "
-                        "(id, guild_id, created_at, updated_at) "
-                        "VALUES (:id, :guild_id, :created_at, :updated_at)"
-                    ),
-                    {
-                        "id": guild_b_id,
-                        "guild_id": discord_guild_b_id,
-                        "created_at": now,
-                        "updated_at": now,
-                    },
-                )
-
-                session.execute(
-                    text(
-                        "INSERT INTO channel_configurations "
-                        "(id, channel_id, guild_id, created_at, updated_at) "
-                        "VALUES (:id, :channel_id, :guild_id, :created_at, :updated_at)"
-                    ),
-                    {
-                        "id": channel_b_id,
-                        "channel_id": discord_channel_b_id,
-                        "guild_id": guild_b_id,
-                        "created_at": now,
-                        "updated_at": now,
-                    },
-                )
-
-                session.execute(
-                    text(
-                        "INSERT INTO game_templates "
-                        "(id, guild_id, channel_id, name, is_default, "
-                        "created_at, updated_at) "
-                        "VALUES (:id, :guild_id, :channel_id, :name, :is_default, "
-                        ":created_at, :updated_at)"
-                    ),
-                    {
-                        "id": template_b_id,
-                        "guild_id": guild_b_id,
-                        "channel_id": channel_b_id,
-                        "name": "Default E2E Template (Guild B)",
-                        "is_default": True,
-                        "created_at": now,
-                        "updated_at": now,
-                    },
-                )
-
-                session.execute(
-                    text(
-                        "INSERT INTO users (id, discord_id, created_at, updated_at) "
-                        "VALUES (:id, :discord_id, :created_at, :updated_at)"
-                    ),
-                    {
-                        "id": user_b_id,
-                        "discord_id": discord_user_b_id,
-                        "created_at": now,
-                        "updated_at": now,
-                    },
-                )
-
-                logger.info("Guild B seeded successfully (guild B, channel B, user B, template)")
+            if _guild_exists(session, config.guild_b_id):
+                logger.info(f"Guild B {config.guild_b_id} already exists, skipping seed")
             else:
-                logger.info(f"Guild B {discord_guild_b_id} already exists, skipping seed")
+                guild_b_config = GuildConfig(
+                    guild_id=config.guild_b_id,
+                    channel_id=config.channel_b_id,
+                    user_id=config.user_b_id,
+                    guild_name="Guild B",
+                )
+                _create_guild_entities(session, guild_b_config)
+                logger.info("Guild B seeded successfully (guild B, channel B, user B, template)")
 
             session.commit()
             return True

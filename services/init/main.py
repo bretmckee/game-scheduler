@@ -35,6 +35,7 @@ import sys
 import time
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import NoReturn
 
 from opentelemetry import trace
 
@@ -58,6 +59,45 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def _initialize_telemetry_and_logging() -> tuple[trace.Tracer, datetime]:
+    """Initialize telemetry and log startup banner."""
+    init_telemetry("init-service")
+    tracer = trace.get_tracer(__name__)
+    start_time = datetime.now(UTC)
+
+    logger.info("=" * 60)
+    logger.info("Environment Initialization Started")
+    logger.info(f"Timestamp: {start_time.strftime('%Y-%m-%d %H:%M:%S UTC')}")
+    logger.info("=" * 60)
+
+    return tracer, start_time
+
+
+def _log_phase(phase: int, total: int, description: str, completed: bool = False) -> None:
+    """Log initialization phase progress."""
+    status = "✓" if completed else ""
+    logger.info(f"{status}[{phase}/{total}] {description}")
+
+
+def _complete_initialization(start_time: datetime) -> NoReturn:
+    """Complete initialization and enter healthy sleep mode."""
+    end_time = datetime.now(UTC)
+    duration = (end_time - start_time).total_seconds()
+
+    logger.info("=" * 60)
+    logger.info("Environment Initialization Complete")
+    logger.info(f"Duration: {duration:.2f} seconds")
+    logger.info("=" * 60)
+
+    marker_file = Path("/tmp/init-complete")
+    marker_file.touch()
+    logger.info(f"Created completion marker: {marker_file}")
+
+    logger.info("Entering sleep mode. Container will remain healthy.")
+    while True:
+        time.sleep(SECONDS_PER_DAY)
+
+
 def main() -> int:
     """
     Main initialization orchestrator.
@@ -65,60 +105,38 @@ def main() -> int:
     Returns:
         Exit code (0 for success, non-zero for failure)
     """
-    init_telemetry("init-service")
-    tracer = trace.get_tracer(__name__)
-
-    start_time = datetime.now(UTC)
-    logger.info("=" * 60)
-    logger.info("Environment Initialization Started")
-    logger.info(f"Timestamp: {start_time.strftime('%Y-%m-%d %H:%M:%S UTC')}")
-    logger.info("=" * 60)
+    tracer, start_time = _initialize_telemetry_and_logging()
 
     with tracer.start_as_current_span("init.environment") as span:
         try:
-            logger.info("[1/6] Waiting for PostgreSQL...")
+            _log_phase(1, 6, "Waiting for PostgreSQL...")
             wait_for_postgres()
-            logger.info("✓ PostgreSQL ready")
+            _log_phase(1, 6, "PostgreSQL ready", completed=True)
 
-            logger.info("[2/6] Creating database users for RLS enforcement...")
+            _log_phase(2, 6, "Creating database users for RLS enforcement...")
             create_database_users()
-            logger.info("✓ Database users configured")
+            _log_phase(2, 6, "Database users configured", completed=True)
 
-            logger.info("[3/6] Running database migrations...")
+            _log_phase(3, 6, "Running database migrations...")
             run_migrations()
-            logger.info("✓ Migrations complete")
+            _log_phase(3, 6, "Migrations complete", completed=True)
 
-            logger.info("[4/6] Verifying database schema...")
+            _log_phase(4, 6, "Verifying database schema...")
             verify_schema()
-            logger.info("✓ Schema verified")
+            _log_phase(4, 6, "Schema verified", completed=True)
 
-            logger.info("[5/6] Initializing RabbitMQ infrastructure...")
+            _log_phase(5, 6, "Initializing RabbitMQ infrastructure...")
             initialize_rabbitmq()
-            logger.info("✓ RabbitMQ infrastructure ready")
+            _log_phase(5, 6, "RabbitMQ infrastructure ready", completed=True)
 
-            logger.info("[6/6] Seeding E2E test data (if applicable)...")
+            _log_phase(6, 6, "Seeding E2E test data (if applicable)...")
             if not seed_e2e_data():
                 logger.warning("E2E seed failed, but continuing...")
-            logger.info("✓ E2E seeding complete")
+            _log_phase(6, 6, "E2E seeding complete", completed=True)
 
             logger.info("Finalizing initialization...")
             span.set_status(trace.Status(trace.StatusCode.OK))
-
-            end_time = datetime.now(UTC)
-            duration = (end_time - start_time).total_seconds()
-
-            logger.info("=" * 60)
-            logger.info("Environment Initialization Complete")
-            logger.info(f"Duration: {duration:.2f} seconds")
-            logger.info("=" * 60)
-
-            marker_file = Path("/tmp/init-complete")
-            marker_file.touch()
-            logger.info(f"Created completion marker: {marker_file}")
-
-            logger.info("Entering sleep mode. Container will remain healthy.")
-            while True:
-                time.sleep(SECONDS_PER_DAY)
+            _complete_initialization(start_time)
 
         except Exception as e:
             logger.error("=" * 60)

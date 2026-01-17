@@ -80,6 +80,7 @@ repos:
         pass_filenames: false
         files: ^(services|shared|tests)/.*\.py$
         verbose: true
+        timeout: 120  # Increased from default 60s - test suite currently ~52s
 
       # Diff coverage check for modified Python code
       - id: diff-coverage
