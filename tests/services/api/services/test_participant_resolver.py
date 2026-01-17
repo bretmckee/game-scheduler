@@ -425,3 +425,277 @@ async def test_discord_mention_format_with_whitespace(resolver, mock_discord_cli
     assert len(errors) == 0
     assert valid[0]["type"] == "discord"
     assert valid[0]["discord_id"] == "987654321012345678"
+
+
+# Unit tests for extracted helper methods
+
+
+@pytest.mark.asyncio
+async def test_resolve_discord_mention_format_success(resolver, mock_discord_client):
+    """Test _resolve_discord_mention_format with successful member fetch."""
+    member_data = {
+        "user": {
+            "id": "123456789012345678",
+            "username": "testuser",
+            "global_name": "Test User",
+        },
+        "nick": "TestNick",
+    }
+    mock_discord_client.get_guild_member = AsyncMock(return_value=member_data)
+
+    participant, error = await resolver._resolve_discord_mention_format(
+        guild_discord_id="999",
+        input_text="<@123456789012345678>",
+        discord_id="123456789012345678",
+    )
+
+    assert participant is not None
+    assert error is None
+    assert participant["type"] == "discord"
+    assert participant["discord_id"] == "123456789012345678"
+    assert participant["username"] == "testuser"
+    assert participant["display_name"] == "TestNick"
+    assert participant["original_input"] == "<@123456789012345678>"
+
+
+@pytest.mark.asyncio
+async def test_resolve_discord_mention_format_no_nick(resolver, mock_discord_client):
+    """Test _resolve_discord_mention_format falls back to global_name when no nick."""
+    member_data = {
+        "user": {
+            "id": "123456789012345678",
+            "username": "testuser",
+            "global_name": "Test User",
+        },
+        "nick": None,
+    }
+    mock_discord_client.get_guild_member = AsyncMock(return_value=member_data)
+
+    participant, error = await resolver._resolve_discord_mention_format(
+        guild_discord_id="999",
+        input_text="<@123456789012345678>",
+        discord_id="123456789012345678",
+    )
+
+    assert participant["display_name"] == "Test User"
+
+
+@pytest.mark.asyncio
+async def test_resolve_discord_mention_format_no_global_name(resolver, mock_discord_client):
+    """Test _resolve_discord_mention_format falls back to username when no nick or global_name."""
+    member_data = {
+        "user": {
+            "id": "123456789012345678",
+            "username": "testuser",
+            "global_name": None,
+        },
+        "nick": None,
+    }
+    mock_discord_client.get_guild_member = AsyncMock(return_value=member_data)
+
+    participant, error = await resolver._resolve_discord_mention_format(
+        guild_discord_id="999",
+        input_text="<@123456789012345678>",
+        discord_id="123456789012345678",
+    )
+
+    assert participant["display_name"] == "testuser"
+
+
+@pytest.mark.asyncio
+async def test_resolve_discord_mention_format_not_found(resolver, mock_discord_client):
+    """Test _resolve_discord_mention_format handles 404 not found."""
+    mock_discord_client.get_guild_member = AsyncMock(
+        side_effect=discord_client_module.DiscordAPIError(404, "Not Found")
+    )
+
+    participant, error = await resolver._resolve_discord_mention_format(
+        guild_discord_id="999",
+        input_text="<@123456789012345678>",
+        discord_id="123456789012345678",
+    )
+
+    assert participant is None
+    assert error is not None
+    assert error["input"] == "<@123456789012345678>"
+    assert error["reason"] == "User not found in server"
+    assert error["suggestions"] == []
+
+
+@pytest.mark.asyncio
+async def test_resolve_discord_mention_format_api_error(resolver, mock_discord_client):
+    """Test _resolve_discord_mention_format handles Discord API error."""
+    mock_discord_client.get_guild_member = AsyncMock(
+        side_effect=discord_client_module.DiscordAPIError(500, "Internal Server Error")
+    )
+
+    participant, error = await resolver._resolve_discord_mention_format(
+        guild_discord_id="999",
+        input_text="<@123456789012345678>",
+        discord_id="123456789012345678",
+    )
+
+    assert participant is None
+    assert error is not None
+    assert error["reason"] == "Discord API error: Internal Server Error"
+
+
+@pytest.mark.asyncio
+async def test_resolve_discord_mention_format_unexpected_error(resolver, mock_discord_client):
+    """Test _resolve_discord_mention_format handles unexpected exception."""
+    mock_discord_client.get_guild_member = AsyncMock(side_effect=RuntimeError("Unexpected error"))
+
+    participant, error = await resolver._resolve_discord_mention_format(
+        guild_discord_id="999",
+        input_text="<@123456789012345678>",
+        discord_id="123456789012345678",
+    )
+
+    assert participant is None
+    assert error is not None
+    assert error["reason"] == "Internal error fetching user"
+
+
+@pytest.mark.asyncio
+async def test_resolve_user_friendly_mention_single_match(resolver, mock_discord_client):
+    """Test _resolve_user_friendly_mention with single match."""
+    mock_discord_client._get_session = AsyncMock()
+    mock_session = MagicMock()
+    json_data = [{"user": {"id": "111222333", "username": "alice", "global_name": "Alice"}}]
+    mock_session.get = MagicMock(return_value=create_mock_http_response(200, json_data))
+    mock_discord_client._get_session.return_value = mock_session
+
+    participant, error = await resolver._resolve_user_friendly_mention(
+        guild_discord_id="999",
+        input_text="@alice",
+        mention_text="alice",
+        access_token="token",
+    )
+
+    assert participant is not None
+    assert error is None
+    assert participant["type"] == "discord"
+    assert participant["discord_id"] == "111222333"
+    assert participant["original_input"] == "@alice"
+
+
+@pytest.mark.asyncio
+async def test_resolve_user_friendly_mention_no_match(resolver, mock_discord_client):
+    """Test _resolve_user_friendly_mention with no matches."""
+    mock_discord_client._get_session = AsyncMock()
+    mock_session = MagicMock()
+    mock_session.get = MagicMock(return_value=create_mock_http_response(200, []))
+    mock_discord_client._get_session.return_value = mock_session
+
+    participant, error = await resolver._resolve_user_friendly_mention(
+        guild_discord_id="999",
+        input_text="@nobody",
+        mention_text="nobody",
+        access_token="token",
+    )
+
+    assert participant is None
+    assert error is not None
+    assert error["input"] == "@nobody"
+    assert error["reason"] == "User not found in server"
+    assert error["suggestions"] == []
+
+
+@pytest.mark.asyncio
+async def test_resolve_user_friendly_mention_multiple_matches(resolver, mock_discord_client):
+    """Test _resolve_user_friendly_mention with multiple matches."""
+    mock_discord_client._get_session = AsyncMock()
+    mock_session = MagicMock()
+    json_data = [
+        {
+            "user": {"id": "111", "username": "alice1", "global_name": "Alice One"},
+            "nick": None,
+        },
+        {
+            "user": {"id": "222", "username": "alice2", "global_name": "Alice Two"},
+            "nick": "Alice",
+        },
+        {
+            "user": {"id": "333", "username": "alice3", "global_name": None},
+            "nick": None,
+        },
+    ]
+    mock_session.get = MagicMock(return_value=create_mock_http_response(200, json_data))
+    mock_discord_client._get_session.return_value = mock_session
+
+    participant, error = await resolver._resolve_user_friendly_mention(
+        guild_discord_id="999",
+        input_text="@alice",
+        mention_text="alice",
+        access_token="token",
+    )
+
+    assert participant is None
+    assert error is not None
+    assert error["input"] == "@alice"
+    assert error["reason"] == "Multiple matches found"
+    assert len(error["suggestions"]) == 3
+    assert error["suggestions"][0]["discordId"] == "111"
+    assert error["suggestions"][1]["displayName"] == "Alice"
+    assert error["suggestions"][2]["displayName"] == "alice3"
+
+
+@pytest.mark.asyncio
+async def test_resolve_user_friendly_mention_api_error(resolver, mock_discord_client):
+    """Test _resolve_user_friendly_mention handles Discord API error."""
+    mock_discord_client._get_session = AsyncMock()
+    mock_session = MagicMock()
+    mock_response = MagicMock()
+    mock_response.status = 500
+    mock_response.json = AsyncMock(return_value={"message": "Server Error"})
+    mock_context = MagicMock()
+    mock_context.__aenter__ = AsyncMock(return_value=mock_response)
+    mock_context.__aexit__ = AsyncMock(return_value=None)
+    mock_session.get = MagicMock(return_value=mock_context)
+    mock_discord_client._get_session.return_value = mock_session
+
+    participant, error = await resolver._resolve_user_friendly_mention(
+        guild_discord_id="999",
+        input_text="@test",
+        mention_text="test",
+        access_token="token",
+    )
+
+    assert participant is None
+    assert error is not None
+    assert "Discord API error" in error["reason"]
+
+
+@pytest.mark.asyncio
+async def test_resolve_user_friendly_mention_unexpected_error(resolver, mock_discord_client):
+    """Test _resolve_user_friendly_mention handles unexpected exception."""
+    mock_discord_client._get_session = AsyncMock(side_effect=RuntimeError("Boom"))
+
+    participant, error = await resolver._resolve_user_friendly_mention(
+        guild_discord_id="999",
+        input_text="@test",
+        mention_text="test",
+        access_token="token",
+    )
+
+    assert participant is None
+    assert error is not None
+    assert error["reason"] == "Internal error searching for user"
+
+
+def test_create_placeholder_participant(resolver):
+    """Test _create_placeholder_participant creates correct structure."""
+    participant = resolver._create_placeholder_participant("Player One")
+
+    assert participant["type"] == "placeholder"
+    assert participant["display_name"] == "Player One"
+    assert participant["original_input"] == "Player One"
+
+
+def test_create_placeholder_participant_special_chars(resolver):
+    """Test _create_placeholder_participant handles special characters."""
+    participant = resolver._create_placeholder_participant("Player #1 (Team A)")
+
+    assert participant["type"] == "placeholder"
+    assert participant["display_name"] == "Player #1 (Team A)"
+    assert participant["original_input"] == "Player #1 (Team A)"
