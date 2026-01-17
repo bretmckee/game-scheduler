@@ -1,22 +1,31 @@
+# syntax=docker/dockerfile:1
 # Multi-stage build for Discord Bot Service
 FROM python:3.13-slim AS base
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
+# Configure apt to keep downloaded packages for cache mount
+RUN rm -f /etc/apt/apt.conf.d/docker-clean; \
+    echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
+
+# Install system dependencies with cache mount
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y \
     gcc \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Install uv for dependency management
-RUN pip install --no-cache-dir uv
+# Install uv for dependency management with cache mount
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --no-cache-dir uv
 
 # Copy dependency files
 COPY pyproject.toml ./
 
 # Install Python dependencies
-RUN uv pip install --system .
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install --system .
 
 # Development stage
 FROM base AS development
@@ -45,7 +54,9 @@ CMD ["python", "-m", "services.bot.main"]
 FROM python:3.13-slim AS production
 
 # Install runtime dependencies only
-RUN apt-get update && apt-get install -y \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
