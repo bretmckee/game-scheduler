@@ -29,6 +29,7 @@ Systematically refactor high-complexity functions to reduce cyclomatic complexit
 - [services/bot/formatters/game_message.py](services/bot/formatters/game_message.py) - Extracted _prepare_description_and_urls(), _configure_embed_author(), _add_game_time_fields(), _add_participant_fields(), and _add_footer_and_links() helpers, refactored create_game_embed() to reduce complexity from C:14/Cog:17 to below thresholds
 - [services/retry/retry_daemon.py](services/retry/retry_daemon.py) - Extracted _check_dlq_depth(), _process_single_message(), _consume_and_process_messages(), and _update_health_tracking() helpers, refactored _process_dlq() to reduce cognitive complexity from Cog:39 to Cog:4 (90% reduction)
 - [services/bot/commands/list_games.py](services/bot/commands/list_games.py) - Extracted _determine_fetch_strategy() and _fetch_games_by_strategy() helpers, refactored list_games_command() to reduce cognitive complexity from Cog:20 to below threshold
+- [services/api/auth/roles.py](services/api/auth/roles.py) - Phase 4: Extracted _find_guild_data(), _has_administrator_permission(), and _has_any_requested_permission() helpers, refactored has_permissions() to reduce cognitive complexity from Cog:19 to Cog:5 (74% reduction)
 - [scripts/verify_button_states.py](scripts/verify_button_states.py) - Extracted _print_game_info(), _calculate_expected_button_states(), _print_expected_button_states(), and _fetch_and_verify_discord_buttons() helpers, refactored verify_game_buttons() to reduce cognitive complexity from Cog:32 to Cog:4 (88% reduction)
 - [tests/e2e/helpers/discord.py](tests/e2e/helpers/discord.py) - Extracted _build_field_map(), _verify_basic_embed_structure(), _verify_game_time_field(), _verify_optional_fields(), _find_participants_field(), _verify_participants_numbering(), _verify_waitlist_field(), and _verify_links_field() helpers, refactored verify_game_embed() to reduce cognitive complexity from Cog:37 to Cog:1 (97% reduction)
 - [tests/services/api/services/test_display_names.py](tests/services/api/services/test_display_names.py) - Added 10 unit tests for extracted helper methods covering cache checking, Discord API fetching, and fallback data creation
@@ -36,6 +37,7 @@ Systematically refactor high-complexity functions to reduce cyclomatic complexit
 - [tests/services/api/services/test_participant_resolver.py](tests/services/api/services/test_participant_resolver.py) - Added 13 unit tests for extracted helper methods covering Discord mention format resolution, user-friendly mention search, and placeholder participant creation
 - [tests/services/api/services/test_games.py](tests/services/api/services/test_games.py) - Phase 2: Added 9 unit tests for _resolve_game_host extracted helpers covering bot manager permission verification, host participant resolution/validation, and user retrieval/creation
 - [tests/services/bot/events/test_handlers.py](tests/services/bot/events/test_handlers.py) - Phase 2: Added 11 unit tests for _handle_game_reminder extracted helpers covering game validation, participant partitioning/filtering, reminder sending, and host notification; Phase 3: Added 10 unit tests for _handle_join_notification extracted helpers covering data fetching, waitlist status checking, message formatting, and DM sending
+- [tests/services/api/auth/test_roles.py](tests/services/api/auth/test_roles.py) - Phase 4: Added TestHasPermissionsHelpers class with 12 unit tests for extracted helpers covering guild lookup, administrator permission checking, and specific permission matching
 - [tests/services/bot/events/test_handlers.py](tests/services/bot/events/test_handlers.py) - Added 9 unit tests for _handle_player_removed extracted helpers covering message updates, DM notification building, and player notification
 - [tests/services/bot/formatters/test_game_message.py](tests/services/bot/formatters/test_game_message.py) - Added 17 unit tests for create_game_embed extracted helpers (TestGameMessageFormatterHelpers class) covering description truncation, URL generation, author configuration, game time fields, participant fields, and footer/links
 - [tests/services/retry/test_retry_daemon.py](tests/services/retry/test_retry_daemon.py) - Added TestRetryDaemonHelpers test class with 13 unit tests for extracted helpers covering DLQ depth checking, single message processing (success/failure/validation), message consumption, and health tracking
@@ -101,9 +103,16 @@ Systematically refactor high-complexity functions to reduce cyclomatic complexit
   - Added 10 unit tests in [tests/services/bot/commands/test_list_games.py](tests/services/bot/commands/test_list_games.py:242-391)
   - Successfully reduced cognitive complexity from 20→below threshold
 
-### Phase 4: Remaining Cognitive Violations (16-19) (Not Started)
+### Phase 4: Remaining Cognitive Violations (16-19) (In Progress)
 
 **Goal**: Complete cognitive complexity reduction to enable complexipy=15 threshold
 
-- [ ] **Task 4.1**: Address remaining cognitive complexity violations
-- [ ] **Task 4.2**: Lower BOTH thresholds to defaults (C901=10, complexipy=15) after verification
+- [x] **Task 4.1**: Refactored `has_permissions` (services/api/auth/roles.py:95-142) - Cog: 19→5
+  - Extracted `_find_guild_data()` for guild lookup in list
+  - Extracted `_has_administrator_permission()` for admin permission checking
+  - Extracted `_has_any_requested_permission()` for specific permission matching
+  - Added 12 unit tests in [tests/services/api/auth/test_roles.py](tests/services/api/auth/test_roles.py:239-382) (TestHasPermissionsHelpers class)
+  - Successfully reduced cognitive complexity from 19→5 (74% reduction)
+  - All 26 unit tests passing with 100% coverage of extracted methods
+- [ ] **Task 4.2**: Address remaining 6 cognitive complexity violations (Cog:16-20)
+- [ ] **Task 4.3**: Lower BOTH thresholds to defaults (C901=10, complexipy=15) after verification
