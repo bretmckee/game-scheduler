@@ -27,6 +27,8 @@ from discord import Interaction
 
 from services.bot.commands.list_games import (
     _create_games_list_embed,
+    _determine_fetch_strategy,
+    _fetch_games_by_strategy,
     list_games_command,
 )
 from shared.models import GameSession
@@ -121,7 +123,9 @@ async def test_list_games_current_channel_success(
 
 
 @pytest.mark.asyncio
-async def test_list_games_current_channel_no_results(mock_interaction, mock_guild, mock_channel):
+async def test_list_games_current_channel_no_results(
+    mock_interaction, mock_guild, mock_channel
+):
     """Test list_games_command for current channel with no results."""
     mock_interaction.guild = mock_guild
     mock_interaction.channel = mock_channel
@@ -257,3 +261,134 @@ def test_create_games_list_embed_long_description(sample_games):
     field_value = embed.fields[0].value
     assert "A" * 100 in field_value
     assert len([c for c in field_value if c == "A"]) == 100
+
+
+class TestDetermineFetchStrategy:
+    """Tests for _determine_fetch_strategy helper."""
+
+    def test_no_guild_returns_none(self):
+        """Test returns None when interaction has no guild."""
+        interaction = MagicMock(spec=Interaction)
+        interaction.guild = None
+
+        result = _determine_fetch_strategy(interaction, None, False)
+
+        assert result is None
+
+    def test_show_all_returns_guild_strategy(self, mock_interaction, mock_guild):
+        """Test returns guild strategy when show_all is True."""
+        mock_interaction.guild = mock_guild
+
+        result = _determine_fetch_strategy(mock_interaction, None, True)
+
+        assert result is not None
+        strategy, title, channel = result
+        assert strategy == "guild"
+        assert "All Scheduled Games" in title
+        assert "Test Guild" in title
+        assert channel is None
+
+    def test_specific_channel_returns_channel_strategy(
+        self, mock_interaction, mock_guild, mock_channel
+    ):
+        """Test returns specific_channel strategy when channel provided."""
+        mock_interaction.guild = mock_guild
+
+        result = _determine_fetch_strategy(mock_interaction, mock_channel, False)
+
+        assert result is not None
+        strategy, title, channel = result
+        assert strategy == "specific_channel"
+        assert "general" in title
+        assert channel is mock_channel
+
+    def test_current_channel_returns_channel_strategy(
+        self, mock_interaction, mock_guild, mock_channel
+    ):
+        """Test returns current_channel strategy for current channel."""
+        mock_interaction.guild = mock_guild
+        mock_interaction.channel = mock_channel
+
+        result = _determine_fetch_strategy(mock_interaction, None, False)
+
+        assert result is not None
+        strategy, title, channel = result
+        assert strategy == "current_channel"
+        assert "general" in title
+        assert channel is mock_channel
+
+    def test_invalid_channel_returns_none(self, mock_interaction, mock_guild):
+        """Test returns None when current channel is invalid."""
+        mock_interaction.guild = mock_guild
+        mock_interaction.channel = None
+
+        result = _determine_fetch_strategy(mock_interaction, None, False)
+
+        assert result is None
+
+    def test_non_text_channel_returns_none(self, mock_interaction, mock_guild):
+        """Test returns None when current channel is not a TextChannel."""
+        mock_interaction.guild = mock_guild
+        mock_interaction.channel = MagicMock(spec=discord.VoiceChannel)
+
+        result = _determine_fetch_strategy(mock_interaction, None, False)
+
+        assert result is None
+
+
+class TestFetchGamesByStrategy:
+    """Tests for _fetch_games_by_strategy helper."""
+
+    @pytest.mark.asyncio
+    async def test_guild_strategy_calls_get_all_guild_games(self, sample_games):
+        """Test guild strategy fetches all guild games."""
+        mock_db = AsyncMock()
+
+        with patch(
+            "services.bot.commands.list_games._get_all_guild_games",
+            return_value=sample_games,
+        ) as mock_get:
+            result = await _fetch_games_by_strategy(mock_db, "guild", "123", None)
+
+        mock_get.assert_called_once_with(mock_db, "123")
+        assert result == sample_games
+
+    @pytest.mark.asyncio
+    async def test_channel_strategy_calls_get_channel_games(
+        self, mock_channel, sample_games
+    ):
+        """Test channel strategy fetches channel games."""
+        mock_db = AsyncMock()
+
+        with patch(
+            "services.bot.commands.list_games._get_channel_games",
+            return_value=sample_games,
+        ) as mock_get:
+            result = await _fetch_games_by_strategy(
+                mock_db, "specific_channel", "123", mock_channel
+            )
+
+        mock_get.assert_called_once_with(mock_db, str(mock_channel.id))
+        assert result == sample_games
+
+    @pytest.mark.asyncio
+    async def test_no_channel_returns_empty(self):
+        """Test returns empty list when channel is None for channel strategy."""
+        mock_db = AsyncMock()
+
+        result = await _fetch_games_by_strategy(
+            mock_db, "specific_channel", "123", None
+        )
+
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_unknown_strategy_returns_empty(self, mock_channel):
+        """Test returns empty list for unknown strategy."""
+        mock_db = AsyncMock()
+
+        result = await _fetch_games_by_strategy(
+            mock_db, "unknown_strategy", "123", mock_channel
+        )
+
+        assert result == []

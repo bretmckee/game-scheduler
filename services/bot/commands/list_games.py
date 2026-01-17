@@ -39,6 +39,79 @@ logger = logging.getLogger(__name__)
 tracer = trace.get_tracer(__name__)
 
 
+def _determine_fetch_strategy(
+    interaction: Interaction,
+    channel: discord.TextChannel | None,
+    show_all: bool,
+) -> tuple[str, str, discord.TextChannel | None] | None:
+    """
+    Determine which games to fetch based on command parameters.
+
+    Args:
+        interaction: Discord interaction object
+        channel: Specific channel to list games from (optional)
+        show_all: Whether to show games from all channels in guild
+
+    Returns:
+        Tuple of (strategy, title, channel) or None if invalid
+        Strategy can be: "guild", "specific_channel", "current_channel"
+    """
+    if not interaction.guild:
+        return None
+
+    if show_all:
+        return (
+            "guild",
+            f"📅 All Scheduled Games in {interaction.guild.name}",
+            None,
+        )
+
+    if channel:
+        return (
+            "specific_channel",
+            f"📅 Scheduled Games in #{channel.name}",
+            channel,
+        )
+
+    if not interaction.channel or not isinstance(
+        interaction.channel, discord.TextChannel
+    ):
+        return None
+
+    return (
+        "current_channel",
+        f"📅 Scheduled Games in #{interaction.channel.name}",
+        interaction.channel,
+    )
+
+
+async def _fetch_games_by_strategy(
+    db: AsyncSession,
+    strategy: str,
+    guild_id: str,
+    channel: discord.TextChannel | None,
+) -> list[GameSession]:
+    """
+    Fetch games based on determined strategy.
+
+    Args:
+        db: Database session
+        strategy: Fetch strategy ("guild", "specific_channel", "current_channel")
+        guild_id: Discord guild ID
+        channel: Channel to fetch from (if strategy requires it)
+
+    Returns:
+        List of game sessions
+    """
+    if strategy == "guild":
+        return await _get_all_guild_games(db, guild_id)
+
+    if strategy in ("specific_channel", "current_channel") and channel:
+        return await _get_channel_games(db, str(channel.id))
+
+    return []
+
+
 async def list_games_command(
     interaction: Interaction,
     channel: discord.TextChannel | None = None,
@@ -57,8 +130,12 @@ async def list_games_command(
         attributes={
             "discord.command": "list-games",
             "discord.user_id": str(interaction.user.id),
-            "discord.guild_id": (str(interaction.guild.id) if interaction.guild else None),
-            "discord.channel_id": (str(interaction.channel_id) if interaction.channel_id else None),
+            "discord.guild_id": (
+                str(interaction.guild.id) if interaction.guild else None
+            ),
+            "discord.channel_id": (
+                str(interaction.channel_id) if interaction.channel_id else None
+            ),
             "command.show_all": show_all,
             "command.channel": str(channel.id) if channel else None,
         },
@@ -66,31 +143,22 @@ async def list_games_command(
         await interaction.response.defer(ephemeral=True)
 
         try:
-            if not interaction.guild:
-                await interaction.followup.send(
-                    "❌ This command can only be used in a server.",
-                    ephemeral=True,
+            strategy_result = _determine_fetch_strategy(interaction, channel, show_all)
+            if not strategy_result:
+                error_msg = (
+                    "❌ This command can only be used in a server."
+                    if not interaction.guild
+                    else "❌ Could not determine the current channel."
                 )
+                await interaction.followup.send(error_msg, ephemeral=True)
                 return
 
+            strategy, title, target_channel = strategy_result
+
             async with get_db_session() as db:
-                if show_all:
-                    games = await _get_all_guild_games(db, str(interaction.guild.id))
-                    title = f"📅 All Scheduled Games in {interaction.guild.name}"
-                elif channel:
-                    games = await _get_channel_games(db, str(channel.id))
-                    title = f"📅 Scheduled Games in #{channel.name}"
-                else:
-                    if not interaction.channel or not isinstance(
-                        interaction.channel, discord.TextChannel
-                    ):
-                        await interaction.followup.send(
-                            "❌ Could not determine the current channel.",
-                            ephemeral=True,
-                        )
-                        return
-                    games = await _get_channel_games(db, str(interaction.channel.id))
-                    title = f"📅 Scheduled Games in #{interaction.channel.name}"
+                games = await _fetch_games_by_strategy(
+                    db, strategy, str(interaction.guild.id), target_channel
+                )
 
                 if not games:
                     await interaction.followup.send(
