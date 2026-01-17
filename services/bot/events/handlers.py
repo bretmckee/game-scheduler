@@ -500,6 +500,113 @@ class EventHandlers:
                 exc_info=True,
             )
 
+    async def _fetch_join_notification_data(
+        self,
+        db: AsyncSession,
+        event: NotificationDueEvent,
+    ) -> tuple[GameSession | None, GameParticipant | None]:
+        """
+        Fetch game and participant for join notification.
+
+        Args:
+            db: Database session
+            event: Notification event with game_id and participant_id
+
+        Returns:
+            Tuple of (game, participant) or (None, None) if not found
+        """
+        game = await self._get_game_with_participants(db, str(event.game_id))
+
+        if not game:
+            logger.error(f"Game not found: {event.game_id}")
+            return None, None
+
+        participant_result = await db.execute(
+            select(GameParticipant).where(GameParticipant.id == event.participant_id)
+        )
+        participant = participant_result.scalar_one_or_none()
+
+        if not participant or not participant.user:
+            logger.info(
+                f"Participant {event.participant_id} no longer active for game {event.game_id}"
+            )
+            return None, None
+
+        return game, participant
+
+    def _is_participant_confirmed(
+        self,
+        participant: GameParticipant,
+        game: GameSession,
+    ) -> bool:
+        """
+        Check if participant is confirmed (not on waitlist).
+
+        Args:
+            participant: The participant to check
+            game: The game session
+
+        Returns:
+            True if participant is confirmed, False if waitlisted
+        """
+        partitioned = partition_participants(game.participants, game.max_players)
+        is_confirmed = participant in partitioned.confirmed
+
+        if not is_confirmed:
+            logger.info(
+                f"Participant {participant.id} is waitlisted, skipping join "
+                f"notification for game {game.id}"
+            )
+
+        return is_confirmed
+
+    def _format_join_notification_message(
+        self,
+        game: GameSession,
+    ) -> str:
+        """
+        Format join notification message with conditional signup instructions.
+
+        Args:
+            game: The game session
+
+        Returns:
+            Formatted message string
+        """
+        if game.signup_instructions:
+            return DMFormats.join_with_instructions(
+                game.title,
+                game.signup_instructions,
+                int(game.scheduled_at.timestamp()),
+            )
+        return DMFormats.join_simple(game.title)
+
+    async def _send_join_notification_dm(
+        self,
+        participant: GameParticipant,
+        message: str,
+        game_id: str,
+    ) -> None:
+        """
+        Send join notification DM and log result.
+
+        Args:
+            participant: The participant to notify
+            message: The formatted message to send
+            game_id: The game ID for logging
+        """
+        success = await self._send_dm(participant.user.discord_id, message)
+
+        if success:
+            logger.info(
+                f"✓ Sent join notification to {participant.user.discord_id} for game {game_id}"
+            )
+        else:
+            logger.warning(
+                f"Failed to send join notification to {participant.user.discord_id} "
+                f"for game {game_id}"
+            )
+
     async def _handle_join_notification(self, event: NotificationDueEvent) -> None:
         """
         Handle join notification by sending DM with conditional signup instructions.
@@ -512,60 +619,16 @@ class EventHandlers:
         """
         try:
             async with get_db_session() as db:
-                # Query game with relationships
-                game = await self._get_game_with_participants(db, str(event.game_id))
+                game, participant = await self._fetch_join_notification_data(db, event)
 
-                if not game:
-                    logger.error(f"Game not found: {event.game_id}")
+                if not game or not participant:
                     return
 
-                # Query specific participant
-                participant_result = await db.execute(
-                    select(GameParticipant).where(GameParticipant.id == event.participant_id)
-                )
-                participant = participant_result.scalar_one_or_none()
-
-                # Verify participant still exists and has user
-                if not participant or not participant.user:
-                    logger.info(
-                        f"Participant {event.participant_id} no longer active for game "
-                        f"{event.game_id}"
-                    )
+                if not self._is_participant_confirmed(participant, game):
                     return
 
-                # Check if participant is confirmed (not on waitlist)
-                partitioned = partition_participants(game.participants, game.max_players)
-
-                if participant not in partitioned.confirmed:
-                    logger.info(
-                        f"Participant {event.participant_id} is waitlisted, skipping join "
-                        f"notification for game {event.game_id}"
-                    )
-                    return
-
-                # Format message based on signup_instructions presence
-                if game.signup_instructions:
-                    message = DMFormats.join_with_instructions(
-                        game.title,
-                        game.signup_instructions,
-                        int(game.scheduled_at.timestamp()),
-                    )
-                else:
-                    message = DMFormats.join_simple(game.title)
-
-                # Send DM
-                success = await self._send_dm(participant.user.discord_id, message)
-
-                if success:
-                    logger.info(
-                        f"✓ Sent join notification to {participant.user.discord_id} "
-                        f"for game {event.game_id}"
-                    )
-                else:
-                    logger.warning(
-                        f"Failed to send join notification to {participant.user.discord_id} "
-                        f"for game {event.game_id}"
-                    )
+                message = self._format_join_notification_message(game)
+                await self._send_join_notification_dm(participant, message, str(event.game_id))
 
         except Exception as e:
             logger.error(

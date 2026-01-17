@@ -100,8 +100,10 @@ Target functions with cognitive complexity 20-27.
   - Details: .copilot-tracking/details/20260116-default-complexity-thresholds-reduction-details.md (Lines 260-273)
   - Note: Already completed in prior create_game refactoring (commit 3769f01). Current cognitive complexity: 10 (below threshold)
 
-- [ ] Task 3.5: Refactor events/handlers.py `_handle_join_notifications` (Cog:21)
+- [x] Task 3.5: Refactor events/handlers.py `_handle_join_notification` (Cog:19→8)
   - Details: .copilot-tracking/details/20260116-default-complexity-thresholds-reduction-details.md (Lines 275-288)
+  - Extracted 4 helper methods with 10 comprehensive unit tests
+  - Successfully reduced cognitive complexity from 19 to 8 (58% reduction)
 
 - [ ] Task 3.6: Refactor commands/list_games.py `list_games_command` (Cog:20)
   - Details: .copilot-tracking/details/20260116-default-complexity-thresholds-reduction-details.md (Lines 290-303)
