@@ -101,6 +101,101 @@ def mock_template():
     return template
 
 
+class TestBuildTemplateResponse:
+    """Test build_template_response helper function."""
+
+    @pytest.mark.asyncio
+    async def test_build_template_response_with_all_fields(self, mock_template):
+        """Test building response with all template fields populated."""
+        mock_discord_client = AsyncMock()
+
+        with patch("shared.discord.client.fetch_channel_name_safe") as mock_fetch:
+            mock_fetch.return_value = "test-channel"
+
+            result = await templates.build_template_response(mock_template, mock_discord_client)
+
+        assert result.id == mock_template.id
+        assert result.guild_id == mock_template.guild_id
+        assert result.name == mock_template.name
+        assert result.description == mock_template.description
+        assert result.order == mock_template.order
+        assert result.is_default == mock_template.is_default
+        assert result.channel_id == mock_template.channel_id
+        assert result.channel_name == "test-channel"
+        assert result.notify_role_ids == mock_template.notify_role_ids
+        assert result.allowed_player_role_ids == mock_template.allowed_player_role_ids
+        assert result.allowed_host_role_ids == mock_template.allowed_host_role_ids
+        assert result.max_players == mock_template.max_players
+        assert result.expected_duration_minutes == mock_template.expected_duration_minutes
+        assert result.reminder_minutes == mock_template.reminder_minutes
+        assert result.where == mock_template.where
+        assert result.signup_instructions == mock_template.signup_instructions
+        assert result.allowed_signup_methods == mock_template.allowed_signup_methods
+        assert result.default_signup_method == mock_template.default_signup_method
+        assert result.created_at == "2024-01-01T12:00:00"
+        assert result.updated_at == "2024-01-01T12:00:00"
+
+        mock_fetch.assert_awaited_once_with(mock_template.channel.channel_id, mock_discord_client)
+
+    @pytest.mark.asyncio
+    async def test_build_template_response_with_null_optional_fields(self):
+        """Test building response with null optional fields."""
+        mock_discord_client = AsyncMock()
+
+        with patch("shared.discord.client.fetch_channel_name_safe") as mock_fetch:
+            mock_fetch.return_value = "minimal-channel"
+
+            channel_config = MagicMock()
+            channel_config.id = str(uuid.uuid4())
+            channel_config.channel_id = "111222333"
+
+            template = MagicMock(spec=GameTemplate)
+            template.id = str(uuid.uuid4())
+            template.guild_id = str(uuid.uuid4())
+            template.name = "Minimal Template"
+            template.description = None
+            template.order = 0
+            template.is_default = False
+            template.channel_id = str(uuid.uuid4())
+            template.notify_role_ids = None
+            template.allowed_player_role_ids = None
+            template.allowed_host_role_ids = None
+            template.max_players = None
+            template.expected_duration_minutes = None
+            template.reminder_minutes = None
+            template.where = None
+            template.signup_instructions = None
+            template.allowed_signup_methods = None
+            template.default_signup_method = None
+            template.created_at = datetime(2024, 1, 1, 12, 0, 0)
+            template.updated_at = datetime(2024, 1, 1, 12, 0, 0)
+            template.channel = channel_config
+
+            result = await templates.build_template_response(template, mock_discord_client)
+
+            assert result.id == template.id
+            assert result.name == "Minimal Template"
+            assert result.description is None
+            assert result.notify_role_ids is None
+            assert result.max_players is None
+            assert result.channel_name == "minimal-channel"
+
+    @pytest.mark.asyncio
+    async def test_build_template_response_channel_name_resolution(self, mock_template):
+        """Test that channel name is properly resolved via Discord client."""
+        mock_discord_client = AsyncMock()
+
+        with patch("shared.discord.client.fetch_channel_name_safe") as mock_fetch:
+            mock_fetch.return_value = "resolved-channel"
+
+            result = await templates.build_template_response(mock_template, mock_discord_client)
+
+            assert result.channel_name == "resolved-channel"
+            mock_fetch.assert_awaited_once_with(
+                mock_template.channel.channel_id, mock_discord_client
+            )
+
+
 class TestListTemplates:
     """Test list_templates endpoint."""
 
@@ -112,10 +207,7 @@ class TestListTemplates:
         with (
             patch("services.api.database.queries.require_guild_by_id") as mock_get_guild,
             patch("services.api.auth.roles.get_role_service") as mock_get_role_service,
-            patch(
-                "services.api.dependencies.discord.get_discord_client"
-            ) as mock_get_discord_client,
-            patch("shared.discord.client.fetch_channel_name_safe") as mock_fetch_name,
+            patch("shared.discord.client.fetch_channel_name_safe") as mock_fetch,
             patch(
                 "services.api.services.template_service.TemplateService"
             ) as mock_template_service,
@@ -127,10 +219,7 @@ class TestListTemplates:
             mock_get_role_service.return_value = mock_role_service
 
             mock_discord_client = AsyncMock()
-            mock_discord_client.get_guild_member.return_value = {"roles": ["role1", "role2"]}
-            mock_get_discord_client.return_value = mock_discord_client
-
-            mock_fetch_name.return_value = "test-channel"
+            mock_fetch.return_value = "test-channel"
 
             mock_service = AsyncMock()
             mock_service.get_templates_for_user.return_value = [mock_template]
@@ -140,6 +229,7 @@ class TestListTemplates:
                 guild_id=mock_guild_config.id,
                 current_user=mock_current_user,
                 db=mock_db,
+                discord_client=mock_discord_client,
             )
 
             assert len(result) == 1
@@ -174,7 +264,7 @@ class TestGetTemplate:
             patch(
                 "services.api.services.template_service.TemplateService"
             ) as mock_template_service,
-            patch("shared.discord.client.fetch_channel_name_safe") as mock_fetch_name,
+            patch("shared.discord.client.fetch_channel_name_safe") as mock_fetch,
             patch(
                 "services.api.dependencies.permissions.verify_template_access"
             ) as mock_verify_access,
@@ -183,11 +273,15 @@ class TestGetTemplate:
             mock_service.get_template_by_id.return_value = mock_template
             mock_template_service.return_value = mock_service
 
-            mock_fetch_name.return_value = "test-channel"
+            mock_discord_client = AsyncMock()
+            mock_fetch.return_value = "test-channel"
             mock_verify_access.return_value = mock_template
 
             result = await templates.get_template(
-                template_id=mock_template.id, current_user=mock_current_user, db=mock_db
+                template_id=mock_template.id,
+                current_user=mock_current_user,
+                db=mock_db,
+                discord_client=mock_discord_client,
             )
 
             assert result.id == mock_template.id
@@ -245,7 +339,7 @@ class TestCreateTemplate:
             patch(
                 "services.api.services.template_service.TemplateService"
             ) as mock_template_service,
-            patch("shared.discord.client.fetch_channel_name_safe") as mock_fetch_name,
+            patch("shared.discord.client.fetch_channel_name_safe") as mock_fetch,
             patch(
                 "services.api.dependencies.permissions.require_bot_manager"
             ) as mock_require_manager,
@@ -261,13 +355,15 @@ class TestCreateTemplate:
             mock_service.create_template.return_value = mock_template
             mock_template_service.return_value = mock_service
 
-            mock_fetch_name.return_value = "test-channel"
+            mock_discord_client = AsyncMock()
+            mock_fetch.return_value = "test-channel"
 
             result = await templates.create_template(
                 guild_id=mock_guild_config.id,
                 request=request,
                 current_user=mock_current_user,
                 db=mock_db,
+                discord_client=mock_discord_client,
             )
 
             assert result.name == "Test Template"

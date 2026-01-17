@@ -27,14 +27,50 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from services.api import dependencies
 from services.api.auth import roles as roles_module
 from services.api.database import queries
+from services.api.dependencies.discord import get_discord_client
 from services.api.services import template_service as template_service_module
 from shared import database
 from shared.discord import client as discord_client_module
+from shared.discord.client import DiscordAPIClient
+from shared.models.template import GameTemplate
 from shared.schemas import auth as auth_schemas
 from shared.schemas import template as template_schemas
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["templates"])
+
+
+async def build_template_response(
+    template: GameTemplate,
+    discord_client: DiscordAPIClient,
+) -> template_schemas.TemplateResponse:
+    """Build TemplateResponse with channel name resolution."""
+    channel_name = await discord_client_module.fetch_channel_name_safe(
+        template.channel.channel_id, discord_client
+    )
+
+    return template_schemas.TemplateResponse(
+        id=template.id,
+        guild_id=template.guild_id,
+        name=template.name,
+        description=template.description,
+        order=template.order,
+        is_default=template.is_default,
+        channel_id=template.channel_id,
+        channel_name=channel_name,
+        notify_role_ids=template.notify_role_ids,
+        allowed_player_role_ids=template.allowed_player_role_ids,
+        allowed_host_role_ids=template.allowed_host_role_ids,
+        max_players=template.max_players,
+        expected_duration_minutes=template.expected_duration_minutes,
+        reminder_minutes=template.reminder_minutes,
+        where=template.where,
+        signup_instructions=template.signup_instructions,
+        allowed_signup_methods=template.allowed_signup_methods,
+        default_signup_method=template.default_signup_method,
+        created_at=template.created_at.isoformat(),
+        updated_at=template.updated_at.isoformat(),
+    )
 
 
 @router.get(
@@ -45,6 +81,7 @@ async def list_templates(
     guild_id: str,
     current_user: auth_schemas.CurrentUser = Depends(dependencies.auth.get_current_user),
     db: AsyncSession = Depends(database.get_db_with_user_guilds()),
+    discord_client: DiscordAPIClient = Depends(get_discord_client),
 ) -> list[template_schemas.TemplateListItem]:
     """
     List templates for a guild with role-based filtering.
@@ -92,7 +129,7 @@ async def list_templates(
     result = []
     for template in templates:
         channel_name = await discord_client_module.fetch_channel_name_safe(
-            template.channel.channel_id
+            template.channel.channel_id, discord_client
         )
         result.append(
             template_schemas.TemplateListItem(
@@ -123,6 +160,7 @@ async def get_template(
     template_id: str,
     current_user: auth_schemas.CurrentUser = Depends(dependencies.auth.get_current_user),
     db: AsyncSession = Depends(database.get_db_with_user_guilds()),
+    discord_client: DiscordAPIClient = Depends(get_discord_client),
 ) -> template_schemas.TemplateResponse:
     """Get template details by ID."""
     template_svc = template_service_module.TemplateService(db)
@@ -136,31 +174,7 @@ async def get_template(
         template, current_user.user.discord_id, current_user.access_token, db
     )
 
-    # Resolve channel name
-    channel_name = await discord_client_module.fetch_channel_name_safe(template.channel.channel_id)
-
-    return template_schemas.TemplateResponse(
-        id=template.id,
-        guild_id=template.guild_id,
-        name=template.name,
-        description=template.description,
-        order=template.order,
-        is_default=template.is_default,
-        channel_id=template.channel_id,
-        channel_name=channel_name,
-        notify_role_ids=template.notify_role_ids,
-        allowed_player_role_ids=template.allowed_player_role_ids,
-        allowed_host_role_ids=template.allowed_host_role_ids,
-        max_players=template.max_players,
-        expected_duration_minutes=template.expected_duration_minutes,
-        reminder_minutes=template.reminder_minutes,
-        where=template.where,
-        signup_instructions=template.signup_instructions,
-        allowed_signup_methods=template.allowed_signup_methods,
-        default_signup_method=template.default_signup_method,
-        created_at=template.created_at.isoformat(),
-        updated_at=template.updated_at.isoformat(),
-    )
+    return await build_template_response(template, discord_client)
 
 
 @router.post(
@@ -173,6 +187,7 @@ async def create_template(
     request: template_schemas.TemplateCreateRequest,
     current_user: auth_schemas.CurrentUser = Depends(dependencies.auth.get_current_user),
     db: AsyncSession = Depends(database.get_db_with_user_guilds()),
+    discord_client: DiscordAPIClient = Depends(get_discord_client),
 ) -> template_schemas.TemplateResponse:
     """Create new template (requires bot manager role)."""
     await queries.require_guild_by_id(
@@ -201,31 +216,7 @@ async def create_template(
         signup_instructions=request.signup_instructions,
     )
 
-    # Resolve channel name
-    channel_name = await discord_client_module.fetch_channel_name_safe(template.channel.channel_id)
-
-    return template_schemas.TemplateResponse(
-        id=template.id,
-        guild_id=template.guild_id,
-        name=template.name,
-        description=template.description,
-        order=template.order,
-        is_default=template.is_default,
-        channel_id=template.channel_id,
-        channel_name=channel_name,
-        notify_role_ids=template.notify_role_ids,
-        allowed_player_role_ids=template.allowed_player_role_ids,
-        allowed_host_role_ids=template.allowed_host_role_ids,
-        max_players=template.max_players,
-        expected_duration_minutes=template.expected_duration_minutes,
-        reminder_minutes=template.reminder_minutes,
-        where=template.where,
-        signup_instructions=template.signup_instructions,
-        allowed_signup_methods=template.allowed_signup_methods,
-        default_signup_method=template.default_signup_method,
-        created_at=template.created_at.isoformat(),
-        updated_at=template.updated_at.isoformat(),
-    )
+    return await build_template_response(template, discord_client)
 
 
 @router.put("/templates/{template_id}", response_model=template_schemas.TemplateResponse)
@@ -234,6 +225,7 @@ async def update_template(
     request: template_schemas.TemplateUpdateRequest,
     current_user: auth_schemas.CurrentUser = Depends(dependencies.auth.get_current_user),
     db: AsyncSession = Depends(database.get_db_with_user_guilds()),
+    discord_client: DiscordAPIClient = Depends(get_discord_client),
 ) -> template_schemas.TemplateResponse:
     """Update template (requires bot manager role)."""
     template_svc = template_service_module.TemplateService(db)
@@ -254,33 +246,7 @@ async def update_template(
         **request.model_dump(exclude_unset=True),
     )
 
-    # Resolve channel name
-    channel_name = await discord_client_module.fetch_channel_name_safe(
-        updated_template.channel.channel_id
-    )
-
-    return template_schemas.TemplateResponse(
-        id=updated_template.id,
-        guild_id=updated_template.guild_id,
-        name=updated_template.name,
-        description=updated_template.description,
-        order=updated_template.order,
-        is_default=updated_template.is_default,
-        channel_id=updated_template.channel_id,
-        channel_name=channel_name,
-        notify_role_ids=updated_template.notify_role_ids,
-        allowed_player_role_ids=updated_template.allowed_player_role_ids,
-        allowed_host_role_ids=updated_template.allowed_host_role_ids,
-        max_players=updated_template.max_players,
-        expected_duration_minutes=updated_template.expected_duration_minutes,
-        reminder_minutes=updated_template.reminder_minutes,
-        where=updated_template.where,
-        signup_instructions=updated_template.signup_instructions,
-        allowed_signup_methods=updated_template.allowed_signup_methods,
-        default_signup_method=updated_template.default_signup_method,
-        created_at=updated_template.created_at.isoformat(),
-        updated_at=updated_template.updated_at.isoformat(),
-    )
+    return await build_template_response(updated_template, discord_client)
 
 
 @router.delete("/templates/{template_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -320,6 +286,7 @@ async def set_default_template(
     template_id: str,
     current_user: auth_schemas.CurrentUser = Depends(dependencies.auth.get_current_user),
     db: AsyncSession = Depends(database.get_db_with_user_guilds()),
+    discord_client: DiscordAPIClient = Depends(get_discord_client),
 ) -> template_schemas.TemplateResponse:
     """Set template as default (requires bot manager role)."""
     template_svc = template_service_module.TemplateService(db)
@@ -336,33 +303,7 @@ async def set_default_template(
 
     updated_template = await template_svc.set_default(template_id)
 
-    # Resolve channel name
-    channel_name = await discord_client_module.fetch_channel_name_safe(
-        updated_template.channel.channel_id
-    )
-
-    return template_schemas.TemplateResponse(
-        id=updated_template.id,
-        guild_id=updated_template.guild_id,
-        name=updated_template.name,
-        description=updated_template.description,
-        order=updated_template.order,
-        is_default=updated_template.is_default,
-        channel_id=updated_template.channel_id,
-        channel_name=channel_name,
-        notify_role_ids=updated_template.notify_role_ids,
-        allowed_player_role_ids=updated_template.allowed_player_role_ids,
-        allowed_host_role_ids=updated_template.allowed_host_role_ids,
-        max_players=updated_template.max_players,
-        expected_duration_minutes=updated_template.expected_duration_minutes,
-        reminder_minutes=updated_template.reminder_minutes,
-        where=updated_template.where,
-        signup_instructions=updated_template.signup_instructions,
-        allowed_signup_methods=updated_template.allowed_signup_methods,
-        default_signup_method=updated_template.default_signup_method,
-        created_at=updated_template.created_at.isoformat(),
-        updated_at=updated_template.updated_at.isoformat(),
-    )
+    return await build_template_response(updated_template, discord_client)
 
 
 @router.post("/templates/reorder", status_code=status.HTTP_204_NO_CONTENT)
