@@ -58,7 +58,7 @@ Target functions violating both cyclomatic (>10) and cognitive (>15) thresholds.
 - [x] Task 1.5: Refactor services/games.py `update_game` (C:13/Cog:17)
   - Details: .copilot-tracking/details/20260116-default-complexity-thresholds-reduction-details.md (Lines 93-108)
 
-- [ ] Task 1.6: Refactor services/participant_resolver.py `resolve_initial_participants` (C:12/Cog:20)
+- [x] Task 1.6: Refactor services/participant_resolver.py `resolve_initial_participants` (C:12/Cog:20)
   - Details: .copilot-tracking/details/20260116-default-complexity-thresholds-reduction-details.md (Lines 110-125)
 
 - [ ] Task 1.7: Refactor events/handlers.py `_handle_player_removed` (C:12/Cog:18)

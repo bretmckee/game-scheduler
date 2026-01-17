@@ -64,6 +64,184 @@ class ParticipantResolver:
             discord_client: Discord API client for member search
         """
         self.discord_client = discord_client
+        # Pattern to match Discord mention format: <@123456789012345678>
+        self._discord_mention_pattern = re.compile(r"^<@(\d{17,20})>$")
+
+    async def _resolve_discord_mention_format(
+        self,
+        guild_discord_id: str,
+        input_text: str,
+        discord_id: str,
+    ) -> tuple[dict | None, dict | None]:
+        """
+        Resolve Discord internal mention format <@discord_id>.
+
+        Args:
+            guild_discord_id: Discord guild snowflake ID
+            input_text: Original input text
+            discord_id: Extracted Discord user ID
+
+        Returns:
+            Tuple of (valid_participant, validation_error)
+            Returns (participant_dict, None) on success, (None, error_dict) on failure
+        """
+        try:
+            member = await self.discord_client.get_guild_member(guild_discord_id, discord_id)
+            return (
+                {
+                    "type": "discord",
+                    "discord_id": discord_id,
+                    "username": member["user"]["username"],
+                    "display_name": (
+                        member.get("nick")
+                        or member["user"].get("global_name")
+                        or member["user"]["username"]
+                    ),
+                    "original_input": input_text,
+                },
+                None,
+            )
+        except discord_client_module.DiscordAPIError as e:
+            if e.status == status.HTTP_404_NOT_FOUND:
+                return (
+                    None,
+                    {
+                        "input": input_text,
+                        "reason": "User not found in server",
+                        "suggestions": [],
+                    },
+                )
+            logger.error(
+                f"Discord API error fetching member {discord_id} from "
+                f"guild {guild_discord_id}: {e.status} - {e.message}"
+            )
+            return (
+                None,
+                {
+                    "input": input_text,
+                    "reason": f"Discord API error: {e.message}",
+                    "suggestions": [],
+                },
+            )
+        except Exception as e:
+            logger.error(
+                f"Unexpected error fetching guild member {discord_id}: {e}",
+                exc_info=True,
+            )
+            return (
+                None,
+                {
+                    "input": input_text,
+                    "reason": "Internal error fetching user",
+                    "suggestions": [],
+                },
+            )
+
+    async def _resolve_user_friendly_mention(
+        self,
+        guild_discord_id: str,
+        input_text: str,
+        mention_text: str,
+        access_token: str,
+    ) -> tuple[dict | None, dict | None]:
+        """
+        Resolve user-friendly @username mention via search.
+
+        Args:
+            guild_discord_id: Discord guild snowflake ID
+            input_text: Original input text (@username)
+            mention_text: Username to search (without @)
+            access_token: User's access token for Discord API calls
+
+        Returns:
+            Tuple of (valid_participant, validation_error)
+            Returns (participant_dict, None) on single match
+            Returns (None, error_dict) on no match, multiple matches, or error
+        """
+        try:
+            members = await self._search_guild_members(guild_discord_id, mention_text, access_token)
+
+            if len(members) == 0:
+                return (
+                    None,
+                    {
+                        "input": input_text,
+                        "reason": "User not found in server",
+                        "suggestions": [],
+                    },
+                )
+            if len(members) == 1:
+                return (
+                    {
+                        "type": "discord",
+                        "discord_id": members[0]["user"]["id"],
+                        "original_input": input_text,
+                    },
+                    None,
+                )
+
+            # Multiple matches - disambiguation needed
+            suggestions: list[dict[str, str]] = [
+                {
+                    "discordId": m["user"]["id"],
+                    "username": m["user"]["username"],
+                    "displayName": (
+                        m.get("nick") or m["user"].get("global_name") or m["user"]["username"]
+                    ),
+                }
+                for m in members[:5]
+            ]
+            return (
+                None,
+                {
+                    "input": input_text,
+                    "reason": "Multiple matches found",
+                    "suggestions": suggestions,
+                },
+            )
+
+        except discord_client_module.DiscordAPIError as e:
+            logger.error(
+                f"Discord API error searching guild {guild_discord_id} "
+                f"for query '{mention_text}': {e.status} - {e.message}"
+            )
+            return (
+                None,
+                {
+                    "input": input_text,
+                    "reason": f"Discord API error: {e.message}",
+                    "suggestions": [],
+                },
+            )
+        except Exception as e:
+            logger.error(
+                f"Unexpected error searching guild members for '{mention_text}': {e}",
+                exc_info=True,
+            )
+            return (
+                None,
+                {
+                    "input": input_text,
+                    "reason": "Internal error searching for user",
+                    "suggestions": [],
+                },
+            )
+
+    def _create_placeholder_participant(self, input_text: str) -> dict:
+        """
+        Create placeholder participant entry.
+
+        Args:
+            input_text: Placeholder display name
+
+        Returns:
+            Placeholder participant dictionary
+        """
+        return {
+            "type": "placeholder",
+            "display_name": input_text,
+            "original_input": input_text,
+        }
 
     async def resolve_initial_participants(
         self,
@@ -89,9 +267,6 @@ class ParticipantResolver:
         valid_participants = []
         validation_errors: list[dict[str, Any]] = []
 
-        # Pattern to match Discord mention format: <@123456789012345678>
-        discord_mention_pattern = re.compile(r"^<@(\d{17,20})>$")
-
         for input_text in participant_inputs:
             input_text = input_text.strip()
 
@@ -99,145 +274,31 @@ class ParticipantResolver:
                 continue
 
             # Check for Discord internal mention format: <@discord_id>
-            mention_match = discord_mention_pattern.match(input_text)
+            mention_match = self._discord_mention_pattern.match(input_text)
             if mention_match:
                 discord_id = mention_match.group(1)
-                try:
-                    # Fetch member details to get username and display_name
-                    member = await self.discord_client.get_guild_member(
-                        guild_discord_id, discord_id
-                    )
-                    valid_participants.append(
-                        {
-                            "type": "discord",
-                            "discord_id": discord_id,
-                            "username": member["user"]["username"],
-                            "display_name": (
-                                member.get("nick")
-                                or member["user"].get("global_name")
-                                or member["user"]["username"]
-                            ),
-                            "original_input": input_text,
-                        }
-                    )
-                except discord_client_module.DiscordAPIError as e:
-                    if e.status == status.HTTP_404_NOT_FOUND:
-                        # Member not found in guild
-                        validation_errors.append(
-                            {
-                                "input": input_text,
-                                "reason": "User not found in server",
-                                "suggestions": [],
-                            }
-                        )
-                    else:
-                        logger.error(
-                            f"Discord API error fetching member {discord_id} from "
-                            f"guild {guild_discord_id}: {e.status} - {e.message}"
-                        )
-                        validation_errors.append(
-                            {
-                                "input": input_text,
-                                "reason": f"Discord API error: {e.message}",
-                                "suggestions": [],
-                            }
-                        )
-                except Exception as e:
-                    logger.error(
-                        f"Unexpected error fetching guild member {discord_id}: {e}",
-                        exc_info=True,
-                    )
-                    validation_errors.append(
-                        {
-                            "input": input_text,
-                            "reason": "Internal error fetching user",
-                            "suggestions": [],
-                        }
-                    )
+                participant, error = await self._resolve_discord_mention_format(
+                    guild_discord_id, input_text, discord_id
+                )
+                if participant:
+                    valid_participants.append(participant)
+                else:
+                    validation_errors.append(error)
                 continue
 
+            # Check for user-friendly @mention
             if input_text.startswith("@"):
-                # Discord mention - validate and resolve
                 mention_text = input_text[1:].lower()
-
-                try:
-                    # Search guild members
-                    members = await self._search_guild_members(
-                        guild_discord_id, mention_text, access_token
-                    )
-
-                    if len(members) == 0:
-                        validation_errors.append(
-                            {
-                                "input": input_text,
-                                "reason": "User not found in server",
-                                "suggestions": [],
-                            }
-                        )
-                    elif len(members) == 1:
-                        # Single match - use it
-                        valid_participants.append(
-                            {
-                                "type": "discord",
-                                "discord_id": members[0]["user"]["id"],
-                                "original_input": input_text,
-                            }
-                        )
-                    else:
-                        # Multiple matches - disambiguation needed
-                        suggestions: list[dict[str, str]] = [
-                            {
-                                "discordId": m["user"]["id"],
-                                "username": m["user"]["username"],
-                                "displayName": (
-                                    m.get("nick")
-                                    or m["user"].get("global_name")
-                                    or m["user"]["username"]
-                                ),
-                            }
-                            for m in members[:5]
-                        ]
-                        validation_errors.append(
-                            {
-                                "input": input_text,
-                                "reason": "Multiple matches found",
-                                "suggestions": suggestions,
-                            }
-                        )
-
-                except discord_client_module.DiscordAPIError as e:
-                    logger.error(
-                        f"Discord API error searching guild {guild_discord_id} "
-                        f"for query '{mention_text}': {e.status} - {e.message}"
-                    )
-                    validation_errors.append(
-                        {
-                            "input": input_text,
-                            "reason": f"Discord API error: {e.message}",
-                            "suggestions": [],
-                        }
-                    )
-                except Exception as e:
-                    logger.error(
-                        f"Unexpected error searching guild members for '{mention_text}': {e}",
-                        exc_info=True,
-                    )
-                    validation_errors.append(
-                        {
-                            "input": input_text,
-                            "reason": "Internal error searching for user",
-                            "suggestions": [],
-                        }
-                    )
+                participant, error = await self._resolve_user_friendly_mention(
+                    guild_discord_id, input_text, mention_text, access_token
+                )
+                if participant:
+                    valid_participants.append(participant)
+                else:
+                    validation_errors.append(error)
             else:
                 # Placeholder string - always valid
-                valid_participants.append(
-                    {
-                        "type": "placeholder",
-                        "display_name": input_text,
-                        "original_input": input_text,
-                    }
-                )
+                valid_participants.append(self._create_placeholder_participant(input_text))
 
         return valid_participants, validation_errors
 
