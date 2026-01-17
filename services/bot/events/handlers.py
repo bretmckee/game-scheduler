@@ -272,6 +272,96 @@ class EventHandlers:
         finally:
             self._pending_refreshes.discard(game_id)
 
+    async def _fetch_game_for_refresh(
+        self, db: AsyncSession, game_id: str
+    ) -> game_model.GameSession | None:
+        """
+        Fetch game with participants for message refresh.
+
+        Args:
+            db: Database session
+            game_id: Game session UUID
+
+        Returns:
+            Game with participants if found and has message_id, None otherwise
+        """
+        game = await self._get_game_with_participants(db, game_id)
+        if not game or not game.message_id:
+            logger.warning(f"Game or message not found: {game_id}")
+            return None
+        return game
+
+    async def _validate_channel_for_refresh(self, channel_id: str) -> discord.TextChannel | None:
+        """
+        Validate channel exists and is accessible via both API and bot.
+
+        Args:
+            channel_id: Discord channel ID
+
+        Returns:
+            Discord TextChannel if valid, None otherwise
+        """
+        discord_api = get_discord_client()
+        channel_data = await discord_api.fetch_channel(channel_id)
+
+        if not channel_data:
+            logger.error(f"Invalid channel: {channel_id}")
+            return None
+
+        channel = self.bot.get_channel(int(channel_id))
+        if not channel:
+            channel = await self.bot.fetch_channel(int(channel_id))
+
+        if not channel or not isinstance(channel, discord.TextChannel):
+            logger.error(f"Invalid channel: {channel_id}")
+            return None
+
+        return channel
+
+    async def _fetch_message_for_refresh(
+        self, channel: discord.TextChannel, message_id: str
+    ) -> discord.Message | None:
+        """
+        Fetch Discord message with error handling.
+
+        Args:
+            channel: Discord text channel
+            message_id: Message ID to fetch
+
+        Returns:
+            Discord Message if found, None otherwise
+        """
+        try:
+            return await channel.fetch_message(int(message_id))
+        except discord.NotFound:
+            logger.warning(f"Message not found: {message_id}")
+            return None
+
+    async def _update_game_message_content(
+        self, message: discord.Message, game: game_model.GameSession
+    ) -> None:
+        """
+        Update Discord message with new game content.
+
+        Args:
+            message: Discord message to update
+            game: Game session with updated data
+        """
+        content, embed, view = await self._create_game_announcement(game)
+        await message.edit(content=content, embed=embed, view=view)
+        logger.info(f"Refreshed game message: game={game.id}, message={game.message_id}")
+
+    async def _set_message_refresh_throttle(self, game_id: str) -> None:
+        """
+        Set Redis throttle key to prevent immediate subsequent updates.
+
+        Args:
+            game_id: Game session UUID
+        """
+        redis = await get_redis_client()
+        cache_key = CacheKeys.message_update_throttle(game_id)
+        await redis.set(cache_key, "1", ttl=CacheTTL.MESSAGE_UPDATE_THROTTLE)
+
     async def _refresh_game_message(self, game_id: str) -> None:
         """
         Refresh Discord message for a game.
@@ -281,42 +371,20 @@ class EventHandlers:
         """
         try:
             async with get_db_session() as db:
-                game = await self._get_game_with_participants(db, game_id)
-                if not game or not game.message_id:
-                    logger.warning(f"Game or message not found: {game_id}")
+                game = await self._fetch_game_for_refresh(db, game_id)
+                if not game:
                     return
 
-                discord_api = get_discord_client()
-                channel_data = await discord_api.fetch_channel(str(game.channel.channel_id))
-
-                if not channel_data:
-                    logger.error(f"Invalid channel: {game.channel.channel_id}")
-                    return
-
-                channel = self.bot.get_channel(int(game.channel.channel_id))
+                channel = await self._validate_channel_for_refresh(str(game.channel.channel_id))
                 if not channel:
-                    channel = await self.bot.fetch_channel(int(game.channel.channel_id))
-
-                if not channel or not isinstance(channel, discord.TextChannel):
-                    logger.error(f"Invalid channel: {game.channel.channel_id}")
                     return
 
-                try:
-                    message = await channel.fetch_message(int(game.message_id))
-                except discord.NotFound:
-                    logger.warning(f"Message not found: {game.message_id}")
+                message = await self._fetch_message_for_refresh(channel, game.message_id)
+                if not message:
                     return
 
-                content, embed, view = await self._create_game_announcement(game)
-
-                await message.edit(content=content, embed=embed, view=view)
-
-                logger.info(f"Refreshed game message: game={game_id}, message={game.message_id}")
-
-                # Set throttle key to prevent immediate subsequent updates
-                redis = await get_redis_client()
-                cache_key = CacheKeys.message_update_throttle(game_id)
-                await redis.set(cache_key, "1", ttl=CacheTTL.MESSAGE_UPDATE_THROTTLE)
+                await self._update_game_message_content(message, game)
+                await self._set_message_refresh_throttle(game_id)
 
         except Exception as e:
             logger.error(f"Failed to refresh game message: {e}", exc_info=True)
