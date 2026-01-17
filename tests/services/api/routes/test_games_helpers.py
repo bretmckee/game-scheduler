@@ -59,7 +59,11 @@ class TestParseUpdateFormData:
             participants_list,
             removed_list,
         ) = _parse_update_form_data(
-            scheduled_at, reminder_minutes, notify_role_ids, participants, removed_participant_ids
+            scheduled_at,
+            reminder_minutes,
+            notify_role_ids,
+            participants,
+            removed_participant_ids,
         )
 
         assert scheduled_at_dt == datetime(2026, 1, 20, 18, 0, 0, tzinfo=UTC)
@@ -249,9 +253,18 @@ class TestBuildGameResponseHelpers:
         mock_resolver = AsyncMock()
         mock_resolver.resolve_display_names_and_avatars = AsyncMock(
             return_value={
-                "discord123": {"display_name": "User1", "avatar_url": "http://avatar1.com"},
-                "discord456": {"display_name": "User2", "avatar_url": "http://avatar2.com"},
-                "host_discord": {"display_name": "Host", "avatar_url": "http://host.com"},
+                "discord123": {
+                    "display_name": "User1",
+                    "avatar_url": "http://avatar1.com",
+                },
+                "discord456": {
+                    "display_name": "User2",
+                    "avatar_url": "http://avatar2.com",
+                },
+                "host_discord": {
+                    "display_name": "Host",
+                    "avatar_url": "http://host.com",
+                },
             }
         )
         mock_get_resolver.return_value = mock_resolver
