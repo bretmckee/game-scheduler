@@ -53,6 +53,7 @@ logs/
 htmlcov/
 .tox/
 coverage.xml
+.complexipy_cache/
 
 # OS
 .DS_Store
