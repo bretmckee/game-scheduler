@@ -204,32 +204,217 @@ class TestTokenDetection:
         assert header == f"Bot {discord_client.bot_token}"
 
 
-class TestOAuth2Methods:
-    """Test OAuth2 authentication methods."""
+class TestMakeAPIRequest:
+    """Test _make_api_request base method."""
 
     @pytest.mark.asyncio
-    async def test_exchange_code_success(self, discord_client):
-        """Test successful authorization code exchange."""
+    @patch("shared.cache.client.get_redis_client")
+    async def test_successful_get_request_with_caching(
+        self, mock_get_redis, discord_client, mock_redis
+    ):
+        """Test successful GET request with caching."""
+        mock_get_redis.return_value = mock_redis
+
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.headers = MagicMock()
-        mock_response.headers.get = MagicMock(return_value="N/A")
-        mock_response.json = AsyncMock(
-            return_value={
-                "access_token": "test_access_token",
-                "refresh_token": "test_refresh_token",
-                "expires_in": 604800,
-                "token_type": "Bearer",
-            }
-        )
+        mock_response.headers = {"x-ratelimit-remaining": "50"}
+        mock_response.json = AsyncMock(return_value={"id": "123", "name": "test"})
 
         mock_session = MagicMock()
         mock_session.closed = False
         mock_context_manager = MagicMock()
         mock_context_manager.__aenter__ = AsyncMock(return_value=mock_response)
         mock_context_manager.__aexit__ = AsyncMock(return_value=None)
-        mock_session.post = MagicMock(return_value=mock_context_manager)
+        mock_session.request = MagicMock(return_value=mock_context_manager)
         discord_client._session = mock_session
+
+        result = await discord_client._make_api_request(
+            method="GET",
+            url="https://discord.com/api/v10/users/123",
+            operation_name="test_operation",
+            headers={"Authorization": "Bot token"},
+            cache_key="test:key",
+            cache_ttl=300,
+        )
+
+        assert result == {"id": "123", "name": "test"}
+        mock_session.request.assert_called_once_with(
+            "GET",
+            "https://discord.com/api/v10/users/123",
+            headers={"Authorization": "Bot token"},
+        )
+        mock_redis.set.assert_called_once_with(
+            "test:key", json.dumps({"id": "123", "name": "test"}), ttl=300
+        )
+
+    @pytest.mark.asyncio
+    @patch("shared.cache.client.get_redis_client")
+    async def test_successful_post_request_without_caching(
+        self, mock_get_redis, discord_client, mock_redis
+    ):
+        """Test successful POST request without caching."""
+        mock_get_redis.return_value = mock_redis
+
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.headers = {"x-ratelimit-remaining": "50"}
+        mock_response.json = AsyncMock(return_value={"access_token": "token123"})
+
+        mock_session = MagicMock()
+        mock_session.closed = False
+        mock_context_manager = MagicMock()
+        mock_context_manager.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_context_manager.__aexit__ = AsyncMock(return_value=None)
+        mock_session.request = MagicMock(return_value=mock_context_manager)
+        discord_client._session = mock_session
+
+        result = await discord_client._make_api_request(
+            method="POST",
+            url="https://discord.com/api/v10/oauth2/token",
+            operation_name="exchange_code",
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            data={"grant_type": "authorization_code"},
+        )
+
+        assert result == {"access_token": "token123"}
+        mock_redis.set.assert_not_called()
+
+    @pytest.mark.asyncio
+    @patch("shared.cache.client.get_redis_client")
+    async def test_404_error_with_cache_invalidation(
+        self, mock_get_redis, discord_client, mock_redis
+    ):
+        """Test 404 error caches negative result."""
+        mock_get_redis.return_value = mock_redis
+
+        mock_response = AsyncMock()
+        mock_response.status = 404
+        mock_response.headers = {"x-ratelimit-remaining": "50"}
+        mock_response.json = AsyncMock(return_value={"message": "Not Found"})
+
+        mock_session = MagicMock()
+        mock_session.closed = False
+        mock_context_manager = MagicMock()
+        mock_context_manager.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_context_manager.__aexit__ = AsyncMock(return_value=None)
+        mock_session.request = MagicMock(return_value=mock_context_manager)
+        discord_client._session = mock_session
+
+        with pytest.raises(DiscordAPIError) as exc_info:
+            await discord_client._make_api_request(
+                method="GET",
+                url="https://discord.com/api/v10/users/999",
+                operation_name="fetch_user",
+                headers={"Authorization": "Bot token"},
+                cache_key="test:user:999",
+            )
+
+        assert exc_info.value.status == 404
+        mock_redis.set.assert_called_once_with(
+            "test:user:999", json.dumps({"error": "not_found"}), ttl=60
+        )
+
+    @pytest.mark.asyncio
+    @patch("shared.cache.client.get_redis_client")
+    async def test_400_error_raises_exception(self, mock_get_redis, discord_client, mock_redis):
+        """Test 400 error raises DiscordAPIError."""
+        mock_get_redis.return_value = mock_redis
+
+        mock_response = AsyncMock()
+        mock_response.status = 400
+        mock_response.headers = {"x-ratelimit-remaining": "50"}
+        mock_response.json = AsyncMock(return_value={"message": "Bad Request"})
+
+        mock_session = MagicMock()
+        mock_session.closed = False
+        mock_context_manager = MagicMock()
+        mock_context_manager.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_context_manager.__aexit__ = AsyncMock(return_value=None)
+        mock_session.request = MagicMock(return_value=mock_context_manager)
+        discord_client._session = mock_session
+
+        with pytest.raises(DiscordAPIError) as exc_info:
+            await discord_client._make_api_request(
+                method="POST",
+                url="https://discord.com/api/v10/channels/123",
+                operation_name="create_channel",
+                headers={"Authorization": "Bot token"},
+            )
+
+        assert exc_info.value.status == 400
+        assert exc_info.value.message == "Bad Request"
+
+    @pytest.mark.asyncio
+    @patch("shared.cache.client.get_redis_client")
+    async def test_500_error_raises_exception(self, mock_get_redis, discord_client, mock_redis):
+        """Test 500 error raises DiscordAPIError."""
+        mock_get_redis.return_value = mock_redis
+
+        mock_response = AsyncMock()
+        mock_response.status = 500
+        mock_response.headers = {"x-ratelimit-remaining": "50"}
+        mock_response.json = AsyncMock(return_value={"message": "Internal Server Error"})
+
+        mock_session = MagicMock()
+        mock_session.closed = False
+        mock_context_manager = MagicMock()
+        mock_context_manager.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_context_manager.__aexit__ = AsyncMock(return_value=None)
+        mock_session.request = MagicMock(return_value=mock_context_manager)
+        discord_client._session = mock_session
+
+        with pytest.raises(DiscordAPIError) as exc_info:
+            await discord_client._make_api_request(
+                method="GET",
+                url="https://discord.com/api/v10/guilds/123",
+                operation_name="fetch_guild",
+                headers={"Authorization": "Bot token"},
+            )
+
+        assert exc_info.value.status == 500
+        assert exc_info.value.message == "Internal Server Error"
+
+    @pytest.mark.asyncio
+    @patch("shared.cache.client.get_redis_client")
+    async def test_network_error_handling(self, mock_get_redis, discord_client, mock_redis):
+        """Test network error is properly handled."""
+        mock_get_redis.return_value = mock_redis
+
+        mock_session = MagicMock()
+        mock_session.closed = False
+        mock_context_manager = MagicMock()
+        mock_context_manager.__aenter__ = AsyncMock(
+            side_effect=aiohttp.ClientError("Connection timeout")
+        )
+        mock_session.request = MagicMock(return_value=mock_context_manager)
+        discord_client._session = mock_session
+
+        with pytest.raises(DiscordAPIError) as exc_info:
+            await discord_client._make_api_request(
+                method="GET",
+                url="https://discord.com/api/v10/users/123",
+                operation_name="fetch_user",
+                headers={"Authorization": "Bot token"},
+            )
+
+        assert exc_info.value.status == 500
+        assert "Network error" in exc_info.value.message
+        assert "Connection timeout" in exc_info.value.message
+
+
+class TestOAuth2Methods:
+    """Test OAuth2 authentication methods."""
+
+    @pytest.mark.asyncio
+    @patch.object(DiscordAPIClient, "_make_api_request")
+    async def test_exchange_code_success(self, mock_make_request, discord_client):
+        """Test successful authorization code exchange."""
+        mock_make_request.return_value = {
+            "access_token": "test_access_token",
+            "refresh_token": "test_refresh_token",
+            "expires_in": 604800,
+            "token_type": "Bearer",
+        }
 
         result = await discord_client.exchange_code(
             code="auth_code_123", redirect_uri="http://localhost:3000/callback"
@@ -240,30 +425,19 @@ class TestOAuth2Methods:
         assert result["expires_in"] == 604800
         assert result["token_type"] == "Bearer"
 
-        mock_session.post.assert_called_once()
-        call_args = mock_session.post.call_args
-        assert "client_id" in call_args.kwargs["data"]
-        assert "client_secret" in call_args.kwargs["data"]
-        assert call_args.kwargs["data"]["code"] == "auth_code_123"
+        mock_make_request.assert_called_once()
+        call_kwargs = mock_make_request.call_args.kwargs
+        assert call_kwargs["method"] == "POST"
+        assert "oauth2/token" in call_kwargs["url"]
+        assert "client_id" in call_kwargs["data"]
+        assert "client_secret" in call_kwargs["data"]
+        assert call_kwargs["data"]["code"] == "auth_code_123"
 
     @pytest.mark.asyncio
-    async def test_exchange_code_invalid_code(self, discord_client):
+    @patch.object(DiscordAPIClient, "_make_api_request")
+    async def test_exchange_code_invalid_code(self, mock_make_request, discord_client):
         """Test code exchange with invalid authorization code."""
-        mock_response = AsyncMock()
-        mock_response.status = 400
-        mock_response.headers = MagicMock()
-        mock_response.headers.get = MagicMock(return_value="N/A")
-        mock_response.json = AsyncMock(
-            return_value={"error_description": "Invalid authorization code"}
-        )
-
-        mock_session = MagicMock()
-        mock_session.closed = False
-        mock_context_manager = MagicMock()
-        mock_context_manager.__aenter__ = AsyncMock(return_value=mock_response)
-        mock_context_manager.__aexit__ = AsyncMock(return_value=None)
-        mock_session.post = MagicMock(return_value=mock_context_manager)
-        discord_client._session = mock_session
+        mock_make_request.side_effect = DiscordAPIError(400, "Invalid authorization code", {})
 
         with pytest.raises(DiscordAPIError) as exc_info:
             await discord_client.exchange_code(
@@ -274,16 +448,10 @@ class TestOAuth2Methods:
         assert "Invalid authorization code" in exc_info.value.message
 
     @pytest.mark.asyncio
-    async def test_exchange_code_network_error(self, discord_client):
+    @patch.object(DiscordAPIClient, "_make_api_request")
+    async def test_exchange_code_network_error(self, mock_make_request, discord_client):
         """Test network error during code exchange."""
-        mock_session = MagicMock()
-        mock_session.closed = False
-        mock_context_manager = MagicMock()
-        mock_context_manager.__aenter__ = AsyncMock(
-            side_effect=aiohttp.ClientError("Connection failed")
-        )
-        mock_session.post = MagicMock(return_value=mock_context_manager)
-        discord_client._session = mock_session
+        mock_make_request.side_effect = DiscordAPIError(500, "Network error: Connection failed")
 
         with pytest.raises(DiscordAPIError) as exc_info:
             await discord_client.exchange_code(
@@ -294,27 +462,14 @@ class TestOAuth2Methods:
         assert "Network error" in exc_info.value.message
 
     @pytest.mark.asyncio
-    async def test_refresh_token_success(self, discord_client):
+    @patch.object(DiscordAPIClient, "_make_api_request")
+    async def test_refresh_token_success(self, mock_make_request, discord_client):
         """Test successful token refresh."""
-        mock_response = AsyncMock()
-        mock_response.status = 200
-        mock_response.headers = MagicMock()
-        mock_response.headers.get = MagicMock(return_value="N/A")
-        mock_response.json = AsyncMock(
-            return_value={
-                "access_token": "new_access_token",
-                "refresh_token": "new_refresh_token",
-                "expires_in": 604800,
-            }
-        )
-
-        mock_session = MagicMock()
-        mock_session.closed = False
-        mock_context_manager = MagicMock()
-        mock_context_manager.__aenter__ = AsyncMock(return_value=mock_response)
-        mock_context_manager.__aexit__ = AsyncMock(return_value=None)
-        mock_session.post = MagicMock(return_value=mock_context_manager)
-        discord_client._session = mock_session
+        mock_make_request.return_value = {
+            "access_token": "new_access_token",
+            "refresh_token": "new_refresh_token",
+            "expires_in": 604800,
+        }
 
         result = await discord_client.refresh_token(refresh_token="old_refresh_token")
 
@@ -323,21 +478,10 @@ class TestOAuth2Methods:
         assert result["expires_in"] == 604800
 
     @pytest.mark.asyncio
-    async def test_refresh_token_invalid_token(self, discord_client):
+    @patch.object(DiscordAPIClient, "_make_api_request")
+    async def test_refresh_token_invalid_token(self, mock_make_request, discord_client):
         """Test token refresh with invalid refresh token."""
-        mock_response = AsyncMock()
-        mock_response.status = 400
-        mock_response.headers = MagicMock()
-        mock_response.headers.get = MagicMock(return_value="N/A")
-        mock_response.json = AsyncMock(return_value={"error_description": "Invalid refresh token"})
-
-        mock_session = MagicMock()
-        mock_session.closed = False
-        mock_context_manager = MagicMock()
-        mock_context_manager.__aenter__ = AsyncMock(return_value=mock_response)
-        mock_context_manager.__aexit__ = AsyncMock(return_value=None)
-        mock_session.post = MagicMock(return_value=mock_context_manager)
-        discord_client._session = mock_session
+        mock_make_request.side_effect = DiscordAPIError(400, "Invalid refresh token", {})
 
         with pytest.raises(DiscordAPIError) as exc_info:
             await discord_client.refresh_token(refresh_token="invalid_token")
@@ -354,8 +498,7 @@ class TestUserDataMethods:
         """Test successful user info fetch."""
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.headers = MagicMock()
-        mock_response.headers.get = MagicMock(return_value="N/A")
+        mock_response.headers = {"x-ratelimit-remaining": "50"}
         mock_response.json = AsyncMock(
             return_value={
                 "id": "123456789",
@@ -384,8 +527,7 @@ class TestUserDataMethods:
         """Test user info fetch with invalid token."""
         mock_response = AsyncMock()
         mock_response.status = 401
-        mock_response.headers = MagicMock()
-        mock_response.headers.get = MagicMock(return_value="N/A")
+        mock_response.headers = {"x-ratelimit-remaining": "50"}
         mock_response.json = AsyncMock(return_value={"message": "Unauthorized"})
 
         mock_session = MagicMock()
@@ -411,8 +553,7 @@ class TestGuildMethods:
         """Test fetching guilds without user_id (no caching by user)."""
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.headers = MagicMock()
-        mock_response.headers.get = MagicMock(return_value="N/A")
+        mock_response.headers = {"x-ratelimit-remaining": "50"}
         mock_response.json = AsyncMock(
             return_value=[
                 {"id": "guild1", "name": "Test Guild 1", "icon": "icon1"},
@@ -439,8 +580,7 @@ class TestGuildMethods:
         """Test fetching guilds with cache miss."""
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.headers = MagicMock()
-        mock_response.headers.get = MagicMock(return_value="N/A")
+        mock_response.headers = {"x-ratelimit-remaining": "50"}
         guilds_data = [
             {"id": "guild1", "name": "Test Guild 1"},
             {"id": "guild2", "name": "Test Guild 2"},
@@ -487,8 +627,7 @@ class TestGuildMethods:
         """Test fetching guilds with bot token (default)."""
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.headers = MagicMock()
-        mock_response.headers.get = MagicMock(return_value="N/A")
+        mock_response.headers = {"x-ratelimit-remaining": "50"}
         mock_response.json = AsyncMock(
             return_value=[
                 {"id": "guild1", "name": "Bot Guild 1"},
@@ -514,8 +653,7 @@ class TestGuildMethods:
         """Test fetching guild channels."""
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.headers = MagicMock()
-        mock_response.headers.get = MagicMock(return_value="N/A")
+        mock_response.headers = {"x-ratelimit-remaining": "50"}
         mock_response.json = AsyncMock(
             return_value=[
                 {"id": "channel1", "name": "general", "type": 0},
@@ -545,8 +683,7 @@ class TestUnifiedTokenFunctionality:
         """Test get_guilds() uses bot token by default."""
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.headers = MagicMock()
-        mock_response.headers.get = MagicMock(return_value="N/A")
+        mock_response.headers = {"x-ratelimit-remaining": "50"}
         mock_response.json = AsyncMock(
             return_value=[
                 {"id": "guild1", "name": "Bot Guild 1"},
@@ -578,8 +715,7 @@ class TestUnifiedTokenFunctionality:
         oauth_token = "6qrZcUqja7812RVdnEKjpzOL.4CvHBFG"
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.headers = MagicMock()
-        mock_response.headers.get = MagicMock(return_value="N/A")
+        mock_response.headers = {"x-ratelimit-remaining": "50"}
         mock_response.json = AsyncMock(
             return_value=[
                 {"id": "guild1", "name": "OAuth Guild 1"},
@@ -611,8 +747,7 @@ class TestUnifiedTokenFunctionality:
         guild_data = {"id": "guild123", "name": "Test Guild"}
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.headers = MagicMock()
-        mock_response.headers.get = MagicMock(return_value="N/A")
+        mock_response.headers = {"x-ratelimit-remaining": "50"}
         mock_response.json = AsyncMock(return_value=guild_data)
 
         mock_session = MagicMock()
@@ -620,7 +755,7 @@ class TestUnifiedTokenFunctionality:
         mock_context_manager = MagicMock()
         mock_context_manager.__aenter__ = AsyncMock(return_value=mock_response)
         mock_context_manager.__aexit__ = AsyncMock(return_value=None)
-        mock_session.get = MagicMock(return_value=mock_context_manager)
+        mock_session.request = MagicMock(return_value=mock_context_manager)
         discord_client._session = mock_session
 
         with patch("shared.discord.client.cache_client.get_redis_client") as mock_get_redis:
@@ -629,7 +764,7 @@ class TestUnifiedTokenFunctionality:
             result = await discord_client.fetch_guild("guild123")
 
             # Verify bot token was used by default
-            call_args = mock_session.get.call_args
+            call_args = mock_session.request.call_args
             assert call_args[1]["headers"]["Authorization"].startswith("Bot ")
             assert result["id"] == "guild123"
 
@@ -640,8 +775,7 @@ class TestUnifiedTokenFunctionality:
         guild_data = {"id": "guild123", "name": "Test Guild"}
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.headers = MagicMock()
-        mock_response.headers.get = MagicMock(return_value="N/A")
+        mock_response.headers = {"x-ratelimit-remaining": "50"}
         mock_response.json = AsyncMock(return_value=guild_data)
 
         mock_session = MagicMock()
@@ -649,7 +783,7 @@ class TestUnifiedTokenFunctionality:
         mock_context_manager = MagicMock()
         mock_context_manager.__aenter__ = AsyncMock(return_value=mock_response)
         mock_context_manager.__aexit__ = AsyncMock(return_value=None)
-        mock_session.get = MagicMock(return_value=mock_context_manager)
+        mock_session.request = MagicMock(return_value=mock_context_manager)
         discord_client._session = mock_session
 
         with patch("shared.discord.client.cache_client.get_redis_client") as mock_get_redis:
@@ -658,7 +792,7 @@ class TestUnifiedTokenFunctionality:
             result = await discord_client.fetch_guild("guild123", token=oauth_token)
 
             # Verify OAuth token was used
-            call_args = mock_session.get.call_args
+            call_args = mock_session.request.call_args
             assert call_args[1]["headers"]["Authorization"] == f"Bearer {oauth_token}"
             assert result["id"] == "guild123"
 
@@ -669,8 +803,7 @@ class TestUnifiedTokenFunctionality:
         channel_data = {"id": "channel123", "name": "general", "type": 0}
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.headers = MagicMock()
-        mock_response.headers.get = MagicMock(return_value="N/A")
+        mock_response.headers = {"x-ratelimit-remaining": "50"}
         mock_response.json = AsyncMock(return_value=channel_data)
 
         mock_session = MagicMock()
@@ -698,8 +831,7 @@ class TestUnifiedTokenFunctionality:
         user_data = {"id": "user123", "username": "testuser", "discriminator": "1234"}
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.headers = MagicMock()
-        mock_response.headers.get = MagicMock(return_value="N/A")
+        mock_response.headers = {"x-ratelimit-remaining": "50"}
         mock_response.json = AsyncMock(return_value=user_data)
 
         mock_session = MagicMock()
@@ -707,7 +839,7 @@ class TestUnifiedTokenFunctionality:
         mock_context_manager = MagicMock()
         mock_context_manager.__aenter__ = AsyncMock(return_value=mock_response)
         mock_context_manager.__aexit__ = AsyncMock(return_value=None)
-        mock_session.get = MagicMock(return_value=mock_context_manager)
+        mock_session.request = MagicMock(return_value=mock_context_manager)
         discord_client._session = mock_session
 
         with patch("shared.discord.client.cache_client.get_redis_client") as mock_get_redis:
@@ -716,7 +848,7 @@ class TestUnifiedTokenFunctionality:
             result = await discord_client.fetch_user("user123", token=oauth_token)
 
             # Verify OAuth token was used
-            call_args = mock_session.get.call_args
+            call_args = mock_session.request.call_args
             assert call_args[1]["headers"]["Authorization"] == f"Bearer {oauth_token}"
             assert result["id"] == "user123"
 
@@ -730,8 +862,7 @@ class TestCachedResourceMethods:
         channel_data = {"id": "channel123", "name": "general", "type": 0}
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.headers = MagicMock()
-        mock_response.headers.get = MagicMock(return_value="N/A")
+        mock_response.headers = {"x-ratelimit-remaining": "50"}
         mock_response.json = AsyncMock(return_value=channel_data)
 
         mock_session = MagicMock()
@@ -742,9 +873,11 @@ class TestCachedResourceMethods:
         mock_session.get = MagicMock(return_value=mock_context_manager)
         discord_client._session = mock_session
 
-        with patch("shared.discord.client.cache_client.get_redis_client") as mock_get_redis:
-            mock_get_redis.return_value = mock_redis
-
+        with patch(
+            "shared.discord.client.cache_client.get_redis_client",
+            new_callable=AsyncMock,
+            return_value=mock_redis,
+        ):
             result = await discord_client.fetch_channel(channel_id="channel123")
 
             assert result["name"] == "general"
@@ -771,8 +904,7 @@ class TestCachedResourceMethods:
         """Test fetching non-existent channel caches 404."""
         mock_response = AsyncMock()
         mock_response.status = 404
-        mock_response.headers = MagicMock()
-        mock_response.headers.get = MagicMock(return_value="N/A")
+        mock_response.headers = {"x-ratelimit-remaining": "50"}
         mock_response.json = AsyncMock(return_value={"message": "Unknown Channel"})
 
         mock_session = MagicMock()
@@ -800,8 +932,7 @@ class TestCachedResourceMethods:
         guild_data = {"id": "guild123", "name": "Test Server"}
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.headers = MagicMock()
-        mock_response.headers.get = MagicMock(return_value="N/A")
+        mock_response.headers = {"x-ratelimit-remaining": "50"}
         mock_response.json = AsyncMock(return_value=guild_data)
 
         mock_session = MagicMock()
@@ -809,7 +940,7 @@ class TestCachedResourceMethods:
         mock_context_manager = MagicMock()
         mock_context_manager.__aenter__ = AsyncMock(return_value=mock_response)
         mock_context_manager.__aexit__ = AsyncMock(return_value=None)
-        mock_session.get = MagicMock(return_value=mock_context_manager)
+        mock_session.request = MagicMock(return_value=mock_context_manager)
         discord_client._session = mock_session
 
         with patch("shared.discord.client.cache_client.get_redis_client") as mock_get_redis:
@@ -844,8 +975,7 @@ class TestCachedResourceMethods:
         ]
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.headers = MagicMock()
-        mock_response.headers.get = MagicMock(return_value="N/A")
+        mock_response.headers = {"x-ratelimit-remaining": "50"}
         mock_response.json = AsyncMock(return_value=roles_data)
 
         mock_session = MagicMock()
@@ -871,8 +1001,7 @@ class TestCachedResourceMethods:
         user_data = {"id": "user123", "username": "testuser", "avatar": "avatar_hash"}
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.headers = MagicMock()
-        mock_response.headers.get = MagicMock(return_value="N/A")
+        mock_response.headers = {"x-ratelimit-remaining": "50"}
         mock_response.json = AsyncMock(return_value=user_data)
 
         mock_session = MagicMock()
@@ -880,7 +1009,7 @@ class TestCachedResourceMethods:
         mock_context_manager = MagicMock()
         mock_context_manager.__aenter__ = AsyncMock(return_value=mock_response)
         mock_context_manager.__aexit__ = AsyncMock(return_value=None)
-        mock_session.get = MagicMock(return_value=mock_context_manager)
+        mock_session.request = MagicMock(return_value=mock_context_manager)
         discord_client._session = mock_session
 
         with patch("shared.discord.client.cache_client.get_redis_client") as mock_get_redis:
@@ -911,7 +1040,7 @@ class TestGuildMemberMethods:
     """Test guild member related methods."""
 
     @pytest.mark.asyncio
-    async def test_get_guild_member_success(self, discord_client):
+    async def test_get_guild_member_success(self, discord_client, mock_redis):
         """Test successful guild member fetch."""
         member_data = {
             "user": {"id": "123456789", "username": "testuser"},
@@ -920,8 +1049,7 @@ class TestGuildMemberMethods:
         }
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.headers = MagicMock()
-        mock_response.headers.get = MagicMock(return_value="N/A")
+        mock_response.headers = {"x-ratelimit-remaining": "50"}
         mock_response.json = AsyncMock(return_value=member_data)
 
         mock_session = MagicMock()
@@ -929,22 +1057,26 @@ class TestGuildMemberMethods:
         mock_context_manager = MagicMock()
         mock_context_manager.__aenter__ = AsyncMock(return_value=mock_response)
         mock_context_manager.__aexit__ = AsyncMock(return_value=None)
-        mock_session.get = MagicMock(return_value=mock_context_manager)
+        mock_session.request = MagicMock(return_value=mock_context_manager)
         discord_client._session = mock_session
 
-        result = await discord_client.get_guild_member(guild_id="guild123", user_id="123456789")
+        with patch(
+            "shared.discord.client.cache_client.get_redis_client",
+            new_callable=AsyncMock,
+            return_value=mock_redis,
+        ):
+            result = await discord_client.get_guild_member(guild_id="guild123", user_id="123456789")
 
-        assert result["user"]["id"] == "123456789"
-        assert result["nick"] == "TestNick"
-        assert len(result["roles"]) == 2
+            assert result["user"]["id"] == "123456789"
+            assert result["nick"] == "TestNick"
+            assert len(result["roles"]) == 2
 
     @pytest.mark.asyncio
-    async def test_get_guild_member_not_found(self, discord_client):
+    async def test_get_guild_member_not_found(self, discord_client, mock_redis):
         """Test guild member fetch when user not in guild."""
         mock_response = AsyncMock()
         mock_response.status = 404
-        mock_response.headers = MagicMock()
-        mock_response.headers.get = MagicMock(return_value="N/A")
+        mock_response.headers = {"x-ratelimit-remaining": "50"}
         mock_response.json = AsyncMock(return_value={"message": "Unknown Member"})
 
         mock_session = MagicMock()
@@ -952,11 +1084,16 @@ class TestGuildMemberMethods:
         mock_context_manager = MagicMock()
         mock_context_manager.__aenter__ = AsyncMock(return_value=mock_response)
         mock_context_manager.__aexit__ = AsyncMock(return_value=None)
-        mock_session.get = MagicMock(return_value=mock_context_manager)
+        mock_session.request = MagicMock(return_value=mock_context_manager)
         discord_client._session = mock_session
 
-        with pytest.raises(DiscordAPIError) as exc_info:
-            await discord_client.get_guild_member(guild_id="guild123", user_id="nonexistent")
+        with patch(
+            "shared.discord.client.cache_client.get_redis_client",
+            new_callable=AsyncMock,
+            return_value=mock_redis,
+        ):
+            with pytest.raises(DiscordAPIError) as exc_info:
+                await discord_client.get_guild_member(guild_id="guild123", user_id="nonexistent")
 
         assert exc_info.value.status == 404
 
@@ -1037,8 +1174,7 @@ class TestConcurrencyAndLocking:
         guilds_data = [{"id": "guild1", "name": "Test Guild"}]
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.headers = MagicMock()
-        mock_response.headers.get = MagicMock(return_value="N/A")
+        mock_response.headers = {"x-ratelimit-remaining": "50"}
         mock_response.json = AsyncMock(return_value=guilds_data)
 
         mock_session = MagicMock()
@@ -1046,7 +1182,7 @@ class TestConcurrencyAndLocking:
         mock_context_manager = MagicMock()
         mock_context_manager.__aenter__ = AsyncMock(return_value=mock_response)
         mock_context_manager.__aexit__ = AsyncMock(return_value=None)
-        mock_session.get = MagicMock(return_value=mock_context_manager)
+        mock_session.request = MagicMock(return_value=mock_context_manager)
         discord_client._session = mock_session
 
         call_count = 0
@@ -1113,14 +1249,11 @@ class TestLoggingMethods:
         """Test response logging."""
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.headers = MagicMock()
-        mock_response.headers.get = MagicMock(
-            side_effect=lambda key, default="N/A": {
-                "x-ratelimit-remaining": "100",
-                "x-ratelimit-limit": "5000",
-                "x-ratelimit-reset-after": "60",
-            }.get(key, default)
-        )
+        mock_response.headers = {
+            "x-ratelimit-remaining": "100",
+            "x-ratelimit-limit": "5000",
+            "x-ratelimit-reset-after": "60",
+        }
 
         with patch("shared.discord.client.logger") as mock_logger:
             discord_client._log_response(mock_response, "extra info")
@@ -1135,8 +1268,7 @@ class TestLoggingMethods:
         """Test response logging when rate limit headers are missing."""
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.headers = MagicMock()
-        mock_response.headers.get = MagicMock(return_value="N/A")
+        mock_response.headers = {"x-ratelimit-remaining": "50"}
 
         with patch("shared.discord.client.logger") as mock_logger:
             discord_client._log_response(mock_response)

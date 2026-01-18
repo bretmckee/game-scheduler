@@ -64,24 +64,24 @@ Reduce code duplication from 3.68% to under 2% by extracting common patterns int
 - [ ] Task 1.5: Refactor POST /templates/{template_id}/set-default endpoint
   - Details: .copilot-tracking/details/20260114-duplicate-code-elimination-details.md (Lines 101-112)
 
-### [ ] Phase 2: High-Impact Discord API Error Handling
+### [x] Phase 2: High-Impact Discord API Error Handling
 
-- [ ] Task 2.1: Create _make_api_request base method with unit tests
+- [x] Task 2.1: Create _make_api_request base method with unit tests
   - Details: .copilot-tracking/details/20260114-duplicate-code-elimination-details.md (Lines 114-175)
 
-- [ ] Task 2.2: Refactor exchange_code method
+- [x] Task 2.2: Refactor exchange_code method
   - Details: .copilot-tracking/details/20260114-duplicate-code-elimination-details.md (Lines 177-190)
 
-- [ ] Task 2.3: Refactor refresh_token method
+- [x] Task 2.3: Refactor refresh_token method
   - Details: .copilot-tracking/details/20260114-duplicate-code-elimination-details.md (Lines 192-205)
 
-- [ ] Task 2.4: Refactor fetch_guild method
+- [x] Task 2.4: Refactor fetch_guild method
   - Details: .copilot-tracking/details/20260114-duplicate-code-elimination-details.md (Lines 207-220)
 
-- [ ] Task 2.5: Refactor fetch_user method
+- [x] Task 2.5: Refactor fetch_user method
   - Details: .copilot-tracking/details/20260114-duplicate-code-elimination-details.md (Lines 222-235)
 
-- [ ] Task 2.6: Refactor get_guild_member method
+- [x] Task 2.6: Refactor get_guild_member method
   - Details: .copilot-tracking/details/20260114-duplicate-code-elimination-details.md (Lines 237-250)
 
 ### [ ] Phase 3: Medium-Impact Game Embed Formatting

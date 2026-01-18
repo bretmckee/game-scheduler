@@ -140,6 +140,68 @@ class DiscordAPIClient:
 
         logger.info(f"Discord API Response: {response.status} - {rate_limit_info}")
 
+    async def _make_api_request(
+        self,
+        method: str,
+        url: str,
+        operation_name: str,
+        headers: dict[str, str],
+        cache_key: str | None = None,
+        cache_ttl: int | None = None,
+        session: aiohttp.ClientSession | None = None,
+        **request_kwargs,
+    ) -> dict[str, Any]:
+        """
+        Generic Discord API request handler with error handling and caching.
+
+        Args:
+            method: HTTP method (GET, POST, etc.)
+            url: Full request URL
+            operation_name: Human-readable operation name for logging
+            headers: Request headers
+            cache_key: Optional cache key for GET requests
+            cache_ttl: Optional cache TTL in seconds
+            session: Optional existing session
+            **request_kwargs: Additional arguments for aiohttp request
+
+        Returns:
+            Response JSON data
+
+        Raises:
+            DiscordAPIError: On non-200 status
+        """
+        redis = await cache_client.get_redis_client()
+        self._log_request(method, url, operation_name)
+
+        try:
+            session_to_use = session or await self._get_session()
+            async with session_to_use.request(
+                method,
+                url,
+                headers=headers,
+                **request_kwargs,
+            ) as response:
+                response_data = await response.json()
+                self._log_response(response)
+
+                if response.status != status.HTTP_200_OK:
+                    error_msg = response_data.get(
+                        "message",
+                        response_data.get("error_description", "Unknown error"),
+                    )
+                    if response.status == status.HTTP_404_NOT_FOUND and cache_key:
+                        await redis.set(cache_key, json.dumps({"error": "not_found"}), ttl=60)
+                    raise DiscordAPIError(response.status, error_msg, dict(response.headers))
+
+                if cache_key and cache_ttl:
+                    await redis.set(cache_key, json.dumps(response_data), ttl=cache_ttl)
+
+                return response_data
+
+        except aiohttp.ClientError as e:
+            logger.error(f"Network error in {operation_name}: {e}")
+            raise DiscordAPIError(500, f"Network error: {str(e)}") from e
+
     async def exchange_code(self, code: str, redirect_uri: str) -> dict[str, Any]:
         """
         Exchange authorization code for access and refresh tokens.
@@ -154,8 +216,6 @@ class DiscordAPIClient:
         Raises:
             DiscordAPIError: If token exchange fails
         """
-        session = await self._get_session()
-
         data = {
             "client_id": self.client_id,
             "client_secret": self.client_secret,
@@ -164,24 +224,13 @@ class DiscordAPIClient:
             "redirect_uri": redirect_uri,
         }
 
-        self._log_request("POST", DISCORD_TOKEN_URL, "exchange_code")
-        try:
-            async with session.post(
-                DISCORD_TOKEN_URL,
-                data=data,
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
-            ) as response:
-                response_data = await response.json()
-                self._log_response(response)
-
-                if response.status != status.HTTP_200_OK:
-                    error_msg = response_data.get("error_description", "Unknown error")
-                    raise DiscordAPIError(response.status, error_msg)
-
-                return response_data
-        except aiohttp.ClientError as e:
-            logger.error(f"Network error exchanging code: {e}")
-            raise DiscordAPIError(500, f"Network error: {str(e)}") from e
+        return await self._make_api_request(
+            method="POST",
+            url=DISCORD_TOKEN_URL,
+            operation_name="exchange_code",
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            data=data,
+        )
 
     async def refresh_token(self, refresh_token: str) -> dict[str, Any]:
         """
@@ -196,8 +245,6 @@ class DiscordAPIClient:
         Raises:
             DiscordAPIError: If token refresh fails
         """
-        session = await self._get_session()
-
         data = {
             "client_id": self.client_id,
             "client_secret": self.client_secret,
@@ -205,24 +252,13 @@ class DiscordAPIClient:
             "refresh_token": refresh_token,
         }
 
-        self._log_request("POST", DISCORD_TOKEN_URL, "refresh_token")
-        try:
-            async with session.post(
-                DISCORD_TOKEN_URL,
-                data=data,
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
-            ) as response:
-                response_data = await response.json()
-                self._log_response(response)
-
-                if response.status != status.HTTP_200_OK:
-                    error_msg = response_data.get("error_description", "Unknown error")
-                    raise DiscordAPIError(response.status, error_msg)
-
-                return response_data
-        except aiohttp.ClientError as e:
-            logger.error(f"Network error refreshing token: {e}")
-            raise DiscordAPIError(500, f"Network error: {str(e)}") from e
+        return await self._make_api_request(
+            method="POST",
+            url=DISCORD_TOKEN_URL,
+            operation_name="refresh_token",
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            data=data,
+        )
 
     async def get_user_info(self, access_token: str) -> dict[str, Any]:
         """
@@ -465,35 +501,17 @@ class DiscordAPIClient:
             logger.debug(f"Cache hit for guild: {guild_id}")
             return json.loads(cached)
 
-        # Fetch from Discord API
-        session = await self._get_session()
         url = f"{DISCORD_API_BASE}/guilds/{guild_id}"
-
-        self._log_request("GET", url, "fetch_guild")
-        try:
-            async with session.get(
-                url,
-                headers={"Authorization": self._get_auth_header(token)},
-            ) as response:
-                response_data = await response.json()
-                self._log_response(response)
-
-                if response.status != status.HTTP_200_OK:
-                    error_msg = response_data.get("message", "Unknown error")
-                    if response.status == status.HTTP_404_NOT_FOUND:
-                        # Cache negative result briefly
-                        await redis.set(cache_key, json.dumps({"error": "not_found"}), ttl=60)
-                    raise DiscordAPIError(response.status, error_msg, dict(response.headers))
-
-                # Cache successful result
-                await redis.set(
-                    cache_key, json.dumps(response_data), ttl=ttl.CacheTTL.DISCORD_GUILD
-                )
-                logger.debug(f"Cached guild: {guild_id}")
-                return response_data
-        except aiohttp.ClientError as e:
-            logger.error(f"Network error fetching guild: {e}")
-            raise DiscordAPIError(500, f"Network error: {str(e)}") from e
+        result = await self._make_api_request(
+            method="GET",
+            url=url,
+            operation_name="fetch_guild",
+            headers={"Authorization": self._get_auth_header(token)},
+            cache_key=cache_key,
+            cache_ttl=ttl.CacheTTL.DISCORD_GUILD,
+        )
+        logger.debug(f"Cached guild: {guild_id}")
+        return result
 
     async def fetch_guild_roles(self, guild_id: str) -> list[dict[str, Any]]:
         """
@@ -565,33 +583,17 @@ class DiscordAPIClient:
             logger.debug(f"Cache hit for user: {user_id}")
             return json.loads(cached)
 
-        # Fetch from Discord API
-        session = await self._get_session()
         url = f"{DISCORD_API_BASE}/users/{user_id}"
-
-        self._log_request("GET", url, "fetch_user")
-        try:
-            async with session.get(
-                url,
-                headers={"Authorization": self._get_auth_header(token)},
-            ) as response:
-                response_data = await response.json()
-                self._log_response(response)
-
-                if response.status != status.HTTP_200_OK:
-                    error_msg = response_data.get("message", "Unknown error")
-                    if response.status == status.HTTP_404_NOT_FOUND:
-                        # Cache negative result briefly
-                        await redis.set(cache_key, json.dumps({"error": "not_found"}), ttl=60)
-                    raise DiscordAPIError(response.status, error_msg, dict(response.headers))
-
-                # Cache successful result
-                await redis.set(cache_key, json.dumps(response_data), ttl=ttl.CacheTTL.DISCORD_USER)
-                logger.debug(f"Cached user: {user_id}")
-                return response_data
-        except aiohttp.ClientError as e:
-            logger.error(f"Network error fetching user: {e}")
-            raise DiscordAPIError(500, f"Network error: {str(e)}") from e
+        result = await self._make_api_request(
+            method="GET",
+            url=url,
+            operation_name="fetch_user",
+            headers={"Authorization": self._get_auth_header(token)},
+            cache_key=cache_key,
+            cache_ttl=ttl.CacheTTL.DISCORD_USER,
+        )
+        logger.debug(f"Cached user: {user_id}")
+        return result
 
     async def get_guild_member(self, guild_id: str, user_id: str) -> dict[str, Any]:
         """
@@ -607,26 +609,13 @@ class DiscordAPIClient:
         Raises:
             DiscordAPIError: If fetching member fails
         """
-        session = await self._get_session()
         url = f"{DISCORD_API_BASE}/guilds/{guild_id}/members/{user_id}"
-
-        self._log_request("GET", url, "get_guild_member")
-        try:
-            async with session.get(
-                url,
-                headers={"Authorization": f"Bot {self.bot_token}"},
-            ) as response:
-                response_data = await response.json()
-                self._log_response(response)
-
-                if response.status != status.HTTP_200_OK:
-                    error_msg = response_data.get("message", "Unknown error")
-                    raise DiscordAPIError(response.status, error_msg, dict(response.headers))
-
-                return response_data
-        except aiohttp.ClientError as e:
-            logger.error(f"Network error fetching guild member: {e}")
-            raise DiscordAPIError(500, f"Network error: {str(e)}") from e
+        return await self._make_api_request(
+            method="GET",
+            url=url,
+            operation_name="get_guild_member",
+            headers={"Authorization": f"Bot {self.bot_token}"},
+        )
 
     async def get_guild_members_batch(
         self, guild_id: str, user_ids: list[str]
