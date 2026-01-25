@@ -418,3 +418,102 @@ class TestListGuildChannels:
                 )
 
             assert exc_info.value.status_code == 404
+
+
+class TestBuildGuildConfigResponse:
+    """Test _build_guild_config_response helper function."""
+
+    @pytest.mark.asyncio
+    async def test_build_response_with_all_fields(
+        self, mock_db, mock_current_user, mock_guild_config
+    ):
+        """Test building response with all fields populated."""
+        mock_guild_config.bot_manager_role_ids = ["role1", "role2"]
+        mock_guild_config.require_host_role = True
+
+        with patch("services.api.dependencies.permissions.get_guild_name") as mock_get_name:
+            mock_get_name.return_value = "Test Guild"
+
+            result = await guilds._build_guild_config_response(
+                mock_guild_config, mock_current_user, mock_db
+            )
+
+            assert result.id == mock_guild_config.id
+            assert result.guild_name == "Test Guild"
+            assert result.bot_manager_role_ids == ["role1", "role2"]
+            assert result.require_host_role is True
+            assert result.created_at == "2024-01-01T12:00:00"
+            assert result.updated_at == "2024-01-01T12:00:00"
+
+            mock_get_name.assert_called_once_with(
+                mock_guild_config.guild_id, mock_current_user, mock_db
+            )
+
+    @pytest.mark.asyncio
+    async def test_build_response_with_none_bot_manager_roles(
+        self, mock_db, mock_current_user, mock_guild_config
+    ):
+        """Test building response when bot_manager_role_ids is None."""
+        mock_guild_config.bot_manager_role_ids = None
+        mock_guild_config.require_host_role = False
+
+        with patch("services.api.dependencies.permissions.get_guild_name") as mock_get_name:
+            mock_get_name.return_value = "Test Guild"
+
+            result = await guilds._build_guild_config_response(
+                mock_guild_config, mock_current_user, mock_db
+            )
+
+            assert result.bot_manager_role_ids is None
+            assert result.require_host_role is False
+
+    @pytest.mark.asyncio
+    async def test_build_response_timestamp_formatting(
+        self, mock_db, mock_current_user, mock_guild_config
+    ):
+        """Test that timestamps are properly formatted using isoformat()."""
+        mock_guild_config.created_at = datetime(2025, 12, 25, 15, 30, 45)
+        mock_guild_config.updated_at = datetime(2025, 12, 26, 16, 31, 46)
+
+        with patch("services.api.dependencies.permissions.get_guild_name") as mock_get_name:
+            mock_get_name.return_value = "Test Guild"
+
+            result = await guilds._build_guild_config_response(
+                mock_guild_config, mock_current_user, mock_db
+            )
+
+            assert result.created_at == "2025-12-25T15:30:45"
+            assert result.updated_at == "2025-12-26T16:31:46"
+
+    @pytest.mark.asyncio
+    async def test_build_response_guild_name_resolution(
+        self, mock_db, mock_current_user, mock_guild_config
+    ):
+        """Test that guild_name is fetched using permissions.get_guild_name()."""
+        expected_guild_name = "My Custom Guild Name"
+
+        with patch("services.api.dependencies.permissions.get_guild_name") as mock_get_name:
+            mock_get_name.return_value = expected_guild_name
+
+            result = await guilds._build_guild_config_response(
+                mock_guild_config, mock_current_user, mock_db
+            )
+
+            assert result.guild_name == expected_guild_name
+            mock_get_name.assert_called_once_with(
+                mock_guild_config.guild_id, mock_current_user, mock_db
+            )
+
+    @pytest.mark.asyncio
+    async def test_build_response_returns_correct_schema_type(
+        self, mock_db, mock_current_user, mock_guild_config
+    ):
+        """Test that response is of correct schema type."""
+        with patch("services.api.dependencies.permissions.get_guild_name") as mock_get_name:
+            mock_get_name.return_value = "Test Guild"
+
+            result = await guilds._build_guild_config_response(
+                mock_guild_config, mock_current_user, mock_db
+            )
+
+            assert isinstance(result, guild_schemas.GuildConfigResponse)

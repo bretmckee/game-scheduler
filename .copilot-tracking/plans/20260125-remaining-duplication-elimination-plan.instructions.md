@@ -52,21 +52,21 @@ Eliminate high and medium priority code duplications identified by jscpd analysi
 - [x] Task 1.3: Update leave_game.py to use helper
   - Details: .copilot-tracking/details/20260125-remaining-duplication-elimination-details.md (Lines 55-66)
 
-### [ ] Phase 2: Response Construction Patterns
+### [x] Phase 2: Response Construction Patterns
 
-- [ ] Task 2.1: Extract guild config response builder and create unit tests
+- [x] Task 2.1: Extract guild config response builder and create unit tests
   - Details: .copilot-tracking/details/20260125-remaining-duplication-elimination-details.md (Lines 68-105)
 
-- [ ] Task 2.2: Update guild routes to use response builder
+- [x] Task 2.2: Update guild routes to use response builder
   - Details: .copilot-tracking/details/20260125-remaining-duplication-elimination-details.md (Lines 107-119)
 
-- [ ] Task 2.3: Extract channel config response builder and create unit tests
+- [x] Task 2.3: Extract channel config response builder and create unit tests
   - Details: .copilot-tracking/details/20260125-remaining-duplication-elimination-details.md (Lines 121-160)
 
-- [ ] Task 2.4: Update channel routes to use response builder
+- [x] Task 2.4: Update channel routes to use response builder
   - Details: .copilot-tracking/details/20260125-remaining-duplication-elimination-details.md (Lines 162-174)
 
-- [ ] Task 2.5: Consolidate template permission checks
+- [x] Task 2.5: Consolidate template permission checks
   - Details: .copilot-tracking/details/20260125-remaining-duplication-elimination-details.md (Lines 176-191)
 
 ### [ ] Phase 3: Authorization Pattern Consolidation

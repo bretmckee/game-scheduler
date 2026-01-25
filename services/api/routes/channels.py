@@ -30,11 +30,29 @@ from services.api.dependencies import permissions
 from services.api.services import channel_service
 from shared import database
 from shared.discord import client as discord_client_module
+from shared.models.channel import ChannelConfiguration
 from shared.schemas import auth as auth_schemas
 from shared.schemas import channel as channel_schemas
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/channels", tags=["channels"])
+
+
+async def _build_channel_config_response(
+    channel_config: ChannelConfiguration,
+) -> channel_schemas.ChannelConfigResponse:
+    """Build channel configuration response with channel name."""
+    channel_name = await discord_client_module.fetch_channel_name_safe(channel_config.channel_id)
+    return channel_schemas.ChannelConfigResponse(
+        id=channel_config.id,
+        guild_id=channel_config.guild_id,
+        guild_discord_id=channel_config.guild.guild_id,
+        channel_id=channel_config.channel_id,
+        channel_name=channel_name,
+        is_active=channel_config.is_active,
+        created_at=channel_config.created_at.isoformat(),
+        updated_at=channel_config.updated_at.isoformat(),
+    )
 
 
 @router.get("/{channel_id}", response_model=channel_schemas.ChannelConfigResponse)
@@ -60,18 +78,7 @@ async def get_channel(
     # Verify guild membership, returns 404 if not member to prevent information disclosure
     await permissions.verify_guild_membership(channel_config.guild.guild_id, current_user, db)
 
-    channel_name = await discord_client_module.fetch_channel_name_safe(channel_config.channel_id)
-
-    return channel_schemas.ChannelConfigResponse(
-        id=channel_config.id,
-        guild_id=channel_config.guild_id,
-        guild_discord_id=channel_config.guild.guild_id,
-        channel_id=channel_config.channel_id,
-        channel_name=channel_name,
-        is_active=channel_config.is_active,
-        created_at=channel_config.created_at.isoformat(),
-        updated_at=channel_config.updated_at.isoformat(),
-    )
+    return await _build_channel_config_response(channel_config)
 
 
 @router.post(
@@ -103,18 +110,7 @@ async def create_channel_config(
         is_active=request.is_active,
     )
 
-    channel_name = await discord_client_module.fetch_channel_name_safe(channel_config.channel_id)
-
-    return channel_schemas.ChannelConfigResponse(
-        id=channel_config.id,
-        guild_id=channel_config.guild_id,
-        guild_discord_id=channel_config.guild.guild_id,
-        channel_id=channel_config.channel_id,
-        channel_name=channel_name,
-        is_active=channel_config.is_active,
-        created_at=channel_config.created_at.isoformat(),
-        updated_at=channel_config.updated_at.isoformat(),
-    )
+    return await _build_channel_config_response(channel_config)
 
 
 @router.put("/{channel_id}", response_model=channel_schemas.ChannelConfigResponse)
@@ -139,15 +135,4 @@ async def update_channel_config(
     updates = request.model_dump(exclude_unset=True)
     channel_config = await channel_service.update_channel_config(db, channel_config, **updates)
 
-    channel_name = await discord_client_module.fetch_channel_name_safe(channel_config.channel_id)
-
-    return channel_schemas.ChannelConfigResponse(
-        id=channel_config.id,
-        guild_id=channel_config.guild_id,
-        guild_discord_id=channel_config.guild.guild_id,
-        channel_id=channel_config.channel_id,
-        channel_name=channel_name,
-        is_active=channel_config.is_active,
-        created_at=channel_config.created_at.isoformat(),
-        updated_at=channel_config.updated_at.isoformat(),
-    )
+    return await _build_channel_config_response(channel_config)

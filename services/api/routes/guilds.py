@@ -32,12 +32,30 @@ from services.api.dependencies.discord import get_discord_client
 from services.api.services import guild_service
 from shared import database
 from shared.discord.client import DiscordAPIClient, fetch_channel_name_safe
+from shared.models.guild import GuildConfiguration
 from shared.schemas import auth as auth_schemas
 from shared.schemas import channel as channel_schemas
 from shared.schemas import guild as guild_schemas
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/guilds", tags=["guilds"])
+
+
+async def _build_guild_config_response(
+    guild_config: GuildConfiguration,
+    current_user: auth_schemas.CurrentUser,
+    db: AsyncSession,
+) -> guild_schemas.GuildConfigResponse:
+    """Build guild configuration response with guild name."""
+    guild_name = await permissions.get_guild_name(guild_config.guild_id, current_user, db)
+    return guild_schemas.GuildConfigResponse(
+        id=guild_config.id,
+        guild_name=guild_name,
+        bot_manager_role_ids=guild_config.bot_manager_role_ids,
+        require_host_role=guild_config.require_host_role,
+        created_at=guild_config.created_at.isoformat(),
+        updated_at=guild_config.updated_at.isoformat(),
+    )
 
 
 @router.get("", response_model=guild_schemas.GuildListResponse)
@@ -119,16 +137,7 @@ async def get_guild_config(
         db, guild_id, current_user.access_token, current_user.user.discord_id
     )
 
-    guild_name = await permissions.get_guild_name(guild_config.guild_id, current_user, db)
-
-    return guild_schemas.GuildConfigResponse(
-        id=guild_config.id,
-        guild_name=guild_name,
-        bot_manager_role_ids=guild_config.bot_manager_role_ids,
-        require_host_role=guild_config.require_host_role,
-        created_at=guild_config.created_at.isoformat(),
-        updated_at=guild_config.updated_at.isoformat(),
-    )
+    return await _build_guild_config_response(guild_config, current_user, db)
 
 
 @router.post(
@@ -159,16 +168,7 @@ async def create_guild_config(
         require_host_role=request.require_host_role,
     )
 
-    guild_name = await permissions.get_guild_name(request.guild_id, current_user, db)
-
-    return guild_schemas.GuildConfigResponse(
-        id=guild_config.id,
-        guild_name=guild_name,
-        bot_manager_role_ids=guild_config.bot_manager_role_ids,
-        require_host_role=guild_config.require_host_role,
-        created_at=guild_config.created_at.isoformat(),
-        updated_at=guild_config.updated_at.isoformat(),
-    )
+    return await _build_guild_config_response(guild_config, current_user, db)
 
 
 @router.put("/{guild_id}", response_model=guild_schemas.GuildConfigResponse)
@@ -190,16 +190,7 @@ async def update_guild_config(
     updates = request.model_dump(exclude_unset=True)
     guild_config = await guild_service.update_guild_config(db, guild_config, **updates)
 
-    guild_name = await permissions.get_guild_name(guild_config.guild_id, current_user, db)
-
-    return guild_schemas.GuildConfigResponse(
-        id=guild_config.id,
-        guild_name=guild_name,
-        bot_manager_role_ids=guild_config.bot_manager_role_ids,
-        require_host_role=guild_config.require_host_role,
-        created_at=guild_config.created_at.isoformat(),
-        updated_at=guild_config.updated_at.isoformat(),
-    )
+    return await _build_guild_config_response(guild_config, current_user, db)
 
 
 @router.get(
