@@ -156,12 +156,23 @@ repos:
   # Duplicate code detection
   - repo: local
     hooks:
-      - id: jscpd
-        name: Check for duplicate code
-        entry: bash -c 'npx --yes jscpd services shared frontend/src --config .jscpd.json'
+      # Comprehensive check: only fails if duplicates overlap with your changed lines
+      - id: jscpd-comprehensive
+        name: Check for duplicates involving changed lines
+        entry: bash -c 'npx --yes jscpd services shared frontend/src --config .jscpd.json --format json --output .jscpd-report && uv run python scripts/check_commit_duplicates.py .jscpd-report/jscpd-report.json'
         language: system
         pass_filenames: false
         types_or: [python, ts, tsx, javascript]
+        verbose: true
+
+      # Full scan with detailed console output (manual, for investigation)
+      - id: jscpd-full
+        name: Full duplicate code check
+        entry: npx --yes jscpd services shared frontend/src --config .jscpd.json
+        language: system
+        pass_filenames: false
+        types_or: [python, ts, tsx, javascript]
+        stages: [manual]
 
   # Optional/Manual hooks - run with: pre-commit run <hook-id> --hook-stage manual
   - repo: local

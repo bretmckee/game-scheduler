@@ -1,6 +1,6 @@
 {
   "threshold": 3,
-  "reporters": ["console"],
+  "reporters": ["console", "json"],
   "ignore": [
     "**/__pycache__/**",
     "**/node_modules/**",
@@ -18,5 +18,5 @@
   "minLines": 6,
   "minTokens": 50,
   "mode": "mild",
-  "output": "./report/jscpd"
+  "output": "./.jscpd-report"
 }

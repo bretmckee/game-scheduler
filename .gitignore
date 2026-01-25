@@ -56,6 +56,9 @@ coverage.xml
 .complexipy_cache/
 report/
 
+# jscpd duplicate detection reports
+.jscpd-report/
+
 # OS
 .DS_Store
 Thumbs.db
