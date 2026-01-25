@@ -69,5 +69,6 @@ Incrementally expanding Ruff linting rules across 7 phases to address 878 violat
 - tests/shared/test_telemetry.py - Created comprehensive unit tests for telemetry module with 13 test cases covering init_telemetry, flush_telemetry, and get_tracer functions using proper mocking
 - pyproject.toml - Added T20 (flake8-print) to select list for production code
 - pyproject.toml - Added T201 to per-file-ignores for tests, scripts, and test_oauth.py to allow print statements in appropriate contexts
+- shared/database_objects.py - Refactored 4 section header comments to avoid ERA001 false positives while maintaining purpose documentation
 
 ### Removed

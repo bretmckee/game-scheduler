@@ -27,8 +27,7 @@ these objects are properly managed during migrations.
 from alembic_utils.pg_function import PGFunction
 from alembic_utils.pg_trigger import PGTrigger
 
-# Function: notify_schedule_changed
-# Used by notification_schedule table to notify daemon of changes
+# Database function used by notification_schedule table to notify daemon of changes
 notify_schedule_changed_function = PGFunction(
     schema="public",
     signature="notify_schedule_changed()",
@@ -55,8 +54,7 @@ notify_schedule_changed_function = PGFunction(
     """,
 )
 
-# Trigger: notification_schedule_trigger
-# Invokes notify_schedule_changed on notification_schedule changes
+# Database trigger that invokes notify_schedule_changed on notification_schedule changes
 notification_schedule_trigger = PGTrigger(
     schema="public",
     signature="notification_schedule_trigger",
@@ -68,8 +66,7 @@ notification_schedule_trigger = PGTrigger(
     """,
 )
 
-# Function: notify_game_status_schedule_changed
-# Used by game_status_schedule table to notify daemon of changes
+# Database function used by game_status_schedule table to notify daemon of changes
 notify_game_status_schedule_changed_function = PGFunction(
     schema="public",
     signature="notify_game_status_schedule_changed()",
@@ -108,8 +105,7 @@ notify_game_status_schedule_changed_function = PGFunction(
     """,
 )
 
-# Trigger: game_status_schedule_trigger
-# Invokes notify_game_status_schedule_changed on game_status_schedule changes
+# Database trigger that invokes notify_game_status_schedule_changed on game_status_schedule changes
 game_status_schedule_trigger = PGTrigger(
     schema="public",
     signature="game_status_schedule_trigger",

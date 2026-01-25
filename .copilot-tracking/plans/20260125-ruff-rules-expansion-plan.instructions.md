@@ -63,7 +63,7 @@ Incrementally expand Ruff linting rules across 6 phases, fixing all violations f
 - [x] Task 2.3: Replace print statements with logging
   - Details: .copilot-tracking/details/20260125-ruff-rules-expansion-details.md (Lines 127-141)
 
-- [ ] Task 2.4: Remove commented-out code
+- [x] Task 2.4: Remove commented-out code
   - Details: .copilot-tracking/details/20260125-ruff-rules-expansion-details.md (Lines 143-155)
 
 - [ ] Task 2.5: Enable code quality rules in configuration
