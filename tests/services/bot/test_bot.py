@@ -112,6 +112,19 @@ class TestGameSchedulerBot:
                             mock_sync.assert_not_awaited()
 
     @pytest.mark.asyncio
+    async def test_setup_hook_publisher_initialization_failure(self, bot_config: BotConfig) -> None:
+        """Test setup_hook raises RuntimeError when event publisher fails to initialize."""
+        bot = GameSchedulerBot(bot_config)
+
+        with patch("services.bot.commands.setup_commands", new_callable=AsyncMock):
+            with patch(
+                "services.bot.events.publisher.BotEventPublisher",
+                return_value=None,
+            ):
+                with pytest.raises(RuntimeError, match="Failed to initialize event publisher"):
+                    await bot.setup_hook()
+
+    @pytest.mark.asyncio
     async def test_on_ready_event(self, bot_config: BotConfig) -> None:
         """Test on_ready event handler logs correct information."""
         bot = GameSchedulerBot(bot_config)

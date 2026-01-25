@@ -83,7 +83,8 @@ class GameSchedulerBot(commands.Bot):
 
         # Initialize event publisher
         self.event_publisher = BotEventPublisher()
-        assert self.event_publisher is not None
+        if self.event_publisher is None:
+            raise RuntimeError("Failed to initialize event publisher")
         await self.event_publisher.connect()
         logger.info("Event publisher connected")
 

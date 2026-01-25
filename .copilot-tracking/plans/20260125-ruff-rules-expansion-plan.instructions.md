@@ -43,7 +43,7 @@ Incrementally expand Ruff linting rules across 6 phases, fixing all violations f
 - [x] Task 1.1: Fix SQL injection and subprocess security issues
   - Details: .copilot-tracking/details/20260125-ruff-rules-expansion-details.md (Lines 15-34)
 
-- [ ] Task 1.2: Fix production assert statements
+- [x] Task 1.2: Fix production assert statements
   - Details: .copilot-tracking/details/20260125-ruff-rules-expansion-details.md (Lines 36-50)
 
 - [ ] Task 1.3: Add FastAPI Annotated dependencies

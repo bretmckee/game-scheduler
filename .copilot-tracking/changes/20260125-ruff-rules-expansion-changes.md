@@ -19,5 +19,7 @@ Incrementally expanding Ruff linting rules across 7 phases to address 878 violat
 - services/init/verify_schema.py - Fixed SQL injection vulnerability (S608) by using sql.Identifier for table names
 - services/init/migrations.py - Fixed subprocess security issues (S603/S607) by using shutil.which() for absolute executable paths
 - scripts/check_commit_duplicates.py - Fixed subprocess security issues (S603/S607) by using shutil.which() for absolute executable paths
+- services/bot/bot.py - Replaced assert with explicit None check and RuntimeError in event publisher initialization
+- shared/messaging/consumer.py - Replaced asserts with explicit None checks and RuntimeError in queue operations
 
 ### Removed
