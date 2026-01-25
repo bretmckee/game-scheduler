@@ -203,20 +203,6 @@ export interface TemplateCreateRequest {
   default_signup_method?: string | null;
 }
 
-export interface TemplateUpdateRequest {
-  name?: string;
-  description?: string | null;
-  order?: number;
-  is_default?: boolean;
-  channel_id?: string;
-  notify_role_ids?: string[] | null;
-  allowed_player_role_ids?: string[] | null;
-  allowed_host_role_ids?: string[] | null;
-  max_players?: number | null;
-  expected_duration_minutes?: number | null;
-  reminder_minutes?: number[] | null;
-  where?: string | null;
-  signup_instructions?: string | null;
-  allowed_signup_methods?: string[] | null;
-  default_signup_method?: string | null;
-}
+export type TemplateUpdateRequest = Partial<
+  Omit<GameTemplate, 'id' | 'guild_id' | 'channel_name' | 'created_at' | 'updated_at'>
+>;

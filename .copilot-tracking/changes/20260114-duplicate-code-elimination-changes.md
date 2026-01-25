@@ -64,3 +64,17 @@ Reducing code duplication from 3.68% to under 2% by extracting common patterns i
 
 - [services/bot/commands/my_games.py](services/bot/commands/my_games.py): Refactored to use shared `build_game_list_embed()`, removed 27-line duplicate `_create_games_embed()` function, added import from shared module
 - [tests/services/bot/commands/test_my_games.py](tests/services/bot/commands/test_my_games.py): Updated to import and test shared `build_game_list_embed()` instead of removed local function
+
+## Phase 4 Progress
+
+### Task 4.1 Complete
+
+- [frontend/src/types/index.ts](frontend/src/types/index.ts): Refactored `TemplateUpdateRequest` from 16-line interface to single-line utility type using `Partial<Omit<GameTemplate, ...>>`, eliminating ~15 lines of duplicate type definitions
+
+### Task 4.2 & 4.3 Complete (Combined)
+
+Note: The plan file lists Tasks 4.2 (Create TemplateUpdate utility type) and 4.3 (Verify TypeScript compilation), but the details file only has 4.1 and 4.2. Task 4.1 covered both the refactoring and creation of the utility type. This task verified compilation.
+
+- TypeScript type checking passed (`npm run type-check`) with no errors
+- Full frontend build succeeded (`npm run build`) with no compilation errors
+- All TypeScript files using Template types compile correctly
