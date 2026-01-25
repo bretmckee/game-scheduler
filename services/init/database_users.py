@@ -33,6 +33,7 @@ import os
 
 import psycopg2
 from opentelemetry import trace
+from psycopg2 import sql
 
 logger = logging.getLogger(__name__)
 
@@ -112,7 +113,8 @@ def _grant_permissions(
     """
     logger.info(f"Granting permissions to '{target_user}'...")
     cursor.execute(
-        f"""
+        sql.SQL(
+            """
         GRANT CONNECT ON DATABASE {postgres_db} TO {target_user};
         GRANT USAGE, CREATE ON SCHEMA public TO {target_user};
         GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
@@ -139,6 +141,12 @@ def _grant_permissions(
         ALTER DEFAULT PRIVILEGES FOR ROLE {admin_user} IN SCHEMA public
             GRANT EXECUTE ON FUNCTIONS TO {target_user};
         """
+        ).format(
+            postgres_db=sql.Identifier(postgres_db),
+            target_user=sql.Identifier(target_user),
+            postgres_user=sql.Identifier(postgres_user),
+            admin_user=sql.Identifier(admin_user),
+        )
     )
     logger.info(f"✓ Permissions granted to '{target_user}'")
 

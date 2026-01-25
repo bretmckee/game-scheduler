@@ -8,6 +8,7 @@ Designed for pre-commit hook use.
 
 import json
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -62,9 +63,14 @@ def get_changed_line_ranges() -> dict[str, set[int]]:
     Get the specific line numbers changed in each staged file.
     Returns: Dict mapping file paths to sets of changed line numbers.
     """
-    result = subprocess.run(
+    git_path = shutil.which("git")
+    if not git_path:
+        raise RuntimeError("git executable not found in PATH")
+
+    # S603: Safe - using absolute path from shutil.which() validation
+    result = subprocess.run(  # noqa: S603
         [
-            "git",
+            git_path,
             "diff",
             "--cached",
             "--unified=0",

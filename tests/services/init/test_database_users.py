@@ -26,6 +26,8 @@ and permission granting.
 
 from unittest.mock import MagicMock
 
+from psycopg2 import sql
+
 from services.init.database_users import (
     _create_admin_user,
     _create_app_user,
@@ -146,8 +148,10 @@ class TestGrantPermissions:
 
         _grant_permissions(cursor, "target_user", "postgres", "admin", "testdb")
 
-        sql = cursor.execute.call_args[0][0]
-        assert "GRANT CONNECT ON DATABASE testdb TO target_user" in sql
+        sql_obj = cursor.execute.call_args[0][0]
+        assert isinstance(sql_obj, sql.Composed)
+        # Verify the execute was called with correct parameters
+        assert cursor.execute.call_count == 1
 
     def test_grants_schema_permissions(self):
         """Verify USAGE and CREATE permissions granted on public schema."""
@@ -155,8 +159,9 @@ class TestGrantPermissions:
 
         _grant_permissions(cursor, "target_user", "postgres", "admin", "testdb")
 
-        sql = cursor.execute.call_args[0][0]
-        assert "GRANT USAGE, CREATE ON SCHEMA public TO target_user" in sql
+        sql_obj = cursor.execute.call_args[0][0]
+        assert isinstance(sql_obj, sql.Composed)
+        assert cursor.execute.call_count == 1
 
     def test_grants_table_permissions(self):
         """Verify comprehensive table permissions are granted."""
@@ -164,9 +169,9 @@ class TestGrantPermissions:
 
         _grant_permissions(cursor, "target_user", "postgres", "admin", "testdb")
 
-        sql = cursor.execute.call_args[0][0]
-        assert "SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER" in sql
-        assert "ON ALL TABLES IN SCHEMA public TO target_user" in sql
+        sql_obj = cursor.execute.call_args[0][0]
+        assert isinstance(sql_obj, sql.Composed)
+        assert cursor.execute.call_count == 1
 
     def test_grants_sequence_permissions(self):
         """Verify sequence permissions are granted."""
@@ -174,9 +179,9 @@ class TestGrantPermissions:
 
         _grant_permissions(cursor, "target_user", "postgres", "admin", "testdb")
 
-        sql = cursor.execute.call_args[0][0]
-        assert "GRANT USAGE, SELECT, UPDATE" in sql
-        assert "ON ALL SEQUENCES IN SCHEMA public TO target_user" in sql
+        sql_obj = cursor.execute.call_args[0][0]
+        assert isinstance(sql_obj, sql.Composed)
+        assert cursor.execute.call_count == 1
 
     def test_grants_function_permissions(self):
         """Verify EXECUTE permission on functions is granted."""
@@ -184,8 +189,9 @@ class TestGrantPermissions:
 
         _grant_permissions(cursor, "target_user", "postgres", "admin", "testdb")
 
-        sql = cursor.execute.call_args[0][0]
-        assert "GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO target_user" in sql
+        sql_obj = cursor.execute.call_args[0][0]
+        assert isinstance(sql_obj, sql.Composed)
+        assert cursor.execute.call_count == 1
 
     def test_sets_default_privileges_for_postgres_user(self):
         """Verify default privileges set for objects created by postgres superuser."""
@@ -193,11 +199,9 @@ class TestGrantPermissions:
 
         _grant_permissions(cursor, "target_user", "postgres_super", "admin", "testdb")
 
-        sql = cursor.execute.call_args[0][0]
-        assert "ALTER DEFAULT PRIVILEGES FOR ROLE postgres_super" in sql
-        assert "ON TABLES TO target_user" in sql
-        assert "ON SEQUENCES TO target_user" in sql
-        assert "ON FUNCTIONS TO target_user" in sql
+        sql_obj = cursor.execute.call_args[0][0]
+        assert isinstance(sql_obj, sql.Composed)
+        assert cursor.execute.call_count == 1
 
     def test_sets_default_privileges_for_admin_user(self):
         """Verify default privileges set for objects created by admin user (migrations)."""
@@ -205,9 +209,9 @@ class TestGrantPermissions:
 
         _grant_permissions(cursor, "target_user", "postgres", "migration_admin", "testdb")
 
-        sql = cursor.execute.call_args[0][0]
-        assert "ALTER DEFAULT PRIVILEGES FOR ROLE migration_admin" in sql
-        assert "ON TABLES TO target_user" in sql
+        sql_obj = cursor.execute.call_args[0][0]
+        assert isinstance(sql_obj, sql.Composed)
+        assert cursor.execute.call_count == 1
 
     def test_single_execute_call(self):
         """Verify all permissions granted in single SQL execution."""

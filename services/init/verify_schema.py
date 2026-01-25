@@ -24,6 +24,7 @@ import os
 
 import psycopg2
 from opentelemetry import trace
+from psycopg2 import sql
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +72,9 @@ def verify_schema() -> None:
         missing_tables = []
         for table in REQUIRED_TABLES:
             try:
-                cursor.execute(f"SELECT 1 FROM {table} LIMIT 0")
+                cursor.execute(
+                    sql.SQL("SELECT 1 FROM {table} LIMIT 0").format(table=sql.Identifier(table))
+                )
                 logger.debug(f"Table '{table}' exists")
             except psycopg2.Error:
                 missing_tables.append(table)

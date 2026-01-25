@@ -20,6 +20,7 @@
 """Database migration execution via Alembic."""
 
 import logging
+import shutil
 import subprocess
 
 from opentelemetry import trace
@@ -39,8 +40,15 @@ def run_migrations() -> None:
     logger.info("Running database migrations")
 
     with tracer.start_as_current_span("init.database_migration") as span:
-        result = subprocess.run(
-            ["alembic", "upgrade", "head"],
+        alembic_path = shutil.which("alembic")
+        if not alembic_path:
+            error_msg = "alembic executable not found in PATH"
+            logger.error(error_msg)
+            raise RuntimeError(error_msg)
+
+        # S603: Safe - using absolute path from shutil.which() validation
+        result = subprocess.run(  # noqa: S603
+            [alembic_path, "upgrade", "head"],
             capture_output=True,
             text=True,
         )
