@@ -108,19 +108,23 @@ class TestCompleteInitialization:
 
     @patch("services.init.main.time")
     @patch("services.init.main.logger")
+    @patch("services.init.main.tempfile.gettempdir")
     @patch("services.init.main.Path")
     @patch("services.init.main.datetime")
     def test_logs_completion_banner_with_duration(
-        self, mock_datetime, mock_path, mock_logger, mock_time
+        self, mock_datetime, mock_path, mock_gettempdir, mock_logger, mock_time
     ):
         """Should log completion banner with calculated duration."""
 
         start_time = datetime(2026, 1, 17, 12, 0, 0, tzinfo=UTC)
         end_time = datetime(2026, 1, 17, 12, 5, 30, tzinfo=UTC)
         mock_datetime.now.return_value = end_time
+        mock_gettempdir.return_value = "/tmp"
 
         mock_marker = Mock()
-        mock_path.return_value = mock_marker
+        mock_path_instance = Mock()
+        mock_path_instance.__truediv__ = Mock(return_value=mock_marker)
+        mock_path.return_value = mock_path_instance
         mock_time.sleep.side_effect = KeyboardInterrupt  # Prevent infinite loop
 
         with pytest.raises(KeyboardInterrupt):
@@ -133,22 +137,29 @@ class TestCompleteInitialization:
 
     @patch("services.init.main.time")
     @patch("services.init.main.logger")
+    @patch("services.init.main.tempfile.gettempdir")
     @patch("services.init.main.Path")
     @patch("services.init.main.datetime")
-    def test_creates_completion_marker_file(self, mock_datetime, mock_path, mock_logger, mock_time):
-        """Should create /tmp/init-complete marker file."""
+    def test_creates_completion_marker_file(
+        self, mock_datetime, mock_path, mock_gettempdir, mock_logger, mock_time
+    ):
+        """Should create init-complete marker file in temp directory."""
 
         start_time = datetime(2026, 1, 17, 12, 0, 0, tzinfo=UTC)
         mock_datetime.now.return_value = datetime(2026, 1, 17, 12, 0, 10, tzinfo=UTC)
+        mock_gettempdir.return_value = "/tmp"
 
         mock_marker = Mock()
-        mock_path.return_value = mock_marker
+        mock_path_instance = Mock()
+        mock_path_instance.__truediv__ = Mock(return_value=mock_marker)
+        mock_path.return_value = mock_path_instance
         mock_time.sleep.side_effect = KeyboardInterrupt
 
         with pytest.raises(KeyboardInterrupt):
             _complete_initialization(start_time)
 
-        mock_path.assert_called_once_with("/tmp/init-complete")
+        mock_gettempdir.assert_called_once()
+        mock_path.assert_called_once_with("/tmp")
         mock_marker.touch.assert_called_once()
 
     @patch("services.init.main.time")

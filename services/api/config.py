@@ -43,7 +43,10 @@ class APIConfig:
         self.redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
         self.rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
 
-        self.api_host = os.getenv("API_HOST", "0.0.0.0")
+        self.api_host = os.getenv(
+            "API_HOST",
+            "0.0.0.0",  # noqa: S104 - Intentional for container
+        )
         self.api_port = int(os.getenv("API_PORT", "8000"))
 
         self.frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")

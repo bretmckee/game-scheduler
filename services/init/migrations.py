@@ -21,7 +21,7 @@
 
 import logging
 import shutil
-import subprocess
+import subprocess  # noqa: S404 - Used safely with shell=False
 
 from opentelemetry import trace
 

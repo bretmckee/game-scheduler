@@ -77,8 +77,16 @@ target-version = "py313"
 preview = true
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "N", "W", "B", "C4", "UP", "PLR2004", "PLC0415", "C901", "PLR0915"]
-ignore = []
+select = [
+    "E", "F", "I", "N", "W", "B", "C4", "UP",
+    "PLR2004", "PLC0415", "C901", "PLR0915",
+    "S",      # flake8-bandit security checks
+    "ASYNC",  # flake8-async
+    "FAST",   # FastAPI-specific
+]
+ignore = [
+    "S101",   # Allow assert (tests handle separately)
+]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 10
@@ -92,7 +100,13 @@ paths = ["services", "shared", "scripts"]
 exclude = []
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["PLR2004"]
+"tests/**/*.py" = [
+    "PLR2004",  # Magic values (existing)
+    "S101",     # Assert usage
+    "S106",     # Hardcoded passwords in fixtures
+    "S105",     # Hardcoded password strings
+    "S108",     # Temp file/directory paths in test mocks
+]
 
 [tool.ruff.lint.isort]
 known-first-party = ["shared", "services"]

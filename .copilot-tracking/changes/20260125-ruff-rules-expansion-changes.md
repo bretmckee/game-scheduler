@@ -28,5 +28,15 @@ Incrementally expanding Ruff linting rules across 7 phases to address 878 violat
 - services/api/routes/guilds.py - Added Annotated import and converted all 10 route functions to Annotated pattern
 - services/api/routes/templates.py - Added Annotated import and converted all 6 template route functions to Annotated pattern
 - tests/services/api/routes/test_templates.py - Updated 3 tests to pass mock_discord_client parameter after removing default values
+- shared/messaging/consumer.py - Fixed S110 by logging exception instead of silently passing in error handler fallback
+- services/init/main.py - Fixed S108 by using tempfile.gettempdir() instead of hardcoded /tmp path
+- tests/services/init/test_main.py - Updated 2 tests to mock tempfile.gettempdir() for marker file creation
+- shared/messaging/config.py - Removed default password parameter, made it required to eliminate S107 security warning
+- tests/shared/messaging/test_config.py - Updated 5 tests to explicitly provide password parameter
+- pyproject.toml - Added S, ASYNC, FAST to select list; minimal ignore list (S101 only)
+- pyproject.toml - Added per-file ignores for tests (S101, S106, S105, S108)
+- scripts/check_commit_duplicates.py - Added inline noqa:S404 comment for intentional subprocess usage
+- services/init/migrations.py - Added inline noqa:S404 comment for intentional subprocess usage
+- services/api/config.py - Added inline noqa:S104 comment for intentional 0.0.0.0 binding
 
 ### Removed

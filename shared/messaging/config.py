@@ -38,10 +38,10 @@ class RabbitMQConfig:
 
     def __init__(
         self,
+        password: str,
         host: str = "localhost",
         port: int = 5672,
         username: str = "guest",
-        password: str = "guest",
         virtual_host: str = "/",
         connection_timeout: int = 60,
         heartbeat: int = 60,

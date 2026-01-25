@@ -26,12 +26,12 @@ class TestRabbitMQConfig:
 
     def test_default_config(self):
         """Test default configuration values."""
-        config = RabbitMQConfig()
+        config = RabbitMQConfig(password="test-password")
 
         assert config.host == "localhost"
         assert config.port == 5672
         assert config.username == "guest"
-        assert config.password == "guest"
+        assert config.password == "test-password"
         assert config.virtual_host == "/"
         assert config.connection_timeout == 60
         assert config.heartbeat == 60
@@ -58,7 +58,7 @@ class TestRabbitMQConfig:
 
     def test_url_generation_default(self):
         """Test URL generation with default values."""
-        config = RabbitMQConfig()
+        config = RabbitMQConfig(password="guest")
         expected_url = "amqp://guest:guest@localhost:5672/"
 
         assert config.url == expected_url
@@ -66,10 +66,10 @@ class TestRabbitMQConfig:
     def test_url_generation_custom(self):
         """Test URL generation with custom values."""
         config = RabbitMQConfig(
+            password="secret",
             host="rabbitmq.example.com",
             port=5673,
             username="admin",
-            password="secret",
             virtual_host="/custom",
         )
         expected_url = "amqp://admin:secret@rabbitmq.example.com:5673/custom"
@@ -79,8 +79,8 @@ class TestRabbitMQConfig:
     def test_url_generation_special_chars(self):
         """Test URL generation handles special characters."""
         config = RabbitMQConfig(
-            username="user@domain",
             password="p@ssw0rd!",
+            username="user@domain",
         )
 
         assert "user@domain" in config.url

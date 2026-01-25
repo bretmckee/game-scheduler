@@ -9,7 +9,7 @@ Designed for pre-commit hook use.
 import json
 import re
 import shutil
-import subprocess
+import subprocess  # noqa: S404 - Used safely with shell=False
 import sys
 from pathlib import Path
 

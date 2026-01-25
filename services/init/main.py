@@ -32,6 +32,7 @@ All steps are instrumented with OpenTelemetry for observability.
 
 import logging
 import sys
+import tempfile
 import time
 from datetime import UTC, datetime
 from pathlib import Path
@@ -89,7 +90,7 @@ def _complete_initialization(start_time: datetime) -> NoReturn:
     logger.info(f"Duration: {duration:.2f} seconds")
     logger.info("=" * 60)
 
-    marker_file = Path("/tmp/init-complete")
+    marker_file = Path(tempfile.gettempdir()) / "init-complete"
     marker_file.touch()
     logger.info(f"Created completion marker: {marker_file}")
 

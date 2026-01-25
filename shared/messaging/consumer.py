@@ -149,8 +149,8 @@ class EventConsumer:
             try:
                 event = Event.model_validate_json(message.body)
                 event_type = event.event_type
-            except Exception:
-                pass
+            except Exception as parse_error:
+                logger.debug(f"Failed to parse event body for error logging: {parse_error}")
             logger.error(
                 f"Handler failed, sending to DLQ for daemon processing: {event_type}, error: {e}",
                 exc_info=True,
