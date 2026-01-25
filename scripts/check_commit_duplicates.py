@@ -173,7 +173,7 @@ def _print_duplicate_report(commit_related_duplicates: list[dict]) -> None:
             print(f"   Preview: {dup['fragment']}...")
         print()
     print("💡 Tip: Extract duplicated code into shared functions/modules")
-    print("💡 Or if this is a false positive, bypass with: SKIP=jscpd-comprehensive git commit")
+    print("💡 Or if this is a false positive, bypass with: SKIP=jscpd-diff git commit")
 
 
 def main(report_file: str):
