@@ -25,6 +25,7 @@ Provides iCal export functionality for individual game sessions.
 import logging
 import re
 from datetime import datetime
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import Response
@@ -88,11 +89,11 @@ def generate_calendar_filename(game_title: str, scheduled_at: datetime) -> str:
 async def export_game(
     game_id: str,
     # B008: FastAPI dependency injection requires Depends() in default arguments
-    user: auth_schemas.CurrentUser = Depends(auth_deps.get_current_user),  # noqa: B008
-    db: AsyncSession = Depends(database.get_db_with_user_guilds()),  # noqa: B008
-    role_service: roles_module.RoleVerificationService = Depends(  # noqa: B008
-        permissions_deps.get_role_service
-    ),
+    user: Annotated[auth_schemas.CurrentUser, Depends(auth_deps.get_current_user)],  # noqa: B008
+    db: Annotated[AsyncSession, Depends(database.get_db_with_user_guilds())],  # noqa: B008
+    role_service: Annotated[  # noqa: B008
+        roles_module.RoleVerificationService, Depends(permissions_deps.get_role_service)
+    ],
 ) -> Response:
     """
     Export a single game to iCal format.

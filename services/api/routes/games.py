@@ -196,7 +196,8 @@ async def _process_image_upload(
 
 
 def _handle_game_operation_errors(
-    e: Exception, form_data: game_schemas.GameCreateRequest | game_schemas.GameUpdateRequest
+    e: Exception,
+    form_data: game_schemas.GameCreateRequest | game_schemas.GameUpdateRequest,
 ) -> NoReturn:
     """
     Handle ValidationError and ValueError exceptions from game operations.
@@ -258,8 +259,9 @@ async def create_game(
     host: Annotated[str | None, Form()] = None,
     thumbnail: Annotated[UploadFile | None, File()] = None,
     image: Annotated[UploadFile | None, File()] = None,
-    current_user: auth_schemas.CurrentUser = Depends(auth_deps.get_current_user),
-    game_service: games_service.GameService = Depends(_get_game_service),
+    *,  # Force remaining parameters to be keyword-only
+    current_user: Annotated[auth_schemas.CurrentUser, Depends(auth_deps.get_current_user)],
+    game_service: Annotated[games_service.GameService, Depends(_get_game_service)],
 ) -> game_schemas.GameResponse:
     """
     Create new game session.
@@ -344,14 +346,17 @@ async def create_game(
 
 @router.get("", response_model=game_schemas.GameListResponse)
 async def list_games(
-    guild_id: str | None = Query(None, description="Filter by guild UUID"),
-    channel_id: str | None = Query(None, description="Filter by channel UUID"),
-    status: str | None = Query(None, description="Filter by status"),
-    limit: int = Query(50, ge=1, le=100, description="Maximum results"),
-    offset: int = Query(0, ge=0, description="Results offset"),
-    current_user: auth_schemas.CurrentUser = Depends(auth_deps.get_current_user),
-    game_service: games_service.GameService = Depends(_get_game_service),
-    role_service: roles_module.RoleVerificationService = Depends(permissions_deps.get_role_service),
+    guild_id: Annotated[str | None, Query(description="Filter by guild UUID")] = None,
+    channel_id: Annotated[str | None, Query(description="Filter by channel UUID")] = None,
+    status: Annotated[str | None, Query(description="Filter by status")] = None,
+    limit: Annotated[int, Query(ge=1, le=100, description="Maximum results")] = 50,
+    offset: Annotated[int, Query(ge=0, description="Results offset")] = 0,
+    *,  # Force remaining parameters to be keyword-only
+    current_user: Annotated[auth_schemas.CurrentUser, Depends(auth_deps.get_current_user)],
+    game_service: Annotated[games_service.GameService, Depends(_get_game_service)],
+    role_service: Annotated[
+        roles_module.RoleVerificationService, Depends(permissions_deps.get_role_service)
+    ],
 ) -> game_schemas.GameListResponse:
     """
     List games with optional filters.
@@ -395,9 +400,11 @@ async def list_games(
 @router.get("/{game_id}", response_model=game_schemas.GameResponse)
 async def get_game(
     game_id: str,
-    current_user: auth_schemas.CurrentUser = Depends(auth_deps.get_current_user),
-    game_service: games_service.GameService = Depends(_get_game_service),
-    role_service: roles_module.RoleVerificationService = Depends(permissions_deps.get_role_service),
+    current_user: Annotated[auth_schemas.CurrentUser, Depends(auth_deps.get_current_user)],
+    game_service: Annotated[games_service.GameService, Depends(_get_game_service)],
+    role_service: Annotated[
+        roles_module.RoleVerificationService, Depends(permissions_deps.get_role_service)
+    ],
 ) -> game_schemas.GameResponse:
     """Get game session by ID with guild membership and role verification."""
     game = await game_service.get_game(game_id)
@@ -439,9 +446,12 @@ async def update_game(
     image: Annotated[UploadFile | None, File()] = None,
     remove_thumbnail: Annotated[bool, Form()] = False,
     remove_image: Annotated[bool, Form()] = False,
-    current_user: auth_schemas.CurrentUser = Depends(auth_deps.get_current_user),
-    game_service: games_service.GameService = Depends(_get_game_service),
-    role_service: roles_module.RoleVerificationService = Depends(permissions_deps.get_role_service),
+    *,  # Force remaining parameters to be keyword-only
+    current_user: Annotated[auth_schemas.CurrentUser, Depends(auth_deps.get_current_user)],
+    game_service: Annotated[games_service.GameService, Depends(_get_game_service)],
+    role_service: Annotated[
+        roles_module.RoleVerificationService, Depends(permissions_deps.get_role_service)
+    ],
 ) -> game_schemas.GameResponse:
     """
     Update game session.
@@ -512,9 +522,11 @@ async def update_game(
 @router.delete("/{game_id}", status_code=http_status.HTTP_204_NO_CONTENT)
 async def delete_game(
     game_id: str,
-    current_user: auth_schemas.CurrentUser = Depends(auth_deps.get_current_user),
-    game_service: games_service.GameService = Depends(_get_game_service),
-    role_service: roles_module.RoleVerificationService = Depends(permissions_deps.get_role_service),
+    current_user: Annotated[auth_schemas.CurrentUser, Depends(auth_deps.get_current_user)],
+    game_service: Annotated[games_service.GameService, Depends(_get_game_service)],
+    role_service: Annotated[
+        roles_module.RoleVerificationService, Depends(permissions_deps.get_role_service)
+    ],
 ) -> None:
     """
     Cancel game session.
@@ -541,9 +553,11 @@ async def delete_game(
 @router.post("/{game_id}/join", response_model=participant_schemas.ParticipantResponse)
 async def join_game(
     game_id: str,
-    current_user: auth_schemas.CurrentUser = Depends(auth_deps.get_current_user),
-    game_service: games_service.GameService = Depends(_get_game_service),
-    role_service: roles_module.RoleVerificationService = Depends(permissions_deps.get_role_service),
+    current_user: Annotated[auth_schemas.CurrentUser, Depends(auth_deps.get_current_user)],
+    game_service: Annotated[games_service.GameService, Depends(_get_game_service)],
+    role_service: Annotated[
+        roles_module.RoleVerificationService, Depends(permissions_deps.get_role_service)
+    ],
 ) -> participant_schemas.ParticipantResponse:
     """
     Join game as participant.
@@ -607,8 +621,8 @@ async def join_game(
 @router.post("/{game_id}/leave", status_code=http_status.HTTP_204_NO_CONTENT)
 async def leave_game(
     game_id: str,
-    current_user: auth_schemas.CurrentUser = Depends(auth_deps.get_current_user),
-    game_service: games_service.GameService = Depends(_get_game_service),
+    current_user: Annotated[auth_schemas.CurrentUser, Depends(auth_deps.get_current_user)],
+    game_service: Annotated[games_service.GameService, Depends(_get_game_service)],
 ) -> None:
     """
     Leave game as participant.
@@ -813,7 +827,7 @@ async def _build_game_response(
 @router.head("/{game_id}/thumbnail", operation_id="head_game_thumbnail")
 async def get_game_thumbnail(
     game_id: str,
-    game_service: games_service.GameService = Depends(_get_game_service),
+    game_service: Annotated[games_service.GameService, Depends(_get_game_service)],
 ) -> Response:
     """Serve game thumbnail image."""
     game = await game_service.get_game(game_id)
@@ -839,7 +853,7 @@ async def get_game_thumbnail(
 @router.head("/{game_id}/image", operation_id="head_game_image")
 async def get_game_image(
     game_id: str,
-    game_service: games_service.GameService = Depends(_get_game_service),
+    game_service: Annotated[games_service.GameService, Depends(_get_game_service)],
 ) -> Response:
     """Serve game banner image."""
     game = await game_service.get_game(game_id)

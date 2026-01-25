@@ -20,6 +20,7 @@
 
 # ruff: noqa: B008
 import logging
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -58,8 +59,8 @@ async def _build_channel_config_response(
 @router.get("/{channel_id}", response_model=channel_schemas.ChannelConfigResponse)
 async def get_channel(
     channel_id: str,
-    current_user: auth_schemas.CurrentUser = Depends(dependencies.auth.get_current_user),
-    db: AsyncSession = Depends(database.get_db),
+    current_user: Annotated[auth_schemas.CurrentUser, Depends(dependencies.auth.get_current_user)],
+    db: Annotated[AsyncSession, Depends(database.get_db)],
 ) -> channel_schemas.ChannelConfigResponse:
     """
     Get channel configuration by database UUID.
@@ -88,8 +89,8 @@ async def get_channel(
 )
 async def create_channel_config(
     request: channel_schemas.ChannelConfigCreateRequest,
-    current_user: auth_schemas.CurrentUser = Depends(permissions.require_manage_channels),
-    db: AsyncSession = Depends(database.get_db),
+    current_user: Annotated[auth_schemas.CurrentUser, Depends(permissions.require_manage_channels)],
+    db: Annotated[AsyncSession, Depends(database.get_db)],
 ) -> channel_schemas.ChannelConfigResponse:
     """
     Create channel configuration.
@@ -117,8 +118,8 @@ async def create_channel_config(
 async def update_channel_config(
     channel_id: str,
     request: channel_schemas.ChannelConfigUpdateRequest,
-    current_user: auth_schemas.CurrentUser = Depends(permissions.require_manage_channels),
-    db: AsyncSession = Depends(database.get_db),
+    current_user: Annotated[auth_schemas.CurrentUser, Depends(permissions.require_manage_channels)],
+    db: Annotated[AsyncSession, Depends(database.get_db)],
 ) -> channel_schemas.ChannelConfigResponse:
     """
     Update channel configuration.

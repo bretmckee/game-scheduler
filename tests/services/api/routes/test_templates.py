@@ -244,9 +244,13 @@ class TestListTemplates:
                 status_code=404, detail="Guild configuration not found"
             )
 
+            mock_discord_client = AsyncMock()
             with pytest.raises(HTTPException) as exc_info:
                 await templates.list_templates(
-                    guild_id="nonexistent", current_user=mock_current_user, db=mock_db
+                    guild_id="nonexistent",
+                    current_user=mock_current_user,
+                    db=mock_db,
+                    discord_client=mock_discord_client,
                 )
 
             assert exc_info.value.status_code == 404
@@ -298,11 +302,13 @@ class TestGetTemplate:
             mock_service.get_template_by_id.return_value = None
             mock_template_service.return_value = mock_service
 
+            mock_discord_client = AsyncMock()
             with pytest.raises(HTTPException) as exc_info:
                 await templates.get_template(
                     template_id="nonexistent",
                     current_user=mock_current_user,
                     db=mock_db,
+                    discord_client=mock_discord_client,
                 )
 
             assert exc_info.value.status_code == 404
@@ -395,12 +401,14 @@ class TestCreateTemplate:
                 status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden"
             )
 
+            mock_discord_client = AsyncMock()
             with pytest.raises(HTTPException) as exc_info:
                 await templates.create_template(
                     guild_id=mock_guild_config.id,
                     request=request,
                     current_user=mock_current_user,
                     db=mock_db,
+                    discord_client=mock_discord_client,
                 )
 
             assert exc_info.value.status_code == 403

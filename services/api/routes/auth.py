@@ -44,7 +44,9 @@ router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 
 @router.get("/login")
-async def login(redirect_uri: str = Query(...)) -> auth_schemas.LoginResponse:
+async def login(
+    redirect_uri: Annotated[str, Query(...)],
+) -> auth_schemas.LoginResponse:
     """
     Initiate Discord OAuth2 login flow.
 
@@ -68,9 +70,9 @@ async def login(redirect_uri: str = Query(...)) -> auth_schemas.LoginResponse:
 @router.get("/callback", response_model=None)
 async def callback(
     response: Response,
-    code: str = Query(...),
-    state: str = Query(...),
-    db: AsyncSession = Depends(get_db),
+    code: Annotated[str, Query(...)],
+    state: Annotated[str, Query(...)],
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
     """
     Handle Discord OAuth2 callback.

@@ -20,6 +20,7 @@
 
 # ruff: noqa: B008
 import logging
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -60,8 +61,8 @@ async def _build_guild_config_response(
 
 @router.get("", response_model=guild_schemas.GuildListResponse)
 async def list_guilds(
-    current_user: auth_schemas.CurrentUser = Depends(dependencies.auth.get_current_user),
-    db: AsyncSession = Depends(database.get_db_with_user_guilds()),
+    current_user: Annotated[auth_schemas.CurrentUser, Depends(dependencies.auth.get_current_user)],
+    db: Annotated[AsyncSession, Depends(database.get_db_with_user_guilds())],
 ) -> guild_schemas.GuildListResponse:
     """
     List all guilds where the bot is present and user is a member.
@@ -95,8 +96,8 @@ async def list_guilds(
 @router.get("/{guild_id}", response_model=guild_schemas.GuildBasicInfoResponse)
 async def get_guild(
     guild_id: str,
-    current_user: auth_schemas.CurrentUser = Depends(dependencies.auth.get_current_user),
-    db: AsyncSession = Depends(database.get_db),
+    current_user: Annotated[auth_schemas.CurrentUser, Depends(dependencies.auth.get_current_user)],
+    db: Annotated[AsyncSession, Depends(database.get_db)],
 ) -> guild_schemas.GuildBasicInfoResponse:
     """
     Get basic guild information by database UUID.
@@ -125,8 +126,8 @@ async def get_guild(
 @router.get("/{guild_id}/config", response_model=guild_schemas.GuildConfigResponse)
 async def get_guild_config(
     guild_id: str,
-    current_user: auth_schemas.CurrentUser = Depends(permissions.require_manage_guild),
-    db: AsyncSession = Depends(database.get_db),
+    current_user: Annotated[auth_schemas.CurrentUser, Depends(permissions.require_manage_guild)],
+    db: Annotated[AsyncSession, Depends(database.get_db)],
 ) -> guild_schemas.GuildConfigResponse:
     """
     Get guild configuration including sensitive settings.
@@ -147,8 +148,8 @@ async def get_guild_config(
 )
 async def create_guild_config(
     request: guild_schemas.GuildConfigCreateRequest,
-    current_user: auth_schemas.CurrentUser = Depends(permissions.require_manage_guild),
-    db: AsyncSession = Depends(database.get_db),
+    current_user: Annotated[auth_schemas.CurrentUser, Depends(permissions.require_manage_guild)],
+    db: Annotated[AsyncSession, Depends(database.get_db)],
 ) -> guild_schemas.GuildConfigResponse:
     """
     Create guild configuration.
@@ -175,8 +176,8 @@ async def create_guild_config(
 async def update_guild_config(
     guild_id: str,
     request: guild_schemas.GuildConfigUpdateRequest,
-    current_user: auth_schemas.CurrentUser = Depends(permissions.require_manage_guild),
-    db: AsyncSession = Depends(database.get_db),
+    current_user: Annotated[auth_schemas.CurrentUser, Depends(permissions.require_manage_guild)],
+    db: Annotated[AsyncSession, Depends(database.get_db)],
 ) -> guild_schemas.GuildConfigResponse:
     """
     Update guild configuration.
@@ -199,8 +200,8 @@ async def update_guild_config(
 )
 async def list_guild_channels(
     guild_id: str,
-    current_user: auth_schemas.CurrentUser = Depends(dependencies.auth.get_current_user),
-    db: AsyncSession = Depends(database.get_db),
+    current_user: Annotated[auth_schemas.CurrentUser, Depends(dependencies.auth.get_current_user)],
+    db: Annotated[AsyncSession, Depends(database.get_db)],
 ) -> list[channel_schemas.ChannelConfigResponse]:
     """
     List all configured channels for a guild by UUID.
@@ -239,9 +240,9 @@ async def list_guild_channels(
 @router.get("/{guild_id}/roles")
 async def list_guild_roles(
     guild_id: str,
-    current_user: auth_schemas.CurrentUser = Depends(dependencies.auth.get_current_user),
-    db: AsyncSession = Depends(database.get_db),
-    discord_client: DiscordAPIClient = Depends(get_discord_client),
+    current_user: Annotated[auth_schemas.CurrentUser, Depends(dependencies.auth.get_current_user)],
+    db: Annotated[AsyncSession, Depends(database.get_db)],
+    discord_client: Annotated[DiscordAPIClient, Depends(get_discord_client)],
 ) -> list[dict]:
     """
     List all roles for a guild, excluding @everyone and managed roles.
@@ -281,8 +282,8 @@ async def list_guild_roles(
 
 @router.post("/sync", response_model=guild_schemas.GuildSyncResponse)
 async def sync_guilds(
-    current_user: auth_schemas.CurrentUser = Depends(dependencies.auth.get_current_user),
-    db: AsyncSession = Depends(database.get_db),
+    current_user: Annotated[auth_schemas.CurrentUser, Depends(dependencies.auth.get_current_user)],
+    db: Annotated[AsyncSession, Depends(database.get_db)],
 ) -> guild_schemas.GuildSyncResponse:
     """
     Sync user's Discord guilds with database.
@@ -308,8 +309,8 @@ async def sync_guilds(
 async def validate_mention(
     guild_id: str,
     request: guild_schemas.ValidateMentionRequest,
-    current_user: auth_schemas.CurrentUser = Depends(dependencies.auth.get_current_user),
-    db: AsyncSession = Depends(database.get_db),
+    current_user: Annotated[auth_schemas.CurrentUser, Depends(dependencies.auth.get_current_user)],
+    db: Annotated[AsyncSession, Depends(database.get_db)],
 ) -> guild_schemas.ValidateMentionResponse:
     """
     Validate a Discord mention for a guild.

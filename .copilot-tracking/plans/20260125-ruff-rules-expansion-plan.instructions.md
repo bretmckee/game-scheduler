@@ -46,7 +46,7 @@ Incrementally expand Ruff linting rules across 6 phases, fixing all violations f
 - [x] Task 1.2: Fix production assert statements
   - Details: .copilot-tracking/details/20260125-ruff-rules-expansion-details.md (Lines 36-50)
 
-- [ ] Task 1.3: Add FastAPI Annotated dependencies
+- [x] Task 1.3: Add FastAPI Annotated dependencies
   - Details: .copilot-tracking/details/20260125-ruff-rules-expansion-details.md (Lines 52-68)
 
 - [ ] Task 1.4: Enable S, ASYNC, FAST rules in configuration
