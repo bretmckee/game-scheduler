@@ -69,18 +69,18 @@ Eliminate high and medium priority code duplications identified by jscpd analysi
 - [x] Task 2.5: Consolidate template permission checks
   - Details: .copilot-tracking/details/20260125-remaining-duplication-elimination-details.md (Lines 176-191)
 
-### [ ] Phase 3: Authorization Pattern Consolidation
+### [x] Phase 3: Authorization Pattern Consolidation
 
-- [ ] Task 3.1: Create generic permission requirement helper and create unit tests
+- [x] Task 3.1: Create generic permission requirement helper and create unit tests
   - Details: .copilot-tracking/details/20260125-remaining-duplication-elimination-details.md (Lines 193-243)
 
-- [ ] Task 3.2: Refactor require_manage_guild to use helper
+- [x] Task 3.2: Refactor require_manage_guild to use helper
   - Details: .copilot-tracking/details/20260125-remaining-duplication-elimination-details.md (Lines 245-257)
 
-- [ ] Task 3.3: Refactor require_manage_channels to use helper
+- [x] Task 3.3: Refactor require_manage_channels to use helper
   - Details: .copilot-tracking/details/20260125-remaining-duplication-elimination-details.md (Lines 259-271)
 
-- [ ] Task 3.4: Refactor require_bot_manager to use helper
+- [x] Task 3.4: Refactor require_bot_manager to use helper
   - Details: .copilot-tracking/details/20260125-remaining-duplication-elimination-details.md (Lines 273-285)
 
 ### [ ] Phase 4: Optional Improvements

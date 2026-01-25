@@ -1119,3 +1119,166 @@ async def test_can_export_game_no_current_user():
     )
 
     assert result is True
+
+
+# Tests for _require_permission helper function
+
+
+@pytest.mark.asyncio
+async def test_require_permission_success(mock_current_user, mock_role_service, mock_tokens):
+    """Test _require_permission with successful permission check."""
+    mock_db = AsyncMock()
+
+    async def mock_permission_checker(user_id: str, guild_id: str, token: str, **kwargs) -> bool:
+        return True
+
+    with patch("services.api.auth.tokens.get_user_tokens", return_value=mock_tokens):
+        result = await permissions._require_permission(
+            "123456789012345678",  # Discord snowflake format
+            mock_permission_checker,
+            "You need permission",
+            mock_current_user,
+            mock_role_service,
+            mock_db,
+        )
+
+    assert result == mock_current_user
+
+
+@pytest.mark.asyncio
+async def test_require_permission_failed_check(
+    mock_current_user, mock_role_service, mock_tokens, caplog
+):
+    """Test _require_permission with failed permission check."""
+    mock_db = AsyncMock()
+
+    async def mock_permission_checker(user_id: str, guild_id: str, token: str, **kwargs) -> bool:
+        return False
+
+    with (
+        patch("services.api.auth.tokens.get_user_tokens", return_value=mock_tokens),
+        caplog.at_level(logging.WARNING),
+        pytest.raises(HTTPException) as exc_info,
+    ):
+        await permissions._require_permission(
+            "123456789012345678",
+            mock_permission_checker,
+            "You need permission",
+            mock_current_user,
+            mock_role_service,
+            mock_db,
+        )
+
+    assert exc_info.value.status_code == 403
+    assert exc_info.value.detail == "You need permission"
+    assert "lacks permission in guild" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_require_permission_expired_token(mock_current_user, mock_role_service):
+    """Test _require_permission with expired token."""
+    mock_db = AsyncMock()
+
+    async def mock_permission_checker(user_id: str, guild_id: str, token: str, **kwargs) -> bool:
+        return True
+
+    with (
+        patch("services.api.auth.tokens.get_user_tokens", return_value=None),
+        pytest.raises(HTTPException) as exc_info,
+    ):
+        await permissions._require_permission(
+            "123456789012345678",
+            mock_permission_checker,
+            "You need permission",
+            mock_current_user,
+            mock_role_service,
+            mock_db,
+        )
+
+    assert exc_info.value.status_code == 401
+    assert exc_info.value.detail == "Session expired"
+
+
+@pytest.mark.asyncio
+async def test_require_permission_with_uuid_guild_id(
+    mock_current_user, mock_role_service, mock_tokens
+):
+    """Test _require_permission with database UUID guild_id requiring resolution."""
+    mock_db = AsyncMock()
+
+    async def mock_permission_checker(user_id: str, guild_id: str, token: str, **kwargs) -> bool:
+        assert guild_id == "999888777666555444"  # Resolved Discord ID
+        return True
+
+    mock_guild_config = MagicMock()
+    mock_guild_config.guild_id = "999888777666555444"
+
+    with (
+        patch("services.api.auth.tokens.get_user_tokens", return_value=mock_tokens),
+        patch(
+            "services.api.database.queries.require_guild_by_id",
+            return_value=mock_guild_config,
+        ),
+    ):
+        result = await permissions._require_permission(
+            "550e8400-e29b-41d4-a716-446655440000",  # UUID format
+            mock_permission_checker,
+            "You need permission",
+            mock_current_user,
+            mock_role_service,
+            mock_db,
+        )
+
+    assert result == mock_current_user
+
+
+@pytest.mark.asyncio
+async def test_require_permission_with_checker_kwargs(
+    mock_current_user, mock_role_service, mock_tokens
+):
+    """Test _require_permission passes additional kwargs to permission_checker."""
+    mock_db = AsyncMock()
+
+    async def mock_permission_checker(user_id: str, guild_id: str, token: str, **kwargs) -> bool:
+        assert "extra_param" in kwargs
+        assert kwargs["extra_param"] == "test_value"
+        return True
+
+    with patch("services.api.auth.tokens.get_user_tokens", return_value=mock_tokens):
+        result = await permissions._require_permission(
+            "123456789012345678",
+            mock_permission_checker,
+            "You need permission",
+            mock_current_user,
+            mock_role_service,
+            mock_db,
+            extra_param="test_value",
+        )
+
+    assert result == mock_current_user
+
+
+@pytest.mark.asyncio
+async def test_require_permission_checker_exception(
+    mock_current_user, mock_role_service, mock_tokens
+):
+    """Test _require_permission handles exceptions from permission_checker."""
+    mock_db = AsyncMock()
+
+    async def mock_permission_checker(user_id: str, guild_id: str, token: str, **kwargs) -> bool:
+        raise ValueError("Permission check error")
+
+    with (
+        patch("services.api.auth.tokens.get_user_tokens", return_value=mock_tokens),
+        pytest.raises(ValueError) as exc_info,
+    ):
+        await permissions._require_permission(
+            "123456789012345678",
+            mock_permission_checker,
+            "You need permission",
+            mock_current_user,
+            mock_role_service,
+            mock_db,
+        )
+
+    assert str(exc_info.value) == "Permission check error"

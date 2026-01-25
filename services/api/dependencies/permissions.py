@@ -23,6 +23,8 @@ Provides FastAPI dependencies for role-based authorization.
 """
 
 import logging
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 from fastapi import Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -133,7 +135,11 @@ async def verify_template_access(
     """
     # Get guild configuration to resolve Discord guild ID
     guild_config = await queries.require_guild_by_id(
-        db, template.guild_id, access_token, user_discord_id, not_found_detail="Template not found"
+        db,
+        template.guild_id,
+        access_token,
+        user_discord_id,
+        not_found_detail="Template not found",
     )
 
     # Check guild membership
@@ -179,7 +185,11 @@ async def verify_game_access(
     """
     # Get guild configuration to resolve Discord guild ID
     guild_config = await queries.require_guild_by_id(
-        db, game.guild_id, access_token, user_discord_id, not_found_detail="Game not found"
+        db,
+        game.guild_id,
+        access_token,
+        user_discord_id,
+        not_found_detail="Game not found",
     )
 
     # Check guild membership first - return 404 if not member to prevent info disclosure
@@ -248,6 +258,64 @@ async def _resolve_guild_id(
     return guild_config.guild_id
 
 
+async def _require_permission(
+    guild_id: str,
+    permission_checker: Callable[..., Awaitable[bool]],
+    error_message: str,
+    current_user: auth_schemas.CurrentUser,
+    role_service: roles_module.RoleVerificationService,
+    db: AsyncSession,
+    **checker_kwargs: Any,
+) -> auth_schemas.CurrentUser:
+    """
+    Generic permission requirement helper for FastAPI dependencies.
+
+    Performs token validation, guild ID resolution, and permission checking.
+    Use this helper to eliminate duplication in permission dependency functions.
+
+    Args:
+        guild_id: Database guild UUID or Discord guild ID
+        permission_checker: Async callable that checks permissions
+            (e.g., role_service.has_permissions or role_service.check_bot_manager_permission)
+        error_message: Custom error message for permission denial
+        current_user: Current authenticated user
+        role_service: Role verification service
+        db: Database session
+        **checker_kwargs: Additional keyword arguments passed to permission_checker
+            (e.g., permissions for has_permissions)
+
+    Returns:
+        Current user if authorized
+
+    Raises:
+        HTTPException(401): If session token is invalid
+        HTTPException(403): If user lacks required permission
+    """
+    token_data = await tokens.get_user_tokens(current_user.session_token)
+    if not token_data:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired")
+
+    access_token = token_data["access_token"]
+    discord_guild_id = await _resolve_guild_id(
+        guild_id, db, access_token, current_user.user.discord_id
+    )
+
+    has_permission = await permission_checker(
+        current_user.user.discord_id,
+        discord_guild_id,
+        access_token,
+        **checker_kwargs,
+    )
+
+    if not has_permission:
+        logger.warning(
+            f"User {current_user.user.discord_id} lacks permission in guild {discord_guild_id}"
+        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=error_message)
+
+    return current_user
+
+
 async def require_manage_guild(
     guild_id: str,
     # B008: FastAPI dependency injection requires Depends() in default arguments
@@ -270,33 +338,20 @@ async def require_manage_guild(
     Raises:
         HTTPException: If user lacks MANAGE_GUILD permission
     """
-    token_data = await tokens.get_user_tokens(current_user.session_token)
-    if not token_data:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired")
 
-    access_token = token_data["access_token"]
-
-    # Resolve Discord guild_id from database UUID if needed
-    discord_guild_id = await _resolve_guild_id(
-        guild_id, db, access_token, current_user.user.discord_id
-    )
-
-    has_permission = await role_service.has_permissions(
-        current_user.user.discord_id,
-        discord_guild_id,
-        access_token,
-        DiscordPermissions.MANAGE_GUILD,
-    )
-
-    if not has_permission:
-        logger.warning(
-            f"User {current_user.user.discord_id} lacks MANAGE_GUILD permission "
-            f"in guild {discord_guild_id}"
+    async def check_manage_guild(user_id: str, guild_id: str, token: str) -> bool:
+        return await role_service.has_permissions(
+            user_id, guild_id, token, DiscordPermissions.MANAGE_GUILD
         )
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You need MANAGE_GUILD permission to perform this action",
-        )
+
+    return await _require_permission(
+        guild_id,
+        check_manage_guild,
+        "You need MANAGE_GUILD permission to perform this action",
+        current_user,
+        role_service,
+        db,
+    )
 
     return current_user
 
@@ -323,35 +378,20 @@ async def require_manage_channels(
     Raises:
         HTTPException: If user lacks MANAGE_CHANNELS permission
     """
-    token_data = await tokens.get_user_tokens(current_user.session_token)
-    if not token_data:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired")
 
-    access_token = token_data["access_token"]
-
-    # Resolve Discord guild_id from database UUID if needed
-    discord_guild_id = await _resolve_guild_id(
-        guild_id, db, access_token, current_user.user.discord_id
-    )
-
-    has_permission = await role_service.has_permissions(
-        current_user.user.discord_id,
-        discord_guild_id,
-        access_token,
-        DiscordPermissions.MANAGE_CHANNELS,
-    )
-
-    if not has_permission:
-        logger.warning(
-            f"User {current_user.user.discord_id} lacks MANAGE_CHANNELS permission "
-            f"in guild {discord_guild_id}"
-        )
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You need MANAGE_CHANNELS permission to perform this action",
+    async def check_manage_channels(user_id: str, guild_id: str, token: str) -> bool:
+        return await role_service.has_permissions(
+            user_id, guild_id, token, DiscordPermissions.MANAGE_CHANNELS
         )
 
-    return current_user
+    return await _require_permission(
+        guild_id,
+        check_manage_channels,
+        "You need MANAGE_CHANNELS permission to perform this action",
+        current_user,
+        role_service,
+        db,
+    )
 
 
 async def get_guild_name(
@@ -414,32 +454,18 @@ async def require_bot_manager(
     Raises:
         HTTPException: If user lacks bot manager role
     """
-    token_data = await tokens.get_user_tokens(current_user.session_token)
-    if not token_data:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired")
 
-    access_token = token_data["access_token"]
+    async def check_bot_manager(user_id: str, guild_id: str, token: str) -> bool:
+        return await role_service.check_bot_manager_permission(user_id, guild_id, db, token)
 
-    # Resolve Discord guild_id from database UUID if needed
-    discord_guild_id = await _resolve_guild_id(
-        guild_id, db, access_token, current_user.user.discord_id
+    return await _require_permission(
+        guild_id,
+        check_bot_manager,
+        "Bot manager role required to perform this action",
+        current_user,
+        role_service,
+        db,
     )
-
-    has_permission = await role_service.check_bot_manager_permission(
-        current_user.user.discord_id, discord_guild_id, db, access_token
-    )
-
-    if not has_permission:
-        logger.warning(
-            f"User {current_user.user.discord_id} lacks bot manager permission "
-            f"in guild {discord_guild_id}"
-        )
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Bot manager role required to perform this action",
-        )
-
-    return current_user
 
 
 async def require_game_host(
