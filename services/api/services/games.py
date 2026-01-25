@@ -362,13 +362,12 @@ class GameService:
         )
 
         # Validate signup method against template's allowed list if specified
-        if template.allowed_signup_methods:
-            if signup_method not in template.allowed_signup_methods:
-                allowed_str = ", ".join(template.allowed_signup_methods)
-                raise ValueError(
-                    f"Signup method '{signup_method}' not allowed for this template. "
-                    f"Allowed methods: {allowed_str}"
-                )
+        if template.allowed_signup_methods and signup_method not in template.allowed_signup_methods:
+            allowed_str = ", ".join(template.allowed_signup_methods)
+            raise ValueError(
+                f"Signup method '{signup_method}' not allowed for this template. "
+                f"Allowed methods: {allowed_str}"
+            )
 
         return {
             "max_players": max_players,

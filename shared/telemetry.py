@@ -27,15 +27,21 @@ import logging
 import os
 
 from opentelemetry import metrics, trace
-from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
+
+# OpenTelemetry's official public API for OTLP exporters
+from opentelemetry.exporter.otlp.proto.http._log_exporter import (
+    OTLPLogExporter,  # noqa: PLC2701
+)
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.aio_pika import AioPikaInstrumentor
 from opentelemetry.instrumentation.asyncpg import AsyncPGInstrumentor
 from opentelemetry.instrumentation.redis import RedisInstrumentor
 from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
-from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
-from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
+
+# OpenTelemetry's official public API for logging
+from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler  # noqa: PLC2701
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor  # noqa: PLC2701
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.resources import Resource

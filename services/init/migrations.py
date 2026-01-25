@@ -51,6 +51,7 @@ def run_migrations() -> None:
             [alembic_path, "upgrade", "head"],
             capture_output=True,
             text=True,
+            check=False,
         )
 
         if result.stdout:

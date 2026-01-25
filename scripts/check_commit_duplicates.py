@@ -199,7 +199,7 @@ def main(report_file: str):
         print(f"⚠️  Report file not found: {report_file}")
         return 0
 
-    with open(report_file) as f:
+    with open(report_file, encoding="utf-8") as f:
         report = json.load(f)
 
     duplicates = report.get("duplicates", [])

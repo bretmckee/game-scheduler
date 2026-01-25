@@ -52,7 +52,7 @@ Incrementally expand Ruff linting rules across 6 phases, fixing all violations f
 - [x] Task 1.4: Enable S, ASYNC, FAST rules in configuration
   - Details: .copilot-tracking/details/20260125-ruff-rules-expansion-details.md (Lines 70-91)
 
-### [ ] Phase 2: Code Quality & Maintainability (152 issues)
+### [x] Phase 2: Code Quality & Maintainability (152 issues)
 
 - [x] Task 2.1: Auto-fix return statements and type-checking imports
   - Details: .copilot-tracking/details/20260125-ruff-rules-expansion-details.md (Lines 95-109)
@@ -66,7 +66,7 @@ Incrementally expand Ruff linting rules across 6 phases, fixing all violations f
 - [x] Task 2.4: Remove commented-out code
   - Details: .copilot-tracking/details/20260125-ruff-rules-expansion-details.md (Lines 143-155)
 
-- [ ] Task 2.5: Enable code quality rules in configuration
+- [x] Task 2.5: Enable code quality rules in configuration
   - Details: .copilot-tracking/details/20260125-ruff-rules-expansion-details.md (Lines 157-177)
 
 ### [ ] Phase 3: Logging Performance Optimization (335 issues)

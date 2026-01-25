@@ -84,6 +84,17 @@ select = [
     "ASYNC",  # flake8-async
     "FAST",   # FastAPI-specific
     "T20",    # flake8-print (no print statements in production code)
+    "RET",    # flake8-return
+    "SIM",    # flake8-simplify
+    "TC",     # flake8-type-checking
+    "PLE",    # Pylint errors
+    "PLW",    # Pylint warnings
+    "PLC",    # Pylint conventions
+    "ERA",    # eradicate (commented-out code)
+    "A",      # flake8-builtins
+    "DTZ",    # flake8-datetimez
+    "ICN",    # flake8-import-conventions
+    "PT",     # flake8-pytest-style
 ]
 ignore = [
     "S101",   # Allow assert (tests handle separately)

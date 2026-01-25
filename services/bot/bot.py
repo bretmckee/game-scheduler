@@ -149,9 +149,8 @@ class GameSchedulerBot(commands.Bot):
                 "discord.guild_id": (str(interaction.guild_id) if interaction.guild_id else None),
             },
         ):
-            if interaction.type == discord.InteractionType.component:
-                if self.button_handler:
-                    await self.button_handler.handle_interaction(interaction)
+            if interaction.type == discord.InteractionType.component and self.button_handler:
+                await self.button_handler.handle_interaction(interaction)
 
     async def on_error(self, event_method: str, /, *args, **kwargs) -> None:
         """

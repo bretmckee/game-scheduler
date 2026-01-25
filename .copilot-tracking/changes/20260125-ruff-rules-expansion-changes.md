@@ -70,5 +70,14 @@ Incrementally expanding Ruff linting rules across 7 phases to address 878 violat
 - pyproject.toml - Added T20 (flake8-print) to select list for production code
 - pyproject.toml - Added T201 to per-file-ignores for tests, scripts, and test_oauth.py to allow print statements in appropriate contexts
 - shared/database_objects.py - Refactored 4 section header comments to avoid ERA001 false positives while maintaining purpose documentation
+- services/api/services/games.py - Combined nested if statements using and operator for template signup method validation (SIM102)
+- services/bot/bot.py - Combined nested if statements for button handler interaction type check (SIM102)
+- shared/telemetry.py - Added noqa:PLC2701 comments for intentional OpenTelemetry private API imports (_log_exporter and _logs modules)
+- scripts/check_commit_duplicates.py - Added explicit encoding='utf-8' to open() call (PLW1514)
+- services/bot/formatters/game_message.py - Replaced try-except-pass with contextlib.suppress for status display error handling (SIM105)
+- services/bot/handlers/utils.py - Replaced try-except-pass with contextlib.suppress for interaction defer error handling (SIM105)
+- services/bot/main.py - Replaced try-except-pass with contextlib.suppress for KeyboardInterrupt handling (SIM105)
+- services/init/migrations.py - Added explicit check=False to subprocess.run call (PLW1510)
+- pyproject.toml - Added Phase 2 code quality rules to select list: RET, SIM, TC, PLE, PLW, PLC, ERA, A, DTZ, ICN, PT
 
 ### Removed

@@ -22,6 +22,7 @@ This module provides utilities for formatting Discord messages for game sessions
 including announcements, updates, and participant lists.
 """
 
+import contextlib
 from datetime import datetime
 
 import discord
@@ -201,10 +202,8 @@ class GameMessageFormatter:
             embed.add_field(name="Links", value=links_value, inline=True)
 
         status_display = status
-        try:
+        with contextlib.suppress(ValueError, AttributeError):
             status_display = GameStatus(status).display_name
-        except (ValueError, AttributeError):
-            pass
 
         embed.set_footer(text=f"Status: {status_display}")
 
