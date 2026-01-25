@@ -19,7 +19,7 @@
 """Game session model."""
 
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import TYPE_CHECKING
 
 from sqlalchemy import JSON, ForeignKey, Integer, LargeBinary, String, Text, func, text
@@ -36,7 +36,7 @@ if TYPE_CHECKING:
     from .user import User
 
 
-class GameStatus(str, Enum):
+class GameStatus(StrEnum):
     """Game session status."""
 
     SCHEDULED = "SCHEDULED"

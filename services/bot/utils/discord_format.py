@@ -254,7 +254,6 @@ def format_duration(minutes: int | None) -> str:
 
     if hours > 0 and remaining_minutes > 0:
         return f"{hours}h {remaining_minutes}m"
-    elif hours > 0:
+    if hours > 0:
         return f"{hours}h"
-    else:
-        return f"{remaining_minutes}m"
+    return f"{remaining_minutes}m"

@@ -208,9 +208,8 @@ def main(report_file: str):
     if commit_related_duplicates:
         _print_duplicate_report(commit_related_duplicates)
         return 1
-    else:
-        print("✅ No duplicates found in your changed lines")
-        return 0
+    print("✅ No duplicates found in your changed lines")
+    return 0
 
 
 if __name__ == "__main__":

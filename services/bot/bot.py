@@ -19,6 +19,7 @@
 """Discord bot implementation with Gateway connection."""
 
 import logging
+from typing import TYPE_CHECKING
 
 import discord
 from discord.ext import commands
@@ -26,15 +27,18 @@ from opentelemetry import trace
 
 from services.bot.config import BotConfig
 
+if TYPE_CHECKING:
+    from services.bot.events.handlers import EventHandlers
+    from services.bot.events.publisher import BotEventPublisher
+    from services.bot.handlers import ButtonHandler
+
 logger = logging.getLogger(__name__)
 tracer = trace.get_tracer(__name__)
 
 
 # Forward declarations to avoid circular imports
 if False:  # TYPE_CHECKING equivalent
-    from services.bot.events.handlers import EventHandlers
-    from services.bot.events.publisher import BotEventPublisher
-    from services.bot.handlers import ButtonHandler
+    pass
 
 
 class GameSchedulerBot(commands.Bot):

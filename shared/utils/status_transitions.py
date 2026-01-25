@@ -18,10 +18,10 @@
 
 """Status transition utilities for game lifecycle management."""
 
-from enum import Enum
+from enum import StrEnum
 
 
-class GameStatus(str, Enum):
+class GameStatus(StrEnum):
     """Valid game status values."""
 
     SCHEDULED = "SCHEDULED"
@@ -80,6 +80,6 @@ def get_next_status(current_status: str) -> str | None:
     """
     if current_status == GameStatus.SCHEDULED:
         return GameStatus.IN_PROGRESS
-    elif current_status == GameStatus.IN_PROGRESS:
+    if current_status == GameStatus.IN_PROGRESS:
         return GameStatus.COMPLETED
     return None

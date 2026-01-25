@@ -25,16 +25,12 @@ with Redis caching.
 
 import json
 import logging
-from typing import TYPE_CHECKING
 
 from services.api.dependencies.discord import get_discord_client
 from shared.cache import client as cache_client
 from shared.cache import keys as cache_keys
 from shared.cache import ttl as cache_ttl
 from shared.discord import client as discord_client
-
-if TYPE_CHECKING:
-    pass
 
 logger = logging.getLogger(__name__)
 
@@ -95,10 +91,9 @@ class DisplayNameResolver:
         """
         if member_avatar:
             return f"https://cdn.discordapp.com/guilds/{guild_id}/users/{user_id}/avatars/{member_avatar}.png?size={size}"
-        elif user_avatar:
+        if user_avatar:
             return f"https://cdn.discordapp.com/avatars/{user_id}/{user_avatar}.png?size={size}"
-        else:
-            return None
+        return None
 
     async def _fetch_and_cache_display_names(
         self, guild_id: str, uncached_ids: list[str]

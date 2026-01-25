@@ -54,7 +54,7 @@ Incrementally expand Ruff linting rules across 6 phases, fixing all violations f
 
 ### [ ] Phase 2: Code Quality & Maintainability (152 issues)
 
-- [ ] Task 2.1: Auto-fix return statements and type-checking imports
+- [x] Task 2.1: Auto-fix return statements and type-checking imports
   - Details: .copilot-tracking/details/20260125-ruff-rules-expansion-details.md (Lines 95-109)
 
 - [ ] Task 2.2: Review and refactor global statements

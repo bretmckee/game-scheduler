@@ -25,12 +25,14 @@ operations provide no benefit. Uses pika library instead of aio_pika.
 
 import logging
 import os
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pika
-from pika.adapters.blocking_connection import BlockingChannel, BlockingConnection
 
 from shared.messaging.events import Event, EventType
+
+if TYPE_CHECKING:
+    from pika.adapters.blocking_connection import BlockingChannel, BlockingConnection
 
 logger = logging.getLogger(__name__)
 

@@ -91,8 +91,7 @@ class RedisClient:
             await self.connect()
 
         try:
-            value = await self._client.get(key)
-            return value
+            return await self._client.get(key)
         except Exception as e:
             logger.error(f"Redis GET error for key {key}: {e}")
             return None
@@ -226,8 +225,7 @@ class RedisClient:
             await self.connect()
 
         try:
-            result = await self._client.expire(key, ttl)
-            return result
+            return await self._client.expire(key, ttl)
         except Exception as e:
             logger.error(f"Redis EXPIRE error for key {key}: {e}")
             return False

@@ -119,12 +119,11 @@ async def list_templates(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="No templates configured for this server. Please create a template first.",
             )
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You don't have permission to perform this operation on this server. "
-                "Contact a server manager if you believe this is incorrect.",
-            )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to perform this operation on this server. "
+            "Contact a server manager if you believe this is incorrect.",
+        )
 
     # Convert to response format with channel names
     result = []

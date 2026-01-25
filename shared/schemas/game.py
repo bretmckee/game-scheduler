@@ -19,6 +19,7 @@
 """Pydantic schemas for Game sessions."""
 
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -26,6 +27,9 @@ from shared.utils.security_constants import (
     DISCORD_SNOWFLAKE_MAX_LENGTH,
     DISCORD_SNOWFLAKE_MIN_LENGTH,
 )
+
+if TYPE_CHECKING:
+    from shared.schemas.participant import ParticipantResponse
 
 # Discord API constraints
 MAX_ROLES_PER_GAME = 10
@@ -205,6 +209,6 @@ class GameListResponse(BaseModel):
 
 
 # Import at end to avoid circular import
-from shared.schemas.participant import ParticipantResponse  # noqa: E402
+from shared.schemas.participant import ParticipantResponse  # noqa: E402, TC001
 
 GameResponse.model_rebuild()

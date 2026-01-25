@@ -24,14 +24,14 @@ events across the microservices architecture.
 """
 
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
 
-class EventType(str, Enum):
+class EventType(StrEnum):
     """Event types for inter-service messaging."""
 
     # Game lifecycle events

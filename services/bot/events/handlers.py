@@ -20,9 +20,8 @@
 
 import asyncio
 import logging
-from collections.abc import Callable
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import discord
 from sqlalchemy import select
@@ -53,6 +52,9 @@ from shared.schemas.events import GameStatusTransitionDueEvent
 from shared.utils.games import resolve_max_players
 from shared.utils.participant_sorting import partition_participants
 from shared.utils.status_transitions import is_valid_transition
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -1157,6 +1159,4 @@ class EventHandlers:
             .options(selectinload(GameSession.guild))
             .where(GameSession.id == str(UUID(game_id)))
         )
-        game = result.scalar_one_or_none()
-
-        return game
+        return result.scalar_one_or_none()

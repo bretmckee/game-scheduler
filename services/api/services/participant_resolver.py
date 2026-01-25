@@ -360,8 +360,7 @@ class ParticipantResolver:
                     )
                     raise discord_client_module.DiscordAPIError(response.status, error_msg)
 
-                response_data = await response.json()
-                return response_data
+                return await response.json()
 
         except discord_client_module.DiscordAPIError:
             raise

@@ -18,10 +18,10 @@
 
 """Signup method types for game sessions."""
 
-from enum import Enum
+from enum import StrEnum
 
 
-class SignupMethod(str, Enum):
+class SignupMethod(StrEnum):
     """Game signup method controlling participant addition."""
 
     SELF_SIGNUP = "SELF_SIGNUP"

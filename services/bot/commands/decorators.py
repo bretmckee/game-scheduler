@@ -48,9 +48,13 @@ def get_permissions(interaction: Interaction) -> discord.Permissions:
     return discord.Permissions.none()
 
 
-def require_manage_guild() -> Callable:
+def _create_permission_decorator(permission_attr: str, permission_display_name: str) -> Callable:
     """
-    Decorator to require MANAGE_GUILD permission for command execution.
+    Create a permission check decorator for Discord commands.
+
+    Args:
+        permission_attr: Permission attribute name (e.g., 'manage_guild')
+        permission_display_name: Human-readable permission name for error messages
 
     Returns:
         Decorator function that checks permissions before command execution
@@ -64,21 +68,32 @@ def require_manage_guild() -> Callable:
                     "❌ This command can only be used in a server.",
                     ephemeral=True,
                 )
-                return
+                return None
 
             permissions = get_permissions(interaction)
-            if not permissions.manage_guild:
+            if not getattr(permissions, permission_attr):
                 await interaction.response.send_message(
-                    "❌ You need the **Manage Server** permission to use this command.",
+                    f"❌ You need the **{permission_display_name}** permission "
+                    "to use this command.",
                     ephemeral=True,
                 )
-                return
+                return None
 
             return await func(interaction, *args, **kwargs)
 
         return wrapper
 
     return decorator
+
+
+def require_manage_guild() -> Callable:
+    """
+    Decorator to require MANAGE_GUILD permission for command execution.
+
+    Returns:
+        Decorator function that checks permissions before command execution
+    """
+    return _create_permission_decorator("manage_guild", "Manage Server")
 
 
 def require_manage_channels() -> Callable:
@@ -88,30 +103,7 @@ def require_manage_channels() -> Callable:
     Returns:
         Decorator function that checks permissions before command execution
     """
-
-    def decorator(func: Callable) -> Callable:
-        @wraps(func)
-        async def wrapper(interaction: Interaction, *args, **kwargs):
-            if not interaction.guild:
-                await interaction.response.send_message(
-                    "❌ This command can only be used in a server.",
-                    ephemeral=True,
-                )
-                return
-
-            permissions = get_permissions(interaction)
-            if not permissions.manage_channels:
-                await interaction.response.send_message(
-                    "❌ You need the **Manage Channels** permission to use this command.",
-                    ephemeral=True,
-                )
-                return
-
-            return await func(interaction, *args, **kwargs)
-
-        return wrapper
-
-    return decorator
+    return _create_permission_decorator("manage_channels", "Manage Channels")
 
 
 __all__ = ["require_manage_guild", "require_manage_channels"]

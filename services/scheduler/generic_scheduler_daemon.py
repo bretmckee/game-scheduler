@@ -26,15 +26,18 @@ with a single parameterized scheduler using PostgreSQL LISTEN/NOTIFY.
 import logging
 import time
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from opentelemetry import trace
-from sqlalchemy.orm import Session
 
 from shared.database import SyncSessionLocal
 from shared.messaging.sync_publisher import SyncEventPublisher
 from shared.models.base import utc_now
 
 from .postgres_listener import PostgresNotificationListener
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 tracer = trace.get_tracer(__name__)

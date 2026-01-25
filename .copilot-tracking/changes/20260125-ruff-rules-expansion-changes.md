@@ -38,5 +38,19 @@ Incrementally expanding Ruff linting rules across 7 phases to address 878 violat
 - scripts/check_commit_duplicates.py - Added inline noqa:S404 comment for intentional subprocess usage
 - services/init/migrations.py - Added inline noqa:S404 comment for intentional subprocess usage
 - services/api/config.py - Added inline noqa:S104 comment for intentional 0.0.0.0 binding
+- scripts/check_commit_duplicates.py - Removed unnecessary else after return statement (RET505)
+- services/api/dependencies/permissions.py - Removed unnecessary variable assignments before return in can_manage_game and can_export_game (RET504)
+- services/api/routes/templates.py - Removed superfluous else after raise in list_templates error handling (RET506)
+- services/api/services/display_names.py - Removed empty TYPE_CHECKING block (TC005) and simplified nested if-else in _build_avatar_url (RET505)
+- services/api/services/participant_resolver.py - Removed unnecessary assignment before return in _search_guild_members (RET504)
+- services/bot/bot.py - Moved circular import forward declarations into proper TYPE_CHECKING block (TC001)
+- services/bot/commands/decorators.py - Added explicit None returns to improve consistency (RET502)
+- services/bot/events/handlers.py - Moved Callable import to TYPE_CHECKING block (TC003) and removed unnecessary assignment in _fetch_game_for_refresh (RET504)
+- services/bot/utils/discord_format.py - Simplified nested if-else chain in format_duration (RET505)
+- services/scheduler/generic_scheduler_daemon.py - Moved Session import to TYPE_CHECKING block (TC002)
+- shared/cache/client.py - Removed unnecessary assignments before return in get and expire methods (RET504)
+- shared/messaging/sync_publisher.py - Moved pika imports to TYPE_CHECKING block (TC002)
+- shared/schemas/game.py - Moved ParticipantResponse to TYPE_CHECKING block and re-imported at module end for model_rebuild with noqa:TC001 (TC001)
+- shared/utils/status_transitions.py - Replaced elif with if in get_next_status for cleaner flow (RET505)
 
 ### Removed

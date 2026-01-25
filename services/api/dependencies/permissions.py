@@ -559,11 +559,9 @@ async def can_manage_game(
     token_data = await tokens.get_user_tokens(current_user.session_token)
     access_token = token_data["access_token"] if token_data else None
 
-    is_bot_manager = await role_service.check_bot_manager_permission(
+    return await role_service.check_bot_manager_permission(
         current_user.user.discord_id, guild_id, db, access_token
     )
-
-    return is_bot_manager
 
 
 async def can_export_game(
@@ -618,11 +616,7 @@ async def can_export_game(
         return True
 
     # Check if user is bot manager or admin
-    is_bot_manager = await role_service.check_bot_manager_permission(
-        discord_id, guild_id, db, access_token
-    )
-
-    return is_bot_manager
+    return await role_service.check_bot_manager_permission(discord_id, guild_id, db, access_token)
 
 
 async def require_administrator(
