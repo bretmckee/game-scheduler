@@ -26,11 +26,11 @@ import pytest
 from discord import Interaction
 
 from services.bot.commands.list_games import (
-    _create_games_list_embed,
     _determine_fetch_strategy,
     _fetch_games_by_strategy,
     list_games_command,
 )
+from shared.discord.game_embeds import build_game_list_embed
 from shared.models import GameSession
 
 
@@ -123,9 +123,7 @@ async def test_list_games_current_channel_success(
 
 
 @pytest.mark.asyncio
-async def test_list_games_current_channel_no_results(
-    mock_interaction, mock_guild, mock_channel
-):
+async def test_list_games_current_channel_no_results(mock_interaction, mock_guild, mock_channel):
     """Test list_games_command for current channel with no results."""
     mock_interaction.guild = mock_guild
     mock_interaction.channel = mock_channel
@@ -211,8 +209,8 @@ async def test_list_games_error_handling(mock_interaction, mock_guild, mock_chan
 
 
 def test_create_games_list_embed_single_game(sample_games):
-    """Test _create_games_list_embed with one game."""
-    embed = _create_games_list_embed("Test Title", sample_games[:1])
+    """Test build_game_list_embed with one game."""
+    embed = build_game_list_embed(sample_games[:1], "Test Title")
 
     assert embed.title == "Test Title"
     assert len(embed.fields) == 1
@@ -221,8 +219,8 @@ def test_create_games_list_embed_single_game(sample_games):
 
 
 def test_create_games_list_embed_multiple_games(sample_games):
-    """Test _create_games_list_embed with multiple games."""
-    embed = _create_games_list_embed("Test Title", sample_games)
+    """Test build_game_list_embed with multiple games."""
+    embed = build_game_list_embed(sample_games, "Test Title")
 
     assert embed.title == "Test Title"
     assert len(embed.fields) == 3
@@ -230,7 +228,7 @@ def test_create_games_list_embed_multiple_games(sample_games):
 
 
 def test_create_games_list_embed_pagination():
-    """Test _create_games_list_embed pagination at 10+ games."""
+    """Test build_game_list_embed pagination at 10+ games."""
     now = datetime.now(UTC)
     many_games = [
         GameSession(
@@ -246,17 +244,17 @@ def test_create_games_list_embed_pagination():
         for i in range(15)
     ]
 
-    embed = _create_games_list_embed("Test Title", many_games)
+    embed = build_game_list_embed(many_games, "Test Title")
 
     assert len(embed.fields) == 10
     assert "Showing 10 of 15 games" in embed.footer.text
 
 
 def test_create_games_list_embed_long_description(sample_games):
-    """Test _create_games_list_embed truncates long descriptions."""
+    """Test build_game_list_embed truncates long descriptions."""
     sample_games[0].description = "A" * 200
 
-    embed = _create_games_list_embed("Test Title", sample_games)
+    embed = build_game_list_embed(sample_games, "Test Title")
 
     field_value = embed.fields[0].value
     assert "A" * 100 in field_value
@@ -354,9 +352,7 @@ class TestFetchGamesByStrategy:
         assert result == sample_games
 
     @pytest.mark.asyncio
-    async def test_channel_strategy_calls_get_channel_games(
-        self, mock_channel, sample_games
-    ):
+    async def test_channel_strategy_calls_get_channel_games(self, mock_channel, sample_games):
         """Test channel strategy fetches channel games."""
         mock_db = AsyncMock()
 
@@ -376,9 +372,7 @@ class TestFetchGamesByStrategy:
         """Test returns empty list when channel is None for channel strategy."""
         mock_db = AsyncMock()
 
-        result = await _fetch_games_by_strategy(
-            mock_db, "specific_channel", "123", None
-        )
+        result = await _fetch_games_by_strategy(mock_db, "specific_channel", "123", None)
 
         assert result == []
 
@@ -387,8 +381,6 @@ class TestFetchGamesByStrategy:
         """Test returns empty list for unknown strategy."""
         mock_db = AsyncMock()
 
-        result = await _fetch_games_by_strategy(
-            mock_db, "unknown_strategy", "123", mock_channel
-        )
+        result = await _fetch_games_by_strategy(mock_db, "unknown_strategy", "123", mock_channel)
 
         assert result == []

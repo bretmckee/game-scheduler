@@ -26,9 +26,9 @@ import pytest
 from discord import Interaction
 
 from services.bot.commands.my_games import (
-    _create_games_embed,
     my_games_command,
 )
+from shared.discord.game_embeds import build_game_list_embed
 from shared.models import GameSession, User
 
 
@@ -239,8 +239,8 @@ async def test_my_games_error_handling(mock_interaction):
 
 
 def test_create_games_embed_basic(sample_games):
-    """Test _create_games_embed with basic games."""
-    embed = _create_games_embed("Test Title", sample_games, discord.Color.blue())
+    """Test build_game_list_embed with basic games."""
+    embed = build_game_list_embed(sample_games, "Test Title", discord.Color.blue())
 
     assert embed.title == "Test Title"
     assert len(embed.fields) == 2
@@ -248,7 +248,7 @@ def test_create_games_embed_basic(sample_games):
 
 
 def test_create_games_embed_pagination():
-    """Test _create_games_embed pagination."""
+    """Test build_game_list_embed pagination."""
     now = datetime.now(UTC)
     many_games = [
         GameSession(
@@ -264,7 +264,7 @@ def test_create_games_embed_pagination():
         for i in range(15)
     ]
 
-    embed = _create_games_embed("Test Title", many_games, discord.Color.blue())
+    embed = build_game_list_embed(many_games, "Test Title", discord.Color.blue())
 
     assert len(embed.fields) == 10
     assert "Showing 10 of 15 games" in embed.footer.text

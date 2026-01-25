@@ -19,7 +19,6 @@
 """My games slash command implementation."""
 
 import logging
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 import discord
@@ -29,8 +28,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database import get_db_session
+from shared.discord.game_embeds import build_game_list_embed
 from shared.models import GameParticipant, GameSession, User
-from shared.utils.limits import DEFAULT_PAGE_SIZE
 
 if TYPE_CHECKING:
     from services.bot.bot import GameSchedulerBot
@@ -74,17 +73,17 @@ async def my_games_command(interaction: Interaction) -> None:
                 embeds = []
 
                 if hosted_games:
-                    embed = _create_games_embed(
-                        "🎮 Games You're Hosting",
+                    embed = build_game_list_embed(
                         hosted_games,
+                        "🎮 Games You're Hosting",
                         discord.Color.green(),
                     )
                     embeds.append(embed)
 
                 if participating_games:
-                    embed = _create_games_embed(
-                        "👥 Games You've Joined",
+                    embed = build_game_list_embed(
                         participating_games,
+                        "👥 Games You've Joined",
                         discord.Color.blue(),
                     )
                     embeds.append(embed)
@@ -162,47 +161,6 @@ async def _get_participating_games(db: AsyncSession, user_id: str) -> list[GameS
         .order_by(GameSession.scheduled_at)
     )
     return list(result.scalars().all())
-
-
-def _create_games_embed(
-    title: str, games: list[GameSession], color: discord.Color
-) -> discord.Embed:
-    """
-    Create Discord embed for games list.
-
-    Args:
-        title: Embed title
-        games: List of game sessions
-        color: Embed color
-
-    Returns:
-        Discord embed with games list
-    """
-    embed = discord.Embed(
-        title=title,
-        color=color,
-        timestamp=datetime.now(UTC),
-    )
-
-    for game in games[:10]:
-        unix_timestamp = int(game.scheduled_at.timestamp())
-        value = f"🕒 <t:{unix_timestamp}:F> (<t:{unix_timestamp}:R>)\n"
-        if game.description:
-            value += f"{game.description[:100]}\n"
-        value += f"ID: `{game.id}`"
-
-        embed.add_field(
-            name=game.title,
-            value=value,
-            inline=False,
-        )
-
-    if len(games) > DEFAULT_PAGE_SIZE:
-        embed.set_footer(text=f"Showing {DEFAULT_PAGE_SIZE} of {len(games)} games")
-    else:
-        embed.set_footer(text=f"{len(games)} game(s)")
-
-    return embed
 
 
 async def setup(bot: "GameSchedulerBot") -> None:

@@ -84,18 +84,18 @@ Reduce code duplication from 3.68% to under 2% by extracting common patterns int
 - [x] Task 2.6: Refactor get_guild_member method
   - Details: .copilot-tracking/details/20260114-duplicate-code-elimination-details.md (Lines 237-250)
 
-### [ ] Phase 3: Medium-Impact Game Embed Formatting
+### [x] Phase 3: Medium-Impact Game Embed Formatting
 
-- [ ] Task 3.1: Create build_game_list_embed function with unit tests
+- [x] Task 3.1: Create build_game_list_embed function with unit tests
   - Details: .copilot-tracking/details/20260114-duplicate-code-elimination-details.md (Lines 252-300)
 
-- [ ] Task 3.2: Refactor list_games command to use shared embed builder
+- [x] Task 3.2: Refactor list_games command to use shared embed builder
   - Details: .copilot-tracking/details/20260114-duplicate-code-elimination-details.md (Lines 302-315)
 
-- [ ] Task 3.3: Refactor my_games command to use shared embed builder
+- [x] Task 3.3: Refactor my_games command to use shared embed builder
   - Details: .copilot-tracking/details/20260114-duplicate-code-elimination-details.md (Lines 322-335)
 
-- [ ] Task 3.4: Add unit tests for build_game_list_embed
+- [x] Task 3.4: Add unit tests for build_game_list_embed
   - Details: .copilot-tracking/details/20260114-duplicate-code-elimination-details.md (Lines 337-355)
 
 ### [ ] Phase 4: Medium-Impact TypeScript Type Definitions

@@ -47,3 +47,20 @@ Reducing code duplication from 3.68% to under 2% by extracting common patterns i
   - Replaced `MagicMock()` headers with actual dicts to prevent AsyncMock iteration issues
 
 ### Removed
+
+## Phase 3 Progress
+
+### Task 3.1 Complete
+
+- [shared/discord/game_embeds.py](shared/discord/game_embeds.py): New module with `build_game_list_embed()` function to centralize game list embed formatting
+- [tests/shared/discord/test_game_embeds.py](tests/shared/discord/test_game_embeds.py): Comprehensive unit tests for `build_game_list_embed()` with 11 test cases covering single/multiple games, descriptions, pagination, colors, and edge cases
+
+### Task 3.2 Complete
+
+- [services/bot/commands/list_games.py](services/bot/commands/list_games.py): Refactored to use shared `build_game_list_embed()`, removed 24-line duplicate `_create_games_list_embed()` function, added import from shared module
+- [tests/services/bot/commands/test_list_games.py](tests/services/bot/commands/test_list_games.py): Updated to import and test shared `build_game_list_embed()` instead of removed local function
+
+### Task 3.3 Complete
+
+- [services/bot/commands/my_games.py](services/bot/commands/my_games.py): Refactored to use shared `build_game_list_embed()`, removed 27-line duplicate `_create_games_embed()` function, added import from shared module
+- [tests/services/bot/commands/test_my_games.py](tests/services/bot/commands/test_my_games.py): Updated to import and test shared `build_game_list_embed()` instead of removed local function

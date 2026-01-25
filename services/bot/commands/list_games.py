@@ -19,7 +19,6 @@
 """List games slash command implementation."""
 
 import logging
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 import discord
@@ -29,8 +28,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database import get_db_session
+from shared.discord.game_embeds import build_game_list_embed
 from shared.models import ChannelConfiguration, GameSession, GuildConfiguration
-from shared.utils.limits import DEFAULT_PAGE_SIZE
 
 if TYPE_CHECKING:
     from services.bot.bot import GameSchedulerBot
@@ -73,9 +72,7 @@ def _determine_fetch_strategy(
             channel,
         )
 
-    if not interaction.channel or not isinstance(
-        interaction.channel, discord.TextChannel
-    ):
+    if not interaction.channel or not isinstance(interaction.channel, discord.TextChannel):
         return None
 
     return (
@@ -130,12 +127,8 @@ async def list_games_command(
         attributes={
             "discord.command": "list-games",
             "discord.user_id": str(interaction.user.id),
-            "discord.guild_id": (
-                str(interaction.guild.id) if interaction.guild else None
-            ),
-            "discord.channel_id": (
-                str(interaction.channel_id) if interaction.channel_id else None
-            ),
+            "discord.guild_id": (str(interaction.guild.id) if interaction.guild else None),
+            "discord.channel_id": (str(interaction.channel_id) if interaction.channel_id else None),
             "command.show_all": show_all,
             "command.channel": str(channel.id) if channel else None,
         },
@@ -167,7 +160,7 @@ async def list_games_command(
                     )
                     return
 
-                embed = _create_games_list_embed(title, games)
+                embed = build_game_list_embed(games, title)
                 await interaction.followup.send(embed=embed, ephemeral=True)
 
         except Exception as e:
@@ -218,44 +211,6 @@ async def _get_all_guild_games(db: AsyncSession, guild_id: str) -> list[GameSess
         .order_by(GameSession.scheduled_at)
     )
     return list(result.scalars().all())
-
-
-def _create_games_list_embed(title: str, games: list[GameSession]) -> discord.Embed:
-    """
-    Create Discord embed for games list.
-
-    Args:
-        title: Embed title
-        games: List of game sessions
-
-    Returns:
-        Discord embed with games list
-    """
-    embed = discord.Embed(
-        title=title,
-        color=discord.Color.blue(),
-        timestamp=datetime.now(UTC),
-    )
-
-    for game in games[:10]:
-        unix_timestamp = int(game.scheduled_at.timestamp())
-        value = f"🕒 <t:{unix_timestamp}:F> (<t:{unix_timestamp}:R>)\n"
-        if game.description:
-            value += f"{game.description[:100]}\n"
-        value += f"ID: `{game.id}`"
-
-        embed.add_field(
-            name=game.title,
-            value=value,
-            inline=False,
-        )
-
-    if len(games) > DEFAULT_PAGE_SIZE:
-        embed.set_footer(text=f"Showing {DEFAULT_PAGE_SIZE} of {len(games)} games")
-    else:
-        embed.set_footer(text=f"{len(games)} game(s) found")
-
-    return embed
 
 
 async def setup(bot: "GameSchedulerBot") -> None:
