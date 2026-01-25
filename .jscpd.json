@@ -1,5 +1,5 @@
 {
-  "threshold": 3,
+  "threshold": 2,
   "reporters": ["console", "json"],
   "ignore": [
     "**/__pycache__/**",

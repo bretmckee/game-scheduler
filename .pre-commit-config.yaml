@@ -167,7 +167,7 @@ repos:
 
       # Full scan with detailed console output (manual, for investigation)
       - id: jscpd-full
-        name: Full duplicate code check (threshold 3%)
+        name: Full duplicate code check (threshold 2%)
         entry: npx --yes jscpd services shared frontend/src --config .jscpd.json
         language: system
         pass_filenames: false
