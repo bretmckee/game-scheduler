@@ -66,8 +66,8 @@ def init_telemetry(service_name: str) -> None:
     otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://grafana-alloy:4318")
     resource = Resource.create({"service.name": service_name})
 
-    print(f"🔭 Initializing OpenTelemetry for service: {service_name}")
-    print(f"   Endpoint: {otlp_endpoint}")
+    logger.info(f"Initializing OpenTelemetry for service: {service_name}")
+    logger.info(f"OTLP endpoint: {otlp_endpoint}")
 
     # Configure tracing
     tracer_provider = TracerProvider(resource=resource)
@@ -79,8 +79,7 @@ def init_telemetry(service_name: str) -> None:
         )
     )
     trace.set_tracer_provider(tracer_provider)
-    print(f"   ✓ Traces: {otlp_endpoint}/v1/traces")
-    logger.info("OpenTelemetry tracing initialized")
+    logger.info(f"OpenTelemetry tracing initialized: {otlp_endpoint}/v1/traces")
 
     # Configure metrics
     metric_reader = PeriodicExportingMetricReader(
@@ -91,8 +90,7 @@ def init_telemetry(service_name: str) -> None:
     )
     meter_provider = MeterProvider(resource=resource, metric_readers=[metric_reader])
     metrics.set_meter_provider(meter_provider)
-    print(f"   ✓ Metrics: {otlp_endpoint}/v1/metrics (export every 60s)")
-    logger.info("OpenTelemetry metrics initialized")
+    logger.info(f"OpenTelemetry metrics initialized: {otlp_endpoint}/v1/metrics (export every 60s)")
 
     # Configure logging with OTLP export and trace correlation
     logger_provider = LoggerProvider(resource=resource)
@@ -107,8 +105,7 @@ def init_telemetry(service_name: str) -> None:
     # Add OpenTelemetry logging handler to root logger for trace correlation
     handler = LoggingHandler(level=logging.NOTSET, logger_provider=logger_provider)
     logging.getLogger().addHandler(handler)
-    print(f"   ✓ Logs: {otlp_endpoint}/v1/logs")
-    logger.info("OpenTelemetry logging initialized")
+    logger.info(f"OpenTelemetry logging initialized: {otlp_endpoint}/v1/logs")
 
     # Auto-instrument common libraries
     SQLAlchemyInstrumentor().instrument()
@@ -116,9 +113,11 @@ def init_telemetry(service_name: str) -> None:
     RedisInstrumentor().instrument()
     AioPikaInstrumentor().instrument()
 
-    print("   ✓ Auto-instrumentation enabled (SQLAlchemy, asyncpg, Redis, aio-pika)")
+    logger.info(
+        f"OpenTelemetry instrumentation enabled for {service_name} "
+        "(SQLAlchemy, asyncpg, Redis, aio-pika)"
+    )
     # FastAPI instrumentation happens via middleware, initialized when app is created
-    logger.info(f"OpenTelemetry instrumentation enabled for {service_name}")
 
 
 def flush_telemetry() -> None:
@@ -131,7 +130,7 @@ def flush_telemetry() -> None:
     if os.getenv("PYTEST_RUNNING") or os.getenv("PYTEST_CURRENT_TEST"):
         return
 
-    print("   ⏳ Flushing telemetry data...")
+    logger.debug("Flushing telemetry data...")
 
     # Flush traces
     tracer_provider = trace.get_tracer_provider()
@@ -143,7 +142,7 @@ def flush_telemetry() -> None:
     if hasattr(meter_provider, "force_flush"):
         meter_provider.force_flush(timeout_millis=5000)
 
-    print("   ✓ Telemetry data flushed")
+    logger.info("Telemetry data flushed")
 
 
 def get_tracer(name: str):

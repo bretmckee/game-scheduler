@@ -83,6 +83,7 @@ select = [
     "S",      # flake8-bandit security checks
     "ASYNC",  # flake8-async
     "FAST",   # FastAPI-specific
+    "T20",    # flake8-print (no print statements in production code)
 ]
 ignore = [
     "S101",   # Allow assert (tests handle separately)
@@ -106,6 +107,13 @@ exclude = []
     "S106",     # Hardcoded passwords in fixtures
     "S105",     # Hardcoded password strings
     "S108",     # Temp file/directory paths in test mocks
+    "T201",     # Print statements allowed in tests
+]
+"scripts/**/*.py" = [
+    "T201",     # Print statements allowed in CLI scripts
+]
+"test_oauth.py" = [
+    "T201",     # Print statements allowed in manual test script
 ]
 
 [tool.ruff.lint.isort]

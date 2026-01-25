@@ -60,7 +60,7 @@ Incrementally expand Ruff linting rules across 6 phases, fixing all violations f
 - [x] Task 2.2: Review and refactor global statements
   - Details: .copilot-tracking/details/20260125-ruff-rules-expansion-details.md (Lines 111-125)
 
-- [ ] Task 2.3: Replace print statements with logging
+- [x] Task 2.3: Replace print statements with logging
   - Details: .copilot-tracking/details/20260125-ruff-rules-expansion-details.md (Lines 127-141)
 
 - [ ] Task 2.4: Remove commented-out code

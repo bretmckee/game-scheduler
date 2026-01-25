@@ -65,5 +65,9 @@ Incrementally expanding Ruff linting rules across 7 phases to address 878 violat
 - shared/cache/client.py - Added noqa:PLW0603 comments justifying singleton patterns for Redis and sync Redis clients
 - shared/discord/client.py - Added noqa:PLW0603 comment justifying singleton pattern for legacy Discord client
 - shared/messaging/config.py - Added noqa:PLW0603 comments justifying singleton pattern for RabbitMQ connection pooling and cleanup
+- shared/telemetry.py - Replaced 8 print statements with appropriate logger.info and logger.debug calls for telemetry initialization and flushing
+- tests/shared/test_telemetry.py - Created comprehensive unit tests for telemetry module with 13 test cases covering init_telemetry, flush_telemetry, and get_tracer functions using proper mocking
+- pyproject.toml - Added T20 (flake8-print) to select list for production code
+- pyproject.toml - Added T201 to per-file-ignores for tests, scripts, and test_oauth.py to allow print statements in appropriate contexts
 
 ### Removed
