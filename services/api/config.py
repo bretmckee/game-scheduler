@@ -67,7 +67,7 @@ _config_instance: APIConfig | None = None
 
 def get_api_config() -> APIConfig:
     """Get API configuration singleton."""
-    global _config_instance
+    global _config_instance  # noqa: PLW0603 - Singleton pattern for config instance
     if _config_instance is None:
         _config_instance = APIConfig()
     return _config_instance

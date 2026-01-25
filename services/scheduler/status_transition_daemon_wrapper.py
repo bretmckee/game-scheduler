@@ -42,7 +42,7 @@ shutdown_requested = False
 
 def signal_handler(signum: int, frame) -> None:
     """Handle shutdown signals gracefully."""
-    global shutdown_requested
+    global shutdown_requested  # noqa: PLW0603 - Required for signal handler communication
     logger.info(f"Received signal {signum}, initiating graceful shutdown")
     shutdown_requested = True
 

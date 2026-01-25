@@ -76,7 +76,7 @@ async def get_rabbitmq_connection(
     Returns:
         Robust connection that automatically reconnects on failure.
     """
-    global _connection
+    global _connection  # noqa: PLW0603 - Singleton pattern for RabbitMQ connection pooling
 
     async with _connection_lock:
         if _connection is None or _connection.is_closed:
@@ -104,7 +104,7 @@ async def get_rabbitmq_connection(
 
 async def close_rabbitmq_connection() -> None:
     """Close RabbitMQ connection gracefully."""
-    global _connection
+    global _connection  # noqa: PLW0603 - Singleton pattern for RabbitMQ connection cleanup
 
     if _connection and not _connection.is_closed:
         logger.info("Closing RabbitMQ connection")

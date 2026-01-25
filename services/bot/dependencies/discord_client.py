@@ -35,7 +35,7 @@ def get_discord_client() -> DiscordAPIClient:
     Returns:
         Configured DiscordAPIClient instance using bot service credentials
     """
-    global _discord_client_instance
+    global _discord_client_instance  # noqa: PLW0603 - Singleton pattern for Discord client
     if _discord_client_instance is None:
         bot_config = config.get_config()
         _discord_client_instance = DiscordAPIClient(

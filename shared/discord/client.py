@@ -661,7 +661,7 @@ def _get_global_client() -> DiscordAPIClient:
     This is a fallback for legacy helper functions that don't accept a client parameter.
     New code should use get_discord_client() from service-specific dependencies.
     """
-    global _global_client_instance
+    global _global_client_instance  # noqa: PLW0603 - Singleton pattern for legacy Discord client
     if _global_client_instance is None:
         from services.api.dependencies.discord import (  # noqa: PLC0415
             get_discord_client,

@@ -93,7 +93,7 @@ def get_config() -> BotConfig:
     Returns:
         Singleton BotConfig instance loaded from environment variables
     """
-    global _config
+    global _config  # noqa: PLW0603 - Singleton pattern for bot config instance
     if _config is None:
         _config = BotConfig()
     return _config

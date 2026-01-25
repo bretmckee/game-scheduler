@@ -57,7 +57,7 @@ _config = None
 
 def get_config() -> SchedulerConfig:
     """Get singleton configuration instance."""
-    global _config
+    global _config  # noqa: PLW0603 - Singleton pattern for scheduler config instance
     if _config is None:
         _config = SchedulerConfig()
     return _config

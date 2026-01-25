@@ -260,7 +260,7 @@ async def get_redis_client() -> RedisClient:
     Returns:
         Initialized RedisClient instance.
     """
-    global _redis_client
+    global _redis_client  # noqa: PLW0603 - Singleton pattern for Redis client
 
     if _redis_client is None:
         _redis_client = RedisClient()
@@ -330,7 +330,7 @@ def get_sync_redis_client() -> SyncRedisClient:
     Returns:
         Initialized SyncRedisClient instance.
     """
-    global _sync_redis_client
+    global _sync_redis_client  # noqa: PLW0603 - Singleton pattern for sync Redis client
 
     if _sync_redis_client is None:
         _sync_redis_client = SyncRedisClient()

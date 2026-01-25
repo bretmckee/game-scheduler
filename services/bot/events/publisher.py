@@ -128,7 +128,7 @@ _publisher_instance: BotEventPublisher | None = None
 
 def get_bot_publisher() -> BotEventPublisher:
     """Get or create global bot event publisher instance."""
-    global _publisher_instance
+    global _publisher_instance  # noqa: PLW0603 - Singleton pattern for event publisher
     if _publisher_instance is None:
         _publisher_instance = BotEventPublisher()
     return _publisher_instance

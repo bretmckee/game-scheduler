@@ -57,7 +57,7 @@ Incrementally expand Ruff linting rules across 6 phases, fixing all violations f
 - [x] Task 2.1: Auto-fix return statements and type-checking imports
   - Details: .copilot-tracking/details/20260125-ruff-rules-expansion-details.md (Lines 95-109)
 
-- [ ] Task 2.2: Review and refactor global statements
+- [x] Task 2.2: Review and refactor global statements
   - Details: .copilot-tracking/details/20260125-ruff-rules-expansion-details.md (Lines 111-125)
 
 - [ ] Task 2.3: Replace print statements with logging

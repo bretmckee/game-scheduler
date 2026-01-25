@@ -52,5 +52,18 @@ Incrementally expanding Ruff linting rules across 7 phases to address 878 violat
 - shared/messaging/sync_publisher.py - Moved pika imports to TYPE_CHECKING block (TC002)
 - shared/schemas/game.py - Moved ParticipantResponse to TYPE_CHECKING block and re-imported at module end for model_rebuild with noqa:TC001 (TC001)
 - shared/utils/status_transitions.py - Replaced elif with if in get_next_status for cleaner flow (RET505)
+- services/api/auth/roles.py - Added noqa:PLW0603 comment justifying singleton pattern for role verification service
+- services/api/config.py - Added noqa:PLW0603 comment justifying singleton pattern for API configuration
+- services/api/dependencies/discord.py - Added noqa:PLW0603 comment justifying singleton pattern for Discord API client
+- services/bot/config.py - Added noqa:PLW0603 comment justifying singleton pattern for bot configuration
+- services/bot/dependencies/discord_client.py - Added noqa:PLW0603 comment justifying singleton pattern for bot Discord client
+- services/bot/events/publisher.py - Added noqa:PLW0603 comment justifying singleton pattern for bot event publisher
+- services/retry/retry_daemon_wrapper.py - Added noqa:PLW0603 comment justifying global for signal handler communication
+- services/scheduler/config.py - Added noqa:PLW0603 comment justifying singleton pattern for scheduler configuration
+- services/scheduler/notification_daemon_wrapper.py - Added noqa:PLW0603 comment justifying global for signal handler communication
+- services/scheduler/status_transition_daemon_wrapper.py - Added noqa:PLW0603 comment justifying global for signal handler communication
+- shared/cache/client.py - Added noqa:PLW0603 comments justifying singleton patterns for Redis and sync Redis clients
+- shared/discord/client.py - Added noqa:PLW0603 comment justifying singleton pattern for legacy Discord client
+- shared/messaging/config.py - Added noqa:PLW0603 comments justifying singleton pattern for RabbitMQ connection pooling and cleanup
 
 ### Removed

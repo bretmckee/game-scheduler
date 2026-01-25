@@ -294,7 +294,7 @@ _role_service_instance: RoleVerificationService | None = None
 
 def get_role_service() -> RoleVerificationService:
     """Get role verification service singleton."""
-    global _role_service_instance
+    global _role_service_instance  # noqa: PLW0603 - Singleton pattern for service instance
     if _role_service_instance is None:
         _role_service_instance = RoleVerificationService()
     return _role_service_instance
