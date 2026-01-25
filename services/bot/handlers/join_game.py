@@ -29,6 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.bot.events.publisher import BotEventPublisher
 from services.bot.handlers.utils import (
+    get_participant_count,
     send_deferred_response,
     send_error_message,
 )
@@ -152,13 +153,7 @@ async def _validate_join_game(db: AsyncSession, game_id: uuid.UUID, user_discord
         db.add(user_result)
         await db.flush()
 
-    # Count current participants
-    result = await db.execute(
-        select(GameParticipant)
-        .where(GameParticipant.game_session_id == str(game_id))
-        .where(GameParticipant.user_id.isnot(None))
-    )
-    participant_count = len(result.scalars().all())
+    participant_count = await get_participant_count(db, game_id)
 
     return {
         "can_join": True,

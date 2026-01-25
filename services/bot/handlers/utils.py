@@ -19,8 +19,13 @@
 """Utilities for interaction handling."""
 
 import logging
+import uuid
 
 import discord
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from shared.models.participant import GameParticipant
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +41,24 @@ async def send_deferred_response(interaction: discord.Interaction) -> None:
             await interaction.response.defer(ephemeral=True)
         except discord.HTTPException:
             pass
+
+
+async def get_participant_count(db: AsyncSession, game_id: uuid.UUID | str) -> int:
+    """Get count of non-placeholder participants in a game.
+
+    Args:
+        db: Database session
+        game_id: Game session ID (UUID or string)
+
+    Returns:
+        Number of participants with actual user IDs (excludes placeholders)
+    """
+    result = await db.execute(
+        select(GameParticipant)
+        .where(GameParticipant.game_session_id == str(game_id))
+        .where(GameParticipant.user_id.isnot(None))
+    )
+    return len(result.scalars().all())
 
 
 async def send_error_message(interaction: discord.Interaction, message: str) -> None:

@@ -41,15 +41,15 @@ Eliminate high and medium priority code duplications identified by jscpd analysi
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Quick Wins - Participant Count Query
+### [x] Phase 1: Quick Wins - Participant Count Query
 
-- [ ] Task 1.1: Extract participant count helper function and create unit tests
+- [x] Task 1.1: Extract participant count helper function and create unit tests
   - Details: .copilot-tracking/details/20260125-remaining-duplication-elimination-details.md (Lines 15-40)
 
-- [ ] Task 1.2: Update join_game.py to use helper
+- [x] Task 1.2: Update join_game.py to use helper
   - Details: .copilot-tracking/details/20260125-remaining-duplication-elimination-details.md (Lines 42-53)
 
-- [ ] Task 1.3: Update leave_game.py to use helper
+- [x] Task 1.3: Update leave_game.py to use helper
   - Details: .copilot-tracking/details/20260125-remaining-duplication-elimination-details.md (Lines 55-66)
 
 ### [ ] Phase 2: Response Construction Patterns
