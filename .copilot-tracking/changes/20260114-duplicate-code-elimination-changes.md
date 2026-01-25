@@ -78,3 +78,21 @@ Note: The plan file lists Tasks 4.2 (Create TemplateUpdate utility type) and 4.3
 - TypeScript type checking passed (`npm run type-check`) with no errors
 - Full frontend build succeeded (`npm run build`) with no compilation errors
 - All TypeScript files using Template types compile correctly
+
+## Phase 5 Progress
+
+### Task 5.1 Complete
+
+- [services/bot/events/handlers.py](services/bot/events/handlers.py#L338-L374): New `_fetch_channel_and_message()` helper method to centralize channel and message fetching with validation
+- [tests/services/bot/events/test_handlers.py](tests/services/bot/events/test_handlers.py#L2170-L2262): Unit tests for `_fetch_channel_and_message()` with 6 test cases covering successful fetch, channel not cached, invalid channel, wrong channel type, message not found, and fetch errors
+
+### Task 5.2 Complete
+
+- [services/bot/events/handlers.py](services/bot/events/handlers.py#L844-L873): Refactored `_update_message_for_player_removal()` to use shared `_fetch_channel_and_message()`, reducing from 33 to 30 lines and eliminating 17 lines of duplicate channel/message fetching logic
+
+### Task 5.3 Complete
+
+- [services/bot/events/handlers.py](services/bot/events/handlers.py#L963-1009): Refactored `_handle_game_cancelled()` to use shared `_fetch_channel_and_message()`, eliminating separate `_fetch_and_validate_channel()` and `_update_cancelled_game_message()` methods
+- [services/bot/events/handlers.py](services/bot/events/handlers.py): Removed 47-line `_fetch_and_validate_channel()` method (now redundant with new helper)
+- [services/bot/events/handlers.py](services/bot/events/handlers.py): Removed 20-line `_update_cancelled_game_message()` method (logic inlined into handler)
+- [tests/services/bot/events/test_handlers.py](tests/services/bot/events/test_handlers.py): Updated cancellation tests to mock `_fetch_channel_and_message()` instead of removed methods, removed 7 obsolete helper method tests

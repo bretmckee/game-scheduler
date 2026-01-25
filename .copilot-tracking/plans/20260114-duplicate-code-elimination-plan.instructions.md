@@ -109,16 +109,16 @@ Reduce code duplication from 3.68% to under 2% by extracting common patterns int
 - [x] Task 4.3: Verify TypeScript compilation and type checking
   - Details: .copilot-tracking/details/20260114-duplicate-code-elimination-details.md (Lines 397-408)
 
-### [ ] Phase 5: Medium-Impact Channel Message Fetching
+### [x] Phase 5: Medium-Impact Channel Message Fetching
 
-- [ ] Task 5.1: Create _fetch_channel_and_message helper with unit tests
-  - Details: .copilot-tracking/details/20260114-duplicate-code-elimination-details.md (Lines 410-465)
+- [x] Task 5.1: Create _fetch_channel_and_message helper with unit tests
+  - Details: .copilot-tracking/details/20260114-duplicate-code-elimination-details.md (Lines 492-553)
 
-- [ ] Task 5.2: Refactor first event handler to use helper
-  - Details: .copilot-tracking/details/20260114-duplicate-code-elimination-details.md (Lines 467-482)
+- [x] Task 5.2: Refactor first event handler to use helper
+  - Details: .copilot-tracking/details/20260114-duplicate-code-elimination-details.md (Lines 555-569)
 
-- [ ] Task 5.3: Refactor second event handler to use helper
-  - Details: .copilot-tracking/details/20260114-duplicate-code-elimination-details.md (Lines 484-499)
+- [x] Task 5.3: Refactor second event handler to use helper
+  - Details: .copilot-tracking/details/20260114-duplicate-code-elimination-details.md (Lines 571-584)
 
 ### [ ] Phase 6: Verification and Documentation
 

@@ -337,6 +337,40 @@ class EventHandlers:
             logger.warning(f"Message not found: {message_id}")
             return None
 
+    async def _fetch_channel_and_message(
+        self,
+        channel_id: str,
+        message_id: str,
+    ) -> tuple[discord.TextChannel, discord.Message] | None:
+        """
+        Fetch Discord channel and message objects with validation.
+
+        Args:
+            channel_id: Discord channel ID
+            message_id: Discord message ID
+
+        Returns:
+            Tuple of (channel, message) or None if not found/invalid
+        """
+        channel = self.bot.get_channel(int(channel_id))
+        if not channel:
+            try:
+                channel = await self.bot.fetch_channel(int(channel_id))
+            except Exception as e:
+                logger.error(f"Invalid or inaccessible channel: {channel_id} - {e}")
+                return None
+
+        if not channel or not isinstance(channel, discord.TextChannel):
+            logger.error(f"Invalid or inaccessible channel: {channel_id}")
+            return None
+
+        try:
+            message = await channel.fetch_message(int(message_id))
+            return (channel, message)
+        except Exception as e:
+            logger.error(f"Failed to fetch message {message_id}: {e}")
+            return None
+
     async def _update_game_message_content(
         self, message: discord.Message, game: game_model.GameSession
     ) -> None:
@@ -819,16 +853,12 @@ class EventHandlers:
                 logger.error(f"Game not found: {game_id}")
                 return
 
-            channel = self.bot.get_channel(int(channel_id))
-            if not channel:
-                channel = await self.bot.fetch_channel(int(channel_id))
-
-            if not channel or not isinstance(channel, discord.TextChannel):
-                logger.error(f"Invalid or inaccessible channel: {channel_id}")
+            result = await self._fetch_channel_and_message(channel_id, message_id)
+            if not result:
                 return
 
+            channel, message = result
             try:
-                message = await channel.fetch_message(int(message_id))
                 content, embed, view = await self._create_game_announcement(game)
                 await message.edit(content=content, embed=embed, view=view)
                 logger.info(f"Updated game message after participant removal: {message_id}")
@@ -930,54 +960,6 @@ class EventHandlers:
 
         return (game_id, message_id, channel_id)
 
-    async def _fetch_and_validate_channel(self, channel_id: str) -> discord.TextChannel | None:
-        """
-        Fetch and validate Discord channel for cancellation message update.
-
-        Args:
-            channel_id: Discord channel ID
-
-        Returns:
-            Discord TextChannel if valid and accessible, None otherwise
-        """
-        discord_api = get_discord_client()
-        channel_data = await discord_api.fetch_channel(channel_id)
-        if not channel_data:
-            logger.error(f"Invalid or inaccessible channel: {channel_id}")
-            return None
-
-        channel = self.bot.get_channel(int(channel_id))
-        if not channel:
-            channel = await self.bot.fetch_channel(int(channel_id))
-
-        if not channel or not isinstance(channel, discord.TextChannel):
-            logger.error(f"Invalid or inaccessible channel: {channel_id}")
-            return None
-
-        return channel
-
-    async def _update_cancelled_game_message(
-        self, channel: discord.TextChannel, message_id: str, game: Any
-    ) -> None:
-        """
-        Update game message to show cancellation status.
-
-        Args:
-            channel: Discord channel containing the message
-            message_id: Discord message ID to update
-            game: Game object with cancellation details
-        """
-        try:
-            message = await channel.fetch_message(int(message_id))
-            content, embed, view = await self._create_game_announcement(game)
-            await message.edit(content=content, embed=embed, view=view)
-            logger.info(f"Updated cancelled game message: {message_id}")
-
-        except discord.NotFound:
-            logger.warning(f"Game message not found: {message_id}")
-        except Exception as e:
-            logger.error(f"Failed to update cancelled game message: {e}", exc_info=True)
-
     async def _handle_game_cancelled(self, data: dict[str, Any]) -> None:
         """
         Handle game.cancelled event by updating Discord message to show cancellation.
@@ -998,11 +980,20 @@ class EventHandlers:
                     logger.error(f"Game not found: {game_id}")
                     return
 
-                channel = await self._fetch_and_validate_channel(channel_id)
-                if not channel:
+                result = await self._fetch_channel_and_message(channel_id, message_id)
+                if not result:
                     return
 
-                await self._update_cancelled_game_message(channel, message_id, game)
+                channel, message = result
+                try:
+                    content, embed, view = await self._create_game_announcement(game)
+                    await message.edit(content=content, embed=embed, view=view)
+                    logger.info(f"Updated cancelled game message: {message_id}")
+
+                except discord.NotFound:
+                    logger.warning(f"Game message not found: {message_id}")
+                except Exception as e:
+                    logger.error(f"Failed to update cancelled game message: {e}", exc_info=True)
 
         except Exception as e:
             logger.error(f"Failed to handle game.cancelled event: {e}", exc_info=True)
