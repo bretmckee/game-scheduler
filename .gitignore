@@ -48,6 +48,10 @@ logs/
 
 # Testing
 .pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
 *.out
 .coverage
 htmlcov/

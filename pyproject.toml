@@ -144,6 +144,7 @@ dev = [
 
 [tool.coverage.run]
 source = ["shared", "services"]
+relative_files = true
 omit = [
     "*/tests/*",
     "*/alembic/*",

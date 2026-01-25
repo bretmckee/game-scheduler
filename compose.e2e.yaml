@@ -110,7 +110,10 @@ services:
       context: .
       dockerfile: docker/test.Dockerfile
     container_name: ${CONTAINER_PREFIX:-gamebot-e2e}-tests
+    volumes:
+      - ./:/app:rw
     environment:
+      COVERAGE_FILE: /app/.coverage.e2e
       PYTHONUNBUFFERED: \"1\"
       PYTEST_RUNNING: "1"
       DATABASE_URL: ${DATABASE_URL}
@@ -140,7 +143,7 @@ services:
     networks:
       - app-network
     entrypoint: ["pytest", "-m", "e2e"]
-    command: -q --tb=line
+    command: --cov=shared --cov=services --cov-report= -q --tb=line
 
 # Use tmpfs for test volumes (in-memory, fast, auto-cleanup)
 volumes:

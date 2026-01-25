@@ -86,7 +86,10 @@ services:
       context: .
       dockerfile: docker/test.Dockerfile
     container_name: ${CONTAINER_PREFIX:-gamebot-integration}-tests
+    volumes:
+      - ./:/app:rw
     environment:
+      COVERAGE_FILE: /app/.coverage.integration
       PYTEST_RUNNING: "1"
       DATABASE_URL: ${DATABASE_URL}
       RABBITMQ_URL: ${RABBITMQ_URL}
@@ -114,7 +117,7 @@ services:
     networks:
       - app-network
     entrypoint: ["pytest", "-m", "integration"]
-    command: -q --tb=line
+    command: --cov=shared --cov=services --cov-report= -q --tb=line
 
 # Use tmpfs for test volumes (in-memory, fast, auto-cleanup)
 volumes:
