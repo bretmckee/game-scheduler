@@ -96,3 +96,60 @@ Note: The plan file lists Tasks 4.2 (Create TemplateUpdate utility type) and 4.3
 - [services/bot/events/handlers.py](services/bot/events/handlers.py): Removed 47-line `_fetch_and_validate_channel()` method (now redundant with new helper)
 - [services/bot/events/handlers.py](services/bot/events/handlers.py): Removed 20-line `_update_cancelled_game_message()` method (logic inlined into handler)
 - [tests/services/bot/events/test_handlers.py](tests/services/bot/events/test_handlers.py): Updated cancellation tests to mock `_fetch_channel_and_message()` instead of removed methods, removed 7 obsolete helper method tests
+
+## Phase 6 Progress
+
+### Task 6.1 Complete: jscpd Verification
+
+- **Result**: Code duplication reduced from **3.68% to 1.7%** (exceeding 2% target)
+- **Metrics**:
+  - Python: 1.7% line duplication, 2.19% token duplication
+  - TypeScript: 1.65% line duplication, 3.11% token duplication
+  - Overall: 1.7% line duplication, 2.24% token duplication
+- **Clones found**: 22 (reduced from 31 initial clones)
+
+### Task 6.2 Complete: Test Suite Verification
+
+- **Python tests**: All 1342 tests passed (185 deselected)
+- **TypeScript tests**: All 105 tests passed
+- **Result**: No regressions detected from refactoring
+
+### Task 6.3 Complete: Configuration Update
+
+- [.jscpd.json](.jscpd.json): Updated threshold from 5% to 3% to maintain improved duplication standards
+
+## Release Summary
+
+**Total Files Affected**: 11
+
+### Files Created (4)
+
+- [shared/discord/game_embeds.py](shared/discord/game_embeds.py) - Centralized game list embed formatting function
+- [tests/shared/discord/test_game_embeds.py](tests/shared/discord/test_game_embeds.py) - Comprehensive unit tests for game embed builder
+- New helper methods added to existing files (build_template_response, _make_api_request, _fetch_channel_and_message)
+
+### Files Modified (7)
+
+- [services/api/routes/templates.py](services/api/routes/templates.py) - Added build_template_response helper, refactored 4 endpoints
+- [tests/services/api/routes/test_templates.py](tests/services/api/routes/test_templates.py) - Added helper tests, updated endpoint tests
+- [shared/discord/client.py](shared/discord/client.py) - Added _make_api_request base method, refactored 5 API methods
+- [tests/shared/discord/test_client.py](tests/shared/discord/test_client.py) - Added base method tests, updated API method tests
+- [services/bot/commands/list_games.py](services/bot/commands/list_games.py) - Removed duplicate embed function, use shared function
+- [services/bot/commands/my_games.py](services/bot/commands/my_games.py) - Removed duplicate embed function, use shared function
+- [services/bot/events/handlers.py](services/bot/events/handlers.py) - Added _fetch_channel_and_message helper, refactored 2 handlers, removed 67 lines of duplicate code
+- [tests/services/bot/events/test_handlers.py](tests/services/bot/events/test_handlers.py) - Added helper tests, updated handler tests
+- [frontend/src/types/index.ts](frontend/src/types/index.ts) - Refactored TemplateUpdateRequest to use TypeScript utility types
+- [.jscpd.json](.jscpd.json) - Updated duplication threshold from 5% to 3%
+
+### Files Removed (0)
+
+### Dependencies & Infrastructure
+
+- **New Dependencies**: None
+- **Updated Dependencies**: None
+- **Infrastructure Changes**: None
+- **Configuration Updates**: jscpd threshold lowered from 5% to 3%
+
+### Deployment Notes
+
+This is a refactoring change with no behavioral modifications. All existing tests pass and no API changes were made. The changes can be deployed without requiring data migrations or configuration updates.
