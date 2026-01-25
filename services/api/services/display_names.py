@@ -58,6 +58,19 @@ class DisplayNameResolver:
         self.cache = cache
 
     @staticmethod
+    def _resolve_display_name(member: dict) -> str:
+        """
+        Resolve display name from Discord member data.
+
+        Args:
+            member: Discord member dictionary with 'user' and optional 'nick'
+
+        Returns:
+            Display name using fallback: nick -> global_name -> username
+        """
+        return member.get("nick") or member["user"].get("global_name") or member["user"]["username"]
+
+    @staticmethod
     def _build_avatar_url(
         user_id: str,
         guild_id: str,
@@ -105,11 +118,7 @@ class DisplayNameResolver:
 
         for member in members:
             user_id = member["user"]["id"]
-            display_name = (
-                member.get("nick")
-                or member["user"].get("global_name")
-                or member["user"]["username"]
-            )
+            display_name = self._resolve_display_name(member)
             result[user_id] = display_name
 
             cache_key = cache_keys.CacheKeys.display_name(user_id, guild_id)
@@ -235,11 +244,7 @@ class DisplayNameResolver:
 
         for member in members:
             user_id = member["user"]["id"]
-            display_name = (
-                member.get("nick")
-                or member["user"].get("global_name")
-                or member["user"]["username"]
-            )
+            display_name = self._resolve_display_name(member)
 
             member_avatar = member.get("avatar")
             user_avatar = member["user"].get("avatar")

@@ -13,12 +13,15 @@ Phase 2 complete - eliminated response construction duplication in guild and cha
 
 Phase 3 complete - consolidated authorization permission checks into generic `_require_permission()` helper. Eliminated 109 lines of duplicated authorization logic across 3 functions (`require_manage_guild`, `require_manage_channels`, `require_bot_manager`). All 50 authorization tests pass, confirming no functional regressions.
 
+Phase 4 complete - implemented optional improvements for display name resolution and game error handling. Extracted `_resolve_display_name()` helper to eliminate duplication in display name service (2 instances). Created `_handle_game_operation_errors()` helper to consolidate game operation error handling (2 instances). Added comprehensive unit tests for both helpers.
+
 **Duplication Metrics**:
 - Baseline: 22 clone pairs
 - After Phase 1: 22 clone pairs (participant count query was not detected by jscpd due to size)
 - After Phase 2: 22 clone pairs (response builders not detected by jscpd due to structure changes)
 - After Phase 3: 15 clone pairs (7 clone reduction from authorization consolidation)
-- **Total reduction: 32% fewer code clones**
+- After Phase 4: 12 clone pairs (3 clone reduction from display name and error handling)
+- **Total reduction: 45% fewer code clones (22 → 12)**
 
 ## Changes
 
@@ -45,5 +48,13 @@ Phase 3 complete - consolidated authorization permission checks into generic `_r
 - services/api/dependencies/permissions.py - Refactored `require_manage_guild()` to use `_require_permission()` helper (eliminated 37 lines of duplication)
 - services/api/dependencies/permissions.py - Refactored `require_manage_channels()` to use `_require_permission()` helper (eliminated 37 lines of duplication)
 - services/api/dependencies/permissions.py - Refactored `require_bot_manager()` to use `_require_permission()` helper (eliminated 35 lines of duplication)
+- services/api/services/display_names.py - Added `_resolve_display_name()` static helper method to resolve display names from member data using fallback logic
+- services/api/services/display_names.py - Updated `_fetch_display_names_from_discord()` to use `_resolve_display_name()` helper (eliminated 4 lines of duplication)
+- services/api/services/display_names.py - Updated `_fetch_and_cache_display_names_avatars()` to use `_resolve_display_name()` helper (eliminated 4 lines of duplication)
+- tests/services/api/services/test_display_names.py - Added 4 unit tests for `_resolve_display_name()` helper covering nickname, global_name, username fallbacks, and missing fields (all passing)
+- services/api/routes/games.py - Added `_handle_game_operation_errors()` helper function to consolidate ValidationError and ValueError handling
+- services/api/routes/games.py - Updated `create_game()` endpoint to use `_handle_game_operation_errors()` helper (eliminated 16 lines of error handling duplication)
+- services/api/routes/games.py - Updated `update_game()` endpoint to use `_handle_game_operation_errors()` helper (eliminated 22 lines of error handling duplication)
+- tests/services/api/routes/test_games.py - Created new test file with 5 unit tests for `_handle_game_operation_errors()` helper (all passing)
 
 ### Removed

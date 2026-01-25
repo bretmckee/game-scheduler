@@ -25,7 +25,7 @@ Provides CRUD operations for game sessions with validation and authorization.
 import json
 import logging
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, NoReturn
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import Response
@@ -195,6 +195,49 @@ async def _process_image_upload(
     return None, None
 
 
+def _handle_game_operation_errors(
+    e: Exception, form_data: game_schemas.GameCreateRequest | game_schemas.GameUpdateRequest
+) -> NoReturn:
+    """
+    Handle ValidationError and ValueError exceptions from game operations.
+
+    Args:
+        e: The exception to handle
+        form_data: Game form data to include in error response
+
+    Raises:
+        HTTPException: Appropriate HTTP exception based on error type
+    """
+    if isinstance(e, resolver_module.ValidationError):
+        raise HTTPException(
+            status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "error": "invalid_mentions",
+                "message": "Some @mentions could not be resolved",
+                "invalid_mentions": e.invalid_mentions,
+                "valid_participants": e.valid_participants,
+                "form_data": form_data.model_dump(mode="json"),
+            },
+        ) from None
+
+    if isinstance(e, ValueError):
+        error_msg = str(e)
+        if "not found" in error_msg.lower():
+            raise HTTPException(
+                status_code=http_status.HTTP_404_NOT_FOUND, detail=error_msg
+            ) from None
+        if "minimum players cannot be greater" in error_msg.lower():
+            raise HTTPException(
+                status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY, detail=error_msg
+            ) from None
+        raise HTTPException(status_code=http_status.HTTP_403_FORBIDDEN, detail=error_msg) from None
+
+    raise HTTPException(
+        status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail=f"Unexpected error type: {type(e).__name__}",
+    ) from e
+
+
 @router.post(
     "",
     response_model=game_schemas.GameResponse,
@@ -295,19 +338,8 @@ async def create_game(
 
         return await _build_game_response(game)
 
-    except resolver_module.ValidationError as e:
-        raise HTTPException(
-            status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "error": "invalid_mentions",
-                "message": "Some @mentions could not be resolved",
-                "invalid_mentions": e.invalid_mentions,
-                "valid_participants": e.valid_participants,
-                "form_data": game_data.model_dump(mode="json"),
-            },
-        ) from None
-    except ValueError as e:
-        raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail=str(e)) from None
+    except (resolver_module.ValidationError, ValueError) as e:
+        _handle_game_operation_errors(e, game_data)
 
 
 @router.get("", response_model=game_schemas.GameListResponse)
@@ -473,28 +505,8 @@ async def update_game(
 
         return await _build_game_response(game)
 
-    except resolver_module.ValidationError as e:
-        raise HTTPException(
-            status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "error": "invalid_mentions",
-                "message": "Some @mentions could not be resolved",
-                "invalid_mentions": e.invalid_mentions,
-                "valid_participants": e.valid_participants,
-                "form_data": update_data.model_dump(mode="json"),
-            },
-        ) from None
-    except ValueError as e:
-        error_msg = str(e)
-        if "not found" in error_msg.lower():
-            raise HTTPException(
-                status_code=http_status.HTTP_404_NOT_FOUND, detail=error_msg
-            ) from None
-        if "minimum players cannot be greater" in error_msg.lower():
-            raise HTTPException(
-                status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY, detail=error_msg
-            ) from None
-        raise HTTPException(status_code=http_status.HTTP_403_FORBIDDEN, detail=error_msg) from None
+    except (resolver_module.ValidationError, ValueError) as e:
+        _handle_game_operation_errors(e, update_data)
 
 
 @router.delete("/{game_id}", status_code=http_status.HTTP_204_NO_CONTENT)
