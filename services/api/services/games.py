@@ -234,7 +234,7 @@ class GameService:
             except resolver_module.ValidationError:
                 raise
             except Exception as e:
-                msg = f"Failed to resolve host mention: {str(e)}"
+                msg = f"Failed to resolve host mention: {e!s}"
                 raise ValueError(msg) from e
 
         host_result = await self.db.execute(
@@ -551,7 +551,7 @@ class GameService:
         )
 
         # Resolve host (handles bot manager override)
-        actual_host_user_id, host_user = await self._resolve_game_host(
+        _actual_host_user_id, host_user = await self._resolve_game_host(
             game_data, guild_config, host_user_id, access_token
         )
 
@@ -1340,7 +1340,11 @@ class GameService:
             raise ValueError(msg)
 
         # Capture current participant state for promotion detection
-        old_max_players, old_participants_snapshot, old_partitioned = self._capture_old_state(game)
+        (
+            _old_max_players,
+            _old_participants_snapshot,
+            old_partitioned,
+        ) = self._capture_old_state(game)
 
         # Update game fields
         schedule_needs_update, status_schedule_needs_update = self._update_game_fields(

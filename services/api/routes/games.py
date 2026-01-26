@@ -371,7 +371,7 @@ async def list_games(
     Supports filtering by guild, channel, and status with pagination.
     Games are filtered by guild membership and template player role restrictions.
     """
-    games, total = await game_service.list_games(
+    games, _total = await game_service.list_games(
         guild_id=guild_id,
         channel_id=channel_id,
         status=status,

@@ -174,6 +174,21 @@ Incrementally expanding Ruff linting rules across 7 phases to address 878 violat
 - services/retry/retry_daemon.py - Converted 2 logger.error with exc_info=True to logger.exception for DLQ processing (G201)
 - services/scheduler/services/notification_service.py - Converted logger.error with exc_info=True to logger.exception for notification failures (G201)
 - shared/messaging/consumer.py - Converted logger.error with exc_info=True to logger.exception for message handler failures (G201)
+- services/api/services/games.py - Fixed RUF010 by converting str(e) to !s format in exception message (explicit conversion flag)
+- services/api/services/participant_resolver.py - Fixed RUF010 by converting str(e) to !s format in network error message
+- services/api/routes/templates.py - Fixed RUF015 by replacing list(item.keys())[0] with next(iter(item.keys())) for template ID extraction
+- services/api/routes/games.py - Fixed RUF059 by prefixing unused total variable with underscore in list_games
+- services/api/services/games.py - Fixed 3 RUF059 violations by prefixing unused unpacked variables with underscores (actual_host_user_id, old_max_players, old_participants_snapshot)
+- services/bot/events/handlers.py - Fixed 2 RUF059 violations by prefixing unused channel variables with underscores; Fixed RUF006 by storing asyncio.create_task reference in _background_tasks set with cleanup callback
+- services/scheduler/config.py - Fixed RUF012 by annotating CELERY_ACCEPT_CONTENT with ClassVar[list[str]]
+- services/bot/commands/decorators.py - Fixed RUF022 by sorting __all__ exports alphabetically
+- shared/__init__.py - Fixed RUF022 by sorting __all__ exports alphabetically
+- shared/cache/__init__.py - Fixed RUF022 by sorting __all__ exports alphabetically
+- shared/discord/client.py - Fixed 6 RUF010 violations by converting str(e) to !s format in network error messages
+- shared/messaging/__init__.py - Fixed RUF022 by sorting __all__ exports alphabetically
+- shared/models/__init__.py - Fixed RUF022 by sorting __all__ exports alphabetically
+- shared/schemas/__init__.py - Fixed RUF022 by sorting __all__ exports alphabetically (complex multi-section list)
+- shared/utils/__init__.py - Fixed RUF022 by sorting __all__ exports alphabetically (multi-section list)
 
 ### Rejected Rules
 

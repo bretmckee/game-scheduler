@@ -381,7 +381,7 @@ class ParticipantResolver:
                 e,
             )
             raise discord_client_module.DiscordAPIError(
-                status.HTTP_500_INTERNAL_SERVER_ERROR, f"Network error: {str(e)}"
+                status.HTTP_500_INTERNAL_SERVER_ERROR, f"Network error: {e!s}"
             ) from e
 
     async def ensure_user_exists(

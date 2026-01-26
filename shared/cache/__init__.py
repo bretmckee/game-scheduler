@@ -23,8 +23,8 @@ from shared.cache.keys import CacheKeys
 from shared.cache.ttl import CacheTTL
 
 __all__ = [
-    "RedisClient",
-    "get_redis_client",
     "CacheKeys",
     "CacheTTL",
+    "RedisClient",
+    "get_redis_client",
 ]

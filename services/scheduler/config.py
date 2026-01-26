@@ -19,6 +19,7 @@
 """Scheduler service configuration."""
 
 import os
+from typing import ClassVar
 
 
 class SchedulerConfig:
@@ -36,7 +37,7 @@ class SchedulerConfig:
 
     CELERY_TASK_SERIALIZER: str = "json"
     CELERY_RESULT_SERIALIZER: str = "json"
-    CELERY_ACCEPT_CONTENT: list[str] = ["json"]
+    CELERY_ACCEPT_CONTENT: ClassVar[list[str]] = ["json"]
     CELERY_TIMEZONE: str = "UTC"
     CELERY_ENABLE_UTC: bool = True
 

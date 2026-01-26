@@ -31,14 +31,14 @@ from .user import User
 
 __all__ = [
     "Base",
-    "User",
-    "GuildConfiguration",
     "ChannelConfiguration",
+    "GameParticipant",
     "GameSession",
     "GameStatus",
-    "GameParticipant",
-    "NotificationSchedule",
     "GameStatusSchedule",
-    "SignupMethod",
     "GameTemplate",
+    "GuildConfiguration",
+    "NotificationSchedule",
+    "SignupMethod",
+    "User",
 ]

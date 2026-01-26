@@ -57,37 +57,37 @@ from shared.schemas.template import (
 from shared.schemas.user import UserPreferencesRequest, UserResponse
 
 __all__ = [
+    # Channel
+    "ChannelConfigCreateRequest",
+    "ChannelConfigResponse",
+    "ChannelConfigUpdateRequest",
+    # Game
+    "GameCreateRequest",
+    "GameListResponse",
+    "GameResponse",
+    "GameUpdateRequest",
+    # Guild
+    "GuildConfigCreateRequest",
+    "GuildConfigResponse",
+    "GuildConfigUpdateRequest",
+    "GuildListResponse",
     # Auth
     "LoginRequest",
     "LoginResponse",
     "OAuthCallbackRequest",
-    "RefreshTokenRequest",
-    "TokenResponse",
-    "UserInfoResponse",
-    # Channel
-    "ChannelConfigCreateRequest",
-    "ChannelConfigUpdateRequest",
-    "ChannelConfigResponse",
-    # Game
-    "GameCreateRequest",
-    "GameUpdateRequest",
-    "GameResponse",
-    "GameListResponse",
-    # Guild
-    "GuildConfigCreateRequest",
-    "GuildConfigUpdateRequest",
-    "GuildConfigResponse",
-    "GuildListResponse",
     # Participant
     "ParticipantJoinRequest",
     "ParticipantResponse",
+    "RefreshTokenRequest",
     # Template
     "TemplateCreateRequest",
-    "TemplateUpdateRequest",
-    "TemplateResponse",
     "TemplateListItem",
     "TemplateReorderRequest",
+    "TemplateResponse",
+    "TemplateUpdateRequest",
+    "TokenResponse",
+    "UserInfoResponse",
+    "UserPreferencesRequest",
     # User
     "UserResponse",
-    "UserPreferencesRequest",
 ]

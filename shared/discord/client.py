@@ -201,7 +201,7 @@ class DiscordAPIClient:
 
         except aiohttp.ClientError as e:
             logger.error("Network error in %s: %s", operation_name, e)
-            raise DiscordAPIError(500, f"Network error: {str(e)}") from e
+            raise DiscordAPIError(500, f"Network error: {e!s}") from e
 
     async def exchange_code(self, code: str, redirect_uri: str) -> dict[str, Any]:
         """
@@ -292,7 +292,7 @@ class DiscordAPIClient:
                 return response_data
         except aiohttp.ClientError as e:
             logger.error("Network error fetching user info: %s", e)
-            raise DiscordAPIError(500, f"Network error: {str(e)}") from e
+            raise DiscordAPIError(500, f"Network error: {e!s}") from e
 
     async def get_guilds(
         self, token: str | None = None, user_id: str | None = None
@@ -383,7 +383,7 @@ class DiscordAPIClient:
                 return response_data
         except aiohttp.ClientError as e:
             logger.error("Network error fetching guilds: %s", e)
-            raise DiscordAPIError(500, f"Network error: {str(e)}") from e
+            raise DiscordAPIError(500, f"Network error: {e!s}") from e
 
     async def get_guild_channels(self, guild_id: str) -> list[dict[str, Any]]:
         """
@@ -422,7 +422,7 @@ class DiscordAPIClient:
                 return response_data
         except aiohttp.ClientError as e:
             logger.error("Network error fetching guild channels: %s", e)
-            raise DiscordAPIError(500, f"Network error: {str(e)}") from e
+            raise DiscordAPIError(500, f"Network error: {e!s}") from e
 
     async def fetch_channel(self, channel_id: str, token: str | None = None) -> dict[str, Any]:
         """
@@ -477,7 +477,7 @@ class DiscordAPIClient:
                 return response_data
         except aiohttp.ClientError as e:
             logger.error("Network error fetching channel: %s", e)
-            raise DiscordAPIError(500, f"Network error: {str(e)}") from e
+            raise DiscordAPIError(500, f"Network error: {e!s}") from e
 
     async def fetch_guild(self, guild_id: str, token: str | None = None) -> dict[str, Any]:
         """
@@ -559,7 +559,7 @@ class DiscordAPIClient:
                 return response_data
         except aiohttp.ClientError as e:
             logger.error("Network error fetching guild roles: %s", e)
-            raise DiscordAPIError(500, f"Network error: {str(e)}") from e
+            raise DiscordAPIError(500, f"Network error: {e!s}") from e
 
     async def fetch_user(self, user_id: str, token: str | None = None) -> dict[str, Any]:
         """

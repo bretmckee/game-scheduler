@@ -87,6 +87,8 @@ class EventHandlers:
         }
         # Track pending refreshes to ensure final state is always applied
         self._pending_refreshes: set[str] = set()
+        # Track background tasks to prevent them from being garbage collected
+        self._background_tasks: set[asyncio.Task[Any]] = set()
 
     async def start_consuming(self, queue_name: str = "bot_events") -> None:
         """
@@ -251,7 +253,11 @@ class EventHandlers:
 
             # Schedule refresh after TTL expires
             self._pending_refreshes.add(game_id)
-            asyncio.create_task(self._delayed_refresh(game_id, CacheTTL.MESSAGE_UPDATE_THROTTLE))
+            task = asyncio.create_task(
+                self._delayed_refresh(game_id, CacheTTL.MESSAGE_UPDATE_THROTTLE)
+            )
+            self._background_tasks.add(task)
+            task.add_done_callback(self._background_tasks.discard)
 
         except Exception as e:
             # Fail open: if Redis unavailable, allow update to proceed
@@ -888,7 +894,7 @@ class EventHandlers:
             if not result:
                 return
 
-            channel, message = result
+            _channel, message = result
             try:
                 content, embed, view = await self._create_game_announcement(game)
                 await message.edit(content=content, embed=embed, view=view)
@@ -1019,7 +1025,7 @@ class EventHandlers:
                 if not result:
                     return
 
-                channel, message = result
+                _channel, message = result
                 try:
                     content, embed, view = await self._create_game_announcement(game)
                     await message.edit(content=content, embed=embed, view=view)

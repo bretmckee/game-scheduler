@@ -30,11 +30,11 @@ from shared.messaging.publisher import EventPublisher
 from shared.messaging.sync_publisher import SyncEventPublisher
 
 __all__ = [
-    "get_rabbitmq_connection",
     "Event",
-    "EventType",
-    "EventPublisher",
     "EventConsumer",
-    "SyncEventPublisher",
+    "EventPublisher",
+    "EventType",
     "GameStartedEvent",
+    "SyncEventPublisher",
+    "get_rabbitmq_connection",
 ]

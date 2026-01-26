@@ -106,4 +106,4 @@ def require_manage_channels() -> Callable:
     return _create_permission_decorator("manage_channels", "Manage Channels")
 
 
-__all__ = ["require_manage_guild", "require_manage_channels"]
+__all__ = ["require_manage_channels", "require_manage_guild"]

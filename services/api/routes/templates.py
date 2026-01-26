@@ -317,7 +317,7 @@ async def reorder_templates(
         return
 
     # Extract template IDs from template_orders
-    template_ids = [list(item.keys())[0] for item in request.template_orders]
+    template_ids = [next(iter(item.keys())) for item in request.template_orders]
 
     # Get first template to check guild and permissions
     template_svc = template_service_module.TemplateService(db)
