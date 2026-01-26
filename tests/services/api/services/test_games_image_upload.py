@@ -23,12 +23,7 @@ import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.api.services import games as games_service
-from services.api.services import participant_resolver as resolver_module
-from shared.discord import client as discord_client_module
-from shared.messaging import publisher as messaging_publisher
 from shared.models import channel as channel_model
 from shared.models import game as game_model
 from shared.models import guild as guild_model
@@ -38,67 +33,11 @@ from shared.schemas import game as game_schemas
 
 
 @pytest.fixture
-def mock_db():
-    """Create mock database session."""
-    return AsyncMock(spec=AsyncSession)
-
-
-@pytest.fixture
-def mock_event_publisher():
-    """Create mock event publisher."""
-    publisher = AsyncMock(spec=messaging_publisher.EventPublisher)
-    publisher.publish = AsyncMock()
-    return publisher
-
-
-@pytest.fixture
-def mock_discord_client():
-    """Create mock Discord API client."""
-    return MagicMock(spec=discord_client_module.DiscordAPIClient)
-
-
-@pytest.fixture
-def mock_participant_resolver():
-    """Create mock participant resolver."""
-    return AsyncMock(spec=resolver_module.ParticipantResolver)
-
-
-@pytest.fixture
 def mock_role_service():
     """Create mock role service."""
     role_service = AsyncMock()
     role_service.check_game_host_permission = AsyncMock(return_value=True)
     return role_service
-
-
-@pytest.fixture
-def game_service(mock_db, mock_event_publisher, mock_discord_client, mock_participant_resolver):
-    """Create game service instance."""
-    return games_service.GameService(
-        db=mock_db,
-        event_publisher=mock_event_publisher,
-        discord_client=mock_discord_client,
-        participant_resolver=mock_participant_resolver,
-    )
-
-
-@pytest.fixture
-def sample_guild():
-    """Create sample guild configuration."""
-    return guild_model.GuildConfiguration(
-        id=str(uuid.uuid4()),
-        guild_id="123456789",
-    )
-
-
-@pytest.fixture
-def sample_channel(sample_guild):
-    """Create sample channel configuration."""
-    return channel_model.ChannelConfiguration(
-        id=str(uuid.uuid4()),
-        channel_id="987654321",
-        guild_id=sample_guild.id,
-    )
 
 
 @pytest.fixture
@@ -111,15 +50,6 @@ def sample_template(sample_guild, sample_channel):
         channel_id=sample_channel.id,
         max_players=10,
         reminder_minutes=[60, 15],
-    )
-
-
-@pytest.fixture
-def sample_user():
-    """Create sample user."""
-    return user_model.User(
-        id=str(uuid.uuid4()),
-        discord_id="111222333444",
     )
 
 
@@ -193,7 +123,9 @@ async def test_create_game_with_thumbnail(
         signup_instructions=None,
     )
 
-    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
+    with patch(
+        "services.api.auth.roles.get_role_service", return_value=mock_role_service
+    ):
         game = await game_service.create_game(
             game_data=game_data,
             host_user_id=sample_user.id,
@@ -283,7 +215,9 @@ async def test_create_game_with_both_images(
         signup_instructions=None,
     )
 
-    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
+    with patch(
+        "services.api.auth.roles.get_role_service", return_value=mock_role_service
+    ):
         game = await game_service.create_game(
             game_data=game_data,
             host_user_id=sample_user.id,
@@ -322,7 +256,9 @@ async def test_update_game_with_new_thumbnail(game_service, mock_db, mock_role_s
         thumbnail_data=None,
         thumbnail_mime_type=None,
     )
-    existing_game.host = user_model.User(id=existing_game.host_id, discord_id="999888777")
+    existing_game.host = user_model.User(
+        id=existing_game.host_id, discord_id="999888777"
+    )
     existing_game.guild = guild_model.GuildConfiguration(
         id=existing_game.guild_id, guild_id="123456"
     )
@@ -331,7 +267,9 @@ async def test_update_game_with_new_thumbnail(game_service, mock_db, mock_role_s
 
     # Mock database queries
     mock_db.execute = AsyncMock()
-    mock_db.execute.return_value.scalar_one_or_none = MagicMock(return_value=existing_game)
+    mock_db.execute.return_value.scalar_one_or_none = MagicMock(
+        return_value=existing_game
+    )
     mock_db.execute.return_value.scalars = MagicMock(
         return_value=MagicMock(all=MagicMock(return_value=[]))
     )
@@ -361,7 +299,9 @@ async def test_update_game_with_new_thumbnail(game_service, mock_db, mock_role_s
     current_user.user.discord_id = "999888777"
     current_user.access_token = "test_token"
 
-    with patch("services.api.dependencies.permissions.can_manage_game", return_value=True):
+    with patch(
+        "services.api.dependencies.permissions.can_manage_game", return_value=True
+    ):
         await game_service.update_game(
             game_id=game_id,
             update_data=update_data,
@@ -397,7 +337,9 @@ async def test_update_game_remove_thumbnail(game_service, mock_db, mock_role_ser
         thumbnail_data=b"existing_data",
         thumbnail_mime_type="image/png",
     )
-    existing_game.host = user_model.User(id=existing_game.host_id, discord_id="999888777")
+    existing_game.host = user_model.User(
+        id=existing_game.host_id, discord_id="999888777"
+    )
     existing_game.guild = guild_model.GuildConfiguration(
         id=existing_game.guild_id, guild_id="123456"
     )
@@ -406,7 +348,9 @@ async def test_update_game_remove_thumbnail(game_service, mock_db, mock_role_ser
 
     # Mock database queries
     mock_db.execute = AsyncMock()
-    mock_db.execute.return_value.scalar_one_or_none = MagicMock(return_value=existing_game)
+    mock_db.execute.return_value.scalar_one_or_none = MagicMock(
+        return_value=existing_game
+    )
     mock_db.execute.return_value.scalars = MagicMock(
         return_value=MagicMock(all=MagicMock(return_value=[]))
     )
@@ -434,7 +378,9 @@ async def test_update_game_remove_thumbnail(game_service, mock_db, mock_role_ser
     current_user.user.discord_id = "999888777"
     current_user.access_token = "test_token"
 
-    with patch("services.api.dependencies.permissions.can_manage_game", return_value=True):
+    with patch(
+        "services.api.dependencies.permissions.can_manage_game", return_value=True
+    ):
         await game_service.update_game(
             game_id=game_id,
             update_data=update_data,
@@ -449,7 +395,9 @@ async def test_update_game_remove_thumbnail(game_service, mock_db, mock_role_ser
     assert existing_game.thumbnail_mime_type is None
 
 
-async def test_update_game_preserve_existing_thumbnail(game_service, mock_db, mock_role_service):
+async def test_update_game_preserve_existing_thumbnail(
+    game_service, mock_db, mock_role_service
+):
     """Test that thumbnail is preserved when not provided in update."""
     # Create existing game with thumbnail
     game_id = str(uuid.uuid4())
@@ -473,7 +421,9 @@ async def test_update_game_preserve_existing_thumbnail(game_service, mock_db, mo
         thumbnail_data=existing_thumbnail,
         thumbnail_mime_type=existing_mime,
     )
-    existing_game.host = user_model.User(id=existing_game.host_id, discord_id="999888777")
+    existing_game.host = user_model.User(
+        id=existing_game.host_id, discord_id="999888777"
+    )
     existing_game.guild = guild_model.GuildConfiguration(
         id=existing_game.guild_id, guild_id="123456"
     )
@@ -482,7 +432,9 @@ async def test_update_game_preserve_existing_thumbnail(game_service, mock_db, mo
 
     # Mock database queries
     mock_db.execute = AsyncMock()
-    mock_db.execute.return_value.scalar_one_or_none = MagicMock(return_value=existing_game)
+    mock_db.execute.return_value.scalar_one_or_none = MagicMock(
+        return_value=existing_game
+    )
     mock_db.execute.return_value.scalars = MagicMock(
         return_value=MagicMock(all=MagicMock(return_value=[]))
     )
@@ -510,7 +462,9 @@ async def test_update_game_preserve_existing_thumbnail(game_service, mock_db, mo
     current_user.user.discord_id = "999888777"
     current_user.access_token = "test_token"
 
-    with patch("services.api.dependencies.permissions.can_manage_game", return_value=True):
+    with patch(
+        "services.api.dependencies.permissions.can_manage_game", return_value=True
+    ):
         await game_service.update_game(
             game_id=game_id,
             update_data=update_data,

@@ -23,81 +23,12 @@ import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.api.services import games as games_service
-from services.api.services import participant_resolver as resolver_module
-from shared.discord import client as discord_client_module
-from shared.messaging import publisher as messaging_publisher
-from shared.models import channel as channel_model
 from shared.models import game as game_model
-from shared.models import guild as guild_model
 from shared.models import participant as participant_model
 from shared.models import user as user_model
 from shared.models.participant import ParticipantType
 from shared.schemas import game as game_schemas
-
-
-@pytest.fixture
-def mock_db():
-    """Create mock database session."""
-    return AsyncMock(spec=AsyncSession)
-
-
-@pytest.fixture
-def mock_event_publisher():
-    """Create mock event publisher."""
-    publisher = AsyncMock(spec=messaging_publisher.EventPublisher)
-    publisher.publish = AsyncMock()
-    return publisher
-
-
-@pytest.fixture
-def mock_discord_client():
-    """Create mock Discord API client."""
-    return MagicMock(spec=discord_client_module.DiscordAPIClient)
-
-
-@pytest.fixture
-def mock_participant_resolver():
-    """Create mock participant resolver."""
-    return AsyncMock(spec=resolver_module.ParticipantResolver)
-
-
-@pytest.fixture
-def game_service(mock_db, mock_event_publisher, mock_discord_client, mock_participant_resolver):
-    """Create game service instance."""
-    return games_service.GameService(
-        db=mock_db,
-        event_publisher=mock_event_publisher,
-        discord_client=mock_discord_client,
-        participant_resolver=mock_participant_resolver,
-    )
-
-
-@pytest.fixture
-def sample_guild():
-    """Create sample guild configuration."""
-    return guild_model.GuildConfiguration(
-        id=str(uuid.uuid4()),
-        guild_id="123456789",
-    )
-
-
-@pytest.fixture
-def sample_channel(sample_guild):
-    """Create sample channel configuration."""
-    return channel_model.ChannelConfiguration(
-        id=str(uuid.uuid4()),
-        channel_id="987654321",
-        guild_id=sample_guild.id,
-    )
-
-
-@pytest.fixture
-def sample_user():
-    """Create sample user."""
-    return user_model.User(id=str(uuid.uuid4()), discord_id="111222333")
 
 
 @pytest.mark.asyncio
@@ -188,7 +119,9 @@ async def test_update_game_with_discord_mention_format(
     mock_current_user.user.discord_id = sample_user.discord_id
     mock_role_service = AsyncMock()
 
-    with patch("services.api.dependencies.permissions.can_manage_game", return_value=True):
+    with patch(
+        "services.api.dependencies.permissions.can_manage_game", return_value=True
+    ):
         # Update the game
         await game_service.update_game(
             game_id=game_id,
@@ -278,7 +211,9 @@ async def test_update_game_preserves_discord_users_not_placeholders(
     mock_current_user.user.discord_id = sample_user.discord_id
     mock_role_service = AsyncMock()
 
-    with patch("services.api.dependencies.permissions.can_manage_game", return_value=True):
+    with patch(
+        "services.api.dependencies.permissions.can_manage_game", return_value=True
+    ):
         await game_service.update_game(
             game_id=game_id,
             update_data=update_data,

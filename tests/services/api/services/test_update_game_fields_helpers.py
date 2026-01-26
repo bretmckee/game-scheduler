@@ -21,54 +21,9 @@
 import datetime
 import uuid
 from datetime import UTC
-from unittest.mock import AsyncMock, MagicMock
 
-import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from services.api.services import games as games_service
-from services.api.services import participant_resolver as resolver_module
-from shared.discord import client as discord_client_module
-from shared.messaging import publisher as messaging_publisher
 from shared.models import game as game_model
 from shared.schemas import game as game_schemas
-
-
-@pytest.fixture
-def mock_db():
-    """Create mock database session."""
-    return AsyncMock(spec=AsyncSession)
-
-
-@pytest.fixture
-def mock_event_publisher():
-    """Create mock event publisher."""
-    publisher = AsyncMock(spec=messaging_publisher.EventPublisher)
-    publisher.publish = AsyncMock()
-    return publisher
-
-
-@pytest.fixture
-def mock_discord_client():
-    """Create mock Discord API client."""
-    return MagicMock(spec=discord_client_module.DiscordAPIClient)
-
-
-@pytest.fixture
-def mock_participant_resolver():
-    """Create mock participant resolver."""
-    return AsyncMock(spec=resolver_module.ParticipantResolver)
-
-
-@pytest.fixture
-def game_service(mock_db, mock_event_publisher, mock_discord_client, mock_participant_resolver):
-    """Create game service instance."""
-    return games_service.GameService(
-        db=mock_db,
-        event_publisher=mock_event_publisher,
-        discord_client=mock_discord_client,
-        participant_resolver=mock_participant_resolver,
-    )
 
 
 def test_update_simple_text_fields_updates_all_fields(game_service):
@@ -334,8 +289,8 @@ def test_update_game_fields_integrates_all_helpers(game_service):
         scheduled_at=datetime.datetime(2026, 2, 1, 14, 0, 0),
     )
 
-    schedule_needs_update, status_schedule_needs_update = game_service._update_game_fields(
-        game, update_data
+    schedule_needs_update, status_schedule_needs_update = (
+        game_service._update_game_fields(game, update_data)
     )
 
     # Verify simple text fields updated
@@ -370,8 +325,8 @@ def test_update_game_fields_scheduled_at_affects_both_schedules(game_service):
         scheduled_at=datetime.datetime(2026, 2, 1, 14, 0, 0),
     )
 
-    schedule_needs_update, status_schedule_needs_update = game_service._update_game_fields(
-        game, update_data
+    schedule_needs_update, status_schedule_needs_update = (
+        game_service._update_game_fields(game, update_data)
     )
 
     assert schedule_needs_update is True
@@ -391,8 +346,8 @@ def test_update_game_fields_status_only_affects_status_schedule(game_service):
         status="IN_PROGRESS",
     )
 
-    schedule_needs_update, status_schedule_needs_update = game_service._update_game_fields(
-        game, update_data
+    schedule_needs_update, status_schedule_needs_update = (
+        game_service._update_game_fields(game, update_data)
     )
 
     assert schedule_needs_update is False
@@ -413,8 +368,8 @@ def test_update_game_fields_reminder_only_affects_notification_schedule(game_ser
         reminder_minutes=[120, 30],
     )
 
-    schedule_needs_update, status_schedule_needs_update = game_service._update_game_fields(
-        game, update_data
+    schedule_needs_update, status_schedule_needs_update = (
+        game_service._update_game_fields(game, update_data)
     )
 
     assert schedule_needs_update is True
