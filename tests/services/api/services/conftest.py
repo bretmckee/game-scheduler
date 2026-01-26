@@ -60,9 +60,7 @@ def mock_participant_resolver():
 
 
 @pytest.fixture
-def game_service(
-    mock_db, mock_event_publisher, mock_discord_client, mock_participant_resolver
-):
+def game_service(mock_db, mock_event_publisher, mock_discord_client, mock_participant_resolver):
     """Game service instance with mocked dependencies."""
     return games_service.GameService(
         db=mock_db,

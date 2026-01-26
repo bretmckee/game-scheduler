@@ -65,18 +65,18 @@ Consolidate 59 duplicate test fixtures across 91 unit test files into shared con
 - [x] Task 1.7: Run game service tests to verify consolidation
   - Details: .copilot-tracking/details/20260126-unit-test-fixture-consolidation-details.md (Lines 172-185)
 
-### [ ] Phase 2: Root-Level Mock Consolidation
+### [x] Phase 2: Root-Level Mock Consolidation
 
-- [ ] Task 2.1: Add unit test mock fixtures to tests/conftest.py
+- [x] Task 2.1: Add unit test mock fixtures to tests/conftest.py
   - Details: .copilot-tracking/details/20260126-unit-test-fixture-consolidation-details.md (Lines 187-270)
 
-- [ ] Task 2.2: Update routes tests to use shared mock_current_user fixture
+- [x] Task 2.2: Update routes tests to use shared mock_current_user fixture
   - Details: .copilot-tracking/details/20260126-unit-test-fixture-consolidation-details.md (Lines 272-295)
 
-- [ ] Task 2.3: Update dependencies tests to use shared mock_role_service fixture
+- [x] Task 2.3: Update dependencies tests to use shared mock_role_service fixture
   - Details: .copilot-tracking/details/20260126-unit-test-fixture-consolidation-details.md (Lines 297-320)
 
-- [ ] Task 2.4: Run full unit test suite to verify consolidation
+- [x] Task 2.4: Run full unit test suite to verify consolidation
   - Details: .copilot-tracking/details/20260126-unit-test-fixture-consolidation-details.md (Lines 322-340)
 
 ### [ ] Phase 3: Verification and Cleanup

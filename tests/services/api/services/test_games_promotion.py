@@ -61,9 +61,7 @@ def sample_game(sample_guild, sample_channel, sample_host):
     return game
 
 
-def create_participant(
-    game_id: str, user_id: str, discord_id: str, joined_at: datetime
-):
+def create_participant(game_id: str, user_id: str, discord_id: str, joined_at: datetime):
     """Create a participant with user."""
     user = User(id=user_id, discord_id=discord_id)
     return GameParticipant(
@@ -120,9 +118,7 @@ async def test_promotion_when_max_players_increased(
         mock_current_user = MagicMock()
         mock_current_user.discord_id = sample_game.host.discord_id
 
-        with patch(
-            "services.api.dependencies.permissions.can_manage_game", return_value=True
-        ):
+        with patch("services.api.dependencies.permissions.can_manage_game", return_value=True):
             # Update max_players from 5 to 7 (promoting 2 overflow users)
             update_request = GameUpdateRequest(max_players=7)
 
@@ -164,9 +160,7 @@ async def test_promotion_when_participant_removed(
         create_participant(sample_game.id, str(uuid4()), f"confirmed_{i}", base_time)
         for i in range(5)
     ]
-    overflow_participant = create_participant(
-        sample_game.id, str(uuid4()), "overflow_0", base_time
-    )
+    overflow_participant = create_participant(sample_game.id, str(uuid4()), "overflow_0", base_time)
 
     # Initially all 6 participants in the game
     sample_game.participants = [*participants, overflow_participant]
@@ -228,9 +222,7 @@ async def test_promotion_when_participant_removed(
         fresh_game.host = sample_game.host
         fresh_game.channel = sample_game.channel
         fresh_game.guild = sample_game.guild
-        print(
-            f"Participant discord_ids: {[p.user.discord_id for p in fresh_game.participants]}"
-        )
+        print(f"Participant discord_ids: {[p.user.discord_id for p in fresh_game.participants]}")
         return fresh_game
 
     # Mock get_game to return fresh game with updated participants
@@ -238,20 +230,14 @@ async def test_promotion_when_participant_removed(
     notify_calls_list = []
 
     async def track_notify_promotions(game, promoted_discord_ids):
-        notify_calls_list.append(
-            {
-                "game_id": game.id,
-                "promoted_discord_ids": promoted_discord_ids,
-                "current_participants": [
-                    p.user.discord_id for p in game.participants if p.user
-                ],
-            }
-        )
+        notify_calls_list.append({
+            "game_id": game.id,
+            "promoted_discord_ids": promoted_discord_ids,
+            "current_participants": [p.user.discord_id for p in game.participants if p.user],
+        })
         print("\n_notify_promoted_users called!")
         print(f"  promoted_discord_ids: {promoted_discord_ids}")
-        print(
-            f"  current participants: {[p.user.discord_id for p in game.participants if p.user]}"
-        )
+        print(f"  current participants: {[p.user.discord_id for p in game.participants if p.user]}")
         result = await original_notify_promotions(game, promoted_discord_ids)
         print("  _notify_promoted_users completed")
         return result
@@ -274,9 +260,7 @@ async def test_promotion_when_participant_removed(
             return_value=True,
         ):
             # Remove one confirmed participant (should promote overflow)
-            update_request = GameUpdateRequest(
-                removed_participant_ids=[participants[0].id]
-            )
+            update_request = GameUpdateRequest(removed_participant_ids=[participants[0].id])
 
             try:
                 result = await game_service.update_game(
@@ -288,9 +272,7 @@ async def test_promotion_when_participant_removed(
                 print(
                     f"\nUpdate completed successfully, result id: {result.id if result else 'None'}"
                 )
-                print(
-                    f"Result participants: {len(result.participants) if result else 0}"
-                )
+                print(f"Result participants: {len(result.participants) if result else 0}")
             except Exception as e:
                 print(f"\nUpdate failed with exception: {type(e).__name__}: {e}")
                 traceback.print_exc()
@@ -311,9 +293,9 @@ async def test_promotion_when_participant_removed(
         if call[1]["event"].event_type == EventType.NOTIFICATION_SEND_DM
     ]
 
-    assert (
-        len(notification_calls) == 1
-    ), f"Should send 1 promotion notification, got {len(notification_calls)}"
+    assert len(notification_calls) == 1, (
+        f"Should send 1 promotion notification, got {len(notification_calls)}"
+    )
 
     event_data = notification_calls[0][1]["event"].data
     assert event_data["notification_type"] == "waitlist_promotion"
@@ -344,9 +326,7 @@ async def test_no_promotion_when_no_overflow(
         mock_current_user = MagicMock()
         mock_current_user.discord_id = sample_game.host.discord_id
 
-        with patch(
-            "services.api.dependencies.permissions.can_manage_game", return_value=True
-        ):
+        with patch("services.api.dependencies.permissions.can_manage_game", return_value=True):
             # Increase max_players (but no overflow to promote)
             update_request = GameUpdateRequest(max_players=7)
 
@@ -437,9 +417,7 @@ async def test_promotion_when_placeholder_removed(
         mock_current_user = MagicMock()
         mock_current_user.discord_id = sample_game.host.discord_id
 
-        with patch(
-            "services.api.dependencies.permissions.can_manage_game", return_value=True
-        ):
+        with patch("services.api.dependencies.permissions.can_manage_game", return_value=True):
             # Remove the placeholder (should promote user2)
             update_request = GameUpdateRequest(removed_participant_ids=[placeholder.id])
 
@@ -459,9 +437,9 @@ async def test_promotion_when_placeholder_removed(
         if call[1]["event"].event_type == EventType.NOTIFICATION_SEND_DM
     ]
 
-    assert (
-        len(notification_calls) == 1
-    ), f"Should send 1 promotion notification, got {len(notification_calls)}"
+    assert len(notification_calls) == 1, (
+        f"Should send 1 promotion notification, got {len(notification_calls)}"
+    )
 
     event_data = notification_calls[0][1]["event"].data
     assert event_data["notification_type"] == "waitlist_promotion"
@@ -494,9 +472,7 @@ async def test_promotion_with_max_players_increase_and_placeholders(
         mock_current_user = MagicMock()
         mock_current_user.discord_id = sample_game.host.discord_id
 
-        with patch(
-            "services.api.dependencies.permissions.can_manage_game", return_value=True
-        ):
+        with patch("services.api.dependencies.permissions.can_manage_game", return_value=True):
             # Increase max_players from 1 to 2 (promoting user1)
             update_request = GameUpdateRequest(max_players=2)
 
@@ -516,9 +492,9 @@ async def test_promotion_with_max_players_increase_and_placeholders(
         if call[1]["event"].event_type == EventType.NOTIFICATION_SEND_DM
     ]
 
-    assert (
-        len(notification_calls) == 1
-    ), f"Should send 1 promotion notification, got {len(notification_calls)}"
+    assert len(notification_calls) == 1, (
+        f"Should send 1 promotion notification, got {len(notification_calls)}"
+    )
 
     event_data = notification_calls[0][1]["event"].data
     assert event_data["notification_type"] == "waitlist_promotion"
@@ -588,19 +564,13 @@ async def test_promotion_multiple_placeholders_removed(
         return fresh_game
 
     # First removal
-    with patch.object(
-        game_service, "get_game", side_effect=get_game_side_effect_first_removal
-    ):
+    with patch.object(game_service, "get_game", side_effect=get_game_side_effect_first_removal):
         mock_role_service = AsyncMock()
         mock_current_user = MagicMock()
         mock_current_user.discord_id = sample_game.host.discord_id
 
-        with patch(
-            "services.api.dependencies.permissions.can_manage_game", return_value=True
-        ):
-            update_request = GameUpdateRequest(
-                removed_participant_ids=[placeholder1.id]
-            )
+        with patch("services.api.dependencies.permissions.can_manage_game", return_value=True):
+            update_request = GameUpdateRequest(removed_participant_ids=[placeholder1.id])
 
             await game_service.update_game(
                 game_id=sample_game.id,
@@ -667,15 +637,9 @@ async def test_promotion_multiple_placeholders_removed(
         return fresh_game
 
     # Second removal
-    with patch.object(
-        game_service, "get_game", side_effect=get_game_side_effect_second_removal
-    ):
-        with patch(
-            "services.api.dependencies.permissions.can_manage_game", return_value=True
-        ):
-            update_request = GameUpdateRequest(
-                removed_participant_ids=[placeholder2.id]
-            )
+    with patch.object(game_service, "get_game", side_effect=get_game_side_effect_second_removal):
+        with patch("services.api.dependencies.permissions.can_manage_game", return_value=True):
+            update_request = GameUpdateRequest(removed_participant_ids=[placeholder2.id])
 
             await game_service.update_game(
                 game_id=sample_game.id,
@@ -695,9 +659,9 @@ async def test_promotion_multiple_placeholders_removed(
 
     # User1 was already in confirmed position (position 1 out of 3) after first removal
     # so no promotion notification needed
-    assert (
-        len(second_notification_calls) == 0
-    ), "Second removal should not promote anyone (user1 already confirmed)"
+    assert len(second_notification_calls) == 0, (
+        "Second removal should not promote anyone (user1 already confirmed)"
+    )
 
 
 @pytest.mark.asyncio
@@ -725,9 +689,7 @@ async def test_no_promotion_when_placeholder_added_to_overflow(
         mock_current_user = MagicMock()
         mock_current_user.discord_id = sample_game.host.discord_id
 
-        with patch(
-            "services.api.dependencies.permissions.can_manage_game", return_value=True
-        ):
+        with patch("services.api.dependencies.permissions.can_manage_game", return_value=True):
             # Add a placeholder to overflow (should not affect promotions)
             # This would be done via a different route, but we test that max_players
             # decrease doesn't cause false promotions
@@ -749,6 +711,6 @@ async def test_no_promotion_when_placeholder_added_to_overflow(
         if call[1]["event"].event_type == EventType.NOTIFICATION_SEND_DM
     ]
 
-    assert (
-        len(notification_calls) == 0
-    ), "Should not send promotion notifications when reducing max_players"
+    assert len(notification_calls) == 0, (
+        "Should not send promotion notifications when reducing max_players"
+    )

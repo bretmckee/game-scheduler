@@ -463,9 +463,7 @@ async def test_resolve_game_host_requester_not_found_raises_error(
     mock_db.execute = AsyncMock(return_value=requester_result)
 
     with pytest.raises(ValueError, match="Requester user not found"):
-        await game_service._resolve_game_host(
-            sample_game_data, sample_guild, requester_id, "token"
-        )
+        await game_service._resolve_game_host(sample_game_data, sample_guild, requester_id, "token")
 
 
 @pytest.mark.asyncio
@@ -489,12 +487,8 @@ async def test_resolve_game_host_non_bot_manager_cannot_override(
     mock_role_service = AsyncMock()
     mock_role_service.check_bot_manager_permission = AsyncMock(return_value=False)
 
-    with patch(
-        "services.api.auth.roles.get_role_service", return_value=mock_role_service
-    ):
-        with pytest.raises(
-            ValueError, match="Only bot managers can specify the game host"
-        ):
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
+        with pytest.raises(ValueError, match="Only bot managers can specify the game host"):
             await game_service._resolve_game_host(
                 sample_game_data, sample_guild, sample_user.id, "token"
             )
@@ -542,9 +536,7 @@ async def test_resolve_game_host_bot_manager_can_override_with_existing_user(
     mock_role_service = AsyncMock()
     mock_role_service.check_bot_manager_permission = AsyncMock(return_value=True)
 
-    with patch(
-        "services.api.auth.roles.get_role_service", return_value=mock_role_service
-    ):
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
         host_user_id, host_user = await game_service._resolve_game_host(
             sample_game_data, sample_guild, sample_user.id, "token"
         )
@@ -604,9 +596,7 @@ async def test_resolve_game_host_bot_manager_creates_new_user(
     mock_role_service = AsyncMock()
     mock_role_service.check_bot_manager_permission = AsyncMock(return_value=True)
 
-    with patch(
-        "services.api.auth.roles.get_role_service", return_value=mock_role_service
-    ):
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
         host_user_id, host_user = await game_service._resolve_game_host(
             sample_game_data, sample_guild, sample_user.id, "token"
         )
@@ -643,9 +633,7 @@ async def test_resolve_game_host_invalid_mention_raises_validation_error(
     mock_role_service = AsyncMock()
     mock_role_service.check_bot_manager_permission = AsyncMock(return_value=True)
 
-    with patch(
-        "services.api.auth.roles.get_role_service", return_value=mock_role_service
-    ):
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
         with pytest.raises(resolver_module.ValidationError):
             await game_service._resolve_game_host(
                 sample_game_data, sample_guild, sample_user.id, "token"
@@ -679,17 +667,13 @@ async def test_resolve_game_host_placeholder_not_allowed(
     mock_role_service = AsyncMock()
     mock_role_service.check_bot_manager_permission = AsyncMock(return_value=True)
 
-    with patch(
-        "services.api.auth.roles.get_role_service", return_value=mock_role_service
-    ):
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
         with pytest.raises(resolver_module.ValidationError) as exc_info:
             await game_service._resolve_game_host(
                 sample_game_data, sample_guild, sample_user.id, "token"
             )
 
-        assert "must be a Discord user" in str(
-            exc_info.value.invalid_mentions[0]["reason"]
-        )
+        assert "must be a Discord user" in str(exc_info.value.invalid_mentions[0]["reason"])
 
 
 @pytest.mark.asyncio
@@ -716,9 +700,7 @@ async def test_resolve_game_host_resolution_failure_wraps_exception(
     mock_role_service = AsyncMock()
     mock_role_service.check_bot_manager_permission = AsyncMock(return_value=True)
 
-    with patch(
-        "services.api.auth.roles.get_role_service", return_value=mock_role_service
-    ):
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
         with pytest.raises(ValueError, match="Failed to resolve host mention"):
             await game_service._resolve_game_host(
                 sample_game_data, sample_guild, sample_user.id, "token"
@@ -735,18 +717,14 @@ async def test_create_participant_records_with_discord_user(
     game_id = str(uuid.uuid4())
     discord_user = user_model.User(id=str(uuid.uuid4()), discord_id="123456")
 
-    valid_participants = [
-        {"type": "discord", "discord_id": "123456", "original_input": "@user1"}
-    ]
+    valid_participants = [{"type": "discord", "discord_id": "123456", "original_input": "@user1"}]
 
     mock_participant_resolver.ensure_user_exists = AsyncMock(return_value=discord_user)
     mock_db.flush = AsyncMock()
 
     await game_service._create_participant_records(game_id, valid_participants)
 
-    mock_participant_resolver.ensure_user_exists.assert_called_once_with(
-        mock_db, "123456"
-    )
+    mock_participant_resolver.ensure_user_exists.assert_called_once_with(mock_db, "123456")
     mock_db.add.assert_called_once()
     added_participant = mock_db.add.call_args[0][0]
     assert isinstance(added_participant, participant_model.GameParticipant)
@@ -867,9 +845,7 @@ async def test_load_game_dependencies_success(
         ]
     )
 
-    template, guild, channel = await game_service._load_game_dependencies(
-        sample_template.id
-    )
+    template, guild, channel = await game_service._load_game_dependencies(sample_template.id)
 
     assert template == sample_template
     assert guild == sample_guild
@@ -1151,14 +1127,10 @@ async def test_setup_game_schedules_with_reminders_and_duration(
         mock_schedule_service.populate_schedule = AsyncMock()
         mock_schedule_service_class.return_value = mock_schedule_service
 
-        await game_service._setup_game_schedules(
-            game, reminder_minutes, expected_duration_minutes
-        )
+        await game_service._setup_game_schedules(game, reminder_minutes, expected_duration_minutes)
 
         mock_join_notifications.assert_called_once_with(game)
-        mock_schedule_service.populate_schedule.assert_called_once_with(
-            game, reminder_minutes
-        )
+        mock_schedule_service.populate_schedule.assert_called_once_with(game, reminder_minutes)
         mock_status_schedules.assert_called_once_with(game, expected_duration_minutes)
 
 
@@ -1196,14 +1168,10 @@ async def test_setup_game_schedules_without_reminders(
         mock_schedule_service.populate_schedule = AsyncMock()
         mock_schedule_service_class.return_value = mock_schedule_service
 
-        await game_service._setup_game_schedules(
-            game, reminder_minutes, expected_duration_minutes
-        )
+        await game_service._setup_game_schedules(game, reminder_minutes, expected_duration_minutes)
 
         mock_join_notifications.assert_called_once_with(game)
-        mock_schedule_service.populate_schedule.assert_called_once_with(
-            game, reminder_minutes
-        )
+        mock_schedule_service.populate_schedule.assert_called_once_with(game, reminder_minutes)
         mock_status_schedules.assert_called_once_with(game, expected_duration_minutes)
 
 
@@ -1241,14 +1209,10 @@ async def test_setup_game_schedules_without_duration(
         mock_schedule_service.populate_schedule = AsyncMock()
         mock_schedule_service_class.return_value = mock_schedule_service
 
-        await game_service._setup_game_schedules(
-            game, reminder_minutes, expected_duration_minutes
-        )
+        await game_service._setup_game_schedules(game, reminder_minutes, expected_duration_minutes)
 
         mock_join_notifications.assert_called_once_with(game)
-        mock_schedule_service.populate_schedule.assert_called_once_with(
-            game, reminder_minutes
-        )
+        mock_schedule_service.populate_schedule.assert_called_once_with(game, reminder_minutes)
         mock_status_schedules.assert_called_once_with(game, None)
 
 
@@ -1274,9 +1238,7 @@ async def test_create_game_status_schedules_for_scheduled_game(
 
     # Verify IN_PROGRESS schedule
     in_progress_schedule = next(
-        s
-        for s in added_schedules
-        if s.target_status == game_model.GameStatus.IN_PROGRESS.value
+        s for s in added_schedules if s.target_status == game_model.GameStatus.IN_PROGRESS.value
     )
     assert in_progress_schedule.game_id == game.id
     assert in_progress_schedule.transition_time == scheduled_time
@@ -1284,9 +1246,7 @@ async def test_create_game_status_schedules_for_scheduled_game(
 
     # Verify COMPLETED schedule
     completed_schedule = next(
-        s
-        for s in added_schedules
-        if s.target_status == game_model.GameStatus.COMPLETED.value
+        s for s in added_schedules if s.target_status == game_model.GameStatus.COMPLETED.value
     )
     assert completed_schedule.game_id == game.id
     assert completed_schedule.transition_time == scheduled_time + datetime.timedelta(
@@ -1316,13 +1276,9 @@ async def test_create_game_status_schedules_uses_default_duration_when_none(
 
     # Verify COMPLETED schedule uses default duration
     completed_schedule = next(
-        s
-        for s in added_schedules
-        if s.target_status == game_model.GameStatus.COMPLETED.value
+        s for s in added_schedules if s.target_status == game_model.GameStatus.COMPLETED.value
     )
-    expected_completion = scheduled_time + datetime.timedelta(
-        minutes=DEFAULT_GAME_DURATION_MINUTES
-    )
+    expected_completion = scheduled_time + datetime.timedelta(minutes=DEFAULT_GAME_DURATION_MINUTES)
     assert completed_schedule.transition_time == expected_completion
 
 
@@ -1363,9 +1319,7 @@ async def test_create_game_status_schedules_with_custom_duration(
 
     added_schedules = [call[0][0] for call in mock_db.add.call_args_list]
     completed_schedule = next(
-        s
-        for s in added_schedules
-        if s.target_status == game_model.GameStatus.COMPLETED.value
+        s for s in added_schedules if s.target_status == game_model.GameStatus.COMPLETED.value
     )
     expected_completion = scheduled_time + datetime.timedelta(minutes=custom_duration)
     assert completed_schedule.transition_time == expected_completion
@@ -1409,9 +1363,7 @@ async def test_create_game_without_participants(
     )
     mock_participant_resolver.ensure_user_exists = AsyncMock(return_value=sample_user)
 
-    with patch(
-        "services.api.auth.roles.get_role_service", return_value=mock_role_service
-    ):
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
         game = await game_service.create_game(
             game_data=sample_game_data,
             host_user_id=sample_user.id,
@@ -1472,9 +1424,7 @@ async def test_create_game_with_where_field(
         created_game,
     )
 
-    with patch(
-        "services.api.auth.roles.get_role_service", return_value=mock_role_service
-    ):
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
         game = await game_service.create_game(
             game_data=game_data,
             host_user_id=sample_user.id,
@@ -1541,9 +1491,7 @@ async def test_create_game_with_valid_participants(
         created_game,
     )
 
-    with patch(
-        "services.api.auth.roles.get_role_service", return_value=mock_role_service
-    ):
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
         game = await game_service.create_game(
             game_data=sample_game_data,
             host_user_id=sample_user.id,
@@ -1591,9 +1539,7 @@ async def test_create_game_with_invalid_participants(
     mock_participant_resolver.ensure_user_exists = AsyncMock(return_value=sample_user)
 
     with (
-        patch(
-            "services.api.auth.roles.get_role_service", return_value=mock_role_service
-        ),
+        patch("services.api.auth.roles.get_role_service", return_value=mock_role_service),
         pytest.raises(resolver_module.ValidationError) as exc_info,
     ):
         await game_service.create_game(
@@ -1636,9 +1582,7 @@ async def test_create_game_timezone_conversion(
         id=str(uuid.uuid4()),
         title="Timezone Test",
         description="Test timezone conversion",
-        scheduled_at=datetime.datetime(2025, 11, 20, 15, 0, 0).replace(
-            tzinfo=None
-        ),  # Naive UTC
+        scheduled_at=datetime.datetime(2025, 11, 20, 15, 0, 0).replace(tzinfo=None),  # Naive UTC
         guild_id=sample_guild.id,
         channel_id=sample_channel.id,
         host_id=sample_user.id,
@@ -1688,9 +1632,7 @@ async def test_create_game_timezone_conversion(
 
     mock_db.add = MagicMock(side_effect=capture_add)
 
-    with patch(
-        "services.api.auth.roles.get_role_service", return_value=mock_role_service
-    ):
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
         await game_service.create_game(
             game_data=game_data,
             host_user_id=sample_user.id,
@@ -1764,9 +1706,7 @@ async def test_list_games_with_filters(game_service, mock_db, sample_guild):
 
     mock_db.execute = AsyncMock(side_effect=[count_result, games_result])
 
-    games, count = await game_service.list_games(
-        guild_id=str(sample_guild.id), status="SCHEDULED"
-    )
+    games, count = await game_service.list_games(guild_id=str(sample_guild.id), status="SCHEDULED")
 
     assert len(games) == 1
     assert count == 1
@@ -1810,9 +1750,7 @@ async def test_update_game_success(game_service, mock_db, sample_user, sample_gu
     # Mock role service with can_manage_game patched
     mock_role_service = MagicMock()
 
-    with patch(
-        "services.api.dependencies.permissions.can_manage_game", return_value=True
-    ):
+    with patch("services.api.dependencies.permissions.can_manage_game", return_value=True):
         updated = await game_service.update_game(
             game_id=game_id,
             update_data=game_schemas.GameUpdateRequest(
@@ -1829,9 +1767,7 @@ async def test_update_game_success(game_service, mock_db, sample_user, sample_gu
 
 
 @pytest.mark.asyncio
-async def test_update_game_where_field(
-    game_service, mock_db, sample_user, sample_guild
-):
+async def test_update_game_where_field(game_service, mock_db, sample_user, sample_guild):
     """Test updating game where field."""
 
     game_id = str(uuid.uuid4())
@@ -1863,9 +1799,7 @@ async def test_update_game_where_field(
     )
     mock_role_service = MagicMock()
 
-    with patch(
-        "services.api.dependencies.permissions.can_manage_game", return_value=True
-    ):
+    with patch("services.api.dependencies.permissions.can_manage_game", return_value=True):
         updated = await game_service.update_game(
             game_id=game_id,
             update_data=game_schemas.GameUpdateRequest(where="New Location"),
@@ -1905,9 +1839,7 @@ async def test_update_game_not_host(game_service, mock_db, sample_user, sample_g
 
     mock_role_service = MagicMock()
 
-    with patch(
-        "services.api.dependencies.permissions.can_manage_game", return_value=False
-    ):
+    with patch("services.api.dependencies.permissions.can_manage_game", return_value=False):
         with pytest.raises(ValueError, match="You don't have permission to update"):
             await game_service.update_game(
                 game_id=game_id,
@@ -1956,9 +1888,7 @@ async def test_delete_game_success(game_service, mock_db, sample_user, sample_gu
 
     mock_role_service = MagicMock()
 
-    with patch(
-        "services.api.dependencies.permissions.can_manage_game", return_value=True
-    ):
+    with patch("services.api.dependencies.permissions.can_manage_game", return_value=True):
         await game_service.delete_game(
             game_id=game_id,
             current_user=current_user,
@@ -2075,9 +2005,7 @@ async def test_join_game_already_joined(
     mock_participant_resolver.ensure_user_exists = AsyncMock(return_value=sample_user)
 
     with pytest.raises(ValueError, match="User has already joined this game"):
-        await game_service.join_game(
-            game_id=game_id, user_discord_id=sample_user.discord_id
-        )
+        await game_service.join_game(game_id=game_id, user_discord_id=sample_user.discord_id)
 
 
 @pytest.mark.asyncio
@@ -2113,9 +2041,7 @@ async def test_join_game_full(
     mock_participant_resolver.ensure_user_exists = AsyncMock(return_value=new_user)
 
     with pytest.raises(ValueError, match="Game is full"):
-        await game_service.join_game(
-            game_id=game_id, user_discord_id=new_user.discord_id
-        )
+        await game_service.join_game(game_id=game_id, user_discord_id=new_user.discord_id)
 
 
 @pytest.mark.asyncio
@@ -2166,9 +2092,7 @@ async def test_leave_game_success(game_service, mock_db, sample_user):
     mock_db.delete = AsyncMock()
     mock_db.commit = AsyncMock()
 
-    await game_service.leave_game(
-        game_id=game_id, user_discord_id=sample_user.discord_id
-    )
+    await game_service.leave_game(game_id=game_id, user_discord_id=sample_user.discord_id)
 
     mock_db.delete.assert_called_once_with(mock_participant)
     mock_db.commit.assert_called_once()
@@ -2187,20 +2111,14 @@ async def test_leave_game_not_participant(game_service, mock_db, sample_user):
     user_result.scalar_one_or_none.return_value = sample_user
     participant_result = MagicMock()
     participant_result.scalar_one_or_none.return_value = None
-    mock_db.execute = AsyncMock(
-        side_effect=[game_result, user_result, participant_result]
-    )
+    mock_db.execute = AsyncMock(side_effect=[game_result, user_result, participant_result])
 
     with pytest.raises(ValueError, match="Not a participant"):
-        await game_service.leave_game(
-            game_id=game_id, user_discord_id=sample_user.discord_id
-        )
+        await game_service.leave_game(game_id=game_id, user_discord_id=sample_user.discord_id)
 
 
 @pytest.mark.asyncio
-async def test_ensure_in_progress_schedule_creates_new(
-    game_service, mock_db, sample_game_data
-):
+async def test_ensure_in_progress_schedule_creates_new(game_service, mock_db, sample_game_data):
     """Test _ensure_in_progress_schedule creates new schedule when none exists."""
 
     game = game_model.GameSession(
@@ -2370,26 +2288,18 @@ async def test_update_status_schedules_for_scheduled_game(game_service, mock_db)
     added_schedules = [call[0][0] for call in mock_db.add.call_args_list]
 
     in_progress_schedule = next(
-        s
-        for s in added_schedules
-        if s.target_status == game_model.GameStatus.IN_PROGRESS.value
+        s for s in added_schedules if s.target_status == game_model.GameStatus.IN_PROGRESS.value
     )
     completed_schedule = next(
-        s
-        for s in added_schedules
-        if s.target_status == game_model.GameStatus.COMPLETED.value
+        s for s in added_schedules if s.target_status == game_model.GameStatus.COMPLETED.value
     )
 
     assert in_progress_schedule.transition_time == scheduled_time
-    assert completed_schedule.transition_time == scheduled_time + datetime.timedelta(
-        minutes=60
-    )
+    assert completed_schedule.transition_time == scheduled_time + datetime.timedelta(minutes=60)
 
 
 @pytest.mark.asyncio
-async def test_update_status_schedules_deletes_for_non_scheduled_game(
-    game_service, mock_db
-):
+async def test_update_status_schedules_deletes_for_non_scheduled_game(game_service, mock_db):
     """Test _update_status_schedules deletes all schedules for non-SCHEDULED game."""
 
     game = game_model.GameSession(
@@ -2430,9 +2340,7 @@ async def test_update_status_schedules_deletes_for_non_scheduled_game(
 
 
 @pytest.mark.asyncio
-async def test_update_status_schedules_updates_existing_schedules(
-    game_service, mock_db
-):
+async def test_update_status_schedules_updates_existing_schedules(game_service, mock_db):
     """Test _update_status_schedules updates existing schedules for SCHEDULED game."""
 
     old_time = datetime.datetime.now(datetime.UTC)
@@ -2477,9 +2385,7 @@ async def test_update_status_schedules_updates_existing_schedules(
     # Should update existing schedules
     assert in_progress_schedule.transition_time == new_time
     assert in_progress_schedule.executed is False
-    assert completed_schedule.transition_time == new_time + datetime.timedelta(
-        minutes=120
-    )
+    assert completed_schedule.transition_time == new_time + datetime.timedelta(minutes=120)
     assert completed_schedule.executed is False
 
 
@@ -2542,9 +2448,7 @@ async def test_create_game_creates_status_schedules(
     )
     mock_db.add.side_effect = track_add
 
-    with patch(
-        "services.api.auth.roles.get_role_service", return_value=mock_role_service
-    ):
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
         await game_service.create_game(
             game_data=game_data,
             host_user_id=sample_user.id,
@@ -2560,28 +2464,24 @@ async def test_create_game_creates_status_schedules(
     assert len(status_schedules) == 2
 
     in_progress_schedule = next(
-        s
-        for s in status_schedules
-        if s.target_status == game_model.GameStatus.IN_PROGRESS.value
+        s for s in status_schedules if s.target_status == game_model.GameStatus.IN_PROGRESS.value
     )
     completed_schedule = next(
-        s
-        for s in status_schedules
-        if s.target_status == game_model.GameStatus.COMPLETED.value
+        s for s in status_schedules if s.target_status == game_model.GameStatus.COMPLETED.value
     )
 
     assert in_progress_schedule.game_id == created_game.id
     # Compare times without timezone (SQLAlchemy may strip timezone)
-    assert in_progress_schedule.transition_time.replace(
+    assert in_progress_schedule.transition_time.replace(tzinfo=None) == scheduled_time.replace(
         tzinfo=None
-    ) == scheduled_time.replace(tzinfo=None)
+    )
     assert in_progress_schedule.executed is False
 
     assert completed_schedule.game_id == created_game.id
     expected_completion = scheduled_time + datetime.timedelta(minutes=90)
-    assert completed_schedule.transition_time.replace(
+    assert completed_schedule.transition_time.replace(tzinfo=None) == expected_completion.replace(
         tzinfo=None
-    ) == expected_completion.replace(tzinfo=None)
+    )
     assert completed_schedule.executed is False
 
 
@@ -2648,9 +2548,7 @@ async def test_create_game_with_empty_host_defaults_to_current_user(
     mock_db.commit = AsyncMock()
     mock_db.add = MagicMock()
 
-    with patch(
-        "services.api.auth.roles.get_role_service", return_value=mock_role_service
-    ):
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
         game = await game_service.create_game(
             game_data=game_data,
             host_user_id=sample_user.id,
@@ -2699,12 +2597,8 @@ async def test_create_game_regular_user_cannot_override_host(
     mock_role_service = AsyncMock()
     mock_role_service.check_bot_manager_permission = AsyncMock(return_value=False)
 
-    with patch(
-        "services.api.auth.roles.get_role_service", return_value=mock_role_service
-    ):
-        with pytest.raises(
-            ValueError, match="Only bot managers can specify the game host"
-        ):
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
+        with pytest.raises(ValueError, match="Only bot managers can specify the game host"):
             await game_service.create_game(
                 game_data=game_data,
                 host_user_id=sample_user.id,
@@ -2796,9 +2690,7 @@ async def test_create_game_bot_manager_can_override_host(
         )
     )
 
-    with patch(
-        "services.api.auth.roles.get_role_service", return_value=mock_role_service
-    ):
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
         game = await game_service.create_game(
             game_data=game_data,
             host_user_id=sample_user.id,
@@ -2860,9 +2752,7 @@ async def test_create_game_bot_manager_invalid_host_raises_validation_error(
         )
     )
 
-    with patch(
-        "services.api.auth.roles.get_role_service", return_value=mock_role_service
-    ):
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
         with pytest.raises(resolver_module.ValidationError) as exc_info:
             await game_service.create_game(
                 game_data=game_data,
@@ -2949,9 +2839,7 @@ async def test_create_game_bot_manager_host_without_permissions_fails(
         )
     )
 
-    with patch(
-        "services.api.auth.roles.get_role_service", return_value=mock_role_service
-    ):
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
         with pytest.raises(
             ValueError,
             match="User does not have permission to create games with this template",
@@ -3025,9 +2913,7 @@ async def test_create_game_bot_manager_empty_host_uses_self(
 
     mock_role_service.check_bot_manager_permission = AsyncMock(return_value=True)
 
-    with patch(
-        "services.api.auth.roles.get_role_service", return_value=mock_role_service
-    ):
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
         game = await game_service.create_game(
             game_data=game_data,
             host_user_id=sample_user.id,
@@ -3083,9 +2969,7 @@ async def test_create_game_validates_signup_method_against_allowed_list(
     )
     mock_role_service.check_game_host_permission = AsyncMock(return_value=True)
 
-    with patch(
-        "services.api.auth.roles.get_role_service", return_value=mock_role_service
-    ):
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
         with pytest.raises(ValueError, match="not allowed for this template"):
             await game_service.create_game(
                 game_data=game_data,
@@ -3105,9 +2989,7 @@ def test_separate_existing_and_new_participants_with_existing_only(game_service)
         {"participant_id": "id-3", "position": 3},
     ]
 
-    existing_ids, mentions = game_service._separate_existing_and_new_participants(
-        participant_data
-    )
+    existing_ids, mentions = game_service._separate_existing_and_new_participants(participant_data)
 
     assert existing_ids == {"id-1", "id-2", "id-3"}
     assert mentions == []
@@ -3121,9 +3003,7 @@ def test_separate_existing_and_new_participants_with_mentions_only(game_service)
         {"mention": "placeholder", "position": 3},
     ]
 
-    existing_ids, mentions = game_service._separate_existing_and_new_participants(
-        participant_data
-    )
+    existing_ids, mentions = game_service._separate_existing_and_new_participants(participant_data)
 
     assert existing_ids == set()
     assert mentions == [("@user1", 1), ("@user2", 2), ("placeholder", 3)]
@@ -3138,9 +3018,7 @@ def test_separate_existing_and_new_participants_mixed(game_service):
         {"mention": "placeholder", "position": 4},
     ]
 
-    existing_ids, mentions = game_service._separate_existing_and_new_participants(
-        participant_data
-    )
+    existing_ids, mentions = game_service._separate_existing_and_new_participants(participant_data)
 
     assert existing_ids == {"id-1", "id-2"}
     assert mentions == [("@user1", 2), ("placeholder", 4)]
@@ -3155,9 +3033,7 @@ def test_separate_existing_and_new_participants_ignores_empty_mentions(game_serv
         {"mention": "@user1", "position": 4},
     ]
 
-    existing_ids, mentions = game_service._separate_existing_and_new_participants(
-        participant_data
-    )
+    existing_ids, mentions = game_service._separate_existing_and_new_participants(participant_data)
 
     assert existing_ids == {"id-1"}
     assert mentions == [("@user1", 4)]
@@ -3170,9 +3046,7 @@ def test_separate_existing_and_new_participants_uses_default_position(game_servi
         {"mention": "@user2", "position": 5},
     ]
 
-    existing_ids, mentions = game_service._separate_existing_and_new_participants(
-        participant_data
-    )
+    existing_ids, mentions = game_service._separate_existing_and_new_participants(participant_data)
 
     assert existing_ids == set()
     assert mentions == [("@user1", 0), ("@user2", 5)]
@@ -3378,9 +3252,7 @@ def test_capture_old_state(game_service):
         participants=[participant1, participant2],
     )
 
-    old_max_players, old_snapshot, old_partitioned = game_service._capture_old_state(
-        game
-    )
+    old_max_players, old_snapshot, old_partitioned = game_service._capture_old_state(game)
 
     assert old_max_players == 2
     assert len(old_snapshot) == 2
@@ -3410,9 +3282,7 @@ def test_capture_old_state_with_unlimited_players(game_service):
         participants=[participant1],
     )
 
-    old_max_players, old_snapshot, old_partitioned = game_service._capture_old_state(
-        game
-    )
+    old_max_players, old_snapshot, old_partitioned = game_service._capture_old_state(game)
 
     assert old_max_players == DEFAULT_MAX_PLAYERS
     assert len(old_snapshot) == 1
@@ -3539,16 +3409,12 @@ async def test_process_game_update_schedules_both_flags(game_service, mock_db):
         mock_schedule_service.update_schedule = AsyncMock()
         mock_schedule_service_class.return_value = mock_schedule_service
 
-        with patch.object(
-            game_service, "_update_status_schedules", new=AsyncMock()
-        ) as mock_status:
+        with patch.object(game_service, "_update_status_schedules", new=AsyncMock()) as mock_status:
             await game_service._process_game_update_schedules(
                 game, schedule_needs_update=True, status_schedule_needs_update=True
             )
 
-            mock_schedule_service.update_schedule.assert_called_once_with(
-                game, [30, 10]
-            )
+            mock_schedule_service.update_schedule.assert_called_once_with(game, [30, 10])
             mock_status.assert_called_once_with(game)
 
 
@@ -3568,16 +3434,12 @@ async def test_process_game_update_schedules_only_notification(game_service, moc
         mock_schedule_service.update_schedule = AsyncMock()
         mock_schedule_service_class.return_value = mock_schedule_service
 
-        with patch.object(
-            game_service, "_update_status_schedules", new=AsyncMock()
-        ) as mock_status:
+        with patch.object(game_service, "_update_status_schedules", new=AsyncMock()) as mock_status:
             await game_service._process_game_update_schedules(
                 game, schedule_needs_update=True, status_schedule_needs_update=False
             )
 
-            mock_schedule_service.update_schedule.assert_called_once_with(
-                game, [60, 15]
-            )
+            mock_schedule_service.update_schedule.assert_called_once_with(game, [60, 15])
             mock_status.assert_not_called()
 
 
@@ -3596,9 +3458,7 @@ async def test_process_game_update_schedules_only_status(game_service, mock_db):
         mock_schedule_service = AsyncMock()
         mock_schedule_service_class.return_value = mock_schedule_service
 
-        with patch.object(
-            game_service, "_update_status_schedules", new=AsyncMock()
-        ) as mock_status:
+        with patch.object(game_service, "_update_status_schedules", new=AsyncMock()) as mock_status:
             await game_service._process_game_update_schedules(
                 game, schedule_needs_update=False, status_schedule_needs_update=True
             )
@@ -3618,9 +3478,7 @@ async def test_process_game_update_schedules_neither(game_service, mock_db):
         mock_schedule_service = AsyncMock()
         mock_schedule_service_class.return_value = mock_schedule_service
 
-        with patch.object(
-            game_service, "_update_status_schedules", new=AsyncMock()
-        ) as mock_status:
+        with patch.object(game_service, "_update_status_schedules", new=AsyncMock()) as mock_status:
             await game_service._process_game_update_schedules(
                 game, schedule_needs_update=False, status_schedule_needs_update=False
             )
@@ -3673,9 +3531,7 @@ async def test_detect_and_notify_promotions_with_promotions(game_service):
         participants=old_participants,
     )
 
-    with patch.object(
-        game_service, "_notify_promoted_users", new=AsyncMock()
-    ) as mock_notify:
+    with patch.object(game_service, "_notify_promoted_users", new=AsyncMock()) as mock_notify:
         await game_service._detect_and_notify_promotions(game, old_partitioned)
 
         mock_notify.assert_called_once()
@@ -3717,9 +3573,7 @@ async def test_detect_and_notify_promotions_no_promotions(game_service):
         participants=old_participants,
     )
 
-    with patch.object(
-        game_service, "_notify_promoted_users", new=AsyncMock()
-    ) as mock_notify:
+    with patch.object(game_service, "_notify_promoted_users", new=AsyncMock()) as mock_notify:
         await game_service._detect_and_notify_promotions(game, old_partitioned)
 
         mock_notify.assert_not_called()

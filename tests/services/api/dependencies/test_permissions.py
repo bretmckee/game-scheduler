@@ -41,15 +41,6 @@ def mock_current_user():
 
 
 @pytest.fixture
-def mock_role_service():
-    """Create mock role verification service."""
-    service = AsyncMock()
-    service.has_permissions = AsyncMock()
-    service.check_game_host_permission = AsyncMock()
-    return service
-
-
-@pytest.fixture
 def mock_tokens():
     """Mock token functions."""
     return {

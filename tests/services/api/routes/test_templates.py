@@ -28,7 +28,6 @@ from starlette import status
 
 from services.api.routes import templates
 from shared.models.template import GameTemplate
-from shared.schemas import auth as auth_schemas
 from shared.schemas import template as template_schemas
 
 
@@ -36,19 +35,6 @@ from shared.schemas import template as template_schemas
 def mock_db():
     """Create mock database session."""
     return AsyncMock()
-
-
-@pytest.fixture
-def mock_current_user():
-    """Create mock authenticated user."""
-    mock_user = MagicMock()
-    mock_user.discord_id = "123456789"
-    return auth_schemas.CurrentUser(
-        user=mock_user,
-        user_id="user-uuid",
-        access_token="test_access_token",
-        session_token="test-session-token",
-    )
 
 
 @pytest.fixture
@@ -201,7 +187,7 @@ class TestListTemplates:
 
     @pytest.mark.asyncio
     async def test_list_templates_success(
-        self, mock_db, mock_current_user, mock_guild_config, mock_template
+        self, mock_db, mock_current_user_unit, mock_guild_config, mock_template
     ):
         """Test listing templates with role filtering."""
         with (
@@ -227,7 +213,7 @@ class TestListTemplates:
 
             result = await templates.list_templates(
                 guild_id=mock_guild_config.id,
-                current_user=mock_current_user,
+                current_user=mock_current_user_unit,
                 db=mock_db,
                 discord_client=mock_discord_client,
             )
@@ -237,7 +223,7 @@ class TestListTemplates:
             assert result[0].channel_name == "test-channel"
 
     @pytest.mark.asyncio
-    async def test_list_templates_guild_not_found(self, mock_db, mock_current_user):
+    async def test_list_templates_guild_not_found(self, mock_db, mock_current_user_unit):
         """Test listing templates when guild not found."""
         with patch("services.api.database.queries.require_guild_by_id") as mock_get_guild:
             mock_get_guild.side_effect = HTTPException(
@@ -248,7 +234,7 @@ class TestListTemplates:
             with pytest.raises(HTTPException) as exc_info:
                 await templates.list_templates(
                     guild_id="nonexistent",
-                    current_user=mock_current_user,
+                    current_user=mock_current_user_unit,
                     db=mock_db,
                     discord_client=mock_discord_client,
                 )
@@ -261,7 +247,7 @@ class TestGetTemplate:
 
     @pytest.mark.asyncio
     async def test_get_template_success(
-        self, mock_db, mock_current_user, mock_template, mock_channel_config
+        self, mock_db, mock_current_user_unit, mock_template, mock_channel_config
     ):
         """Test getting template by ID."""
         with (
@@ -283,7 +269,7 @@ class TestGetTemplate:
 
             result = await templates.get_template(
                 template_id=mock_template.id,
-                current_user=mock_current_user,
+                current_user=mock_current_user_unit,
                 db=mock_db,
                 discord_client=mock_discord_client,
             )
@@ -293,7 +279,7 @@ class TestGetTemplate:
             assert result.channel_name == "test-channel"
 
     @pytest.mark.asyncio
-    async def test_get_template_not_found(self, mock_db, mock_current_user):
+    async def test_get_template_not_found(self, mock_db, mock_current_user_unit):
         """Test getting nonexistent template."""
         with patch(
             "services.api.services.template_service.TemplateService"
@@ -306,7 +292,7 @@ class TestGetTemplate:
             with pytest.raises(HTTPException) as exc_info:
                 await templates.get_template(
                     template_id="nonexistent",
-                    current_user=mock_current_user,
+                    current_user=mock_current_user_unit,
                     db=mock_db,
                     discord_client=mock_discord_client,
                 )
@@ -319,7 +305,7 @@ class TestCreateTemplate:
 
     @pytest.mark.asyncio
     async def test_create_template_success(
-        self, mock_db, mock_current_user, mock_guild_config, mock_template
+        self, mock_db, mock_current_user_unit, mock_guild_config, mock_template
     ):
         """Test creating template with bot manager role."""
         request = template_schemas.TemplateCreateRequest(
@@ -355,7 +341,7 @@ class TestCreateTemplate:
             mock_role_service = AsyncMock()
             mock_role_service.check_bot_manager_permission.return_value = True
             mock_get_role_service.return_value = mock_role_service
-            mock_require_manager.return_value = mock_current_user
+            mock_require_manager.return_value = mock_current_user_unit
 
             mock_service = AsyncMock()
             mock_service.create_template.return_value = mock_template
@@ -367,7 +353,7 @@ class TestCreateTemplate:
             result = await templates.create_template(
                 guild_id=mock_guild_config.id,
                 request=request,
-                current_user=mock_current_user,
+                current_user=mock_current_user_unit,
                 db=mock_db,
                 discord_client=mock_discord_client,
             )
@@ -376,7 +362,7 @@ class TestCreateTemplate:
 
     @pytest.mark.asyncio
     async def test_create_template_unauthorized(
-        self, mock_db, mock_current_user, mock_guild_config
+        self, mock_db, mock_current_user_unit, mock_guild_config
     ):
         """Test creating template without bot manager role."""
         request = template_schemas.TemplateCreateRequest(
@@ -406,7 +392,7 @@ class TestCreateTemplate:
                 await templates.create_template(
                     guild_id=mock_guild_config.id,
                     request=request,
-                    current_user=mock_current_user,
+                    current_user=mock_current_user_unit,
                     db=mock_db,
                     discord_client=mock_discord_client,
                 )
@@ -419,7 +405,7 @@ class TestDeleteTemplate:
 
     @pytest.mark.asyncio
     async def test_delete_default_template_fails(
-        self, mock_db, mock_current_user, mock_guild_config, mock_template
+        self, mock_db, mock_current_user_unit, mock_guild_config, mock_template
     ):
         """Test that deleting default template is prevented."""
         mock_template.is_default = True
@@ -443,12 +429,12 @@ class TestDeleteTemplate:
             mock_role_service = AsyncMock()
             mock_role_service.check_bot_manager_permission.return_value = True
             mock_get_role_service.return_value = mock_role_service
-            mock_require_manager.return_value = mock_current_user
+            mock_require_manager.return_value = mock_current_user_unit
 
             with pytest.raises(HTTPException) as exc_info:
                 await templates.delete_template(
                     template_id=mock_template.id,
-                    current_user=mock_current_user,
+                    current_user=mock_current_user_unit,
                     db=mock_db,
                 )
 

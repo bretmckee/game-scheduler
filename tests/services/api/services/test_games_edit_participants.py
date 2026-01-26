@@ -119,9 +119,7 @@ async def test_update_game_with_discord_mention_format(
     mock_current_user.user.discord_id = sample_user.discord_id
     mock_role_service = AsyncMock()
 
-    with patch(
-        "services.api.dependencies.permissions.can_manage_game", return_value=True
-    ):
+    with patch("services.api.dependencies.permissions.can_manage_game", return_value=True):
         # Update the game
         await game_service.update_game(
             game_id=game_id,
@@ -211,9 +209,7 @@ async def test_update_game_preserves_discord_users_not_placeholders(
     mock_current_user.user.discord_id = sample_user.discord_id
     mock_role_service = AsyncMock()
 
-    with patch(
-        "services.api.dependencies.permissions.can_manage_game", return_value=True
-    ):
+    with patch("services.api.dependencies.permissions.can_manage_game", return_value=True):
         await game_service.update_game(
             game_id=game_id,
             update_data=update_data,

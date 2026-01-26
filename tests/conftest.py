@@ -39,6 +39,7 @@ import os
 import uuid
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
+from unittest.mock import AsyncMock, MagicMock
 
 import httpx
 import pytest
@@ -53,6 +54,8 @@ from sqlalchemy.orm import sessionmaker
 from services.api.auth.tokens import encrypt_token
 from shared.cache.client import RedisClient
 from shared.cache.keys import CacheKeys
+from shared.discord import client as discord_client_module
+from shared.schemas import auth as auth_schemas
 from tests.shared.auth_helpers import cleanup_test_session, create_test_session
 
 logger = logging.getLogger(__name__)
@@ -860,3 +863,65 @@ def test_game_environment(test_environment, create_template, create_game):
         return result
 
     return _create
+
+
+# ============================================================================
+# Unit Test Mock Fixtures
+# ============================================================================
+
+
+@pytest.fixture
+def mock_db_unit():
+    """
+    Mock AsyncSession database for unit tests.
+
+    Differs from admin_db_sync/admin_db which are real database connections
+    for integration tests. This is a pure mock for isolated unit tests.
+
+    Returns AsyncMock with AsyncSession spec.
+    """
+    return AsyncMock(spec=AsyncSession)
+
+
+@pytest.fixture
+def mock_discord_api_client():
+    """
+    Mock Discord REST API client (shared.discord.client.DiscordAPIClient).
+
+    For bot commands/events using discord.py Bot, use a different mock.
+    This mocks the HTTP REST API client used by services.
+    """
+    return MagicMock(spec=discord_client_module.DiscordAPIClient)
+
+
+@pytest.fixture
+def mock_current_user_unit():
+    """
+    Mock authenticated user for unit tests.
+
+    Returns CurrentUser schema with mock user object for testing
+    authenticated endpoints without real auth flow.
+    """
+    mock_user = MagicMock()
+    mock_user.discord_id = "123456789"
+    return auth_schemas.CurrentUser(
+        user=mock_user,
+        access_token="test_access_token",
+        session_token="test-session-token",
+    )
+
+
+@pytest.fixture
+def mock_role_service():
+    """
+    Mock role checking service for unit tests.
+
+    Default behavior: All permission checks return True.
+    Override in specific tests as needed.
+    """
+    role_service = AsyncMock()
+    role_service.check_game_host_permission = AsyncMock(return_value=True)
+    role_service.check_bot_manager_permission = AsyncMock(return_value=True)
+    role_service.has_any_role = AsyncMock(return_value=True)
+    role_service.has_permissions = AsyncMock(return_value=True)
+    return role_service

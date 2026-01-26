@@ -43,14 +43,6 @@ def mock_db():
 
 
 @pytest.fixture
-def mock_role_service():
-    """Mock role verification service."""
-    service = AsyncMock()
-    service.has_any_role = AsyncMock()
-    return service
-
-
-@pytest.fixture
 def guild_config():
     """Sample guild configuration."""
     return GuildConfiguration(

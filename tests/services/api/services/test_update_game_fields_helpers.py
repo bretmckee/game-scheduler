@@ -289,8 +289,8 @@ def test_update_game_fields_integrates_all_helpers(game_service):
         scheduled_at=datetime.datetime(2026, 2, 1, 14, 0, 0),
     )
 
-    schedule_needs_update, status_schedule_needs_update = (
-        game_service._update_game_fields(game, update_data)
+    schedule_needs_update, status_schedule_needs_update = game_service._update_game_fields(
+        game, update_data
     )
 
     # Verify simple text fields updated
@@ -325,8 +325,8 @@ def test_update_game_fields_scheduled_at_affects_both_schedules(game_service):
         scheduled_at=datetime.datetime(2026, 2, 1, 14, 0, 0),
     )
 
-    schedule_needs_update, status_schedule_needs_update = (
-        game_service._update_game_fields(game, update_data)
+    schedule_needs_update, status_schedule_needs_update = game_service._update_game_fields(
+        game, update_data
     )
 
     assert schedule_needs_update is True
@@ -346,8 +346,8 @@ def test_update_game_fields_status_only_affects_status_schedule(game_service):
         status="IN_PROGRESS",
     )
 
-    schedule_needs_update, status_schedule_needs_update = (
-        game_service._update_game_fields(game, update_data)
+    schedule_needs_update, status_schedule_needs_update = game_service._update_game_fields(
+        game, update_data
     )
 
     assert schedule_needs_update is False
@@ -368,8 +368,8 @@ def test_update_game_fields_reminder_only_affects_notification_schedule(game_ser
         reminder_minutes=[120, 30],
     )
 
-    schedule_needs_update, status_schedule_needs_update = (
-        game_service._update_game_fields(game, update_data)
+    schedule_needs_update, status_schedule_needs_update = game_service._update_game_fields(
+        game, update_data
     )
 
     assert schedule_needs_update is True
