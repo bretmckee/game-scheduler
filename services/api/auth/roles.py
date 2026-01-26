@@ -87,10 +87,15 @@ class RoleVerificationService:
             return role_ids
 
         except discord_client.DiscordAPIError as e:
-            logger.warning(f"Failed to fetch user roles for {user_id} in guild {guild_id}: {e}")
+            logger.warning(
+                "Failed to fetch user roles for %s in guild %s: %s",
+                user_id,
+                guild_id,
+                e,
+            )
             return []
         except Exception as e:
-            logger.error(f"Unexpected error fetching user roles: {e}")
+            logger.error("Unexpected error fetching user roles: %s", e)
             return []
 
     def _find_guild_data(self, guilds: list[dict], guild_id: str) -> dict | None:
@@ -169,7 +174,7 @@ class RoleVerificationService:
             return self._has_any_requested_permission(user_permissions, permissions)
 
         except Exception as e:
-            logger.error(f"Error checking permissions: {e}")
+            logger.error("Error checking permissions: %s", e)
             return False
 
     async def has_any_role(

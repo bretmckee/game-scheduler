@@ -64,7 +64,7 @@ async def main() -> None:
             return
 
         logger.info("Starting Discord Game Scheduler Bot")
-        logger.info(f"Environment: {config.environment}")
+        logger.info("Environment: %s", config.environment)
 
         try:
             bot = await create_bot(config)
@@ -75,7 +75,7 @@ async def main() -> None:
         except KeyboardInterrupt:
             logger.info("Received interrupt signal, shutting down")
         except Exception as e:
-            logger.exception(f"Fatal error: {e}")
+            logger.exception("Fatal error: %s", e)
             sys.exit(1)
     finally:
         flush_telemetry()

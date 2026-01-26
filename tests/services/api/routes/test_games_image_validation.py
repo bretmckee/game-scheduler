@@ -30,12 +30,11 @@ def create_mock_upload_file(content: bytes, content_type: str) -> UploadFile:
     """Create mock UploadFile for testing."""
     file_obj = io.BytesIO(content)
     # UploadFile uses SpooledTemporaryFile, but accepts headers for content_type
-    upload_file = UploadFile(
+    return UploadFile(
         filename="test.png",
         file=file_obj,
         headers={"content-type": content_type},
     )
-    return upload_file
 
 
 @pytest.mark.asyncio

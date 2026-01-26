@@ -79,7 +79,7 @@ async def database_exception_handler(request: Request, exc: SQLAlchemyError) -> 
         JSON response with 500 status and error message
     """
     error_time = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
-    logger.error(f"Database error at {error_time}: {exc}", exc_info=True)
+    logger.error("Database error at %s: %s", error_time, exc, exc_info=True)
 
     config = get_api_config()
 
@@ -113,7 +113,7 @@ async def general_exception_handler(request: Request, exc: Exception) -> JSONRes
     Returns:
         JSON response with 500 status and error message
     """
-    logger.error(f"Unhandled exception: {exc}", exc_info=True)
+    logger.error("Unhandled exception: %s", exc, exc_info=True)
 
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

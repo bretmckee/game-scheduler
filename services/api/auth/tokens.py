@@ -115,7 +115,7 @@ async def store_user_tokens(
     session_key = f"session:{session_token}"
     await redis.set_json(session_key, session_data, ttl=cache_ttl.CacheTTL.SESSION)
 
-    logger.info(f"Stored tokens for user {user_id}")
+    logger.info("Stored tokens for user %s", user_id)
     return session_token
 
 
@@ -135,7 +135,7 @@ async def get_user_tokens(session_token: str) -> dict[str, Any] | None:
     session_data = await redis.get_json(session_key)
 
     if session_data is None:
-        logger.warning(f"No session found for token {session_token}")
+        logger.warning("No session found for token %s", session_token)
         return None
 
     decrypted_access = decrypt_token(session_data["access_token"])
@@ -166,7 +166,7 @@ async def refresh_user_tokens(
     session_data = await redis.get_json(session_key)
 
     if session_data is None:
-        logger.warning(f"No session found for token {session_token}")
+        logger.warning("No session found for token %s", session_token)
         return
 
     encrypted_access = encrypt_token(new_access_token)
@@ -176,7 +176,7 @@ async def refresh_user_tokens(
     session_data["expires_at"] = expiry.isoformat()
 
     await redis.set_json(session_key, session_data, ttl=cache_ttl.CacheTTL.SESSION)
-    logger.info(f"Refreshed tokens for session {session_token}")
+    logger.info("Refreshed tokens for session %s", session_token)
 
 
 async def delete_user_tokens(session_token: str) -> None:
@@ -191,7 +191,7 @@ async def delete_user_tokens(session_token: str) -> None:
     session_key = f"session:{session_token}"
     await redis.delete(session_key)
 
-    logger.info(f"Deleted session {session_token}")
+    logger.info("Deleted session %s", session_token)
 
 
 async def is_token_expired(expires_at: datetime) -> bool:

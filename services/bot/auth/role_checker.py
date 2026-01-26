@@ -74,12 +74,12 @@ class RoleChecker:
         try:
             guild = await self.bot.fetch_guild(int(guild_id))
             if guild is None:
-                logger.warning(f"Guild {guild_id} not found")
+                logger.warning("Guild %s not found", guild_id)
                 return []
 
             member = await guild.fetch_member(int(user_id))
             if member is None:
-                logger.warning(f"Member {user_id} not found in guild {guild_id}")
+                logger.warning("Member %s not found in guild %s", user_id, guild_id)
                 return []
 
             role_ids = [str(role.id) for role in member.roles if role.id != guild.id]
@@ -88,13 +88,13 @@ class RoleChecker:
             return role_ids
 
         except discord.NotFound:
-            logger.warning(f"Member {user_id} not found in guild {guild_id}")
+            logger.warning("Member %s not found in guild %s", user_id, guild_id)
             return []
         except discord.Forbidden:
-            logger.error(f"Bot lacks permission to fetch member {user_id} in guild {guild_id}")
+            logger.error("Bot lacks permission to fetch member %s in guild %s", user_id, guild_id)
             return []
         except Exception as e:
-            logger.error(f"Error fetching user roles: {e}")
+            logger.error("Error fetching user roles: %s", e)
             return []
 
     async def get_guild_roles(self, guild_id: str) -> list[discord.Role]:
@@ -111,13 +111,13 @@ class RoleChecker:
             guild = await self.bot.fetch_guild(int(guild_id))
 
             if guild is None:
-                logger.warning(f"Guild {guild_id} not found")
+                logger.warning("Guild %s not found", guild_id)
                 return []
 
             return list(guild.roles)
 
         except Exception as e:
-            logger.error(f"Error fetching guild roles: {e}")
+            logger.error("Error fetching guild roles: %s", e)
             return []
 
     async def check_manage_guild_permission(self, user_id: str, guild_id: str) -> bool:
@@ -143,7 +143,7 @@ class RoleChecker:
             return member.guild_permissions.manage_guild
 
         except Exception as e:
-            logger.error(f"Error checking MANAGE_GUILD permission: {e}")
+            logger.error("Error checking MANAGE_GUILD permission: %s", e)
             return False
 
     async def check_manage_channels_permission(self, user_id: str, guild_id: str) -> bool:
@@ -169,7 +169,7 @@ class RoleChecker:
             return member.guild_permissions.manage_channels
 
         except Exception as e:
-            logger.error(f"Error checking MANAGE_CHANNELS permission: {e}")
+            logger.error("Error checking MANAGE_CHANNELS permission: %s", e)
             return False
 
     async def check_administrator_permission(self, user_id: str, guild_id: str) -> bool:
@@ -195,7 +195,7 @@ class RoleChecker:
             return member.guild_permissions.administrator
 
         except Exception as e:
-            logger.error(f"Error checking ADMINISTRATOR permission: {e}")
+            logger.error("Error checking ADMINISTRATOR permission: %s", e)
             return False
 
     async def check_game_host_permission(

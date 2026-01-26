@@ -70,7 +70,7 @@ async def send_error_message(interaction: discord.Interaction, message: str) -> 
     try:
         await interaction.user.send(content=f"❌ {message}")
     except (discord.Forbidden, discord.HTTPException) as e:
-        logger.warning(f"Cannot send DM to user {interaction.user.id}: {e}")
+        logger.warning("Cannot send DM to user %s: %s", interaction.user.id, e)
 
 
 async def send_success_message(interaction: discord.Interaction, message: str) -> None:
@@ -83,4 +83,4 @@ async def send_success_message(interaction: discord.Interaction, message: str) -
     try:
         await interaction.user.send(content=message)
     except (discord.Forbidden, discord.HTTPException) as e:
-        logger.warning(f"Cannot send DM to user {interaction.user.id}: {e}")
+        logger.warning("Cannot send DM to user %s: %s", interaction.user.id, e)

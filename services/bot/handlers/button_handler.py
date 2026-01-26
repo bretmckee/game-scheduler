@@ -56,7 +56,7 @@ class ButtonHandler:
         custom_id = str(interaction.data.get("custom_id", ""))
 
         if not custom_id.startswith(("join_game_", "leave_game_")):
-            logger.debug(f"Ignoring non-game button: {custom_id}")
+            logger.debug("Ignoring non-game button: %s", custom_id)
             return
 
         try:
@@ -67,10 +67,10 @@ class ButtonHandler:
                 game_id = custom_id.replace("leave_game_", "")
                 await handle_leave_game(interaction, game_id, self.publisher)
             else:
-                logger.warning(f"Unknown button action: {custom_id}")
+                logger.warning("Unknown button action: %s", custom_id)
 
         except Exception as e:
-            logger.error(f"Error handling button interaction {custom_id}: {e}", exc_info=True)
+            logger.error("Error handling button interaction %s: %s", custom_id, e, exc_info=True)
             if not interaction.response.is_done():
                 await interaction.response.send_message(
                     "❌ An error occurred. Please try again.", ephemeral=True

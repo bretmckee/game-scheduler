@@ -63,11 +63,15 @@ def wait_for_rabbitmq(rabbitmq_url: str, max_retries: int = 30) -> None:
         except AMQPConnectionError:
             if attempt < max_retries:
                 print(f"  RabbitMQ not ready (attempt {attempt}/{max_retries}), retrying...")
-                logger.debug(f"RabbitMQ not ready (attempt {attempt}/{max_retries}), retrying...")
+                logger.debug(
+                    "RabbitMQ not ready (attempt %s/%s), retrying...",
+                    attempt,
+                    max_retries,
+                )
                 time.sleep(1)
             else:
                 print(f"✗ RabbitMQ failed to become ready after {max_retries} attempts")
-                logger.error(f"RabbitMQ failed to become ready after {max_retries} attempts")
+                logger.error("RabbitMQ failed to become ready after %s attempts", max_retries)
                 sys.exit(1)
 
 
@@ -85,31 +89,41 @@ def create_infrastructure(rabbitmq_url: str) -> None:
 
     channel.exchange_declare(exchange=MAIN_EXCHANGE, exchange_type="topic", durable=True)
     print(f"  ✓ Exchange '{MAIN_EXCHANGE}' declared")
-    logger.info(f"Declared exchange: {MAIN_EXCHANGE}")
+    logger.info("Declared exchange: %s", MAIN_EXCHANGE)
 
     channel.exchange_declare(exchange=DLX_EXCHANGE, exchange_type="topic", durable=True)
     print(f"  ✓ Exchange '{DLX_EXCHANGE}' declared")
-    logger.info(f"Declared dead letter exchange: {DLX_EXCHANGE}")
+    logger.info("Declared dead letter exchange: %s", DLX_EXCHANGE)
 
     for dlq_name in DEAD_LETTER_QUEUES:
         channel.queue_declare(queue=dlq_name, durable=True)
         print(f"  ✓ DLQ '{dlq_name}' declared")
-        logger.info(f"Declared dead letter queue: {dlq_name}")
+        logger.info("Declared dead letter queue: %s", dlq_name)
 
     for dlq_name, routing_key in DLQ_BINDINGS:
         channel.queue_bind(exchange=DLX_EXCHANGE, queue=dlq_name, routing_key=routing_key)
         print(f"  ✓ Binding '{dlq_name}' -> DLX '{routing_key}'")
-        logger.info(f"Bound DLQ {dlq_name} to {DLX_EXCHANGE} with routing key {routing_key}")
+        logger.info(
+            "Bound DLQ %s to %s with routing key %s",
+            dlq_name,
+            DLX_EXCHANGE,
+            routing_key,
+        )
 
     for queue_name in PRIMARY_QUEUES:
         channel.queue_declare(queue=queue_name, durable=True, arguments=PRIMARY_QUEUE_ARGUMENTS)
         print(f"  ✓ Queue '{queue_name}' declared")
-        logger.info(f"Declared primary queue: {queue_name}")
+        logger.info("Declared primary queue: %s", queue_name)
 
     for queue_name, routing_key in QUEUE_BINDINGS:
         channel.queue_bind(exchange=MAIN_EXCHANGE, queue=queue_name, routing_key=routing_key)
         print(f"  ✓ Binding '{queue_name}' -> '{routing_key}'")
-        logger.info(f"Bound queue {queue_name} to {MAIN_EXCHANGE} with routing key {routing_key}")
+        logger.info(
+            "Bound queue %s to %s with routing key %s",
+            queue_name,
+            MAIN_EXCHANGE,
+            routing_key,
+        )
 
     connection.close()
     logger.info("RabbitMQ infrastructure creation completed")
@@ -146,7 +160,7 @@ def main() -> None:
             span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
             span.record_exception(e)
             print(f"✗ Failed to initialize RabbitMQ infrastructure: {e}")
-            logger.error(f"Failed to initialize RabbitMQ infrastructure: {e}", exc_info=True)
+            logger.error("Failed to initialize RabbitMQ infrastructure: %s", e, exc_info=True)
             flush_telemetry()
             sys.exit(1)
 

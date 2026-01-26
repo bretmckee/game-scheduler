@@ -78,6 +78,6 @@ def set_rls_context_on_transaction_begin(session, transaction, connection):
 
     guild_ids_str = ",".join(guild_ids)
 
-    logger.debug(f"Setting RLS context: app.current_guild_ids = {guild_ids_str}")
+    logger.debug("Setting RLS context: app.current_guild_ids = %s", guild_ids_str)
 
     connection.exec_driver_sql(f"SET LOCAL app.current_guild_ids = '{guild_ids_str}'")

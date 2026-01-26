@@ -162,8 +162,7 @@ class DiscordTestHelper:
         if not isinstance(channel, discord.TextChannel | discord.Thread | discord.DMChannel):
             raise ValueError(f"Channel {channel_id} does not support messages")
 
-        message = await channel.fetch_message(int(message_id))
-        return message
+        return await channel.fetch_message(int(message_id))
 
     async def get_recent_messages(self, channel_id: str, limit: int = 10) -> list[discord.Message]:
         """
@@ -286,7 +285,7 @@ class DiscordTestHelper:
     ) -> None:
         """Verify Game Time field has Discord timestamp format."""
         game_time_field = None
-        for name in field_map.keys():
+        for name in field_map:
             if "Game Time" in name:
                 game_time_field = field_map[name]
                 break

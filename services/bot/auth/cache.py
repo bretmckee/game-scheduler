@@ -66,14 +66,14 @@ class RoleCache:
 
             if cached:
                 role_ids = json.loads(cached)
-                logger.debug(f"Cache hit for user roles: {user_id} in guild {guild_id}")
+                logger.debug("Cache hit for user roles: %s in guild %s", user_id, guild_id)
                 return role_ids
 
-            logger.debug(f"Cache miss for user roles: {user_id} in guild {guild_id}")
+            logger.debug("Cache miss for user roles: %s in guild %s", user_id, guild_id)
             return None
 
         except Exception as e:
-            logger.error(f"Error getting cached roles: {e}")
+            logger.error("Error getting cached roles: %s", e)
             return None
 
     async def set_user_roles(self, user_id: str, guild_id: str, role_ids: list[str]) -> None:
@@ -89,10 +89,10 @@ class RoleCache:
             redis = await self.get_redis()
             cache_key = keys.CacheKeys.user_roles(user_id, guild_id)
             await redis.set(cache_key, json.dumps(role_ids), ttl=ttl.CacheTTL.USER_ROLES)
-            logger.debug(f"Cached roles for user {user_id} in guild {guild_id}")
+            logger.debug("Cached roles for user %s in guild %s", user_id, guild_id)
 
         except Exception as e:
-            logger.error(f"Error caching roles: {e}")
+            logger.error("Error caching roles: %s", e)
 
     async def invalidate_user_roles(self, user_id: str, guild_id: str) -> None:
         """
@@ -106,10 +106,10 @@ class RoleCache:
             redis = await self.get_redis()
             cache_key = keys.CacheKeys.user_roles(user_id, guild_id)
             await redis.delete(cache_key)
-            logger.debug(f"Invalidated role cache for user {user_id} in guild {guild_id}")
+            logger.debug("Invalidated role cache for user %s in guild %s", user_id, guild_id)
 
         except Exception as e:
-            logger.error(f"Error invalidating role cache: {e}")
+            logger.error("Error invalidating role cache: %s", e)
 
     async def get_guild_roles(self, guild_id: str) -> list[dict] | None:
         """
@@ -128,14 +128,14 @@ class RoleCache:
 
             if cached:
                 roles = json.loads(cached)
-                logger.debug(f"Cache hit for guild roles: {guild_id}")
+                logger.debug("Cache hit for guild roles: %s", guild_id)
                 return roles
 
-            logger.debug(f"Cache miss for guild roles: {guild_id}")
+            logger.debug("Cache miss for guild roles: %s", guild_id)
             return None
 
         except Exception as e:
-            logger.error(f"Error getting cached guild roles: {e}")
+            logger.error("Error getting cached guild roles: %s", e)
             return None
 
     async def set_guild_roles(self, guild_id: str, roles: list[dict]) -> None:
@@ -150,7 +150,7 @@ class RoleCache:
             redis = await self.get_redis()
             cache_key = keys.CacheKeys.guild_config(guild_id)
             await redis.set(cache_key, json.dumps(roles), ttl=ttl.CacheTTL.GUILD_CONFIG)
-            logger.debug(f"Cached guild roles for {guild_id}")
+            logger.debug("Cached guild roles for %s", guild_id)
 
         except Exception as e:
-            logger.error(f"Error caching guild roles: {e}")
+            logger.error("Error caching guild roles: %s", e)

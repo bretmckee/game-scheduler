@@ -82,14 +82,14 @@ async def get_rabbitmq_connection(
         if _connection is None or _connection.is_closed:
             if config is None:
                 rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
-                logger.info(f"Connecting to RabbitMQ using URL: {rabbitmq_url}")
+                logger.info("Connecting to RabbitMQ using URL: %s", rabbitmq_url)
                 connection_timeout = 60
                 heartbeat = 60
             else:
                 rabbitmq_url = config.url
                 connection_timeout = config.connection_timeout
                 heartbeat = config.heartbeat
-                logger.info(f"Connecting to RabbitMQ at {config.host}:{config.port}")
+                logger.info("Connecting to RabbitMQ at %s:%s", config.host, config.port)
 
             _connection = await aio_pika.connect_robust(
                 rabbitmq_url,

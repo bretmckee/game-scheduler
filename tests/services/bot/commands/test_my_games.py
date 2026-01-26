@@ -48,8 +48,7 @@ def mock_interaction():
 @pytest.fixture
 def mock_user():
     """Create mock user."""
-    user = User(id=1, discord_id="987654321")
-    return user
+    return User(id=1, discord_id="987654321")
 
 
 @pytest.fixture

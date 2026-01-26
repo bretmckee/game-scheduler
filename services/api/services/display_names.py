@@ -185,7 +185,7 @@ class DisplayNameResolver:
                 fetched_data = await self._fetch_and_cache_display_names(guild_id, uncached_ids)
                 result.update(fetched_data)
             except discord_client.DiscordAPIError as e:
-                logger.error(f"Failed to fetch display names: {e}")
+                logger.error("Failed to fetch display names: %s", e)
                 fallback_data = self._create_fallback_display_names(uncached_ids)
                 result.update(fallback_data)
 
@@ -307,7 +307,7 @@ class DisplayNameResolver:
                 )
                 result.update(fetched_data)
             except discord_client.DiscordAPIError as e:
-                logger.error(f"Failed to fetch display names and avatars: {e}")
+                logger.error("Failed to fetch display names and avatars: %s", e)
                 fallback_data = self._create_fallback_user_data(uncached_ids)
                 result.update(fallback_data)
 

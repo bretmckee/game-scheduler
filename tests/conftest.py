@@ -116,8 +116,7 @@ def admin_db_url_sync():
     if not raw_url:
         raise ValueError("ADMIN_DATABASE_URL environment variable not set")
     # Ensure it's a sync URL by removing any async drivers
-    sync_url = raw_url.replace("postgresql+asyncpg://", "postgresql://")
-    return sync_url
+    return raw_url.replace("postgresql+asyncpg://", "postgresql://")
 
 
 @pytest.fixture(scope="session")
@@ -498,9 +497,8 @@ def seed_redis_cache():
         if loop.is_running():
             # In async context, return the coroutine
             return _seed(*args, **kwargs)
-        else:
-            # In sync context, run in the fixture's loop
-            return loop.run_until_complete(_seed(*args, **kwargs))
+        # In sync context, run in the fixture's loop
+        return loop.run_until_complete(_seed(*args, **kwargs))
 
     return _sync_wrapper
 

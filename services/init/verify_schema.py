@@ -75,10 +75,10 @@ def verify_schema() -> None:
                 cursor.execute(
                     sql.SQL("SELECT 1 FROM {table} LIMIT 0").format(table=sql.Identifier(table))
                 )
-                logger.debug(f"Table '{table}' exists")
+                logger.debug("Table '%s' exists", table)
             except psycopg2.Error:
                 missing_tables.append(table)
-                logger.error(f"Table '{table}' is missing!")
+                logger.error("Table '%s' is missing!", table)
 
         cursor.close()
         conn.close()
@@ -90,6 +90,6 @@ def verify_schema() -> None:
             span.set_attribute("db.tables.missing", len(missing_tables))
             raise RuntimeError(error_msg)
 
-        logger.info(f"All {len(REQUIRED_TABLES)} required tables verified")
+        logger.info("All %s required tables verified", len(REQUIRED_TABLES))
         span.set_status(trace.Status(trace.StatusCode.OK))
         span.set_attribute("db.tables.verified", len(REQUIRED_TABLES))

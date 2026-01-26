@@ -1543,14 +1543,18 @@ class GameService:
         Raises:
             ValueError: If not a participant or game completed
         """
-        logger.info(f"leave_game service: game_id={game_id}, user_discord_id={user_discord_id}")
+        logger.info(
+            "leave_game service: game_id=%s, user_discord_id=%s",
+            game_id,
+            user_discord_id,
+        )
         game = await self.get_game(game_id)
         if game is None:
-            logger.error(f"Game not found: {game_id}")
+            logger.error("Game not found: %s", game_id)
             raise ValueError("Game not found")
 
         if game.status == game_model.GameStatus.COMPLETED.value:
-            logger.error(f"Cannot leave completed game: {game_id}")
+            logger.error("Cannot leave completed game: %s", game_id)
             raise ValueError("Cannot leave completed game")
 
         # Get user
@@ -1559,10 +1563,10 @@ class GameService:
         )
         user = user_result.scalar_one_or_none()
         if user is None:
-            logger.error(f"User not found: discord_id={user_discord_id}")
+            logger.error("User not found: discord_id=%s", user_discord_id)
             raise ValueError("User not found")
 
-        logger.info(f"Found user: id={user.id}, discord_id={user.discord_id}")
+        logger.info("Found user: id=%s, discord_id=%s", user.id, user.discord_id)
 
         # Find participant
         participant_result = await self.db.execute(
@@ -1573,10 +1577,10 @@ class GameService:
         )
         participant = participant_result.scalar_one_or_none()
         if participant is None:
-            logger.error(f"Participant not found: game_id={game_id}, user_id={user.id}")
+            logger.error("Participant not found: game_id=%s, user_id=%s", game_id, user.id)
             raise ValueError("Not a participant of this game")
 
-        logger.info(f"Found participant: id={participant.id}, deleting...")
+        logger.info("Found participant: id=%s, deleting...", participant.id)
 
         # Remove participant
         await self.db.delete(participant)
@@ -1616,7 +1620,7 @@ class GameService:
 
         await self.event_publisher.publish(event=event)
 
-        logger.info(f"Published game.created event for game {game.id}")
+        logger.info("Published game.created event for game %s", game.id)
 
     async def _publish_game_updated(self, game: game_model.GameSession) -> None:
         """Publish game.updated event to RabbitMQ."""
@@ -1631,7 +1635,7 @@ class GameService:
 
         await self.event_publisher.publish(event=event)
 
-        logger.info(f"Published game.updated event for game {game.id}")
+        logger.info("Published game.updated event for game %s", game.id)
 
     async def _publish_game_cancelled(self, game: game_model.GameSession) -> None:
         """Publish game.cancelled event to RabbitMQ."""
@@ -1646,7 +1650,7 @@ class GameService:
 
         await self.event_publisher.publish(event=event)
 
-        logger.info(f"Published game.cancelled event for game {game.id}")
+        logger.info("Published game.cancelled event for game %s", game.id)
 
     async def _publish_player_removed(
         self,
@@ -1672,8 +1676,9 @@ class GameService:
         await self.event_publisher.publish(event=event)
 
         logger.info(
-            f"Published game.player_removed event for participant {participant.id} "
-            f"from game {game.id}"
+            "Published game.player_removed event for participant %s from game %s",
+            participant.id,
+            game.id,
         )
 
     async def _notify_promoted_users(
@@ -1692,8 +1697,10 @@ class GameService:
             return
 
         logger.info(
-            f"Notifying {len(promoted_discord_ids)} promoted users for game {game.id}: "
-            f"{promoted_discord_ids}"
+            "Notifying %s promoted users for game %s: %s",
+            len(promoted_discord_ids),
+            game.id,
+            promoted_discord_ids,
         )
 
         # Send notification to each promoted user
@@ -1735,4 +1742,8 @@ class GameService:
 
         await self.event_publisher.publish(event=event)
 
-        logger.info(f"Published promotion notification for user {discord_id} in game {game.id}")
+        logger.info(
+            "Published promotion notification for user %s in game %s",
+            discord_id,
+            game.id,
+        )

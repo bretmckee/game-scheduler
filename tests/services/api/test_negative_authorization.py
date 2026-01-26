@@ -155,18 +155,20 @@ class TestTemplateAccessAuthorization:
         """Non-member cannot access template - receives 404."""
         mock_db = AsyncMock()
 
-        with patch(
-            "services.api.database.queries.require_guild_by_id",
-            return_value=mock_guild_config,
-        ):
-            with patch(
+        with (
+            patch(
+                "services.api.database.queries.require_guild_by_id",
+                return_value=mock_guild_config,
+            ),
+            patch(
                 "services.api.dependencies.permissions._check_guild_membership",
                 return_value=False,
-            ):
-                with pytest.raises(HTTPException) as exc_info:
-                    await permissions.verify_template_access(
-                        mock_template, "user123", "test_token", mock_db
-                    )
+            ),
+            pytest.raises(HTTPException) as exc_info,
+        ):
+            await permissions.verify_template_access(
+                mock_template, "user123", "test_token", mock_db
+            )
 
         assert exc_info.value.status_code == 404
         assert "Template not found" in exc_info.value.detail
@@ -178,17 +180,19 @@ class TestTemplateAccessAuthorization:
         """Member can access template."""
         mock_db = AsyncMock()
 
-        with patch(
-            "services.api.database.queries.require_guild_by_id",
-            return_value=mock_guild_config,
-        ):
-            with patch(
+        with (
+            patch(
+                "services.api.database.queries.require_guild_by_id",
+                return_value=mock_guild_config,
+            ),
+            patch(
                 "services.api.dependencies.permissions._check_guild_membership",
                 return_value=True,
-            ):
-                result = await permissions.verify_template_access(
-                    mock_template, "user123", "test_token", mock_db
-                )
+            ),
+        ):
+            result = await permissions.verify_template_access(
+                mock_template, "user123", "test_token", mock_db
+            )
 
         assert result == mock_template
 
@@ -198,14 +202,16 @@ class TestTemplateAccessAuthorization:
         mock_db = AsyncMock()
 
         # require_guild_by_id now raises HTTPException instead of returning None
-        with patch(
-            "services.api.database.queries.require_guild_by_id",
-            side_effect=HTTPException(status_code=404, detail="Template not found"),
+        with (
+            patch(
+                "services.api.database.queries.require_guild_by_id",
+                side_effect=HTTPException(status_code=404, detail="Template not found"),
+            ),
+            pytest.raises(HTTPException) as exc_info,
         ):
-            with pytest.raises(HTTPException) as exc_info:
-                await permissions.verify_template_access(
-                    mock_template, "user123", "test_token", mock_db
-                )
+            await permissions.verify_template_access(
+                mock_template, "user123", "test_token", mock_db
+            )
 
         assert exc_info.value.status_code == 404
         assert "Template not found" in exc_info.value.detail
@@ -220,18 +226,20 @@ class TestGameAccessAuthorization:
         mock_db = AsyncMock()
         mock_role_service = AsyncMock()
 
-        with patch(
-            "services.api.database.queries.require_guild_by_id",
-            return_value=mock_guild_config,
-        ):
-            with patch(
+        with (
+            patch(
+                "services.api.database.queries.require_guild_by_id",
+                return_value=mock_guild_config,
+            ),
+            patch(
                 "services.api.dependencies.permissions._check_guild_membership",
                 return_value=False,
-            ):
-                with pytest.raises(HTTPException) as exc_info:
-                    await permissions.verify_game_access(
-                        mock_game, "user123", "test_token", mock_db, mock_role_service
-                    )
+            ),
+            pytest.raises(HTTPException) as exc_info,
+        ):
+            await permissions.verify_game_access(
+                mock_game, "user123", "test_token", mock_db, mock_role_service
+            )
 
         assert exc_info.value.status_code == 404
         assert "Game not found" in exc_info.value.detail
@@ -243,18 +251,20 @@ class TestGameAccessAuthorization:
         mock_role_service = AsyncMock()
         mock_role_service.has_any_role = AsyncMock(return_value=False)
 
-        with patch(
-            "services.api.database.queries.require_guild_by_id",
-            return_value=mock_guild_config,
-        ):
-            with patch(
+        with (
+            patch(
+                "services.api.database.queries.require_guild_by_id",
+                return_value=mock_guild_config,
+            ),
+            patch(
                 "services.api.dependencies.permissions._check_guild_membership",
                 return_value=True,
-            ):
-                with pytest.raises(HTTPException) as exc_info:
-                    await permissions.verify_game_access(
-                        mock_game, "user123", "test_token", mock_db, mock_role_service
-                    )
+            ),
+            pytest.raises(HTTPException) as exc_info,
+        ):
+            await permissions.verify_game_access(
+                mock_game, "user123", "test_token", mock_db, mock_role_service
+            )
 
         assert exc_info.value.status_code == 403
         assert "required role" in exc_info.value.detail.lower()
@@ -266,17 +276,19 @@ class TestGameAccessAuthorization:
         mock_role_service = AsyncMock()
         mock_role_service.has_any_role = AsyncMock(return_value=True)
 
-        with patch(
-            "services.api.database.queries.require_guild_by_id",
-            return_value=mock_guild_config,
-        ):
-            with patch(
+        with (
+            patch(
+                "services.api.database.queries.require_guild_by_id",
+                return_value=mock_guild_config,
+            ),
+            patch(
                 "services.api.dependencies.permissions._check_guild_membership",
                 return_value=True,
-            ):
-                result = await permissions.verify_game_access(
-                    mock_game, "user123", "test_token", mock_db, mock_role_service
-                )
+            ),
+        ):
+            result = await permissions.verify_game_access(
+                mock_game, "user123", "test_token", mock_db, mock_role_service
+            )
 
         assert result == mock_game
 
@@ -289,17 +301,19 @@ class TestGameAccessAuthorization:
         mock_db = AsyncMock()
         mock_role_service = AsyncMock()
 
-        with patch(
-            "services.api.database.queries.require_guild_by_id",
-            return_value=mock_guild_config,
-        ):
-            with patch(
+        with (
+            patch(
+                "services.api.database.queries.require_guild_by_id",
+                return_value=mock_guild_config,
+            ),
+            patch(
                 "services.api.dependencies.permissions._check_guild_membership",
                 return_value=True,
-            ):
-                result = await permissions.verify_game_access(
-                    mock_game, "user123", "test_token", mock_db, mock_role_service
-                )
+            ),
+        ):
+            result = await permissions.verify_game_access(
+                mock_game, "user123", "test_token", mock_db, mock_role_service
+            )
 
         assert result == mock_game
         mock_role_service.has_any_role.assert_not_called()
@@ -311,14 +325,16 @@ class TestGameAccessAuthorization:
         mock_role_service = AsyncMock()
 
         # require_guild_by_id now raises HTTPException instead of returning None
-        with patch(
-            "services.api.database.queries.require_guild_by_id",
-            side_effect=HTTPException(status_code=404, detail="Game not found"),
+        with (
+            patch(
+                "services.api.database.queries.require_guild_by_id",
+                side_effect=HTTPException(status_code=404, detail="Game not found"),
+            ),
+            pytest.raises(HTTPException) as exc_info,
         ):
-            with pytest.raises(HTTPException) as exc_info:
-                await permissions.verify_game_access(
-                    mock_game, "user123", "test_token", mock_db, mock_role_service
-                )
+            await permissions.verify_game_access(
+                mock_game, "user123", "test_token", mock_db, mock_role_service
+            )
 
         assert exc_info.value.status_code == 404
         assert "Game not found" in exc_info.value.detail
@@ -609,18 +625,20 @@ class TestInformationDisclosurePrevention:
         """Template access returns 404 regardless of whether guild exists."""
         mock_db = AsyncMock()
 
-        with patch(
-            "services.api.database.queries.require_guild_by_id",
-            return_value=mock_guild_config,
-        ):
-            with patch(
+        with (
+            patch(
+                "services.api.database.queries.require_guild_by_id",
+                return_value=mock_guild_config,
+            ),
+            patch(
                 "services.api.dependencies.permissions._check_guild_membership",
                 return_value=False,
-            ):
-                with pytest.raises(HTTPException) as exc_info:
-                    await permissions.verify_template_access(
-                        mock_template, "user123", "test_token", mock_db
-                    )
+            ),
+            pytest.raises(HTTPException) as exc_info,
+        ):
+            await permissions.verify_template_access(
+                mock_template, "user123", "test_token", mock_db
+            )
 
         assert exc_info.value.status_code == 404
         assert "Template not found" in exc_info.value.detail
@@ -631,18 +649,20 @@ class TestInformationDisclosurePrevention:
         mock_db = AsyncMock()
         mock_role_service = AsyncMock()
 
-        with patch(
-            "services.api.database.queries.require_guild_by_id",
-            return_value=mock_guild_config,
-        ):
-            with patch(
+        with (
+            patch(
+                "services.api.database.queries.require_guild_by_id",
+                return_value=mock_guild_config,
+            ),
+            patch(
                 "services.api.dependencies.permissions._check_guild_membership",
                 return_value=False,
-            ):
-                with pytest.raises(HTTPException) as exc_info:
-                    await permissions.verify_game_access(
-                        mock_game, "user123", "test_token", mock_db, mock_role_service
-                    )
+            ),
+            pytest.raises(HTTPException) as exc_info,
+        ):
+            await permissions.verify_game_access(
+                mock_game, "user123", "test_token", mock_db, mock_role_service
+            )
 
         assert exc_info.value.status_code == 404
         assert "Game not found" in exc_info.value.detail
@@ -659,18 +679,20 @@ class TestInformationDisclosurePrevention:
         mock_role_service = AsyncMock()
         mock_role_service.has_any_role = AsyncMock(return_value=False)
 
-        with patch(
-            "services.api.database.queries.require_guild_by_id",
-            return_value=mock_guild_config,
-        ):
-            with patch(
+        with (
+            patch(
+                "services.api.database.queries.require_guild_by_id",
+                return_value=mock_guild_config,
+            ),
+            patch(
                 "services.api.dependencies.permissions._check_guild_membership",
                 return_value=True,
-            ):
-                with pytest.raises(HTTPException) as exc_info:
-                    await permissions.verify_game_access(
-                        mock_game, "user123", "test_token", mock_db, mock_role_service
-                    )
+            ),
+            pytest.raises(HTTPException) as exc_info,
+        ):
+            await permissions.verify_game_access(
+                mock_game, "user123", "test_token", mock_db, mock_role_service
+            )
 
         # Guild member without role gets 403, not 404
         assert exc_info.value.status_code == 403

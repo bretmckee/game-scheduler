@@ -100,30 +100,32 @@ def test_export_game_as_host_success(app, mock_user, mock_game):
 
     try:
         # Mock the critical functions
-        with patch("shared.database.AsyncSessionLocal", mock_session_local):
-            with patch(
+        with (
+            patch("shared.database.AsyncSessionLocal", mock_session_local),
+            patch(
                 "services.api.auth.oauth2.get_user_guilds",
                 new_callable=AsyncMock,
                 return_value=[{"id": "987654321", "name": "Test Guild"}],
-            ):
-                with patch(
-                    "services.api.dependencies.permissions.can_export_game",
-                    new_callable=AsyncMock,
-                    return_value=True,
-                ):
-                    with patch(
-                        "services.api.services.calendar_export.CalendarExportService.export_game",
-                        new_callable=AsyncMock,
-                        return_value=mock_ical,
-                    ):
-                        client = TestClient(app)
-                        response = client.get("/api/v1/export/game/game-123")
+            ),
+            patch(
+                "services.api.dependencies.permissions.can_export_game",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+            patch(
+                "services.api.services.calendar_export.CalendarExportService.export_game",
+                new_callable=AsyncMock,
+                return_value=mock_ical,
+            ),
+        ):
+            client = TestClient(app)
+            response = client.get("/api/v1/export/game/game-123")
 
-                        assert response.status_code == status.HTTP_200_OK
-                        assert response.headers["content-type"] == "text/calendar; charset=utf-8"
-                        assert "attachment" in response.headers["content-disposition"]
-                        assert "Test-Game_2025-12-15.ics" in response.headers["content-disposition"]
-                        assert response.content == mock_ical
+            assert response.status_code == status.HTTP_200_OK
+            assert response.headers["content-type"] == "text/calendar; charset=utf-8"
+            assert "attachment" in response.headers["content-disposition"]
+            assert "Test-Game_2025-12-15.ics" in response.headers["content-disposition"]
+            assert response.content == mock_ical
     finally:
         app.dependency_overrides.clear()
 
@@ -157,17 +159,19 @@ def test_export_game_not_found(app, mock_user):
     app.dependency_overrides[permissions_deps.get_role_service] = override_get_role_service
 
     try:
-        with patch("shared.database.AsyncSessionLocal", mock_session_local):
-            with patch(
+        with (
+            patch("shared.database.AsyncSessionLocal", mock_session_local),
+            patch(
                 "services.api.auth.oauth2.get_user_guilds",
                 new_callable=AsyncMock,
                 return_value=[{"id": "987654321", "name": "Test Guild"}],
-            ):
-                client = TestClient(app)
-                response = client.get("/api/v1/export/game/game-999")
+            ),
+        ):
+            client = TestClient(app)
+            response = client.get("/api/v1/export/game/game-999")
 
-                assert response.status_code == status.HTTP_404_NOT_FOUND
-                assert "not found" in response.json()["detail"].lower()
+            assert response.status_code == status.HTTP_404_NOT_FOUND
+            assert "not found" in response.json()["detail"].lower()
     finally:
         app.dependency_overrides.clear()
 
@@ -205,26 +209,28 @@ def test_export_game_permission_denied(app, mock_user, mock_game):
     app.dependency_overrides[permissions_deps.get_role_service] = override_get_role_service
 
     try:
-        with patch("shared.database.AsyncSessionLocal", mock_session_local):
-            with patch(
+        with (
+            patch("shared.database.AsyncSessionLocal", mock_session_local),
+            patch(
                 "services.api.auth.oauth2.get_user_guilds",
                 new_callable=AsyncMock,
                 return_value=[{"id": "987654321", "name": "Test Guild"}],
-            ):
-                with patch(
-                    "services.api.dependencies.permissions.can_export_game",
-                    new_callable=AsyncMock,
-                    return_value=False,
-                ):
-                    with patch(
-                        "services.api.services.calendar_export.CalendarExportService.export_game",
-                        new_callable=AsyncMock,
-                        side_effect=PermissionError("You must be the host"),
-                    ):
-                        client = TestClient(app)
-                        response = client.get("/api/v1/export/game/game-123")
+            ),
+            patch(
+                "services.api.dependencies.permissions.can_export_game",
+                new_callable=AsyncMock,
+                return_value=False,
+            ),
+            patch(
+                "services.api.services.calendar_export.CalendarExportService.export_game",
+                new_callable=AsyncMock,
+                side_effect=PermissionError("You must be the host"),
+            ),
+        ):
+            client = TestClient(app)
+            response = client.get("/api/v1/export/game/game-123")
 
-                        assert response.status_code == status.HTTP_403_FORBIDDEN
+            assert response.status_code == status.HTTP_403_FORBIDDEN
     finally:
         app.dependency_overrides.clear()
 
@@ -272,27 +278,29 @@ def test_export_game_as_participant(app, mock_user, mock_game):
     app.dependency_overrides[permissions_deps.get_role_service] = override_get_role_service
 
     try:
-        with patch("shared.database.AsyncSessionLocal", mock_session_local):
-            with patch(
+        with (
+            patch("shared.database.AsyncSessionLocal", mock_session_local),
+            patch(
                 "services.api.auth.oauth2.get_user_guilds",
                 new_callable=AsyncMock,
                 return_value=[{"id": "987654321", "name": "Test Guild"}],
-            ):
-                with patch(
-                    "services.api.dependencies.permissions.can_export_game",
-                    new_callable=AsyncMock,
-                    return_value=True,
-                ):
-                    with patch(
-                        "services.api.services.calendar_export.CalendarExportService.export_game",
-                        new_callable=AsyncMock,
-                        return_value=mock_ical,
-                    ):
-                        client = TestClient(app)
-                        response = client.get("/api/v1/export/game/game-123")
+            ),
+            patch(
+                "services.api.dependencies.permissions.can_export_game",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+            patch(
+                "services.api.services.calendar_export.CalendarExportService.export_game",
+                new_callable=AsyncMock,
+                return_value=mock_ical,
+            ),
+        ):
+            client = TestClient(app)
+            response = client.get("/api/v1/export/game/game-123")
 
-                        assert response.status_code == status.HTTP_200_OK
-                        assert response.content == mock_ical
+            assert response.status_code == status.HTTP_200_OK
+            assert response.content == mock_ical
     finally:
         app.dependency_overrides.clear()
 

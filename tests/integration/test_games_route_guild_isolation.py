@@ -40,7 +40,7 @@ pytestmark = pytest.mark.integration
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "db_fixture,guild_context,expected_games",
+    ("db_fixture", "guild_context", "expected_games"),
     [
         ("admin_db", None, ["game_a", "game_b"]),  # Admin sees all
         ("app_db", "guild_a", ["game_a"]),  # Guild A context sees only game A

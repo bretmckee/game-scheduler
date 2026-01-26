@@ -53,7 +53,7 @@ def wait_for_rabbitmq(rabbitmq_url: str, max_retries: int = 60, retry_delay: flo
         RuntimeError: If RabbitMQ is not ready after max_retries
     """
     tracer = trace.get_tracer(__name__)
-    logger.info(f"Waiting for RabbitMQ (max {max_retries} attempts)")
+    logger.info("Waiting for RabbitMQ (max %s attempts)", max_retries)
 
     with tracer.start_as_current_span("init.wait_rabbitmq") as span:
         for attempt in range(1, max_retries + 1):
@@ -65,7 +65,12 @@ def wait_for_rabbitmq(rabbitmq_url: str, max_retries: int = 60, retry_delay: flo
                 return
             except AMQPConnectionError as e:
                 if attempt < max_retries:
-                    logger.debug(f"RabbitMQ not ready (attempt {attempt}/{max_retries}): {e}")
+                    logger.debug(
+                        "RabbitMQ not ready (attempt %s/%s): %s",
+                        attempt,
+                        max_retries,
+                        e,
+                    )
                     time.sleep(retry_delay)
                 else:
                     error_msg = f"RabbitMQ failed to become ready after {max_retries} attempts"
@@ -96,33 +101,39 @@ def create_infrastructure(rabbitmq_url: str) -> None:
             channel = connection.channel()
 
             channel.exchange_declare(exchange=MAIN_EXCHANGE, exchange_type="topic", durable=True)
-            logger.info(f"Declared exchange: {MAIN_EXCHANGE}")
+            logger.info("Declared exchange: %s", MAIN_EXCHANGE)
 
             channel.exchange_declare(exchange=DLX_EXCHANGE, exchange_type="topic", durable=True)
-            logger.info(f"Declared dead letter exchange: {DLX_EXCHANGE}")
+            logger.info("Declared dead letter exchange: %s", DLX_EXCHANGE)
 
             for dlq_name in DEAD_LETTER_QUEUES:
                 channel.queue_declare(queue=dlq_name, durable=True)
-                logger.info(f"Declared dead letter queue: {dlq_name}")
+                logger.info("Declared dead letter queue: %s", dlq_name)
 
             for dlq_name, routing_key in DLQ_BINDINGS:
                 channel.queue_bind(exchange=DLX_EXCHANGE, queue=dlq_name, routing_key=routing_key)
                 logger.info(
-                    f"Bound DLQ {dlq_name} to {DLX_EXCHANGE} with routing key {routing_key}"
+                    "Bound DLQ %s to %s with routing key %s",
+                    dlq_name,
+                    DLX_EXCHANGE,
+                    routing_key,
                 )
 
             for queue_name in PRIMARY_QUEUES:
                 channel.queue_declare(
                     queue=queue_name, durable=True, arguments=PRIMARY_QUEUE_ARGUMENTS
                 )
-                logger.info(f"Declared primary queue: {queue_name}")
+                logger.info("Declared primary queue: %s", queue_name)
 
             for queue_name, routing_key in QUEUE_BINDINGS:
                 channel.queue_bind(
                     exchange=MAIN_EXCHANGE, queue=queue_name, routing_key=routing_key
                 )
                 logger.info(
-                    f"Bound queue {queue_name} to {MAIN_EXCHANGE} with routing key {routing_key}"
+                    "Bound queue %s to %s with routing key %s",
+                    queue_name,
+                    MAIN_EXCHANGE,
+                    routing_key,
                 )
 
             connection.close()
@@ -131,7 +142,7 @@ def create_infrastructure(rabbitmq_url: str) -> None:
 
         except Exception as e:
             error_msg = "RabbitMQ infrastructure creation failed"
-            logger.error(f"{error_msg}: {e}", exc_info=True)
+            logger.error("%s: %s", error_msg, e, exc_info=True)
             span.set_status(trace.Status(trace.StatusCode.ERROR, error_msg))
             span.record_exception(e)
             raise RuntimeError(error_msg) from e
@@ -178,7 +189,7 @@ if __name__ == "__main__":
         initialize_rabbitmq()
         sys.exit(0)
     except Exception as e:
-        logger.error(f"RabbitMQ initialization failed: {e}", exc_info=True)
+        logger.error("RabbitMQ initialization failed: %s", e, exc_info=True)
         sys.exit(1)
     finally:
         flush_telemetry()

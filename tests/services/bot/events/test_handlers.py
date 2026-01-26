@@ -53,7 +53,7 @@ def event_handlers(mock_bot):
 @pytest.fixture
 def sample_game():
     """Create sample game session."""
-    game = GameSession(
+    return GameSession(
         id=str(uuid4()),
         title="Test Game",
         description="Test Description",
@@ -65,7 +65,6 @@ def sample_game():
         max_players=10,
         message_id="999888777",
     )
-    return game
 
 
 @pytest.fixture
@@ -386,25 +385,27 @@ async def test_handle_status_transition_due_success(event_handlers, sample_game,
         mock_db.__aexit__ = AsyncMock()
         mock_db_session.return_value = mock_db
 
-        with patch(
-            "services.bot.events.handlers.EventHandlers._get_game_with_participants",
-            return_value=sample_game,
-        ):
-            with patch(
+        with (
+            patch(
+                "services.bot.events.handlers.EventHandlers._get_game_with_participants",
+                return_value=sample_game,
+            ),
+            patch(
                 "services.bot.events.handlers.EventHandlers._refresh_game_message"
-            ) as mock_refresh:
-                mock_refresh.return_value = AsyncMock()
+            ) as mock_refresh,
+        ):
+            mock_refresh.return_value = AsyncMock()
 
-                data = {
-                    "game_id": game_id,
-                    "target_status": target_status,
-                    "transition_time": datetime(2025, 11, 20, 18, 0, 0, tzinfo=UTC),
-                }
-                await event_handlers._handle_status_transition_due(data)
+            data = {
+                "game_id": game_id,
+                "target_status": target_status,
+                "transition_time": datetime(2025, 11, 20, 18, 0, 0, tzinfo=UTC),
+            }
+            await event_handlers._handle_status_transition_due(data)
 
-                assert sample_game.status == target_status
-                mock_db.commit.assert_awaited_once()
-                mock_refresh.assert_called_once_with(game_id)
+            assert sample_game.status == target_status
+            mock_db.commit.assert_awaited_once()
+            mock_refresh.assert_called_once_with(game_id)
 
 
 @pytest.mark.asyncio
@@ -453,24 +454,26 @@ async def test_handle_status_transition_due_already_transitioned(
         mock_db.__aexit__ = AsyncMock()
         mock_db_session.return_value = mock_db
 
-        with patch(
-            "services.bot.events.handlers.EventHandlers._get_game_with_participants",
-            return_value=sample_game,
-        ):
-            with patch(
+        with (
+            patch(
+                "services.bot.events.handlers.EventHandlers._get_game_with_participants",
+                return_value=sample_game,
+            ),
+            patch(
                 "services.bot.events.handlers.EventHandlers._refresh_game_message"
-            ) as mock_refresh:
-                data = {
-                    "game_id": game_id,
-                    "target_status": target_status,
-                    "transition_time": datetime(2025, 11, 20, 18, 0, 0, tzinfo=UTC),
-                }
-                await event_handlers._handle_status_transition_due(data)
+            ) as mock_refresh,
+        ):
+            data = {
+                "game_id": game_id,
+                "target_status": target_status,
+                "transition_time": datetime(2025, 11, 20, 18, 0, 0, tzinfo=UTC),
+            }
+            await event_handlers._handle_status_transition_due(data)
 
-                # Game should remain at COMPLETED, no commit or refresh
-                assert sample_game.status == "COMPLETED"
-                mock_db.commit.assert_not_awaited()
-                mock_refresh.assert_not_called()
+            # Game should remain at COMPLETED, no commit or refresh
+            assert sample_game.status == "COMPLETED"
+            mock_db.commit.assert_not_awaited()
+            mock_refresh.assert_not_called()
 
 
 @pytest.mark.asyncio

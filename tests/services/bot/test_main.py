@@ -68,37 +68,35 @@ class TestSetupLogging:
 
     def test_setup_logging_sets_discord_logger_level(self) -> None:
         """Test that discord.py logger levels are set to WARNING."""
-        with patch("logging.basicConfig"):
-            with patch("logging.getLogger") as mock_get_logger:
-                mock_discord_logger = MagicMock()
-                mock_http_logger = MagicMock()
+        with patch("logging.basicConfig"), patch("logging.getLogger") as mock_get_logger:
+            mock_discord_logger = MagicMock()
+            mock_http_logger = MagicMock()
 
-                def get_logger_side_effect(name: str) -> MagicMock:
-                    if name == "discord":
-                        return mock_discord_logger
-                    elif name == "discord.http":
-                        return mock_http_logger
-                    return MagicMock()
+            def get_logger_side_effect(name: str) -> MagicMock:
+                if name == "discord":
+                    return mock_discord_logger
+                if name == "discord.http":
+                    return mock_http_logger
+                return MagicMock()
 
-                mock_get_logger.side_effect = get_logger_side_effect
+            mock_get_logger.side_effect = get_logger_side_effect
 
-                setup_logging("INFO")
+            setup_logging("INFO")
 
-                mock_discord_logger.setLevel.assert_called_once_with(logging.WARNING)
-                mock_http_logger.setLevel.assert_called_once_with(logging.WARNING)
+            mock_discord_logger.setLevel.assert_called_once_with(logging.WARNING)
+            mock_http_logger.setLevel.assert_called_once_with(logging.WARNING)
 
     def test_setup_logging_format(self) -> None:
         """Test that logging format is correctly configured."""
-        with patch("logging.basicConfig") as mock_basic_config:
-            with patch("logging.getLogger"):
-                setup_logging("INFO")
+        with patch("logging.basicConfig") as mock_basic_config, patch("logging.getLogger"):
+            setup_logging("INFO")
 
-                call_kwargs = mock_basic_config.call_args[1]
-                assert "format" in call_kwargs
-                assert "%(asctime)s" in call_kwargs["format"]
-                assert "%(name)s" in call_kwargs["format"]
-                assert "%(levelname)s" in call_kwargs["format"]
-                assert "%(message)s" in call_kwargs["format"]
+            call_kwargs = mock_basic_config.call_args[1]
+            assert "format" in call_kwargs
+            assert "%(asctime)s" in call_kwargs["format"]
+            assert "%(name)s" in call_kwargs["format"]
+            assert "%(levelname)s" in call_kwargs["format"]
+            assert "%(message)s" in call_kwargs["format"]
 
 
 class TestMain:
@@ -199,4 +197,4 @@ class TestMain:
                         await main()
 
                         mock_logger.info.assert_any_call("Starting Discord Game Scheduler Bot")
-                        mock_logger.info.assert_any_call("Environment: production")
+                        mock_logger.info.assert_any_call("Environment: %s", "production")

@@ -61,11 +61,11 @@ async def setup_rls_and_convert_guild_ids(
     # ContextVar doesn't propagate reliably to sync session event listeners
     discord_ids_csv = ",".join(discord_guild_ids)
     await db.execute(text(f"SET LOCAL app.current_guild_ids = '{discord_ids_csv}'"))
-    logger.debug(f"Set RLS context to Discord IDs: {discord_ids_csv}")
+    logger.debug("Set RLS context to Discord IDs: %s", discord_ids_csv)
 
     # Convert Discord IDs to database UUIDs
     guild_uuids = await convert_discord_guild_ids_to_uuids(db, discord_guild_ids)
-    logger.debug(f"Converted to {len(guild_uuids)} UUIDs: {guild_uuids}")
+    logger.debug("Converted to %s UUIDs: %s", len(guild_uuids), guild_uuids)
 
     # Update ContextVar with UUIDs for remaining queries
     set_current_guild_ids(guild_uuids)
@@ -89,12 +89,12 @@ async def convert_discord_guild_ids_to_uuids(
     Returns:
         List of database UUIDs (GuildConfiguration.id) for guilds that exist
     """
-    logger.debug(f"Converting {len(discord_guild_ids)} Discord IDs: {discord_guild_ids}")
+    logger.debug("Converting %s Discord IDs: %s", len(discord_guild_ids), discord_guild_ids)
     result = await db.execute(
         select(GuildConfiguration.id).where(GuildConfiguration.guild_id.in_(discord_guild_ids))
     )
     guild_uuids = [row[0] for row in result]
-    logger.debug(f"Converted to {len(guild_uuids)} UUIDs: {guild_uuids}")
+    logger.debug("Converted to %s UUIDs: %s", len(guild_uuids), guild_uuids)
     return guild_uuids
 
 

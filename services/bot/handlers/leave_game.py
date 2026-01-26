@@ -83,7 +83,12 @@ async def handle_leave_game(
 
     await send_success_message(interaction, f"❌ You've left **{game.title}**")
 
-    logger.info(f"User {user_discord_id} left game {game_id} ({participant_count - 1} remaining)")
+    logger.info(
+        "User %s left game %s (%s remaining)",
+        user_discord_id,
+        game_id,
+        participant_count - 1,
+    )
 
 
 async def _validate_leave_game(db: AsyncSession, game_id: uuid.UUID, user_discord_id: str) -> dict:

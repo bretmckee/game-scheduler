@@ -47,7 +47,7 @@ def _create_admin_user(cursor, admin_user: str, admin_password: str) -> None:
         admin_user: Username for admin account
         admin_password: Password for admin account
     """
-    logger.info(f"Creating admin user '{admin_user}' (superuser)...")
+    logger.info("Creating admin user '%s' (superuser)...", admin_user)
     cursor.execute(
         f"""
         DO $$
@@ -65,7 +65,7 @@ def _create_admin_user(cursor, admin_user: str, admin_password: str) -> None:
         """,
         (admin_user, admin_password),
     )
-    logger.info(f"✓ Admin user '{admin_user}' ready")
+    logger.info("✓ Admin user '%s' ready", admin_user)
 
 
 def _create_app_user(cursor, app_user: str, app_password: str) -> None:
@@ -77,7 +77,7 @@ def _create_app_user(cursor, app_user: str, app_password: str) -> None:
         app_user: Username for application account
         app_password: Password for application account
     """
-    logger.info(f"Creating application user '{app_user}' (non-superuser for RLS)...")
+    logger.info("Creating application user '%s' (non-superuser for RLS)...", app_user)
     cursor.execute(
         f"""
         DO $$
@@ -95,7 +95,7 @@ def _create_app_user(cursor, app_user: str, app_password: str) -> None:
         """,
         (app_user, app_password),
     )
-    logger.info(f"✓ Application user '{app_user}' ready")
+    logger.info("✓ Application user '%s' ready", app_user)
 
 
 def _grant_permissions(
@@ -111,7 +111,7 @@ def _grant_permissions(
         admin_user: Admin user name for default privileges
         postgres_db: Database name
     """
-    logger.info(f"Granting permissions to '{target_user}'...")
+    logger.info("Granting permissions to '%s'...", target_user)
     cursor.execute(
         sql.SQL(
             """
@@ -148,7 +148,7 @@ def _grant_permissions(
             admin_user=sql.Identifier(admin_user),
         )
     )
-    logger.info(f"✓ Permissions granted to '{target_user}'")
+    logger.info("✓ Permissions granted to '%s'", target_user)
 
 
 def _create_bot_user(cursor, bot_user: str, bot_password: str) -> None:
@@ -160,7 +160,7 @@ def _create_bot_user(cursor, bot_user: str, bot_password: str) -> None:
         bot_user: Username for bot account
         bot_password: Password for bot account
     """
-    logger.info(f"Creating bot user '{bot_user}' (BYPASSRLS for bot/daemon services)...")
+    logger.info("Creating bot user '%s' (BYPASSRLS for bot/daemon services)...", bot_user)
     cursor.execute(
         f"""
         DO $$
@@ -178,7 +178,7 @@ def _create_bot_user(cursor, bot_user: str, bot_password: str) -> None:
         """,
         (bot_user, bot_password),
     )
-    logger.info(f"✓ Bot user '{bot_user}' ready")
+    logger.info("✓ Bot user '%s' ready", bot_user)
 
 
 def create_database_users() -> None:
@@ -239,17 +239,17 @@ def create_database_users() -> None:
                     _create_bot_user(cursor, bot_user, bot_password)
                     _grant_permissions(cursor, bot_user, postgres_user, admin_user, postgres_db)
                     logger.info("Database users configured successfully")
-                    logger.info(f"  - Admin user (future use): {admin_user}")
-                    logger.info(f"  - App user (API with RLS): {app_user}")
-                    logger.info(f"  - Bot user (bot/daemons, bypasses RLS): {bot_user}")
+                    logger.info("  - Admin user (future use): %s", admin_user)
+                    logger.info("  - App user (API with RLS): %s", app_user)
+                    logger.info("  - Bot user (bot/daemons, bypasses RLS): %s", bot_user)
                 else:
                     logger.warning("POSTGRES_BOT_PASSWORD not set, skipping bot user creation")
                     logger.info("Database users configured successfully")
-                    logger.info(f"  - Admin user (future use): {admin_user}")
-                    logger.info(f"  - App user (API with RLS): {app_user}")
+                    logger.info("  - Admin user (future use): %s", admin_user)
+                    logger.info("  - App user (API with RLS): %s", app_user)
 
         except psycopg2.Error as e:
-            logger.error(f"Failed to create database users: {e}")
+            logger.error("Failed to create database users: %s", e)
             raise
         finally:
             if conn:

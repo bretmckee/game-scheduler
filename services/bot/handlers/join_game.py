@@ -90,7 +90,7 @@ async def handle_join_game(
             await db.commit()
             await db.refresh(participant)
         except IntegrityError:
-            logger.info(f"User {user_discord_id} attempted duplicate join for game {game_id}")
+            logger.info("User %s attempted duplicate join for game %s", user_discord_id, game_id)
             return
 
         # Create delayed join notification schedule
@@ -115,8 +115,11 @@ async def handle_join_game(
     )
 
     logger.info(
-        f"User {user_discord_id} joined game {game_id} "
-        f"({participant_count + 1}/{resolve_max_players(game.max_players)})"
+        "User %s joined game %s (%s/%s)",
+        user_discord_id,
+        game_id,
+        participant_count + 1,
+        resolve_max_players(game.max_players),
     )
 
 

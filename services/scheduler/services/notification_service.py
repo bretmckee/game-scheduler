@@ -50,8 +50,9 @@ class NotificationService:
             True if event published successfully
         """
         logger.info(
-            f"=== NotificationService.send_game_reminder_due called: "
-            f"game={game_id}, reminder={reminder_minutes}min ==="
+            "=== NotificationService.send_game_reminder_due called: game=%s, reminder=%smin ===",
+            game_id,
+            reminder_minutes,
         )
 
         try:
@@ -64,7 +65,7 @@ class NotificationService:
                 notification_type="reminder",
             )
 
-            logger.info(f"Created notification event: {notification_event.model_dump()}")
+            logger.info("Created notification event: %s", notification_event.model_dump())
 
             event_wrapper = events.Event(
                 event_type=events.EventType.NOTIFICATION_DUE,
@@ -76,15 +77,18 @@ class NotificationService:
             logger.info("Event published successfully to RabbitMQ")
 
             logger.info(
-                f"Successfully published game reminder for game {game_id} "
-                f"({reminder_minutes} min before)"
+                "Successfully published game reminder for game %s (%s min before)",
+                game_id,
+                reminder_minutes,
             )
 
             return True
 
         except Exception as e:
             logger.error(
-                f"Failed to publish game reminder for game {game_id}: {e}",
+                "Failed to publish game reminder for game %s: %s",
+                game_id,
+                e,
                 exc_info=True,
             )
             return False

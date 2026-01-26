@@ -48,7 +48,12 @@ def wait_for_postgres(max_retries: int = 60, retry_delay: float = 1.0) -> None:
     db_password = os.getenv("POSTGRES_PASSWORD", "")
     db_name = os.getenv("POSTGRES_DB", "game_scheduler")
 
-    logger.info(f"Waiting for PostgreSQL at {db_host}:{db_port} (max {max_retries} attempts)")
+    logger.info(
+        "Waiting for PostgreSQL at %s:%s (max %s attempts)",
+        db_host,
+        db_port,
+        max_retries,
+    )
 
     with tracer.start_as_current_span("init.wait_postgres") as span:
         for attempt in range(1, max_retries + 1):
@@ -67,7 +72,12 @@ def wait_for_postgres(max_retries: int = 60, retry_delay: float = 1.0) -> None:
                 return
             except psycopg2.OperationalError as e:
                 if attempt < max_retries:
-                    logger.debug(f"PostgreSQL not ready (attempt {attempt}/{max_retries}): {e}")
+                    logger.debug(
+                        "PostgreSQL not ready (attempt %s/%s): %s",
+                        attempt,
+                        max_retries,
+                        e,
+                    )
                     time.sleep(retry_delay)
                 else:
                     error_msg = f"PostgreSQL failed to become ready after {max_retries} attempts"

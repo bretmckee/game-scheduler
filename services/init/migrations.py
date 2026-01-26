@@ -56,15 +56,15 @@ def run_migrations() -> None:
 
         if result.stdout:
             for line in result.stdout.splitlines():
-                logger.info(f"[alembic] {line}")
+                logger.info("[alembic] %s", line)
 
         if result.stderr:
             for line in result.stderr.splitlines():
-                logger.warning(f"[alembic] {line}")
+                logger.warning("[alembic] %s", line)
 
         if result.returncode != 0:
             error_msg = "Database migration failed"
-            logger.error(f"{error_msg}: {result.stderr}")
+            logger.error("%s: %s", error_msg, result.stderr)
             span.set_status(trace.Status(trace.StatusCode.ERROR, error_msg))
             span.record_exception(Exception(result.stderr))
             raise RuntimeError(error_msg)

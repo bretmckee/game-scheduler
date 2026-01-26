@@ -83,7 +83,7 @@ class SyncEventPublisher:
             durable=True,
         )
 
-        logger.info(f"Sync publisher connected to exchange: {self.exchange_name}")
+        logger.info("Sync publisher connected to exchange: %s", self.exchange_name)
 
     def publish(
         self,
@@ -129,7 +129,7 @@ class SyncEventPublisher:
                 properties=properties,
             )
         except (pika.exceptions.StreamLostError, pika.exceptions.ConnectionClosed) as e:
-            logger.warning(f"Connection lost during publish, reconnecting and retrying: {e}")
+            logger.warning("Connection lost during publish, reconnecting and retrying: %s", e)
             self.connect()
 
             self._channel.basic_publish(
@@ -139,7 +139,7 @@ class SyncEventPublisher:
                 properties=properties,
             )
 
-        logger.debug(f"Published event: {event.event_type} with routing key: {routing_key}")
+        logger.debug("Published event: %s with routing key: %s", event.event_type, routing_key)
 
     def publish_dict(
         self,

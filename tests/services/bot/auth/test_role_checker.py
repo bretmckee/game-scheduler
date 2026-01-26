@@ -30,15 +30,13 @@ from services.bot.auth.role_checker import RoleChecker
 @pytest.fixture
 def mock_bot():
     """Create mock Discord bot client."""
-    bot = MagicMock(spec=discord.Client)
-    return bot
+    return MagicMock(spec=discord.Client)
 
 
 @pytest.fixture
 def mock_db():
     """Create mock database session."""
-    db = AsyncMock(spec=AsyncSession)
-    return db
+    return AsyncMock(spec=AsyncSession)
 
 
 @pytest.fixture

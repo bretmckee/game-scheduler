@@ -71,7 +71,7 @@ async def generate_authorization_url(redirect_uri: str) -> tuple[str, str]:
     query_string = "&".join(f"{k}={v}" for k, v in params.items())
     auth_url = f"{DISCORD_OAUTH_URL}?{query_string}"
 
-    logger.info(f"Generated OAuth2 authorization URL with state: {state}")
+    logger.info("Generated OAuth2 authorization URL with state: %s", state)
     return auth_url, state
 
 
@@ -93,11 +93,11 @@ async def validate_state(state: str) -> str:
 
     redirect_uri = await redis.get(state_key)
     if redirect_uri is None:
-        logger.warning(f"Invalid or expired OAuth2 state: {state}")
+        logger.warning("Invalid or expired OAuth2 state: %s", state)
         raise OAuth2StateError("Invalid or expired state token")
 
     await redis.delete(state_key)
-    logger.info(f"Validated OAuth2 state: {state}")
+    logger.info("Validated OAuth2 state: %s", state)
     return redirect_uri
 
 
@@ -158,7 +158,7 @@ async def get_user_from_token(access_token: str) -> dict[str, Any]:
     discord = get_discord_client()
     user_data = await discord.get_user_info(access_token)
 
-    logger.info(f"Fetched user info for Discord ID: {user_data.get('id')}")
+    logger.info("Fetched user info for Discord ID: %s", user_data.get("id"))
     return user_data
 
 
@@ -179,7 +179,7 @@ async def get_user_guilds(access_token: str, user_id: str | None = None) -> list
     discord = get_discord_client()
     guilds_data = await discord.get_guilds(token=access_token, user_id=user_id)
 
-    logger.info(f"Fetched {len(guilds_data)} guilds for user")
+    logger.info("Fetched %s guilds for user", len(guilds_data))
     return guilds_data
 
 

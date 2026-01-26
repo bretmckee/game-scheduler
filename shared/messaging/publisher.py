@@ -75,7 +75,7 @@ class EventPublisher:
             durable=True,
         )
 
-        logger.info(f"Publisher connected to exchange: {self.exchange_name}")
+        logger.info("Publisher connected to exchange: %s", self.exchange_name)
 
     async def publish(
         self,
@@ -113,7 +113,7 @@ class EventPublisher:
             routing_key=routing_key,
         )
 
-        logger.debug(f"Published event: {event.event_type} with routing key: {routing_key}")
+        logger.debug("Published event: %s with routing key: %s", event.event_type, routing_key)
 
     async def publish_dict(
         self,

@@ -64,7 +64,7 @@ class RedisClient:
                 await ping_result
             logger.info("Redis connection established")
         except Exception as e:
-            logger.error(f"Failed to connect to Redis: {e}")
+            logger.error("Failed to connect to Redis: %s", e)
             raise
 
     async def disconnect(self) -> None:
@@ -93,7 +93,7 @@ class RedisClient:
         try:
             return await self._client.get(key)
         except Exception as e:
-            logger.error(f"Redis GET error for key {key}: {e}")
+            logger.error("Redis GET error for key %s: %s", key, e)
             return None
 
     async def set(
@@ -123,7 +123,7 @@ class RedisClient:
                 await self._client.set(key, value)
             return True
         except Exception as e:
-            logger.error(f"Redis SET error for key {key}: {e}")
+            logger.error("Redis SET error for key %s: %s", key, e)
             return False
 
     async def get_json(self, key: str) -> Any | None:
@@ -143,7 +143,7 @@ class RedisClient:
         try:
             return json.loads(value)
         except json.JSONDecodeError as e:
-            logger.error(f"Failed to decode JSON for key {key}: {e}")
+            logger.error("Failed to decode JSON for key %s: %s", key, e)
             return None
 
     async def set_json(
@@ -167,7 +167,7 @@ class RedisClient:
             serialized = json.dumps(value)
             return await self.set(key, serialized, ttl)
         except (TypeError, ValueError) as e:
-            logger.error(f"Failed to serialize JSON for key {key}: {e}")
+            logger.error("Failed to serialize JSON for key %s: %s", key, e)
             return False
 
     async def delete(self, key: str) -> bool:
@@ -187,7 +187,7 @@ class RedisClient:
             result = await self._client.delete(key)
             return result > 0
         except Exception as e:
-            logger.error(f"Redis DELETE error for key {key}: {e}")
+            logger.error("Redis DELETE error for key %s: %s", key, e)
             return False
 
     async def exists(self, key: str) -> bool:
@@ -207,7 +207,7 @@ class RedisClient:
             result = await self._client.exists(key)
             return result > 0
         except Exception as e:
-            logger.error(f"Redis EXISTS error for key {key}: {e}")
+            logger.error("Redis EXISTS error for key %s: %s", key, e)
             return False
 
     async def expire(self, key: str, ttl: int) -> bool:
@@ -227,7 +227,7 @@ class RedisClient:
         try:
             return await self._client.expire(key, ttl)
         except Exception as e:
-            logger.error(f"Redis EXPIRE error for key {key}: {e}")
+            logger.error("Redis EXPIRE error for key %s: %s", key, e)
             return False
 
     async def ttl(self, key: str) -> int:
@@ -246,7 +246,7 @@ class RedisClient:
         try:
             return await self._client.ttl(key)
         except Exception as e:
-            logger.error(f"Redis TTL error for key {key}: {e}")
+            logger.error("Redis TTL error for key %s: %s", key, e)
             return -2
 
 
@@ -294,7 +294,7 @@ class SyncRedisClient:
         try:
             return self._client.get(key)
         except Exception as e:
-            logger.error(f"Redis GET error for key {key}: {e}")
+            logger.error("Redis GET error for key %s: %s", key, e)
             return None
 
     def set(
@@ -311,7 +311,7 @@ class SyncRedisClient:
                 self._client.set(key, value)
             return True
         except Exception as e:
-            logger.error(f"Redis SET error for key {key}: {e}")
+            logger.error("Redis SET error for key %s: %s", key, e)
             return False
 
     def close(self) -> None:

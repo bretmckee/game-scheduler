@@ -83,7 +83,7 @@ class EventConsumer:
             arguments=PRIMARY_QUEUE_ARGUMENTS,
         )  # type: ignore[assignment]
 
-        logger.info(f"Consumer connected to queue: {self.queue_name}")
+        logger.info("Consumer connected to queue: %s", self.queue_name)
 
     async def bind(self, routing_key: str) -> None:
         """
@@ -98,7 +98,7 @@ class EventConsumer:
         if self._queue is None:
             raise RuntimeError("Queue connection failed: unable to bind routing key")
         await self._queue.bind(self._exchange, routing_key=routing_key)
-        logger.info(f"Queue {self.queue_name} bound to routing key: {routing_key}")
+        logger.info("Queue %s bound to routing key: %s", self.queue_name, routing_key)
 
     def register_handler(self, event_type: EventType, handler: EventHandler) -> None:
         """
@@ -114,7 +114,7 @@ class EventConsumer:
             self._handlers[routing_key] = []
 
         self._handlers[routing_key].append(handler)
-        logger.debug(f"Registered handler for event type: {event_type}")
+        logger.debug("Registered handler for event type: %s", event_type)
 
     async def _process_message(self, message: AbstractIncomingMessage) -> None:
         """
@@ -134,14 +134,14 @@ class EventConsumer:
 
             if not handlers:
                 await message.ack()
-                logger.warning(f"No handlers registered for event: {event.event_type}")
+                logger.warning("No handlers registered for event: %s", event.event_type)
                 return
 
             for handler in handlers:
                 await handler(event)
 
             await message.ack()
-            logger.debug(f"Successfully processed and ACKed {event.event_type}")
+            logger.debug("Successfully processed and ACKed %s", event.event_type)
 
         except Exception as e:
             await message.nack(requeue=False)
@@ -150,9 +150,11 @@ class EventConsumer:
                 event = Event.model_validate_json(message.body)
                 event_type = event.event_type
             except Exception as parse_error:
-                logger.debug(f"Failed to parse event body for error logging: {parse_error}")
+                logger.debug("Failed to parse event body for error logging: %s", parse_error)
             logger.error(
-                f"Handler failed, sending to DLQ for daemon processing: {event_type}, error: {e}",
+                "Handler failed, sending to DLQ for daemon processing: %s, error: %s",
+                event_type,
+                e,
                 exc_info=True,
             )
 
@@ -163,7 +165,7 @@ class EventConsumer:
 
         if self._queue is None:
             raise RuntimeError("Queue connection failed: unable to start consumer")
-        logger.info(f"Starting consumer for queue: {self.queue_name}")
+        logger.info("Starting consumer for queue: %s", self.queue_name)
         await self._queue.consume(self._process_message)
 
     async def close(self) -> None:

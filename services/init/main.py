@@ -68,7 +68,7 @@ def _initialize_telemetry_and_logging() -> tuple[trace.Tracer, datetime]:
 
     logger.info("=" * 60)
     logger.info("Environment Initialization Started")
-    logger.info(f"Timestamp: {start_time.strftime('%Y-%m-%d %H:%M:%S UTC')}")
+    logger.info("Timestamp: %s", start_time.strftime("%Y-%m-%d %H:%M:%S UTC"))
     logger.info("=" * 60)
 
     return tracer, start_time
@@ -77,7 +77,7 @@ def _initialize_telemetry_and_logging() -> tuple[trace.Tracer, datetime]:
 def _log_phase(phase: int, total: int, description: str, completed: bool = False) -> None:
     """Log initialization phase progress."""
     status = "✓" if completed else ""
-    logger.info(f"{status}[{phase}/{total}] {description}")
+    logger.info("%s[%s/%s] %s", status, phase, total, description)
 
 
 def _complete_initialization(start_time: datetime) -> NoReturn:
@@ -87,12 +87,12 @@ def _complete_initialization(start_time: datetime) -> NoReturn:
 
     logger.info("=" * 60)
     logger.info("Environment Initialization Complete")
-    logger.info(f"Duration: {duration:.2f} seconds")
+    logger.info("Duration: %.2f seconds", duration)
     logger.info("=" * 60)
 
     marker_file = Path(tempfile.gettempdir()) / "init-complete"
     marker_file.touch()
-    logger.info(f"Created completion marker: {marker_file}")
+    logger.info("Created completion marker: %s", marker_file)
 
     logger.info("Entering sleep mode. Container will remain healthy.")
     while True:
@@ -144,7 +144,7 @@ def main() -> int:
         except Exception as e:
             logger.error("=" * 60)
             logger.error("Environment Initialization Failed")
-            logger.error(f"Error: {e}", exc_info=True)
+            logger.error("Error: %s", e, exc_info=True)
             logger.error("=" * 60)
 
             span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))

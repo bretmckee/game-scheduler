@@ -3729,16 +3729,18 @@ async def test_verify_bot_manager_permission_not_manager(
     mock_role_service = MagicMock()
     mock_role_service.check_bot_manager_permission = AsyncMock(return_value=False)
 
-    with patch(
-        "services.api.services.games.roles_module.get_role_service",
-        return_value=mock_role_service,
+    with (
+        patch(
+            "services.api.services.games.roles_module.get_role_service",
+            return_value=mock_role_service,
+        ),
+        pytest.raises(ValueError, match="Only bot managers can specify the game host"),
     ):
-        with pytest.raises(ValueError, match="Only bot managers can specify the game host"):
-            await game_service._verify_bot_manager_permission(
-                user_id,
-                guild_id,
-                access_token,
-            )
+        await game_service._verify_bot_manager_permission(
+            user_id,
+            guild_id,
+            access_token,
+        )
 
 
 @pytest.mark.asyncio

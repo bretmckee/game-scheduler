@@ -18,6 +18,7 @@
 
 """Shared fixtures for integration tests."""
 
+import contextlib
 import os
 
 import pika
@@ -75,13 +76,11 @@ def consume_one_message(channel, queue_name, timeout=5):
 
 def purge_queue(channel, queue_name):
     """Purge all messages from a queue."""
-    try:
+    with contextlib.suppress(Exception):
         channel.queue_purge(queue_name)
-    except Exception:
-        pass
 
 
-@pytest.fixture(autouse=True, scope="function")
+@pytest.fixture(autouse=True)
 async def cleanup_guild_context():
     """Ensure guild context is cleared before and after each test."""
     clear_current_guild_ids()
@@ -89,7 +88,7 @@ async def cleanup_guild_context():
     clear_current_guild_ids()
 
 
-@pytest.fixture(autouse=True, scope="function")
+@pytest.fixture(autouse=True)
 async def cleanup_db_engine():
     """
     Dispose database engine after each test to prevent event loop issues.

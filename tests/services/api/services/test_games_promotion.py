@@ -303,40 +303,41 @@ async def test_promotion_when_participant_removed(
         print("  _notify_promoted_users completed")
         return result
 
-    with patch.object(
-        game_service,
-        "_notify_promoted_users",
-        side_effect=track_notify_promotions,
+    with (
+        patch.object(
+            game_service,
+            "_notify_promoted_users",
+            side_effect=track_notify_promotions,
+        ),
+        patch.object(game_service, "get_game", side_effect=get_game_side_effect),
     ):
-        with patch.object(game_service, "get_game", side_effect=get_game_side_effect):
-            # Mock authorization check
-            mock_role_service = AsyncMock()
-            mock_current_user = MagicMock()
-            mock_current_user.discord_id = sample_game.host.discord_id
+        # Mock authorization check
+        mock_role_service = AsyncMock()
+        mock_current_user = MagicMock()
+        mock_current_user.discord_id = sample_game.host.discord_id
 
-            with patch(
-                "services.api.dependencies.permissions.can_manage_game",
-                return_value=True,
-            ):
-                # Remove one confirmed participant (should promote overflow)
-                update_request = GameUpdateRequest(removed_participant_ids=[participants[0].id])
+        with patch(
+            "services.api.dependencies.permissions.can_manage_game",
+            return_value=True,
+        ):
+            # Remove one confirmed participant (should promote overflow)
+            update_request = GameUpdateRequest(removed_participant_ids=[participants[0].id])
 
-                try:
-                    result = await game_service.update_game(
-                        game_id=sample_game.id,
-                        update_data=update_request,
-                        current_user=mock_current_user,
-                        role_service=mock_role_service,
-                    )
-                    print(
-                        f"\nUpdate completed successfully, "
-                        f"result id: {result.id if result else 'None'}"
-                    )
-                    print(f"Result participants: {len(result.participants) if result else 0}")
-                except Exception as e:
-                    print(f"\nUpdate failed with exception: {type(e).__name__}: {e}")
-                    traceback.print_exc()
-                    raise
+            try:
+                result = await game_service.update_game(
+                    game_id=sample_game.id,
+                    update_data=update_request,
+                    current_user=mock_current_user,
+                    role_service=mock_role_service,
+                )
+                print(
+                    f"\nUpdate completed successfully, result id: {result.id if result else 'None'}"
+                )
+                print(f"Result participants: {len(result.participants) if result else 0}")
+            except Exception as e:
+                print(f"\nUpdate failed with exception: {type(e).__name__}: {e}")
+                traceback.print_exc()
+                raise
 
     # Verify promotion notification was published
     publish_calls = mock_event_publisher.publish.call_args_list

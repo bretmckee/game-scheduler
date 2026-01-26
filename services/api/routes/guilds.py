@@ -258,7 +258,7 @@ async def list_guild_roles(
 
     discord_guild_id = guild_config.guild_id
     roles = await discord_client.fetch_guild_roles(discord_guild_id)
-    logger.info(f"Fetched {len(roles)} roles for guild {discord_guild_id}")
+    logger.info("Fetched %s roles for guild %s", len(roles), discord_guild_id)
 
     # Filter out managed roles but allow @everyone
     filtered_roles = [
@@ -275,7 +275,11 @@ async def list_guild_roles(
 
     # Sort by position (highest first)
     filtered_roles.sort(key=lambda r: r["position"], reverse=True)
-    logger.info(f"Returning {len(filtered_roles)} filtered roles for guild {discord_guild_id}")
+    logger.info(
+        "Returning %s filtered roles for guild %s",
+        len(filtered_roles),
+        discord_guild_id,
+    )
 
     return filtered_roles
 
@@ -360,7 +364,7 @@ async def validate_mention(
         return guild_schemas.ValidateMentionResponse(valid=False, error="User not found in guild")
 
     except Exception as e:
-        logger.error(f"Error validating mention: {e}", exc_info=True)
+        logger.error("Error validating mention: %s", e, exc_info=True)
         return guild_schemas.ValidateMentionResponse(
             valid=False, error="Failed to validate mention. Please try again."
         )

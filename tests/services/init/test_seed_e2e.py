@@ -149,7 +149,7 @@ class TestCreateGuildEntities:
         _create_guild_entities(mock_session, guild_config)
 
         assert mock_session.execute.call_count == 4
-        mock_logger.info.assert_called_once_with("Created guild entities for Test Guild")
+        mock_logger.info.assert_called_once_with("Created guild entities for %s", "Test Guild")
 
     @patch("services.init.seed_e2e.datetime")
     @patch("services.init.seed_e2e.uuid4")

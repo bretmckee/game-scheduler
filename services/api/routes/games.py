@@ -178,18 +178,21 @@ async def _process_image_upload(
         Tuple of (image_data, mime_type) where empty bytes means removal
     """
     if remove_flag:
-        logger.info(f"Removing {field_name} for game {game_id}")
+        logger.info("Removing %s for game %s", field_name, game_id)
         return b"", ""
 
     if file:
         logger.info(
-            f"Received {field_name} upload for game {game_id}: "
-            f"filename={file.filename}, content_type={file.content_type}, "
-            f"size={file.size}"
+            "Received %s upload for game %s: filename=%s, content_type=%s, size=%s",
+            field_name,
+            game_id,
+            file.filename,
+            file.content_type,
+            file.size,
         )
         await _validate_image_upload(file, field_name)
         image_data = await file.read()
-        logger.info(f"{field_name.capitalize()} read: {len(image_data)} bytes")
+        logger.info("%s read: %s bytes", field_name.capitalize(), len(image_data))
         return image_data, file.content_type
 
     return None, None
@@ -303,13 +306,15 @@ async def create_game(
         thumbnail_mime = None
         if thumbnail:
             logger.info(
-                f"Received thumbnail upload: filename={thumbnail.filename}, "
-                f"content_type={thumbnail.content_type}, size={thumbnail.size}"
+                "Received thumbnail upload: filename=%s, content_type=%s, size=%s",
+                thumbnail.filename,
+                thumbnail.content_type,
+                thumbnail.size,
             )
             await _validate_image_upload(thumbnail, "thumbnail")
             thumbnail_data = await thumbnail.read()
             thumbnail_mime = thumbnail.content_type
-            logger.info(f"Thumbnail read: {len(thumbnail_data)} bytes")
+            logger.info("Thumbnail read: %s bytes", len(thumbnail_data))
         else:
             logger.debug("No thumbnail file provided")
 
@@ -318,13 +323,15 @@ async def create_game(
         image_mime = None
         if image:
             logger.info(
-                f"Received image upload: filename={image.filename}, "
-                f"content_type={image.content_type}, size={image.size}"
+                "Received image upload: filename=%s, content_type=%s, size=%s",
+                image.filename,
+                image.content_type,
+                image.size,
             )
             await _validate_image_upload(image, "image")
             image_data = await image.read()
             image_mime = image.content_type
-            logger.info(f"Banner image read: {len(image_data)} bytes")
+            logger.info("Banner image read: %s bytes", len(image_data))
         else:
             logger.debug("No banner image file provided")
 
@@ -630,16 +637,18 @@ async def leave_game(
     Validates user is a participant and game not completed.
     """
     logger.info(
-        f"Leave game request: game_id={game_id}, user_discord_id={current_user.user.discord_id}"
+        "Leave game request: game_id=%s, user_discord_id=%s",
+        game_id,
+        current_user.user.discord_id,
     )
     try:
         await game_service.leave_game(
             game_id=game_id,
             user_discord_id=current_user.user.discord_id,
         )
-        logger.info(f"User {current_user.user.discord_id} successfully left game {game_id}")
+        logger.info("User %s successfully left game %s", current_user.user.discord_id, game_id)
     except ValueError as e:
-        logger.error(f"Leave game error: {e}")
+        logger.error("Leave game error: %s", e)
         if "not found" in str(e).lower():
             raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail=str(e)) from None
         raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail=str(e)) from None

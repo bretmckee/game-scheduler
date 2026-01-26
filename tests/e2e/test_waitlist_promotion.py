@@ -64,7 +64,7 @@ async def trigger_promotion_via_max_players_increase(
 
 
 @pytest.mark.parametrize(
-    "trigger_func,expected_player_count,test_desc",
+    ("trigger_func", "expected_player_count", "test_desc"),
     [
         (trigger_promotion_via_removal, "1/1", "participant removal"),
         (trigger_promotion_via_max_players_increase, "2/2", "max_players increase"),

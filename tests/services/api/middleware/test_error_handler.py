@@ -40,8 +40,7 @@ def mock_app():
 @pytest.fixture
 def mock_request():
     """Mock HTTP request."""
-    request = MagicMock(spec=Request)
-    return request
+    return MagicMock(spec=Request)
 
 
 @pytest.mark.asyncio

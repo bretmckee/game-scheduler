@@ -54,7 +54,7 @@ async def get_member_display_info(
         member_data = await discord_api.get_guild_member(guild_id, user_id)
 
         if not member_data:
-            logger.warning(f"Member {user_id} not found in guild {guild_id}")
+            logger.warning("Member %s not found in guild %s", user_id, guild_id)
             return None, None
 
         display_name = (
@@ -70,13 +70,18 @@ async def get_member_display_info(
         return display_name, avatar_url
 
     except discord_client.DiscordAPIError as e:
-        logger.warning(f"API error fetching member info for {user_id} in guild {guild_id}: {e}")
+        logger.warning(
+            "API error fetching member info for %s in guild %s: %s",
+            user_id,
+            guild_id,
+            e,
+        )
         return None, None
     except (ValueError, KeyError) as e:
-        logger.warning(f"Failed to parse member info for {user_id} in guild {guild_id}: {e}")
+        logger.warning("Failed to parse member info for %s in guild %s: %s", user_id, guild_id, e)
         return None, None
     except Exception as e:
-        logger.error(f"Unexpected error getting member info: {e}")
+        logger.error("Unexpected error getting member info: %s", e)
         return None, None
 
 

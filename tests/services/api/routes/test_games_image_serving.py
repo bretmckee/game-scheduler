@@ -33,8 +33,7 @@ from shared.models import game as game_model
 @pytest.fixture
 def mock_game_service():
     """Mock game service."""
-    service = AsyncMock(spec=games_service.GameService)
-    return service
+    return AsyncMock(spec=games_service.GameService)
 
 
 @pytest.fixture

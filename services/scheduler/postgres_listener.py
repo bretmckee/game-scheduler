@@ -81,7 +81,7 @@ class PostgresNotificationListener:
 
         with self.conn.cursor() as cursor:
             cursor.execute(f"LISTEN {channel};")
-        logger.info(f"Listening on channel: {channel}")
+        logger.info("Listening on channel: %s", channel)
 
     def listen(self, channel: str) -> None:
         """
@@ -134,10 +134,10 @@ class PostgresNotificationListener:
                 try:
                     payload = json.loads(notify.payload)
                 except json.JSONDecodeError:
-                    logger.warning(f"Failed to parse NOTIFY payload: {notify.payload}")
+                    logger.warning("Failed to parse NOTIFY payload: %s", notify.payload)
                     payload = {"raw": notify.payload}
 
-            logger.debug(f"Received NOTIFY on channel {notify.channel}: {payload}")
+            logger.debug("Received NOTIFY on channel %s: %s", notify.channel, payload)
             return True, payload
 
         return False, None

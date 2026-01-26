@@ -99,8 +99,11 @@ class BotEventPublisher:
         await self.publisher.publish(event=event, routing_key="game.created")
 
         logger.info(
-            f"Published game_created event: game={game_id}, title={title}, "
-            f"guild={guild_id}, channel={channel_id}"
+            "Published game_created event: game=%s, title=%s, guild=%s, channel=%s",
+            game_id,
+            title,
+            guild_id,
+            channel_id,
         )
 
     async def publish_game_updated(self, game_id: str, updated_fields: dict[str, Any]) -> None:
@@ -119,7 +122,7 @@ class BotEventPublisher:
         await self.publisher.publish(event=event, routing_key="game.updated")
 
         fields_list = list(updated_fields.keys())
-        logger.info(f"Published game_updated event: game={game_id}, fields={fields_list}")
+        logger.info("Published game_updated event: game=%s, fields=%s", game_id, fields_list)
 
 
 # Global publisher instance

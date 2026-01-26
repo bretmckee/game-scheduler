@@ -67,14 +67,15 @@ def build_notification_event(
         if time_until_game > SECONDS_PER_MINUTE:
             expiration_ms = int(time_until_game * MILLISECONDS_PER_SECOND)
             logger.debug(
-                f"Notification TTL: {time_until_game:.0f}s until game starts "
-                f"(game_id={notification.game_id})"
+                "Notification TTL: %.0fs until game starts (game_id=%s)",
+                time_until_game,
+                notification.game_id,
             )
         else:
             expiration_ms = SECONDS_PER_MINUTE * MILLISECONDS_PER_SECOND
             logger.warning(
-                f"Game already started or starting soon, setting minimal TTL "
-                f"(game_id={notification.game_id})"
+                "Game already started or starting soon, setting minimal TTL (game_id=%s)",
+                notification.game_id,
             )
 
     return event, expiration_ms

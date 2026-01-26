@@ -128,7 +128,7 @@ class EventHandlers:
             EventType.GAME_CANCELLED, lambda e: self._handle_game_cancelled(e.data)
         )
 
-        logger.info(f"Started consuming events from queue: {queue_name}")
+        logger.info("Started consuming events from queue: %s", queue_name)
 
         await self.consumer.start_consuming()
 
@@ -150,14 +150,14 @@ class EventHandlers:
         handler = self._handlers.get(event.event_type)
 
         if handler is None:
-            logger.warning(f"No handler registered for event type: {event.event_type}")
+            logger.warning("No handler registered for event type: %s", event.event_type)
             return
 
         try:
             await handler(event.data)
-            logger.debug(f"Successfully processed event: {event.event_type}")
+            logger.debug("Successfully processed event: %s", event.event_type)
         except Exception as e:
-            logger.error(f"Error processing event {event.event_type}: {e}", exc_info=True)
+            logger.error("Error processing event %s: %s", event.event_type, e, exc_info=True)
             raise
 
     async def _handle_game_created(self, data: dict[str, Any]) -> None:
@@ -179,13 +179,13 @@ class EventHandlers:
             channel_data = await discord_api.fetch_channel(channel_id)
 
             if not channel_data:
-                logger.error(f"Invalid or inaccessible channel: {channel_id}")
+                logger.error("Invalid or inaccessible channel: %s", channel_id)
                 return
 
             async with get_db_session() as db:
                 game = await self._get_game_with_participants(db, game_id)
                 if not game:
-                    logger.error(f"Game not found: {game_id}")
+                    logger.error("Game not found: %s", game_id)
                     return
 
                 content, embed, view = await self._create_game_announcement(game)
@@ -195,7 +195,7 @@ class EventHandlers:
                     channel = await self.bot.fetch_channel(int(channel_id))
 
                 if not channel or not isinstance(channel, discord.TextChannel):
-                    logger.error(f"Invalid channel: {channel_id}")
+                    logger.error("Invalid channel: %s", channel_id)
                     return
 
                 message = await channel.send(content=content, embed=embed, view=view)
@@ -204,12 +204,14 @@ class EventHandlers:
                 await db.commit()
 
                 logger.info(
-                    f"Posted game announcement: game={game_id}, "
-                    f"channel={channel_id}, message={message.id}"
+                    "Posted game announcement: game=%s, channel=%s, message=%s",
+                    game_id,
+                    channel_id,
+                    message.id,
                 )
 
         except Exception as e:
-            logger.error(f"Failed to post game announcement: {e}", exc_info=True)
+            logger.error("Failed to post game announcement: %s", e, exc_info=True)
 
     async def _handle_game_updated(self, data: dict[str, Any]) -> None:
         """
@@ -235,16 +237,16 @@ class EventHandlers:
             # Check if we can update immediately
             if not await redis.exists(cache_key):
                 # No recent update, refresh immediately
-                logger.info(f"Refreshing game {game_id} message (immediate)")
+                logger.info("Refreshing game %s message (immediate)", game_id)
                 await self._refresh_game_message(game_id)
                 return
 
             # Throttled - schedule a trailing refresh to ensure final state is applied
-            logger.debug(f"Game {game_id} updated recently, scheduling trailing refresh")
+            logger.debug("Game %s updated recently, scheduling trailing refresh", game_id)
 
             # Skip if refresh already scheduled for this game
             if game_id in self._pending_refreshes:
-                logger.debug(f"Trailing refresh already scheduled for game {game_id}")
+                logger.debug("Trailing refresh already scheduled for game %s", game_id)
                 return
 
             # Schedule refresh after TTL expires
@@ -253,7 +255,7 @@ class EventHandlers:
 
         except Exception as e:
             # Fail open: if Redis unavailable, allow update to proceed
-            logger.warning(f"Redis error during throttle check, allowing update: {e}")
+            logger.warning("Redis error during throttle check, allowing update: %s", e)
             await self._refresh_game_message(game_id)
 
     async def _delayed_refresh(self, game_id: str, delay: float) -> None:
@@ -269,7 +271,7 @@ class EventHandlers:
         """
         try:
             await asyncio.sleep(delay)
-            logger.info(f"Executing trailing refresh for game {game_id}")
+            logger.info("Executing trailing refresh for game %s", game_id)
             await self._refresh_game_message(game_id)
         finally:
             self._pending_refreshes.discard(game_id)
@@ -289,7 +291,7 @@ class EventHandlers:
         """
         game = await self._get_game_with_participants(db, game_id)
         if not game or not game.message_id:
-            logger.warning(f"Game or message not found: {game_id}")
+            logger.warning("Game or message not found: %s", game_id)
             return None
         return game
 
@@ -307,7 +309,7 @@ class EventHandlers:
         channel_data = await discord_api.fetch_channel(channel_id)
 
         if not channel_data:
-            logger.error(f"Invalid channel: {channel_id}")
+            logger.error("Invalid channel: %s", channel_id)
             return None
 
         channel = self.bot.get_channel(int(channel_id))
@@ -315,7 +317,7 @@ class EventHandlers:
             channel = await self.bot.fetch_channel(int(channel_id))
 
         if not channel or not isinstance(channel, discord.TextChannel):
-            logger.error(f"Invalid channel: {channel_id}")
+            logger.error("Invalid channel: %s", channel_id)
             return None
 
         return channel
@@ -336,7 +338,7 @@ class EventHandlers:
         try:
             return await channel.fetch_message(int(message_id))
         except discord.NotFound:
-            logger.warning(f"Message not found: {message_id}")
+            logger.warning("Message not found: %s", message_id)
             return None
 
     async def _fetch_channel_and_message(
@@ -359,18 +361,18 @@ class EventHandlers:
             try:
                 channel = await self.bot.fetch_channel(int(channel_id))
             except Exception as e:
-                logger.error(f"Invalid or inaccessible channel: {channel_id} - {e}")
+                logger.error("Invalid or inaccessible channel: %s - %s", channel_id, e)
                 return None
 
         if not channel or not isinstance(channel, discord.TextChannel):
-            logger.error(f"Invalid or inaccessible channel: {channel_id}")
+            logger.error("Invalid or inaccessible channel: %s", channel_id)
             return None
 
         try:
             message = await channel.fetch_message(int(message_id))
             return (channel, message)
         except Exception as e:
-            logger.error(f"Failed to fetch message {message_id}: {e}")
+            logger.error("Failed to fetch message %s: %s", message_id, e)
             return None
 
     async def _update_game_message_content(
@@ -385,7 +387,7 @@ class EventHandlers:
         """
         content, embed, view = await self._create_game_announcement(game)
         await message.edit(content=content, embed=embed, view=view)
-        logger.info(f"Refreshed game message: game={game.id}, message={game.message_id}")
+        logger.info("Refreshed game message: game=%s, message=%s", game.id, game.message_id)
 
     async def _set_message_refresh_throttle(self, game_id: str) -> None:
         """
@@ -423,7 +425,7 @@ class EventHandlers:
                 await self._set_message_refresh_throttle(game_id)
 
         except Exception as e:
-            logger.error(f"Failed to refresh game message: {e}", exc_info=True)
+            logger.error("Failed to refresh game message: %s", e, exc_info=True)
 
     async def _handle_notification_due(self, data: dict[str, Any]) -> None:
         """
@@ -436,17 +438,18 @@ class EventHandlers:
         Args:
             data: Event payload with game_id, notification_type, participant_id
         """
-        logger.info(f"=== Received game.notification_due event: {data} ===")
+        logger.info("=== Received game.notification_due event: %s ===", data)
 
         try:
             notification_event = NotificationDueEvent(**data)
             logger.info(
-                f"Parsed notification event: game_id={notification_event.game_id}, "
-                f"type={notification_event.notification_type}, "
-                f"participant_id={notification_event.participant_id}"
+                "Parsed notification event: game_id=%s, type=%s, participant_id=%s",
+                notification_event.game_id,
+                notification_event.notification_type,
+                notification_event.participant_id,
             )
         except Exception as e:
-            logger.error(f"Invalid notification event data: {e}", exc_info=True)
+            logger.error("Invalid notification event data: %s", e, exc_info=True)
             return
 
         if notification_event.notification_type == "reminder":
@@ -455,8 +458,9 @@ class EventHandlers:
             await self._handle_join_notification(notification_event)
         else:
             logger.error(
-                f"Unknown notification type: {notification_event.notification_type} "
-                f"for game {notification_event.game_id}"
+                "Unknown notification type: %s for game %s",
+                notification_event.notification_type,
+                notification_event.game_id,
             )
 
     async def _validate_game_for_reminder(
@@ -467,13 +471,14 @@ class EventHandlers:
         """Validate game state is appropriate for sending reminders."""
         if game.scheduled_at < utc_now():
             logger.info(
-                f"Game {game_id} already started at {game.scheduled_at}, "
-                f"skipping stale notification"
+                "Game %s already started at %s, skipping stale notification",
+                game_id,
+                game.scheduled_at,
             )
             return False
 
         if game.status != "SCHEDULED":
-            logger.info(f"Game {game_id} status is {game.status}, skipping notifications")
+            logger.info("Game %s status is %s, skipping notifications", game_id, game.status)
             return False
 
         return True
@@ -489,7 +494,10 @@ class EventHandlers:
         overflow = [p for p in partitioned.overflow if p.user]
 
         logger.info(
-            f"Game {game.id}: {len(confirmed)} confirmed, {len(overflow)} waitlist participants"
+            "Game %s: %s confirmed, %s waitlist participants",
+            game.id,
+            len(confirmed),
+            len(overflow),
         )
 
         return confirmed, overflow
@@ -515,8 +523,10 @@ class EventHandlers:
                 )
             except Exception as e:
                 logger.error(
-                    f"Failed to send reminder to {participant_type} participant "
-                    f"{participant.user_id}: {e}",
+                    "Failed to send reminder to %s participant %s: %s",
+                    participant_type,
+                    participant.user_id,
+                    e,
                     exc_info=True,
                 )
 
@@ -539,10 +549,12 @@ class EventHandlers:
                 is_waitlist=False,
                 is_host=True,
             )
-            logger.info(f"Sent reminder to host {host.discord_id}")
+            logger.info("Sent reminder to host %s", host.discord_id)
         except Exception as e:
             logger.error(
-                f"Failed to send reminder to host {host.discord_id}: {e}",
+                "Failed to send reminder to host %s: %s",
+                host.discord_id,
+                e,
                 exc_info=True,
             )
 
@@ -565,7 +577,7 @@ class EventHandlers:
                 game = await self._get_game_with_participants(db, str(reminder_event.game_id))
 
                 if not game:
-                    logger.error(f"Game not found: {reminder_event.game_id}")
+                    logger.error("Game not found: %s", reminder_event.game_id)
                     return
 
                 if not await self._validate_game_for_reminder(game, str(reminder_event.game_id)):
@@ -594,13 +606,17 @@ class EventHandlers:
                 )
 
                 logger.info(
-                    f"✓ Completed reminder notifications for game {reminder_event.game_id}: "
-                    f"{len(confirmed)} confirmed, {len(overflow)} waitlist, host notified"
+                    "✓ Completed reminder notifications for game %s: "
+                    "%s confirmed, %s waitlist, host notified",
+                    reminder_event.game_id,
+                    len(confirmed),
+                    len(overflow),
                 )
 
         except Exception as e:
             logger.error(
-                f"Failed to handle game reminder due event: {e}",
+                "Failed to handle game reminder due event: %s",
+                e,
                 exc_info=True,
             )
 
@@ -622,7 +638,7 @@ class EventHandlers:
         game = await self._get_game_with_participants(db, str(event.game_id))
 
         if not game:
-            logger.error(f"Game not found: {event.game_id}")
+            logger.error("Game not found: %s", event.game_id)
             return None, None
 
         participant_result = await db.execute(
@@ -632,7 +648,9 @@ class EventHandlers:
 
         if not participant or not participant.user:
             logger.info(
-                f"Participant {event.participant_id} no longer active for game {event.game_id}"
+                "Participant %s no longer active for game %s",
+                event.participant_id,
+                event.game_id,
             )
             return None, None
 
@@ -658,8 +676,9 @@ class EventHandlers:
 
         if not is_confirmed:
             logger.info(
-                f"Participant {participant.id} is waitlisted, skipping join "
-                f"notification for game {game.id}"
+                "Participant %s is waitlisted, skipping join notification for game %s",
+                participant.id,
+                game.id,
             )
 
         return is_confirmed
@@ -703,12 +722,15 @@ class EventHandlers:
 
         if success:
             logger.info(
-                f"✓ Sent join notification to {participant.user.discord_id} for game {game_id}"
+                "✓ Sent join notification to %s for game %s",
+                participant.user.discord_id,
+                game_id,
             )
         else:
             logger.warning(
-                f"Failed to send join notification to {participant.user.discord_id} "
-                f"for game {game_id}"
+                "Failed to send join notification to %s for game %s",
+                participant.user.discord_id,
+                game_id,
             )
 
     async def _handle_join_notification(self, event: NotificationDueEvent) -> None:
@@ -736,8 +758,10 @@ class EventHandlers:
 
         except Exception as e:
             logger.error(
-                f"Failed to handle join notification for game {event.game_id}, "
-                f"participant {event.participant_id}: {e}",
+                "Failed to handle join notification for game %s, participant %s: %s",
+                event.game_id,
+                event.participant_id,
+                e,
                 exc_info=True,
             )
 
@@ -757,30 +781,37 @@ class EventHandlers:
             user_data = await discord_api.fetch_user(user_discord_id)
 
             if not user_data:
-                logger.error(f"User not found in Discord: {user_discord_id}")
+                logger.error("User not found in Discord: %s", user_discord_id)
                 return False
 
             user = await self.bot.fetch_user(int(user_discord_id))
             if not user:
-                logger.error(f"Could not get user object: {user_discord_id}")
+                logger.error("Could not get user object: %s", user_discord_id)
                 return False
 
             await user.send(message)
-            logger.debug(f"✓ Sent DM to {user_discord_id}")
+            logger.debug("✓ Sent DM to %s", user_discord_id)
             return True
 
         except discord.Forbidden:
-            logger.warning(f"Cannot send DM to user {user_discord_id}: DMs disabled or bot blocked")
+            logger.warning(
+                "Cannot send DM to user %s: DMs disabled or bot blocked",
+                user_discord_id,
+            )
             return False
         except discord.HTTPException as e:
             logger.error(
-                f"Discord HTTP error sending DM to {user_discord_id}: {e}",
+                "Discord HTTP error sending DM to %s: %s",
+                user_discord_id,
+                e,
                 exc_info=True,
             )
             return False
         except Exception as e:
             logger.error(
-                f"Failed to send DM to {user_discord_id}: {e}",
+                "Failed to send DM to %s: %s",
+                user_discord_id,
+                e,
                 exc_info=True,
             )
             return False
@@ -818,24 +849,28 @@ class EventHandlers:
         Args:
             data: Event payload with notification details
         """
-        logger.info(f"=== Received notification.send_dm event: {data} ===")
+        logger.info("=== Received notification.send_dm event: %s ===", data)
 
         try:
             notification = NotificationSendDMEvent(**data)
             logger.info(
-                f"Parsed notification event: user_id={notification.user_id}, "
-                f"game_id={notification.game_id}, type={notification.notification_type}"
+                "Parsed notification event: user_id=%s, game_id=%s, type=%s",
+                notification.user_id,
+                notification.game_id,
+                notification.notification_type,
             )
         except Exception as e:
-            logger.error(f"Invalid notification event data: {e}", exc_info=True)
+            logger.error("Invalid notification event data: %s", e, exc_info=True)
             return
 
         success = await self._send_dm(notification.user_id, notification.message)
 
         if success:
             logger.info(
-                f"✓ Successfully sent notification DM: user={notification.user_id}, "
-                f"game={notification.game_id}, type={notification.notification_type}"
+                "✓ Successfully sent notification DM: user=%s, game=%s, type=%s",
+                notification.user_id,
+                notification.game_id,
+                notification.notification_type,
             )
 
     async def _update_message_for_player_removal(
@@ -852,7 +887,7 @@ class EventHandlers:
         async with get_db_session() as db:
             game = await self._get_game_with_participants(db, game_id)
             if not game:
-                logger.error(f"Game not found: {game_id}")
+                logger.error("Game not found: %s", game_id)
                 return
 
             result = await self._fetch_channel_and_message(channel_id, message_id)
@@ -863,12 +898,12 @@ class EventHandlers:
             try:
                 content, embed, view = await self._create_game_announcement(game)
                 await message.edit(content=content, embed=embed, view=view)
-                logger.info(f"Updated game message after participant removal: {message_id}")
+                logger.info("Updated game message after participant removal: %s", message_id)
 
             except discord.NotFound:
-                logger.warning(f"Game message not found: {message_id}")
+                logger.warning("Game message not found: %s", message_id)
             except Exception as e:
-                logger.error(f"Failed to update game message: {e}", exc_info=True)
+                logger.error("Failed to update game message: %s", e, exc_info=True)
 
     def _build_removal_dm_message(self, game_title: str, game_scheduled_at: str | None) -> str:
         """
@@ -905,15 +940,19 @@ class EventHandlers:
             logger.warning("No discord_id provided for removal DM")
             return
 
-        logger.info(f"Preparing to send removal DM to user {discord_id} for game {game_title}")
+        logger.info(
+            "Preparing to send removal DM to user %s for game %s",
+            discord_id,
+            game_title,
+        )
         dm_message = self._build_removal_dm_message(game_title, game_scheduled_at)
 
-        logger.info(f"Sending DM to {discord_id}: {dm_message}")
+        logger.info("Sending DM to %s: %s", discord_id, dm_message)
         success = await self._send_dm(discord_id, dm_message)
         if success:
-            logger.info(f"✓ Successfully sent removal DM to user {discord_id}")
+            logger.info("✓ Successfully sent removal DM to user %s", discord_id)
         else:
-            logger.warning(f"Failed to send removal DM to user {discord_id}")
+            logger.warning("Failed to send removal DM to user %s", discord_id)
 
     async def _handle_player_removed(self, data: dict[str, Any]) -> None:
         """
@@ -938,7 +977,7 @@ class EventHandlers:
             await self._notify_removed_player(discord_id, game_title, game_scheduled_at)
 
         except Exception as e:
-            logger.error(f"Failed to handle participant removal: {e}", exc_info=True)
+            logger.error("Failed to handle participant removal: %s", e, exc_info=True)
 
     def _validate_cancellation_event_data(
         self, data: dict[str, Any]
@@ -957,7 +996,7 @@ class EventHandlers:
         channel_id = data.get("channel_id")
 
         if not game_id or not message_id or not channel_id:
-            logger.error(f"Missing required fields in game.cancelled event: {data}")
+            logger.error("Missing required fields in game.cancelled event: %s", data)
             return None
 
         return (game_id, message_id, channel_id)
@@ -979,7 +1018,7 @@ class EventHandlers:
             async with get_db_session() as db:
                 game = await self._get_game_with_participants(db, game_id)
                 if not game:
-                    logger.error(f"Game not found: {game_id}")
+                    logger.error("Game not found: %s", game_id)
                     return
 
                 result = await self._fetch_channel_and_message(channel_id, message_id)
@@ -990,15 +1029,15 @@ class EventHandlers:
                 try:
                     content, embed, view = await self._create_game_announcement(game)
                     await message.edit(content=content, embed=embed, view=view)
-                    logger.info(f"Updated cancelled game message: {message_id}")
+                    logger.info("Updated cancelled game message: %s", message_id)
 
                 except discord.NotFound:
-                    logger.warning(f"Game message not found: {message_id}")
+                    logger.warning("Game message not found: %s", message_id)
                 except Exception as e:
-                    logger.error(f"Failed to update cancelled game message: {e}", exc_info=True)
+                    logger.error("Failed to update cancelled game message: %s", e, exc_info=True)
 
         except Exception as e:
-            logger.error(f"Failed to handle game.cancelled event: {e}", exc_info=True)
+            logger.error("Failed to handle game.cancelled event: %s", e, exc_info=True)
 
     async def _handle_status_transition_due(self, data: dict[str, Any]) -> None:
         """
@@ -1010,16 +1049,17 @@ class EventHandlers:
         Args:
             data: Event payload with game_id, target_status, and transition_time
         """
-        logger.info(f"=== Received game.status_transition_due event: {data} ===")
+        logger.info("=== Received game.status_transition_due event: %s ===", data)
 
         try:
             transition_event = GameStatusTransitionDueEvent(**data)
             logger.info(
-                f"Parsed status transition event: game_id={transition_event.game_id}, "
-                f"target_status={transition_event.target_status}"
+                "Parsed status transition event: game_id=%s, target_status=%s",
+                transition_event.game_id,
+                transition_event.target_status,
             )
         except Exception as e:
-            logger.error(f"Invalid status transition event data: {e}", exc_info=True)
+            logger.error("Invalid status transition event data: %s", e, exc_info=True)
             return
 
         game_id = str(transition_event.game_id)
@@ -1028,21 +1068,25 @@ class EventHandlers:
             async with get_db_session() as db:
                 game = await self._get_game_with_participants(db, game_id)
                 if not game:
-                    logger.error(f"Game {game_id} not found for status transition")
+                    logger.error("Game %s not found for status transition", game_id)
                     return
 
                 # Validate transition is valid based on current status
                 if not is_valid_transition(game.status, transition_event.target_status):
                     logger.warning(
-                        f"Invalid status transition for game {game_id}: "
-                        f"{game.status} → {transition_event.target_status}. Skipping."
+                        "Invalid status transition for game %s: %s → %s. Skipping.",
+                        game_id,
+                        game.status,
+                        transition_event.target_status,
                     )
                     return
 
                 # Check if already at target status (idempotency)
                 if game.status == transition_event.target_status:
                     logger.info(
-                        f"Game {game_id} already at status {game.status}, skipping transition"
+                        "Game %s already at status %s, skipping transition",
+                        game_id,
+                        game.status,
                     )
                     return
 
@@ -1052,8 +1096,10 @@ class EventHandlers:
                 await db.commit()
 
                 logger.info(
-                    f"✓ Transitioned game {game_id} from {current_status} to "
-                    f"{transition_event.target_status}"
+                    "✓ Transitioned game %s from %s to %s",
+                    game_id,
+                    current_status,
+                    transition_event.target_status,
                 )
 
             # Refresh Discord message to reflect new status
@@ -1061,7 +1107,9 @@ class EventHandlers:
 
         except Exception as e:
             logger.error(
-                f"Failed to handle status transition for game {game_id}: {e}",
+                "Failed to handle status transition for game %s: %s",
+                game_id,
+                e,
                 exc_info=True,
             )
 

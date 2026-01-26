@@ -66,7 +66,7 @@ async def _check_guild_membership(user_discord_id: str, guild_id: str, access_to
         user_guilds = await oauth2.get_user_guilds(access_token, user_discord_id)
         return any(guild["id"] == guild_id for guild in user_guilds)
     except Exception as e:
-        logger.error(f"Failed to check guild membership for user {user_discord_id}: {e}")
+        logger.error("Failed to check guild membership for user %s: %s", user_discord_id, e)
         return False
 
 
@@ -104,8 +104,9 @@ async def verify_guild_membership(
 
     if not is_member:
         logger.warning(
-            f"User {current_user.user.discord_id} attempted to access guild {guild_id} "
-            f"where they are not a member"
+            "User %s attempted to access guild %s where they are not a member",
+            current_user.user.discord_id,
+            guild_id,
         )
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Guild not found")
 
@@ -147,8 +148,10 @@ async def verify_template_access(
 
     if not is_member:
         logger.warning(
-            f"User {user_discord_id} attempted to access template {template.id} "
-            f"in guild {guild_config.guild_id} where they are not a member"
+            "User %s attempted to access template %s in guild %s where they are not a member",
+            user_discord_id,
+            template.id,
+            guild_config.guild_id,
         )
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Template not found")
 
@@ -197,8 +200,10 @@ async def verify_game_access(
 
     if not is_member:
         logger.warning(
-            f"User {user_discord_id} attempted to access game {game.id} "
-            f"in guild {guild_config.guild_id} where they are not a member"
+            "User %s attempted to access game %s in guild %s where they are not a member",
+            user_discord_id,
+            game.id,
+            guild_config.guild_id,
         )
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Game not found")
 
@@ -211,7 +216,11 @@ async def verify_game_access(
         )
 
         if not has_role:
-            logger.warning(f"User {user_discord_id} lacks required player roles for game {game.id}")
+            logger.warning(
+                "User %s lacks required player roles for game %s",
+                user_discord_id,
+                game.id,
+            )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You don't have the required role to access this game",
@@ -309,7 +318,9 @@ async def _require_permission(
 
     if not has_permission:
         logger.warning(
-            f"User {current_user.user.discord_id} lacks permission in guild {discord_guild_id}"
+            "User %s lacks permission in guild %s",
+            current_user.user.discord_id,
+            discord_guild_id,
         )
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=error_message)
 
@@ -319,8 +330,12 @@ async def _require_permission(
 async def require_manage_guild(
     guild_id: str,
     # B008: FastAPI dependency injection requires Depends() in default arguments
-    current_user: auth_schemas.CurrentUser = Depends(auth.get_current_user),  # noqa: B008
-    role_service: roles_module.RoleVerificationService = Depends(get_role_service),  # noqa: B008
+    current_user: auth_schemas.CurrentUser = Depends(  # noqa: B008
+        auth.get_current_user
+    ),
+    role_service: roles_module.RoleVerificationService = Depends(  # noqa: B008
+        get_role_service
+    ),
     db: AsyncSession = Depends(database.get_db),  # noqa: B008
 ) -> auth_schemas.CurrentUser:
     """
@@ -359,8 +374,12 @@ async def require_manage_guild(
 async def require_manage_channels(
     guild_id: str,
     # B008: FastAPI dependency injection requires Depends() in default arguments
-    current_user: auth_schemas.CurrentUser = Depends(auth.get_current_user),  # noqa: B008
-    role_service: roles_module.RoleVerificationService = Depends(get_role_service),  # noqa: B008
+    current_user: auth_schemas.CurrentUser = Depends(  # noqa: B008
+        auth.get_current_user
+    ),
+    role_service: roles_module.RoleVerificationService = Depends(  # noqa: B008
+        get_role_service
+    ),
     db: AsyncSession = Depends(database.get_db),  # noqa: B008
 ) -> auth_schemas.CurrentUser:
     """
@@ -431,8 +450,12 @@ async def get_guild_name(
 async def require_bot_manager(
     guild_id: str,
     # B008: FastAPI dependency injection requires Depends() in default arguments
-    current_user: auth_schemas.CurrentUser = Depends(auth.get_current_user),  # noqa: B008
-    role_service: roles_module.RoleVerificationService = Depends(get_role_service),  # noqa: B008
+    current_user: auth_schemas.CurrentUser = Depends(  # noqa: B008
+        auth.get_current_user
+    ),
+    role_service: roles_module.RoleVerificationService = Depends(  # noqa: B008
+        get_role_service
+    ),
     db: AsyncSession = Depends(database.get_db),  # noqa: B008
 ) -> auth_schemas.CurrentUser:
     """
@@ -472,8 +495,12 @@ async def require_game_host(
     guild_id: str,
     channel_id: str | None = None,
     # B008: FastAPI dependency injection requires Depends() in default arguments
-    current_user: auth_schemas.CurrentUser = Depends(auth.get_current_user),  # noqa: B008
-    role_service: roles_module.RoleVerificationService = Depends(get_role_service),  # noqa: B008
+    current_user: auth_schemas.CurrentUser = Depends(  # noqa: B008
+        auth.get_current_user
+    ),
+    role_service: roles_module.RoleVerificationService = Depends(  # noqa: B008
+        get_role_service
+    ),
     db: AsyncSession = Depends(database.get_db),  # noqa: B008
 ) -> auth_schemas.CurrentUser:
     """
@@ -510,8 +537,10 @@ async def require_game_host(
 
     if not has_permission:
         logger.warning(
-            f"User {current_user.user.discord_id} lacks game host permission in "
-            f"guild {guild_id}, channel {channel_id}"
+            "User %s lacks game host permission in guild %s, channel %s",
+            current_user.user.discord_id,
+            guild_id,
+            channel_id,
         )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -622,8 +651,12 @@ async def can_export_game(
 async def require_administrator(
     guild_id: str,
     # B008: FastAPI dependency injection requires Depends() in default arguments
-    current_user: auth_schemas.CurrentUser = Depends(auth.get_current_user),  # noqa: B008
-    role_service: roles_module.RoleVerificationService = Depends(get_role_service),  # noqa: B008
+    current_user: auth_schemas.CurrentUser = Depends(  # noqa: B008
+        auth.get_current_user
+    ),
+    role_service: roles_module.RoleVerificationService = Depends(  # noqa: B008
+        get_role_service
+    ),
 ) -> auth_schemas.CurrentUser:
     """
     Require user to have ADMINISTRATOR permission for guild.
@@ -654,8 +687,9 @@ async def require_administrator(
 
     if not has_permission:
         logger.warning(
-            f"User {current_user.user.discord_id} lacks ADMINISTRATOR permission "
-            f"in guild {guild_id}"
+            "User %s lacks ADMINISTRATOR permission in guild %s",
+            current_user.user.discord_id,
+            guild_id,
         )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

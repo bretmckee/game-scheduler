@@ -216,7 +216,7 @@ def bot_discord_id(discord_token):
     return extract_bot_discord_id(discord_token)
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 async def authenticated_admin_client(api_base_url, bot_discord_id, discord_token):
     """HTTP client authenticated as admin bot."""
 
@@ -231,7 +231,7 @@ async def authenticated_admin_client(api_base_url, bot_discord_id, discord_token
     await client.aclose()
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 async def synced_guild(authenticated_admin_client, discord_guild_id):
     """
     Sync guilds using the API endpoint and return sync results.
@@ -257,7 +257,7 @@ async def synced_guild(authenticated_admin_client, discord_guild_id):
     return sync_results
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 async def synced_guild_b(authenticated_client_b, discord_guild_b_id):
     """
     Sync Guild B using the API endpoint and return sync results.
@@ -271,11 +271,10 @@ async def synced_guild_b(authenticated_client_b, discord_guild_b_id):
         f"Guild B sync failed: {response.status_code} - {response.text}"
     )
 
-    sync_results = response.json()
-    return sync_results
+    return response.json()
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 async def authenticated_client_b(api_base_url, discord_user_b_id, discord_user_b_token):
     """HTTP client authenticated as User B (Guild B member)."""
 

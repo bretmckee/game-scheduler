@@ -42,21 +42,19 @@ def mock_db():
 @pytest.fixture
 def mock_user():
     """Create mock user."""
-    user = User(
+    return User(
         id="user-123",
         discord_id="123456789",
     )
-    return user
 
 
 @pytest.fixture
 def mock_guild():
     """Create mock guild."""
-    guild = GuildConfiguration(
+    return GuildConfiguration(
         id="guild-123",
         guild_id="987654321",
     )
-    return guild
 
 
 @pytest.fixture

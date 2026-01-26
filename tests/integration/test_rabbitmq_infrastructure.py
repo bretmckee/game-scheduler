@@ -26,6 +26,7 @@ infrastructure:
 4. Queue arguments (TTL, DLX configuration)
 """
 
+import contextlib
 import os
 import time
 
@@ -73,10 +74,8 @@ def rabbitmq_channel(rabbitmq_connection):
 
     # Purge all queues after each test to clean up
     for queue_name in queues_to_purge:
-        try:
+        with contextlib.suppress(Exception):
             channel.queue_purge(queue_name)
-        except Exception:
-            pass
 
     channel.close()
 

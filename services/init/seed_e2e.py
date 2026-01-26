@@ -162,7 +162,7 @@ def _create_guild_entities(
             },
         )
 
-    logger.info(f"Created guild entities for {guild_config.guild_name}")
+    logger.info("Created guild entities for %s", guild_config.guild_name)
 
 
 def seed_e2e_data() -> bool:
@@ -184,12 +184,12 @@ def seed_e2e_data() -> bool:
         return True
 
     bot_id = extract_bot_discord_id(config.bot_token)
-    logger.info(f"Extracted bot Discord ID: {bot_id}")
+    logger.info("Extracted bot Discord ID: %s", bot_id)
 
     try:
         with get_sync_db_session() as session:
             if _guild_exists(session, config.guild_a_id):
-                logger.info(f"E2E test guild {config.guild_a_id} already exists, skipping seed")
+                logger.info("E2E test guild %s already exists, skipping seed", config.guild_a_id)
                 return True
 
             guild_a_config = GuildConfig(
@@ -201,10 +201,10 @@ def seed_e2e_data() -> bool:
             _create_guild_entities(session, guild_a_config, bot_id)
             logger.info("E2E test data seeded successfully (guild A, channel A, users, template)")
 
-            logger.info(f"Seeding Guild B for cross-guild isolation testing: {config.guild_b_id}")
+            logger.info("Seeding Guild B for cross-guild isolation testing: %s", config.guild_b_id)
 
             if _guild_exists(session, config.guild_b_id):
-                logger.info(f"Guild B {config.guild_b_id} already exists, skipping seed")
+                logger.info("Guild B %s already exists, skipping seed", config.guild_b_id)
             else:
                 guild_b_config = GuildConfig(
                     guild_id=config.guild_b_id,
@@ -219,5 +219,5 @@ def seed_e2e_data() -> bool:
             return True
 
     except Exception as e:
-        logger.error(f"Failed to seed E2E test data: {e}")
+        logger.error("Failed to seed E2E test data: %s", e)
         return False

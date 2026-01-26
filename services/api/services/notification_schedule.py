@@ -62,7 +62,7 @@ class NotificationScheduleService:
             reminder_minutes: List of reminder times in minutes before game
         """
         if not reminder_minutes:
-            logger.info(f"No reminder minutes configured for game {game.id}")
+            logger.info("No reminder minutes configured for game %s", game.id)
             return
 
         now = datetime.now(UTC).replace(tzinfo=None)
@@ -81,13 +81,17 @@ class NotificationScheduleService:
                 )
                 self.db.add(schedule_entry)
                 logger.debug(
-                    f"Scheduled notification for game {game.id} "
-                    f"at {notification_time} ({reminder_min} min before)"
+                    "Scheduled notification for game %s at %s (%s min before)",
+                    game.id,
+                    notification_time,
+                    reminder_min,
                 )
             else:
                 logger.debug(
-                    f"Skipping past notification for game {game.id} "
-                    f"at {notification_time} ({reminder_min} min before)"
+                    "Skipping past notification for game %s at %s (%s min before)",
+                    game.id,
+                    notification_time,
+                    reminder_min,
                 )
 
     async def update_schedule(
@@ -111,7 +115,7 @@ class NotificationScheduleService:
                 notification_schedule_model.NotificationSchedule.game_id == game.id
             )
         )
-        logger.debug(f"Deleted existing schedule for game {game.id}")
+        logger.debug("Deleted existing schedule for game %s", game.id)
 
         # Populate new schedule
         await self.populate_schedule(game, reminder_minutes)
@@ -131,7 +135,7 @@ class NotificationScheduleService:
                 notification_schedule_model.NotificationSchedule.game_id == game_id
             )
         )
-        logger.debug(f"Cleared schedule for game {game_id}")
+        logger.debug("Cleared schedule for game %s", game_id)
 
 
 async def schedule_join_notification(

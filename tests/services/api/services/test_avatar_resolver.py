@@ -55,8 +55,7 @@ def user_id():
 @pytest.fixture
 def mock_discord_client():
     """Create mock Discord client."""
-    client = AsyncMock()
-    return client
+    return AsyncMock()
 
 
 @pytest.fixture

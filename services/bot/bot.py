@@ -114,8 +114,8 @@ class GameSchedulerBot(commands.Bot):
                 "discord.guild_count": len(self.guilds),
             },
         ):
-            logger.info(f"Bot connected as {self.user} (ID: {self.user.id})")
-            logger.info(f"Connected to {len(self.guilds)} guilds")
+            logger.info("Bot connected as %s (ID: %s)", self.user, self.user.id)
+            logger.info("Connected to %s guilds", len(self.guilds))
             logger.info("Bot is ready to receive events")
 
             if self.event_handlers and not hasattr(self, "_event_consumer_started"):
@@ -159,7 +159,7 @@ class GameSchedulerBot(commands.Bot):
         Args:
             event_method: Name of the event method that raised the error
         """
-        logger.exception(f"Error in event {event_method}")
+        logger.exception("Error in event %s", event_method)
 
     async def on_guild_join(self, guild: discord.Guild) -> None:
         """
@@ -175,7 +175,7 @@ class GameSchedulerBot(commands.Bot):
                 "discord.guild_name": guild.name,
             },
         ):
-            logger.info(f"Bot added to guild: {guild.name} (ID: {guild.id})")
+            logger.info("Bot added to guild: %s (ID: %s)", guild.name, guild.id)
 
     async def on_guild_remove(self, guild: discord.Guild) -> None:
         """
@@ -191,7 +191,7 @@ class GameSchedulerBot(commands.Bot):
                 "discord.guild_name": guild.name,
             },
         ):
-            logger.info(f"Bot removed from guild: {guild.name} (ID: {guild.id})")
+            logger.info("Bot removed from guild: %s (ID: %s)", guild.name, guild.id)
 
     async def close(self) -> None:
         """Cleanup resources before bot shutdown."""

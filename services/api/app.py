@@ -136,7 +136,7 @@ def create_app() -> FastAPI:
             "api_prefix": "/api/v1",
         }
 
-    logger.info(f"FastAPI application created (environment: {config.environment})")
+    logger.info("FastAPI application created (environment: %s)", config.environment)
 
     # Instrument FastAPI for automatic HTTP tracing
     FastAPIInstrumentor.instrument_app(app)

@@ -200,7 +200,9 @@ class RetryDaemon:
 
             except Exception as e:
                 logger.error(
-                    f"Failed to republish message from {dlq_name}: {e}",
+                    "Failed to republish message from %s: %s",
+                    dlq_name,
+                    e,
                     exc_info=True,
                 )
                 # NACK with requeue - message stays in DLQ for next cycle
@@ -287,12 +289,12 @@ class RetryDaemon:
                 span.set_attribute("retry.dlq.message_count", message_count)
 
                 if message_count == 0:
-                    logger.debug(f"DLQ {dlq_name} is empty, nothing to process")
+                    logger.debug("DLQ %s is empty, nothing to process", dlq_name)
                     connection.close()
                     self.consecutive_failures[dlq_name] = 0
                     return
 
-                logger.info(f"Processing {message_count} messages from {dlq_name}")
+                logger.info("Processing %s messages from %s", message_count, dlq_name)
 
                 processed, failed = self._consume_and_process_messages(
                     channel, dlq_name, message_count
@@ -301,7 +303,7 @@ class RetryDaemon:
                 channel.cancel()
                 connection.close()
 
-                logger.info(f"Republished {processed} messages from {dlq_name}")
+                logger.info("Republished %s messages from %s", processed, dlq_name)
 
                 self._update_health_tracking(dlq_name, processed, failed)
 
@@ -309,7 +311,7 @@ class RetryDaemon:
                 span.set_attribute("retry.failed_count", failed)
 
             except Exception as e:
-                logger.error(f"Error during DLQ processing for {dlq_name}: {e}", exc_info=True)
+                logger.error("Error during DLQ processing for %s: %s", dlq_name, e, exc_info=True)
                 self.consecutive_failures[dlq_name] = self.consecutive_failures.get(dlq_name, 0) + 1
                 span.record_exception(e)
             finally:
@@ -363,11 +365,11 @@ class RetryDaemon:
                         attributes={"dlq_name": dlq_name},
                     )
                 except Exception as e:
-                    logger.warning(f"Failed to get depth for {dlq_name}: {e}")
+                    logger.warning("Failed to get depth for %s: %s", dlq_name, e)
 
             connection.close()
         except Exception as e:
-            logger.error(f"Failed to observe DLQ depths: {e}")
+            logger.error("Failed to observe DLQ depths: %s", e)
 
     def is_healthy(self) -> bool:
         """
@@ -386,7 +388,7 @@ class RetryDaemon:
         # Check for excessive consecutive failures
         for dlq_name, failures in self.consecutive_failures.items():
             if failures >= MAX_CONSECUTIVE_FAILURES:
-                logger.warning(f"DLQ {dlq_name} has {failures} consecutive failures")
+                logger.warning("DLQ %s has %s consecutive failures", dlq_name, failures)
                 return False
 
         return True
@@ -397,6 +399,6 @@ class RetryDaemon:
             try:
                 self.publisher.close()
             except Exception as e:
-                logger.error(f"Error closing publisher: {e}")
+                logger.error("Error closing publisher: %s", e)
 
         logger.info("Retry daemon cleanup complete")

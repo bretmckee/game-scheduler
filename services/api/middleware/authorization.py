@@ -59,7 +59,11 @@ class AuthorizationMiddleware(BaseHTTPMiddleware):
 
         if user_id:
             logger.debug(
-                f"Request {request_id}: {request.method} {request.url.path} from user {user_id}"
+                "Request %s: %s %s from user %s",
+                request_id,
+                request.method,
+                request.url.path,
+                user_id,
             )
 
         try:
@@ -69,18 +73,25 @@ class AuthorizationMiddleware(BaseHTTPMiddleware):
 
             if response.status_code == status.HTTP_403_FORBIDDEN:
                 logger.warning(
-                    f"Authorization denied: {request.method} {request.url.path} "
-                    f"for user {user_id or 'anonymous'} (request_id={request_id})"
+                    "Authorization denied: %s %s for user %s (request_id=%s)",
+                    request.method,
+                    request.url.path,
+                    user_id or "anonymous",
+                    request_id,
                 )
             elif response.status_code == status.HTTP_401_UNAUTHORIZED:
                 logger.info(
-                    f"Authentication required: {request.method} {request.url.path} "
-                    f"(request_id={request_id})"
+                    "Authentication required: %s %s (request_id=%s)",
+                    request.method,
+                    request.url.path,
+                    request_id,
                 )
 
             logger.debug(
-                f"Request {request_id} completed in {duration:.3f}s "
-                f"with status {response.status_code}"
+                "Request %s completed in %.3fs with status %s",
+                request_id,
+                duration,
+                response.status_code,
             )
 
             return response
@@ -88,7 +99,10 @@ class AuthorizationMiddleware(BaseHTTPMiddleware):
         except Exception as e:
             duration = time.time() - start_time
             logger.error(
-                f"Request {request_id} failed after {duration:.3f}s: {e}",
+                "Request %s failed after %.3fs: %s",
+                request_id,
+                duration,
+                e,
                 exc_info=True,
             )
             raise

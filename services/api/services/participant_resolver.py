@@ -112,8 +112,11 @@ class ParticipantResolver:
                     },
                 )
             logger.error(
-                f"Discord API error fetching member {discord_id} from "
-                f"guild {guild_discord_id}: {e.status} - {e.message}"
+                "Discord API error fetching member %s from guild %s: %s - %s",
+                discord_id,
+                guild_discord_id,
+                e.status,
+                e.message,
             )
             return (
                 None,
@@ -125,7 +128,9 @@ class ParticipantResolver:
             )
         except Exception as e:
             logger.error(
-                f"Unexpected error fetching guild member {discord_id}: {e}",
+                "Unexpected error fetching guild member %s: %s",
+                discord_id,
+                e,
                 exc_info=True,
             )
             return (
@@ -202,8 +207,11 @@ class ParticipantResolver:
 
         except discord_client_module.DiscordAPIError as e:
             logger.error(
-                f"Discord API error searching guild {guild_discord_id} "
-                f"for query '{mention_text}': {e.status} - {e.message}"
+                "Discord API error searching guild %s for query '%s': %s - %s",
+                guild_discord_id,
+                mention_text,
+                e.status,
+                e.message,
             )
             return (
                 None,
@@ -215,7 +223,9 @@ class ParticipantResolver:
             )
         except Exception as e:
             logger.error(
-                f"Unexpected error searching guild members for '{mention_text}': {e}",
+                "Unexpected error searching guild members for '%s': %s",
+                mention_text,
+                e,
                 exc_info=True,
             )
             return (
@@ -355,8 +365,10 @@ class ParticipantResolver:
                         error_msg = f"HTTP {response.status}"
 
                     logger.error(
-                        f"Discord API error searching guild {guild_discord_id}: "
-                        f"{response.status} - {error_msg}"
+                        "Discord API error searching guild %s: %s - %s",
+                        guild_discord_id,
+                        response.status,
+                        error_msg,
                     )
                     raise discord_client_module.DiscordAPIError(response.status, error_msg)
 
@@ -366,7 +378,9 @@ class ParticipantResolver:
             raise
         except Exception as e:
             logger.error(
-                f"Network error searching guild members in {guild_discord_id}: {e}",
+                "Network error searching guild members in %s: %s",
+                guild_discord_id,
+                e,
                 exc_info=True,
             )
             raise discord_client_module.DiscordAPIError(

@@ -69,12 +69,12 @@ Incrementally expand Ruff linting rules across 6 phases, fixing all violations f
 - [x] Task 2.5: Enable code quality rules in configuration
   - Details: .copilot-tracking/details/20260125-ruff-rules-expansion-details.md (Lines 157-177)
 
-### [ ] Phase 3: Logging Performance Optimization (335 issues)
+### [x] Phase 3: Logging Performance Optimization (341 issues)
 
-- [ ] Task 3.1: Convert f-strings to lazy logging formatting
+- [x] Task 3.1: Convert f-strings to lazy logging formatting
   - Details: .copilot-tracking/details/20260125-ruff-rules-expansion-details.md (Lines 181-200)
 
-- [ ] Task 3.2: Enable G004 rule in configuration
+- [x] Task 3.2: Enable G004 rule in configuration
   - Details: .copilot-tracking/details/20260125-ruff-rules-expansion-details.md (Lines 202-215)
 
 ### [ ] Phase 4: Polish & Cleanup (208 issues)

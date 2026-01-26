@@ -66,14 +66,14 @@ def init_telemetry(service_name: str) -> None:
     # PYTEST_RUNNING is set in conftest.py before any imports
     # PYTEST_CURRENT_TEST is set by pytest during test execution
     if os.getenv("PYTEST_RUNNING") or os.getenv("PYTEST_CURRENT_TEST"):
-        logger.debug(f"Skipping telemetry initialization for {service_name} (test environment)")
+        logger.debug("Skipping telemetry initialization for %s (test environment)", service_name)
         return
 
     otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://grafana-alloy:4318")
     resource = Resource.create({"service.name": service_name})
 
-    logger.info(f"Initializing OpenTelemetry for service: {service_name}")
-    logger.info(f"OTLP endpoint: {otlp_endpoint}")
+    logger.info("Initializing OpenTelemetry for service: %s", service_name)
+    logger.info("OTLP endpoint: %s", otlp_endpoint)
 
     # Configure tracing
     tracer_provider = TracerProvider(resource=resource)
@@ -85,7 +85,7 @@ def init_telemetry(service_name: str) -> None:
         )
     )
     trace.set_tracer_provider(tracer_provider)
-    logger.info(f"OpenTelemetry tracing initialized: {otlp_endpoint}/v1/traces")
+    logger.info("OpenTelemetry tracing initialized: %s/v1/traces", otlp_endpoint)
 
     # Configure metrics
     metric_reader = PeriodicExportingMetricReader(
@@ -96,7 +96,10 @@ def init_telemetry(service_name: str) -> None:
     )
     meter_provider = MeterProvider(resource=resource, metric_readers=[metric_reader])
     metrics.set_meter_provider(meter_provider)
-    logger.info(f"OpenTelemetry metrics initialized: {otlp_endpoint}/v1/metrics (export every 60s)")
+    logger.info(
+        "OpenTelemetry metrics initialized: %s/v1/metrics (export every 60s)",
+        otlp_endpoint,
+    )
 
     # Configure logging with OTLP export and trace correlation
     logger_provider = LoggerProvider(resource=resource)
@@ -111,7 +114,7 @@ def init_telemetry(service_name: str) -> None:
     # Add OpenTelemetry logging handler to root logger for trace correlation
     handler = LoggingHandler(level=logging.NOTSET, logger_provider=logger_provider)
     logging.getLogger().addHandler(handler)
-    logger.info(f"OpenTelemetry logging initialized: {otlp_endpoint}/v1/logs")
+    logger.info("OpenTelemetry logging initialized: %s/v1/logs", otlp_endpoint)
 
     # Auto-instrument common libraries
     SQLAlchemyInstrumentor().instrument()
@@ -120,8 +123,8 @@ def init_telemetry(service_name: str) -> None:
     AioPikaInstrumentor().instrument()
 
     logger.info(
-        f"OpenTelemetry instrumentation enabled for {service_name} "
-        "(SQLAlchemy, asyncpg, Redis, aio-pika)"
+        "OpenTelemetry instrumentation enabled for %s (SQLAlchemy, asyncpg, Redis, aio-pika)",
+        service_name,
     )
     # FastAPI instrumentation happens via middleware, initialized when app is created
 

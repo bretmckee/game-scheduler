@@ -118,16 +118,16 @@ async def test_lifespan_disconnects_redis(mock_get_redis_client, mock_redis_clie
 
 def test_middleware_configured():
     """Test that CORS and error handler middleware are configured."""
-    with patch("services.api.app.middleware.cors.configure_cors") as mock_cors:
-        with patch(
-            "services.api.app.middleware.error_handler.configure_error_handlers"
-        ) as mock_error:
-            with patch("services.api.app.redis_client.get_redis_client"):
-                application = app.create_app()
+    with (
+        patch("services.api.app.middleware.cors.configure_cors") as mock_cors,
+        patch("services.api.app.middleware.error_handler.configure_error_handlers") as mock_error,
+        patch("services.api.app.redis_client.get_redis_client"),
+    ):
+        application = app.create_app()
 
-                mock_cors.assert_called_once()
-                mock_error.assert_called_once()
+        mock_cors.assert_called_once()
+        mock_error.assert_called_once()
 
-                # Verify the app was passed to both middleware configurers
-                assert mock_cors.call_args[0][0] == application
-                assert mock_error.call_args[0][0] == application
+        # Verify the app was passed to both middleware configurers
+        assert mock_cors.call_args[0][0] == application
+        assert mock_error.call_args[0][0] == application

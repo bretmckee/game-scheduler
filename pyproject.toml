@@ -95,6 +95,7 @@ select = [
     "DTZ",    # flake8-datetimez
     "ICN",    # flake8-import-conventions
     "PT",     # flake8-pytest-style
+    "G004",   # logging-f-string (enforce lazy logging)
 ]
 ignore = [
     "S101",   # Allow assert (tests handle separately)
@@ -114,11 +115,24 @@ exclude = []
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = [
     "PLR2004",  # Magic values (existing)
+    "PLR0915",  # Too many statements in test functions
     "S101",     # Assert usage
     "S106",     # Hardcoded passwords in fixtures
     "S105",     # Hardcoded password strings
     "S108",     # Temp file/directory paths in test mocks
+    "S110",     # try-except-pass in test fixtures
     "T201",     # Print statements allowed in tests
+    "PLC2701",  # Private imports allowed for testing internal functions
+    "PLC1901",  # String comparison to empty string in assertions
+    "PLC0206",  # Dictionary iteration without .items()
+    "SIM102",   # Nested if statements in test helpers
+    "SIM105",   # try-except-pass patterns
+    "SIM108",   # Ternary operator simplification
+    "SIM117",   # Nested with statements in test mocks
+    "PT011",    # pytest.raises without match parameter
+    "PT018",    # Compound assertions in tests
+    "DTZ001",   # datetime without tzinfo in test data
+    "ASYNC109", # Async function with timeout parameter
 ]
 "scripts/**/*.py" = [
     "T201",     # Print statements allowed in CLI scripts

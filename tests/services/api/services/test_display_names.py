@@ -31,15 +31,13 @@ from shared.discord import client as discord_client
 @pytest.fixture
 def mock_discord_api():
     """Mock Discord API client."""
-    mock = AsyncMock(spec=discord_client.DiscordAPIClient)
-    return mock
+    return AsyncMock(spec=discord_client.DiscordAPIClient)
 
 
 @pytest.fixture
 def mock_cache():
     """Mock Redis cache client."""
-    mock = AsyncMock(spec=cache_client.RedisClient)
-    return mock
+    return AsyncMock(spec=cache_client.RedisClient)
 
 
 @pytest.fixture

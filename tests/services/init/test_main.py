@@ -69,10 +69,16 @@ class TestInitializeTelemetryAndLogging:
 
         _initialize_telemetry_and_logging()
 
-        log_calls = [call[0][0] for call in mock_logger.info.call_args_list]
-        assert "=" * 60 in log_calls
-        assert "Environment Initialization Started" in log_calls
-        assert "Timestamp: 2026-01-17 15:30:45 UTC" in log_calls
+        # Verify the format string and arguments separately
+        calls = mock_logger.info.call_args_list
+        log_messages = [call[0][0] for call in calls]
+        assert "=" * 60 in log_messages
+        assert "Environment Initialization Started" in log_messages
+        assert "Timestamp: %s" in log_messages
+        # Verify timestamp argument was passed
+        timestamp_call = [c for c in calls if len(c[0]) > 1 and "Timestamp" in c[0][0]]
+        assert len(timestamp_call) == 1
+        assert timestamp_call[0][0][1] == "2026-01-17 15:30:45 UTC"
 
 
 class TestLogPhase:
@@ -83,14 +89,16 @@ class TestLogPhase:
         """Should log phase message without completion checkmark."""
         _log_phase(1, 6, "Waiting for PostgreSQL...")
 
-        mock_logger.info.assert_called_once_with("[1/6] Waiting for PostgreSQL...")
+        mock_logger.info.assert_called_once_with(
+            "%s[%s/%s] %s", "", 1, 6, "Waiting for PostgreSQL..."
+        )
 
     @patch("services.init.main.logger")
     def test_logs_phase_with_completion_status(self, mock_logger):
         """Should log phase message with completion checkmark."""
         _log_phase(3, 6, "Migrations complete", completed=True)
 
-        mock_logger.info.assert_called_once_with("✓[3/6] Migrations complete")
+        mock_logger.info.assert_called_once_with("%s[%s/%s] %s", "✓", 3, 6, "Migrations complete")
 
     @patch("services.init.main.logger")
     def test_logs_all_phases_sequentially(self, mock_logger):
@@ -131,9 +139,15 @@ class TestCompleteInitialization:
             _complete_initialization(start_time)
 
         mock_datetime.now.assert_called_once_with(UTC)
-        log_calls = [call[0][0] for call in mock_logger.info.call_args_list]
-        assert "Environment Initialization Complete" in log_calls
-        assert "Duration: 330.00 seconds" in log_calls
+        calls = mock_logger.info.call_args_list
+        log_messages = [call[0][0] for call in calls]
+        assert "Environment Initialization Complete" in log_messages
+        # Check for duration format string
+        assert "Duration: %.2f seconds" in log_messages
+        # Verify duration value was passed
+        duration_call = [c for c in calls if len(c[0]) > 1 and "Duration" in c[0][0]]
+        assert len(duration_call) == 1
+        assert duration_call[0][0][1] == 330.00
 
     @patch("services.init.main.time")
     @patch("services.init.main.logger")

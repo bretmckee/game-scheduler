@@ -79,5 +79,70 @@ Incrementally expanding Ruff linting rules across 7 phases to address 878 violat
 - services/bot/main.py - Replaced try-except-pass with contextlib.suppress for KeyboardInterrupt handling (SIM105)
 - services/init/migrations.py - Added explicit check=False to subprocess.run call (PLW1510)
 - pyproject.toml - Added Phase 2 code quality rules to select list: RET, SIM, TC, PLE, PLW, PLC, ERA, A, DTZ, ICN, PT
-
-### Removed
+- **Phase 3: Logging Performance Optimization (G004)** - Converted all 341 f-string logging statements to lazy % formatting across 50 production files for improved logging performance
+- scripts/init_rabbitmq.py - Converted 6 logging f-strings to % formatting
+- services/api/app.py - Converted logging f-strings to % formatting
+- services/api/auth/oauth2.py - Converted logging f-strings to % formatting
+- services/api/auth/roles.py - Converted logging f-strings to % formatting
+- services/api/auth/tokens.py - Converted logging f-strings to % formatting
+- services/api/database/queries.py - Converted logging f-strings to % formatting
+- services/api/dependencies/permissions.py - Converted 6 logging f-strings to % formatting
+- services/api/middleware/authorization.py - Converted 5 logging f-strings to % formatting
+- services/api/middleware/error_handler.py - Converted logging f-strings to % formatting
+- services/api/routes/auth.py - Converted logging f-strings to % formatting
+- services/api/routes/games.py - Converted logging f-strings to % formatting
+- services/api/routes/guilds.py - Converted logging f-strings to % formatting
+- services/api/services/display_names.py - Converted logging f-strings to % formatting
+- services/api/services/games.py - Converted logging f-strings to % formatting (including complex multiline logs)
+- services/api/services/notification_schedule.py - Converted logging f-strings to % formatting
+- services/api/services/participant_resolver.py - Converted logging f-strings to % formatting
+- services/bot/auth/cache.py - Converted logging f-strings to % formatting
+- services/bot/auth/role_checker.py - Converted logging f-strings to % formatting
+- services/bot/bot.py - Converted logging f-strings to % formatting (including format specifiers)
+- services/bot/events/handlers.py - Converted 23 logging f-strings to % formatting (largest file)
+- services/bot/events/publisher.py - Converted logging f-strings to % formatting
+- services/bot/handlers/button_handler.py - Converted logging f-strings to % formatting
+- services/bot/handlers/join_game.py - Converted logging f-strings to % formatting
+- services/bot/handlers/leave_game.py - Converted logging f-strings to % formatting
+- services/bot/handlers/utils.py - Converted logging f-strings to % formatting
+- services/bot/main.py - Converted logging f-strings to % formatting
+- services/bot/utils/discord_format.py - Converted logging f-strings to % formatting
+- services/init/database_users.py - Converted 14 logging f-strings to % formatting
+- services/init/main.py - Converted logging f-strings to % formatting (including timestamp and duration with format specifiers)
+- services/init/migrations.py - Converted logging f-strings to % formatting
+- services/init/rabbitmq.py - Converted 2 logging f-strings to % formatting
+- services/init/seed_e2e.py - Converted logging f-strings to % formatting
+- services/init/verify_schema.py - Converted logging f-strings to % formatting
+- services/init/wait_postgres.py - Converted logging f-strings to % formatting
+- services/retry/retry_daemon.py - Converted logging f-strings to % formatting
+- services/retry/retry_daemon_wrapper.py - Converted logging f-strings to % formatting
+- services/scheduler/event_builders.py - Converted 2 logging f-strings to % formatting
+- services/scheduler/generic_scheduler_daemon.py - Converted logging f-strings to % formatting (including float format specifiers)
+- services/scheduler/notification_daemon_wrapper.py - Converted logging f-strings to % formatting
+- services/scheduler/postgres_listener.py - Converted logging f-strings to % formatting
+- services/scheduler/services/notification_service.py - Converted 3 logging f-strings to % formatting
+- services/scheduler/status_transition_daemon_wrapper.py - Converted logging f-strings to % formatting
+- shared/cache/client.py - Converted logging f-strings to % formatting
+- shared/data_access/guild_isolation.py - Converted logging f-strings to % formatting
+- shared/discord/client.py - Converted logging f-strings to % formatting
+- shared/messaging/config.py - Converted logging f-strings to % formatting
+- shared/messaging/consumer.py - Converted logging f-strings to % formatting
+- shared/messaging/publisher.py - Converted logging f-strings to % formatting
+- shared/messaging/sync_publisher.py - Converted logging f-strings to % formatting
+- shared/telemetry.py - Converted logging f-strings to % formatting
+- tests/services/bot/test_bot.py - Updated 3 tests to expect % formatting in logger.exception and logger.info calls
+- tests/services/bot/test_main.py - Updated test to expect % formatting in environment logging
+- tests/services/init/test_main.py - Updated 4 tests to verify % formatting in startup banner, phase logging, and completion banner
+- tests/services/init/test_seed_e2e.py - Updated test to expect % formatting in guild entity creation logging
+- tests/shared/discord/test_client.py - Updated 3 tests to verify % formatting in Discord API request/response logging
+- pyproject.toml - G004 (logging-f-string) already in select list, verified zero violations
+- services/scheduler/generic_scheduler_daemon.py - Fixed 3 format specifier conversions (:.1f → %.1f) for proper % formatting
+- services/init/main.py - Fixed timestamp and duration logging with proper format specifiers
+- services/init/verify_schema.py - Fixed quote handling in logging format string conversions
+- services/bot/events/handlers.py - Fixed 4 E501 line-too-long violations by breaking long logging statements across multiple lines
+- services/bot/handlers/leave_game.py - Fixed E501 line-too-long violation by breaking logging statement
+- services/bot/utils/discord_format.py - Fixed E501 line-too-long violation in logging
+- services/init/wait_postgres.py - Fixed E501 line-too-long violation in retry logging
+- services/api/dependencies/permissions.py - Fixed 14 B008 noqa comment placement issues by moving comments from closing parens to Depends() lines
+- pyproject.toml - Expanded test file lint ignores: added SIM117, PLR0915, S110, PLC1901, PLC0206, SIM102, SIM105, SIM108, PT011, PT018, DTZ001, ASYNC109 for pre-existing test patterns
+- Auto-formatter applied formatting improvements to 35 test files (combined with statements, simplified nested structures)

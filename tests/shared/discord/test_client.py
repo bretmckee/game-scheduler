@@ -1087,13 +1087,15 @@ class TestGuildMemberMethods:
         mock_session.request = MagicMock(return_value=mock_context_manager)
         discord_client._session = mock_session
 
-        with patch(
-            "shared.discord.client.cache_client.get_redis_client",
-            new_callable=AsyncMock,
-            return_value=mock_redis,
+        with (
+            patch(
+                "shared.discord.client.cache_client.get_redis_client",
+                new_callable=AsyncMock,
+                return_value=mock_redis,
+            ),
+            pytest.raises(DiscordAPIError) as exc_info,
         ):
-            with pytest.raises(DiscordAPIError) as exc_info:
-                await discord_client.get_guild_member(guild_id="guild123", user_id="nonexistent")
+            await discord_client.get_guild_member(guild_id="guild123", user_id="nonexistent")
 
         assert exc_info.value.status == 404
 
@@ -1241,8 +1243,10 @@ class TestLoggingMethods:
             discord_client._log_request("GET", "https://discord.com/api/v10/users/@me", "test_op")
 
             mock_logger.info.assert_called_once()
-            call_args = mock_logger.info.call_args[0][0]
-            assert "GET" in call_args
+            # Check that the call has the format string and the method as an argument
+            call_args = mock_logger.info.call_args[0]
+            assert call_args[0] == "Discord API: %s %s (%s)"
+            assert call_args[1] == "GET"
             assert "test_op" in call_args
 
     def test_log_response(self, discord_client):
@@ -1259,10 +1263,13 @@ class TestLoggingMethods:
             discord_client._log_response(mock_response, "extra info")
 
             mock_logger.info.assert_called_once()
-            call_args = mock_logger.info.call_args[0][0]
-            assert "200" in call_args
-            assert "100" in call_args
-            assert "extra info" in call_args
+            # Check format string and status code argument
+            call_args = mock_logger.info.call_args[0]
+            assert call_args[0] == "Discord API Response: %s - %s"
+            assert call_args[1] == 200
+            # Check response details (3rd argument)
+            assert "100" in call_args[2]
+            assert "extra info" in call_args[2]
 
     def test_log_response_without_rate_limit_headers(self, discord_client):
         """Test response logging when rate limit headers are missing."""
@@ -1274,5 +1281,7 @@ class TestLoggingMethods:
             discord_client._log_response(mock_response)
 
             mock_logger.info.assert_called_once()
-            call_args = mock_logger.info.call_args[0][0]
-            assert "N/A" in call_args
+            # Check format string and response details argument which contains N/A
+            call_args = mock_logger.info.call_args[0]
+            assert call_args[0] == "Discord API Response: %s - %s"
+            assert "N/A" in call_args[2]

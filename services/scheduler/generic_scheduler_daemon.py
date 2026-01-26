@@ -102,7 +102,10 @@ class SchedulerDaemon:
 
         self.db = SyncSessionLocal()
 
-        logger.info(f"Scheduler daemon connections established (channel: {self.notify_channel})")
+        logger.info(
+            "Scheduler daemon connections established (channel: %s)",
+            self.notify_channel,
+        )
 
     def run(self, shutdown_flag: Callable[[], bool]) -> None:
         """
@@ -117,7 +120,7 @@ class SchedulerDaemon:
         Args:
             shutdown_flag: Callable returning True when shutdown is requested
         """
-        logger.info(f"Starting scheduler daemon for {self.model_class.__name__}")
+        logger.info("Starting scheduler daemon for %s", self.model_class.__name__)
 
         self.connect()
 
@@ -134,7 +137,7 @@ class SchedulerDaemon:
                     self.db.rollback()
                 time.sleep(5)
 
-        logger.info(f"Scheduler daemon shutting down for {self.model_class.__name__}")
+        logger.info("Scheduler daemon shutting down for %s", self.model_class.__name__)
         self._cleanup()
 
     def _process_loop_iteration(self) -> None:
@@ -145,14 +148,14 @@ class SchedulerDaemon:
         try:
             next_item = self._get_next_due_item()
         except Exception as e:
-            logger.warning(f"Database query failed ({e}), recreating session")
+            logger.warning("Database query failed (%s), recreating session", e)
             self.db.close()
             self.db = SyncSessionLocal()
             next_item = self._get_next_due_item()
 
         if not next_item:
             wait_time = self.max_timeout
-            logger.debug(f"No items scheduled, waiting {wait_time}s for events or timeout")
+            logger.debug("No items scheduled, waiting %ss for events or timeout", wait_time)
         else:
             scheduled_time = getattr(next_item, self.time_field)
             time_until_due = (scheduled_time - utc_now()).total_seconds()
@@ -163,14 +166,14 @@ class SchedulerDaemon:
 
             wait_time = min(max(0.0, time_until_due), float(self.max_timeout))
 
-            logger.debug(f"Next item due in {time_until_due:.1f}s, waiting {wait_time:.1f}s")
+            logger.debug("Next item due in %.1fs, waiting %.1fs", time_until_due, wait_time)
 
         received, payload = self.listener.wait_for_notification(timeout=wait_time)
 
         if received:
-            logger.info(f"Woke up due to NOTIFY event: {payload}")
+            logger.info("Woke up due to NOTIFY event: %s", payload)
         elif wait_time >= self.max_timeout:
-            logger.debug(f"Woke up due to periodic check timeout ({self.max_timeout}s)")
+            logger.debug("Woke up due to periodic check timeout (%ss)", self.max_timeout)
         else:
             logger.debug("Woke up due to scheduled time")
 
@@ -240,10 +243,14 @@ class SchedulerDaemon:
                 self._mark_item_processed(item.id)
                 self.db.commit()
 
-                logger.info(f"Processed scheduled item {item.id} for {self.model_class.__name__}")
+                logger.info(
+                    "Processed scheduled item %s for %s",
+                    item.id,
+                    self.model_class.__name__,
+                )
 
             except Exception:
-                logger.exception(f"Failed to process scheduled item {item.id}")
+                logger.exception("Failed to process scheduled item %s", item.id)
                 self.db.rollback()
                 # Do not re-raise - let daemon continue processing other items
 
@@ -253,18 +260,18 @@ class SchedulerDaemon:
             try:
                 self.listener.close()
             except Exception as e:
-                logger.error(f"Error closing listener: {e}")
+                logger.error("Error closing listener: %s", e)
 
         if self.publisher:
             try:
                 self.publisher.close()
             except Exception as e:
-                logger.error(f"Error closing publisher: {e}")
+                logger.error("Error closing publisher: %s", e)
 
         if self.db:
             try:
                 self.db.close()
             except Exception as e:
-                logger.error(f"Error closing database: {e}")
+                logger.error("Error closing database: %s", e)
 
         logger.info("Scheduler daemon cleanup complete")

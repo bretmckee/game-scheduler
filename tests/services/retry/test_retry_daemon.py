@@ -291,9 +291,7 @@ class TestRetryDaemon:
 
         def shutdown_after_first_iteration():
             # Called at start of while loop, before processing
-            if iteration_count[0] > 0:
-                return True
-            return False
+            return iteration_count[0] > 0
 
         def sleep_side_effect(duration):
             # Increment counter after sleep (end of iteration)
@@ -320,9 +318,7 @@ class TestRetryDaemon:
 
         def shutdown_after_iterations():
             # Shutdown after 2 complete iterations
-            if iteration_count[0] >= 2:
-                return True
-            return False
+            return iteration_count[0] >= 2
 
         def sleep_side_effect(duration):
             iteration_count[0] += 1
