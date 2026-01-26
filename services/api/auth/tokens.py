@@ -105,7 +105,7 @@ async def store_user_tokens(
 
     expiry = datetime.now(UTC).replace(tzinfo=None) + timedelta(seconds=expires_in)
 
-    session_data = {
+    session_data: dict[str, str] = {
         "user_id": user_id,
         "access_token": encrypted_access,
         "refresh_token": encrypted_refresh,
@@ -132,20 +132,26 @@ async def get_user_tokens(session_token: str) -> dict[str, Any] | None:
     redis = await cache_client.get_redis_client()
 
     session_key = f"session:{session_token}"
-    session_data = await redis.get_json(session_key)
+    session_data_raw = await redis.get_json(session_key)
 
-    if session_data is None:
+    if session_data_raw is None:
         logger.warning("No session found for token %s", session_token)
         return None
 
-    decrypted_access = decrypt_token(session_data["access_token"])
-    decrypted_refresh = decrypt_token(session_data["refresh_token"])
+    if not isinstance(session_data_raw, dict):
+        logger.warning("Invalid session data format for token %s", session_token)
+        return None
+
+    session_data: dict[str, Any] = session_data_raw
+
+    decrypted_access = decrypt_token(session_data.get("access_token", ""))
+    decrypted_refresh = decrypt_token(session_data.get("refresh_token", ""))
 
     return {
-        "user_id": session_data["user_id"],
+        "user_id": str(session_data.get("user_id", "")),
         "access_token": decrypted_access,
         "refresh_token": decrypted_refresh,
-        "expires_at": datetime.fromisoformat(session_data["expires_at"]),
+        "expires_at": datetime.fromisoformat(str(session_data.get("expires_at", ""))),
     }
 
 
@@ -163,11 +169,17 @@ async def refresh_user_tokens(
     redis = await cache_client.get_redis_client()
 
     session_key = f"session:{session_token}"
-    session_data = await redis.get_json(session_key)
+    session_data_raw = await redis.get_json(session_key)
 
-    if session_data is None:
+    if session_data_raw is None:
         logger.warning("No session found for token %s", session_token)
         return
+
+    if not isinstance(session_data_raw, dict):
+        logger.warning("Invalid session data format for token %s", session_token)
+        return
+
+    session_data: dict[str, Any] = session_data_raw
 
     encrypted_access = encrypt_token(new_access_token)
     expiry = datetime.now(UTC).replace(tzinfo=None) + timedelta(seconds=new_expires_in)

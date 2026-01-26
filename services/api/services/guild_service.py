@@ -19,6 +19,7 @@
 """Guild configuration service for create and update operations."""
 
 import asyncio
+from typing import Any
 
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,7 +33,9 @@ from shared.models.guild import GuildConfiguration
 
 
 async def create_guild_config(
-    db: AsyncSession, guild_discord_id: str, **settings
+    db: AsyncSession,
+    guild_discord_id: str,
+    **settings: Any,  # noqa: ANN401
 ) -> GuildConfiguration:
     """
     Create new guild configuration.
@@ -53,7 +56,9 @@ async def create_guild_config(
 
 
 async def update_guild_config(
-    db: AsyncSession, guild_config: GuildConfiguration, **updates
+    db: AsyncSession,
+    guild_config: GuildConfiguration,
+    **updates: Any,  # noqa: ANN401
 ) -> GuildConfiguration:
     """
     Update guild configuration.
@@ -74,7 +79,11 @@ async def update_guild_config(
     return guild_config
 
 
-async def _compute_candidate_guild_ids(discord_client, access_token: str, user_id: str) -> set[str]:
+async def _compute_candidate_guild_ids(
+    discord_client: Any,
+    access_token: str,
+    user_id: str,  # noqa: ANN401
+) -> set[str]:
     """
     Compute candidate guild IDs: intersection of user admin guilds and bot guilds.
 

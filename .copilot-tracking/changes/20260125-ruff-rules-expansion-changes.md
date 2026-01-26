@@ -218,4 +218,50 @@ Incrementally expanding Ruff linting rules across 7 phases to address 878 violat
 - pyproject.toml - Added PERF, G, LOG, RUF to select list
 - pyproject.toml - Added RUF029 (unnecessary async) and RUF100 (unused noqa) to ignore list with comments explaining exclusions
 
+## Phase 5: Type Annotations (Partial - Framework Arguments Only)
+
+**Task 5.1: Add type annotations for framework-controlled arguments**
+
+Applied strategic type annotations converting framework-controlled `**kwargs` and dynamic parameters from implicit `object` type to explicit `Any` with `noqa:ANN401` comments. This addresses ANN401 violations while maintaining framework compatibility.
+
+### Phase 5 Core Changes
+
+- services/api/services/guild_service.py - Added Any import; converted `**settings` and `**updates` parameters to `Any` with noqa:ANN401
+- services/api/services/guild_service.py - Converted `discord_client` parameter in `_compute_candidate_guild_ids` to `Any` with noqa:ANN401
+- services/api/services/template_service.py - Added Any import; converted `**fields` and `**updates` parameters to `Any` with noqa:ANN401
+- services/bot/bot.py - Added Any import; converted `on_error` handler `*args/**kwargs` to `Any` with noqa:ANN401
+- services/bot/commands/decorators.py - Added Any import; converted wrapper function `*args/**kwargs` to `Any` with noqa:ANN401; added return type `Any`
+- shared/discord/client.py - Converted `**request_kwargs` parameter to `Any` with noqa:ANN401 in `_make_api_request`
+- shared/discord/client.py - Return type already dict[str, Any] (no change needed)
+
+### Mypy Cascade Fixes
+
+Phase 5 changes to shared/discord/client.py return types enable stricter mypy type checking in downstream code, exposing pre-existing type safety issues with redis.get_json() which returns JSONValue union. Applied fixes to ensure full mypy compliance:
+
+**services/api/auth/tokens.py**:
+- `store_user_tokens()`: Added explicit `dict[str, str]` type annotation to session_data
+- `get_user_tokens()`: Added `isinstance(dict)` guard with early return before accessing cached session data; added explicit cast to `dict[str, Any]`; used `.get()` with `str()` casts for all field accesses
+- `refresh_user_tokens()`: Added `isinstance(dict)` guard with early return for session_data validation before mutation
+
+**services/api/auth/roles.py**:
+- `get_user_roles()`: Added `isinstance(list)` guard for cached_roles_raw with direct return when valid
+
+**services/api/routes/auth.py**:
+- `callback()`: Fixed return type from `dict[str, str]` to `dict[str, bool | str]` to match actual returned data structure
+
+**services/api/app.py**:
+- `version_info()`: Fixed return type from `dict[str, dict[str, str]]` to `dict[str, str]` to match flat dictionary structure
+
+**services/scheduler/generic_scheduler_daemon.py**:
+- Added Any to imports
+- `_process_item()`: Changed item parameter type from `object` to `Any` with noqa:ANN401
+
+**services/retry/retry_daemon.py**:
+- Added Generator to imports from collections.abc
+- `_observe_dlq_depth()`: Changed return type from `list[Observation]` to `Generator[metrics.Observation, None, None]` to match actual yield behavior
+
+**Verification**: All 11 modified files pass mypy with 0 errors; pre-commit hooks pass (mypy, ruff formatting, ruff linting)
+
+**Status**: Phase 5 addresses framework-controlled arguments but does NOT yet enable full ANN rules. Comprehensive type annotation work for ANN001, ANN201, ANN202, ANN204 remains for future implementation.
+
 ### Removed

@@ -150,7 +150,7 @@ class DiscordAPIClient:
         cache_key: str | None = None,
         cache_ttl: int | None = None,
         session: aiohttp.ClientSession | None = None,
-        **request_kwargs,
+        **request_kwargs: Any,  # noqa: ANN401
     ) -> dict[str, Any]:
         """
         Generic Discord API request handler with error handling and caching.

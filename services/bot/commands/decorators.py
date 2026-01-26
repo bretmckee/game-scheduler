@@ -21,6 +21,7 @@
 import logging
 from collections.abc import Callable
 from functools import wraps
+from typing import Any
 
 import discord
 from discord import Interaction
@@ -62,7 +63,7 @@ def _create_permission_decorator(permission_attr: str, permission_display_name: 
 
     def decorator(func: Callable) -> Callable:
         @wraps(func)
-        async def wrapper(interaction: Interaction, *args, **kwargs):
+        async def wrapper(interaction: Interaction, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
             if not interaction.guild:
                 await interaction.response.send_message(
                     "❌ This command can only be used in a server.",

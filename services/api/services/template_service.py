@@ -18,6 +18,8 @@
 
 """Template service for game template CRUD operations."""
 
+from typing import Any
+
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -110,7 +112,7 @@ class TemplateService:
         guild_id: str,
         channel_id: str,
         name: str,
-        **fields,
+        **fields: Any,  # noqa: ANN401
     ) -> GameTemplate:
         """
         Create new template.
@@ -159,7 +161,7 @@ class TemplateService:
         await self.db.refresh(template, ["channel"])
         return template
 
-    async def update_template(self, template: GameTemplate, **updates) -> GameTemplate:
+    async def update_template(self, template: GameTemplate, **updates: Any) -> GameTemplate:  # noqa: ANN401
         """
         Update template.
 

@@ -19,7 +19,7 @@
 """Discord bot implementation with Gateway connection."""
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import discord
 from discord.ext import commands
@@ -153,7 +153,7 @@ class GameSchedulerBot(commands.Bot):
             if interaction.type == discord.InteractionType.component and self.button_handler:
                 await self.button_handler.handle_interaction(interaction)
 
-    async def on_error(self, event_method: str, /, *args, **kwargs) -> None:
+    async def on_error(self, event_method: str, /, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
         """
         Handle errors during event processing.
 

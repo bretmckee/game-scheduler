@@ -73,7 +73,7 @@ async def callback(
     code: Annotated[str, Query(...)],
     state: Annotated[str, Query(...)],
     db: Annotated[AsyncSession, Depends(get_db)],
-):
+) -> dict[str, bool | str]:
     """
     Handle Discord OAuth2 callback.
 

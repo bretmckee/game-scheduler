@@ -26,7 +26,7 @@ with a single parameterized scheduler using PostgreSQL LISTEN/NOTIFY.
 import logging
 import time
 from collections.abc import Callable
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from opentelemetry import trace
 
@@ -212,7 +212,7 @@ class SchedulerDaemon:
         if item:
             setattr(item, self.status_field, True)
 
-    def _process_item(self, item) -> None:
+    def _process_item(self, item: Any) -> None:  # noqa: ANN401
         """
         Process a scheduled item by building event, publishing, and marking processed.
 

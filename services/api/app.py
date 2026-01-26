@@ -123,7 +123,7 @@ def create_app() -> FastAPI:
         }
 
     @app.get("/api/v1/version")
-    async def version_info():
+    async def version_info() -> dict[str, str]:
         """
         Get version information for the API service.
 

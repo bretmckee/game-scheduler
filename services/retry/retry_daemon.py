@@ -25,7 +25,7 @@ to their primary queues with configurable intervals.
 
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 
 import pika
 from opentelemetry import metrics, trace
@@ -341,7 +341,7 @@ class RetryDaemon:
 
         return properties.routing_key or "unknown"
 
-    def _observe_dlq_depth(self, options):
+    def _observe_dlq_depth(self, options: object) -> Generator[metrics.Observation]:
         """
         Observable callback for DLQ depth gauge.
 

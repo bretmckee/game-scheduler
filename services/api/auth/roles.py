@@ -70,9 +70,10 @@ class RoleVerificationService:
         cache_key = cache_keys.CacheKeys.user_roles(user_id, guild_id)
 
         if not force_refresh:
-            cached_roles = await cache.get_json(cache_key)
-            if cached_roles is not None:
-                return cached_roles
+            cached_roles_raw = await cache.get_json(cache_key)
+            if cached_roles_raw is not None and isinstance(cached_roles_raw, list):
+                # Type narrowing: cached roles is a list (should contain string role IDs)
+                return cached_roles_raw
 
         try:
             member_data = await self.discord_client.get_guild_member(guild_id, user_id)

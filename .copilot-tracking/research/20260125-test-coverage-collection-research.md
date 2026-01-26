@@ -65,7 +65,7 @@ The project has three distinct test types with clear separation:
 integration-tests:
   entrypoint: ["pytest", "-m", "integration"]
   command: -q --tb=line
-  
+
 # E2E tests (compose.e2e.yaml)
 e2e-tests:
   entrypoint: ["pytest", "-m", "e2e"]
@@ -109,7 +109,7 @@ Use the `COVERAGE_FILE` environment variable to specify output files:
 integration-tests:
   environment:
     COVERAGE_FILE: .coverage.integration
-    
+
 # In compose.e2e.yaml
 e2e-tests:
   environment:
@@ -214,4 +214,3 @@ coverage html  # Open htmlcov/index.html for detailed view
 ### Alternative Considered: Coverage in Each Test Type Separately
 
 **Why not recommended:** This would give you three separate coverage numbers but wouldn't show the combined coverage across all test types. You'd need to manually track which code is tested by which test type, and you couldn't easily see if there are gaps that none of the test types cover.
-
