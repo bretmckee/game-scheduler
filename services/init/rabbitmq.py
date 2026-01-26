@@ -142,7 +142,7 @@ def create_infrastructure(rabbitmq_url: str) -> None:
 
         except Exception as e:
             error_msg = "RabbitMQ infrastructure creation failed"
-            logger.error("%s: %s", error_msg, e, exc_info=True)
+            logger.exception("%s: %s", error_msg, e)
             span.set_status(trace.Status(trace.StatusCode.ERROR, error_msg))
             span.record_exception(e)
             raise RuntimeError(error_msg) from e
@@ -189,7 +189,7 @@ if __name__ == "__main__":
         initialize_rabbitmq()
         sys.exit(0)
     except Exception as e:
-        logger.error("RabbitMQ initialization failed: %s", e, exc_info=True)
+        logger.exception("RabbitMQ initialization failed: %s", e)
         sys.exit(1)
     finally:
         flush_telemetry()

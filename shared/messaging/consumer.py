@@ -152,11 +152,10 @@ class EventConsumer:
                 event_type = event.event_type
             except Exception as parse_error:
                 logger.debug("Failed to parse event body for error logging: %s", parse_error)
-            logger.error(
+            logger.exception(
                 "Handler failed, sending to DLQ for daemon processing: %s, error: %s",
                 event_type,
                 e,
-                exc_info=True,
             )
 
     async def start_consuming(self) -> None:

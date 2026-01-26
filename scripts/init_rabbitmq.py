@@ -160,7 +160,7 @@ def main() -> None:
             span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
             span.record_exception(e)
             print(f"✗ Failed to initialize RabbitMQ infrastructure: {e}")
-            logger.error("Failed to initialize RabbitMQ infrastructure: %s", e, exc_info=True)
+            logger.exception("Failed to initialize RabbitMQ infrastructure: %s", e)
             flush_telemetry()
             sys.exit(1)
 

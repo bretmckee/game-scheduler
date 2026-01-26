@@ -364,7 +364,7 @@ async def validate_mention(
         return guild_schemas.ValidateMentionResponse(valid=False, error="User not found in guild")
 
     except Exception as e:
-        logger.error("Error validating mention: %s", e, exc_info=True)
+        logger.exception("Error validating mention: %s", e)
         return guild_schemas.ValidateMentionResponse(
             valid=False, error="Failed to validate mention. Please try again."
         )

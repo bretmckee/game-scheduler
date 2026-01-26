@@ -200,11 +200,10 @@ class RetryDaemon:
                 return True
 
             except Exception as e:
-                logger.error(
+                logger.exception(
                     "Failed to republish message from %s: %s",
                     dlq_name,
                     e,
-                    exc_info=True,
                 )
                 # NACK with requeue - message stays in DLQ for next cycle
                 channel.basic_nack(method.delivery_tag, requeue=True)
@@ -312,7 +311,7 @@ class RetryDaemon:
                 span.set_attribute("retry.failed_count", failed)
 
             except Exception as e:
-                logger.error("Error during DLQ processing for %s: %s", dlq_name, e, exc_info=True)
+                logger.exception("Error during DLQ processing for %s: %s", dlq_name, e)
                 self.consecutive_failures[dlq_name] = self.consecutive_failures.get(dlq_name, 0) + 1
                 span.record_exception(e)
             finally:

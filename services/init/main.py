@@ -143,7 +143,7 @@ def main() -> int:
         except Exception as e:
             logger.error("=" * 60)
             logger.error("Environment Initialization Failed")
-            logger.error("Error: %s", e, exc_info=True)
+            logger.exception("Error: %s", e)
             logger.error("=" * 60)
 
             span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))

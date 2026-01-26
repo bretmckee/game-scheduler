@@ -127,11 +127,10 @@ class ParticipantResolver:
                 },
             )
         except Exception as e:
-            logger.error(
+            logger.exception(
                 "Unexpected error fetching guild member %s: %s",
                 discord_id,
                 e,
-                exc_info=True,
             )
             return (
                 None,
@@ -222,11 +221,10 @@ class ParticipantResolver:
                 },
             )
         except Exception as e:
-            logger.error(
+            logger.exception(
                 "Unexpected error searching guild members for '%s': %s",
                 mention_text,
                 e,
-                exc_info=True,
             )
             return (
                 None,
@@ -377,11 +375,10 @@ class ParticipantResolver:
         except discord_client_module.DiscordAPIError:
             raise
         except Exception as e:
-            logger.error(
+            logger.exception(
                 "Network error searching guild members in %s: %s",
                 guild_discord_id,
                 e,
-                exc_info=True,
             )
             raise discord_client_module.DiscordAPIError(
                 status.HTTP_500_INTERNAL_SERVER_ERROR, f"Network error: {str(e)}"

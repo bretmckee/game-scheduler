@@ -70,7 +70,7 @@ class ButtonHandler:
                 logger.warning("Unknown button action: %s", custom_id)
 
         except Exception as e:
-            logger.error("Error handling button interaction %s: %s", custom_id, e, exc_info=True)
+            logger.exception("Error handling button interaction %s: %s", custom_id, e)
             if not interaction.response.is_done():
                 await interaction.response.send_message(
                     "❌ An error occurred. Please try again.", ephemeral=True

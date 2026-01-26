@@ -163,6 +163,17 @@ Incrementally expanding Ruff linting rules across 7 phases to address 878 violat
 - pyproject.toml - Added EM (flake8-errmsg) to select list for Phase 4.1a
 - .copilot-tracking/plans/20260125-ruff-rules-expansion-plan.instructions.md - Split Task 4.1 into 4.1a (EM complete) and 4.1b (RUF100 deferred to Phase 7 Task 7.3)
 - .copilot-tracking/details/20260125-ruff-rules-expansion-details.md - Documented RUF100 deferral rationale and added Task 7.3 for manual cleanup after all rules enabled
+- scripts/init_rabbitmq.py - Converted logger.error with exc_info=True to logger.exception for proper exception handling (G201)
+- services/api/middleware/authorization.py - Converted logger.error with exc_info=True to logger.exception for request failure handling (G201)
+- services/api/routes/guilds.py - Converted logger.error with exc_info=True to logger.exception in mention validation (G201)
+- services/api/services/participant_resolver.py - Converted 3 logger.error with exc_info=True to logger.exception for guild member operations (G201)
+- services/bot/events/handlers.py - Converted 17 logger.error with exc_info=True to logger.exception across event handlers (G201)
+- services/bot/handlers/button_handler.py - Converted logger.error with exc_info=True to logger.exception for button interaction errors (G201)
+- services/init/main.py - Converted logger.error with exc_info=True to logger.exception for initialization failures (G201)
+- services/init/rabbitmq.py - Converted 2 logger.error with exc_info=True to logger.exception for RabbitMQ failures (G201)
+- services/retry/retry_daemon.py - Converted 2 logger.error with exc_info=True to logger.exception for DLQ processing (G201)
+- services/scheduler/services/notification_service.py - Converted logger.error with exc_info=True to logger.exception for notification failures (G201)
+- shared/messaging/consumer.py - Converted logger.error with exc_info=True to logger.exception for message handler failures (G201)
 
 ### Deferred
 

@@ -85,11 +85,10 @@ class NotificationService:
             return True
 
         except Exception as e:
-            logger.error(
+            logger.exception(
                 "Failed to publish game reminder for game %s: %s",
                 game_id,
                 e,
-                exc_info=True,
             )
             return False
 

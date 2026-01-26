@@ -87,7 +87,7 @@ Incrementally expand Ruff linting rules across 6 phases, fixing all violations f
   - Status: DEFERRED to Phase 7 - RUF100 has false positives during incremental adoption
   - See Task 7.3 for details
 
-- [ ] Task 4.2: Fix logging .error() to .exception()
+- [x] Task 4.2: Fix logging .error() to .exception()
   - Details: .copilot-tracking/details/20260125-ruff-rules-expansion-details.md (Lines 235-248)
 
 - [ ] Task 4.3: Review unnecessary async functions

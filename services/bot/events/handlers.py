@@ -157,7 +157,7 @@ class EventHandlers:
             await handler(event.data)
             logger.debug("Successfully processed event: %s", event.event_type)
         except Exception as e:
-            logger.error("Error processing event %s: %s", event.event_type, e, exc_info=True)
+            logger.exception("Error processing event %s: %s", event.event_type, e)
             raise
 
     async def _handle_game_created(self, data: dict[str, Any]) -> None:
@@ -211,7 +211,7 @@ class EventHandlers:
                 )
 
         except Exception as e:
-            logger.error("Failed to post game announcement: %s", e, exc_info=True)
+            logger.exception("Failed to post game announcement: %s", e)
 
     async def _handle_game_updated(self, data: dict[str, Any]) -> None:
         """
@@ -425,7 +425,7 @@ class EventHandlers:
                 await self._set_message_refresh_throttle(game_id)
 
         except Exception as e:
-            logger.error("Failed to refresh game message: %s", e, exc_info=True)
+            logger.exception("Failed to refresh game message: %s", e)
 
     async def _handle_notification_due(self, data: dict[str, Any]) -> None:
         """
@@ -449,7 +449,7 @@ class EventHandlers:
                 notification_event.participant_id,
             )
         except Exception as e:
-            logger.error("Invalid notification event data: %s", e, exc_info=True)
+            logger.exception("Invalid notification event data: %s", e)
             return
 
         if notification_event.notification_type == "reminder":
@@ -522,12 +522,11 @@ class EventHandlers:
                     is_waitlist=is_waitlist,
                 )
             except Exception as e:
-                logger.error(
+                logger.exception(
                     "Failed to send reminder to %s participant %s: %s",
                     participant_type,
                     participant.user_id,
                     e,
-                    exc_info=True,
                 )
 
     async def _send_host_reminder(
@@ -551,11 +550,10 @@ class EventHandlers:
             )
             logger.info("Sent reminder to host %s", host.discord_id)
         except Exception as e:
-            logger.error(
+            logger.exception(
                 "Failed to send reminder to host %s: %s",
                 host.discord_id,
                 e,
-                exc_info=True,
             )
 
     async def _handle_game_reminder(self, reminder_event: NotificationDueEvent) -> None:
@@ -614,10 +612,9 @@ class EventHandlers:
                 )
 
         except Exception as e:
-            logger.error(
+            logger.exception(
                 "Failed to handle game reminder due event: %s",
                 e,
-                exc_info=True,
             )
 
     async def _fetch_join_notification_data(
@@ -757,12 +754,11 @@ class EventHandlers:
                 await self._send_join_notification_dm(participant, message, str(event.game_id))
 
         except Exception as e:
-            logger.error(
+            logger.exception(
                 "Failed to handle join notification for game %s, participant %s: %s",
                 event.game_id,
                 event.participant_id,
                 e,
-                exc_info=True,
             )
 
     async def _send_dm(self, user_discord_id: str, message: str) -> bool:
@@ -800,19 +796,17 @@ class EventHandlers:
             )
             return False
         except discord.HTTPException as e:
-            logger.error(
+            logger.exception(
                 "Discord HTTP error sending DM to %s: %s",
                 user_discord_id,
                 e,
-                exc_info=True,
             )
             return False
         except Exception as e:
-            logger.error(
+            logger.exception(
                 "Failed to send DM to %s: %s",
                 user_discord_id,
                 e,
-                exc_info=True,
             )
             return False
 
@@ -860,7 +854,7 @@ class EventHandlers:
                 notification.notification_type,
             )
         except Exception as e:
-            logger.error("Invalid notification event data: %s", e, exc_info=True)
+            logger.exception("Invalid notification event data: %s", e)
             return
 
         success = await self._send_dm(notification.user_id, notification.message)
@@ -903,7 +897,7 @@ class EventHandlers:
             except discord.NotFound:
                 logger.warning("Game message not found: %s", message_id)
             except Exception as e:
-                logger.error("Failed to update game message: %s", e, exc_info=True)
+                logger.exception("Failed to update game message: %s", e)
 
     def _build_removal_dm_message(self, game_title: str, game_scheduled_at: str | None) -> str:
         """
@@ -977,7 +971,7 @@ class EventHandlers:
             await self._notify_removed_player(discord_id, game_title, game_scheduled_at)
 
         except Exception as e:
-            logger.error("Failed to handle participant removal: %s", e, exc_info=True)
+            logger.exception("Failed to handle participant removal: %s", e)
 
     def _validate_cancellation_event_data(
         self, data: dict[str, Any]
@@ -1034,10 +1028,10 @@ class EventHandlers:
                 except discord.NotFound:
                     logger.warning("Game message not found: %s", message_id)
                 except Exception as e:
-                    logger.error("Failed to update cancelled game message: %s", e, exc_info=True)
+                    logger.exception("Failed to update cancelled game message: %s", e)
 
         except Exception as e:
-            logger.error("Failed to handle game.cancelled event: %s", e, exc_info=True)
+            logger.exception("Failed to handle game.cancelled event: %s", e)
 
     async def _handle_status_transition_due(self, data: dict[str, Any]) -> None:
         """
@@ -1059,7 +1053,7 @@ class EventHandlers:
                 transition_event.target_status,
             )
         except Exception as e:
-            logger.error("Invalid status transition event data: %s", e, exc_info=True)
+            logger.exception("Invalid status transition event data: %s", e)
             return
 
         game_id = str(transition_event.game_id)
@@ -1106,11 +1100,10 @@ class EventHandlers:
             await self._refresh_game_message(game_id)
 
         except Exception as e:
-            logger.error(
+            logger.exception(
                 "Failed to handle status transition for game %s: %s",
                 game_id,
                 e,
-                exc_info=True,
             )
 
     def _format_participants_for_display(self, game: GameSession) -> tuple[list[str], list[str]]:

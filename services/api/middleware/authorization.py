@@ -98,11 +98,10 @@ class AuthorizationMiddleware(BaseHTTPMiddleware):
 
         except Exception as e:
             duration = time.time() - start_time
-            logger.error(
+            logger.exception(
                 "Request %s failed after %.3fs: %s",
                 request_id,
                 duration,
                 e,
-                exc_info=True,
             )
             raise
