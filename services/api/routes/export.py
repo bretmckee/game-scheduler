@@ -88,10 +88,9 @@ def generate_calendar_filename(game_title: str, scheduled_at: datetime) -> str:
 )
 async def export_game(
     game_id: str,
-    # B008: FastAPI dependency injection requires Depends() in default arguments
-    user: Annotated[auth_schemas.CurrentUser, Depends(auth_deps.get_current_user)],  # noqa: B008
-    db: Annotated[AsyncSession, Depends(database.get_db_with_user_guilds())],  # noqa: B008
-    role_service: Annotated[  # noqa: B008
+    user: Annotated[auth_schemas.CurrentUser, Depends(auth_deps.get_current_user)],
+    db: Annotated[AsyncSession, Depends(database.get_db_with_user_guilds())],
+    role_service: Annotated[
         roles_module.RoleVerificationService, Depends(permissions_deps.get_role_service)
     ],
 ) -> Response:

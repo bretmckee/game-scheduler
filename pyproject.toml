@@ -107,7 +107,6 @@ select = [
 ignore = [
     "S101",    # Allow assert (tests handle separately)
     "RUF029",  # Unnecessary async (false positives in FastAPI/discord.py)
-    "RUF100",  # Unused noqa directives (deferred to Phase 7)
     "ANN101",  # Missing type annotation for self in method
     "ANN102",  # Missing type annotation for cls in classmethod
 ]

@@ -351,3 +351,18 @@ Verified that pre-commit hooks and CI/CD pipeline properly use expanded Ruff rul
 - CI/CD Pipeline: ✅ Configured to enforce full pyproject.toml rule set
 - Developer workflow: ✅ No changes needed - existing hooks already optimal
 - Production code: ✅ Zero violations across all enabled rules (S, ASYNC, FAST, RET, SIM, TC, PLE, PLW, PLC, T20, ERA, A, DTZ, ICN, PT, G, EM, PERF, LOG, RUF, ARG)
+**Task 7.2: Fix ANN101/ANN102 deprecated warnings (Complete)**
+
+- pyproject.toml - Removed ANN101 and ANN102 from ignore list as these rules have been removed from Ruff
+- Verified warning messages: "The following rules have been removed and ignoring them has no effect: ANN101, ANN102"
+- No code changes needed - rules no longer exist in Ruff
+
+**Task 7.3: Clean up unused noqa directives (Complete)**
+
+Removed 3 unused noqa directives that became unnecessary after converting to Annotated pattern in Phase 1:
+
+- services/api/routes/export.py - Removed 3 unnecessary `# noqa: B008` comments on Annotated dependency parameters (user, db, role_service)
+- Verified zero violations: `ruff check --exclude tests` returns "All checks passed!"
+- All unit tests pass: 1391 tests passed confirming no regressions
+
+**Status**: Phase 7 complete - All cleanup tasks finished, RUF100 enabled in pyproject.toml via RUF category
