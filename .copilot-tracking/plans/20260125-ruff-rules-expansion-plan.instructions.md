@@ -90,11 +90,17 @@ Incrementally expand Ruff linting rules across 6 phases, fixing all violations f
 - [x] Task 4.2: Fix logging .error() to .exception()
   - Details: .copilot-tracking/details/20260125-ruff-rules-expansion-details.md (Lines 235-248)
 
-- [ ] Task 4.3: Review unnecessary async functions
+- [x] Task 4.3: Review unnecessary async functions - **RULE REJECTED**
   - Details: .copilot-tracking/details/20260125-ruff-rules-expansion-details.md (Lines 250-262)
+  - Outcome: RUF029 rejected - 100% false positive rate in FastAPI/discord.py codebase
+
+- [ ] Task 4.3b: Fix valuable RUF violations (24 issues)
+  - Details: .copilot-tracking/details/20260125-ruff-rules-expansion-details.md (Lines 264-278)
+  - Rules: RUF006, RUF012, RUF015, RUF059, RUF022, RUF010
 
 - [ ] Task 4.4: Enable polish and cleanup rules in configuration
-  - Details: .copilot-tracking/details/20260125-ruff-rules-expansion-details.md (Lines 264-280)
+  - Details: .copilot-tracking/details/20260125-ruff-rules-expansion-details.md (Lines 280-295)
+  - Note: Enable RUF with ignore=["RUF029", "RUF100"]
 
 ### [ ] Phase 5: Type Annotations (94 issues)
 

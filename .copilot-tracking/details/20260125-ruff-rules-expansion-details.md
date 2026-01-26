@@ -260,20 +260,39 @@ Review 10 async functions that never use await and convert to sync where appropr
 - **Dependencies**:
   - Task 4.2 complete
 
+### Task 4.3b: Fix valuable RUF violations
+
+Fix 24 RUF violations in valuable rules before enabling in configuration.
+
+- **Files**:
+  - services/bot/events/handlers.py - Fix RUF006 dangling asyncio task (1 issue)
+  - services/scheduler/config.py - Fix RUF012 mutable class default (1 issue)
+  - Multiple files - Fix RUF059 unused unpacked variables (6 issues)
+  - Multiple files - Fix RUF010 explicit f-string conversion (8 issues)
+  - Multiple __init__.py files - Fix RUF022 unsorted __all__ (7 issues)
+  - services/api/routes/templates.py - Fix RUF015 unnecessary iterable allocation (1 issue)
+- **Success**:
+  - All 24 violations fixed
+  - `ruff check --select RUF006,RUF012,RUF015,RUF059,RUF022,RUF010 --exclude tests` returns zero violations
+- **Research References**:
+  - Current violations shown by `ruff check --select RUF006,RUF012,RUF015,RUF059,RUF022,RUF010 --exclude tests`
+- **Dependencies**:
+  - Task 4.3 complete
+
 ### Task 4.4: Enable polish and cleanup rules in configuration
 
 Update pyproject.toml to enable Phase 4 rules after all violations are fixed.
 
 - **Files**:
-  - pyproject.toml - Add PERF, G, LOG, EM, RUF to select list
+  - pyproject.toml - Add PERF, G, LOG, EM, RUF to select list; add RUF029, RUF100 to ignore list
 - **Success**:
-  - Rules added to select list
+  - Rules added to select list with specific exclusions
   - `ruff check --select PERF,G,LOG,EM,RUF --exclude tests` returns zero violations
   - Full test suite passes
 - **Research References**:
   - #file:../research/20260125-ruff-rules-expansion-research.md (Lines 175-192) - Phase 4 configuration
 - **Dependencies**:
-  - Tasks 4.1-4.3 complete
+  - Tasks 4.1-4.3b complete
 
 ## Phase 5: Type Annotations
 

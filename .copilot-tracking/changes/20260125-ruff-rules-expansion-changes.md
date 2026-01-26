@@ -175,6 +175,16 @@ Incrementally expanding Ruff linting rules across 7 phases to address 878 violat
 - services/scheduler/services/notification_service.py - Converted logger.error with exc_info=True to logger.exception for notification failures (G201)
 - shared/messaging/consumer.py - Converted logger.error with exc_info=True to logger.exception for message handler failures (G201)
 
+### Rejected Rules
+
+- **RUF029 (unnecessary async functions)** - Rejected after evaluation in Task 4.3
+  - Reason: 100% false positive rate (10/10 violations were architecturally required)
+  - FastAPI dependency pattern requires async functions even without await
+  - FastAPI exception handlers must be async per framework requirements
+  - discord.py extension setup functions must be async per convention
+  - Functions awaited in async contexts must be async regardless of internal await usage
+  - Rule provides no value in FastAPI/discord.py codebases where async is part of framework contracts
+
 ### Deferred
 
 - **RUF100 (unused noqa removal)** - Originally part of Task 4.1, deferred to Phase 7 Task 7.3
