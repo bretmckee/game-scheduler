@@ -183,7 +183,7 @@ def _print_duplicate_report(commit_related_duplicates: list[dict]) -> None:
     print("💡 Or if this is a false positive, bypass with: SKIP=jscpd-diff git commit")
 
 
-def main(report_file: str):
+def main(report_file: str) -> int:
     changed_line_ranges = get_changed_line_ranges()
 
     if not changed_line_ranges:

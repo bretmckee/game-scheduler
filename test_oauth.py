@@ -33,7 +33,7 @@ import webbrowser
 import httpx
 
 
-def test_oauth_flow():
+def test_oauth_flow() -> None:
     """Test the OAuth2 authentication flow."""
     api_base = "http://localhost:8000"
     redirect_uri = "http://localhost:8000/api/v1/auth/callback"

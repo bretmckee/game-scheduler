@@ -29,6 +29,7 @@ from services.api.dependencies.discord import get_discord_client
 from services.api.services import channel_service
 from services.api.services import template_service as template_service_module
 from shared.data_access.guild_isolation import get_current_guild_ids
+from shared.discord.client import DiscordAPIClient
 from shared.models.guild import GuildConfiguration
 
 
@@ -80,15 +81,15 @@ async def update_guild_config(
 
 
 async def _compute_candidate_guild_ids(
-    discord_client: Any,
+    client: DiscordAPIClient,
     access_token: str,
-    user_id: str,  # noqa: ANN401
+    user_id: str,
 ) -> set[str]:
     """
     Compute candidate guild IDs: intersection of user admin guilds and bot guilds.
 
     Args:
-        discord_client: Discord API client
+        client: Discord API client
         access_token: User's OAuth2 access token
         user_id: Discord user ID
 
@@ -96,7 +97,7 @@ async def _compute_candidate_guild_ids(
         Set of guild IDs where user has MANAGE_GUILD permission and bot is present
     """
     # Fetch user's guilds with MANAGE_GUILD permission
-    user_guilds = await discord_client.get_guilds(access_token, user_id)
+    user_guilds = await client.get_guilds(access_token, user_id)
     manage_guild = 0x00000020  # Permission bit for MANAGE_GUILD
     admin_guild_ids = {
         guild["id"] for guild in user_guilds if int(guild.get("permissions", 0)) & manage_guild
@@ -106,7 +107,7 @@ async def _compute_candidate_guild_ids(
     await asyncio.sleep(1.1)
 
     # Fetch bot's current guilds
-    bot_guilds = await discord_client.get_guilds()
+    bot_guilds = await client.get_guilds()
     bot_guild_ids = {guild["id"] for guild in bot_guilds}
 
     # Compute candidate guilds: (bot guilds ∩ user admin guilds)
@@ -143,14 +144,16 @@ async def _get_existing_guild_ids(db: AsyncSession) -> set[str]:
 
 
 async def _create_guild_with_channels_and_template(
-    db: AsyncSession, discord_client, guild_discord_id: str
+    db: AsyncSession,
+    client: DiscordAPIClient,
+    guild_discord_id: str,
 ) -> tuple[int, int]:
     """
     Create guild configuration, channel configurations, and default template.
 
     Args:
         db: Database session
-        discord_client: Discord API client
+        client: Discord API client
         guild_discord_id: Discord guild snowflake ID
 
     Returns:
@@ -160,7 +163,7 @@ async def _create_guild_with_channels_and_template(
     guild_config = await create_guild_config(db, guild_discord_id)
 
     # Fetch guild channels using bot token
-    guild_channels = await discord_client.get_guild_channels(guild_discord_id)
+    guild_channels = await client.get_guild_channels(guild_discord_id)
 
     # Create channel configs for text channels
     text_channel = 0

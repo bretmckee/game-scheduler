@@ -46,7 +46,7 @@ DISCORD_GUILDS_URL = f"{DISCORD_API_BASE}/users/@me/guilds"
 class DiscordAPIError(Exception):
     """Exception raised for Discord API errors."""
 
-    def __init__(self, status: int, message: str, headers: dict[str, str] | None = None):
+    def __init__(self, status: int, message: str, headers: dict[str, str] | None = None) -> None:
         """
         Initialize Discord API error.
 
@@ -64,7 +64,7 @@ class DiscordAPIError(Exception):
 class DiscordAPIClient:
     """Async client for Discord REST API operations."""
 
-    def __init__(self, client_id: str, client_secret: str, bot_token: str):
+    def __init__(self, client_id: str, client_secret: str, bot_token: str) -> None:
         """
         Initialize Discord API client.
 

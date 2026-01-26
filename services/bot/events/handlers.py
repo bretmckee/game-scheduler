@@ -67,7 +67,7 @@ class EventHandlers:
     Discord bot actions.
     """
 
-    def __init__(self, bot: discord.Client):
+    def __init__(self, bot: discord.Client) -> None:
         """
         Initialize event handlers.
 

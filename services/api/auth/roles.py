@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 class RoleVerificationService:
     """Service for verifying user roles and permissions via Discord API."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize role verification service."""
         self.discord_client = get_discord_client()
         self._cache: cache_client.RedisClient | None = None

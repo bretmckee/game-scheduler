@@ -26,7 +26,10 @@ import logging
 from contextvars import ContextVar
 
 from sqlalchemy import event
+from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
+from sqlalchemy.orm.session import SessionTransaction
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +62,9 @@ def clear_current_guild_ids() -> None:
 
 
 @event.listens_for(AsyncSession.sync_session_class, "after_begin")
-def set_rls_context_on_transaction_begin(_session, _transaction, connection):
+def set_rls_context_on_transaction_begin(
+    _session: Session, _transaction: SessionTransaction, connection: Connection
+) -> None:
     """
     Automatically set PostgreSQL RLS context when transaction begins.
 

@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 class RedisClient:
     """Async Redis client wrapper with connection pooling."""
 
-    def __init__(self, redis_url: str | None = None):
+    def __init__(self, redis_url: str | None = None) -> None:
         """
         Initialize Redis client with connection pool.
 
@@ -126,7 +126,7 @@ class RedisClient:
             logger.error("Redis SET error for key %s: %s", key, e)
             return False
 
-    async def get_json(self, key: str) -> Any | None:
+    async def get_json(self, key: str) -> Any | None:  # noqa: ANN401
         """
         Get JSON value from cache.
 
@@ -149,7 +149,7 @@ class RedisClient:
     async def set_json(
         self,
         key: str,
-        value: Any,
+        value: Any,  # noqa: ANN401
         ttl: int | None = None,
     ) -> bool:
         """
@@ -272,7 +272,7 @@ async def get_redis_client() -> RedisClient:
 class SyncRedisClient:
     """Synchronous Redis client for Celery tasks."""
 
-    def __init__(self, redis_url: str | None = None):
+    def __init__(self, redis_url: str | None = None) -> None:
         """
         Initialize synchronous Redis client.
 

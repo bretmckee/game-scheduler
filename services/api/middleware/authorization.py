@@ -25,6 +25,7 @@ Note: Actual authorization checks are performed via FastAPI dependencies.
 
 import logging
 import time
+from collections.abc import Awaitable, Callable
 
 from fastapi import Request, Response
 from starlette import status
@@ -41,7 +42,9 @@ class AuthorizationMiddleware(BaseHTTPMiddleware):
     Actual permission checks are performed via FastAPI dependencies.
     """
 
-    async def dispatch(self, request: Request, call_next) -> Response:
+    async def dispatch(
+        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
         """
         Process request with authorization logging.
 

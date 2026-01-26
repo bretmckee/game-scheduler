@@ -55,7 +55,7 @@ class EventConsumer:
         queue_name: str,
         exchange_name: str = "game_scheduler",
         connection: AbstractRobustConnection | None = None,
-    ):
+    ) -> None:
         self.queue_name = queue_name
         self.exchange_name = exchange_name
         self._connection = connection

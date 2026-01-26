@@ -42,7 +42,7 @@ class DisplayNameResolver:
         self,
         discord_api: discord_client.DiscordAPIClient,
         cache: cache_client.RedisClient,
-    ):
+    ) -> None:
         """
         Initialize display name resolver.
 

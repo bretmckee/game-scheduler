@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 class NotificationScheduleService:
     """Service for managing notification schedules."""
 
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession) -> None:
         """
         Initialize notification schedule service.
 

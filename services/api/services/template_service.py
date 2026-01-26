@@ -24,13 +24,14 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from services.api.auth import roles as roles_module
 from shared.models.template import GameTemplate
 
 
 class TemplateService:
     """Service for managing game templates."""
 
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession) -> None:
         """
         Initialize template service.
 
@@ -44,7 +45,7 @@ class TemplateService:
         guild_id: str,
         user_id: str,
         discord_guild_id: str,
-        role_service,
+        role_service: roles_module.RoleVerificationService,
         access_token: str | None = None,
     ) -> list[GameTemplate]:
         """
@@ -161,7 +162,11 @@ class TemplateService:
         await self.db.refresh(template, ["channel"])
         return template
 
-    async def update_template(self, template: GameTemplate, **updates: Any) -> GameTemplate:  # noqa: ANN401
+    async def update_template(
+        self,
+        template: GameTemplate,
+        **updates: Any,  # noqa: ANN401
+    ) -> GameTemplate:
         """
         Update template.
 

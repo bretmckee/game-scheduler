@@ -29,7 +29,7 @@ import os
 class APIConfig:
     """API service configuration from environment variables."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Load configuration from environment variables."""
         self.discord_client_id = os.getenv("DISCORD_BOT_CLIENT_ID", "")
         self.discord_client_secret = os.getenv("DISCORD_BOT_CLIENT_SECRET", "")

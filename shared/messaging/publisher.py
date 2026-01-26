@@ -47,7 +47,7 @@ class EventPublisher:
         self,
         exchange_name: str = "game_scheduler",
         connection: AbstractRobustConnection | None = None,
-    ):
+    ) -> None:
         self.exchange_name = exchange_name
         self._connection = connection
         self._channel: AbstractChannel | None = None

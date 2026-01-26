@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 class ButtonHandler:
     """Handles button interaction routing."""
 
-    def __init__(self, publisher: BotEventPublisher):
+    def __init__(self, publisher: BotEventPublisher) -> None:
         """Initialize button handler.
 
         Args:

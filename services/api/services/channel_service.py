@@ -18,13 +18,18 @@
 
 """Channel configuration service for create and update operations."""
 
+from typing import Any
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.models.channel import ChannelConfiguration
 
 
 async def create_channel_config(
-    db: AsyncSession, guild_id: str, channel_discord_id: str, **settings
+    db: AsyncSession,
+    guild_id: str,
+    channel_discord_id: str,
+    **settings: Any,  # noqa: ANN401
 ) -> ChannelConfiguration:
     """
     Create new channel configuration.
@@ -50,7 +55,9 @@ async def create_channel_config(
 
 
 async def update_channel_config(
-    db: AsyncSession, channel_config: ChannelConfiguration, **updates
+    db: AsyncSession,
+    channel_config: ChannelConfiguration,
+    **updates: Any,  # noqa: ANN401
 ) -> ChannelConfiguration:
     """
     Update channel configuration.

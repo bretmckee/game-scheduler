@@ -47,7 +47,7 @@ meter = metrics.get_meter(__name__)
 class RetryDaemon:
     """Processes DLQs and republishes messages with configurable retry intervals."""
 
-    def __init__(self, rabbitmq_url: str, retry_interval_seconds: int = 900):
+    def __init__(self, rabbitmq_url: str, retry_interval_seconds: int = 900) -> None:
         """
         Initialize retry daemon.
 
@@ -124,7 +124,9 @@ class RetryDaemon:
         logger.info("Retry daemon shutting down")
         self._cleanup()
 
-    def _check_dlq_depth(self, channel, dlq_name: str) -> int:
+    def _check_dlq_depth(
+        self, channel: pika.adapters.blocking_connection.BlockingChannel, dlq_name: str
+    ) -> int:
         """
         Check the number of messages in a DLQ.
 
@@ -140,10 +142,10 @@ class RetryDaemon:
 
     def _process_single_message(
         self,
-        channel,
+        channel: pika.adapters.blocking_connection.BlockingChannel,
         dlq_name: str,
-        method,
-        properties,
+        method: pika.spec.Basic.Deliver,
+        properties: pika.BasicProperties,
         body: bytes,
     ) -> bool:
         """
@@ -220,7 +222,10 @@ class RetryDaemon:
                 return False
 
     def _consume_and_process_messages(
-        self, channel, dlq_name: str, message_count: int
+        self,
+        channel: pika.adapters.blocking_connection.BlockingChannel,
+        dlq_name: str,
+        message_count: int,
     ) -> tuple[int, int]:
         """
         Consume and process messages from DLQ.
@@ -322,7 +327,7 @@ class RetryDaemon:
                     attributes={"dlq_name": dlq_name},
                 )
 
-    def _get_routing_key(self, properties) -> str:
+    def _get_routing_key(self, properties: pika.BasicProperties) -> str:
         """
         Extract original routing key from message headers.
 

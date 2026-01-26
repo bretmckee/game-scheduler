@@ -51,6 +51,7 @@ from shared.models import template as template_model
 from shared.models import user as user_model
 from shared.models.participant import ParticipantType
 from shared.models.signup_method import SignupMethod
+from shared.schemas import auth as auth_schemas
 from shared.schemas import game as game_schemas
 from shared.utils.games import resolve_max_players
 from shared.utils.participant_sorting import (
@@ -83,7 +84,7 @@ class GameService:
         event_publisher: messaging_publisher.EventPublisher,
         discord_client: discord_client_module.DiscordAPIClient,
         participant_resolver: resolver_module.ParticipantResolver,
-    ):
+    ) -> None:
         """
         Initialize game service.
 
@@ -1288,8 +1289,8 @@ class GameService:
         self,
         game_id: str,
         update_data: game_schemas.GameUpdateRequest,
-        current_user,
-        role_service,
+        current_user: auth_schemas.CurrentUser,
+        role_service: roles_module.RoleVerificationService,
         thumbnail_data: bytes | None = None,
         thumbnail_mime_type: str | None = None,
         image_data: bytes | None = None,
@@ -1391,8 +1392,8 @@ class GameService:
     async def delete_game(
         self,
         game_id: str,
-        current_user,
-        role_service,
+        current_user: auth_schemas.CurrentUser,
+        role_service: roles_module.RoleVerificationService,
     ) -> None:
         """
         Cancel game session with Bot Manager authorization.

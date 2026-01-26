@@ -47,6 +47,7 @@ from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.trace import Tracer
 
 logger = logging.getLogger(__name__)
 
@@ -154,7 +155,7 @@ def flush_telemetry() -> None:
     logger.info("Telemetry data flushed")
 
 
-def get_tracer(name: str):
+def get_tracer(name: str) -> Tracer:
     """
     Get a tracer for manual span creation.
 

@@ -18,7 +18,7 @@ from shared.discord.client import DiscordClientWrapper
 from shared.models.game import GameSession
 
 
-def _print_game_info(game: GameSession):
+def _print_game_info(game: GameSession) -> None:
     """Display game information."""
     print("\n📊 Game Information:")
     print(f"   ID: {game.id}")
@@ -37,7 +37,9 @@ def _calculate_expected_button_states(game: GameSession) -> tuple[bool, bool]:
     return join_should_be_disabled, leave_should_be_disabled
 
 
-def _print_expected_button_states(game: GameSession, join_disabled: bool, leave_disabled: bool):
+def _print_expected_button_states(
+    game: GameSession, join_disabled: bool, leave_disabled: bool
+) -> None:
     """Display expected button states with reasoning."""
     print("\n🔘 Expected Button States:")
     is_started = game.status in ("IN_PROGRESS", "COMPLETED", "CANCELLED")
@@ -61,7 +63,7 @@ def _print_expected_button_states(game: GameSession, join_disabled: bool, leave_
 
 async def _fetch_and_verify_discord_buttons(
     game: GameSession, expected_join_disabled: bool, expected_leave_disabled: bool
-):
+) -> None:
     """Fetch Discord message and verify actual button states match expectations."""
     print("\n🔍 Fetching actual Discord message...")
     discord_token = os.getenv("DISCORD_BOT_TOKEN")
@@ -100,7 +102,7 @@ async def _fetch_and_verify_discord_buttons(
         print(f"❌ Error fetching Discord message: {e}")
 
 
-async def verify_game_buttons(game_id: str):
+async def verify_game_buttons(game_id: str) -> None:
     """Verify button states for a game."""
     db_url = os.getenv(
         "DATABASE_URL", "postgresql+asyncpg://gamebot:gamebot@localhost:5432/gamebot"

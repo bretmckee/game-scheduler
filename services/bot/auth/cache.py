@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 class RoleCache:
     """Redis cache wrapper for Discord user roles."""
 
-    def __init__(self, redis: client.RedisClient | None = None):
+    def __init__(self, redis: client.RedisClient | None = None) -> None:
         """
         Initialize role cache.
 

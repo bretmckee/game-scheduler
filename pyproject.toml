@@ -102,11 +102,14 @@ select = [
     "LOG",    # flake8-logging
     "RUF",    # Ruff-specific rules
     "ARG",    # flake8-unused-arguments
+    "ANN",    # flake8-annotations
 ]
 ignore = [
-    "S101",   # Allow assert (tests handle separately)
-    "RUF029", # Unnecessary async (false positives in FastAPI/discord.py)
-    "RUF100", # Unused noqa directives (deferred to Phase 7)
+    "S101",    # Allow assert (tests handle separately)
+    "RUF029",  # Unnecessary async (false positives in FastAPI/discord.py)
+    "RUF100",  # Unused noqa directives (deferred to Phase 7)
+    "ANN101",  # Missing type annotation for self in method
+    "ANN102",  # Missing type annotation for cls in classmethod
 ]
 
 [tool.ruff.lint.mccabe]

@@ -25,6 +25,7 @@ error handlers, and route registration.
 
 import logging
 import sys
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -57,7 +58,7 @@ init_telemetry("api-service")
 
 
 @asynccontextmanager
-async def lifespan(_app: FastAPI):
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     """
     Application lifespan context manager.
 
@@ -111,7 +112,7 @@ def create_app() -> FastAPI:
     app.include_router(export.router)
 
     @app.get("/health")
-    async def health_check():
+    async def health_check() -> dict[str, str | dict[str, str]]:
         """Health check endpoint for monitoring."""
         return {
             "status": "healthy",

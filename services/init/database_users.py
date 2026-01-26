@@ -38,7 +38,9 @@ from psycopg2 import sql
 logger = logging.getLogger(__name__)
 
 
-def _create_admin_user(cursor, admin_user: str, admin_password: str) -> None:
+def _create_admin_user(
+    cursor: psycopg2.extensions.cursor, admin_user: str, admin_password: str
+) -> None:
     """
     Create admin superuser for migrations and database administration.
 
@@ -68,7 +70,7 @@ def _create_admin_user(cursor, admin_user: str, admin_password: str) -> None:
     logger.info("✓ Admin user '%s' ready", admin_user)
 
 
-def _create_app_user(cursor, app_user: str, app_password: str) -> None:
+def _create_app_user(cursor: psycopg2.extensions.cursor, app_user: str, app_password: str) -> None:
     """
     Create non-privileged application user with RLS enforcement.
 
@@ -99,7 +101,11 @@ def _create_app_user(cursor, app_user: str, app_password: str) -> None:
 
 
 def _grant_permissions(
-    cursor, target_user: str, postgres_user: str, admin_user: str, postgres_db: str
+    cursor: psycopg2.extensions.cursor,
+    target_user: str,
+    postgres_user: str,
+    admin_user: str,
+    postgres_db: str,
 ) -> None:
     """
     Grant comprehensive database permissions to target user.
@@ -151,7 +157,7 @@ def _grant_permissions(
     logger.info("✓ Permissions granted to '%s'", target_user)
 
 
-def _create_bot_user(cursor, bot_user: str, bot_password: str) -> None:
+def _create_bot_user(cursor: psycopg2.extensions.cursor, bot_user: str, bot_password: str) -> None:
     """
     Create bot user with BYPASSRLS for bot and daemon services.
 

@@ -48,7 +48,7 @@ class SyncEventPublisher:
     where async operations provide no concurrency benefit.
     """
 
-    def __init__(self, exchange_name: str = "game_scheduler"):
+    def __init__(self, exchange_name: str = "game_scheduler") -> None:
         self.exchange_name = exchange_name
         self._connection: BlockingConnection | None = None
         self._channel: BlockingChannel | None = None

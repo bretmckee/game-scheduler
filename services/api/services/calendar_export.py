@@ -45,7 +45,7 @@ class CalendarExportService:
     def __init__(
         self,
         db: AsyncSession,
-    ):
+    ) -> None:
         self.db = db
 
     async def export_game(

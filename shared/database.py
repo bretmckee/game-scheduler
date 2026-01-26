@@ -19,8 +19,9 @@
 """Database connection and session management."""
 
 import os
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Generator
 from contextlib import contextmanager
+from typing import Any
 
 from fastapi import Depends
 from sqlalchemy import create_engine as create_sync_engine
@@ -96,7 +97,7 @@ async def get_db() -> AsyncGenerator[AsyncSession]:
             await session.close()
 
 
-def get_db_with_user_guilds():
+def get_db_with_user_guilds() -> Any:  # noqa: ANN401
     """
     Factory function that returns a database dependency with user guild context.
 
@@ -164,7 +165,7 @@ def get_db_session() -> AsyncSession:
 
 
 @contextmanager
-def get_sync_db_session():
+def get_sync_db_session() -> Generator[Session]:
     """
     Get synchronous database session for use as context manager.
 

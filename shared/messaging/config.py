@@ -45,7 +45,7 @@ class RabbitMQConfig:
         virtual_host: str = "/",
         connection_timeout: int = 60,
         heartbeat: int = 60,
-    ):
+    ) -> None:
         self.host = host
         self.port = port
         self.username = username

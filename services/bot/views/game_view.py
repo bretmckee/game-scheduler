@@ -47,7 +47,7 @@ class GameView(View):
         is_full: bool = False,
         is_started: bool = False,
         signup_method: str = SignupMethod.SELF_SIGNUP.value,
-    ):
+    ) -> None:
         """Initialize the game view with buttons.
 
         Args:
@@ -83,7 +83,7 @@ class GameView(View):
         self.add_item(self.join_button)
         self.add_item(self.leave_button)
 
-    async def _join_button_callback(self, interaction: discord.Interaction):
+    async def _join_button_callback(self, interaction: discord.Interaction) -> None:
         """Handle join button click.
 
         This is a placeholder that will be replaced by the actual handler
@@ -91,7 +91,7 @@ class GameView(View):
         """
         await interaction.response.defer()
 
-    async def _leave_button_callback(self, interaction: discord.Interaction):
+    async def _leave_button_callback(self, interaction: discord.Interaction) -> None:
         """Handle leave button click.
 
         This is a placeholder that will be replaced by the actual handler
@@ -101,7 +101,7 @@ class GameView(View):
 
     def update_button_states(
         self, is_full: bool, is_started: bool, signup_method: str | None = None
-    ):
+    ) -> None:
         """Update button enabled/disabled states.
 
         Args:

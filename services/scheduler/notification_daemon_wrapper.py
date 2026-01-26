@@ -26,6 +26,7 @@ to handle game reminder notifications.
 import logging
 import os
 import signal
+from typing import Any
 
 from shared.database import BASE_DATABASE_URL
 from shared.models import NotificationSchedule
@@ -40,10 +41,10 @@ logger = logging.getLogger(__name__)
 shutdown_requested = False
 
 
-def signal_handler(signum: int, _frame) -> None:
+def signal_handler(_signum: int, _frame: Any) -> None:  # noqa: ANN401
     """Handle shutdown signals gracefully."""
     global shutdown_requested  # noqa: PLW0603 - Required for signal handler communication
-    logger.info("Received signal %s, initiating graceful shutdown", signum)
+    logger.info("Received signal %s, initiating graceful shutdown", _signum)
     shutdown_requested = True
 
 

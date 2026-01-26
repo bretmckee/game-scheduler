@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 class BotEventPublisher:
     """Publish events from bot service to RabbitMQ."""
 
-    def __init__(self, publisher: EventPublisher | None = None):
+    def __init__(self, publisher: EventPublisher | None = None) -> None:
         """
         Initialize bot event publisher.
 

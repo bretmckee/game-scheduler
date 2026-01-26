@@ -43,7 +43,7 @@ class PostgresNotificationListener:
     blocking the main thread.
     """
 
-    def __init__(self, database_url: str):
+    def __init__(self, database_url: str) -> None:
         """
         Initialize listener with database URL.
 

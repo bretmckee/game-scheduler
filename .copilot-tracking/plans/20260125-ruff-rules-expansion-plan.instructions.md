@@ -106,13 +106,13 @@ Incrementally expand Ruff linting rules across 6 phases, fixing all violations f
 
 - [x] Task 5.1: Add function argument and return type hints
   - Details: .copilot-tracking/details/20260125-ruff-rules-expansion-details.md (Lines 284-303)
-  - Status: Complete - Converted framework-controlled arguments from object to Any with noqa:ANN401
-  - Fixed mypy cascade errors in downstream code using redis.get_json()
+  - Status: Complete - 72 ANN violations fixed (27 auto-fixed ANN204, 45 manual)
+  - Fixed: __init__ methods, signal handlers, database cursors, pika channels, API routes, callbacks
+  - Converted framework-controlled arguments from object to Any with noqa:ANN401
 
 - [x] Task 5.2: Enable ANN rules in configuration
   - Details: .copilot-tracking/details/20260125-ruff-rules-expansion-details.md (Lines 305-321)
-  - Status: PARTIAL - Phase 5 changes applied but full ANN rules not yet enabled
-  - Next: Need to add comprehensive type annotations before enabling ANN rules
+  - Status: Complete - ANN rules enabled, ANN101/ANN102 ignored (deprecated)
 
 ### [x] Phase 6: Unused Code Cleanup (27 issues)
 
@@ -124,7 +124,7 @@ Incrementally expand Ruff linting rules across 6 phases, fixing all violations f
 
 ### [ ] Phase 7: Final Integration
 
-- [ ] Task 7.1: Update pre-commit hooks and CI/CD
+- [x] Task 7.1: Update pre-commit hooks and CI/CD
   - Details: .copilot-tracking/details/20260125-ruff-rules-expansion-details.md (Lines 360-375)
 
 - [ ] Task 7.2: Update documentation

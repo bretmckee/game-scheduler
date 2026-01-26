@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 class NotificationService:
     """Service for managing game notifications."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize notification service with event publisher."""
         self.event_publisher = SyncEventPublisher()
 

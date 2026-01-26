@@ -187,6 +187,7 @@ def seed_e2e_data() -> bool:
     logger.info("Extracted bot Discord ID: %s", bot_id)
 
     try:
+        session: Session
         with get_sync_db_session() as session:
             if _guild_exists(session, config.guild_a_id):
                 logger.info("E2E test guild %s already exists, skipping seed", config.guild_a_id)

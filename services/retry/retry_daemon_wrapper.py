@@ -25,6 +25,7 @@ Entry point for containerized deployment of retry service.
 import logging
 import os
 import signal
+from typing import Any
 
 from shared.telemetry import flush_telemetry, init_telemetry
 
@@ -36,10 +37,10 @@ logger = logging.getLogger(__name__)
 shutdown_requested = False
 
 
-def signal_handler(signum: int, _frame) -> None:
+def signal_handler(_signum: int, _frame: Any) -> None:  # noqa: ANN401
     """Handle shutdown signals gracefully."""
     global shutdown_requested  # noqa: PLW0603 - Required for signal handler communication
-    logger.info("Received signal %s, initiating graceful shutdown", signum)
+    logger.info("Received signal %s, initiating graceful shutdown", _signum)
     shutdown_requested = True
 
 

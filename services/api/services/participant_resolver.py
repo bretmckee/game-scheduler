@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 class ValidationError(Exception):
     """Validation error for participant resolution."""
 
-    def __init__(self, invalid_mentions: list[dict], valid_participants: list[str]):
+    def __init__(self, invalid_mentions: list[dict], valid_participants: list[str]) -> None:
         """
         Initialize validation error.
 
@@ -56,7 +56,7 @@ class ValidationError(Exception):
 class ParticipantResolver:
     """Resolves initial participant list from @mentions and placeholders."""
 
-    def __init__(self, discord_client: discord_client_module.DiscordAPIClient):
+    def __init__(self, discord_client: discord_client_module.DiscordAPIClient) -> None:
         """
         Initialize participant resolver.
 

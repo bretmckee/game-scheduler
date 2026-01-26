@@ -275,7 +275,7 @@ async def _require_permission(
     current_user: auth_schemas.CurrentUser,
     _role_service: roles_module.RoleVerificationService,
     db: AsyncSession,
-    **checker_kwargs: Any,
+    **checker_kwargs: Any,  # noqa: ANN401
 ) -> auth_schemas.CurrentUser:
     """
     Generic permission requirement helper for FastAPI dependencies.

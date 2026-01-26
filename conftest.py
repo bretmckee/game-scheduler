@@ -34,7 +34,7 @@ os.environ["PYTEST_RUNNING"] = "1"
 
 
 @pytest.fixture(autouse=True)
-def mock_oauth2_get_user_guilds():
+def mock_oauth2_get_user_guilds() -> AsyncMock:
     """
     Auto-mock oauth2.get_user_guilds for all tests.
 

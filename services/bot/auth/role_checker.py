@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 class RoleChecker:
     """Service for checking user roles and permissions."""
 
-    def __init__(self, bot: "Client", db_session: AsyncSession):
+    def __init__(self, bot: "Client", db_session: AsyncSession) -> None:
         """
         Initialize role checker.
 
