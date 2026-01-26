@@ -65,7 +65,8 @@ def get_changed_line_ranges() -> dict[str, set[int]]:
     """
     git_path = shutil.which("git")
     if not git_path:
-        raise RuntimeError("git executable not found in PATH")
+        msg = "git executable not found in PATH"
+        raise RuntimeError(msg)
 
     # S603: Safe - using absolute path from shutil.which() validation
     result = subprocess.run(  # noqa: S603

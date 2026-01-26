@@ -53,9 +53,11 @@ async def get_game_by_id(db: AsyncSession, guild_id: str, game_id: str) -> GameS
         ValueError: If guild_id or game_id is empty string
     """
     if not guild_id:
-        raise ValueError("guild_id cannot be empty")
+        msg = "guild_id cannot be empty"
+        raise ValueError(msg)
     if not game_id:
-        raise ValueError("game_id cannot be empty")
+        msg = "game_id cannot be empty"
+        raise ValueError(msg)
 
     # SET commands don't support parameter binding, use literal_column with validation
     # guild_id comes from application context (Discord/API auth), validated as UUID format
@@ -88,7 +90,8 @@ async def list_games(
         ValueError: If guild_id is empty string
     """
     if not guild_id:
-        raise ValueError("guild_id cannot be empty")
+        msg = "guild_id cannot be empty"
+        raise ValueError(msg)
 
     await db.execute(text(f"SET LOCAL app.current_guild_id = '{guild_id}'"))
 
@@ -116,7 +119,8 @@ async def create_game(db: AsyncSession, guild_id: str, game_data: dict) -> GameS
         ValueError: If guild_id is empty string
     """
     if not guild_id:
-        raise ValueError("guild_id cannot be empty")
+        msg = "guild_id cannot be empty"
+        raise ValueError(msg)
 
     await db.execute(text(f"SET LOCAL app.current_guild_id = '{guild_id}'"))
 
@@ -146,13 +150,16 @@ async def update_game(db: AsyncSession, guild_id: str, game_id: str, updates: di
         ValueError: If guild_id or game_id is empty, or game not found in guild
     """
     if not guild_id:
-        raise ValueError("guild_id cannot be empty")
+        msg = "guild_id cannot be empty"
+        raise ValueError(msg)
     if not game_id:
-        raise ValueError("game_id cannot be empty")
+        msg = "game_id cannot be empty"
+        raise ValueError(msg)
 
     game = await get_game_by_id(db, guild_id, game_id)
     if not game:
-        raise ValueError(f"Game {game_id} not found in guild {guild_id}")
+        msg = f"Game {game_id} not found in guild {guild_id}"
+        raise ValueError(msg)
 
     for key, value in updates.items():
         setattr(game, key, value)
@@ -174,13 +181,16 @@ async def delete_game(db: AsyncSession, guild_id: str, game_id: str) -> None:
         ValueError: If guild_id or game_id is empty, or game not found in guild
     """
     if not guild_id:
-        raise ValueError("guild_id cannot be empty")
+        msg = "guild_id cannot be empty"
+        raise ValueError(msg)
     if not game_id:
-        raise ValueError("game_id cannot be empty")
+        msg = "game_id cannot be empty"
+        raise ValueError(msg)
 
     game = await get_game_by_id(db, guild_id, game_id)
     if not game:
-        raise ValueError(f"Game {game_id} not found in guild {guild_id}")
+        msg = f"Game {game_id} not found in guild {guild_id}"
+        raise ValueError(msg)
 
     await db.delete(game)
     await db.flush()
@@ -208,15 +218,19 @@ async def add_participant(
         ValueError: If guild_id, game_id, or user_id is empty, or game not found in guild
     """
     if not guild_id:
-        raise ValueError("guild_id cannot be empty")
+        msg = "guild_id cannot be empty"
+        raise ValueError(msg)
     if not game_id:
-        raise ValueError("game_id cannot be empty")
+        msg = "game_id cannot be empty"
+        raise ValueError(msg)
     if not user_id:
-        raise ValueError("user_id cannot be empty")
+        msg = "user_id cannot be empty"
+        raise ValueError(msg)
 
     game = await get_game_by_id(db, guild_id, game_id)
     if not game:
-        raise ValueError(f"Game {game_id} not found in guild {guild_id}")
+        msg = f"Game {game_id} not found in guild {guild_id}"
+        raise ValueError(msg)
 
     data_copy = data.copy()
     data_copy["game_session_id"] = game_id
@@ -245,15 +259,19 @@ async def remove_participant(db: AsyncSession, guild_id: str, game_id: str, user
         ValueError: If guild_id, game_id, or user_id is empty, or game not found in guild
     """
     if not guild_id:
-        raise ValueError("guild_id cannot be empty")
+        msg = "guild_id cannot be empty"
+        raise ValueError(msg)
     if not game_id:
-        raise ValueError("game_id cannot be empty")
+        msg = "game_id cannot be empty"
+        raise ValueError(msg)
     if not user_id:
-        raise ValueError("user_id cannot be empty")
+        msg = "user_id cannot be empty"
+        raise ValueError(msg)
 
     game = await get_game_by_id(db, guild_id, game_id)
     if not game:
-        raise ValueError(f"Game {game_id} not found in guild {guild_id}")
+        msg = f"Game {game_id} not found in guild {guild_id}"
+        raise ValueError(msg)
 
     result = await db.execute(
         select(GameParticipant)
@@ -285,9 +303,11 @@ async def list_user_games(db: AsyncSession, guild_id: str, user_id: str) -> list
         ValueError: If guild_id or user_id is empty
     """
     if not guild_id:
-        raise ValueError("guild_id cannot be empty")
+        msg = "guild_id cannot be empty"
+        raise ValueError(msg)
     if not user_id:
-        raise ValueError("user_id cannot be empty")
+        msg = "user_id cannot be empty"
+        raise ValueError(msg)
 
     await db.execute(text(f"SET LOCAL app.current_guild_id = '{guild_id}'"))
 
@@ -320,9 +340,11 @@ async def get_template_by_id(
         ValueError: If guild_id or template_id is empty
     """
     if not guild_id:
-        raise ValueError("guild_id cannot be empty")
+        msg = "guild_id cannot be empty"
+        raise ValueError(msg)
     if not template_id:
-        raise ValueError("template_id cannot be empty")
+        msg = "template_id cannot be empty"
+        raise ValueError(msg)
 
     await db.execute(text(f"SET LOCAL app.current_guild_id = '{guild_id}'"))
 
@@ -352,7 +374,8 @@ async def list_templates(db: AsyncSession, guild_id: str) -> list[GameTemplate]:
         ValueError: If guild_id is empty
     """
     if not guild_id:
-        raise ValueError("guild_id cannot be empty")
+        msg = "guild_id cannot be empty"
+        raise ValueError(msg)
 
     await db.execute(text(f"SET LOCAL app.current_guild_id = '{guild_id}'"))
 
@@ -380,7 +403,8 @@ async def create_template(db: AsyncSession, guild_id: str, template_data: dict) 
         ValueError: If guild_id is empty
     """
     if not guild_id:
-        raise ValueError("guild_id cannot be empty")
+        msg = "guild_id cannot be empty"
+        raise ValueError(msg)
 
     await db.execute(text(f"SET LOCAL app.current_guild_id = '{guild_id}'"))
 
@@ -416,13 +440,16 @@ async def update_template(
         ValueError: If guild_id or template_id is empty, or template not found in guild
     """
     if not guild_id:
-        raise ValueError("guild_id cannot be empty")
+        msg = "guild_id cannot be empty"
+        raise ValueError(msg)
     if not template_id:
-        raise ValueError("template_id cannot be empty")
+        msg = "template_id cannot be empty"
+        raise ValueError(msg)
 
     template = await get_template_by_id(db, guild_id, template_id)
     if not template:
-        raise ValueError(f"Template {template_id} not found in guild {guild_id}")
+        msg = f"Template {template_id} not found in guild {guild_id}"
+        raise ValueError(msg)
 
     for key, value in updates.items():
         setattr(template, key, value)

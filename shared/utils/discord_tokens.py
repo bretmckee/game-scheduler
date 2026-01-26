@@ -42,9 +42,8 @@ def extract_bot_discord_id(bot_token: str) -> str:
     """
     parts = bot_token.split(".")
     if len(parts) != DISCORD_TOKEN_PARTS:
-        raise ValueError(
-            f"Invalid bot token format: expected {DISCORD_TOKEN_PARTS} parts, got {len(parts)}"
-        )
+        msg = f"Invalid bot token format: expected {DISCORD_TOKEN_PARTS} parts, got {len(parts)}"
+        raise ValueError(msg)
 
     try:
         bot_id_base64 = parts[0]
@@ -56,4 +55,5 @@ def extract_bot_discord_id(bot_token: str) -> str:
         bot_id_bytes = base64.b64decode(bot_id_base64)
         return bot_id_bytes.decode("utf-8")
     except Exception as e:
-        raise ValueError(f"Failed to decode bot ID from token: {e}") from e
+        msg = f"Failed to decode bot ID from token: {e}"
+        raise ValueError(msg) from e

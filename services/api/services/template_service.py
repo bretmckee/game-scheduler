@@ -198,7 +198,8 @@ class TemplateService:
         )
         template = result.scalar_one_or_none()
         if not template:
-            raise ValueError(f"Template not found: {template_id}")
+            msg = f"Template not found: {template_id}"
+            raise ValueError(msg)
 
         await self.db.execute(
             update(GameTemplate)
@@ -227,10 +228,12 @@ class TemplateService:
         result = await self.db.execute(select(GameTemplate).where(GameTemplate.id == template_id))
         template = result.scalar_one_or_none()
         if not template:
-            raise ValueError(f"Template not found: {template_id}")
+            msg = f"Template not found: {template_id}"
+            raise ValueError(msg)
 
         if template.is_default:
-            raise ValueError("Cannot delete the default template")
+            msg = "Cannot delete the default template"
+            raise ValueError(msg)
 
         await self.db.delete(template)
         await self.db.commit()

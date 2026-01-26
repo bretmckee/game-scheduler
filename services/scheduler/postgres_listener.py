@@ -77,7 +77,8 @@ class PostgresNotificationListener:
     def _execute_listen(self, channel: str) -> None:
         """Execute LISTEN command on the connection."""
         if self.conn is None:
-            raise RuntimeError("Not connected to database")
+            msg = "Not connected to database"
+            raise RuntimeError(msg)
 
         with self.conn.cursor() as cursor:
             cursor.execute(f"LISTEN {channel};")
@@ -91,7 +92,8 @@ class PostgresNotificationListener:
             channel: PostgreSQL notification channel name
         """
         if self.conn is None:
-            raise RuntimeError("Must call connect() before listen()")
+            msg = "Must call connect() before listen()"
+            raise RuntimeError(msg)
 
         self._channels.add(channel)
         self._execute_listen(channel)
@@ -115,7 +117,8 @@ class PostgresNotificationListener:
             RuntimeError: If not connected to database
         """
         if self.conn is None:
-            raise RuntimeError("Not connected to database")
+            msg = "Not connected to database"
+            raise RuntimeError(msg)
 
         if self.conn.closed:
             logger.warning("Connection closed, attempting reconnect")

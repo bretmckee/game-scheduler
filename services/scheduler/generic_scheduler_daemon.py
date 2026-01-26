@@ -143,7 +143,8 @@ class SchedulerDaemon:
     def _process_loop_iteration(self) -> None:
         """Process one iteration of the daemon loop."""
         if self.listener is None or self.db is None:
-            raise RuntimeError("Daemon not properly initialized")
+            msg = "Daemon not properly initialized"
+            raise RuntimeError(msg)
 
         try:
             next_item = self._get_next_due_item()
@@ -185,7 +186,8 @@ class SchedulerDaemon:
             Next scheduled item or None if no items pending
         """
         if self.db is None:
-            raise RuntimeError("Database session not initialized")
+            msg = "Database session not initialized"
+            raise RuntimeError(msg)
 
         return (
             self.db.query(self.model_class)
@@ -203,7 +205,8 @@ class SchedulerDaemon:
             item_id: ID of the item to mark as processed
         """
         if self.db is None:
-            raise RuntimeError("Database session not initialized")
+            msg = "Database session not initialized"
+            raise RuntimeError(msg)
 
         item = self.db.query(self.model_class).filter_by(id=item_id).first()
         if item:
@@ -217,7 +220,8 @@ class SchedulerDaemon:
             item: Schedule record to process
         """
         if self.publisher is None or self.db is None:
-            raise RuntimeError("Daemon not properly initialized")
+            msg = "Daemon not properly initialized"
+            raise RuntimeError(msg)
 
         with tracer.start_as_current_span(
             f"scheduled.{self.model_class.__name__}",

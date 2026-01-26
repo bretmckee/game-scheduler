@@ -132,9 +132,8 @@ def main() -> int:
 
             _log_phase(6, 6, "Seeding E2E test data (if applicable)...")
             if not seed_e2e_data():
-                raise RuntimeError(
-                    "E2E test data seeding failed. Cannot continue with invalid test environment."
-                )
+                msg = "E2E test data seeding failed. Cannot continue with invalid test environment."
+                raise RuntimeError(msg)
             _log_phase(6, 6, "E2E seeding complete", completed=True)
 
             logger.info("Finalizing initialization...")

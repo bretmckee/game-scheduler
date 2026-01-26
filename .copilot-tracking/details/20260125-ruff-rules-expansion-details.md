@@ -190,21 +190,45 @@ Update pyproject.toml to enable G004 rule after all f-string violations are fixe
 
 ## Phase 4: Polish & Cleanup
 
-### Task 4.1: Auto-fix exception messages and unused noqa
+### Task 4.1a: Auto-fix exception messages (EM)
 
-Apply automatic fixes for exception message extraction and unused noqa comments.
+Apply automatic fixes for exception message extraction.
 
 - **Files**:
-  - All Python files in services/ - run `ruff check --select EM,RUF100 --fix --exclude tests`
+  - All Python files in services/ - run `ruff check --select EM --fix --unsafe-fixes --exclude tests`
 - **Success**:
-  - 77 exception messages extracted to variables (EM101/102)
-  - 36 unused noqa comments removed (RUF100)
-  - All changes reviewed and committed
-  - Tests pass after auto-fixes
+  - ✅ 81 exception messages extracted to variables (57 EM101 + 24 EM102)
+  - ✅ All changes reviewed and committed
+  - ✅ Tests pass after auto-fixes (1391 passed)
+  - ✅ Zero EM violations
 - **Research References**:
-  - #file:../research/20260125-ruff-rules-expansion-research.md (Lines 107-108) - EM and RUF100 details
+  - #file:../research/20260125-ruff-rules-expansion-research.md (Lines 107) - EM details
 - **Dependencies**:
   - Phase 3 complete
+- **Completion**: 2026-01-26 (Commit 74ff612)
+
+### Task 4.1b: Remove unused noqa comments (RUF100)
+
+**STATUS: DEFERRED TO PHASE 7 (Task 7.3)**
+
+RUF100 has a fundamental issue during incremental rule adoption:
+- Reports all noqa comments as "non-enabled" when not all rules are in select list
+- 100% false positive rate during phased rollout
+- Auto-fix would remove necessary noqa comments causing violations
+- Must wait until ALL rules are enabled to have proper context
+
+**Decision**: Manual review in Phase 7 after all rules enabled. See Task 7.3.
+
+- **Original Plan**:
+  - Run `ruff check --select RUF100 --fix --exclude tests`
+  - Remove 59 unused noqa comments
+- **Why Deferred**:
+  - RUF100 thinks noqa comments for S404, S603, PLW0603, PLC0415, B008, etc. are "unused"
+  - But these rules ARE in select list and noqa comments ARE needed
+  - RUF100 doesn't load full rule set when checking in isolation
+  - Auto-fix would break the build by removing legitimate suppressions
+- **Research References**:
+  - #file:../research/20260125-ruff-rules-expansion-research.md (Lines 108) - RUF100 details
 
 ### Task 4.2: Fix logging .error() to .exception()
 
@@ -360,6 +384,37 @@ Update project documentation to reflect new linting standards.
   - #file:../research/20260125-ruff-rules-expansion-research.md (Lines 234-248) - Configuration management
 - **Dependencies**:
   - Task 7.1 complete
+
+### Task 7.3: RUF100 unused noqa cleanup (deferred from Task 4.1b)
+
+Manually review and remove genuinely unused noqa comments after all rules are enabled.
+
+- **Why This Task Exists**:
+  - RUF100 was deferred from Task 4.1b due to false positives during incremental adoption
+  - Now that all rules are enabled, RUF100 has full context to accurately identify unused noqa
+- **Process**:
+  1. Run `ruff check --select RUF100 --exclude tests` (NO --fix!)
+  2. Manually review EACH violation
+  3. Verify the noqa comment is genuinely unused:
+     - Remove the noqa and check if violation appears
+     - If violation appears, the noqa IS needed (false positive)
+     - If no violation, the noqa can be safely removed
+  4. Remove only verified unused noqa comments
+  5. Test after each batch of removals
+- **Expected Violations**: ~59
+- **Files**: Various production files with noqa comments
+- **Success**:
+  - All genuinely unused noqa comments removed
+  - All necessary noqa comments preserved
+  - Zero false removals
+  - Tests pass after cleanup
+- **Warning**:
+  - DO NOT use `--fix` or `--unsafe-fixes`
+  - RUF100 auto-fix can still make mistakes
+  - Manual review is required for safety
+- **Dependencies**:
+  - All other phases complete
+  - All desired rules enabled in pyproject.toml
 
 ## Dependencies
 

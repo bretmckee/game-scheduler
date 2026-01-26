@@ -180,7 +180,8 @@ class RetryDaemon:
                         msg_span.set_attribute("retry.retry_count", retry_count)
 
                 if self.publisher is None:
-                    raise RuntimeError("Publisher not initialized")
+                    msg = "Publisher not initialized"
+                    raise RuntimeError(msg)
 
                 # Republish without TTL to prevent re-entering DLQ
                 self.publisher.publish(event, routing_key=routing_key, expiration_ms=None)

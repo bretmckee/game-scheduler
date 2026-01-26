@@ -110,7 +110,8 @@ class GameService:
         )
         requester_user = requester_result.scalar_one_or_none()
         if requester_user is None:
-            raise ValueError(f"Requester user not found for ID: {requester_user_id}")
+            msg = f"Requester user not found for ID: {requester_user_id}"
+            raise ValueError(msg)
 
         role_service = roles_module.get_role_service()
         is_bot_manager = await role_service.check_bot_manager_permission(
@@ -121,7 +122,8 @@ class GameService:
         )
 
         if not is_bot_manager:
-            raise ValueError("Only bot managers can specify the game host")
+            msg = "Only bot managers can specify the game host"
+            raise ValueError(msg)
 
     async def _resolve_and_validate_host_participant(
         self,
@@ -146,7 +148,8 @@ class GameService:
             )
 
         if not resolved_hosts:
-            raise ValueError(f"Could not resolve host: {host_mention}")
+            msg = f"Could not resolve host: {host_mention}"
+            raise ValueError(msg)
 
         if resolved_hosts[0].get("type") != "discord":
             raise resolver_module.ValidationError(
@@ -231,14 +234,16 @@ class GameService:
             except resolver_module.ValidationError:
                 raise
             except Exception as e:
-                raise ValueError(f"Failed to resolve host mention: {str(e)}") from e
+                msg = f"Failed to resolve host mention: {str(e)}"
+                raise ValueError(msg) from e
 
         host_result = await self.db.execute(
             select(user_model.User).where(user_model.User.id == actual_host_user_id)
         )
         host_user = host_result.scalar_one_or_none()
         if host_user is None:
-            raise ValueError(f"Host user not found for ID: {actual_host_user_id}")
+            msg = f"Host user not found for ID: {actual_host_user_id}"
+            raise ValueError(msg)
 
         return actual_host_user_id, host_user
 
@@ -364,10 +369,11 @@ class GameService:
         # Validate signup method against template's allowed list if specified
         if template.allowed_signup_methods and signup_method not in template.allowed_signup_methods:
             allowed_str = ", ".join(template.allowed_signup_methods)
-            raise ValueError(
+            msg = (
                 f"Signup method '{signup_method}' not allowed for this template. "
                 f"Allowed methods: {allowed_str}"
             )
+            raise ValueError(msg)
 
         return {
             "max_players": max_players,
@@ -402,7 +408,8 @@ class GameService:
         )
         template = template_result.scalar_one_or_none()
         if template is None:
-            raise ValueError(f"Template not found for ID: {template_id}")
+            msg = f"Template not found for ID: {template_id}"
+            raise ValueError(msg)
 
         guild_result = await self.db.execute(
             select(guild_model.GuildConfiguration).where(
@@ -411,7 +418,8 @@ class GameService:
         )
         guild_config = guild_result.scalar_one_or_none()
         if guild_config is None:
-            raise ValueError(f"Guild configuration not found for ID: {template.guild_id}")
+            msg = f"Guild configuration not found for ID: {template.guild_id}"
+            raise ValueError(msg)
 
         channel_result = await self.db.execute(
             select(channel_model.ChannelConfiguration).where(
@@ -420,7 +428,8 @@ class GameService:
         )
         channel_config = channel_result.scalar_one_or_none()
         if channel_config is None:
-            raise ValueError(f"Channel configuration not found for ID: {template.channel_id}")
+            msg = f"Channel configuration not found for ID: {template.channel_id}"
+            raise ValueError(msg)
 
         return template, guild_config, channel_config
 
@@ -556,7 +565,8 @@ class GameService:
             access_token,
         )
         if not can_host:
-            raise ValueError("User does not have permission to create games with this template")
+            msg = "User does not have permission to create games with this template"
+            raise ValueError(msg)
 
         # Resolve field values from request and template
         resolved_fields = self._resolve_template_fields(game_data, template)
@@ -624,7 +634,8 @@ class GameService:
         # Reload game with relationships
         game = await self.get_game(game.id)
         if game is None:
-            raise ValueError("Failed to reload created game")
+            msg = "Failed to reload created game"
+            raise ValueError(msg)
 
         # Publish game.created event
         await self._publish_game_created(game, channel_config)
@@ -1305,7 +1316,8 @@ class GameService:
         """
         game = await self.get_game(game_id)
         if game is None:
-            raise ValueError("Game not found")
+            msg = "Game not found"
+            raise ValueError(msg)
 
         from services.api.dependencies import (  # noqa: PLC0415
             permissions as permissions_deps,
@@ -1321,10 +1333,11 @@ class GameService:
         )
 
         if not can_manage:
-            raise ValueError(
+            msg = (
                 "You don't have permission to update this game. "
                 "Only the host, Bot Managers, or guild admins can edit games."
             )
+            raise ValueError(msg)
 
         # Capture current participant state for promotion detection
         old_max_players, old_participants_snapshot, old_partitioned = self._capture_old_state(game)
@@ -1360,7 +1373,8 @@ class GameService:
         # Reload game with all relationships
         game = await self.get_game(game.id)
         if game is None:
-            raise ValueError("Failed to reload updated game")
+            msg = "Failed to reload updated game"
+            raise ValueError(msg)
 
         # Detect promotions and notify promoted users
         await self._detect_and_notify_promotions(game, old_partitioned)
@@ -1389,7 +1403,8 @@ class GameService:
         """
         game = await self.get_game(game_id)
         if game is None:
-            raise ValueError("Game not found")
+            msg = "Game not found"
+            raise ValueError(msg)
 
         from services.api.dependencies import (  # noqa: PLC0415
             permissions as permissions_deps,
@@ -1405,10 +1420,11 @@ class GameService:
         )
 
         if not can_manage:
-            raise ValueError(
+            msg = (
                 "You don't have permission to cancel this game. "
                 "Only the host, Bot Managers, or guild admins can cancel games."
             )
+            raise ValueError(msg)
 
         # Delete status schedules (CASCADE will handle game deletion)
         status_schedule_result = await self.db.execute(
@@ -1426,7 +1442,8 @@ class GameService:
         # Reload game with relationships for event publishing
         game = await self.get_game(game.id)
         if game is None:
-            raise ValueError("Failed to reload cancelled game")
+            msg = "Failed to reload cancelled game"
+            raise ValueError(msg)
 
         # Publish game.cancelled event
         await self._publish_game_cancelled(game)
@@ -1451,10 +1468,12 @@ class GameService:
         """
         game = await self.get_game(game_id)
         if game is None:
-            raise ValueError("Game not found")
+            msg = "Game not found"
+            raise ValueError(msg)
 
         if game.status != game_model.GameStatus.SCHEDULED.value:
-            raise ValueError("Game is not open for joining")
+            msg = "Game is not open for joining"
+            raise ValueError(msg)
 
         # Get user (create if not exists)
         user = await self.participant_resolver.ensure_user_exists(self.db, user_discord_id)
@@ -1476,7 +1495,8 @@ class GameService:
         )
         guild_config = guild_result.scalar_one_or_none()
         if guild_config is None:
-            raise ValueError(f"Guild configuration not found for ID: {game.guild_id}")
+            msg = f"Guild configuration not found for ID: {game.guild_id}"
+            raise ValueError(msg)
 
         channel_result = await self.db.execute(
             select(channel_model.ChannelConfiguration).where(
@@ -1485,13 +1505,15 @@ class GameService:
         )
         channel_config = channel_result.scalar_one_or_none()
         if channel_config is None:
-            raise ValueError(f"Channel configuration not found for ID: {game.channel_id}")
+            msg = f"Channel configuration not found for ID: {game.channel_id}"
+            raise ValueError(msg)
 
         # Use game's max_players or default to DEFAULT_MAX_PLAYERS
         max_players = resolve_max_players(game.max_players)
 
         if max_players is not None and participant_count >= max_players:
-            raise ValueError("Game is full")
+            msg = "Game is full"
+            raise ValueError(msg)
 
         # Add participant
         participant = participant_model.GameParticipant(
@@ -1506,7 +1528,8 @@ class GameService:
             await self.db.commit()
             await self.db.refresh(participant)
         except IntegrityError:
-            raise ValueError("User has already joined this game") from None
+            msg = "User has already joined this game"
+            raise ValueError(msg) from None
 
         # Create delayed join notification schedule
         await schedule_join_notification(
@@ -1521,7 +1544,8 @@ class GameService:
         # Reload game with relationships for event publishing
         game = await self.get_game(game_id)
         if game is None:
-            raise ValueError("Failed to reload game after join")
+            msg = "Failed to reload game after join"
+            raise ValueError(msg)
 
         # Publish game.updated event
         await self._publish_game_updated(game)
@@ -1551,11 +1575,13 @@ class GameService:
         game = await self.get_game(game_id)
         if game is None:
             logger.error("Game not found: %s", game_id)
-            raise ValueError("Game not found")
+            msg = "Game not found"
+            raise ValueError(msg)
 
         if game.status == game_model.GameStatus.COMPLETED.value:
             logger.error("Cannot leave completed game: %s", game_id)
-            raise ValueError("Cannot leave completed game")
+            msg = "Cannot leave completed game"
+            raise ValueError(msg)
 
         # Get user
         user_result = await self.db.execute(
@@ -1564,7 +1590,8 @@ class GameService:
         user = user_result.scalar_one_or_none()
         if user is None:
             logger.error("User not found: discord_id=%s", user_discord_id)
-            raise ValueError("User not found")
+            msg = "User not found"
+            raise ValueError(msg)
 
         logger.info("Found user: id=%s, discord_id=%s", user.id, user.discord_id)
 
@@ -1578,7 +1605,8 @@ class GameService:
         participant = participant_result.scalar_one_or_none()
         if participant is None:
             logger.error("Participant not found: game_id=%s, user_id=%s", game_id, user.id)
-            raise ValueError("Not a participant of this game")
+            msg = "Not a participant of this game"
+            raise ValueError(msg)
 
         logger.info("Found participant: id=%s, deleting...", participant.id)
 
@@ -1590,7 +1618,8 @@ class GameService:
         # Reload game with relationships for event publishing
         game = await self.get_game(game_id)
         if game is None:
-            raise ValueError("Failed to reload game after leave")
+            msg = "Failed to reload game after leave"
+            raise ValueError(msg)
 
         # Publish game.updated event
         await self._publish_game_updated(game)

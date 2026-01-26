@@ -103,7 +103,8 @@ class GameCreateRequest(BaseModel):
 
         valid_values = [method.value for method in SignupMethod]
         if v not in valid_values:
-            raise ValueError(f"Invalid signup method: {v}. Must be one of {valid_values}")
+            msg = f"Invalid signup method: {v}. Must be one of {valid_values}"
+            raise ValueError(msg)
         return v
 
 
@@ -151,14 +152,16 @@ class GameUpdateRequest(BaseModel):
         if v is None:
             return v
         if len(v) > MAX_ROLES_PER_GAME:
-            raise ValueError(f"Maximum {MAX_ROLES_PER_GAME} roles allowed")
+            msg = f"Maximum {MAX_ROLES_PER_GAME} roles allowed"
+            raise ValueError(msg)
         for role_id in v:
             if (
                 not role_id.isdigit()
                 or len(role_id) < DISCORD_SNOWFLAKE_MIN_LENGTH
                 or len(role_id) > DISCORD_SNOWFLAKE_MAX_LENGTH
             ):
-                raise ValueError(f"Invalid Discord role ID format: {role_id}")
+                msg = f"Invalid Discord role ID format: {role_id}"
+                raise ValueError(msg)
         return v
 
 

@@ -94,7 +94,8 @@ async def validate_state(state: str) -> str:
     redirect_uri = await redis.get(state_key)
     if redirect_uri is None:
         logger.warning("Invalid or expired OAuth2 state: %s", state)
-        raise OAuth2StateError("Invalid or expired state token")
+        msg = "Invalid or expired state token"
+        raise OAuth2StateError(msg)
 
     await redis.delete(state_key)
     logger.info("Validated OAuth2 state: %s", state)

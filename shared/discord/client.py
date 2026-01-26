@@ -102,10 +102,11 @@ class DiscordAPIClient:
             return f"Bot {token}"
         if dot_count == 1:
             return f"Bearer {token}"
-        raise ValueError(
+        msg = (
             f"Invalid Discord token format: expected 1 or {DISCORD_BOT_TOKEN_DOT_COUNT} dots, "
             f"got {dot_count}"
         )
+        raise ValueError(msg)
 
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create aiohttp session."""

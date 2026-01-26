@@ -96,6 +96,7 @@ select = [
     "ICN",    # flake8-import-conventions
     "PT",     # flake8-pytest-style
     "G004",   # logging-f-string (enforce lazy logging)
+    "EM",     # flake8-errmsg (exception messages)
 ]
 ignore = [
     "S101",   # Allow assert (tests handle separately)

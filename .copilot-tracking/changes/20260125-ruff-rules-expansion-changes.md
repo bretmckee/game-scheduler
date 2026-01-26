@@ -145,4 +145,32 @@ Incrementally expanding Ruff linting rules across 7 phases to address 878 violat
 - services/init/wait_postgres.py - Fixed E501 line-too-long violation in retry logging
 - services/api/dependencies/permissions.py - Fixed 14 B008 noqa comment placement issues by moving comments from closing parens to Depends() lines
 - pyproject.toml - Expanded test file lint ignores: added SIM117, PLR0915, S110, PLC1901, PLC0206, SIM102, SIM105, SIM108, PT011, PT018, DTZ001, ASYNC109 for pre-existing test patterns
-- Auto-formatter applied formatting improvements to 35 test files (combined with statements, simplified nested structures)
+- Auto-formatter applied formatting improvements to 35 test files (combined with statements, simplified nested structures)- scripts/check_commit_duplicates.py - Extracted 1 exception message to variable (EM101: git not found)
+- services/api/auth/oauth2.py - Extracted 1 exception message to variable (EM101: invalid OAuth2 state)
+- services/api/services/calendar_export.py - Extracted 2 exception messages to variables (EM102: game not found, EM101: permission denied)
+- services/api/services/games.py - Extracted 23 exception messages to variables across create_game, update_game, cancel_game, join_game, and leave_game functions (13 EM101 + 10 EM102)
+- services/api/services/template_service.py - Extracted 3 exception messages to variables (2 EM102: template not found + 1 EM101: cannot delete default)
+- services/bot/bot.py - Extracted 1 exception message to variable (EM101: event publisher initialization failed)
+- services/init/main.py - Extracted 1 exception message to variable (EM101: E2E seeding failed)
+- services/retry/retry_daemon.py - Extracted 1 exception message to variable (EM101: publisher not initialized)
+- services/scheduler/generic_scheduler_daemon.py - Extracted 4 exception messages to variables (EM101: daemon/database initialization checks)
+- services/scheduler/postgres_listener.py - Extracted 3 exception messages to variables (EM101: connection state checks)
+- shared/data_access/guild_queries.py - Extracted 26 exception messages to variables across guild isolation functions (20 EM101 + 6 EM102)
+- shared/discord/client.py - Extracted 1 exception message to variable (EM102: invalid Discord token format)
+- shared/messaging/consumer.py - Extracted 2 exception messages to variables (EM101: queue connection failures)
+- shared/schemas/game.py - Extracted 3 exception messages to variables (EM102: validation failures)
+- shared/utils/discord_tokens.py - Extracted 2 exception messages to variables (EM102: token parsing failures)
+- pyproject.toml - Added EM (flake8-errmsg) to select list for Phase 4.1a
+- .copilot-tracking/plans/20260125-ruff-rules-expansion-plan.instructions.md - Split Task 4.1 into 4.1a (EM complete) and 4.1b (RUF100 deferred to Phase 7 Task 7.3)
+- .copilot-tracking/details/20260125-ruff-rules-expansion-details.md - Documented RUF100 deferral rationale and added Task 7.3 for manual cleanup after all rules enabled
+
+### Deferred
+
+- **RUF100 (unused noqa removal)** - Originally part of Task 4.1, deferred to Phase 7 Task 7.3
+  - Reason: RUF100 has 100% false positive rate during incremental rule adoption
+  - Reports all noqa comments as "non-enabled" when checking in isolation
+  - Would remove 59 legitimate noqa comments (S404, S603, PLW0603, PLC0415, B008, PLC2701, S104)
+  - Requires full rule context to work correctly
+  - Will be manually reviewed in Phase 7 after all rules are enabled
+
+### Removed

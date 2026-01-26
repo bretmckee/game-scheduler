@@ -86,14 +86,16 @@ class CalendarExportService:
         game = result.scalar_one_or_none()
 
         if not game:
-            raise ValueError(f"Game with ID {game_id} not found")
+            msg = f"Game with ID {game_id} not found"
+            raise ValueError(msg)
 
         # Check permission (pre-computed by caller)
         if not can_export:
-            raise PermissionError(
+            msg = (
                 "You must be the host, a participant, or have admin/bot manager permissions "
                 "to export this game"
             )
+            raise PermissionError(msg)
 
         return await self._generate_calendar([game])
 

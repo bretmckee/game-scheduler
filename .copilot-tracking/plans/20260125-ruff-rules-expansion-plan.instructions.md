@@ -77,10 +77,15 @@ Incrementally expand Ruff linting rules across 6 phases, fixing all violations f
 - [x] Task 3.2: Enable G004 rule in configuration
   - Details: .copilot-tracking/details/20260125-ruff-rules-expansion-details.md (Lines 202-215)
 
-### [ ] Phase 4: Polish & Cleanup (208 issues)
+### [ ] Phase 4: Polish & Cleanup (149 issues)
 
-- [ ] Task 4.1: Auto-fix exception messages and unused noqa
-  - Details: .copilot-tracking/details/20260125-ruff-rules-expansion-details.md (Lines 219-233)
+- [x] Task 4.1a: Auto-fix exception messages (EM)
+  - Details: .copilot-tracking/details/20260125-ruff-rules-expansion-details.md (Lines 193-211)
+  - Status: Complete - 81 exception messages extracted to variables
+
+- [ ] Task 4.1b: Remove unused noqa comments (RUF100)
+  - Status: DEFERRED to Phase 7 - RUF100 has false positives during incremental adoption
+  - See Task 7.3 for details
 
 - [ ] Task 4.2: Fix logging .error() to .exception()
   - Details: .copilot-tracking/details/20260125-ruff-rules-expansion-details.md (Lines 235-248)
@@ -114,6 +119,13 @@ Incrementally expand Ruff linting rules across 6 phases, fixing all violations f
 
 - [ ] Task 7.2: Update documentation
   - Details: .copilot-tracking/details/20260125-ruff-rules-expansion-details.md (Lines 377-388)
+
+- [ ] Task 7.3: RUF100 unused noqa cleanup (deferred from Task 4.1b)
+  - Manually review and remove genuinely unused noqa comments
+  - RUF100 now has full rule context to avoid false positives
+  - Run: `ruff check --select RUF100 --exclude tests` (NO --fix!)
+  - Review each violation manually before removal
+  - Expected: ~59 violations to review
 
 ## Dependencies
 

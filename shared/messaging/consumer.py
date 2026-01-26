@@ -96,7 +96,8 @@ class EventConsumer:
             await self.connect()
 
         if self._queue is None:
-            raise RuntimeError("Queue connection failed: unable to bind routing key")
+            msg = "Queue connection failed: unable to bind routing key"
+            raise RuntimeError(msg)
         await self._queue.bind(self._exchange, routing_key=routing_key)
         logger.info("Queue %s bound to routing key: %s", self.queue_name, routing_key)
 
@@ -164,7 +165,8 @@ class EventConsumer:
             await self.connect()
 
         if self._queue is None:
-            raise RuntimeError("Queue connection failed: unable to start consumer")
+            msg = "Queue connection failed: unable to start consumer"
+            raise RuntimeError(msg)
         logger.info("Starting consumer for queue: %s", self.queue_name)
         await self._queue.consume(self._process_message)
 
