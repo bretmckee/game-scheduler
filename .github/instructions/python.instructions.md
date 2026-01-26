@@ -36,6 +36,115 @@ applyTo: "**/*.py"
 - Use `pytest` for testing.
 - Use `ruff` for code formatting, import sorting, and linting.
 
+## Ruff Linting Standards
+
+The project enforces comprehensive code quality through Ruff with 33 enabled rule categories. All code must pass linting with zero violations before commit.
+
+### Security & Correctness (Required)
+- **S** (flake8-bandit): Detect security vulnerabilities
+  - S608: SQL injection prevention (use parameterized queries or sql.Identifier)
+  - S603/S607: Subprocess security (use shutil.which() for absolute paths)
+  - S105/S106: No hardcoded passwords/secrets
+  - S101: No assert statements in production code
+- **ASYNC** (flake8-async): Async/await best practices
+- **FAST** (FastAPI): Use Annotated pattern for all dependencies
+
+### Code Quality Patterns (Required)
+- **RET** (flake8-return): Optimize return statements (no unnecessary else/assignment before return)
+- **SIM** (flake8-simplify): Use simpler code patterns (contextlib.suppress, combined conditions)
+- **TC** (flake8-type-checking): Move type-only imports to TYPE_CHECKING blocks
+- **PLE/PLW/PLC** (Pylint): Follow Pylint conventions
+  - PLW0603: Document global statement usage with noqa comment explaining why
+  - PLC0415: Import at module level unless there's a specific reason
+  - PLC2701: Avoid importing from private modules (_module)
+
+### Performance (Required)
+- **PERF** (Perflint): Avoid performance anti-patterns
+- **G004** (flake8-logging-format): Use lazy logging (logger.info("Message %s", var) not f-strings)
+
+### Modern Python Standards (Required)
+- **UP** (pyupgrade): Use Python 3.13+ syntax and features
+- **ANN** (flake8-annotations): All functions must have type hints for parameters and returns
+  - Use `Any` with `noqa:ANN401` only for framework-controlled parameters
+  - ANN101/ANN102 ignored (self/cls type hints deprecated)
+
+### Code Hygiene (Required)
+- **T20** (flake8-print): Use logging instead of print statements in production code
+- **EM** (flake8-errmsg): Extract exception messages to variables
+- **G/LOG** (flake8-logging-format): Use logger.exception() not logger.error() in exception handlers
+- **ARG** (flake8-unused-arguments): Prefix unused parameters with underscore
+- **ERA** (eradicate): No commented-out code
+
+### Examples
+
+#### Security - SQL Injection Prevention
+```python
+# Bad: Hardcoded SQL (S608)
+query = f"SELECT * FROM {table_name}"
+
+# Good: Use sql.Identifier
+from psycopg2 import sql
+query = sql.SQL("SELECT * FROM {}").format(sql.Identifier(table_name))
+```
+
+#### Performance - Lazy Logging
+```python
+# Bad: F-string in logging (G004)
+logger.info(f"Processing game {game_id} with {count} participants")
+
+# Good: Lazy formatting
+logger.info("Processing game %s with %s participants", game_id, count)
+```
+
+#### Type Hints - Comprehensive Annotations
+```python
+# Bad: Missing type hints
+def process_data(items, max_count):
+    result = []
+    for item in items[:max_count]:
+        result.append(item * 2)
+    return result
+
+# Good: Full type annotations
+def process_data(items: list[int], max_count: int) -> list[int]:
+    result: list[int] = []
+    for item in items[:max_count]:
+        result.append(item * 2)
+    return result
+```
+
+#### Code Simplification
+```python
+# Bad: Try-except-pass (SIM105)
+try:
+    risky_operation()
+except Exception:
+    pass
+
+# Good: Use contextlib.suppress
+from contextlib import suppress
+with suppress(Exception):
+    risky_operation()
+```
+
+### Running Ruff
+```bash
+# Check all files
+uv run ruff check .
+
+# Auto-fix where possible
+uv run ruff check --fix .
+
+# Format code
+uv run ruff format .
+
+# Check specific categories
+uv run ruff check --select S,ASYNC,FAST .
+```
+
+### Configuration Location
+All Ruff configuration is in `pyproject.toml` under `[tool.ruff]` and `[tool.ruff.lint]` sections.
+
 ## Code Style and Formatting
 
 - Follow the **PEP 8** style guide for Python.

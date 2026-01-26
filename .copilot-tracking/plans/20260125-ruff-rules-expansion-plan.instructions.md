@@ -122,12 +122,12 @@ Incrementally expand Ruff linting rules across 6 phases, fixing all violations f
 - [x] Task 6.2: Enable ARG rules in configuration
   - Details: .copilot-tracking/details/20260125-ruff-rules-expansion-details.md (Lines 342-356)
 
-### [ ] Phase 7: Final Integration
+### [x] Phase 7: Final Integration
 
 - [x] Task 7.1: Update pre-commit hooks and CI/CD
   - Details: .copilot-tracking/details/20260125-ruff-rules-expansion-details.md (Lines 360-375)
 
-- [ ] Task 7.2: Update documentation
+- [x] Task 7.2: Update documentation
   - Details: .copilot-tracking/details/20260125-ruff-rules-expansion-details.md (Lines 377-388)
 
 - [x] Task 7.3: RUF100 unused noqa cleanup (deferred from Task 4.1b)

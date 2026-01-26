@@ -200,6 +200,66 @@ SKIP=pytest-changed git commit -m "Skip tests temporarily"
 
 **Note:** If you encounter issues, you can always skip hooks with `--no-verify`, but the CI pipeline will still run all checks.
 
+### Code Quality Standards
+
+The project enforces comprehensive code quality standards through Ruff linting with 33 enabled rule categories:
+
+**Security & Correctness:**
+- **S** (flake8-bandit): Security vulnerability detection (SQL injection, subprocess security, hardcoded secrets)
+- **ASYNC** (flake8-async): Async/await best practices
+- **FAST** (FastAPI): FastAPI-specific patterns (Annotated dependencies)
+
+**Code Quality & Maintainability:**
+- **E/W** (pycodestyle): PEP 8 style enforcement
+- **F** (Pyflakes): Logical errors and undefined names
+- **N** (pep8-naming): Naming convention enforcement
+- **B** (flake8-bugbear): Common bug patterns
+- **C4** (flake8-comprehensions): List/dict comprehension improvements
+- **UP** (pyupgrade): Modern Python 3.13+ syntax
+- **RET** (flake8-return): Return statement optimization
+- **SIM** (flake8-simplify): Code simplification opportunities
+- **TC** (flake8-type-checking): TYPE_CHECKING import optimization
+- **PLE/PLW/PLC** (Pylint): Pylint error/warning/convention checks
+- **ERA** (eradicate): Commented-out code detection
+- **A** (flake8-builtins): Builtin shadowing prevention
+- **DTZ** (flake8-datetimez): Timezone-aware datetime usage
+- **ICN** (flake8-import-conventions): Import convention enforcement
+- **PT** (flake8-pytest-style): Pytest best practices
+
+**Performance:**
+- **PERF** (Perflint): Performance anti-patterns
+- **G004** (flake8-logging-format): Lazy logging (no f-strings in logging)
+
+**Polish & Documentation:**
+- **T20** (flake8-print): No print statements in production code (use logging)
+- **EM** (flake8-errmsg): Exception message extraction
+- **G/LOG** (flake8-logging-format): Logging best practices
+- **ANN** (flake8-annotations): Comprehensive type annotations
+- **ARG** (flake8-unused-arguments): Unused argument detection
+- **RUF** (Ruff-specific): Ruff's own code quality rules
+
+**Code Complexity Limits:**
+- Cyclomatic complexity: Max 10 per function (C901)
+- Statement count: Max 50 per function (PLR0915)
+- Overall complexity: Max 15 (complexipy)
+
+**Running Linting Locally:**
+```bash
+# Check all Python files (uses pyproject.toml configuration)
+uv run ruff check .
+
+# Auto-fix issues where possible
+uv run ruff check --fix .
+
+# Format code
+uv run ruff format .
+
+# Check specific rule category
+uv run ruff check --select S,ASYNC,FAST .
+```
+
+**Note:** All linting rules are enforced in CI/CD and pre-commit hooks. The project maintains a zero-violation baseline for all enabled rules.
+
 ### Access Services
 
 - **Frontend**: http://localhost:3000

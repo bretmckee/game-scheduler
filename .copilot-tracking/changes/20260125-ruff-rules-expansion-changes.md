@@ -366,3 +366,16 @@ Removed 3 unused noqa directives that became unnecessary after converting to Ann
 - All unit tests pass: 1391 tests passed confirming no regressions
 
 **Status**: Phase 7 complete - All cleanup tasks finished, RUF100 enabled in pyproject.toml via RUF category
+**Task 7.2: Update documentation (Complete)**
+
+Updated project documentation to reflect comprehensive Ruff linting standards:
+
+- README.md - Added "Code Quality Standards" section documenting all 33 enabled rule categories with organization by purpose (Security, Code Quality, Performance, Polish)
+- README.md - Added local linting commands and examples for developers
+- README.md - Documented zero-violation baseline policy and complexity limits
+- .github/instructions/python.instructions.md - Added comprehensive "Ruff Linting Standards" section with:
+  - Detailed rule category descriptions and requirements
+  - Practical code examples for security (SQL injection), performance (lazy logging), type hints, and code simplification
+  - Running Ruff commands for checking, fixing, and formatting
+  - Configuration location reference
+- Both documents now provide clear guidance for developers on code quality expectations and how to meet them
