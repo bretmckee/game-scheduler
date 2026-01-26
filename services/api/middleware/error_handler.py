@@ -49,13 +49,14 @@ async def validation_exception_handler(
     Returns:
         JSON response with 422 status and error details
     """
-    errors = []
-    for error in exc.errors():
-        errors.append({
+    errors = [
+        {
             "field": ".".join(str(loc) for loc in error["loc"]),
             "message": error["msg"],
             "type": error["type"],
-        })
+        }
+        for error in exc.errors()
+    ]
 
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -79,7 +80,7 @@ async def database_exception_handler(request: Request, exc: SQLAlchemyError) -> 
         JSON response with 500 status and error message
     """
     error_time = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
-    logger.error("Database error at %s: %s", error_time, exc, exc_info=True)
+    logger.error("Database error at %s: %s", error_time, exc)
 
     config = get_api_config()
 
@@ -113,7 +114,7 @@ async def general_exception_handler(request: Request, exc: Exception) -> JSONRes
     Returns:
         JSON response with 500 status and error message
     """
-    logger.error("Unhandled exception: %s", exc, exc_info=True)
+    logger.error("Unhandled exception: %s", exc)
 
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

@@ -209,4 +209,13 @@ Incrementally expanding Ruff linting rules across 7 phases to address 878 violat
   - Requires full rule context to work correctly
   - Will be manually reviewed in Phase 7 after all rules are enabled
 
+**Task 4.4: Enable polish and cleanup rules in configuration**
+
+- services/api/middleware/error_handler.py - Converted loop to list comprehension for better performance (PERF401)
+- services/api/middleware/error_handler.py - Removed exc_info parameter outside exception handlers (LOG014) in two locations
+- services/bot/bot.py - Replaced logger.exception with logger.error for LOG004 compliance in on_error method
+- tests/services/bot/test_bot.py - Updated test assertion to expect logger.error instead of logger.exception
+- pyproject.toml - Added PERF, G, LOG, RUF to select list
+- pyproject.toml - Added RUF029 (unnecessary async) and RUF100 (unused noqa) to ignore list with comments explaining exclusions
+
 ### Removed

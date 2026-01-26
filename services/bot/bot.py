@@ -160,7 +160,7 @@ class GameSchedulerBot(commands.Bot):
         Args:
             event_method: Name of the event method that raised the error
         """
-        logger.exception("Error in event %s", event_method)
+        logger.error("Error in event %s", event_method)
 
     async def on_guild_join(self, guild: discord.Guild) -> None:
         """

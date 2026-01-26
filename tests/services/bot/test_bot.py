@@ -173,7 +173,7 @@ class TestGameSchedulerBot:
         with patch("services.bot.bot.logger") as mock_logger:
             await bot.on_error("test_event")
 
-            mock_logger.exception.assert_called_once_with("Error in event %s", "test_event")
+            mock_logger.error.assert_called_once_with("Error in event %s", "test_event")
 
     @pytest.mark.asyncio
     async def test_on_guild_join_event(self, bot_config: BotConfig) -> None:

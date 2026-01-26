@@ -77,7 +77,7 @@ Incrementally expand Ruff linting rules across 6 phases, fixing all violations f
 - [x] Task 3.2: Enable G004 rule in configuration
   - Details: .copilot-tracking/details/20260125-ruff-rules-expansion-details.md (Lines 202-215)
 
-### [ ] Phase 4: Polish & Cleanup (149 issues)
+### [x] Phase 4: Polish & Cleanup (149 issues)
 
 - [x] Task 4.1a: Auto-fix exception messages (EM)
   - Details: .copilot-tracking/details/20260125-ruff-rules-expansion-details.md (Lines 193-211)
@@ -98,7 +98,7 @@ Incrementally expand Ruff linting rules across 6 phases, fixing all violations f
   - Details: .copilot-tracking/details/20260125-ruff-rules-expansion-details.md (Lines 264-278)
   - Rules: RUF006, RUF012, RUF015, RUF059, RUF022, RUF010
 
-- [ ] Task 4.4: Enable polish and cleanup rules in configuration
+- [x] Task 4.4: Enable polish and cleanup rules in configuration
   - Details: .copilot-tracking/details/20260125-ruff-rules-expansion-details.md (Lines 280-295)
   - Note: Enable RUF with ignore=["RUF029", "RUF100"]
 

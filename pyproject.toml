@@ -97,9 +97,15 @@ select = [
     "PT",     # flake8-pytest-style
     "G004",   # logging-f-string (enforce lazy logging)
     "EM",     # flake8-errmsg (exception messages)
+    "PERF",   # perflint (performance)
+    "G",      # flake8-logging-format
+    "LOG",    # flake8-logging
+    "RUF",    # Ruff-specific rules
 ]
 ignore = [
     "S101",   # Allow assert (tests handle separately)
+    "RUF029", # Unnecessary async (false positives in FastAPI/discord.py)
+    "RUF100", # Unused noqa directives (deferred to Phase 7)
 ]
 
 [tool.ruff.lint.mccabe]
