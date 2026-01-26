@@ -341,7 +341,7 @@ class RetryDaemon:
 
         return properties.routing_key or "unknown"
 
-    def _observe_dlq_depth(self, options: object) -> Generator[metrics.Observation]:
+    def _observe_dlq_depth(self, _options: object) -> Generator[metrics.Observation]:
         """
         Observable callback for DLQ depth gauge.
 

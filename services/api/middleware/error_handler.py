@@ -37,13 +37,13 @@ logger = logging.getLogger(__name__)
 
 
 async def validation_exception_handler(
-    request: Request, exc: RequestValidationError | ValidationError
+    _request: Request, exc: RequestValidationError | ValidationError
 ) -> JSONResponse:
     """
     Handle Pydantic validation errors with detailed error messages.
 
     Args:
-        request: HTTP request that caused the error
+        _request: HTTP request that caused the error (unused, required by FastAPI)
         exc: Validation error with field-level details
 
     Returns:
@@ -68,7 +68,7 @@ async def validation_exception_handler(
     )
 
 
-async def database_exception_handler(request: Request, exc: SQLAlchemyError) -> JSONResponse:
+async def database_exception_handler(_request: Request, exc: SQLAlchemyError) -> JSONResponse:
     """
     Handle database errors with appropriate error messages.
 
@@ -103,12 +103,12 @@ async def database_exception_handler(request: Request, exc: SQLAlchemyError) -> 
     )
 
 
-async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+async def general_exception_handler(_request: Request, exc: Exception) -> JSONResponse:
     """
     Handle unexpected exceptions with generic error message.
 
     Args:
-        request: HTTP request that caused the error
+        _request: HTTP request that caused the error (unused, required by FastAPI)
         exc: Unhandled exception
 
     Returns:

@@ -197,7 +197,7 @@ async def logout(
 @router.get("/user", response_model=auth_schemas.UserInfoResponse)
 async def get_user_info(
     current_user: Annotated[auth_schemas.CurrentUser, Depends(auth_deps.get_current_user)],
-    db: Annotated[AsyncSession, Depends(get_db)],
+    _db: Annotated[AsyncSession, Depends(get_db)],
 ) -> auth_schemas.UserInfoResponse:
     """
     Get current user information and guilds.

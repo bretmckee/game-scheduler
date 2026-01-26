@@ -87,7 +87,7 @@ async def _validate_image_upload(file: UploadFile, field_name: str) -> None:
 
 
 async def _get_game_service(
-    current_user: auth_schemas.CurrentUser = Depends(auth_deps.get_current_user),
+    _current_user: auth_schemas.CurrentUser = Depends(auth_deps.get_current_user),
     db: AsyncSession = Depends(database.get_db_with_user_guilds()),
 ) -> games_service.GameService:
     """Get game service instance with dependencies (RLS context already set by db dependency)."""

@@ -59,7 +59,7 @@ def clear_current_guild_ids() -> None:
 
 
 @event.listens_for(AsyncSession.sync_session_class, "after_begin")
-def set_rls_context_on_transaction_begin(session, transaction, connection):
+def set_rls_context_on_transaction_begin(_session, _transaction, connection):
     """
     Automatically set PostgreSQL RLS context when transaction begins.
 
@@ -67,8 +67,8 @@ def set_rls_context_on_transaction_begin(session, transaction, connection):
     for use by RLS policies. Transaction-scoped (SET LOCAL).
 
     Args:
-        session: SQLAlchemy session
-        transaction: Current transaction
+        _session: SQLAlchemy session (unused, required by event signature)
+        _transaction: Current transaction (unused, required by event signature)
         connection: Database connection
     """
     guild_ids = get_current_guild_ids()

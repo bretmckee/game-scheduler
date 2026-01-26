@@ -101,6 +101,7 @@ select = [
     "G",      # flake8-logging-format
     "LOG",    # flake8-logging
     "RUF",    # Ruff-specific rules
+    "ARG",    # flake8-unused-arguments
 ]
 ignore = [
     "S101",   # Allow assert (tests handle separately)
@@ -140,6 +141,10 @@ exclude = []
     "PT018",    # Compound assertions in tests
     "DTZ001",   # datetime without tzinfo in test data
     "ASYNC109", # Async function with timeout parameter
+    "ARG001",   # Unused function arguments in fixtures and test helpers
+    "ARG002",   # Unused method arguments in test classes
+    "ARG004",   # Unused static method arguments in test helpers
+    "ARG005",   # Unused lambda arguments in test mocks
 ]
 "scripts/**/*.py" = [
     "T201",     # Print statements allowed in CLI scripts

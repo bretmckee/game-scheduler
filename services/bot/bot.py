@@ -153,12 +153,14 @@ class GameSchedulerBot(commands.Bot):
             if interaction.type == discord.InteractionType.component and self.button_handler:
                 await self.button_handler.handle_interaction(interaction)
 
-    async def on_error(self, event_method: str, /, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
+    async def on_error(self, event_method: str, /, *_args: Any, **_kwargs: Any) -> None:  # noqa: ANN401
         """
         Handle errors during event processing.
 
         Args:
             event_method: Name of the event method that raised the error
+            _args: Event arguments (unused, required by discord.py)
+            _kwargs: Event keyword arguments (unused, required by discord.py)
         """
         logger.error("Error in event %s", event_method)
 

@@ -51,8 +51,8 @@ class CalendarExportService:
     async def export_game(
         self,
         game_id: str,
-        user_id: str,
-        discord_id: str,
+        _user_id: str,
+        _discord_id: str,
         can_export: bool,
     ) -> bytes:
         """

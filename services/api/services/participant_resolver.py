@@ -328,7 +328,7 @@ class ParticipantResolver:
         self,
         guild_discord_id: str,
         query: str,
-        access_token: str,
+        _access_token: str,
     ) -> list[dict]:
         """
         Search guild members by query string.

@@ -524,7 +524,7 @@ class EventHandlers:
                     user_discord_id=participant.user.discord_id,
                     game_title=game_title,
                     game_time_unix=game_time_unix,
-                    reminder_minutes=0,
+                    _reminder_minutes=0,
                     is_waitlist=is_waitlist,
                 )
             except Exception as e:
@@ -550,7 +550,7 @@ class EventHandlers:
                 user_discord_id=host.discord_id,
                 game_title=game_title,
                 game_time_unix=game_time_unix,
-                reminder_minutes=0,
+                _reminder_minutes=0,
                 is_waitlist=False,
                 is_host=True,
             )
@@ -821,7 +821,7 @@ class EventHandlers:
         user_discord_id: str,
         game_title: str,
         game_time_unix: int,
-        reminder_minutes: int,
+        _reminder_minutes: int,
         is_waitlist: bool,
         is_host: bool = False,
     ) -> None:

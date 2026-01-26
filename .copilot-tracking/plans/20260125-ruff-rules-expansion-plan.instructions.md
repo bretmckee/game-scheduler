@@ -114,12 +114,12 @@ Incrementally expand Ruff linting rules across 6 phases, fixing all violations f
   - Status: PARTIAL - Phase 5 changes applied but full ANN rules not yet enabled
   - Next: Need to add comprehensive type annotations before enabling ANN rules
 
-### [ ] Phase 6: Unused Code Cleanup (27 issues)
+### [x] Phase 6: Unused Code Cleanup (27 issues)
 
-- [ ] Task 6.1: Review and fix unused function arguments
+- [x] Task 6.1: Review and fix unused function arguments
   - Details: .copilot-tracking/details/20260125-ruff-rules-expansion-details.md (Lines 325-340)
 
-- [ ] Task 6.2: Enable ARG rules in configuration
+- [x] Task 6.2: Enable ARG rules in configuration
   - Details: .copilot-tracking/details/20260125-ruff-rules-expansion-details.md (Lines 342-356)
 
 ### [ ] Phase 7: Final Integration

@@ -264,4 +264,36 @@ Phase 5 changes to shared/discord/client.py return types enable stricter mypy ty
 
 **Status**: Phase 5 addresses framework-controlled arguments but does NOT yet enable full ANN rules. Comprehensive type annotation work for ANN001, ANN201, ANN202, ANN204 remains for future implementation.
 
-### Removed
+## Phase 6: Unused Code Cleanup (Complete)
+
+**Task 6.1: Review and fix unused function arguments (27 violations)**
+
+Fixed all 27 ARG violations by prefixing unused parameters with underscore to indicate they are intentionally unused, following Python conventions for framework-required signatures:
+
+- services/api/app.py - Prefixed `app` parameter with underscore in lifespan context manager (FastAPI framework requirement)
+- services/api/dependencies/permissions.py - Prefixed unused `db`, `role_service`, and `db` parameters in verify_guild_membership, _require_permission, and _get_guild_id functions
+- services/api/middleware/error_handler.py - Prefixed unused `request` parameter with underscore in 3 FastAPI exception handlers (validation_exception_handler, database_exception_handler, general_exception_handler)
+- services/api/routes/auth.py - Prefixed unused `db` parameter in get_user_info for future database operations
+- services/api/routes/channels.py - Prefixed unused `current_user` parameters in create_channel_config and update_channel_config (permission checking done by dependency)
+- services/api/routes/games.py - Prefixed unused `current_user` parameter in _get_game_service dependency
+- services/api/services/calendar_export.py - Prefixed unused `user_id` and `discord_id` parameters in export_game for future authorization enhancements
+- services/api/services/participant_resolver.py - Prefixed unused `access_token` parameter in search_members for future Discord API enhancements
+- services/bot/auth/role_checker.py - Prefixed unused `channel_id` parameter in check_game_host_permission for future channel-specific permissions
+- services/bot/bot.py - Prefixed unused `args` and `kwargs` parameters in on_error method (discord.py event handler signature requirement)
+- services/bot/events/handlers.py - Prefixed unused `reminder_minutes` parameter in _send_reminder_dm for future reminder customization
+- services/bot/formatters/game_message.py - Prefixed unused `signup_instructions` parameter in _build_footer_text for future UI enhancements
+- services/bot/utils/discord_format.py - Prefixed unused `bot` parameter in get_member_display_info for future direct API calls
+- services/retry/retry_daemon.py - Prefixed unused `options` parameter in _observe_dlq_depth (OpenTelemetry callback signature requirement)
+- services/retry/retry_daemon_wrapper.py - Prefixed unused `frame` parameter in signal_handler (signal handler signature requirement)
+- services/scheduler/generic_scheduler_daemon.py - Prefixed unused `process_dlq` parameter in __init__ for future DLQ processing support
+- services/scheduler/notification_daemon_wrapper.py - Prefixed unused `frame` parameter in signal_handler (signal handler signature requirement)
+- services/scheduler/status_transition_daemon_wrapper.py - Prefixed unused `frame` parameter in signal_handler (signal handler signature requirement)
+- shared/data_access/guild_isolation.py - Prefixed unused `session` and `transaction` parameters in set_rls_context_on_transaction_begin (SQLAlchemy event listener signature requirement)
+
+**Task 6.2: Enable ARG rules in configuration**
+
+- pyproject.toml - Added ARG (flake8-unused-arguments) to select list
+- pyproject.toml - Added ARG001, ARG002, ARG004, ARG005 to per-file-ignores for tests (unused arguments common in test fixtures, mocks, and helpers)
+- tests/services/bot/events/test_handlers.py - Updated 3 test calls to _send_reminder_dm to use renamed _reminder_minutes parameter
+- services/bot/formatters/game_message.py - Updated format_game_announcement to pass _signup_instructions instead of signup_instructions
+- Verified zero violations: `ruff check --select ARG` returns clean

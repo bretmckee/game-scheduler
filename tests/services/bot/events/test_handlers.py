@@ -491,7 +491,7 @@ async def test_send_reminder_dm_participant(event_handlers):
             user_discord_id="123456789",
             game_title="Test Game",
             game_time_unix=1700000000,
-            reminder_minutes=60,
+            _reminder_minutes=60,
             is_waitlist=False,
             is_host=False,
         )
@@ -514,7 +514,7 @@ async def test_send_reminder_dm_waitlist(event_handlers):
             user_discord_id="123456789",
             game_title="Test Game",
             game_time_unix=1700000000,
-            reminder_minutes=60,
+            _reminder_minutes=60,
             is_waitlist=True,
             is_host=False,
         )
@@ -535,7 +535,7 @@ async def test_send_reminder_dm_host(event_handlers):
             user_discord_id="987654321",
             game_title="Test Game",
             game_time_unix=1700000000,
-            reminder_minutes=60,
+            _reminder_minutes=60,
             is_waitlist=False,
             is_host=True,
         )
@@ -745,7 +745,8 @@ async def test_handle_game_reminder_due_host_error_doesnt_affect_participants(
                     call_count += 1
                     # First call is participant (succeeds), second is host (fails)
                     if call_count == 2 and kwargs.get("is_host"):
-                        raise Exception("Host notification failed")
+                        error_msg = "Host notification failed"
+                        raise Exception(error_msg)
 
                 with patch.object(
                     event_handlers, "_send_reminder_dm", new_callable=AsyncMock
@@ -1569,14 +1570,14 @@ async def test_send_participant_reminders_success(event_handlers):
             user_discord_id="user1",
             game_title="Test Game",
             game_time_unix=1234567890,
-            reminder_minutes=0,
+            _reminder_minutes=0,
             is_waitlist=False,
         )
         mock_send.assert_any_await(
             user_discord_id="user2",
             game_title="Test Game",
             game_time_unix=1234567890,
-            reminder_minutes=0,
+            _reminder_minutes=0,
             is_waitlist=False,
         )
 
@@ -1626,7 +1627,7 @@ async def test_send_host_reminder_success(event_handlers):
             user_discord_id="host123",
             game_title="Test Game",
             game_time_unix=1234567890,
-            reminder_minutes=0,
+            _reminder_minutes=0,
             is_waitlist=False,
             is_host=True,
         )

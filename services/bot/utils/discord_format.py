@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 
 async def get_member_display_info(
-    bot: discord.Client, guild_id: str, user_id: str
+    _bot: discord.Client, guild_id: str, user_id: str
 ) -> tuple[str | None, str | None]:
     """Get member display name and avatar URL from Discord with caching.
 

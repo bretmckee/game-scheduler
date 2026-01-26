@@ -62,7 +62,7 @@ class SchedulerDaemon:
         status_field: str,
         event_builder: Callable,
         max_timeout: int = 900,
-        process_dlq: bool = False,
+        _process_dlq: bool = False,
     ):
         """
         Initialize generic scheduler daemon.

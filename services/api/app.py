@@ -57,7 +57,7 @@ init_telemetry("api-service")
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_app: FastAPI):
     """
     Application lifespan context manager.
 
@@ -65,7 +65,7 @@ async def lifespan(app: FastAPI):
     Guild isolation event listener registered via import.
 
     Args:
-        app: FastAPI application instance
+        _app: FastAPI application instance (unused, required by framework)
     """
     logger.info("Starting API service...")
 

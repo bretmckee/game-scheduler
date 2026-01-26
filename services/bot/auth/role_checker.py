@@ -202,7 +202,7 @@ class RoleChecker:
         self,
         user_id: str,
         guild_id: str,
-        channel_id: str | None = None,
+        _channel_id: str | None = None,
     ) -> bool:
         """
         Check if user can host games.

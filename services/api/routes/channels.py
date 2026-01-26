@@ -89,7 +89,9 @@ async def get_channel(
 )
 async def create_channel_config(
     request: channel_schemas.ChannelConfigCreateRequest,
-    current_user: Annotated[auth_schemas.CurrentUser, Depends(permissions.require_manage_channels)],
+    _current_user: Annotated[
+        auth_schemas.CurrentUser, Depends(permissions.require_manage_channels)
+    ],
     db: Annotated[AsyncSession, Depends(database.get_db)],
 ) -> channel_schemas.ChannelConfigResponse:
     """
@@ -118,7 +120,9 @@ async def create_channel_config(
 async def update_channel_config(
     channel_id: str,
     request: channel_schemas.ChannelConfigUpdateRequest,
-    current_user: Annotated[auth_schemas.CurrentUser, Depends(permissions.require_manage_channels)],
+    _current_user: Annotated[
+        auth_schemas.CurrentUser, Depends(permissions.require_manage_channels)
+    ],
     db: Annotated[AsyncSession, Depends(database.get_db)],
 ) -> channel_schemas.ChannelConfigResponse:
     """

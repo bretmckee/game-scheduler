@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 shutdown_requested = False
 
 
-def signal_handler(signum: int, frame) -> None:
+def signal_handler(signum: int, _frame) -> None:
     """Handle shutdown signals gracefully."""
     global shutdown_requested  # noqa: PLW0603 - Required for signal handler communication
     logger.info("Received signal %s, initiating graceful shutdown", signum)
@@ -71,7 +71,7 @@ def main() -> None:
             time_field="notification_time",
             status_field="sent",
             event_builder=build_notification_event,
-            process_dlq=False,
+            _process_dlq=False,
         )
 
         daemon.run(lambda: shutdown_requested)

@@ -73,7 +73,7 @@ async def _check_guild_membership(user_discord_id: str, guild_id: str, access_to
 async def verify_guild_membership(
     guild_id: str,
     current_user: auth_schemas.CurrentUser,
-    db: AsyncSession,
+    _db: AsyncSession,
 ) -> list[dict]:
     """
     Verify user is a member of the specified Discord guild.
@@ -83,6 +83,7 @@ async def verify_guild_membership(
 
     Args:
         guild_id: Discord guild ID (snowflake)
+        _db: Database session (unused, reserved for future authorization checks)
         current_user: Current authenticated user
         db: Database session
 
@@ -272,7 +273,7 @@ async def _require_permission(
     permission_checker: Callable[..., Awaitable[bool]],
     error_message: str,
     current_user: auth_schemas.CurrentUser,
-    role_service: roles_module.RoleVerificationService,
+    _role_service: roles_module.RoleVerificationService,
     db: AsyncSession,
     **checker_kwargs: Any,
 ) -> auth_schemas.CurrentUser:
@@ -416,7 +417,7 @@ async def require_manage_channels(
 async def get_guild_name(
     guild_discord_id: str,
     current_user: auth_schemas.CurrentUser,
-    db: AsyncSession,
+    _db: AsyncSession,
 ) -> str:
     """
     Get display name for a Discord guild.
