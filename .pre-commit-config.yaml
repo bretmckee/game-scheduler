@@ -69,24 +69,13 @@ repos:
           - 'prettier@^3.7.4'
 
       # ESLint: Frontend linting
+      # Note: Requires npm install - eslint.config.js imports packages from node_modules
       - id: eslint
         name: ESLint
-        entry: eslint --config frontend/eslint.config.js --fix
-        language: node
+        entry: bash -c 'cd frontend && npm run lint:fix'
+        language: system
         files: ^frontend/.*\.(ts|tsx|js|jsx)$
-        additional_dependencies:
-          - 'eslint@^9.0.0'
-          - '@eslint/js@^9.39.2'
-          - 'typescript-eslint@^8.49.0'
-          - '@typescript-eslint/eslint-plugin@^8.0.0'
-          - '@typescript-eslint/parser@^8.0.0'
-          - 'eslint-plugin-react@^7.37.5'
-          - 'eslint-plugin-react-hooks@^7.0.0'
-          - 'eslint-plugin-react-refresh@^0.4.25'
-          - 'eslint-plugin-prettier@^5.5.4'
-          - 'eslint-config-prettier@^10.1.8'
-          - 'globals@^16.5.0'
-          - 'typescript@^5.9.3'
+        pass_filenames: false
 
   # Python: type checking, compilation, testing, and coverage
   # Note: MyPy requires full project environment due to complex type dependencies
@@ -132,13 +121,13 @@ repos:
   - repo: local
     hooks:
       # TypeScript type check
+      # Note: Requires npm install - needs type definitions from node_modules
       - id: typescript
         name: TypeScript check
-        entry: tsc --project frontend/tsconfig.json --noEmit
-        language: node
+        entry: bash -c 'cd frontend && npm run type-check'
+        language: system
         files: ^frontend/.*\.(ts|tsx)$
         pass_filenames: false
-        additional_dependencies: ['typescript@^5.9.3']
 
 
 
