@@ -141,35 +141,74 @@ docker compose build
 
 ### Pre-commit Hooks
 
-The project uses pre-commit hooks to automatically validate code quality before commits. Hooks run automatically to catch issues early:
+The project uses pre-commit hooks to automatically validate code quality before commits. Most hooks use **standalone isolated environments** that work immediately after `git clone` without requiring `uv sync` or `npm install`.
 
-**What runs automatically on every commit:**
-- File cleanup (trailing whitespace, end-of-file fixer, etc.)
-- Python linting and formatting (`ruff check --fix`, `ruff format`)
-- Python type checking (`mypy`)
-- Frontend linting and formatting (ESLint, Prettier, TypeScript)
-- **Unit tests for new/modified files** (pytest, vitest)
+#### Quick Start (Works Immediately)
 
-**Setup (one-time):**
+Most hooks are standalone and work right away:
+
 ```bash
-# The pre-commit tool is already installed via uv
-# Install git hooks to activate automatic execution
+# Install hooks (one-time setup)
 uv tool run pre-commit install
+
+# Run all standalone hooks - works without dependencies!
+pre-commit run ruff --all-files      # Python linting (isolated)
+pre-commit run prettier --all-files  # Frontend formatting (isolated)
+pre-commit run eslint --all-files    # Frontend linting (isolated)
+pre-commit run typescript --all-files # TypeScript checking (isolated)
 ```
 
-**Normal usage:**
+**Standalone hooks** (work without project dependencies):
+- File cleanup (trailing whitespace, end-of-file fixer, etc.)
+- Python linting and formatting (`ruff`) - uses official astral-sh/ruff-pre-commit repository
+- Frontend formatting (`prettier`) - uses isolated node environment with all dependencies
+- Frontend linting (`eslint`) - uses isolated node environment with TypeScript/React plugins
+- TypeScript type checking (`typescript`) - uses isolated node environment
+- Code complexity checks (`complexipy`, `lizard`) - use isolated Python/node environments
+- Duplicate code detection (`jscpd`) - uses isolated node environment
+- Copyright headers (`autocopyright`) - uses isolated Python environment
+
+#### Full Development Setup (For All Hooks)
+
+Some hooks require the full project environment:
+
 ```bash
-# Just commit normally - hooks run automatically
+# Install Python project dependencies (required for Python tests)
+uv sync
+
+# Install frontend dependencies (required for frontend tests/build)
+cd frontend && npm install
+```
+
+**System-dependent hooks** (require project setup):
+
+| Hook | Requires | Purpose |
+|------|----------|---------|
+| `mypy` | `uv sync` | Python type checking with project dependencies |
+| `python-compile` | `uv sync` | Python compilation validation |
+| `pytest-coverage` | `uv sync` | Python unit tests with coverage |
+| `diff-coverage` | `uv sync` | Python diff coverage check |
+| `frontend-build` | `cd frontend && npm install` | Frontend build validation |
+| `vitest-coverage` | `cd frontend && npm install` | Frontend unit tests with coverage |
+| `diff-coverage-frontend` | `cd frontend && npm install` | Frontend diff coverage check |
+| `ci-cd-workflow` (manual) | Docker | Run GitHub Actions locally with `act` |
+
+#### Normal Usage
+
+```bash
+# Just commit normally - all hooks run automatically
 git add modified_file.py
 git commit -m "Your commit message"
 # Pre-commit runs all checks + tests for modified files automatically
 # Commit succeeds if all checks pass, fails otherwise
-
-# Note: After container rebuild, you can omit 'uv tool run' prefix:
-pre-commit run --all-files
 ```
 
-**Manual test execution:**
+**What runs automatically on every commit:**
+- All standalone hooks (linting, formatting, type checking, complexity)
+- System-dependent hooks (tests for new/modified files)
+
+#### Manual Test Execution
+
 ```bash
 # Run ALL unit tests (comprehensive validation)
 pre-commit run pytest-all --hook-stage manual
@@ -177,14 +216,15 @@ pre-commit run pytest-all --hook-stage manual
 # Run ALL frontend tests
 pre-commit run vitest-all --hook-stage manual
 
-# Run CI/CD workflow locally (same as GitHub Actions)
+# Run CI/CD workflow locally (same as GitHub Actions, requires Docker)
 pre-commit run ci-cd-workflow --hook-stage manual
 
 # Run all hooks on all files
 pre-commit run --all-files
 ```
 
-**Emergency skip (use sparingly):**
+#### Emergency Skip (Use Sparingly)
+
 ```bash
 # Skip ALL hooks for urgent commits
 git commit -m "WIP: urgent hotfix" --no-verify
@@ -192,6 +232,13 @@ git commit -m "WIP: urgent hotfix" --no-verify
 # Skip specific hooks
 SKIP=pytest-changed git commit -m "Skip tests temporarily"
 ```
+
+#### Architecture Notes
+
+- **Official repositories**: ruff uses `github.com/astral-sh/ruff-pre-commit` for automatic updates
+- **Isolated environments**: Most tools use `language: python` or `language: node` with `additional_dependencies`
+- **Cached environments**: Pre-commit caches isolated environments in `~/.cache/pre-commit/`
+- **System hooks**: Complex tools requiring full project context use `language: system`
 
 **Performance expectations:**
 - Most commits: 15-45 seconds (depending on files changed)

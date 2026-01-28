@@ -25,6 +25,7 @@ Transform pre-commit configuration from system-dependent local hooks to standalo
 - [.pre-commit-config.yaml](.pre-commit-config.yaml) - Replaced bash wrapper scripts/add-copyright with two direct autocopyright hooks (Python/TypeScript) using language: python
 - [.pre-commit-config.yaml](.pre-commit-config.yaml) - Converted TypeScript type checking hook to use language: node with typescript dependency
 - [.pre-commit-config.yaml](.pre-commit-config.yaml) - Converted jscpd-diff and jscpd-full hooks to use language: node with jscpd dependency
+- [README.md](README.md) - Completely rewrote Pre-commit Hooks section with standalone vs system-dependent hook distinction, quick start guide, dependency table, and architecture notes
 
 ### Removed
 ## Phase Completion Notes
@@ -73,3 +74,22 @@ pre-commit run jscpd-full --hook-stage manual --all-files # ✅ Passed without n
 **Isolated Environments Created:**
 - `~/.cache/pre-commit/repo*/py_env-python3.13/` (complexipy, lizard, autocopyright)
 - `~/.cache/pre-commit/repo*/node_env-22.11.0/` (typescript, jscpd)
+
+### Phase 4: Documentation ✅
+- Identified 8 system-dependent hooks requiring full project environment
+- Completely rewrote README.md Pre-commit Hooks section with clear categorization
+- Added Quick Start guide showing standalone hooks work without dependencies
+- Created comprehensive dependency table mapping hooks to requirements
+- Documented architecture with official repos, isolated environments, and system hooks
+- Explained that users can run linting/formatting immediately after `git clone`
+
+**System-dependent hooks requiring project setup:**
+- Python environment (`uv sync`): mypy, python-compile, pytest-coverage, diff-coverage, pytest-all (manual)
+- Frontend environment (`npm install`): frontend-build, vitest-coverage, diff-coverage-frontend, vitest-all (manual)
+- Docker: ci-cd-workflow (manual)
+
+**Documentation improvements:**
+- Quick Start section with example commands
+- Standalone vs System-dependent hook distinction with table
+- Architecture Notes explaining caching and environment management
+- Clear setup requirements for each category of hooks
