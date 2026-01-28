@@ -87,9 +87,9 @@ services:
       dockerfile: docker/test.Dockerfile
     container_name: ${CONTAINER_PREFIX:-gamebot-integration}-tests
     volumes:
-      - ./:/app:rw
+      - ./coverage:/app/coverage:rw
     environment:
-      COVERAGE_FILE: /app/.coverage.integration
+      COVERAGE_FILE: /app/coverage/.coverage.integration
       PYTEST_RUNNING: "1"
       DATABASE_URL: ${DATABASE_URL}
       RABBITMQ_URL: ${RABBITMQ_URL}

@@ -21,6 +21,9 @@ WORKDIR /app
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --no-cache-dir uv
 
+# Create coverage directory for mounted coverage files
+RUN mkdir -p /app/coverage
+
 # Copy dependency files
 COPY pyproject.toml ./
 

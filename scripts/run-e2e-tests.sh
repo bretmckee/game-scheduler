@@ -44,8 +44,11 @@ cleanup() {
 trap cleanup EXIT
 
 echo "Running e2e tests..."
-# Build if needed, then run tests
+# Ensure full stack (including bot) is healthy before running tests
+docker compose --env-file "$ENV_FILE" up -d --build system-ready
+
+# Build if needed, then run tests without restarting dependencies
 # When $@ is empty, compose uses command field; when present, it overrides
-docker compose --env-file "$ENV_FILE" run --build --rm e2e-tests "$@"
+docker compose --env-file "$ENV_FILE" run --build --no-deps --rm e2e-tests "$@"
 
 echo "End-to-end tests passed!"

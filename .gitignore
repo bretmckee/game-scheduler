@@ -51,12 +51,10 @@ logs/
 .coverage
 .coverage.*
 coverage.xml
+coverage/
 htmlcov/
 *.out
-.coverage
-htmlcov/
 .tox/
-coverage.xml
 .complexipy_cache/
 report/
 

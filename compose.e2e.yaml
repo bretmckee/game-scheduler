@@ -111,9 +111,9 @@ services:
       dockerfile: docker/test.Dockerfile
     container_name: ${CONTAINER_PREFIX:-gamebot-e2e}-tests
     volumes:
-      - ./:/app:rw
+      - ./coverage:/app/coverage:rw
     environment:
-      COVERAGE_FILE: /app/.coverage.e2e
+      COVERAGE_FILE: /app/coverage/.coverage.e2e
       PYTHONUNBUFFERED: \"1\"
       PYTEST_RUNNING: "1"
       DATABASE_URL: ${DATABASE_URL}

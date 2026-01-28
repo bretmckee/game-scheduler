@@ -13,12 +13,13 @@ fi
 
 # Ensure coverage files are writable by container user
 echo "Setting permissions for coverage collection..."
-mkdir -p .pytest_cache htmlcov
-chmod 777 . .pytest_cache htmlcov || true
+mkdir -p .pytest_cache htmlcov coverage
+chmod 777 .pytest_cache htmlcov coverage 2>/dev/null || true
 
 # Clean up old coverage data
 echo "Cleaning up old coverage data..."
 rm -f .coverage .coverage.* coverage.xml
+rm -f coverage/.coverage.*
 rm -rf htmlcov/
 
 # Run unit tests
@@ -45,8 +46,8 @@ fi
 
 # Capture integration coverage if file exists
 INT_COV=""
-if [[ -f ".coverage.integration" ]]; then
-    INT_COV=$(coverage report --data-file=.coverage.integration 2>/dev/null | awk '/^TOTAL/ {print $NF}')
+if [[ -f "coverage/.coverage.integration" ]]; then
+    INT_COV=$(coverage report --data-file=coverage/.coverage.integration 2>/dev/null | awk '/^TOTAL/ {print $NF}')
     echo "Integration tests completed with $INT_COV coverage"
 fi
 
@@ -67,8 +68,8 @@ if $RUN_E2E; then
         fi
         E2E_RAN=true
         # Capture e2e coverage if file exists
-        if [[ -f ".coverage.e2e" ]]; then
-            E2E_COV=$(coverage report --data-file=.coverage.e2e 2>/dev/null | awk '/^TOTAL/ {print $NF}')
+        if [[ -f "coverage/.coverage.e2e" ]]; then
+            E2E_COV=$(coverage report --data-file=coverage/.coverage.e2e 2>/dev/null | awk '/^TOTAL/ {print $NF}')
             echo "E2E tests completed with $E2E_COV coverage"
         fi
     fi
@@ -81,6 +82,11 @@ fi
 echo ""
 echo "Combining coverage data..."
 echo "========================="
+# Move coverage files from coverage/ directory to root for combining
+if ls coverage/.coverage.* 1> /dev/null 2>&1; then
+    cp coverage/.coverage.* .
+fi
+
 if ! ls .coverage* 1> /dev/null 2>&1; then
     echo "ERROR: No coverage data files found"
     exit 1
