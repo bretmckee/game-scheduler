@@ -224,7 +224,7 @@ async def test_promotion_when_participant_removed(
     overflow_participant = create_participant(sample_game.id, str(uuid4()), "overflow_0", base_time)
 
     # Initially all 6 participants in the game
-    sample_game.participants = participants + [overflow_participant]
+    sample_game.participants = [*participants, overflow_participant]
 
     # Mock database operations
     mock_db.commit = AsyncMock()
@@ -255,7 +255,7 @@ async def test_promotion_when_participant_removed(
         # First call (at start of update_game): return game with all 6 participants (before removal)
         # Second call (after commit): return game with 5 participants (after removal)
         if get_game_call_count[0] == 1:
-            participants_list = participants + [overflow_participant]
+            participants_list = [*participants, overflow_participant]
             print(
                 f"\nget_game call #1: returning BEFORE removal - "
                 f"{len(participants_list)} participants"

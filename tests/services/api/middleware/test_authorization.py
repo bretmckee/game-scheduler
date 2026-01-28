@@ -111,7 +111,8 @@ async def test_dispatch_exception(middleware, mock_request):
     """Test dispatch with exception."""
 
     async def call_next(request):
-        raise ValueError("Test error")
+        msg = "Test error"
+        raise ValueError(msg)
 
     with pytest.raises(ValueError, match="Test error"):
         await middleware.dispatch(mock_request, call_next)

@@ -122,7 +122,8 @@ async def test_get_db_with_user_guilds_clears_context_on_exception(
         try:
             with pytest.raises(RuntimeError):
                 async for _session in generator:
-                    raise RuntimeError("Simulated error")
+                    msg = "Simulated error"
+                    raise RuntimeError(msg)
         finally:
             # Properly close the generator to trigger finally block
             await generator.aclose()

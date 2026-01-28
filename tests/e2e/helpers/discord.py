@@ -89,9 +89,8 @@ async def wait_for_condition[T](
             return result
 
         if elapsed >= timeout:
-            raise AssertionError(
-                f"{description} not met within {timeout}s timeout ({attempt} attempts)"
-            )
+            msg = f"{description} not met within {timeout}s timeout ({attempt} attempts)"
+            raise AssertionError(msg)
 
         if attempt == 1:
             print(f"[WAIT] Waiting for {description} (timeout: {timeout}s, interval: {interval}s)")
@@ -160,7 +159,8 @@ class DiscordTestHelper:
         """
         channel = await self.client.fetch_channel(int(channel_id))
         if not isinstance(channel, discord.TextChannel | discord.Thread | discord.DMChannel):
-            raise ValueError(f"Channel {channel_id} does not support messages")
+            msg = f"Channel {channel_id} does not support messages"
+            raise ValueError(msg)
 
         return await channel.fetch_message(int(message_id))
 
@@ -177,11 +177,9 @@ class DiscordTestHelper:
         """
         channel = await self.client.fetch_channel(int(channel_id))
         if not isinstance(channel, discord.TextChannel | discord.Thread | discord.DMChannel):
-            raise ValueError(f"Channel {channel_id} does not support message history")
-        messages = []
-        async for msg in channel.history(limit=limit):
-            messages.append(msg)
-        return messages
+            msg = f"Channel {channel_id} does not support message history"
+            raise ValueError(msg)
+        return [msg async for msg in channel.history(limit=limit)]
 
     async def find_message_by_embed_title(
         self, channel_id: str, title: str, limit: int = 10
@@ -216,11 +214,11 @@ class DiscordTestHelper:
         """
         user = await self.client.fetch_user(int(user_id))
         dm_channel = await user.create_dm()
-        messages = []
-        async for msg in dm_channel.history(limit=limit):
-            if msg.author.id == self.client.user.id:
-                messages.append(msg)
-        return messages
+        return [
+            msg
+            async for msg in dm_channel.history(limit=limit)
+            if msg.author.id == self.client.user.id
+        ]
 
     async def find_game_reminder_dm(self, user_id: str, game_title: str) -> discord.Message | None:
         """

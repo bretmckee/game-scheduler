@@ -19,7 +19,7 @@
 """Unit tests for guild configuration endpoints."""
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -229,8 +229,8 @@ class TestCreateGuildConfig:
             new_config.id = str(uuid.uuid4())
             new_config.guild_id = "987654321"
             new_config.require_host_role = False
-            new_config.created_at = datetime.now()
-            new_config.updated_at = datetime.now()
+            new_config.created_at = datetime.now(tz=UTC)
+            new_config.updated_at = datetime.now(tz=UTC)
 
             mock_create.return_value = new_config
 
@@ -293,8 +293,8 @@ class TestUpdateGuildConfig:
             updated_config.id = mock_guild_config.id
             updated_config.guild_id = "987654321"
             updated_config.require_host_role = True
-            updated_config.created_at = datetime.now()
-            updated_config.updated_at = datetime.now()
+            updated_config.created_at = datetime.now(tz=UTC)
+            updated_config.updated_at = datetime.now(tz=UTC)
 
             mock_update.return_value = updated_config
 
@@ -359,8 +359,8 @@ class TestListGuildChannels:
             mock_channel.guild_id = mock_guild_config.id
             mock_channel.channel_id = "channel_123"
             mock_channel.is_active = True
-            mock_channel.created_at = datetime.now()
-            mock_channel.updated_at = datetime.now()
+            mock_channel.created_at = datetime.now(tz=UTC)
+            mock_channel.updated_at = datetime.now(tz=UTC)
 
             mock_get_guild.return_value = mock_guild_config
             mock_get_channels.return_value = [mock_channel]

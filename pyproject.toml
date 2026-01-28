@@ -127,6 +127,7 @@ exclude = []
     "PLR2004",  # Magic values (existing)
     "PLR0915",  # Too many statements in test functions
     "S101",     # Assert usage
+    "S104",     # Binding to all interfaces in test configs
     "S106",     # Hardcoded passwords in fixtures
     "S105",     # Hardcoded password strings
     "S108",     # Temp file/directory paths in test mocks
@@ -140,6 +141,7 @@ exclude = []
     "SIM108",   # Ternary operator simplification
     "SIM117",   # Nested with statements in test mocks
     "PT011",    # pytest.raises without match parameter
+    "PT012",    # pytest.raises with multiple statements
     "PT018",    # Compound assertions in tests
     "DTZ001",   # datetime without tzinfo in test data
     "ASYNC109", # Async function with timeout parameter
@@ -147,12 +149,19 @@ exclude = []
     "ARG002",   # Unused method arguments in test classes
     "ARG004",   # Unused static method arguments in test helpers
     "ARG005",   # Unused lambda arguments in test mocks
+    "ANN",      # Type annotations not required in tests
+    "C901",     # Complex test functions allowed
+    "RUF043",   # Regex metacharacters in pytest.raises match patterns
+    "RUF059",   # Unpacked variables not used (common in test assertions)
 ]
 "scripts/**/*.py" = [
     "T201",     # Print statements allowed in CLI scripts
 ]
 "test_oauth.py" = [
     "T201",     # Print statements allowed in manual test script
+]
+"conftest.py" = [
+    "ANN",      # Type annotations not required in test configuration
 ]
 
 [tool.ruff.lint.isort]

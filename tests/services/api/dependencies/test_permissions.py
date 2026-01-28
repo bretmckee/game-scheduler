@@ -1264,7 +1264,8 @@ async def test_require_permission_checker_exception(
     mock_db = AsyncMock()
 
     async def mock_permission_checker(user_id: str, guild_id: str, token: str, **kwargs) -> bool:
-        raise ValueError("Permission check error")
+        msg = "Permission check error"
+        raise ValueError(msg)
 
     with (
         patch("services.api.auth.tokens.get_user_tokens", return_value=mock_tokens),

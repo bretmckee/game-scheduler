@@ -114,7 +114,8 @@ def admin_db_url_sync():
     """Synchronous admin database URL (psycopg2)."""
     raw_url = os.getenv("ADMIN_DATABASE_URL")
     if not raw_url:
-        raise ValueError("ADMIN_DATABASE_URL environment variable not set")
+        msg = "ADMIN_DATABASE_URL environment variable not set"
+        raise ValueError(msg)
     # Ensure it's a sync URL by removing any async drivers
     return raw_url.replace("postgresql+asyncpg://", "postgresql://")
 
@@ -124,7 +125,8 @@ def admin_db_url():
     """Async admin database URL (asyncpg)."""
     raw_url = os.getenv("ADMIN_DATABASE_URL")
     if not raw_url:
-        raise ValueError("ADMIN_DATABASE_URL environment variable not set")
+        msg = "ADMIN_DATABASE_URL environment variable not set"
+        raise ValueError(msg)
     return raw_url.replace("postgresql://", "postgresql+asyncpg://")
 
 
@@ -133,7 +135,8 @@ def app_db_url():
     """Async app user database URL (asyncpg, RLS enforced)."""
     raw_url = os.getenv("DATABASE_URL")
     if not raw_url:
-        raise ValueError("DATABASE_URL environment variable not set")
+        msg = "DATABASE_URL environment variable not set"
+        raise ValueError(msg)
     return raw_url.replace("postgresql://", "postgresql+asyncpg://")
 
 
@@ -142,7 +145,8 @@ def bot_db_url():
     """Async bot user database URL (asyncpg, BYPASSRLS)."""
     raw_url = os.getenv("BOT_DATABASE_URL")
     if not raw_url:
-        raise ValueError("BOT_DATABASE_URL environment variable not set")
+        msg = "BOT_DATABASE_URL environment variable not set"
+        raise ValueError(msg)
     return raw_url.replace("postgresql://", "postgresql+asyncpg://")
 
 

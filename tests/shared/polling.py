@@ -45,9 +45,8 @@ async def _poll_until_condition(
         elapsed = get_elapsed()
 
         if elapsed >= timeout:
-            raise AssertionError(
-                f"{description} not met within {timeout}s timeout ({attempt} attempts)"
-            )
+            msg = f"{description} not met within {timeout}s timeout ({attempt} attempts)"
+            raise AssertionError(msg)
 
         row = await fetch_row()
 
@@ -166,7 +165,7 @@ def wait_for_db_condition_sync(
         return result.fetchone()
 
     async def async_sleep(seconds: float) -> None:
-        time.sleep(seconds)
+        await asyncio.sleep(seconds)
 
     return asyncio.run(
         _poll_until_condition(
