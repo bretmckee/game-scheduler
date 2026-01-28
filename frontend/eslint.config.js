@@ -100,5 +100,5 @@ export default tseslint.config(
       '@typescript-eslint/no-magic-numbers': 'off',
     },
   },
-  prettierConfig,
+  prettierConfig
 );

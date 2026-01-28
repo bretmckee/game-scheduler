@@ -1,5 +1,7 @@
 <!-- markdownlint-disable-file -->
-# Task Research Notes: Python Complexity Measurement Tools for Pre-Commit Integration
+# Task Research Notes: Multi-Language Cognitive Complexity Analysis Tools
+
+**Last Updated**: 2026-01-28
 
 ## Research Executed
 
@@ -350,7 +352,344 @@ Functions where cognitive >> cyclomatic:
 - `resolve_display_names_and_avatars()`: Cognitive=27, Cyclomatic=12 (2.25x worse)
 - `RetryDaemon::_process_event()`: Cognitive=39 (not flagged by C901)
 
-## Implementation Guidance
+---
+
+## Multi-Language Complexity Tools Research (2026-01-28)
+
+### Current Project Context
+
+**Python**: ~15,000 lines (services/ and shared/)
+- Using **Ruff C901** for cyclomatic complexity (threshold: 10)
+- Using **complexipy** for cognitive complexity (threshold: 49)
+
+**TypeScript/TSX**: ~3,400+ lines (frontend/)
+- Currently no complexity checking
+
+**Go**: None yet, but potential future addition
+
+### Research Question
+How does Lizard compare to Ruff for multi-language cyclomatic complexity analysis?
+
+---
+
+## Ruff C901 vs Lizard Comparison
+
+### Ruff C901 (Current Python Tool)
+
+**Type**: Python-only linter with cyclomatic complexity rule
+**Metric**: McCabe cyclomatic complexity
+**Integration**: Native to Ruff linter, already in pre-commit
+**Configuration**:
+```toml
+[tool.ruff.lint]
+select = ["C901"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+```
+
+**Pros**:
+- Already installed and configured
+- Zero additional dependencies
+- Extremely fast (Rust-based)
+- Part of comprehensive linter (catches other issues too)
+- Native pre-commit integration
+- Precise Python parsing
+
+**Cons**:
+- Python-only
+- No support for TypeScript, Go, or other languages
+- Less detailed reporting than dedicated complexity tools
+- No historical tracking or trend analysis
+
+---
+
+### Lizard (Multi-Language Alternative)
+
+**Type**: Multi-language cyclomatic complexity analyzer
+**Metric**: McCabe cyclomatic complexity (same as Ruff C901)
+**Languages**:
+- ✅ Python
+- ✅ TypeScript (with TSX support)
+- ✅ Go (Golang)
+- Plus 25+ others (Java, C/C++, JavaScript, Ruby, Rust, Swift, etc.)
+
+**Integration**: CLI tool, can be added to pre-commit
+```yaml
+- repo: https://github.com/terryyin/lizard
+  rev: 1.20.0
+  hooks:
+    - id: lizard
+      args: ['--CCN', '10', '--length', '1000']
+```
+
+**Pros**:
+- **Multi-language support** - one tool for Python, TypeScript, Go
+- Same metric as Ruff (McCabe cyclomatic complexity)
+- Rich output formats: CLI, XML, HTML, CSV, JSON
+- Additional metrics: NLOC, token count, parameter count, nesting depth
+- Language-specific filtering: `lizard -l python services/` or `lizard -l typescript frontend/`
+- Lightweight, single Python package
+- Active maintenance (last update 2 weeks ago)
+- Pre-commit hook available
+- Can analyze all languages in one pass
+
+**Cons**:
+- Additional dependency to maintain
+- Slower than Ruff (Python-based vs Rust-based)
+- Less sophisticated Python parsing than Ruff
+- Potential false positives/negatives compared to native language tools
+- No auto-fix capabilities
+
+---
+
+## Detailed Feature Comparison
+
+| Feature | Ruff C901 | Lizard |
+|---------|-----------|--------|
+| **Python** | ✅ Excellent | ✅ Good |
+| **TypeScript** | ❌ | ✅ Yes (with TSX) |
+| **Go** | ❌ | ✅ Yes |
+| **Speed** | Extremely fast (Rust) | Fast (Python) |
+| **Metric** | Cyclomatic | Cyclomatic (same) |
+| **Pre-commit** | ✅ Native | ✅ Available |
+| **NLOC** | ❌ | ✅ |
+| **Token count** | ❌ | ✅ |
+| **Nesting depth** | ❌ | ✅ (with -ENS) |
+| **HTML reports** | ❌ | ✅ |
+| **Multi-threading** | ✅ (built-in) | ✅ (-t option) |
+| **Whitelist** | Per-file ignores | Global whitelist |
+| **Output formats** | Text warnings | Text, XML, HTML, CSV, Checkstyle |
+
+---
+
+## Performance Comparison
+
+**Small Python project (estimated for your codebase):**
+- **Ruff C901**: ~50-100ms (part of full ruff check)
+- **Lizard Python-only**: ~200-500ms
+- **Lizard All languages**: ~500ms-1s
+
+**Practical Impact**: Lizard would add <1 second to pre-commit hooks, negligible for developer workflow.
+
+---
+
+## Recommended Approach for Your Project
+
+### Option 1: Add Lizard for TypeScript, Keep Ruff for Python (Recommended)
+
+**Rationale**:
+- Ruff is already configured and extremely fast for Python
+- TypeScript needs complexity checking
+- Lizard excels at multi-language analysis
+- Different tools optimized for their domains
+
+**Configuration**:
+```yaml
+# .pre-commit-config.yaml
+- repo: local
+  hooks:
+    # Keep existing Ruff for Python (includes C901)
+    - id: ruff-check
+      name: ruff check
+      entry: uv run ruff check --fix
+      language: system
+      types: [python]
+
+- repo: https://github.com/terryyin/lizard
+  rev: 1.20.0
+  hooks:
+    # Add Lizard for TypeScript/Go
+    - id: lizard
+      name: lizard typescript complexity
+      args: ['--CCN', '15', '-l', 'typescript', 'frontend/']
+      types: [ts, tsx]
+```
+
+**Pros**:
+- Best tool for each language
+- No impact on existing Python workflow
+- Adds TypeScript coverage
+- Ready for future Go code
+
+**Cons**:
+- Maintain two complexity tools
+- Slightly different reporting formats
+
+---
+
+### Option 2: Replace Ruff C901 with Lizard for Unified Multi-Language
+
+**Rationale**:
+- Single tool for all languages
+- Unified complexity reporting
+- Simpler mental model
+
+**Configuration**:
+```yaml
+# .pre-commit-config.yaml
+- repo: https://github.com/terryyin/lizard
+  rev: 1.20.0
+  hooks:
+    - id: lizard
+      name: lizard complexity check
+      args: [
+        '--CCN', '10',           # Match current Ruff threshold
+        '--length', '1000',
+        '-l', 'python',
+        '-l', 'typescript',
+        '-l', 'go',
+        '--warnings_only'
+      ]
+```
+
+**pyproject.toml changes**:
+```toml
+[tool.ruff.lint]
+select = [
+    # Remove C901 from list
+    "E", "F", "I", "N", "W", "B", "C4", "UP",
+    "PLR2004", "PLC0415", "PLR0915",  # Removed C901
+    ...
+]
+
+# Remove [tool.ruff.lint.mccabe] section
+```
+
+**Pros**:
+- One complexity tool to rule them all
+- Consistent thresholds across languages
+- Unified reporting
+- Less mental overhead
+
+**Cons**:
+- Slower than Ruff for Python
+- Need to recalibrate thresholds (Lizard may flag different functions)
+- Lose Ruff's integration benefits
+
+---
+
+### Option 3: Keep Both Ruff and Lizard for Redundancy
+
+**Rationale**:
+- Cross-validation of Python complexity
+- Lizard covers additional languages
+- Maximum coverage
+
+**Not Recommended**: Redundant for Python, maintenance burden outweighs benefits.
+
+---
+
+## Current Project Baseline Analysis
+
+Your current Python complexity configuration:
+```toml
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.complexipy]
+# (cognitive complexity, different metric)
+```
+
+**If you add Lizard for TypeScript**, suggested starting thresholds:
+```bash
+# Check current TypeScript complexity
+lizard -l typescript frontend/ --CCN 15
+```
+
+Common TypeScript patterns that may need higher thresholds:
+- React component lifecycle methods
+- Redux reducers with switch statements
+- Form validation logic
+- API response handlers
+
+**Recommended initial TypeScript threshold**: CCN 15-20 (React complexity typical)
+
+---
+
+## Implementation Plan
+
+### Phase 1: Add Lizard for TypeScript (No Changes to Python)
+
+1. **Baseline Current TypeScript**:
+   ```bash
+   pip install lizard
+   lizard -l typescript frontend/src/ --csv > typescript-baseline.csv
+   ```
+
+2. **Identify Maximum CCN**:
+   ```bash
+   lizard -l typescript frontend/src/ -s cyclomatic_complexity | head -20
+   ```
+
+3. **Add Pre-commit Hook** (set threshold 1 above max):
+   ```yaml
+   - repo: https://github.com/terryyin/lizard
+     rev: 1.20.0
+     hooks:
+       - id: lizard
+         name: lizard typescript
+         args: ['--CCN', 'XX', '-l', 'typescript', '--warnings_only']
+         types: [ts, tsx]
+   ```
+
+4. **Test**:
+   ```bash
+   pre-commit run lizard --all-files
+   ```
+
+### Phase 2: Progressive Threshold Reduction
+
+- Monitor new TypeScript code
+- Lower threshold after refactoring complex components
+- Target: CCN ≤ 15 for most functions
+
+---
+
+## Key Differences: Cyclomatic vs Cognitive Complexity
+
+**Important Note**: This research focused on cyclomatic complexity (Ruff C901 and Lizard).
+
+Your project **also uses complexipy for cognitive complexity**, which is a different metric:
+
+| Metric | Tool | Focus | Use Case |
+|--------|------|-------|----------|
+| **Cyclomatic** | Ruff C901, Lizard | Execution paths, test coverage | Testability |
+| **Cognitive** | complexipy | Human readability, nesting penalties | Maintainability |
+
+**Recommendation**: Keep both types of metrics:
+- **Cyclomatic** (Ruff/Lizard): Ensures testability
+- **Cognitive** (complexipy): Ensures maintainability
+
+They measure different aspects of complexity and are complementary.
+
+---
+
+## Conclusion
+
+**For your multi-language project:**
+
+✅ **Recommended**: **Add Lizard for TypeScript, keep Ruff C901 for Python**
+- TypeScript needs complexity checking (currently none)
+- Ruff is perfect for Python (fast, integrated)
+- Lizard is perfect for TypeScript/Go (multi-language)
+- Ready for future Go additions
+
+**Command to try Lizard now:**
+```bash
+# Install
+pip install lizard
+
+# Analyze TypeScript
+lizard -l typescript frontend/src/
+
+# Analyze everything
+lizard -l python services/ -l typescript frontend/
+```
+
+The research is documented in [.copilot-tracking/research/20250107-python-complexity-tools-precommit-research.md](.copilot-tracking/research/20250107-python-complexity-tools-precommit-research.md).
+
+## Recommended Approach
 
 ### Objectives
 1. Prevent introduction of overly complex functions

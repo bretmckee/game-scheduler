@@ -3,7 +3,7 @@
 
 default_language_version:
   python: python3.13
-  node: "20"
+  node: "22.11.0"  # LTS version compatible with nodeenv
 
 default_stages: [pre-commit]
 
@@ -27,13 +27,23 @@ repos:
   # Copyright headers (applies to both Python and TypeScript)
   - repo: local
     hooks:
-      - id: add-copyright
-        name: Add copyright headers
-        entry: bash scripts/add-copyright
-        language: system
-        files: \.(py|ts|tsx)$
+      - id: add-copyright-python
+        name: Add copyright headers (Python)
+        entry: autocopyright -s "#" -d alembic -d services -d shared -d tests -g "*.py" -l "./templates/agpl-template.jinja2"
+        language: python
+        files: \.py$
         pass_filenames: false
         require_serial: true
+        additional_dependencies: ['autocopyright~=1.1.0']
+
+      - id: add-copyright-typescript
+        name: Add copyright headers (TypeScript)
+        entry: autocopyright -s "//" -d frontend/src -g "*.ts" -g "*.tsx" -l "./templates/agpl-template.jinja2"
+        language: python
+        files: \.(ts|tsx)$
+        pass_filenames: false
+        require_serial: true
+        additional_dependencies: ['autocopyright~=1.1.0']
 
   # Ruff: Python linting and formatting (official repository)
   - repo: https://github.com/astral-sh/ruff-pre-commit
@@ -42,6 +52,41 @@ repos:
       - id: ruff
         args: [--fix]
       - id: ruff-format
+
+  # Frontend tools: Use language: node for isolated environments
+  # Note: Official mirrors (mirrors-prettier, mirrors-eslint) are outdated,
+  # so we use repo: local with language: node and additional_dependencies
+  - repo: local
+    hooks:
+      # Prettier: Frontend code formatting
+      - id: prettier
+        name: Prettier format
+        entry: prettier --write --config frontend/.prettierrc
+        language: node
+        files: ^frontend/
+        types_or: [javascript, jsx, ts, tsx, json, css, scss, markdown]
+        additional_dependencies:
+          - 'prettier@^3.7.4'
+
+      # ESLint: Frontend linting
+      - id: eslint
+        name: ESLint
+        entry: eslint --config frontend/eslint.config.js --fix
+        language: node
+        files: ^frontend/.*\.(ts|tsx|js|jsx)$
+        additional_dependencies:
+          - 'eslint@^9.0.0'
+          - '@eslint/js@^9.39.2'
+          - 'typescript-eslint@^8.49.0'
+          - '@typescript-eslint/eslint-plugin@^8.0.0'
+          - '@typescript-eslint/parser@^8.0.0'
+          - 'eslint-plugin-react@^7.37.5'
+          - 'eslint-plugin-react-hooks@^7.0.0'
+          - 'eslint-plugin-react-refresh@^0.4.25'
+          - 'eslint-plugin-prettier@^5.5.4'
+          - 'eslint-config-prettier@^10.1.8'
+          - 'globals@^16.5.0'
+          - 'typescript@^5.9.3'
 
   # Python: type checking, compilation, testing, and coverage
   # Note: MyPy requires full project environment due to complex type dependencies
@@ -89,26 +134,15 @@ repos:
       # TypeScript type check
       - id: typescript
         name: TypeScript check
-        entry: bash -c 'cd frontend && npm run type-check'
-        language: system
+        entry: tsc --project frontend/tsconfig.json --noEmit
+        language: node
         files: ^frontend/.*\.(ts|tsx)$
         pass_filenames: false
+        additional_dependencies: ['typescript@^5.9.3']
 
-      # ESLint
-      - id: eslint
-        name: ESLint
-        entry: bash -c 'cd frontend && npm run lint:fix'
-        language: system
-        files: ^frontend/.*\.(ts|tsx|js|jsx)$
-        pass_filenames: false
 
-      # Prettier
-      - id: prettier
-        name: Prettier format
-        entry: bash -c 'cd frontend && npm run format'
-        language: system
-        files: ^frontend/.*\.(ts|tsx|js|jsx|json|css|scss|md)$
-        pass_filenames: false
+
+
 
       # Frontend build check
       - id: frontend-build
@@ -142,18 +176,20 @@ repos:
       # Python cognitive complexity
       - id: complexipy
         name: complexipy cognitive complexity check
-        entry: uv run complexipy
-        language: system
+        entry: complexipy
+        language: python
         types: [python]
         pass_filenames: false
+        additional_dependencies: ['complexipy~=4.2.0']
 
       # TypeScript cyclomatic complexity
       - id: lizard-typescript
         name: lizard typescript complexity check
-        entry: bash -c 'python -m lizard -l typescript frontend/src/ --CCN 15 --warnings_only'
-        language: system
+        entry: lizard -l typescript frontend/src/ --CCN 15 --warnings_only
+        language: python
         files: ^frontend/src/.*\.(ts|tsx)$
         pass_filenames: false
+        additional_dependencies: ['lizard~=1.20.0']
 
   # Duplicate code detection
   - repo: local
@@ -161,20 +197,22 @@ repos:
       # Automatic check: only fails if duplicates overlap with your changed lines
       - id: jscpd-diff
         name: Check for duplicates in changed lines
-        entry: bash -c 'npx --yes jscpd services shared frontend/src --config .jscpd.json --threshold 100 --format json --output .jscpd-report && uv run python scripts/check_commit_duplicates.py .jscpd-report/jscpd-report.json'
-        language: system
+        entry: bash -c 'jscpd services shared frontend/src --config .jscpd.json --threshold 100 --format json --output .jscpd-report && python scripts/check_commit_duplicates.py .jscpd-report/jscpd-report.json'
+        language: node
         pass_filenames: false
         types_or: [python, ts, tsx, javascript]
         verbose: true
+        additional_dependencies: ['jscpd']
 
       # Full scan with detailed console output (manual, for investigation)
       - id: jscpd-full
         name: Full duplicate code check (threshold 2%)
-        entry: npx --yes jscpd services shared frontend/src --config .jscpd.json
-        language: system
+        entry: jscpd services shared frontend/src --config .jscpd.json
+        language: node
         pass_filenames: false
         types_or: [python, ts, tsx, javascript]
         stages: [manual]
+        additional_dependencies: ['jscpd']
 
   # Optional/Manual hooks - run with: pre-commit run <hook-id> --hook-stage manual
   - repo: local
