@@ -143,14 +143,23 @@ repos:
         always_run: true
         verbose: true
 
-  # Cognitive complexity checking
+  # Complexity checking
   - repo: local
     hooks:
+      # Python cognitive complexity
       - id: complexipy
         name: complexipy cognitive complexity check
         entry: uv run complexipy
         language: system
         types: [python]
+        pass_filenames: false
+
+      # TypeScript cyclomatic complexity
+      - id: lizard-typescript
+        name: lizard typescript complexity check
+        entry: bash -c 'python -m lizard -l typescript frontend/src/ --CCN 15 --warnings_only'
+        language: system
+        files: ^frontend/src/.*\.(ts|tsx)$
         pass_filenames: false
 
   # Duplicate code detection
