@@ -20,10 +20,33 @@
 Shared test fixtures for all test suites.
 
 This module provides consolidated fixtures for:
-- Database connections (admin, app, bot users)
-- Redis client and cache seeding
+- Integration test fixtures: Database connections, RabbitMQ, Redis (session scope)
+- Unit test fixtures: Mocks for external services (function scope)
 - Factory fixtures for data creation (guild, channel, user, template, game)
 - Composite fixtures for common test patterns
+
+Fixture Organization:
+- tests/conftest.py (this file) - Shared fixtures for ALL tests
+  * Integration test fixtures: db sessions, redis, factories
+  * Unit test mocks: mock_db_unit, mock_discord_api_client,
+    mock_current_user_unit, mock_role_service
+- tests/services/api/services/conftest.py - Game service cluster fixtures
+  * Used by test_games.py, test_games_promotion.py, etc.
+- Test files - Test-specific fixtures
+  * Only when unique to one test file
+
+Unit Test Fixture Naming Convention:
+- Fixtures ending in _unit are for unit tests (no DB/infrastructure)
+- Regular fixtures are for integration tests (require DB/RabbitMQ/Redis)
+
+Examples:
+    # Unit test - uses mocks, no infrastructure
+    def test_something(mock_db_unit, mock_discord_api_client):
+        pass
+
+    # Integration test - uses real DB/Redis connections
+    def test_something_integration(admin_db, redis_client):
+        pass
 
 Architecture:
 - Factory pattern: Fixtures return functions, not data
@@ -868,6 +891,17 @@ def test_game_environment(test_environment, create_template, create_game):
 # ============================================================================
 # Unit Test Mock Fixtures
 # ============================================================================
+#
+# These fixtures provide mocks for external services to enable fast,
+# isolated unit tests without requiring database, Redis, or RabbitMQ.
+#
+# Naming Convention: Fixtures ending in _unit are for unit tests only
+# - mock_db_unit: Mock database session (unit tests)
+# - admin_db_sync: Real database session (integration tests)
+#
+# When to use:
+# - Unit tests: Test single functions/classes in isolation
+# - Integration tests: Test service interactions with infrastructure
 
 
 @pytest.fixture
@@ -877,6 +911,8 @@ def mock_db_unit():
 
     Differs from admin_db_sync/admin_db which are real database connections
     for integration tests. This is a pure mock for isolated unit tests.
+
+    Use when testing business logic without database interactions.
 
     Returns AsyncMock with AsyncSession spec.
     """
@@ -888,8 +924,11 @@ def mock_discord_api_client():
     """
     Mock Discord REST API client (shared.discord.client.DiscordAPIClient).
 
-    For bot commands/events using discord.py Bot, use a different mock.
-    This mocks the HTTP REST API client used by services.
+    Use for testing services that make Discord API calls without hitting
+    the real Discord API. For bot commands/events using discord.py Bot,
+    you'll need a different mock.
+
+    Returns MagicMock configured with DiscordAPIClient spec.
     """
     return MagicMock(spec=discord_client_module.DiscordAPIClient)
 
@@ -899,8 +938,14 @@ def mock_current_user_unit():
     """
     Mock authenticated user for unit tests.
 
-    Returns CurrentUser schema with mock user object for testing
-    authenticated endpoints without real auth flow.
+    Use for testing authenticated API endpoints without running through
+    the full OAuth2 authentication flow.
+
+    Returns CurrentUser schema with mock user object containing:
+    - discord_id: "123456789"
+    - access_token: "test_access_token"
+    Override properties in individual tests as needed:
+        current_user.user.discord_id = "custom_id"
     """
     mock_user = MagicMock()
     mock_user.discord_id = "123456789"
@@ -914,10 +959,20 @@ def mock_current_user_unit():
 @pytest.fixture
 def mock_role_service():
     """
-    Mock role checking service for unit tests.
+    Mock role checking service for permission tests.
 
     Default behavior: All permission checks return True.
-    Override in specific tests as needed.
+    Override in specific tests to test authorization logic.
+
+    Available methods:
+    - check_game_host_permission(token, guild_id, channel_id) -> bool
+    - check_bot_manager_permission(token, guild_id) -> bool
+    - has_any_role(token, guild_id, role_ids) -> bool
+    - has_permissions(token, guild_id, permissions) -> bool
+
+    Example override:
+        mock_role_service.check_game_host_permission.return_value = False
+        # Test unauthorized access handling
     """
     role_service = AsyncMock()
     role_service.check_game_host_permission = AsyncMock(return_value=True)

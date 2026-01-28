@@ -16,7 +16,32 @@
 # with Game_Scheduler If not, see <https://www.gnu.org/licenses/>.
 
 
-"""Shared fixtures for API game service tests."""
+"""Shared fixtures for API game service tests.
+
+This module provides shared test fixtures for the game service cluster
+(test_games.py, test_games_promotion.py, test_games_edit_participants.py,
+test_games_image_upload.py, test_update_game_fields_helpers.py).
+
+Fixtures Provided:
+- mock_db: AsyncMock of AsyncSession for database operations
+- mock_event_publisher: AsyncMock of EventPublisher for event publishing
+- mock_discord_client: MagicMock of DiscordClient for Discord API operations
+- mock_participant_resolver: AsyncMock of participant resolver functions
+- game_service: Configured GameService instance with all mocks
+- sample_guild: Sample Guild model for test data
+- sample_channel: Sample Channel model for test data
+- sample_user: Sample User model for test data
+
+Usage:
+    Test files in this directory automatically have access to these fixtures.
+    Create additional test-specific fixtures in individual test files when
+    they are only needed for that specific test scenario.
+
+Example:
+    def test_create_game(game_service, sample_guild, sample_channel):
+        # Use shared fixtures directly in test parameters
+        pass
+"""
 
 import uuid
 from unittest.mock import AsyncMock, MagicMock
