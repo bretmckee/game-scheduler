@@ -35,9 +35,27 @@ repos:
         pass_filenames: false
         require_serial: true
 
-  # Python: linting, formatting, type checking, compilation, testing, and coverage
+  # Ruff: Python linting and formatting (official repository)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.10
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  # Python: type checking, compilation, testing, and coverage
+  # Note: MyPy requires full project environment due to complex type dependencies
   - repo: local
     hooks:
+      # MyPy type checking (reads configuration from pyproject.toml)
+      - id: mypy
+        name: mypy type check
+        entry: uv run mypy
+        language: system
+        types: [python]
+        pass_filenames: false
+        args: [shared/, services/]
+
       # Python compilation check
       - id: python-compile
         name: Python compilation check
@@ -46,31 +64,6 @@ repos:
         types: [python]
         args: [services, shared, tests]
         pass_filenames: false
-
-      # Ruff linter (fast Python linter)
-      - id: ruff-check
-        name: ruff lint
-        entry: uv run ruff check --fix
-        language: system
-        types: [python]
-        require_serial: true
-
-      # Ruff formatter (fast Python formatter)
-      - id: ruff-format
-        name: ruff format
-        entry: uv run ruff format
-        language: system
-        types: [python]
-        require_serial: true
-
-      # MyPy type checking
-      - id: mypy
-        name: mypy type check
-        entry: uv run mypy
-        language: system
-        types: [python]
-        pass_filenames: false
-        args: [shared/, services/]
 
       # Python unit tests with coverage
       - id: pytest-coverage
