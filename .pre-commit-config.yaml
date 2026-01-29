@@ -81,15 +81,6 @@ repos:
   # Note: MyPy requires full project environment due to complex type dependencies
   - repo: local
     hooks:
-      # MyPy type checking (reads configuration from pyproject.toml)
-      - id: mypy
-        name: mypy type check
-        entry: uv run mypy
-        language: system
-        types: [python]
-        pass_filenames: false
-        args: [shared/, services/]
-
       # Python compilation check
       - id: python-compile
         name: Python compilation check
@@ -98,6 +89,15 @@ repos:
         types: [python]
         args: [services, shared, tests]
         pass_filenames: false
+
+      # MyPy type checking (reads configuration from pyproject.toml)
+      - id: mypy
+        name: mypy type check
+        entry: uv run mypy
+        language: system
+        types: [python]
+        pass_filenames: false
+        args: [shared/, services/]
 
       # Python unit tests with coverage
       - id: pytest-coverage
@@ -111,15 +111,23 @@ repos:
       # Diff coverage check for modified Python code
       - id: diff-coverage
         name: Python diff coverage check
-        entry: bash -c 'py_files=$(git diff --cached --name-only --diff-filter=ACM | grep -E "^(services|shared)/.*\.py$" | grep -v "__pycache__"); if [ -n "$py_files" ]; then uv run diff-cover coverage.xml --compare-branch=origin/main --fail-under=80 --ignore-whitespace --quiet || uv run diff-cover coverage.xml --compare-branch=origin/main --fail-under=80 --ignore-whitespace; else echo "No source Python files changed"; fi'
+        entry: bash -c 'py_files=$(git diff --cached --name-only --diff-filter=ACM | grep -E "^(services|shared)/.*\.py$" | grep -v "__pycache__"); if [ -n "$py_files" ]; then uv run diff-cover coverage.xml --compare-branch=origin/main --fail-under=80 --ignore-whitespace --quiet || uv run diff-cover coverage.xml --compare-branch=origin/main --fail-under=80 --ignore-whitespace; else exit 0; fi'
         language: system
         pass_filenames: false
-        always_run: true
+        files: ^(services|shared|tests)/.*\.py$
         verbose: true
 
   # TypeScript/Frontend: linting, formatting, type checking, build, testing, and coverage
   - repo: local
     hooks:
+      # Frontend build check
+      - id: frontend-build
+        name: Frontend build check
+        entry: bash -c 'cd frontend && npm run build'
+        language: system
+        files: ^frontend/.*\.(ts|tsx|js|jsx|json|css|scss|html)$
+        pass_filenames: false
+
       # TypeScript type check
       # Note: Requires npm install - needs type definitions from node_modules
       - id: typescript
@@ -127,18 +135,6 @@ repos:
         entry: bash -c 'cd frontend && npm run type-check'
         language: system
         files: ^frontend/.*\.(ts|tsx)$
-        pass_filenames: false
-
-
-
-
-
-      # Frontend build check
-      - id: frontend-build
-        name: Frontend build check
-        entry: bash -c 'cd frontend && npm run build'
-        language: system
-        files: ^frontend/.*\.(ts|tsx|js|jsx|json|css|scss|html)$
         pass_filenames: false
 
       # Frontend unit tests with coverage
@@ -153,10 +149,10 @@ repos:
       # Diff coverage check for modified TypeScript code
       - id: diff-coverage-frontend
         name: Frontend diff coverage check
-        entry: bash -c 'ts_files=$(git diff --cached --name-only --diff-filter=ACM | grep -E "^frontend/src/.*\.(ts|tsx)$" | grep -v "\.test\."); if [ -n "$ts_files" ]; then uv run diff-cover frontend/coverage/lcov-fixed.info --compare-branch=origin/main --fail-under=80 --ignore-whitespace --quiet || uv run diff-cover frontend/coverage/lcov-fixed.info --compare-branch=origin/main --fail-under=80 --ignore-whitespace; else echo "No source TypeScript files changed"; fi'
+        entry: bash -c 'ts_files=$(git diff --cached --name-only --diff-filter=ACM | grep -E "^frontend/src/.*\.(ts|tsx)$" | grep -v "\.test\."); if [ -n "$ts_files" ]; then uv run diff-cover frontend/coverage/lcov-fixed.info --compare-branch=origin/main --fail-under=80 --ignore-whitespace --quiet || uv run diff-cover frontend/coverage/lcov-fixed.info --compare-branch=origin/main --fail-under=80 --ignore-whitespace; else exit 0; fi'
         language: system
         pass_filenames: false
-        always_run: true
+        files: ^frontend/.*\.(ts|tsx|js|jsx)$
         verbose: true
 
   # Complexity checking
