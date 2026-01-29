@@ -14,8 +14,9 @@ cp config/env/env.prod config/env/env.prod.local
 Edit `config/env/env.prod.local` and set:
 
 ```bash
-# Leave API_URL empty to use nginx proxy (works with any hostname)
-API_URL=
+# Leave BACKEND_URL set to your actual domain/IP
+# Both bot and frontend use this URL
+BACKEND_URL=https://your-domain.com
 
 # Set to your actual frontend URL
 FRONTEND_URL=http://your-server-ip:3000
@@ -127,7 +128,7 @@ docker compose --env-file config/env/env.prod.local restart api
 No rebuild needed! Just update your environment file and restart the frontend:
 
 ```bash
-# Edit your environment file and change API_URL
+# Edit your environment file and change BACKEND_URL
 nano config/env/env.prod.local
 
 # Restart only the frontend container
@@ -138,36 +139,38 @@ See [RUNTIME_CONFIG.md](RUNTIME_CONFIG.md) for more details.
 
 ## Using Different Hostnames/IPs
 
-The default configuration (with `API_URL=` empty) uses nginx proxy mode, which
-means:
+The configuration now requires `BACKEND_URL` to be set to your actual domain:
 
-- Access via `http://localhost:3000` - works ✓
-- Access via `http://192.168.1.100:3000` - works ✓
-- Access via `http://your-domain.com:3000` - works ✓
+- Access via `http://localhost:3000` → `BACKEND_URL=http://localhost:8000`
+- Access via `http://192.168.1.100:3000` → `BACKEND_URL=http://192.168.1.100:8000`
+- Access via `https://your-domain.com` → `BACKEND_URL=https://your-domain.com`
 
-No configuration changes needed when accessing from different hostnames!
+The BACKEND_URL must match how you access the server.
 
-**How proxy mode works:**
+**How it works:**
 
-1. User accesses: `http://your-server:3000`
-2. Frontend makes requests to: `/api/v1/auth/user` (relative URL)
-3. Nginx proxies internally to: `http://api:8000/api/v1/auth/user` (Docker
-   network)
+1. User accesses: `https://your-server`
+2. Frontend makes requests to: `https://your-server/api/v1/...` (same origin)
+3. Nginx proxies internally to: `http://api:8000/api/v1/...` (Docker network)
+4. Bot generates image URLs: `https://your-server/api/v1/games/{id}/image`
 
-This is why `API_URL` can remain empty - the nginx proxy handles routing.
+Both frontend and bot use the same `BACKEND_URL` value.
 
-## When to Set API_URL
+## Configuration Notes
 
-Only set `API_URL` if your API is on a **completely different server/domain**
-than your frontend:
-
+**Standard deployment (everything on one server):**
 ```bash
-# Example: Frontend at https://game.example.com, API at https://api.example.com
-API_URL=https://api.example.com
+# Frontend and API accessed via same domain
+FRONTEND_URL=https://example.com
+BACKEND_URL=https://example.com
 ```
 
-For the standard docker-compose deployment where both services run on the same
-server, **leave API_URL empty**.
+**Split deployment (API on different domain):**
+```bash
+# Frontend at one domain, API at another
+FRONTEND_URL=https://game.example.com
+BACKEND_URL=https://api.example.com
+```
 
 ## Infrastructure Initialization
 

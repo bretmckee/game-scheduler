@@ -8,7 +8,7 @@ you to change settings without rebuilding Docker images.
 ### How It Works
 
 1. At container startup, the frontend entrypoint script
-   (`docker/frontend-entrypoint.sh`) reads the `API_URL` environment variable
+   (`docker/frontend-entrypoint.sh`) reads the `BACKEND_URL` environment variable
 2. It generates `/usr/share/nginx/html/config.js` by substituting the value into
    the template
 3. The frontend loads this config file before the React app starts
@@ -18,14 +18,14 @@ you to change settings without rebuilding Docker images.
 
 ### When to Use Each Mode
 
-**Use Proxy Mode (API_URL empty) when:**
+**Use Proxy Mode (BACKEND_URL set to same domain) when:**
 
 - Frontend and API are accessed through the same hostname/IP
 - Using the provided nginx proxy configuration (default docker-compose setup)
 - You want maximum flexibility (works with any hostname: localhost, IP, domain)
 - Both services are in the same Docker network
 
-**Use Direct API Access (API_URL set) when:**
+**Use Direct API Access (BACKEND_URL set to different domain) when:**
 
 - API is on a completely different domain/server than the frontend
 - Example: Frontend at `https://game-scheduler.example.com`, API at
@@ -34,10 +34,10 @@ you to change settings without rebuilding Docker images.
 
 ### For Proxy Mode (Recommended for Standard Deployment)
 
-Leave `API_URL` empty in your `.env` file:
+Set `BACKEND_URL` to the same domain as frontend in your `.env` file:
 
 ```bash
-API_URL=
+BACKEND_URL=https://your-domain.com
 ```
 
 **How it works:**
@@ -52,17 +52,17 @@ name.
 
 ### For Direct API Access
 
-Set `API_URL` to your backend's full URL:
+Set `BACKEND_URL` to your backend's full URL:
 
 ```bash
 # Local development (if not using docker-compose)
-API_URL=http://localhost:8000
+BACKEND_URL=http://localhost:8000
 
 # Production with separate API domain
-API_URL=https://api.example.com
+BACKEND_URL=https://api.example.com
 
 # Production with separate API server
-API_URL=http://192.168.1.100:8000
+BACKEND_URL=http://192.168.1.100:8000
 ```
 
 **Note:** In the standard docker-compose deployment, port 8000 is exposed, but
@@ -70,9 +70,9 @@ using direct access is less flexible than proxy mode.
 
 ## Changing Configuration
 
-To change the API URL on a running system:
+To change the backend URL on a running system:
 
-1. Update the `API_URL` value in your `.env` file
+1. Update the `BACKEND_URL` value in your `.env` file
 2. Restart only the frontend container:
    ```bash
    docker compose restart frontend

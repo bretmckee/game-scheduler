@@ -43,7 +43,7 @@ async def test_environment_variables():
         "DISCORD_GUILD_A_CHANNEL_ID",
         "DISCORD_USER_ID",
         "DATABASE_URL",
-        "API_BASE_URL",
+        "BACKEND_URL",
     ]
 
     missing = [var for var in required_vars if not os.getenv(var)]

@@ -19,16 +19,18 @@ import axios from 'axios';
 import { StatusCodes } from 'http-status-codes';
 
 // Runtime config from /config.js (loaded in index.html)
-// Falls back to VITE_API_URL for development, then empty string for proxy
+// Falls back to VITE_BACKEND_URL for development
+// BACKEND_URL is always required and should be set to the full backend API URL
 declare global {
   interface Window {
     __RUNTIME_CONFIG__?: {
-      API_URL?: string;
+      BACKEND_URL?: string;
     };
   }
 }
 
-const API_BASE_URL = window.__RUNTIME_CONFIG__?.API_URL || import.meta.env.VITE_API_URL || '';
+const API_BASE_URL =
+  window.__RUNTIME_CONFIG__?.BACKEND_URL || import.meta.env.VITE_BACKEND_URL || '';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,

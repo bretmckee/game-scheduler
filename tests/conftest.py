@@ -288,7 +288,7 @@ async def bot_db(bot_db_url):
 @pytest.fixture(scope="module")
 def api_base_url():
     """Get API base URL from environment."""
-    return os.getenv("API_BASE_URL", "http://api:8000")
+    return os.getenv("BACKEND_URL", "http://api:8000")
 
 
 @pytest.fixture

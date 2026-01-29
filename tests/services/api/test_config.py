@@ -66,7 +66,6 @@ def test_api_config_loads_from_environment():
         "API_HOST": "127.0.0.1",
         "API_PORT": "9000",
         "FRONTEND_URL": "http://example.com:3000",
-        "API_URL": "http://api.example.com",
         "JWT_SECRET": "test_jwt_secret",
         "JWT_EXPIRATION_HOURS": "48",
         "ENVIRONMENT": "production",
@@ -85,7 +84,6 @@ def test_api_config_loads_from_environment():
         assert cfg.api_host == "127.0.0.1"
         assert cfg.api_port == 9000
         assert cfg.frontend_url == "http://example.com:3000"
-        assert cfg.api_url == "http://api.example.com"
         assert cfg.jwt_secret == "test_jwt_secret"
         assert cfg.jwt_expiration_hours == 48
         assert cfg.environment == "production"

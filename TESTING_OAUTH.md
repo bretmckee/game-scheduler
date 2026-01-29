@@ -19,7 +19,7 @@ This guide will help you test the Discord OAuth2 authentication implementation.
    DISCORD_CLIENT_ID=your_actual_client_id
    DISCORD_CLIENT_SECRET=your_actual_client_secret
    FRONTEND_URL=http://localhost:3000
-   API_URL=http://localhost:8000
+   BACKEND_URL=http://localhost:8000
    ```
 
 ## Starting the Services

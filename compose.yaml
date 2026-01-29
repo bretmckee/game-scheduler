@@ -169,7 +169,7 @@ services:
       DISCORD_BOT_CLIENT_ID: ${DISCORD_BOT_CLIENT_ID:-}
       DISCORD_BOT_CLIENT_SECRET: ${DISCORD_BOT_CLIENT_SECRET:-}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
-      API_BASE_URL: ${API_BASE_URL:-http://api:8000}
+      BACKEND_URL: ${BACKEND_URL:-http://api:8000}
       LOG_LEVEL: ${BOT_LOG_LEVEL:-INFO}
       OTEL_SERVICE_NAME: bot-service
       OTEL_EXPORTER_OTLP_ENDPOINT: http://grafana-alloy:4318
@@ -210,7 +210,6 @@ services:
       DISCORD_BOT_CLIENT_SECRET: ${DISCORD_BOT_CLIENT_SECRET}
       DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN:-}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
-      API_URL: ${API_URL:-http://localhost:8000}
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
       ENVIRONMENT: ${ENVIRONMENT:-development}
       LOG_LEVEL: ${API_LOG_LEVEL:-INFO}
@@ -383,7 +382,7 @@ services:
       dockerfile: docker/frontend.Dockerfile
       args:
         VITE_DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
-        VITE_API_URL: ${API_URL}
+        VITE_BACKEND_URL: ${BACKEND_URL}
       tags:
         - ${IMAGE_REGISTRY:-}game-scheduler-frontend:${IMAGE_TAG:-latest}
       x-bake:
@@ -394,7 +393,7 @@ services:
     container_name: ${CONTAINER_PREFIX:-gamebot}-frontend
     restart: always
     environment:
-      API_URL: ${API_URL:-}
+      BACKEND_URL: ${BACKEND_URL:-}
       NGINX_LOG_LEVEL: ${NGINX_LOG_LEVEL:-info}
     depends_on:
       api:

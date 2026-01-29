@@ -394,10 +394,10 @@ def format_game_announcement(
     image_url = None
 
     if has_thumbnail:
-        thumbnail_url = f"{config.api_base_url}/api/v1/games/{game_id}/thumbnail"
+        thumbnail_url = f"{config.backend_url}/api/v1/games/{game_id}/thumbnail"
 
     if has_image:
-        image_url = f"{config.api_base_url}/api/v1/games/{game_id}/image"
+        image_url = f"{config.backend_url}/api/v1/games/{game_id}/image"
 
     embed = formatter.create_game_embed(
         game_title=game_title,

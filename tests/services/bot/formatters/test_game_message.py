@@ -947,7 +947,7 @@ class TestGameEmbedImages:
         with (
             patch("services.bot.formatters.game_message.discord.Embed") as mock_embed_class,
             patch("services.bot.formatters.game_message.GameView") as mock_view_class,
-            patch.dict("os.environ", {"API_BASE_URL": "http://test.example.com"}, clear=False),
+            patch.dict("os.environ", {"BACKEND_URL": "http://test.example.com"}, clear=False),
         ):
             mock_embed = MagicMock()
             mock_embed_class.return_value = mock_embed

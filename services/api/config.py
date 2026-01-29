@@ -50,7 +50,6 @@ class APIConfig:
         self.api_port = int(os.getenv("API_PORT", "8000"))
 
         self.frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
-        self.api_url = os.getenv("API_URL", "http://localhost:8000")
 
         self.jwt_secret = os.getenv("JWT_SECRET", "change-me-in-production")
         self.jwt_algorithm = "HS256"
