@@ -34,6 +34,8 @@ async def create_channel_config(
     """
     Create new channel configuration.
 
+    Does not commit. Caller must commit transaction.
+
     Args:
         db: Database session
         guild_id: Parent guild configuration ID (UUID)
@@ -49,18 +51,18 @@ async def create_channel_config(
         **settings,
     )
     db.add(channel_config)
-    await db.commit()
-    await db.refresh(channel_config)
+    await db.flush()
     return channel_config
 
 
 async def update_channel_config(
-    db: AsyncSession,
     channel_config: ChannelConfiguration,
     **updates: Any,  # noqa: ANN401
 ) -> ChannelConfiguration:
     """
     Update channel configuration.
+
+    Does not commit. Caller must commit transaction.
 
     Args:
         db: Database session
@@ -74,6 +76,4 @@ async def update_channel_config(
         if value is not None:
             setattr(channel_config, key, value)
 
-    await db.commit()
-    await db.refresh(channel_config)
     return channel_config

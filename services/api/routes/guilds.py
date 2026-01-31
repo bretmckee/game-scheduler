@@ -189,7 +189,7 @@ async def update_guild_config(
     )
 
     updates = request.model_dump(exclude_unset=True)
-    guild_config = await guild_service.update_guild_config(db, guild_config, **updates)
+    guild_config = await guild_service.update_guild_config(guild_config, **updates)
 
     return await _build_guild_config_response(guild_config, current_user, db)
 

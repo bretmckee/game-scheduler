@@ -138,6 +138,6 @@ async def update_channel_config(
         )
 
     updates = request.model_dump(exclude_unset=True)
-    channel_config = await channel_service.update_channel_config(db, channel_config, **updates)
+    channel_config = await channel_service.update_channel_config(channel_config, **updates)
 
     return await _build_channel_config_response(channel_config)

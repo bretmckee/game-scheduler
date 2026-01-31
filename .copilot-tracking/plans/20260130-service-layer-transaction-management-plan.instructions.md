@@ -41,17 +41,17 @@ Restore transaction atomicity by removing premature commits from service layer f
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Guild and Channel Service Refactoring
+### [x] Phase 1: Guild and Channel Service Refactoring
 
-- [ ] Task 1.1: Remove commits from guild_service.py
+- [x] Task 1.1: Remove commits from guild_service.py
 
   - Details: .copilot-tracking/details/20260130-service-layer-transaction-management-details.md (Lines 13-34)
 
-- [ ] Task 1.2: Remove commits from channel_service.py
+- [x] Task 1.2: Remove commits from channel_service.py
 
   - Details: .copilot-tracking/details/20260130-service-layer-transaction-management-details.md (Lines 36-57)
 
-- [ ] Task 1.3: Update guild and channel service tests
+- [x] Task 1.3: Update guild and channel service tests
 
   - Details: .copilot-tracking/details/20260130-service-layer-transaction-management-details.md (Lines 59-77)
 

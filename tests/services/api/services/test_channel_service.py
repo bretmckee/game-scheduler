@@ -31,8 +31,7 @@ async def test_create_channel_config():
     """Test creating a new channel configuration."""
     mock_db = AsyncMock()
     mock_db.add = Mock()
-    mock_db.commit = AsyncMock()
-    mock_db.refresh = AsyncMock()
+    mock_db.flush = AsyncMock()
 
     guild_id = "guild-uuid-123"
     channel_discord_id = "987654321098765432"
@@ -43,8 +42,7 @@ async def test_create_channel_config():
     await channel_service.create_channel_config(mock_db, guild_id, channel_discord_id, **settings)
 
     mock_db.add.assert_called_once()
-    mock_db.commit.assert_awaited_once()
-    mock_db.refresh.assert_awaited_once()
+    mock_db.flush.assert_awaited_once()
 
     added_channel = mock_db.add.call_args[0][0]
     assert isinstance(added_channel, ChannelConfiguration)
@@ -56,10 +54,6 @@ async def test_create_channel_config():
 @pytest.mark.asyncio
 async def test_update_channel_config():
     """Test updating a channel configuration."""
-    mock_db = AsyncMock()
-    mock_db.commit = AsyncMock()
-    mock_db.refresh = AsyncMock()
-
     channel_config = ChannelConfiguration(
         guild_id="guild-uuid-123",
         channel_id="987654321098765432",
@@ -70,20 +64,14 @@ async def test_update_channel_config():
         "is_active": True,
     }
 
-    await channel_service.update_channel_config(mock_db, channel_config, **updates)
+    await channel_service.update_channel_config(channel_config, **updates)
 
     assert channel_config.is_active is True
-    mock_db.commit.assert_awaited_once()
-    mock_db.refresh.assert_awaited_once()
 
 
 @pytest.mark.asyncio
 async def test_update_channel_config_ignores_none_values():
     """Test that update ignores None values."""
-    mock_db = AsyncMock()
-    mock_db.commit = AsyncMock()
-    mock_db.refresh = AsyncMock()
-
     channel_config = ChannelConfiguration(
         guild_id="guild-uuid-123",
         channel_id="987654321098765432",
@@ -94,8 +82,6 @@ async def test_update_channel_config_ignores_none_values():
         "is_active": False,
     }
 
-    await channel_service.update_channel_config(mock_db, channel_config, **updates)
+    await channel_service.update_channel_config(channel_config, **updates)
 
     assert channel_config.is_active is False
-    mock_db.commit.assert_awaited_once()
-    mock_db.refresh.assert_awaited_once()

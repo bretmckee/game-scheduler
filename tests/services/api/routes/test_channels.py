@@ -136,3 +136,43 @@ class TestBuildChannelConfigResponse:
             result = await channels._build_channel_config_response(mock_channel_config)
 
             assert isinstance(result, channel_schemas.ChannelConfigResponse)
+
+
+class TestUpdateChannelConfig:
+    """Test update_channel_config endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_update_channel_config_success(self, mock_db, mock_channel_config):
+        """Test successful channel configuration update."""
+        mock_current_user = MagicMock()
+
+        with (
+            patch("services.api.routes.channels.queries.get_channel_by_id") as mock_get_channel,
+            patch(
+                "services.api.routes.channels.channel_service.update_channel_config"
+            ) as mock_update,
+            patch(
+                "services.api.routes.channels._build_channel_config_response"
+            ) as mock_build_response,
+        ):
+            mock_get_channel.return_value = mock_channel_config
+            mock_update.return_value = mock_channel_config
+            mock_build_response.return_value = channel_schemas.ChannelConfigResponse(
+                id=mock_channel_config.id,
+                guild_id=mock_channel_config.guild_id,
+                guild_discord_id=mock_channel_config.guild.guild_id,
+                channel_id=mock_channel_config.channel_id,
+                channel_name="test-channel",
+                is_active=False,
+                created_at="2024-01-01T12:00:00",
+                updated_at="2024-01-01T12:00:00",
+            )
+
+            request = channel_schemas.ChannelConfigUpdateRequest(is_active=False)
+            result = await channels.update_channel_config(
+                mock_channel_config.id, request, mock_current_user, mock_db
+            )
+
+            mock_get_channel.assert_called_once_with(mock_db, mock_channel_config.id)
+            mock_update.assert_called_once_with(mock_channel_config, is_active=False)
+            assert result.is_active is False

@@ -41,6 +41,8 @@ async def create_guild_config(
     """
     Create new guild configuration.
 
+    Does not commit. Caller must commit transaction.
+
     Args:
         db: Database session
         guild_discord_id: Discord guild snowflake ID
@@ -51,18 +53,18 @@ async def create_guild_config(
     """
     guild_config = GuildConfiguration(guild_id=guild_discord_id, **settings)
     db.add(guild_config)
-    await db.commit()
-    await db.refresh(guild_config)
+    await db.flush()
     return guild_config
 
 
 async def update_guild_config(
-    db: AsyncSession,
     guild_config: GuildConfiguration,
     **updates: Any,  # noqa: ANN401
 ) -> GuildConfiguration:
     """
     Update guild configuration.
+
+    Does not commit. Caller must commit transaction.
 
     Args:
         db: Database session
@@ -75,8 +77,6 @@ async def update_guild_config(
     for key, value in updates.items():
         setattr(guild_config, key, value)
 
-    await db.commit()
-    await db.refresh(guild_config)
     return guild_config
 
 

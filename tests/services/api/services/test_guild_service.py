@@ -32,8 +32,7 @@ async def test_create_guild_config():
     """Test creating a new guild configuration."""
     mock_db = AsyncMock()
     mock_db.add = Mock()
-    mock_db.commit = AsyncMock()
-    mock_db.refresh = AsyncMock()
+    mock_db.flush = AsyncMock()
 
     guild_discord_id = "123456789012345678"
     settings = {
@@ -44,8 +43,7 @@ async def test_create_guild_config():
     await guild_service.create_guild_config(mock_db, guild_discord_id, **settings)
 
     mock_db.add.assert_called_once()
-    mock_db.commit.assert_awaited_once()
-    mock_db.refresh.assert_awaited_once()
+    mock_db.flush.assert_awaited_once()
 
     added_guild = mock_db.add.call_args[0][0]
     assert isinstance(added_guild, GuildConfiguration)
@@ -57,10 +55,6 @@ async def test_create_guild_config():
 @pytest.mark.asyncio
 async def test_update_guild_config():
     """Test updating a guild configuration."""
-    mock_db = AsyncMock()
-    mock_db.commit = AsyncMock()
-    mock_db.refresh = AsyncMock()
-
     guild_config = GuildConfiguration(
         guild_id="123456789012345678",
         bot_manager_role_ids=["role1"],
@@ -72,21 +66,15 @@ async def test_update_guild_config():
         "require_host_role": True,
     }
 
-    await guild_service.update_guild_config(mock_db, guild_config, **updates)
+    await guild_service.update_guild_config(guild_config, **updates)
 
     assert guild_config.bot_manager_role_ids == ["role1", "role2", "role3"]
     assert guild_config.require_host_role is True
-    mock_db.commit.assert_awaited_once()
-    mock_db.refresh.assert_awaited_once()
 
 
 @pytest.mark.asyncio
 async def test_update_guild_config_ignores_none_values():
     """Test that update ignores None values."""
-    mock_db = AsyncMock()
-    mock_db.commit = AsyncMock()
-    mock_db.refresh = AsyncMock()
-
     guild_config = GuildConfiguration(
         guild_id="123456789012345678",
         bot_manager_role_ids=["role1"],
@@ -98,12 +86,10 @@ async def test_update_guild_config_ignores_none_values():
         "require_host_role": None,  # Will be set to None
     }
 
-    await guild_service.update_guild_config(mock_db, guild_config, **updates)
+    await guild_service.update_guild_config(guild_config, **updates)
 
     assert guild_config.bot_manager_role_ids == ["role2"]
     assert guild_config.require_host_role is None  # Updated to None
-    mock_db.commit.assert_awaited_once()
-    mock_db.refresh.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -145,8 +131,6 @@ async def test_sync_user_guilds_expands_rls_context_for_new_guilds(
     mock_execute_result.scalars.return_value.all.return_value = []
     mock_db.execute = AsyncMock(return_value=mock_execute_result)
     mock_db.add = Mock()
-    mock_db.commit = AsyncMock()
-    mock_db.refresh = AsyncMock()
 
     # Current RLS context has some existing guilds
     mock_get_current_guild_ids.return_value = ["existing_guild_1", "existing_guild_2"]
@@ -174,7 +158,6 @@ async def test_sync_user_guilds_expands_rls_context_for_new_guilds(
     assert result["new_guilds"] == 1
     assert result["new_channels"] == 0
     mock_db.add.assert_called_once()
-    mock_db.commit.assert_awaited()
 
 
 class TestSyncUserGuildsHelpers:
@@ -343,8 +326,6 @@ class TestSyncUserGuildsHelpers:
         """Test creating guild with text channels and template."""
         mock_db = AsyncMock()
         mock_db.add = Mock()
-        mock_db.commit = AsyncMock()
-        mock_db.refresh = AsyncMock()
 
         mock_discord_client = AsyncMock()
         mock_discord_client.get_guild_channels = AsyncMock(
@@ -377,7 +358,6 @@ class TestSyncUserGuildsHelpers:
 
         # Verify guild was created
         mock_db.add.assert_called()
-        mock_db.commit.assert_awaited()
 
         # Verify channel configs were created (2 text channels)
         assert mock_create_channel.call_count == 2
@@ -390,8 +370,6 @@ class TestSyncUserGuildsHelpers:
         """Test creating guild when no channels exist."""
         mock_db = AsyncMock()
         mock_db.add = Mock()
-        mock_db.commit = AsyncMock()
-        mock_db.refresh = AsyncMock()
 
         mock_discord_client = AsyncMock()
         mock_discord_client.get_guild_channels = AsyncMock(return_value=[])
@@ -409,7 +387,6 @@ class TestSyncUserGuildsHelpers:
 
         # Verify guild was created
         mock_db.add.assert_called()
-        mock_db.commit.assert_awaited()
 
     @pytest.mark.asyncio
     @patch("services.api.services.guild_service.channel_service.create_channel_config")
@@ -419,8 +396,6 @@ class TestSyncUserGuildsHelpers:
         """Test creating guild when only voice channels exist."""
         mock_db = AsyncMock()
         mock_db.add = Mock()
-        mock_db.commit = AsyncMock()
-        mock_db.refresh = AsyncMock()
 
         mock_discord_client = AsyncMock()
         mock_discord_client.get_guild_channels = AsyncMock(
