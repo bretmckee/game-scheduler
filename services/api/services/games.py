@@ -530,6 +530,8 @@ class GameService:
         """
         Create new game session from template with optional pre-populated participants.
 
+        Does not commit. Caller must commit transaction.
+
         Args:
             game_data: Game creation data with template_id
             host_user_id: Host's database user ID (UUID)
@@ -629,8 +631,6 @@ class GameService:
             resolved_fields["reminder_minutes"],
             resolved_fields["expected_duration_minutes"],
         )
-
-        await self.db.commit()
 
         # Reload game with relationships
         game = await self.get_game(game.id)
@@ -1299,6 +1299,8 @@ class GameService:
         """
         Update game session with Bot Manager authorization.
 
+        Does not commit. Caller must commit transaction.
+
         Args:
             game_id: Game session UUID
             update_data: Update data
@@ -1370,8 +1372,6 @@ class GameService:
             game, schedule_needs_update, status_schedule_needs_update
         )
 
-        await self.db.commit()
-
         # Refresh game object to get updated relationships from database
         await self.db.refresh(game, ["participants"])
 
@@ -1397,6 +1397,8 @@ class GameService:
     ) -> None:
         """
         Cancel game session with Bot Manager authorization.
+
+        Does not commit. Caller must commit transaction.
 
         Args:
             game_id: Game session UUID
@@ -1442,7 +1444,6 @@ class GameService:
             await self.db.delete(status_schedule)
 
         game.status = game_model.GameStatus.CANCELLED.value
-        await self.db.commit()
 
         # Reload game with relationships for event publishing
         game = await self.get_game(game.id)
@@ -1460,6 +1461,8 @@ class GameService:
     ) -> participant_model.GameParticipant:
         """
         Join game as participant.
+
+        Does not commit. Caller must commit transaction.
 
         Args:
             game_id: Game session UUID
@@ -1530,7 +1533,7 @@ class GameService:
         )
         self.db.add(participant)
         try:
-            await self.db.commit()
+            await self.db.flush()
             await self.db.refresh(participant)
         except IntegrityError:
             msg = "User has already joined this game"
@@ -1544,7 +1547,6 @@ class GameService:
             game_scheduled_at=game.scheduled_at,
             delay_seconds=60,
         )
-        await self.db.commit()
 
         # Reload game with relationships for event publishing
         game = await self.get_game(game_id)
@@ -1564,6 +1566,8 @@ class GameService:
     ) -> None:
         """
         Leave game as participant.
+
+        Does not commit. Caller must commit transaction.
 
         Args:
             game_id: Game session UUID
@@ -1617,8 +1621,7 @@ class GameService:
 
         # Remove participant
         await self.db.delete(participant)
-        await self.db.commit()
-        logger.info("Participant deleted and committed")
+        logger.info("Participant deleted")
 
         # Reload game with relationships for event publishing
         game = await self.get_game(game_id)

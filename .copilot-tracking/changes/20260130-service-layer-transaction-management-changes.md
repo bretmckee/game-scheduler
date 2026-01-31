@@ -26,5 +26,7 @@ Restore transaction atomicity by removing premature commits from service layer f
 - tests/services/bot/events/test_handlers.py - Added 8 tests for new validation helper methods with comprehensive coverage of success and error paths
 - services/api/services/template_service.py - Removed all 6 commits from CRUD operations (create_template, create_default_template, update_template, set_default, delete_template, reorder_templates), replaced with flush for ID generation where needed, added transaction docstring notes
 - tests/services/api/services/test_template_service.py - Updated all 6 test functions (test_create_template, test_create_default_template, test_update_template, test_set_default, test_delete_template, test_reorder_templates) to expect flush instead of commit, removed refresh assertions, verified all tests pass
+- services/api/services/games.py - Removed all 6 commits from game operations (create_game, update_game, delete_game, join_game, leave_game), replaced with flush in join_game for ID generation, added transaction docstring notes to all public methods
+- tests/services/api/services/test_games.py - Removed commit assertions from 6 test functions (test_update_game_fields, test_update_game_where_field, test_delete_game_success, test_leave_game_success, test_join_game_success, test_join_game_already_joined), updated to expect flush instead of commit where appropriate, verified all tests pass
 
 ### Removed

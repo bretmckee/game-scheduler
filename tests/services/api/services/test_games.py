@@ -1763,7 +1763,6 @@ async def test_update_game_success(game_service, mock_db, sample_user, sample_gu
         )
 
     assert updated.title == "New Title"
-    mock_db.commit.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -1808,7 +1807,6 @@ async def test_update_game_where_field(game_service, mock_db, sample_user, sampl
         )
 
     assert updated.where == "New Location"
-    mock_db.commit.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -1896,7 +1894,6 @@ async def test_delete_game_success(game_service, mock_db, sample_user, sample_gu
         )
 
     assert mock_game.status == "CANCELLED"
-    mock_db.commit.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -1943,15 +1940,15 @@ async def test_join_game_success(
         ]
     )
     mock_db.add = MagicMock()
-    mock_db.commit = AsyncMock()
+    mock_db.flush = AsyncMock()
 
     mock_participant_resolver.ensure_user_exists = AsyncMock(return_value=new_user)
 
     await game_service.join_game(game_id=game_id, user_discord_id=new_user.discord_id)
 
     mock_db.add.assert_called()
-    # Commit is called twice: once for participant, once for join notification
-    assert mock_db.commit.call_count == 2
+    # Flush is called twice: once for participant ID, once in schedule_join_notification
+    assert mock_db.flush.call_count == 2
 
 
 @pytest.mark.asyncio
@@ -1998,8 +1995,8 @@ async def test_join_game_already_joined(
         side_effect=[game_result, count_result, guild_result, channel_result]
     )
 
-    # Simulate IntegrityError on commit (duplicate key violation)
-    mock_db.commit = AsyncMock(side_effect=IntegrityError("statement", {}, "orig"))
+    # Simulate IntegrityError on flush (duplicate key violation)
+    mock_db.flush = AsyncMock(side_effect=IntegrityError("statement", {}, "orig"))
     mock_db.add = MagicMock()
 
     mock_participant_resolver.ensure_user_exists = AsyncMock(return_value=sample_user)
@@ -2095,7 +2092,6 @@ async def test_leave_game_success(game_service, mock_db, sample_user):
     await game_service.leave_game(game_id=game_id, user_discord_id=sample_user.discord_id)
 
     mock_db.delete.assert_called_once_with(mock_participant)
-    mock_db.commit.assert_called_once()
 
 
 @pytest.mark.asyncio
