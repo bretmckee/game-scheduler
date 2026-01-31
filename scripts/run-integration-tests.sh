@@ -7,20 +7,22 @@ set -e
 # Environment file location
 ENV_FILE="config/env.int"
 
-cleanup() {
-  if [ -n "$SKIP_CLEANUP" ]; then
-    echo "Skipping integration test environment cleanup (SKIP_CLEANUP is set)"
-    return
-  fi
-  echo "Cleaning up integration test environment..."
-  docker compose --env-file "$ENV_FILE" down -v
-}
-
-trap cleanup EXIT
+if [ -z "$ASSUME_SYSTEM_READY" ]; then
+  cleanup() {
+    echo "Cleaning up integration test environment..."
+    docker compose --env-file "$ENV_FILE" down -v
+  }
+  trap cleanup EXIT
+fi
 
 echo "Running integration tests..."
-# Ensure full stack (including init) is healthy before running tests
-docker compose --env-file "$ENV_FILE" up -d --build system-ready
+
+if [ -z "$ASSUME_SYSTEM_READY" ]; then
+  # Ensure full stack (including init) is healthy before running tests
+  docker compose --env-file "$ENV_FILE" up -d --build system-ready
+else
+  echo "Skipping system-ready startup and cleanup (ASSUME_SYSTEM_READY is set)"
+fi
 
 # Build if needed, then run tests without restarting dependencies
 # When $@ is empty, compose uses command field; when present, it overrides
