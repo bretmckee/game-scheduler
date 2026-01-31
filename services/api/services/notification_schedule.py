@@ -57,6 +57,8 @@ class NotificationScheduleService:
         Creates notification_schedule records for each reminder time that
         falls in the future. PostgreSQL trigger automatically sends NOTIFY.
 
+        Does not commit. Caller must commit transaction.
+
         Args:
             game: Game session to schedule notifications for
             reminder_minutes: List of reminder times in minutes before game
@@ -105,6 +107,8 @@ class NotificationScheduleService:
         Deletes existing schedule records and creates new ones based on
         current game.scheduled_at and reminder_minutes values.
 
+        Does not commit. Caller must commit transaction.
+
         Args:
             game: Game session to update schedule for
             reminder_minutes: List of reminder times in minutes before game
@@ -126,6 +130,8 @@ class NotificationScheduleService:
 
         This is typically not needed since ON DELETE CASCADE handles cleanup,
         but provided for explicit cleanup if needed.
+
+        Does not commit. Caller must commit transaction.
 
         Args:
             game_id: Game session UUID
@@ -151,6 +157,9 @@ async def schedule_join_notification(
     Creates a notification_schedule entry that will trigger a notification
     after the specified delay. If the participant is removed before the
     notification time, the schedule is automatically cancelled via CASCADE delete.
+
+    Does not commit. Caller must commit transaction. Uses flush() to generate
+    schedule ID immediately.
 
     Args:
         db: Database session

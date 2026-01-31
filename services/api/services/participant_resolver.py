@@ -392,6 +392,9 @@ class ParticipantResolver:
         """
         Ensure user exists in database, create if not.
 
+        Does not commit. Caller must commit transaction. Uses flush() to
+        generate user ID if creating new user.
+
         Args:
             db: Database session
             discord_id: Discord user snowflake ID
