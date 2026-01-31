@@ -206,8 +206,8 @@ async def test_create_template(template_service, mock_db):
     )
 
     mock_db.add.assert_called_once()
-    mock_db.commit.assert_awaited_once()
-    mock_db.refresh.assert_awaited_once()
+    mock_db.flush.assert_awaited_once()
+    mock_db.commit.assert_not_awaited()
 
     added_template = mock_db.add.call_args[0][0]
     assert isinstance(added_template, GameTemplate)
@@ -228,8 +228,8 @@ async def test_create_default_template(template_service, mock_db):
     )
 
     mock_db.add.assert_called_once()
-    mock_db.commit.assert_awaited_once()
-    mock_db.refresh.assert_awaited_once()
+    mock_db.flush.assert_awaited_once()
+    mock_db.commit.assert_not_awaited()
 
     added_template = mock_db.add.call_args[0][0]
     assert isinstance(added_template, GameTemplate)
@@ -252,8 +252,7 @@ async def test_update_template(template_service, mock_db, sample_template):
     assert sample_template.name == "Updated Name"
     assert sample_template.max_players == 10
     assert sample_template.description == "Updated description"
-    mock_db.commit.assert_awaited_once()
-    mock_db.refresh.assert_awaited_once()
+    mock_db.commit.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -282,8 +281,7 @@ async def test_set_default(template_service, mock_db, sample_template):
 
     assert template.is_default is True
     assert mock_db.execute.await_count == 2  # One for select, one for update
-    mock_db.commit.assert_awaited_once()
-    mock_db.refresh.assert_awaited_once()
+    mock_db.commit.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -307,7 +305,7 @@ async def test_delete_template(template_service, mock_db, sample_template):
     await template_service.delete_template("template-uuid-1")
 
     mock_db.delete.assert_awaited_once_with(sample_template)
-    mock_db.commit.assert_awaited_once()
+    mock_db.commit.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -386,8 +384,7 @@ async def test_reorder_templates(template_service, mock_db):
     assert len(templates) == 2
     assert template1.order == 5
     assert template2.order == 3
-    mock_db.commit.assert_awaited_once()
-    assert mock_db.refresh.await_count == 2
+    mock_db.commit.assert_not_awaited()
 
 
 @pytest.mark.asyncio

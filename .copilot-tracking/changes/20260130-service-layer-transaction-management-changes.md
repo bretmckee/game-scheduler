@@ -24,5 +24,7 @@ Restore transaction atomicity by removing premature commits from service layer f
 - tests/services/api/services/test_channel_service.py - Updated tests to verify no commits in service layer, expect flush for ID generation, removed db parameter from update tests
 - tests/services/api/routes/test_channels.py - Added test_update_channel_config_success to verify route-level transaction handling
 - tests/services/bot/events/test_handlers.py - Added 8 tests for new validation helper methods with comprehensive coverage of success and error paths
+- services/api/services/template_service.py - Removed all 6 commits from CRUD operations (create_template, create_default_template, update_template, set_default, delete_template, reorder_templates), replaced with flush for ID generation where needed, added transaction docstring notes
+- tests/services/api/services/test_template_service.py - Updated all 6 test functions (test_create_template, test_create_default_template, test_update_template, test_set_default, test_delete_template, test_reorder_templates) to expect flush instead of commit, removed refresh assertions, verified all tests pass
 
 ### Removed

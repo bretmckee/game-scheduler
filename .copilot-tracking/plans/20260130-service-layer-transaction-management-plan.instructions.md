@@ -55,13 +55,13 @@ Restore transaction atomicity by removing premature commits from service layer f
 
   - Details: .copilot-tracking/details/20260130-service-layer-transaction-management-details.md (Lines 59-77)
 
-### [ ] Phase 2: Template Service Refactoring
+### [x] Phase 2: Template Service Refactoring
 
-- [ ] Task 2.1: Remove commits from template_service.py
+- [x] Task 2.1: Remove commits from template_service.py
 
   - Details: .copilot-tracking/details/20260130-service-layer-transaction-management-details.md (Lines 81-102)
 
-- [ ] Task 2.2: Update template service tests
+- [x] Task 2.2: Update template service tests
 
   - Details: .copilot-tracking/details/20260130-service-layer-transaction-management-details.md (Lines 104-119)
 

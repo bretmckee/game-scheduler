@@ -118,6 +118,8 @@ class TemplateService:
         """
         Create new template.
 
+        Does not commit. Caller must commit transaction.
+
         Args:
             guild_id: Guild UUID
             channel_id: Channel UUID
@@ -134,13 +136,14 @@ class TemplateService:
             **fields,
         )
         self.db.add(template)
-        await self.db.commit()
-        await self.db.refresh(template, ["channel"])
+        await self.db.flush()
         return template
 
     async def create_default_template(self, guild_id: str, channel_id: str) -> GameTemplate:
         """
         Create default template for guild initialization.
+
+        Does not commit. Caller must commit transaction.
 
         Args:
             guild_id: Guild UUID
@@ -158,8 +161,7 @@ class TemplateService:
             order=0,
         )
         self.db.add(template)
-        await self.db.commit()
-        await self.db.refresh(template, ["channel"])
+        await self.db.flush()
         return template
 
     async def update_template(
@@ -169,6 +171,8 @@ class TemplateService:
     ) -> GameTemplate:
         """
         Update template.
+
+        Does not commit. Caller must commit transaction.
 
         Args:
             template: Existing template
@@ -181,13 +185,13 @@ class TemplateService:
             if value is not None:
                 setattr(template, key, value)
 
-        await self.db.commit()
-        await self.db.refresh(template, ["channel"])
         return template
 
     async def set_default(self, template_id: str) -> GameTemplate:
         """
         Set template as default, unsetting others in the same guild.
+
+        Does not commit. Caller must commit transaction.
 
         Args:
             template_id: Template UUID to set as default
@@ -218,13 +222,13 @@ class TemplateService:
         )
 
         template.is_default = True
-        await self.db.commit()
-        await self.db.refresh(template, ["channel"])
         return template
 
     async def delete_template(self, template_id: str) -> None:
         """
         Delete template.
+
+        Does not commit. Caller must commit transaction.
 
         Args:
             template_id: Template UUID to delete
@@ -243,11 +247,12 @@ class TemplateService:
             raise ValueError(msg)
 
         await self.db.delete(template)
-        await self.db.commit()
 
     async def reorder_templates(self, template_orders: list[dict[str, int]]) -> list[GameTemplate]:
         """
         Bulk reorder templates.
+
+        Does not commit. Caller must commit transaction.
 
         Args:
             template_orders: List of dicts with template_id and order
@@ -272,9 +277,5 @@ class TemplateService:
             if template:
                 template.order = order
                 templates.append(template)
-
-        await self.db.commit()
-        for template in templates:
-            await self.db.refresh(template, ["channel"])
 
         return templates
