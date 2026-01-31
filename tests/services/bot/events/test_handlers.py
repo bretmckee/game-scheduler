@@ -173,6 +173,82 @@ async def test_handle_game_created_invalid_channel(event_handlers, mock_bot):
 
 
 @pytest.mark.asyncio
+async def test_validate_game_created_event_success(event_handlers):
+    """Test successful validation of game.created event."""
+    result = await event_handlers._validate_game_created_event("game123", "channel456")
+    assert result == ("game123", "channel456")
+
+
+@pytest.mark.asyncio
+async def test_validate_game_created_event_missing_game_id(event_handlers):
+    """Test validation fails with missing game_id."""
+    result = await event_handlers._validate_game_created_event(None, "channel456")
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_validate_game_created_event_missing_channel_id(event_handlers):
+    """Test validation fails with missing channel_id."""
+    result = await event_handlers._validate_game_created_event("game123", None)
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_validate_discord_channel_success(event_handlers):
+    """Test successful Discord channel validation."""
+    with patch("services.bot.events.handlers.get_discord_client") as mock_client:
+        mock_api = AsyncMock()
+        mock_api.fetch_channel.return_value = {"id": "123"}
+        mock_client.return_value = mock_api
+
+        result = await event_handlers._validate_discord_channel("123")
+        assert result is True
+
+
+@pytest.mark.asyncio
+async def test_validate_discord_channel_invalid(event_handlers):
+    """Test Discord channel validation with invalid channel."""
+    with patch("services.bot.events.handlers.get_discord_client") as mock_client:
+        mock_api = AsyncMock()
+        mock_api.fetch_channel.return_value = None
+        mock_client.return_value = mock_api
+
+        result = await event_handlers._validate_discord_channel("invalid")
+        assert result is False
+
+
+@pytest.mark.asyncio
+async def test_get_bot_channel_success(event_handlers, mock_bot):
+    """Test getting bot channel successfully."""
+    mock_channel = MagicMock(spec=discord.TextChannel)
+    mock_bot.get_channel.return_value = mock_channel
+
+    result = await event_handlers._get_bot_channel("123")
+    assert result == mock_channel
+
+
+@pytest.mark.asyncio
+async def test_get_bot_channel_fetch_required(event_handlers, mock_bot):
+    """Test getting bot channel requires fetching."""
+    mock_channel = AsyncMock(spec=discord.TextChannel)
+    mock_bot.get_channel.return_value = None
+    mock_bot.fetch_channel.return_value = mock_channel
+
+    result = await event_handlers._get_bot_channel("123")
+    assert result == mock_channel
+
+
+@pytest.mark.asyncio
+async def test_get_bot_channel_invalid_type(event_handlers, mock_bot):
+    """Test getting bot channel with invalid channel type."""
+    mock_channel = MagicMock()
+    mock_bot.get_channel.return_value = mock_channel
+
+    result = await event_handlers._get_bot_channel("123")
+    assert result is None
+
+
+@pytest.mark.asyncio
 async def test_handle_game_updated_success(event_handlers, mock_bot, sample_game, sample_user):
     """Test game.updated event handler processes without errors."""
     sample_game.host = sample_user

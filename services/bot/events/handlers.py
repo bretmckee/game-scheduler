@@ -162,6 +162,35 @@ class EventHandlers:
             logger.exception("Error processing event %s: %s", event.event_type, e)
             raise
 
+    async def _validate_game_created_event(
+        self, game_id: str | None, channel_id: str | None
+    ) -> tuple[str, str] | None:
+        """Validate game.created event has required fields."""
+        if not game_id or not channel_id:
+            logger.error("Missing game_id or channel_id in game.created event")
+            return None
+        return (game_id, channel_id)
+
+    async def _validate_discord_channel(self, channel_id: str) -> bool:
+        """Validate channel exists and is accessible via Discord API."""
+        discord_api = get_discord_client()
+        channel_data = await discord_api.fetch_channel(channel_id)
+        if not channel_data:
+            logger.error("Invalid or inaccessible channel: %s", channel_id)
+            return False
+        return True
+
+    async def _get_bot_channel(self, channel_id: str) -> discord.TextChannel | None:
+        """Get Discord channel object from bot, fetching if necessary."""
+        channel = self.bot.get_channel(int(channel_id))
+        if not channel:
+            channel = await self.bot.fetch_channel(int(channel_id))
+
+        if not channel or not isinstance(channel, discord.TextChannel):
+            logger.error("Invalid channel: %s", channel_id)
+            return None
+        return channel
+
     async def _handle_game_created(self, data: dict[str, Any]) -> None:
         """
         Handle game.created event by posting announcement to Discord.
@@ -169,19 +198,15 @@ class EventHandlers:
         Args:
             data: Event payload with game details
         """
-        game_id = data.get("game_id")
-        channel_id = data.get("channel_id")
-
-        if not game_id or not channel_id:
-            logger.error("Missing game_id or channel_id in game.created event")
+        validated = await self._validate_game_created_event(
+            data.get("game_id"), data.get("channel_id")
+        )
+        if not validated:
             return
+        game_id, channel_id = validated
 
         try:
-            discord_api = get_discord_client()
-            channel_data = await discord_api.fetch_channel(channel_id)
-
-            if not channel_data:
-                logger.error("Invalid or inaccessible channel: %s", channel_id)
+            if not await self._validate_discord_channel(channel_id):
                 return
 
             async with get_db_session() as db:
@@ -192,12 +217,8 @@ class EventHandlers:
 
                 content, embed, view = await self._create_game_announcement(game)
 
-                channel = self.bot.get_channel(int(channel_id))
+                channel = await self._get_bot_channel(channel_id)
                 if not channel:
-                    channel = await self.bot.fetch_channel(int(channel_id))
-
-                if not channel or not isinstance(channel, discord.TextChannel):
-                    logger.error("Invalid channel: %s", channel_id)
                     return
 
                 message = await channel.send(content=content, embed=embed, view=view)
