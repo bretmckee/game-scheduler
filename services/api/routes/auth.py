@@ -114,7 +114,6 @@ async def callback(
     if not existing_user:
         new_user = user_model.User(discord_id=discord_id)
         db.add(new_user)
-        await db.commit()
         logger.info("Created new user with Discord ID: %s", discord_id)
 
     session_token = await tokens.store_user_tokens(
