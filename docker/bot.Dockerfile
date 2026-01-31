@@ -2,13 +2,15 @@
 # Multi-stage build for Discord Bot Service
 FROM python:3.13-slim AS base
 
+ARG CACHE_SHARING_MODE=private
+
 # Configure apt to keep downloaded packages for cache mount
 RUN rm -f /etc/apt/apt.conf.d/docker-clean; \
     echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
 
 # Install system dependencies with cache mount
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=${CACHE_SHARING_MODE} \
+    --mount=type=cache,target=/var/lib/apt,sharing=${CACHE_SHARING_MODE} \
     apt-get update && apt-get install -y \
     gcc \
     postgresql-client \
@@ -53,9 +55,11 @@ CMD ["python", "-m", "services.bot.main"]
 # Production stage
 FROM python:3.13-slim AS production
 
+ARG CACHE_SHARING_MODE=private
+
 # Install runtime dependencies only
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=${CACHE_SHARING_MODE} \
+    --mount=type=cache,target=/var/lib/apt,sharing=${CACHE_SHARING_MODE} \
     apt-get update && apt-get install -y \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*

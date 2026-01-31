@@ -25,7 +25,10 @@ x-logging-default: &logging-default
 
 services:
   postgres:
-    image: postgres:18-alpine
+    # Pin to specific patch version to avoid breaking changes in Docker image updates
+    # PostgreSQL 18.1 is compatible with the /var/lib/postgresql volume mount structure
+    # See: https://github.com/docker-library/postgres/pull/1259
+    image: postgres:18.1-alpine
     container_name: ${CONTAINER_PREFIX:-gamebot}-postgres
     command: [
       "postgres",
@@ -36,7 +39,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
@@ -97,6 +100,8 @@ services:
     build:
       context: .
       dockerfile: docker/init.Dockerfile
+      args:
+        CACHE_SHARING_MODE: ${CACHE_SHARING_MODE:-private}
       tags:
         - ${IMAGE_REGISTRY:-}game-scheduler-init:${IMAGE_TAG:-latest}
       x-bake:
@@ -151,6 +156,8 @@ services:
     build:
       context: .
       dockerfile: docker/bot.Dockerfile
+      args:
+        CACHE_SHARING_MODE: ${CACHE_SHARING_MODE:-private}
       tags:
         - ${IMAGE_REGISTRY:-}game-scheduler-bot:${IMAGE_TAG:-latest}
       x-bake:
@@ -193,6 +200,8 @@ services:
     build:
       context: .
       dockerfile: docker/api.Dockerfile
+      args:
+        CACHE_SHARING_MODE: ${CACHE_SHARING_MODE:-private}
       tags:
         - ${IMAGE_REGISTRY:-}game-scheduler-api:${IMAGE_TAG:-latest}
       x-bake:
@@ -240,6 +249,8 @@ services:
     build:
       context: .
       dockerfile: docker/notification-daemon.Dockerfile
+      args:
+        CACHE_SHARING_MODE: ${CACHE_SHARING_MODE:-private}
       tags:
         - ${IMAGE_REGISTRY:-}game-scheduler-notification-daemon:${IMAGE_TAG:-latest}
       x-bake:
@@ -287,6 +298,8 @@ services:
     build:
       context: .
       dockerfile: docker/status-transition-daemon.Dockerfile
+      args:
+        CACHE_SHARING_MODE: ${CACHE_SHARING_MODE:-private}
       tags:
         - ${IMAGE_REGISTRY:-}game-scheduler-status-transition-daemon:${IMAGE_TAG:-latest}
       x-bake:
@@ -334,6 +347,8 @@ services:
     build:
       context: .
       dockerfile: docker/retry.Dockerfile
+      args:
+        CACHE_SHARING_MODE: ${CACHE_SHARING_MODE:-private}
       tags:
         - ${IMAGE_REGISTRY:-}game-scheduler-retry-daemon:${IMAGE_TAG:-latest}
       x-bake:

@@ -85,6 +85,8 @@ services:
     build:
       context: .
       dockerfile: docker/test.Dockerfile
+      args:
+        CACHE_SHARING_MODE: ${CACHE_SHARING_MODE:-private}
     container_name: ${CONTAINER_PREFIX:-gamebot-integration}-tests
     volumes:
       - ./coverage:/app/coverage:rw

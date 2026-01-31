@@ -31,11 +31,21 @@ RUN rm -f /etc/apt/apt.conf.d/docker-clean; \
 ```
 
 ### 3. Apt Package Cache Mounts
-All `apt-get install` commands now use cache mounts:
+All `apt-get install` commands now use cache mounts with configurable sharing:
 ```dockerfile
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+ARG CACHE_SHARING_MODE=locked
+RUN --mount=type=cache,target=/var/cache/apt,sharing=${CACHE_SHARING_MODE} \
+    --mount=type=cache,target=/var/lib/apt,sharing=${CACHE_SHARING_MODE} \
     apt-get update && apt-get install -y [packages]
+```
+
+The sharing mode can be controlled via environment variable (defaults to `private`):
+```bash
+# Default: private mode (parallel builds, more disk space)
+docker compose build
+
+# Override: locked mode (serialized builds, less disk space, better for limited bandwidth)
+CACHE_SHARING_MODE=locked docker compose build
 ```
 
 ### 4. Python Package Cache Mounts
@@ -68,9 +78,22 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 ### Cache Mount Behavior
 - **Persistent**: Cache survives across builds and rebuilds
-- **Shared**: Available to all services during parallel builds
-- **Locked**: Apt uses `sharing=locked` to prevent concurrent access conflicts
+- **Configurable Sharing**: Choose between `private` (parallel) or `locked` (serialized) modes
+  - `private` (default): Each service gets its own cache copy, enables parallel builds
+  - `locked`: Serializes access when multiple services build simultaneously, saves disk space
 - **Automatic**: BuildKit manages cache size and eviction
+
+### Cache Sharing Trade-offs
+
+**Private Mode (default):**
+- ✅ Parallel builds work without waiting
+- ✅ Best for good network bandwidth
+- ⚠️  Uses more disk space (separate cache per service)
+
+**Locked Mode:**
+- ✅ Minimal disk usage (shared cache)
+- ✅ Best for limited network bandwidth
+- ⚠️  Services wait for cache access (serialized builds)
 
 ### Cache Locations
 - `/var/cache/apt` - Downloaded .deb files
