@@ -179,15 +179,23 @@ repos:
   # Duplicate code detection
   - repo: local
     hooks:
-      # Automatic check: only fails if duplicates overlap with your changed lines
-      - id: jscpd-diff
-        name: Check for duplicates in changed lines
-        entry: bash -c 'jscpd services shared frontend/src --config .jscpd.json --threshold 100 --format json --output .jscpd-report && python scripts/check_commit_duplicates.py .jscpd-report/jscpd-report.json'
+      # Step 1: Generate duplicate code report (runs in isolated node environment)
+      - id: jscpd-generate
+        name: Generate duplicate code report
+        entry: jscpd services shared frontend/src --config .jscpd.json --threshold 100 --reporters json --output .jscpd-report
         language: node
         pass_filenames: false
         types_or: [python, ts, tsx, javascript]
-        verbose: true
         additional_dependencies: ['jscpd']
+
+      # Step 2: Check if duplicates overlap with changed lines (runs in Python environment)
+      - id: jscpd-diff
+        name: Check for duplicates in changed lines
+        entry: python scripts/check_commit_duplicates.py .jscpd-report/jscpd-report.json
+        language: python
+        pass_filenames: false
+        types_or: [python, ts, tsx, javascript]
+        verbose: true
 
       # Full scan with detailed console output (manual, for investigation)
       - id: jscpd-full

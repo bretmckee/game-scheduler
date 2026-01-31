@@ -187,14 +187,7 @@ def main(report_file: str) -> int:
     changed_line_ranges = get_changed_line_ranges()
 
     if not changed_line_ranges:
-        print("✅ No source files changed")
         return 0
-
-    total_changed_lines = sum(len(lines) for lines in changed_line_ranges.values())
-    print(
-        f"Checking {len(changed_line_ranges)} files "
-        f"({total_changed_lines} changed lines) against codebase..."
-    )
 
     if not Path(report_file).exists():
         print(f"⚠️  Report file not found: {report_file}")
@@ -207,9 +200,13 @@ def main(report_file: str) -> int:
     commit_related_duplicates = _find_commit_related_duplicates(duplicates, changed_line_ranges)
 
     if commit_related_duplicates:
+        total_changed_lines = sum(len(lines) for lines in changed_line_ranges.values())
+        print(
+            f"Checking {len(changed_line_ranges)} files "
+            f"({total_changed_lines} changed lines) against codebase..."
+        )
         _print_duplicate_report(commit_related_duplicates)
         return 1
-    print("✅ No duplicates found in your changed lines")
     return 0
 
 
