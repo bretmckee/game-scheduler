@@ -1374,7 +1374,7 @@ async def test_create_game_without_participants(
     assert game.title == "Test Game"
     assert game.host_id == sample_user.id
     mock_db.add.assert_called()
-    mock_event_publisher.publish.assert_called_once()
+    mock_event_publisher.publish_deferred.assert_called_once()
 
 
 @pytest.mark.asyncio

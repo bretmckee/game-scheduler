@@ -24,7 +24,7 @@ test_games_image_upload.py, test_update_game_fields_helpers.py).
 
 Fixtures Provided:
 - mock_db: AsyncMock of AsyncSession for database operations
-- mock_event_publisher: AsyncMock of EventPublisher for event publishing
+- mock_event_publisher: AsyncMock of DeferredEventPublisher for event publishing
 - mock_discord_client: MagicMock of DiscordClient for Discord API operations
 - mock_participant_resolver: AsyncMock of participant resolver functions
 - game_service: Configured GameService instance with all mocks
@@ -52,7 +52,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from services.api.services import games as games_service
 from services.api.services import participant_resolver as resolver_module
 from shared.discord import client as discord_client_module
-from shared.messaging import publisher as messaging_publisher
+from shared.messaging import deferred_publisher as messaging_deferred_publisher
 from shared.models import channel as channel_model
 from shared.models import guild as guild_model
 from shared.models import user as user_model
@@ -66,9 +66,9 @@ def mock_db():
 
 @pytest.fixture
 def mock_event_publisher():
-    """Mock event publisher for game events."""
-    publisher = AsyncMock(spec=messaging_publisher.EventPublisher)
-    publisher.publish = AsyncMock()
+    """Mock deferred event publisher for game events."""
+    publisher = AsyncMock(spec=messaging_deferred_publisher.DeferredEventPublisher)
+    publisher.publish_deferred = MagicMock()
     return publisher
 
 

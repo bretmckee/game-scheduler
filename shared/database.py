@@ -18,6 +18,8 @@
 
 """Database connection and session management."""
 
+import asyncio
+import logging
 import os
 from collections.abc import AsyncGenerator, Generator
 from contextlib import contextmanager
@@ -25,6 +27,7 @@ from typing import Any
 
 from fastapi import Depends
 from sqlalchemy import create_engine as create_sync_engine
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -32,6 +35,8 @@ from shared.data_access.guild_isolation import (
     clear_current_guild_ids,
 )
 from shared.schemas.auth import CurrentUser
+
+logger = logging.getLogger(__name__)
 
 # Base PostgreSQL URL without driver specification
 _raw_database_url = os.getenv(
@@ -189,3 +194,74 @@ def get_sync_db_session() -> Generator[Session]:
         raise
     finally:
         session.close()
+
+
+# Event listeners for deferred event publishing
+
+
+@event.listens_for(AsyncSession.sync_session_class, "after_commit")
+def publish_deferred_events_after_commit(session: Session) -> None:
+    """
+    Publish deferred events after successful transaction commit.
+
+    This ensures events are only sent to consumers after database
+    changes are visible, preventing race conditions.
+
+    Args:
+        session: SQLAlchemy session that was committed
+    """
+    from shared.messaging import (  # noqa: PLC0415
+        deferred_publisher,
+        publisher,
+    )
+
+    deferred_events = deferred_publisher.DeferredEventPublisher.get_deferred_events(session)
+
+    if not deferred_events:
+        return
+
+    logger.info("Publishing %d deferred events after commit", len(deferred_events))
+
+    event_pub = publisher.EventPublisher()
+
+    async def _publish_all() -> None:
+        """Publish all deferred events asynchronously."""
+        try:
+            await event_pub.connect()
+
+            for deferred_event in deferred_events:
+                event = deferred_event["event"]
+                routing_key = deferred_event["routing_key"]
+
+                await event_pub.publish(event=event, routing_key=routing_key)
+
+                logger.debug("Published deferred event: %s", event.event_type)
+
+        except Exception:
+            logger.exception("Failed to publish deferred events")
+        finally:
+            await event_pub.close()
+            deferred_publisher.DeferredEventPublisher.clear_deferred_events(session)
+
+    task = asyncio.create_task(_publish_all())
+    task.add_done_callback(lambda t: t.exception() if not t.cancelled() else None)
+
+
+@event.listens_for(AsyncSession.sync_session_class, "after_rollback")
+def clear_deferred_events_after_rollback(session: Session) -> None:
+    """
+    Clear deferred events after transaction rollback.
+
+    Events are discarded since the associated database changes
+    were rolled back and should not be published.
+
+    Args:
+        session: SQLAlchemy session that was rolled back
+    """
+    from shared.messaging import deferred_publisher  # noqa: PLC0415
+
+    deferred_events = deferred_publisher.DeferredEventPublisher.get_deferred_events(session)
+
+    if deferred_events:
+        logger.info("Discarding %d deferred events after rollback", len(deferred_events))
+        deferred_publisher.DeferredEventPublisher.clear_deferred_events(session)

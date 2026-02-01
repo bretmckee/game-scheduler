@@ -40,8 +40,8 @@ from services.api.services import participant_resolver as resolver_module
 from services.api.services.notification_schedule import schedule_join_notification
 from shared.discord import client as discord_client_module
 from shared.message_formats import DMFormats
+from shared.messaging import deferred_publisher as messaging_deferred_publisher
 from shared.messaging import events as messaging_events
-from shared.messaging import publisher as messaging_publisher
 from shared.models import channel as channel_model
 from shared.models import game as game_model
 from shared.models import game_status_schedule as game_status_schedule_model
@@ -81,7 +81,7 @@ class GameService:
     def __init__(
         self,
         db: AsyncSession,
-        event_publisher: messaging_publisher.EventPublisher,
+        event_publisher: messaging_deferred_publisher.DeferredEventPublisher,
         discord_client: discord_client_module.DiscordAPIClient,
         participant_resolver: resolver_module.ParticipantResolver,
     ) -> None:
@@ -90,7 +90,7 @@ class GameService:
 
         Args:
             db: Database session
-            event_publisher: RabbitMQ event publisher
+            event_publisher: Deferred RabbitMQ event publisher
             discord_client: Discord API client
             participant_resolver: Participant resolver service
         """
@@ -1655,9 +1655,9 @@ class GameService:
             data=event_data.model_dump(mode="json"),
         )
 
-        await self.event_publisher.publish(event=event)
+        self.event_publisher.publish_deferred(event=event)
 
-        logger.info("Published game.created event for game %s", game.id)
+        logger.info("Deferred game.created event for game %s", game.id)
 
     async def _publish_game_updated(self, game: game_model.GameSession) -> None:
         """Publish game.updated event to RabbitMQ."""
@@ -1670,9 +1670,9 @@ class GameService:
             },
         )
 
-        await self.event_publisher.publish(event=event)
+        self.event_publisher.publish_deferred(event=event)
 
-        logger.info("Published game.updated event for game %s", game.id)
+        logger.info("Deferred game.updated event for game %s", game.id)
 
     async def _publish_game_cancelled(self, game: game_model.GameSession) -> None:
         """Publish game.cancelled event to RabbitMQ."""
@@ -1685,9 +1685,9 @@ class GameService:
             },
         )
 
-        await self.event_publisher.publish(event=event)
+        self.event_publisher.publish_deferred(event=event)
 
-        logger.info("Published game.cancelled event for game %s", game.id)
+        logger.info("Deferred game.cancelled event for game %s", game.id)
 
     async def _publish_player_removed(
         self,
@@ -1710,10 +1710,10 @@ class GameService:
             },
         )
 
-        await self.event_publisher.publish(event=event)
+        self.event_publisher.publish_deferred(event=event)
 
         logger.info(
-            "Published game.player_removed event for participant %s from game %s",
+            "Deferred game.player_removed event for participant %s from game %s",
             participant.id,
             game.id,
         )
@@ -1777,10 +1777,10 @@ class GameService:
             data=notification_event.model_dump(mode="json"),
         )
 
-        await self.event_publisher.publish(event=event)
+        self.event_publisher.publish_deferred(event=event)
 
         logger.info(
-            "Published promotion notification for user %s in game %s",
+            "Deferred promotion notification for user %s in game %s",
             discord_id,
             game.id,
         )

@@ -130,7 +130,7 @@ async def test_promotion_when_max_players_increased(
             )
 
     # Verify promotion notifications were published
-    publish_calls = mock_event_publisher.publish.call_args_list
+    publish_calls = mock_event_publisher.publish_deferred.call_args_list
 
     # Find notification events
     notification_calls = [
@@ -279,7 +279,7 @@ async def test_promotion_when_participant_removed(
                 raise
 
     # Verify promotion notification was published
-    publish_calls = mock_event_publisher.publish.call_args_list
+    publish_calls = mock_event_publisher.publish_deferred.call_args_list
 
     # Debug: print all publish calls
     print(f"\nTotal publish calls: {len(publish_calls)}")
@@ -338,7 +338,7 @@ async def test_no_promotion_when_no_overflow(
             )
 
     # Verify no promotion notifications were published
-    publish_calls = mock_event_publisher.publish.call_args_list
+    publish_calls = mock_event_publisher.publish_deferred.call_args_list
 
     notification_calls = [
         call
@@ -429,7 +429,7 @@ async def test_promotion_when_placeholder_removed(
             )
 
     # Verify promotion notification was published for user2
-    publish_calls = mock_event_publisher.publish.call_args_list
+    publish_calls = mock_event_publisher.publish_deferred.call_args_list
 
     notification_calls = [
         call
@@ -484,7 +484,7 @@ async def test_promotion_with_max_players_increase_and_placeholders(
             )
 
     # Verify promotion notification was published for user1
-    publish_calls = mock_event_publisher.publish.call_args_list
+    publish_calls = mock_event_publisher.publish_deferred.call_args_list
 
     notification_calls = [
         call
@@ -580,7 +580,7 @@ async def test_promotion_multiple_placeholders_removed(
             )
 
     # Check first removal promoted user2
-    first_removal_calls = mock_event_publisher.publish.call_args_list
+    first_removal_calls = mock_event_publisher.publish_deferred.call_args_list
 
     first_notification_calls = [
         call
@@ -649,7 +649,7 @@ async def test_promotion_multiple_placeholders_removed(
             )
 
     # Check second removal did not send additional promotions (user1 already confirmed)
-    second_removal_calls = mock_event_publisher.publish.call_args_list
+    second_removal_calls = mock_event_publisher.publish_deferred.call_args_list
 
     second_notification_calls = [
         call
@@ -703,7 +703,7 @@ async def test_no_promotion_when_placeholder_added_to_overflow(
             )
 
     # Verify no promotion notifications were published
-    publish_calls = mock_event_publisher.publish.call_args_list
+    publish_calls = mock_event_publisher.publish_deferred.call_args_list
 
     notification_calls = [
         call
