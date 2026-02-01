@@ -9,9 +9,7 @@
   "mounts": [
     "source=${localWorkspaceFolderBasename}-vscode-extensions,target=/home/vscode/.vscode-server/extensions,type=volume",
     "source=/etc/timezone,target=/etc/timezone,type=bind,readonly",
-    "source=/etc/localtime,target=/etc/localtime,type=bind,readonly",
-    "source=${localEnv:HOME}/.profile,target=/home/vscode/.profile,type=bind,readonly",
-    "source=${localEnv:HOME}/.bashrc,target=/home/vscode/.bashrc,type=bind,readonly"
+    "source=/etc/localtime,target=/etc/localtime,type=bind,readonly"
   ],
   "features": {
     "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
@@ -50,7 +48,8 @@
             "path": "bash",
             "args": ["-l"]
           }
-        }
+        },
+        "terminal.integrated.cwd": "${workspaceFolder}"
       }
     }
   },
@@ -58,7 +57,7 @@
   "initializeCommand": "docker network create gamebot-dev-network 2>/dev/null || true",
   "runArgs": ["--network=gamebot-dev-network"],
   "postCreateCommand": "python --version && uv --version && node --version && npm --version && npm install -g prettier && cd frontend && npm install && cd .. && pre-commit install && echo 'Dev container ready! Pre-commit hooks installed. Start infrastructure with: docker compose up postgres redis rabbitmq -d'",
-  "postStartCommand": "sudo chown -R vscode:vscode /home/vscode/.vscode-server 2>/dev/null || true",
+  "postStartCommand": "sudo chown -R vscode:vscode /home/vscode/.vscode-server 2>/dev/null || true; if [ -f /home/vscode/.bashrc_devcontainer ]; then cat /home/vscode/.bashrc_devcontainer >> /home/vscode/.bashrc; fi",
   "remoteUser": "vscode",
   "updateRemoteUserUID": true
 }

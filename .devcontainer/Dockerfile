@@ -59,6 +59,12 @@ RUN mkdir -p \
     chown -R vscode:vscode /home/vscode && \
     chmod -R 755 /home/vscode
 
+# Configure bash to start in workspace directory
+RUN echo 'if [ -n "$REMOTE_CONTAINERS" ] && [ -d "/workspaces" ]; then' >> /home/vscode/.bashrc_devcontainer && \
+    echo '    cd /workspaces/game-scheduler 2>/dev/null || cd $(find /workspaces -maxdepth 1 -type d | tail -1) 2>/dev/null || true' >> /home/vscode/.bashrc_devcontainer && \
+    echo 'fi' >> /home/vscode/.bashrc_devcontainer && \
+    chown vscode:vscode /home/vscode/.bashrc_devcontainer
+
 USER vscode
 
 # Default command (will be overridden by dev container)
