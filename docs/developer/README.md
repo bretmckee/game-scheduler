@@ -8,14 +8,6 @@ Welcome to the Game Scheduler developer documentation. This guide covers everyth
 
 **[Development Setup Guide](SETUP.md)** - Complete environment setup, development workflow, and pre-commit hooks
 
-Quick start:
-```bash
-# Clone and start development environment
-git clone <repository-url>
-cd game-scheduler
-docker compose up
-```
-
 ## Architecture & Design
 
 **[System Architecture](architecture.md)** - Microservices architecture, communication patterns, and design decisions

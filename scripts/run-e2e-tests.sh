@@ -2,7 +2,7 @@
 # Run end-to-end tests in isolated Docker environment
 # These tests verify the complete notification flow including Discord bot interactions
 #
-# REQUIRED: Set up test Discord bot and guild first (see TESTING_E2E.md)
+# REQUIRED: Set up test Discord bot and guild first (see docs/developer/TESTING.md)
 
 set -e
 
@@ -13,7 +13,7 @@ ENV_FILE="config/env.e2e"
 if [ ! -f "$ENV_FILE" ]; then
   echo "ERROR: $ENV_FILE file not found"
   echo "Create $ENV_FILE with test Discord credentials"
-  echo "See TESTING_E2E.md for setup instructions"
+  echo "See docs/developer/TESTING.md for setup instructions"
   exit 1
 fi
 
@@ -23,13 +23,13 @@ source "$ENV_FILE"
 # Check for required test Discord credentials
 if [ -z "$DISCORD_BOT_TOKEN" ]; then
   echo "ERROR: DISCORD_BOT_TOKEN environment variable is required in $ENV_FILE"
-  echo "See TESTING_E2E.md for setup instructions"
+  echo "See docs/developer/TESTING.md for setup instructions"
   exit 1
 fi
 
 if [ -z "$DISCORD_GUILD_A_ID" ] || [ -z "$DISCORD_GUILD_A_CHANNEL_ID" ]; then
   echo "WARNING: DISCORD_GUILD_A_ID and DISCORD_GUILD_A_CHANNEL_ID should be set in $ENV_FILE"
-  echo "Tests may fail without these. See TESTING_E2E.md for setup instructions"
+  echo "Tests may fail without these. See docs/developer/TESTING.md for setup instructions"
 fi
 
 cleanup() {

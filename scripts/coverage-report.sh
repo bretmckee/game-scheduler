@@ -60,7 +60,7 @@ if $RUN_E2E; then
     echo "=================================="
     if [[ ! -f "config/env.e2e" ]]; then
         echo "WARNING: config/env.e2e not found - skipping e2e tests"
-        echo "See TESTING_E2E.md for setup instructions"
+        echo "See docs/developer/TESTING.md for setup instructions"
     else
         if ! ./scripts/run-e2e-tests.sh; then
             echo "ERROR: E2E tests failed"

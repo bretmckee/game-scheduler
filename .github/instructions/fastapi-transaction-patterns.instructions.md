@@ -328,5 +328,5 @@ When modifying existing service functions:
 
 **See Also:**
 
-- [docs/TRANSACTION_MANAGEMENT.md](../../docs/TRANSACTION_MANAGEMENT.md) - Comprehensive documentation
+- [docs/developer/transaction-management.md](../../docs/developer/transaction-management.md) - Comprehensive documentation
 - [shared/database.py](../../shared/database.py) - Dependency implementation
