@@ -40,19 +40,20 @@ Reorganize project documentation into persona-based structure with user-facing g
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Create User-Facing Documentation
+### [x] Phase 1: Create User-Facing Documentation
 
-- [ ] Task 1.1: Create docs/GUILD-ADMIN.md
+- [x] Task 1.1: Create docs/GUILD-ADMIN.md
   - Details: .copilot-tracking/details/20260201-documentation-reorganization-by-persona-details.md (Lines 12-29)
 
-- [ ] Task 1.2: Create docs/HOST-GUIDE.md
+- [x] Task 1.2: Create docs/HOST-GUIDE.md
   - Details: .copilot-tracking/details/20260201-documentation-reorganization-by-persona-details.md (Lines 31-48)
 
-- [ ] Task 1.3: Create docs/PLAYER-GUIDE.md
+- [x] Task 1.3: Create docs/PLAYER-GUIDE.md
   - Details: .copilot-tracking/details/20260201-documentation-reorganization-by-persona-details.md (Lines 50-67)
 
-- [ ] Task 1.4: Restructure root README.md as persona gateway
+- [x] Task 1.4: Restructure root README.md as persona gateway
   - Details: .copilot-tracking/details/20260201-documentation-reorganization-by-persona-details.md (Lines 69-86)
+  - Used placeholder README files to unblock - content populated in later phases
 
 ### [ ] Phase 2: Reorganize Developer Documentation
 

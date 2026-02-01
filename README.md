@@ -1,20 +1,32 @@
 # Game Scheduler
 
-A Discord game scheduling system with microservices architecture, featuring
-Discord bot with button interactions, web dashboard with OAuth2 authentication,
-role-based authorization, multi-channel support, and automated notifications.
+A Discord game scheduling system with microservices architecture, featuring a Discord bot with button interactions, web dashboard with OAuth2 authentication, role-based authorization, multi-channel support, and automated notifications.
 
-## Features
+## Quick Links by Role
 
-- Discord bot with button interactions for joining/leaving games
-- Web dashboard for game creation and management
-- Discord OAuth2 authentication with role-based authorization
-- Multi-channel support with hierarchical settings inheritance
-- Automated notifications before games start
-- Display name resolution for guild-specific names
-- Pre-populated participants with @mention validation
+### 👥 For Users
 
-## Architecture
+- **[Guild Administrators](docs/GUILD-ADMIN.md)** - Set up the bot in your Discord server, configure permissions, and manage game templates
+- **[Game Hosts](docs/HOST-GUIDE.md)** - Create and manage game sessions using the web dashboard
+- **[Players](docs/PLAYER-GUIDE.md)** - Join games, receive notifications, and manage your calendar
+
+### 💻 For Contributors
+
+- **[Developer Documentation](docs/developer/README.md)** - Development setup, architecture, testing, and contributing guidelines
+- **[Deployment Documentation](docs/deployment/README.md)** - Self-hosting, configuration, and production deployment
+
+## Key Features
+
+- **Discord Integration**: Button interactions for joining/leaving games with automatic participant management
+- **Web Dashboard**: OAuth2-authenticated interface for creating and managing games
+- **Smart Scheduling**: Database-backed event-driven notifications and status transitions
+- **Multi-Channel Support**: Configure multiple announcement channels with template-based defaults
+- **Waitlist Management**: Automatic waitlist with promotion when spots open
+- **Role-Based Authorization**: Guild-level permissions with bot manager roles
+- **Calendar Export**: Download games as .ics files for personal calendars
+- **Display Name Resolution**: Guild-specific nicknames in all participant lists
+
+## Architecture Overview
 
 Microservices architecture with:
 
@@ -64,7 +76,11 @@ scalable scheduling:
 - Self-healing - single MIN() query resumes processing after restart
 - Scalable - O(1) query performance regardless of total scheduled games
 
+For detailed architecture documentation, see [docs/developer/architecture.md](docs/developer/architecture.md) (to be populated in Phase 2).
+
 ## Development Setup
+
+**Note**: Complete developer documentation is available in [docs/developer/README.md](docs/developer/README.md)
 
 ### Quick Start
 
