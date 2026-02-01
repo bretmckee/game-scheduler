@@ -116,11 +116,18 @@ async def general_exception_handler(_request: Request, exc: Exception) -> JSONRe
     """
     logger.error("Unhandled exception: %s", exc)
 
+    config = get_api_config()
+
+    user_message = "An unexpected error occurred"
+
+    # In debug mode, append development details to help developers
+    message = f"{user_message} -- development mode details: {exc}" if config.debug else user_message
+
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
             "error": "internal_error",
-            "message": "An unexpected error occurred",
+            "message": message,
         },
     )
 

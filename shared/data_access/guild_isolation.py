@@ -25,7 +25,7 @@ Provides transparent guild-level data filtering for multi-tenant security.
 import logging
 from contextvars import ContextVar
 
-from sqlalchemy import event
+from sqlalchemy import event, text
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
@@ -83,6 +83,6 @@ def set_rls_context_on_transaction_begin(
 
     guild_ids_str = ",".join(guild_ids)
 
-    logger.debug("Setting RLS context: app.current_guild_ids = %s", guild_ids_str)
-
-    connection.exec_driver_sql(f"SET LOCAL app.current_guild_ids = '{guild_ids_str}'")
+    # Use connection.execute() with text() instead of exec_driver_sql()
+    # This is async-compatible and doesn't cause greenlet errors
+    connection.execute(text(f"SET LOCAL app.current_guild_ids = '{guild_ids_str}'"))

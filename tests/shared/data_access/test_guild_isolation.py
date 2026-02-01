@@ -87,9 +87,10 @@ def test_event_listener_with_guild_ids():
 
     set_rls_context_on_transaction_begin(None, None, mock_connection)
 
-    mock_connection.exec_driver_sql.assert_called_once_with(
-        "SET LOCAL app.current_guild_ids = '123,456'"
-    )
+    # Event listener now uses execute(text()) instead of exec_driver_sql()
+    mock_connection.execute.assert_called_once()
+    call_args = mock_connection.execute.call_args[0][0]
+    assert str(call_args) == "SET LOCAL app.current_guild_ids = '123,456'"
 
 
 def test_event_listener_with_none():

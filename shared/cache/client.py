@@ -59,9 +59,7 @@ class RedisClient:
                 decode_responses=True,
             )
             self._client = Redis(connection_pool=self._pool)
-            ping_result = self._client.ping()
-            if hasattr(ping_result, "__await__"):
-                await ping_result
+            await self._client.ping()
             logger.info("Redis connection established")
         except Exception as e:
             logger.error("Failed to connect to Redis: %s", e)

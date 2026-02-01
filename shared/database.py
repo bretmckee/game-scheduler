@@ -31,9 +31,7 @@ from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from shared.data_access.guild_isolation import (
-    clear_current_guild_ids,
-)
+from shared.data_access.guild_isolation import clear_current_guild_ids
 from shared.schemas.auth import CurrentUser
 
 logger = logging.getLogger(__name__)
@@ -134,7 +132,7 @@ def get_db_with_user_guilds() -> Any:  # noqa: ANN401
         async with AsyncSessionLocal() as temp_session:
             await queries.setup_rls_and_convert_guild_ids(temp_session, discord_guild_ids)
 
-        # Yield session - event listener will set RLS on next query
+        # Yield session - event listener will automatically set RLS on transaction begin
         async with AsyncSessionLocal() as session:
             try:
                 yield session

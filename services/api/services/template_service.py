@@ -20,7 +20,7 @@
 
 from typing import Any
 
-from sqlalchemy import select, text, update
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -129,8 +129,6 @@ class TemplateService:
         Returns:
             Created template
         """
-        await self.db.execute(text(f"SET LOCAL app.current_guild_id = '{guild_id}'"))
-
         template = GameTemplate(
             guild_id=guild_id,
             channel_id=channel_id,
@@ -154,8 +152,6 @@ class TemplateService:
         Returns:
             Created default template
         """
-        await self.db.execute(text(f"SET LOCAL app.current_guild_id = '{guild_id}'"))
-
         template = GameTemplate(
             guild_id=guild_id,
             name="Default",

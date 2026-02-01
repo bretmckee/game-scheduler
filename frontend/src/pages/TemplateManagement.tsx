@@ -106,13 +106,20 @@ export const TemplateManagement: FC = () => {
   };
 
   const handleFormSubmit = async (data: TemplateCreateRequest | TemplateUpdateRequest) => {
-    if (selectedTemplate) {
-      await templateApi.updateTemplate(selectedTemplate.id, data as TemplateUpdateRequest);
-    } else {
-      await templateApi.createTemplate(data as TemplateCreateRequest);
+    try {
+      if (selectedTemplate) {
+        await templateApi.updateTemplate(selectedTemplate.id, data as TemplateUpdateRequest);
+      } else {
+        await templateApi.createTemplate(data as TemplateCreateRequest);
+      }
+      await fetchData();
+      setFormOpen(false);
+    } catch (err: any) {
+      setError(
+        err.response?.data?.detail || err.response?.data?.message || 'Failed to save template'
+      );
+      console.error('Template save error:', err);
     }
-    await fetchData();
-    setFormOpen(false);
   };
 
   const handleDeleteClick = (template: GameTemplate) => {

@@ -47,7 +47,7 @@ async def build_template_response(
 ) -> template_schemas.TemplateResponse:
     """Build TemplateResponse with channel name resolution."""
     channel_name = await discord_client_module.fetch_channel_name_safe(
-        template.channel.channel_id, discord_client
+        template.channel_id, discord_client
     )
 
     return template_schemas.TemplateResponse(
