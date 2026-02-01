@@ -19,6 +19,10 @@ Reorganizing project documentation into persona-based structure with user-facing
 - docs/developer/README.md - Placeholder gateway file for developer documentation (to be populated in Phase 2)
 - docs/deployment/README.md - Placeholder gateway file for deployment documentation (to be populated in Phase 3)
 - docs/developer/SETUP.md - Comprehensive development environment setup guide extracted from README with quick start, development workflow, pre-commit hooks, code quality standards, testing, environment configuration, and production builds
+- docs/deployment/quickstart.md - Moved from DEPLOYMENT_QUICKSTART.md with complete deployment quickstart guide for new servers, including environment configuration, build/start procedures, production deployment management, and DLQ migration instructions
+- docs/deployment/configuration.md - Moved from RUNTIME_CONFIG.md with comprehensive runtime configuration guide covering frontend configuration, RabbitMQ setup, retry service DLQ processing, and OpenTelemetry observability
+- docs/deployment/docker.md - Consolidated Docker deployment guide from DOCKER_PORTS.md and DOCKER_CACHE_OPTIMIZATION.md covering port exposure strategy, debugging infrastructure services, build cache optimization, version management, observability architecture, and common Docker operations
+- docs/deployment/version-management.md - Moved from VERSION_MANAGEMENT.md with detailed automatic versioning documentation using setuptools-scm
 
 ### Modified
 
@@ -37,5 +41,8 @@ Reorganizing project documentation into persona-based structure with user-facing
 - docs/developer/cloudflare-tunnel.md - Moved from docs/CLOUDFLARE_TUNNEL_SETUP.md with consistent lowercase naming
 - docs/developer/local-act-testing.md - Moved from docs/LOCAL_TESTING_WITH_ACT.md with consistent lowercase naming
 - docs/developer/production-readiness.md - Moved from docs/PRODUCTION_READINESS_GUILD_ISOLATION.md with consistent lowercase naming
+- docs/deployment/README.md - Populated comprehensive deployment gateway with system requirements, prerequisites, deployment workflow, security considerations, environment configuration files, version management, observability integration, and support resources
+- docs/deployment/quickstart.md - Updated internal documentation links to reference new locations (configuration.md instead of RUNTIME_CONFIG.md)
+- docs/deployment/docker.md - Consolidated comprehensive Docker guide covering port exposure strategy, debugging infrastructure services, build cache optimization, version management, observability architecture, and common Docker operations
 
 ### Removed

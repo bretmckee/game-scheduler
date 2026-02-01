@@ -72,18 +72,18 @@ Reorganize project documentation into persona-based structure with user-facing g
 - [x] Task 2.5: Move existing technical docs to docs/developer/
   - Details: .copilot-tracking/details/20260201-documentation-reorganization-by-persona-details.md (Lines 166-183)
 
-### [ ] Phase 3: Organize Deployment Documentation
+### [x] Phase 3: Organize Deployment Documentation
 
-- [ ] Task 3.1: Create docs/deployment/ subdirectory and gateway README
+- [x] Task 3.1: Create docs/deployment/ subdirectory and gateway README
   - Details: .copilot-tracking/details/20260201-documentation-reorganization-by-persona-details.md (Lines 187-204)
 
-- [ ] Task 3.2: Move deployment quickstart to docs/deployment/quickstart.md
+- [x] Task 3.2: Move deployment quickstart to docs/deployment/quickstart.md
   - Details: .copilot-tracking/details/20260201-documentation-reorganization-by-persona-details.md (Lines 206-223)
 
-- [ ] Task 3.3: Move runtime configuration to docs/deployment/configuration.md
+- [x] Task 3.3: Move runtime configuration to docs/deployment/configuration.md
   - Details: .copilot-tracking/details/20260201-documentation-reorganization-by-persona-details.md (Lines 225-242)
 
-- [ ] Task 3.4: Consolidate Docker documentation into docs/deployment/docker.md
+- [x] Task 3.4: Consolidate Docker documentation into docs/deployment/docker.md
   - Details: .copilot-tracking/details/20260201-documentation-reorganization-by-persona-details.md (Lines 244-261)
 
 ### [ ] Phase 4: Cleanup and Link Updates
