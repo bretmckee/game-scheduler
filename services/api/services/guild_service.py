@@ -28,7 +28,10 @@ from services.api.database import queries
 from services.api.dependencies.discord import get_discord_client
 from services.api.services import channel_service
 from services.api.services import template_service as template_service_module
-from shared.data_access.guild_isolation import get_current_guild_ids
+from shared.data_access.guild_isolation import (
+    get_current_guild_ids,
+    set_current_guild_ids,
+)
 from shared.discord.client import DiscordAPIClient
 from shared.models.guild import GuildConfiguration
 
@@ -126,6 +129,7 @@ async def _expand_rls_context_for_guilds(db: AsyncSession, candidate_guild_ids: 
     expanded_guild_ids = list(set(current_guild_ids) | candidate_guild_ids)
     expanded_ids_csv = ",".join(expanded_guild_ids)
     await db.execute(text(f"SET LOCAL app.current_guild_ids = '{expanded_ids_csv}'"))
+    set_current_guild_ids(expanded_guild_ids)
 
 
 async def _get_existing_guild_ids(db: AsyncSession) -> set[str]:
@@ -159,8 +163,22 @@ async def _create_guild_with_channels_and_template(
     Returns:
         Tuple of (guilds_created, channels_created) counts
     """
+    # Set RLS context to Discord snowflake ID for guild creation
+    current_guild_ids = get_current_guild_ids() or []
+    initial_guild_ids = list(set(current_guild_ids) | {guild_discord_id})
+    initial_ids_csv = ",".join(initial_guild_ids)
+    await db.execute(text(f"SET LOCAL app.current_guild_ids = '{initial_ids_csv}'"))
+    set_current_guild_ids(initial_guild_ids)
+
     # Create guild config
     guild_config = await create_guild_config(db, guild_discord_id)
+
+    # Update RLS context to include the new guild UUID (for template creation)
+    current_guild_ids = get_current_guild_ids() or []
+    updated_guild_ids = list(set(current_guild_ids) | {str(guild_config.id)})
+    updated_ids_csv = ",".join(updated_guild_ids)
+    await db.execute(text(f"SET LOCAL app.current_guild_ids = '{updated_ids_csv}'"))
+    set_current_guild_ids(updated_guild_ids)
 
     # Fetch guild channels using bot token
     guild_channels = await client.get_guild_channels(guild_discord_id)

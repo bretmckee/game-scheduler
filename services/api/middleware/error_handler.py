@@ -84,18 +84,18 @@ async def database_exception_handler(_request: Request, exc: SQLAlchemyError) ->
 
     config = get_api_config()
 
-    message = (
+    user_message = (
         "An internal error has occurred. "
         f"Please create an issue which includes the time: {error_time} UTC"
     )
+
+    # In debug mode, append development details to help developers see both messages
+    message = f"{user_message} -- development mode details: {exc}" if config.debug else user_message
 
     content = {
         "error": "database_error",
         "message": message,
     }
-
-    if config.debug:
-        content["detail"] = str(exc)
 
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
