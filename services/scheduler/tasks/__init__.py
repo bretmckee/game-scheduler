@@ -17,8 +17,8 @@
 
 
 """
-Celery tasks for scheduler service.
+Scheduler service task definitions.
 
-Tasks are autodiscovered by Celery from the include list in celery_app.py.
-No explicit imports needed here.
+This module is preserved for backward compatibility but is no longer
+actively used now that the scheduler uses daemon processes instead.
 """

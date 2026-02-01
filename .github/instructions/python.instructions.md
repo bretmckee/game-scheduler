@@ -291,7 +291,7 @@ module_name, package_name, ClassName, method_name, ExceptionName, function_name,
   // Bad: Never name users or callers in doc strings
   def sync_get_data():
   """
-  Provides data for Celery and other async systems.
+  Provides data for async systems.
   """
   ...
   ```

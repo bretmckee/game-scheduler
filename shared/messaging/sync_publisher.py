@@ -19,8 +19,8 @@
 """
 Synchronous event publisher for RabbitMQ messaging.
 
-Provides synchronous event publishing for Celery tasks where async
-operations provide no benefit. Uses pika library instead of aio_pika.
+Provides synchronous event publishing where async operations provide
+no benefit. Uses pika library instead of aio_pika.
 """
 
 import logging
@@ -44,8 +44,8 @@ class SyncEventPublisher:
     Events are published to a topic exchange with routing key
     based on event type, allowing flexible message routing.
 
-    Use this publisher in Celery tasks and other synchronous code
-    where async operations provide no concurrency benefit.
+    Use this publisher in synchronous code where async operations
+    provide no concurrency benefit.
     """
 
     def __init__(self, exchange_name: str = "game_scheduler") -> None:

@@ -270,7 +270,7 @@ async def get_redis_client() -> RedisClient:
 
 
 class SyncRedisClient:
-    """Synchronous Redis client for Celery tasks."""
+    """Synchronous Redis client for synchronous operations."""
 
     def __init__(self, redis_url: str | None = None) -> None:
         """

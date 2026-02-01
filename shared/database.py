@@ -174,8 +174,8 @@ def get_sync_db_session() -> Generator[Session]:
     """
     Get synchronous database session for use as context manager.
 
-    Use this pattern in Celery tasks and other synchronous code
-    where async operations provide no benefit.
+    Use this pattern in synchronous code where async operations
+    provide no benefit.
 
     Example:
         with get_sync_db_session() as db:
