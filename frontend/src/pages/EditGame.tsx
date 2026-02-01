@@ -162,12 +162,12 @@ export const EditGame: FC = () => {
           if (!p.id.startsWith('temp-')) {
             return {
               participant_id: p.id,
-              pre_filled_position: p.preFillPosition,
+              position: p.preFillPosition,
             };
           }
           return {
             mention: p.mention.trim(),
-            pre_filled_position: p.preFillPosition,
+            position: p.preFillPosition,
           };
         });
       if (participantsList.length > 0) {

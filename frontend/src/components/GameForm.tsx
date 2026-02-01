@@ -34,7 +34,7 @@ import {
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { Channel, GameSession, SignupMethod, SIGNUP_METHOD_INFO } from '../types';
+import { Channel, GameSession, ParticipantType, SignupMethod, SIGNUP_METHOD_INFO } from '../types';
 import { ValidationErrors } from './ValidationErrors';
 import { formatParticipantDisplay } from '../utils/formatParticipant';
 import {
@@ -214,9 +214,11 @@ export const GameForm: FC<GameFormProps> = ({
     participants: initialData?.participants
       ? initialData.participants
           .sort((a, b) => {
-            // Sort: pre-filled first (by position), then joined (by join time)
-            const aPos = a.pre_filled_position ?? Number.MAX_SAFE_INTEGER;
-            const bPos = b.pre_filled_position ?? Number.MAX_SAFE_INTEGER;
+            // Sort: host-added first (by position), then self-added (by join time)
+            const aPos =
+              a.position_type === ParticipantType.HOST_ADDED ? a.position : Number.MAX_SAFE_INTEGER;
+            const bPos =
+              b.position_type === ParticipantType.HOST_ADDED ? b.position : Number.MAX_SAFE_INTEGER;
             return aPos - bPos;
           })
           .map((p, index) => ({
@@ -224,8 +226,8 @@ export const GameForm: FC<GameFormProps> = ({
             mention: formatParticipantDisplay(p.display_name, p.discord_id),
             isValid: true,
             preFillPosition: index + 1,
-            isExplicitlyPositioned: p.pre_filled_position !== null,
-            isReadOnly: p.pre_filled_position === null, // Joined users are read-only
+            isExplicitlyPositioned: p.position_type === ParticipantType.HOST_ADDED,
+            isReadOnly: p.position_type !== ParticipantType.HOST_ADDED, // Self-added users are read-only
             validationStatus: 'valid' as const, // From server, so validated
           }))
       : [],
@@ -257,8 +259,14 @@ export const GameForm: FC<GameFormProps> = ({
         participants: initialData.participants
           ? initialData.participants
               .sort((a, b) => {
-                const aPos = a.pre_filled_position ?? Number.MAX_SAFE_INTEGER;
-                const bPos = b.pre_filled_position ?? Number.MAX_SAFE_INTEGER;
+                const aPos =
+                  a.position_type === ParticipantType.HOST_ADDED
+                    ? a.position
+                    : Number.MAX_SAFE_INTEGER;
+                const bPos =
+                  b.position_type === ParticipantType.HOST_ADDED
+                    ? b.position
+                    : Number.MAX_SAFE_INTEGER;
                 return aPos - bPos;
               })
               .map((p, index) => ({
@@ -266,8 +274,8 @@ export const GameForm: FC<GameFormProps> = ({
                 mention: formatParticipantDisplay(p.display_name, p.discord_id),
                 isValid: true,
                 preFillPosition: index + 1,
-                isExplicitlyPositioned: p.pre_filled_position !== null,
-                isReadOnly: p.pre_filled_position === null,
+                isExplicitlyPositioned: p.position_type === ParticipantType.HOST_ADDED,
+                isReadOnly: p.position_type !== ParticipantType.HOST_ADDED,
                 validationStatus: 'valid' as const,
               }))
           : [],

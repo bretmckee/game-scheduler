@@ -41,7 +41,11 @@ if TYPE_CHECKING:
 
 
 class ParticipantType(IntEnum):
-    """Participant type enumeration with sparse values for future expansion."""
+    """Participant type enumeration with sparse values for future expansion.
+
+    NOTE: Changes to these values must be mirrored in the TypeScript enum
+    located at frontend/src/types/index.ts
+    """
 
     HOST_ADDED = 8000  # High priority (sorts first)
     SELF_ADDED = 24000  # Low priority (sorts last)

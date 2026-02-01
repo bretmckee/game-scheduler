@@ -39,6 +39,13 @@ export const SIGNUP_METHOD_INFO: Record<SignupMethod, SignupMethodInfo> = {
   },
 };
 
+// NOTE: Changes to these values must be mirrored in the Python enum
+// located at shared/models/participant.py
+export enum ParticipantType {
+  HOST_ADDED = 8000,
+  SELF_ADDED = 24000,
+}
+
 export interface User {
   discordId: string;
   createdAt: string;
@@ -102,7 +109,8 @@ export interface Participant {
   display_name: string | null;
   avatar_url?: string | null;
   joined_at: string;
-  pre_filled_position: number | null;
+  position_type: number;
+  position: number;
 }
 
 export interface GameListResponse {

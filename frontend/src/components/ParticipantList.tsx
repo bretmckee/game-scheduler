@@ -26,7 +26,7 @@ import {
   Box,
   Typography,
 } from '@mui/material';
-import { Participant } from '../types';
+import { Participant, ParticipantType } from '../types';
 import { formatParticipantDisplay } from '../utils/formatParticipant';
 import { UI } from '../constants/ui';
 
@@ -61,7 +61,9 @@ export const ParticipantList: FC<ParticipantListProps> = ({ participants, maxPla
             <ListItemText
               primary={formatParticipantDisplay(participant.display_name, participant.discord_id)}
               secondary={
-                participant.pre_filled_position !== null ? 'Added by host' : 'Joined via button'
+                participant.position_type === ParticipantType.HOST_ADDED
+                  ? 'Added by host'
+                  : 'Joined via button'
               }
             />
           </ListItem>
@@ -85,7 +87,9 @@ export const ParticipantList: FC<ParticipantListProps> = ({ participants, maxPla
                     participant.discord_id
                   )}
                   secondary={
-                    participant.pre_filled_position !== null ? 'Added by host' : 'Joined via button'
+                    participant.position_type === ParticipantType.HOST_ADDED
+                      ? 'Added by host'
+                      : 'Joined via button'
                   }
                 />
                 <Chip label="Waitlist" color="warning" size="small" />

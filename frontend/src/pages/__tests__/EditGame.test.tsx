@@ -21,7 +21,7 @@ import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router';
 import { EditGame } from '../EditGame';
 import { apiClient } from '../../api/client';
-import { GameSession, Channel } from '../../types';
+import { GameSession, Channel, ParticipantType } from '../../types';
 import { AuthContext } from '../../contexts/AuthContext';
 
 const mockNavigate = vi.fn();
@@ -67,7 +67,8 @@ describe('EditGame', () => {
       discord_id: '123456789',
       display_name: 'Test Host',
       joined_at: '2025-01-01T00:00:00Z',
-      pre_filled_position: null,
+      position_type: ParticipantType.SELF_ADDED,
+      position: 0,
     },
     reminder_minutes: [60, 15],
     notify_role_ids: [],

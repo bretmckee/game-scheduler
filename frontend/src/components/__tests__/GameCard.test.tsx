@@ -19,7 +19,7 @@ import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { GameCard } from '../GameCard';
-import { GameSession } from '../../types';
+import { GameSession, ParticipantType } from '../../types';
 
 const mockGame: GameSession = {
   id: 'game-1',
@@ -42,7 +42,8 @@ const mockGame: GameSession = {
     display_name: 'DungeonMaster',
     avatar_url: 'https://cdn.discordapp.com/avatars/123456789/abc123.png',
     joined_at: '2025-12-20T10:00:00Z',
-    pre_filled_position: null,
+    position_type: ParticipantType.SELF_ADDED,
+    position: 0,
   },
   reminder_minutes: [60, 15],
   notify_role_ids: null,
