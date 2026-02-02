@@ -324,6 +324,85 @@ docker compose --env-file config/env/env.e2e run --rm e2e-tests \
 
 ### E2E Test Architecture
 
+#### Hermetic Test Fixtures
+
+E2E tests use hermetic fixtures that create guilds on-demand and clean up automatically:
+
+**Guild Creation Fixtures:**
+
+```python
+async def test_game_creation(fresh_guild_a):
+    # fresh_guild_a provides GuildContext with all IDs
+    guild_db_id = fresh_guild_a.db_id
+    template_id = fresh_guild_a.template_id
+    channel_discord_id = fresh_guild_a.channel_discord_id
+```
+
+**Available Fixtures:**
+
+- `discord_ids` - Session-scoped fixture with environment variable validation
+- `fresh_guild_a` - Function-scoped Guild A with automatic cleanup
+- `fresh_guild_b` - Function-scoped Guild B for cross-guild isolation tests
+- `test_user_a` - Function-scoped admin bot user with cleanup
+- `test_user_b` - Function-scoped bot B user with cleanup
+- `test_user_main_bot` - Function-scoped main notification bot user with cleanup
+
+**GuildContext Dataclass:**
+
+All guild fixtures return a `GuildContext` containing:
+
+```python
+@dataclass
+class GuildContext:
+    db_id: str              # Database UUID for guild_configurations
+    discord_id: str         # Discord snowflake ID
+    channel_db_id: str      # Database UUID for channel_configurations
+    channel_discord_id: str # Discord channel snowflake ID
+    template_id: str        # Database UUID for default game_templates
+```
+
+**Fixture Behavior:**
+
+- Guilds created via direct database INSERTs (no external API dependencies)
+- Automatic cleanup in `finally` block (guaranteed even on test failure)
+- Each test gets isolated guild state (no shared data)
+- Can create multiple guilds in one test for isolation testing
+
+**Example Usage:**
+
+```python
+async def test_cross_guild_isolation(fresh_guild_a, fresh_guild_b):
+    # Create game in Guild A
+    response = await client.post(
+        "/api/v1/games",
+        json={"template_id": fresh_guild_a.template_id, "title": "Game A"}
+    )
+
+    # Verify Guild B cannot see it
+    response = await client_b.get("/api/v1/games")
+    assert not any(g["title"] == "Game A" for g in response.json())
+```
+
+**Environment Variable Validation:**
+
+The `discord_ids` fixture validates all required Discord IDs at session start:
+
+```python
+async def test_environment_configured(discord_ids):
+    # Validates all Discord IDs are present and valid snowflakes
+    assert discord_ids.guild_a_id
+    assert discord_ids.channel_a_id
+    assert discord_ids.user_a_id
+```
+
+Required environment variables:
+- `DISCORD_GUILD_A_ID` - Guild A Discord ID (17-19 digit snowflake)
+- `DISCORD_CHANNEL_A_ID` - Guild A channel Discord ID
+- `DISCORD_USER_A_ID` - Admin bot user Discord ID
+- `DISCORD_GUILD_B_ID` - Guild B Discord ID
+- `DISCORD_CHANNEL_B_ID` - Guild B channel Discord ID
+- `DISCORD_USER_B_ID` - Bot B user Discord ID
+
 #### Authentication
 
 Tests authenticate using admin bot token:
@@ -332,16 +411,6 @@ Tests authenticate using admin bot token:
 async def test_game_creation(authenticated_admin_client):
     # Client has session_token cookie set
     response = await authenticated_admin_client.post("/api/v1/games", json=data)
-```
-
-#### Guild Sync
-
-Tests use pre-seeded guild configurations:
-
-```python
-async def test_game_creation(synced_guild, test_guild_id, test_channel_id):
-    # Guild and channel configurations already created
-    pass
 ```
 
 #### Discord Message Verification
@@ -747,6 +816,114 @@ jobs:
 ## Troubleshooting
 
 ### Common Issues
+
+#### Hermetic Fixture Cleanup Failures
+
+**Symptoms:** Tests fail with "Guild already exists" or database constraint violations
+
+**Root Cause:** Fixture cleanup didn't complete in previous test run
+
+**Solutions:**
+
+1. **Check for orphaned database records:**
+   ```bash
+   # Connect to E2E database
+   docker exec -it gamebot-e2e-postgres psql -U gamebot_e2e -d game_scheduler_e2e
+
+   # List guilds (should be empty between test runs)
+   SELECT id, guild_id FROM guild_configurations;
+
+   # Clean up manually if needed
+   DELETE FROM guild_configurations WHERE guild_id IN ('guild_a_id', 'guild_b_id');
+   ```
+
+2. **Verify CASCADE DELETE constraints:**
+   ```sql
+   # Check foreign key constraints have CASCADE
+   SELECT conname, conrelid::regclass, confrelid::regclass, confdeltype
+   FROM pg_constraint
+   WHERE contype = 'f' AND confrelid::regclass::text = 'guild_configurations';
+   ```
+
+   All `confdeltype` should be `c` (CASCADE). If not, run Alembic migration `cc016b875896`.
+
+3. **Fresh database state:**
+   ```bash
+   # Nuclear option: completely reset E2E environment
+   docker compose --env-file config/env/env.e2e down -v
+   ./scripts/run-e2e-tests.sh
+   ```
+
+4. **Check test isolation:**
+   - Verify tests don't share guild_db_id between tests
+   - Ensure each test uses its own `fresh_guild_a` fixture
+   - Don't cache `GuildContext` objects across tests
+
+#### Environment Variable Validation Errors
+
+**Symptoms:** Tests fail immediately with "Missing required environment variables"
+
+**Solutions:**
+
+1. **Verify all Discord IDs configured in `config/env/env.e2e`:**
+   ```bash
+   grep DISCORD_ config/env/env.e2e
+   ```
+
+   Required variables:
+   - `DISCORD_GUILD_A_ID`
+   - `DISCORD_CHANNEL_A_ID`
+   - `DISCORD_USER_A_ID`
+   - `DISCORD_GUILD_B_ID`
+   - `DISCORD_CHANNEL_B_ID`
+   - `DISCORD_USER_B_ID`
+
+2. **Validate Discord ID format (17-19 digit snowflakes):**
+   ```python
+   # Valid Discord snowflake
+   DISCORD_GUILD_A_ID=123456789012345678
+
+   # Invalid - too short
+   DISCORD_GUILD_A_ID=12345
+
+   # Invalid - contains non-digits
+   DISCORD_GUILD_A_ID=abc123xyz
+   ```
+
+3. **Check environment file loaded:**
+   ```bash
+   # Verify compose loads correct env file
+   docker compose --env-file config/env/env.e2e config | grep DISCORD_
+   ```
+
+#### User Fixture Failures
+
+**Symptoms:** Tests fail with "User not found" or "User already exists"
+
+**Solutions:**
+
+1. **Verify user fixtures used correctly:**
+   ```python
+   # Good: Use user fixtures
+   async def test_with_user(test_user_a, fresh_guild_a):
+       pass
+
+   # Bad: Create users manually
+   async def test_without_fixture(admin_db):
+       user = User(discord_id="123")  # Will conflict with fixtures
+   ```
+
+2. **Check user cleanup:**
+   ```bash
+   # Connect to database
+   docker exec -it gamebot-e2e-postgres psql -U gamebot_e2e -d game_scheduler_e2e
+
+   # List users (should only see persistent users)
+   SELECT id, discord_id FROM users;
+
+   # Clean up test users if needed
+   DELETE FROM users WHERE discord_id IN ('env_user_a_id', 'env_user_b_id');
+   ```
 
 #### Bot doesn't connect to test guild
 

@@ -22,10 +22,10 @@ Environment initialization orchestrator.
 
 Coordinates all initialization steps for the application environment:
 1. Wait for PostgreSQL to be ready
-2. Run database migrations
-3. Verify database schema
-4. Wait for RabbitMQ to be ready
-5. Create RabbitMQ infrastructure
+2. Create database users for RLS enforcement
+3. Run database migrations
+4. Verify database schema
+5. Initialize RabbitMQ infrastructure
 
 All steps are instrumented with OpenTelemetry for observability.
 """
@@ -43,7 +43,6 @@ from opentelemetry import trace
 from services.init.database_users import create_database_users
 from services.init.migrations import run_migrations
 from services.init.rabbitmq import initialize_rabbitmq
-from services.init.seed_e2e import seed_e2e_data
 from services.init.verify_schema import verify_schema
 from services.init.wait_postgres import wait_for_postgres
 from shared.telemetry import flush_telemetry, init_telemetry
@@ -110,31 +109,25 @@ def main() -> int:
 
     with tracer.start_as_current_span("init.environment") as span:
         try:
-            _log_phase(1, 6, "Waiting for PostgreSQL...")
+            _log_phase(1, 5, "Waiting for PostgreSQL...")
             wait_for_postgres()
-            _log_phase(1, 6, "PostgreSQL ready", completed=True)
+            _log_phase(1, 5, "PostgreSQL ready", completed=True)
 
-            _log_phase(2, 6, "Creating database users for RLS enforcement...")
+            _log_phase(2, 5, "Creating database users for RLS enforcement...")
             create_database_users()
-            _log_phase(2, 6, "Database users configured", completed=True)
+            _log_phase(2, 5, "Database users configured", completed=True)
 
-            _log_phase(3, 6, "Running database migrations...")
+            _log_phase(3, 5, "Running database migrations...")
             run_migrations()
-            _log_phase(3, 6, "Migrations complete", completed=True)
+            _log_phase(3, 5, "Migrations complete", completed=True)
 
-            _log_phase(4, 6, "Verifying database schema...")
+            _log_phase(4, 5, "Verifying database schema...")
             verify_schema()
-            _log_phase(4, 6, "Schema verified", completed=True)
+            _log_phase(4, 5, "Schema verified", completed=True)
 
-            _log_phase(5, 6, "Initializing RabbitMQ infrastructure...")
+            _log_phase(5, 5, "Initializing RabbitMQ infrastructure...")
             initialize_rabbitmq()
-            _log_phase(5, 6, "RabbitMQ infrastructure ready", completed=True)
-
-            _log_phase(6, 6, "Seeding E2E test data (if applicable)...")
-            if not seed_e2e_data():
-                msg = "E2E test data seeding failed. Cannot continue with invalid test environment."
-                raise RuntimeError(msg)
-            _log_phase(6, 6, "E2E seeding complete", completed=True)
+            _log_phase(5, 5, "RabbitMQ infrastructure ready", completed=True)
 
             logger.info("Finalizing initialization...")
             span.set_status(trace.Status(trace.StatusCode.OK))

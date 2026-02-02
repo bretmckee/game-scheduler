@@ -24,13 +24,18 @@ and HTTP clients needed by E2E tests.
 """
 
 import os
-from collections.abc import Callable
+from collections.abc import AsyncGenerator, Callable
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any, TypeVar
+from uuid import uuid4
 
 import httpx
 import pytest
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from shared.models.user import User
 from shared.utils.discord_tokens import extract_bot_discord_id
 from tests.conftest import TimeoutType  # Re-export for backward compatibility
 from tests.e2e.helpers.discord import DiscordTestHelper
@@ -41,6 +46,368 @@ from tests.shared.polling import wait_for_db_condition_async
 __all__ = ["TimeoutType"]
 
 T = TypeVar("T")
+
+
+@dataclass
+class DiscordTestEnvironment:
+    """
+    Discord IDs from environment variables for E2E testing.
+
+    These point to real Discord entities that must be set up manually
+    before running E2E tests (see docs/developer/TESTING.md for setup instructions).
+    """
+
+    # Guild A (primary test guild)
+    guild_a_id: str
+    channel_a_id: str
+    user_a_id: str
+
+    # Guild B (for cross-guild isolation tests)
+    guild_b_id: str
+    channel_b_id: str
+    user_b_id: str
+
+    @classmethod
+    def from_environment(cls) -> "DiscordTestEnvironment":
+        """
+        Load Discord IDs from environment variables with validation.
+
+        Raises:
+            ValueError: If required environment variables are missing
+            ValueError: If Discord IDs have invalid format (not snowflakes)
+        """
+        required_vars = {
+            "DISCORD_GUILD_A_ID": "Guild A ID",
+            "DISCORD_GUILD_A_CHANNEL_ID": "Guild A channel ID",
+            "DISCORD_USER_ID": "Guild A user ID",
+            "DISCORD_GUILD_B_ID": "Guild B ID",
+            "DISCORD_GUILD_B_CHANNEL_ID": "Guild B channel ID",
+            "DISCORD_ADMIN_BOT_B_CLIENT_ID": "Guild B user ID",
+        }
+
+        missing_vars = [
+            f"{var} ({desc})" for var, desc in required_vars.items() if not os.getenv(var)
+        ]
+
+        if missing_vars:
+            error_msg = (
+                "Missing required environment variables for E2E tests:\n"
+                f"  {', '.join(missing_vars)}\n\n"
+                "See docs/developer/TESTING.md for setup instructions."
+            )
+            raise ValueError(error_msg)
+
+        def validate_snowflake(value: str, name: str) -> str:
+            """Validate Discord snowflake ID format (17-19 digit number)."""
+            if not value.isdigit() or len(value) < 17 or len(value) > 19:
+                error_msg = (
+                    f"{name} has invalid Discord ID format: {value}\n"
+                    "Expected 17-19 digit snowflake ID"
+                )
+                raise ValueError(error_msg)
+            return value
+
+        return cls(
+            guild_a_id=validate_snowflake(os.getenv("DISCORD_GUILD_A_ID"), "DISCORD_GUILD_A_ID"),
+            channel_a_id=validate_snowflake(
+                os.getenv("DISCORD_GUILD_A_CHANNEL_ID"), "DISCORD_GUILD_A_CHANNEL_ID"
+            ),
+            user_a_id=validate_snowflake(os.getenv("DISCORD_USER_ID"), "DISCORD_USER_ID"),
+            guild_b_id=validate_snowflake(os.getenv("DISCORD_GUILD_B_ID"), "DISCORD_GUILD_B_ID"),
+            channel_b_id=validate_snowflake(
+                os.getenv("DISCORD_GUILD_B_CHANNEL_ID"), "DISCORD_GUILD_B_CHANNEL_ID"
+            ),
+            user_b_id=validate_snowflake(
+                os.getenv("DISCORD_ADMIN_BOT_B_CLIENT_ID"),
+                "DISCORD_ADMIN_BOT_B_CLIENT_ID",
+            ),
+        )
+
+
+@pytest.fixture(scope="session")
+def discord_ids() -> DiscordTestEnvironment:
+    """
+    Load and validate Discord IDs from environment variables.
+
+    Session-scoped: Validates once at test session start.
+    Provides fail-fast behavior with clear error messages.
+    """
+    return DiscordTestEnvironment.from_environment()
+
+
+@dataclass
+class GuildContext:
+    """Context for a test guild with all related IDs."""
+
+    db_id: str  # Database UUID
+    discord_id: str  # Discord snowflake ID
+    channel_db_id: str  # Database UUID for channel
+    channel_discord_id: str  # Discord channel snowflake
+    template_id: str  # Database UUID for default template
+
+
+@pytest.fixture
+async def fresh_guild_a(
+    admin_db: AsyncSession,
+    discord_ids: DiscordTestEnvironment,
+    test_user_a: User,
+) -> AsyncGenerator[GuildContext]:
+    """
+    Create Guild A with automatic cleanup.
+
+    Directly inserts guild, channel, and template records for E2E testing.
+    Does not use /api/v1/guilds/sync because that requires OAuth tokens.
+
+    Provides hermetic test isolation with cleanup after each test.
+    Depends on test_user_a to ensure user record exists before guild creation.
+    """
+    guild_db_id = str(uuid4())
+    channel_db_id = str(uuid4())
+    template_id = str(uuid4())
+    now = datetime.now(UTC).replace(tzinfo=None)
+
+    try:
+        # Insert guild configuration
+        await admin_db.execute(
+            text(
+                """
+                INSERT INTO guild_configurations (id, guild_id, created_at, updated_at)
+                VALUES (:id, :guild_id, :created_at, :updated_at)
+                """
+            ),
+            {
+                "id": guild_db_id,
+                "guild_id": discord_ids.guild_a_id,
+                "created_at": now,
+                "updated_at": now,
+            },
+        )
+
+        # Insert channel configuration
+        await admin_db.execute(
+            text(
+                """
+                INSERT INTO channel_configurations
+                    (id, channel_id, guild_id, created_at, updated_at)
+                VALUES
+                    (:id, :channel_id, :guild_id, :created_at, :updated_at)
+                """
+            ),
+            {
+                "id": channel_db_id,
+                "channel_id": discord_ids.channel_a_id,
+                "guild_id": guild_db_id,
+                "created_at": now,
+                "updated_at": now,
+            },
+        )
+
+        # Insert default template
+        await admin_db.execute(
+            text(
+                """
+                INSERT INTO game_templates
+                (id, guild_id, channel_id, name, is_default, created_at, updated_at)
+                VALUES (:id, :guild_id, :channel_id, :name, :is_default, :created_at, :updated_at)
+                """
+            ),
+            {
+                "id": template_id,
+                "guild_id": guild_db_id,
+                "channel_id": channel_db_id,
+                "name": "Default Template",
+                "is_default": True,
+                "created_at": now,
+                "updated_at": now,
+            },
+        )
+
+        await admin_db.commit()
+
+        guild_context = GuildContext(
+            db_id=guild_db_id,
+            discord_id=discord_ids.guild_a_id,
+            channel_db_id=channel_db_id,
+            channel_discord_id=discord_ids.channel_a_id,
+            template_id=template_id,
+        )
+
+        yield guild_context
+
+    finally:
+        if guild_db_id:
+            await admin_db.execute(
+                text("DELETE FROM guild_configurations WHERE id = :id"),
+                {"id": guild_db_id},
+            )
+            await admin_db.commit()
+
+
+@pytest.fixture
+async def fresh_guild_b(
+    admin_db: AsyncSession,
+    discord_ids: DiscordTestEnvironment,
+    test_user_b: User,
+) -> AsyncGenerator[GuildContext]:
+    """
+    Create Guild B with automatic cleanup.
+
+    Directly inserts guild, channel, and template records for E2E testing.
+    Does not use /api/v1/guilds/sync because that requires OAuth tokens.
+
+    Provides hermetic test isolation with cleanup after each test.
+    Depends on test_user_b to ensure user record exists before guild creation.
+    """
+    guild_db_id = str(uuid4())
+    channel_db_id = str(uuid4())
+    template_id = str(uuid4())
+    now = datetime.now(UTC).replace(tzinfo=None)
+
+    try:
+        # Insert guild configuration
+        await admin_db.execute(
+            text(
+                """
+                INSERT INTO guild_configurations (id, guild_id, created_at, updated_at)
+                VALUES (:id, :guild_id, :created_at, :updated_at)
+                """
+            ),
+            {
+                "id": guild_db_id,
+                "guild_id": discord_ids.guild_b_id,
+                "created_at": now,
+                "updated_at": now,
+            },
+        )
+
+        # Insert channel configuration
+        await admin_db.execute(
+            text(
+                """
+                INSERT INTO channel_configurations
+                    (id, channel_id, guild_id, created_at, updated_at)
+                VALUES
+                    (:id, :channel_id, :guild_id, :created_at, :updated_at)
+                """
+            ),
+            {
+                "id": channel_db_id,
+                "channel_id": discord_ids.channel_b_id,
+                "guild_id": guild_db_id,
+                "created_at": now,
+                "updated_at": now,
+            },
+        )
+
+        # Insert default template
+        await admin_db.execute(
+            text(
+                """
+                INSERT INTO game_templates
+                (id, guild_id, channel_id, name, is_default, created_at, updated_at)
+                VALUES (:id, :guild_id, :channel_id, :name, :is_default, :created_at, :updated_at)
+                """
+            ),
+            {
+                "id": template_id,
+                "guild_id": guild_db_id,
+                "channel_id": channel_db_id,
+                "name": "Default Template",
+                "is_default": True,
+                "created_at": now,
+                "updated_at": now,
+            },
+        )
+
+        await admin_db.commit()
+
+        guild_context = GuildContext(
+            db_id=guild_db_id,
+            discord_id=discord_ids.guild_b_id,
+            channel_db_id=channel_db_id,
+            channel_discord_id=discord_ids.channel_b_id,
+            template_id=template_id,
+        )
+
+        yield guild_context
+
+    finally:
+        if guild_db_id:
+            await admin_db.execute(
+                text("DELETE FROM guild_configurations WHERE id = :id"),
+                {"id": guild_db_id},
+            )
+            await admin_db.commit()
+
+
+@pytest.fixture
+async def test_user_a(
+    admin_db: AsyncSession,
+    bot_discord_id: str,
+) -> AsyncGenerator[User]:
+    """
+    Create User A (admin bot) for tests requiring authenticated user.
+
+    Provides hermetic user creation - only tests that need users include this fixture.
+    Automatically cleans up after test.
+    Uses bot_discord_id to ensure user record matches authenticated_admin_client.
+    """
+    user = User(discord_id=bot_discord_id)
+    admin_db.add(user)
+    await admin_db.commit()
+    await admin_db.refresh(user)
+
+    yield user
+
+    await admin_db.delete(user)
+    await admin_db.commit()
+
+
+@pytest.fixture
+async def test_user_b(
+    admin_db: AsyncSession,
+    discord_user_b_token: str,
+) -> AsyncGenerator[User]:
+    """
+    Create User B (bot B) for tests requiring Guild B authenticated user.
+
+    Provides hermetic user creation - only tests that need users include this fixture.
+    Automatically cleans up after test.
+    Uses discord_user_b_token to ensure user record matches authenticated_client_b.
+    """
+    user_b_discord_id = extract_bot_discord_id(discord_user_b_token)
+    user = User(discord_id=user_b_discord_id)
+    admin_db.add(user)
+    await admin_db.commit()
+    await admin_db.refresh(user)
+
+    yield user
+
+    await admin_db.delete(user)
+    await admin_db.commit()
+
+
+@pytest.fixture
+async def test_user_main_bot(
+    admin_db: AsyncSession,
+    discord_main_bot_token: str,
+) -> AsyncGenerator[User]:
+    """
+    Create main notification bot user for tests requiring notification bot.
+
+    Provides hermetic user creation - only tests that need users include this fixture.
+    Automatically cleans up after test.
+    """
+    main_bot_discord_id = extract_bot_discord_id(discord_main_bot_token)
+    user = User(discord_id=main_bot_discord_id)
+    admin_db.add(user)
+    await admin_db.commit()
+    await admin_db.refresh(user)
+
+    yield user
+
+    await admin_db.delete(user)
+    await admin_db.commit()
 
 
 async def wait_for_db_condition(
@@ -130,60 +497,39 @@ def discord_main_bot_token():
 
 
 @pytest.fixture(scope="session")
-def discord_guild_id():
-    """Provide test Discord guild ID from environment."""
-    return os.environ["DISCORD_GUILD_A_ID"]
+def discord_guild_id(discord_ids: DiscordTestEnvironment):
+    """Provide test Discord guild ID (backward compatibility)."""
+    return discord_ids.guild_a_id
 
 
 @pytest.fixture(scope="session")
-def discord_channel_id():
-    """Provide test Discord channel ID from environment."""
-    return os.environ["DISCORD_GUILD_A_CHANNEL_ID"]
+def discord_channel_id(discord_ids: DiscordTestEnvironment):
+    """Provide test Discord channel ID (backward compatibility)."""
+    return discord_ids.channel_a_id
 
 
 @pytest.fixture(scope="session")
-def discord_user_id():
-    """Provide test Discord user ID from environment."""
-    return os.environ["DISCORD_USER_ID"]
+def discord_user_id(discord_ids: DiscordTestEnvironment):
+    """Provide test Discord user ID (backward compatibility)."""
+    return discord_ids.user_a_id
 
 
 @pytest.fixture(scope="session")
-def discord_guild_b_id():
-    """Guild B for cross-guild isolation testing (required)."""
-    guild_b_id = os.environ.get("DISCORD_GUILD_B_ID")
-    if not guild_b_id:
-        pytest.skip(
-            "DISCORD_GUILD_B_ID environment variable not set. "
-            "Guild B is required for cross-guild isolation testing. "
-            "See TESTING_E2E.md section 6 for setup instructions."
-        )
-    return guild_b_id
+def discord_guild_b_id(discord_ids: DiscordTestEnvironment):
+    """Guild B for cross-guild isolation testing (backward compatibility)."""
+    return discord_ids.guild_b_id
 
 
 @pytest.fixture(scope="session")
-def discord_channel_b_id():
-    """Channel in Guild B for isolation tests (required)."""
-    channel_b_id = os.environ.get("DISCORD_GUILD_B_CHANNEL_ID")
-    if not channel_b_id:
-        pytest.skip(
-            "DISCORD_GUILD_B_CHANNEL_ID environment variable not set. "
-            "Guild B is required for cross-guild isolation testing. "
-            "See TESTING_E2E.md section 6 for setup instructions."
-        )
-    return channel_b_id
+def discord_channel_b_id(discord_ids: DiscordTestEnvironment):
+    """Channel in Guild B for isolation tests (backward compatibility)."""
+    return discord_ids.channel_b_id
 
 
 @pytest.fixture(scope="session")
-def discord_user_b_id():
-    """User B (member of Guild B only, required)."""
-    user_b_id = os.environ.get("DISCORD_ADMIN_BOT_B_CLIENT_ID")
-    if not user_b_id:
-        pytest.fail(
-            "DISCORD_ADMIN_BOT_B_CLIENT_ID environment variable not set. "
-            "Guild B is required for cross-guild isolation testing. "
-            "See TESTING_E2E.md section 6 for setup instructions."
-        )
-    return user_b_id
+def discord_user_b_id(discord_ids: DiscordTestEnvironment):
+    """User B (member of Guild B only, backward compatibility)."""
+    return discord_ids.user_b_id
 
 
 @pytest.fixture(scope="session")
@@ -217,8 +563,14 @@ def bot_discord_id(discord_token):
 
 
 @pytest.fixture
-async def authenticated_admin_client(api_base_url, bot_discord_id, discord_token):
-    """HTTP client authenticated as admin bot."""
+async def authenticated_admin_client(
+    api_base_url, bot_discord_id, discord_token, test_user_a: User
+):
+    """
+    HTTP client authenticated as admin bot.
+
+    Depends on test_user_a to ensure user record exists before authentication.
+    """
 
     client = httpx.AsyncClient(base_url=api_base_url, timeout=10.0)
 
@@ -232,51 +584,234 @@ async def authenticated_admin_client(api_base_url, bot_discord_id, discord_token
 
 
 @pytest.fixture
-async def synced_guild(authenticated_admin_client, discord_guild_id):
-    """
-    Sync guilds using the API endpoint and return sync results.
-
-    Calls /api/v1/guilds/sync with the admin bot token.
-    Returns the sync response containing new_guilds and new_channels counts.
-    """
-    print("\n[synced_guild fixture] Calling /api/v1/guilds/sync")
-    print(f"[synced_guild fixture] Client: {authenticated_admin_client}")
-    print(f"[synced_guild fixture] Cookies: {authenticated_admin_client.cookies}")
-
-    response = await authenticated_admin_client.post("/api/v1/guilds/sync")
-
-    print(f"[synced_guild fixture] Response status: {response.status_code}")
-    print(f"[synced_guild fixture] Response text: {response.text[:200]}")
-
-    assert response.status_code == 200, (
-        f"Guild sync failed: {response.status_code} - {response.text}"
-    )
-
-    sync_results = response.json()
-    print(f"[synced_guild fixture] Sync results: {sync_results}")
-    return sync_results
+async def guild_a_db_id(fresh_guild_a: GuildContext) -> str:
+    """Provide Guild A database ID (passthrough to fresh_guild_a)."""
+    return fresh_guild_a.db_id
 
 
 @pytest.fixture
-async def synced_guild_b(authenticated_client_b, discord_guild_b_id):
-    """
-    Sync Guild B using the API endpoint and return sync results.
-
-    Calls /api/v1/guilds/sync with the User B token.
-    Returns the sync response containing new_guilds and new_channels counts.
-    """
-    response = await authenticated_client_b.post("/api/v1/guilds/sync")
-
-    assert response.status_code == 200, (
-        f"Guild B sync failed: {response.status_code} - {response.text}"
-    )
-
-    return response.json()
+async def guild_b_db_id(fresh_guild_b: GuildContext) -> str:
+    """Provide Guild B database ID (passthrough to fresh_guild_b)."""
+    return fresh_guild_b.db_id
 
 
 @pytest.fixture
-async def authenticated_client_b(api_base_url, discord_user_b_id, discord_user_b_token):
-    """HTTP client authenticated as User B (Guild B member)."""
+async def guild_a_template_id(fresh_guild_a: GuildContext) -> str:
+    """Provide Guild A default template ID (passthrough to fresh_guild_a)."""
+    return fresh_guild_a.template_id
+
+
+@pytest.fixture
+async def guild_b_template_id(fresh_guild_b: GuildContext) -> str:
+    """Provide Guild B default template ID (passthrough to fresh_guild_b)."""
+    return fresh_guild_b.template_id
+
+
+@pytest.fixture
+async def synced_guild(
+    admin_db: AsyncSession,
+    discord_ids: DiscordTestEnvironment,
+    test_user_a: User,
+) -> AsyncGenerator[GuildContext]:
+    """
+    Create Guild A with automatic cleanup.
+
+    Directly inserts guild, channel, and template records for E2E testing.
+    Does not use /api/v1/guilds/sync because that requires OAuth tokens,
+    not bot tokens.
+
+    Provides hermetic test isolation with cleanup after each test.
+    Depends on test_user_a to ensure user record exists before guild creation.
+    """
+    guild_db_id = str(uuid4())
+    channel_db_id = str(uuid4())
+    template_id = str(uuid4())
+    now = datetime.now(UTC).replace(tzinfo=None)
+
+    try:
+        # Insert guild configuration
+        await admin_db.execute(
+            text(
+                """
+                INSERT INTO guild_configurations (id, guild_id, created_at, updated_at)
+                VALUES (:id, :guild_id, :created_at, :updated_at)
+                """
+            ),
+            {
+                "id": guild_db_id,
+                "guild_id": discord_ids.guild_a_id,
+                "created_at": now,
+                "updated_at": now,
+            },
+        )
+
+        # Insert channel configuration
+        await admin_db.execute(
+            text(
+                """
+                INSERT INTO channel_configurations
+                    (id, channel_id, guild_id, created_at, updated_at)
+                VALUES
+                    (:id, :channel_id, :guild_id, :created_at, :updated_at)
+                """
+            ),
+            {
+                "id": channel_db_id,
+                "channel_id": discord_ids.channel_a_id,
+                "guild_id": guild_db_id,
+                "created_at": now,
+                "updated_at": now,
+            },
+        )
+
+        # Insert default template
+        await admin_db.execute(
+            text(
+                """
+                INSERT INTO game_templates
+                (id, guild_id, channel_id, name, is_default, created_at, updated_at)
+                VALUES (:id, :guild_id, :channel_id, :name, :is_default, :created_at, :updated_at)
+                """
+            ),
+            {
+                "id": template_id,
+                "guild_id": guild_db_id,
+                "channel_id": channel_db_id,
+                "name": "Default Template",
+                "is_default": True,
+                "created_at": now,
+                "updated_at": now,
+            },
+        )
+
+        await admin_db.commit()
+
+        guild_context = GuildContext(
+            db_id=guild_db_id,
+            discord_id=discord_ids.guild_a_id,
+            channel_db_id=channel_db_id,
+            channel_discord_id=discord_ids.channel_a_id,
+            template_id=template_id,
+        )
+
+        yield guild_context
+
+    finally:
+        if guild_db_id:
+            await admin_db.execute(
+                text("DELETE FROM guild_configurations WHERE id = :id"),
+                {"id": guild_db_id},
+            )
+            await admin_db.commit()
+
+
+@pytest.fixture
+async def synced_guild_b(
+    admin_db: AsyncSession,
+    discord_ids: DiscordTestEnvironment,
+    test_user_b: User,
+) -> AsyncGenerator[GuildContext]:
+    """
+    Create Guild B with automatic cleanup.
+
+    Directly inserts guild, channel, and template records for E2E testing.
+    Does not use /api/v1/guilds/sync because that requires OAuth tokens,
+    not bot tokens.
+
+    Provides hermetic test isolation with cleanup after each test.
+    Depends on test_user_b to ensure user record exists before guild creation.
+    """
+    guild_db_id = str(uuid4())
+    channel_db_id = str(uuid4())
+    template_id = str(uuid4())
+    now = datetime.now(UTC).replace(tzinfo=None)
+
+    try:
+        # Insert guild configuration
+        await admin_db.execute(
+            text(
+                """
+                INSERT INTO guild_configurations (id, guild_id, created_at, updated_at)
+                VALUES (:id, :guild_id, :created_at, :updated_at)
+                """
+            ),
+            {
+                "id": guild_db_id,
+                "guild_id": discord_ids.guild_b_id,
+                "created_at": now,
+                "updated_at": now,
+            },
+        )
+
+        # Insert channel configuration
+        await admin_db.execute(
+            text(
+                """
+                INSERT INTO channel_configurations
+                    (id, channel_id, guild_id, created_at, updated_at)
+                VALUES
+                    (:id, :channel_id, :guild_id, :created_at, :updated_at)
+                """
+            ),
+            {
+                "id": channel_db_id,
+                "channel_id": discord_ids.channel_b_id,
+                "guild_id": guild_db_id,
+                "created_at": now,
+                "updated_at": now,
+            },
+        )
+
+        # Insert default template
+        await admin_db.execute(
+            text(
+                """
+                INSERT INTO game_templates
+                (id, guild_id, channel_id, name, is_default, created_at, updated_at)
+                VALUES (:id, :guild_id, :channel_id, :name, :is_default, :created_at, :updated_at)
+                """
+            ),
+            {
+                "id": template_id,
+                "guild_id": guild_db_id,
+                "channel_id": channel_db_id,
+                "name": "Default Template",
+                "is_default": True,
+                "created_at": now,
+                "updated_at": now,
+            },
+        )
+
+        await admin_db.commit()
+
+        guild_context = GuildContext(
+            db_id=guild_db_id,
+            discord_id=discord_ids.guild_b_id,
+            channel_db_id=channel_db_id,
+            channel_discord_id=discord_ids.channel_b_id,
+            template_id=template_id,
+        )
+
+        yield guild_context
+
+    finally:
+        if guild_db_id:
+            await admin_db.execute(
+                text("DELETE FROM guild_configurations WHERE id = :id"),
+                {"id": guild_db_id},
+            )
+            await admin_db.commit()
+
+
+@pytest.fixture
+async def authenticated_client_b(
+    api_base_url, discord_user_b_id, discord_user_b_token, test_user_b: User
+):
+    """
+    HTTP client authenticated as User B (Guild B member).
+
+    Depends on test_user_b to ensure user record exists before authentication.
+    """
 
     client = httpx.AsyncClient(base_url=api_base_url, timeout=10.0)
 

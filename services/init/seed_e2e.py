@@ -202,7 +202,10 @@ def seed_e2e_data() -> bool:
             _create_guild_entities(session, guild_a_config, bot_id)
             logger.info("E2E test data seeded successfully (guild A, channel A, users, template)")
 
-            logger.info("Seeding Guild B for cross-guild isolation testing: %s", config.guild_b_id)
+            logger.info(
+                "Seeding Guild B for cross-guild isolation testing: %s",
+                config.guild_b_id,
+            )
 
             if _guild_exists(session, config.guild_b_id):
                 logger.info("Guild B %s already exists, skipping seed", config.guild_b_id)

@@ -40,11 +40,11 @@ async def test_authenticated_admin_client_has_session(authenticated_admin_client
 
 
 @pytest.mark.asyncio
-async def test_authenticated_admin_client_can_call_api(
-    authenticated_admin_client, discord_guild_id
-):
+async def test_authenticated_admin_client_can_call_api(authenticated_admin_client, discord_ids):
     """Verify authenticated admin client can make authenticated API calls."""
-    response = await authenticated_admin_client.get(f"/api/v1/games?guild_id={discord_guild_id}")
+    response = await authenticated_admin_client.get(
+        f"/api/v1/games?guild_id={discord_ids.guild_a_id}"
+    )
     assert response.status_code == 200, f"Auth check failed: {response.text}"
 
     games_data = response.json()
@@ -52,8 +52,11 @@ async def test_authenticated_admin_client_can_call_api(
 
 
 @pytest.mark.asyncio
-async def test_synced_guild_creates_configs(synced_guild, discord_guild_id):
+async def test_synced_guild_creates_configs(synced_guild):
     """Verify guild sync creates necessary configurations."""
     assert synced_guild is not None
-    assert "new_guilds" in synced_guild
-    assert "new_channels" in synced_guild
+    assert synced_guild.db_id
+    assert synced_guild.discord_id
+    assert synced_guild.channel_db_id
+    assert synced_guild.channel_discord_id
+    assert synced_guild.template_id

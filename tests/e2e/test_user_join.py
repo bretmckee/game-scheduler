@@ -98,73 +98,10 @@ async def test_user_join_updates_participant_count(
     response = await authenticated_admin_client.post("/api/v1/games", data=game_data)
     assert response.status_code == 201, f"Failed to create game: {response.text}"
     game_id = response.json()["id"]
-    print(f"\n[TEST] Game created with ID: {game_id}")
-
-    # Refresh the session to ensure we see committed data
-    admin_db.expire_all()
-    await admin_db.commit()
-
-    # Check game and host details
-    result = await admin_db.execute(
-        text("SELECT id, host_id FROM game_sessions WHERE id = :game_id"),
-        {"game_id": game_id},
-    )
-    game_row = result.fetchone()
-    print(f"[DEBUG] Game found: {game_row is not None}")
-    if game_row:
-        print(f"[DEBUG] Game ID: {game_row[0]}")
-        print(f"[DEBUG] Host ID: {game_row[1]}")
-
-    # Check bot user details
-    result = await admin_db.execute(
-        text("SELECT id, discord_id FROM users WHERE discord_id = :discord_id"),
-        {"discord_id": bot_discord_id},
-    )
-    bot_user = result.fetchone()
-    print(f"[DEBUG] Bot user found: {bot_user is not None}")
-    if bot_user:
-        print(f"[DEBUG] Bot user_id: {bot_user[0]}")
-        print(f"[DEBUG] Bot discord_id: {bot_user[1]}")
-        if game_row:
-            print(f"[DEBUG] Bot is host: {bot_user[0] == game_row[1]}")
-
-    # Check ALL participants (including any with NULL user_id)
-    result = await admin_db.execute(
-        text(
-            "SELECT id, game_session_id, user_id, display_name, position_type, position "
-            "FROM game_participants WHERE game_session_id = :game_id"
-        ),
-        {"game_id": game_id},
-    )
-    all_participants = result.fetchall()
-    print(f"[DEBUG] Total participants in game: {len(all_participants)}")
-    for p in all_participants:
-        print(
-            f"[DEBUG]   Participant: id={p[0]}, game_id={p[1]}, user_id={p[2]}, "
-            f"display_name={p[3]}, position_type={p[4]}, position={p[5]}"
-        )
-
-    # Check if bot already has a participant record
-    if bot_user:
-        result = await admin_db.execute(
-            text(
-                "SELECT id, game_session_id, user_id, display_name "
-                "FROM game_participants WHERE user_id = :user_id"
-            ),
-            {"user_id": bot_user[0]},
-        )
-        bot_participants = result.fetchall()
-        print(f"[DEBUG] Bot's participant records (all games): {len(bot_participants)}")
-        for p in bot_participants:
-            print(
-                f"[DEBUG]   Bot participant: id={p[0]}, game_id={p[1]}, "
-                f"user_id={p[2]}, display_name={p[3]}"
-            )
 
     message_id = await wait_for_game_message_id(
         admin_db, game_id, timeout=test_timeouts[TimeoutType.DB_WRITE]
     )
-    print(f"[TEST] Message ID: {message_id}")
     assert message_id is not None, "Message ID should be populated after announcement"
 
     initial_message = await discord_helper.wait_for_message(
@@ -183,14 +120,12 @@ async def test_user_join_updates_participant_count(
             break
 
     assert participants_field is not None, "Participants field should exist"
-    print(f"[TEST] Initial participant field: {participants_field.name}")
     assert "0/4" in participants_field.name, (
         f"Should show 0/4 participants: {participants_field.name}"
     )
 
     join_response = await authenticated_admin_client.post(f"/api/v1/games/{game_id}/join")
     assert join_response.status_code == 200, f"Failed to join game: {join_response.text}"
-    print("[TEST] User joined game successfully")
 
     updated_message = await discord_helper.wait_for_message_update(
         channel_id=discord_channel_id,
@@ -214,8 +149,6 @@ async def test_user_join_updates_participant_count(
             break
 
     assert updated_participants_field is not None, "Participants field should still exist"
-    print(f"[TEST] Updated participant field: {updated_participants_field.name}")
     assert "1/4" in updated_participants_field.name, (
         f"Should show 1/4 participants after join: {updated_participants_field.name}"
     )
-    print("[TEST] ✓ User join successfully updated Discord message")

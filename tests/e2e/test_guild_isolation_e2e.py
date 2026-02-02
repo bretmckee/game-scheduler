@@ -28,55 +28,10 @@ Tests are marked with xfail until RLS is enabled in Phase 3.2+.
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from sqlalchemy import text
 
 from tests.shared.polling import wait_for_db_condition_async
 
 pytestmark = pytest.mark.e2e
-
-
-@pytest.fixture
-async def guild_a_template_id(admin_db, discord_guild_id, discord_channel_id, synced_guild):
-    """Get default template ID for Guild A."""
-    # Get Guild A database ID
-    guild_result = await admin_db.execute(
-        text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
-        {"guild_id": discord_guild_id},
-    )
-    guild_row = guild_result.fetchone()
-    assert guild_row, f"Guild A {discord_guild_id} not found in database"
-    guild_a_db_id = guild_row[0]
-
-    # Get default template
-    result = await admin_db.execute(
-        text("SELECT id FROM game_templates WHERE guild_id = :guild_id AND is_default = true"),
-        {"guild_id": guild_a_db_id},
-    )
-    row = result.fetchone()
-    assert row, "Guild A default template not found"
-    return row[0]
-
-
-@pytest.fixture
-async def guild_b_template_id(admin_db, discord_guild_b_id, synced_guild_b):
-    """Get default template ID for Guild B."""
-    # Get Guild B database ID
-    guild_result = await admin_db.execute(
-        text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
-        {"guild_id": discord_guild_b_id},
-    )
-    guild_row = guild_result.fetchone()
-    assert guild_row, f"Guild B {discord_guild_b_id} not found in database"
-    guild_b_db_id = guild_row[0]
-
-    # Get default template
-    result = await admin_db.execute(
-        text("SELECT id FROM game_templates WHERE guild_id = :guild_id AND is_default = true"),
-        {"guild_id": guild_b_db_id},
-    )
-    row = result.fetchone()
-    assert row, "Guild B default template not found"
-    return row[0]
 
 
 @pytest.fixture
@@ -283,8 +238,8 @@ async def test_templates_isolated_across_guilds(
     authenticated_admin_client,
     authenticated_client_b,
     admin_db,
-    discord_guild_id,
-    discord_guild_b_id,
+    guild_a_db_id,
+    guild_b_db_id,
     guild_b_template_id,
 ):
     """
@@ -294,24 +249,6 @@ async def test_templates_isolated_across_guilds(
     - User A lists templates for Guild A → sees only Guild A templates
     - User A attempts to access Guild B template → 404
     """
-    # Get Guild A database UUID
-    result_a = await admin_db.execute(
-        text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
-        {"guild_id": discord_guild_id},
-    )
-    row_a = result_a.fetchone()
-    assert row_a, "Guild A not found"
-    guild_a_db_id = str(row_a[0])  # Convert UUID to string
-
-    # Get Guild B database UUID
-    result_b = await admin_db.execute(
-        text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
-        {"guild_id": discord_guild_b_id},
-    )
-    row_b = result_b.fetchone()
-    assert row_b, "Guild B not found"
-    guild_b_db_id = str(row_b[0])  # Convert UUID to string
-
     # User A lists templates for Guild A (using database UUID)
     response = await authenticated_admin_client.get(f"/api/v1/guilds/{guild_a_db_id}/templates")
     assert response.status_code == 200

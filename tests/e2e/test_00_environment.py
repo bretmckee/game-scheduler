@@ -27,7 +27,11 @@ import os
 
 import discord
 import pytest
-from sqlalchemy import text
+from sqlalchemy import select, text
+
+from shared.models.user import User
+from shared.utils.discord_tokens import extract_bot_discord_id
+from tests.e2e.conftest import GuildContext
 
 pytestmark = pytest.mark.e2e
 
@@ -131,40 +135,6 @@ async def test_discord_user_exists(discord_token, discord_user_id):
             pytest.fail(f"User {discord_user_id} does not exist")
     finally:
         await client.close()
-
-
-@pytest.mark.asyncio
-async def test_database_seeded(admin_db, discord_guild_id, discord_channel_id, discord_user_id):
-    """Verify init service seeded the database with test data."""
-    result = await admin_db.execute(
-        text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
-        {"guild_id": discord_guild_id},
-    )
-    guild_row = result.fetchone()
-    assert guild_row is not None, (
-        f"Guild {discord_guild_id} not found in database. "
-        f"Init service may have failed to seed E2E data"
-    )
-
-    result = await admin_db.execute(
-        text("SELECT id FROM channel_configurations WHERE channel_id = :channel_id"),
-        {"channel_id": discord_channel_id},
-    )
-    channel_row = result.fetchone()
-    assert channel_row is not None, (
-        f"Channel {discord_channel_id} not found in database. "
-        f"Init service may have failed to seed E2E data"
-    )
-
-    result = await admin_db.execute(
-        text("SELECT id FROM users WHERE discord_id = :discord_id"),
-        {"discord_id": discord_user_id},
-    )
-    user_row = result.fetchone()
-    assert user_row is not None, (
-        f"User {discord_user_id} not found in database. "
-        f"Init service may have failed to seed E2E data"
-    )
 
 
 @pytest.mark.asyncio
@@ -280,60 +250,6 @@ async def test_user_b_exists(discord_user_b_token, discord_user_b_id):
 
 
 @pytest.mark.asyncio
-async def test_guild_b_database_seeded(
-    admin_db, discord_guild_b_id, discord_channel_b_id, discord_user_b_id
-):
-    """Verify init service seeded Guild B data in database."""
-    result = await admin_db.execute(
-        text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
-        {"guild_id": discord_guild_b_id},
-    )
-    guild_row = result.fetchone()
-    assert guild_row is not None, (
-        f"Guild B {discord_guild_b_id} not found in database. "
-        f"Init service may have failed to seed Guild B data"
-    )
-
-    result = await admin_db.execute(
-        text("SELECT id FROM channel_configurations WHERE channel_id = :channel_id"),
-        {"channel_id": discord_channel_b_id},
-    )
-    channel_row = result.fetchone()
-    assert channel_row is not None, (
-        f"Channel B {discord_channel_b_id} not found in database. "
-        f"Init service may have failed to seed Guild B data"
-    )
-
-    result = await admin_db.execute(
-        text("SELECT id FROM users WHERE discord_id = :discord_id"),
-        {"discord_id": discord_user_b_id},
-    )
-    user_row = result.fetchone()
-    assert user_row is not None, (
-        f"User B {discord_user_b_id} not found in database. "
-        f"Init service may have failed to seed Guild B data"
-    )
-
-
-@pytest.mark.asyncio
-async def test_guild_b_has_default_template(admin_db, discord_guild_b_id):
-    """Verify Guild B has a default game template."""
-    result = await admin_db.execute(
-        text(
-            "SELECT t.id FROM game_templates t "
-            "JOIN guild_configurations g ON t.guild_id = g.id "
-            "WHERE g.guild_id = :guild_id AND t.is_default = true"
-        ),
-        {"guild_id": discord_guild_b_id},
-    )
-    template_row = result.fetchone()
-    assert template_row is not None, (
-        f"Guild B {discord_guild_b_id} does not have a default template. "
-        f"Init service may have failed to seed Guild B template"
-    )
-
-
-@pytest.mark.asyncio
 async def test_user_b_not_in_guild_a(discord_user_b_token, discord_guild_id):
     """Verify User B is NOT a member of Guild A (isolation requirement)."""
     client = discord.Client(intents=discord.Intents.default())
@@ -357,6 +273,31 @@ async def test_user_b_not_in_guild_a(discord_user_b_token, discord_guild_id):
 
 
 @pytest.mark.asyncio
+async def test_discord_ids_fixture(discord_ids):
+    """Verify discord_ids fixture loads all environment variables correctly."""
+    assert discord_ids.guild_a_id, "Guild A ID should be loaded"
+    assert discord_ids.channel_a_id, "Channel A ID should be loaded"
+    assert discord_ids.user_a_id, "User A ID should be loaded"
+    assert discord_ids.guild_b_id, "Guild B ID should be loaded"
+    assert discord_ids.channel_b_id, "Channel B ID should be loaded"
+    assert discord_ids.user_b_id, "User B ID should be loaded"
+
+    # Validate snowflake ID format (17-19 digits)
+    for id_name, id_value in [
+        ("guild_a_id", discord_ids.guild_a_id),
+        ("channel_a_id", discord_ids.channel_a_id),
+        ("user_a_id", discord_ids.user_a_id),
+        ("guild_b_id", discord_ids.guild_b_id),
+        ("channel_b_id", discord_ids.channel_b_id),
+        ("user_b_id", discord_ids.user_b_id),
+    ]:
+        assert id_value.isdigit(), f"{id_name} should be numeric"
+        assert 17 <= len(id_value) <= 19, (
+            f"{id_name} should be 17-19 digits (Discord snowflake format), got {len(id_value)}"
+        )
+
+
+@pytest.mark.asyncio
 async def test_user_a_not_in_guild_b(discord_token, discord_guild_b_id):
     """Verify User A is NOT a member of Guild B (isolation requirement)."""
     client = discord.Client(intents=discord.Intents.default())
@@ -377,3 +318,198 @@ async def test_user_a_not_in_guild_b(discord_token, discord_guild_b_id):
             pass
     finally:
         await client.close()
+
+
+@pytest.mark.asyncio
+async def test_user_a_fixture_creates_and_cleans_up(admin_db, test_user_a, bot_discord_id):
+    """Verify test_user_a fixture creates user correctly and cleans up after test."""
+    # User should exist during test (fixture yielded)
+    assert test_user_a is not None, "test_user_a fixture should yield a User"
+    assert test_user_a.discord_id == bot_discord_id, (
+        f"User discord_id should match bot_discord_id: "
+        f"expected {bot_discord_id}, got {test_user_a.discord_id}"
+    )
+
+    # Query database to verify user exists
+    result = await admin_db.execute(select(User).where(User.discord_id == bot_discord_id))
+    user_in_db = result.scalar_one_or_none()
+    assert user_in_db is not None, f"User with discord_id={bot_discord_id} should exist in database"
+    assert user_in_db.id == test_user_a.id, "Database user ID should match fixture user ID"
+
+
+@pytest.mark.asyncio
+async def test_user_b_fixture_creates_and_cleans_up(admin_db, test_user_b, discord_user_b_token):
+    """Verify test_user_b fixture creates user correctly and cleans up after test."""
+    user_b_discord_id = extract_bot_discord_id(discord_user_b_token)
+
+    # User should exist during test (fixture yielded)
+    assert test_user_b is not None, "test_user_b fixture should yield a User"
+    assert test_user_b.discord_id == user_b_discord_id, (
+        f"User discord_id should match user B bot discord_id: "
+        f"expected {user_b_discord_id}, got {test_user_b.discord_id}"
+    )
+
+    # Query database to verify user exists
+    result = await admin_db.execute(select(User).where(User.discord_id == user_b_discord_id))
+    user_in_db = result.scalar_one_or_none()
+    assert user_in_db is not None, (
+        f"User with discord_id={user_b_discord_id} should exist in database"
+    )
+    assert user_in_db.id == test_user_b.id, "Database user ID should match fixture user ID"
+
+
+@pytest.mark.asyncio
+async def test_user_main_bot_fixture_creates_and_cleans_up(
+    admin_db, test_user_main_bot, discord_main_bot_token
+):
+    """Verify test_user_main_bot fixture creates user correctly and cleans up after test."""
+    main_bot_discord_id = extract_bot_discord_id(discord_main_bot_token)
+
+    # User should exist during test (fixture yielded)
+    assert test_user_main_bot is not None, "test_user_main_bot fixture should yield a User"
+    assert test_user_main_bot.discord_id == main_bot_discord_id, (
+        f"User discord_id should match main bot discord_id: "
+        f"expected {main_bot_discord_id}, got {test_user_main_bot.discord_id}"
+    )
+
+    # Query database to verify user exists
+    result = await admin_db.execute(select(User).where(User.discord_id == main_bot_discord_id))
+    user_in_db = result.scalar_one_or_none()
+    assert user_in_db is not None, (
+        f"User with discord_id={main_bot_discord_id} should exist in database"
+    )
+    assert user_in_db.id == test_user_main_bot.id, "Database user ID should match fixture user ID"
+
+
+@pytest.mark.asyncio
+async def test_user_fixture_cleanup(admin_db, bot_discord_id):
+    """Verify user fixtures clean up after themselves (run after other user fixture tests)."""
+    # This test intentionally doesn't use test_user_a fixture
+    # If cleanup worked correctly, no user should exist with bot_discord_id
+    result = await admin_db.execute(select(User).where(User.discord_id == bot_discord_id))
+    user_in_db = result.scalar_one_or_none()
+
+    assert user_in_db is None, (
+        f"User with discord_id={bot_discord_id} should NOT exist after fixture cleanup, "
+        f"but found user with id={user_in_db.id if user_in_db else None}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_fresh_guild_fixture_creates_and_cleans_up(admin_db, fresh_guild_a, discord_ids):
+    """Verify fresh_guild_a fixture creates guild correctly and cleans up after test."""
+    # Guild should exist during test (fixture yielded GuildContext)
+    assert fresh_guild_a is not None, "fresh_guild_a fixture should yield a GuildContext"
+    assert fresh_guild_a.db_id is not None, "Guild should have a database ID"
+    assert fresh_guild_a.discord_id == discord_ids.guild_a_id, (
+        f"Guild discord_id should match discord_ids.guild_a_id: "
+        f"expected {discord_ids.guild_a_id}, got {fresh_guild_a.discord_id}"
+    )
+    assert fresh_guild_a.channel_db_id is not None, "Guild should have a channel database ID"
+    assert fresh_guild_a.channel_discord_id == discord_ids.channel_a_id, (
+        f"Channel discord_id should match discord_ids.channel_a_id: "
+        f"expected {discord_ids.channel_a_id}, got {fresh_guild_a.channel_discord_id}"
+    )
+    assert fresh_guild_a.template_id is not None, "Guild should have a default template ID"
+
+    # Query database to verify guild exists
+    result = await admin_db.execute(
+        text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
+        {"guild_id": discord_ids.guild_a_id},
+    )
+    row = result.fetchone()
+    assert row is not None, f"Guild with guild_id={discord_ids.guild_a_id} should exist in database"
+    assert row[0] == fresh_guild_a.db_id, "Database guild ID should match fixture guild ID"
+
+    # Verify channel exists
+    result = await admin_db.execute(
+        text("SELECT id FROM channel_configurations WHERE channel_id = :channel_id"),
+        {"channel_id": discord_ids.channel_a_id},
+    )
+    row = result.fetchone()
+    assert row is not None, f"Channel with channel_id={discord_ids.channel_a_id} should exist"
+    assert row[0] == fresh_guild_a.channel_db_id, (
+        "Database channel ID should match fixture channel ID"
+    )
+
+    # Verify template exists
+    result = await admin_db.execute(
+        text("SELECT id FROM game_templates WHERE id = :template_id"),
+        {"template_id": fresh_guild_a.template_id},
+    )
+    row = result.fetchone()
+    assert row is not None, f"Template with id={fresh_guild_a.template_id} should exist in database"
+
+
+@pytest.mark.asyncio
+async def test_fresh_guild_b_fixture_creates_and_cleans_up(admin_db, fresh_guild_b, discord_ids):
+    """Verify fresh_guild_b fixture creates guild B correctly and cleans up after test."""
+    # Guild B should exist during test (fixture yielded GuildContext)
+    assert fresh_guild_b is not None, "fresh_guild_b fixture should yield a GuildContext"
+    assert fresh_guild_b.db_id is not None, "Guild B should have a database ID"
+    assert fresh_guild_b.discord_id == discord_ids.guild_b_id, (
+        f"Guild B discord_id should match discord_ids.guild_b_id: "
+        f"expected {discord_ids.guild_b_id}, got {fresh_guild_b.discord_id}"
+    )
+    assert fresh_guild_b.channel_db_id is not None, "Guild B should have a channel database ID"
+    assert fresh_guild_b.channel_discord_id == discord_ids.channel_b_id, (
+        f"Channel B discord_id should match discord_ids.channel_b_id: "
+        f"expected {discord_ids.channel_b_id}, got {fresh_guild_b.channel_discord_id}"
+    )
+    assert fresh_guild_b.template_id is not None, "Guild B should have a default template ID"
+
+    # Query database to verify guild B exists
+    result = await admin_db.execute(
+        text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
+        {"guild_id": discord_ids.guild_b_id},
+    )
+    row = result.fetchone()
+    assert row is not None, (
+        f"Guild B with guild_id={discord_ids.guild_b_id} should exist in database"
+    )
+    assert row[0] == fresh_guild_b.db_id, "Database guild B ID should match fixture guild ID"
+
+
+@pytest.mark.asyncio
+async def test_guild_fixture_cleanup(admin_db, discord_ids):
+    """Verify guild fixtures clean up after themselves (run after other guild fixture tests)."""
+    # This test intentionally doesn't use fresh_guild_a or fresh_guild_b fixtures
+    # If cleanup worked correctly, no guilds should exist with these Discord IDs
+    result = await admin_db.execute(
+        text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
+        {"guild_id": discord_ids.guild_a_id},
+    )
+    row = result.fetchone()
+    assert row is None, (
+        f"Guild A with guild_id={discord_ids.guild_a_id} should NOT exist after fixture cleanup, "
+        f"but found guild with id={row[0] if row else None}"
+    )
+
+    # Verify Guild B also cleaned up
+    result = await admin_db.execute(
+        text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
+        {"guild_id": discord_ids.guild_b_id},
+    )
+    row = result.fetchone()
+    assert row is None, (
+        f"Guild B with guild_id={discord_ids.guild_b_id} should NOT exist after fixture cleanup, "
+        f"but found guild with id={row[0] if row else None}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_synced_guild_fixture_returns_guild_context(admin_db, synced_guild, discord_ids):
+    """Verify synced_guild fixture returns properly populated GuildContext."""
+    # synced_guild should return GuildContext (not dict like old implementation)
+    assert synced_guild is not None, "synced_guild fixture should yield a GuildContext"
+    assert synced_guild.db_id is not None, "synced_guild should have database ID"
+    assert synced_guild.discord_id == discord_ids.guild_a_id, (
+        "synced_guild discord_id should match guild_a_id"
+    )
+    assert synced_guild.channel_db_id is not None, "synced_guild should have channel database ID"
+    assert synced_guild.template_id is not None, "synced_guild should have template ID"
+
+    # Verify it's the same structure as fresh_guild_a
+    assert isinstance(synced_guild, GuildContext), (
+        "synced_guild should return GuildContext instance"
+    )
