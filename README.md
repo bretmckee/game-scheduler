@@ -35,10 +35,10 @@ Game Scheduler helps Discord communities organize gaming sessions through:
 
 ## License
 
-Copyright 2025 Bret McKee (bret.mckee@gmail.com)
+Copyright 2025-2026 Bret McKee (bret.mckee@gmail.com)
 
-Game Scheduler is available as open source software, see COPYING.txt for
-information on the license.
+Game Scheduler is available as open source software under the MIT License.
+See COPYING.txt for the full license text.
 
 Please contact the author if you are interested in obtaining it under other
 terms.

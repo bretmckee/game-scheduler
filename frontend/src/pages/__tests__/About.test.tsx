@@ -1,19 +1,22 @@
-// Copyright 2025 Bret McKee (bret.mckee@gmail.com)
+// Copyright 2025-2026 Bret McKee
 //
-// This file is part of Game_Scheduler. (https://github.com/game-scheduler)
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
 //
-// Game_Scheduler is free software: you can redistribute it and/or
-// modify it under the terms of the GNU Affero General Public License as published
-// by the Free Software Foundation, either version 3 of the License, or (at your
-// option) any later version.
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
 //
-// Game_Scheduler is distributed in the hope that it will be
-// useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General
-// Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License along
-// with Game_Scheduler If not, see <https://www.gnu.org/licenses/>.
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
 
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -82,7 +85,7 @@ describe('About', () => {
     render(<About />);
 
     await waitFor(() => {
-      expect(screen.getByText(/Copyright © 2025 Bret McKee/)).toBeInTheDocument();
+      expect(screen.getByText(/Copyright © 2025-2026 Bret McKee/)).toBeInTheDocument();
     });
 
     expect(screen.getByText('bret.mckee@gmail.com')).toBeInTheDocument();
@@ -94,11 +97,10 @@ describe('About', () => {
     render(<About />);
 
     await waitFor(() => {
-      const licenseElements = screen.getAllByText(/GNU Affero General Public License/);
-      expect(licenseElements.length).toBeGreaterThan(0);
+      expect(screen.getByText(/distributed under the MIT License/)).toBeInTheDocument();
     });
 
-    expect(screen.getByText(/version 3 of the License/)).toBeInTheDocument();
+    expect(screen.getByText(/WITHOUT WARRANTY OF ANY KIND/)).toBeInTheDocument();
   });
 
   it('includes link to GitHub repository', async () => {
@@ -118,8 +120,8 @@ describe('About', () => {
     render(<About />);
 
     await waitFor(() => {
-      const link = screen.getByRole('link', { name: /gnu.org/ });
-      expect(link).toHaveAttribute('href', 'https://www.gnu.org/licenses/');
+      const link = screen.getByRole('link', { name: /opensource.org/ });
+      expect(link).toHaveAttribute('href', 'https://opensource.org/license/mit/');
     });
   });
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "Game_Scheduler"
-license = "AGPL-3.0-or-later"
+license = "MIT"
 dynamic = ["version"]
 authors = [
   {name = "Bret McKee", email = "bret.mckee@gmail.com"},
