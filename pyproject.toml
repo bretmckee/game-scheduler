@@ -158,12 +158,6 @@ exclude = []
 "scripts/**/*.py" = [
     "T201",     # Print statements allowed in CLI scripts
 ]
-"test_oauth.py" = [
-    "T201",     # Print statements allowed in manual test script
-]
-"conftest.py" = [
-    "ANN",      # Type annotations not required in test configuration
-]
 
 [tool.ruff.lint.isort]
 known-first-party = ["shared", "services"]
