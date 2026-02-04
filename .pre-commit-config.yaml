@@ -1,5 +1,11 @@
 # Pre-commit hook configuration
 # See https://pre-commit.com for more information
+#
+# Hook Isolation Strategy:
+# - Most hooks run in isolated environments (language: python, node) without project dependencies
+# - Test and build hooks (pytest-coverage, frontend-build, vitest-coverage) require project setup
+# - Isolated hooks are automatically managed by pre-commit and work in any git repository
+# - System hooks need 'uv sync' or 'npm install' run before they can execute
 
 default_language_version:
   python: python3.13
@@ -82,9 +88,11 @@ repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: 0470f7c8a653e950f7cc5a653204ceb3fde4c02a  # frozen: v0.15.0
     hooks:
-      - id: ruff
-        args: [--fix]
       - id: ruff-format
+        name: ruff format
+      - id: ruff
+        name: ruff lint
+        args: [--fix]
 
   # Frontend tools: Use language: node for isolated environments
   # Note: Official mirrors (mirrors-prettier, mirrors-eslint) are outdated,
@@ -102,13 +110,24 @@ repos:
           - 'prettier@^3.7.4'
 
       # ESLint: Frontend linting
-      # Note: Requires npm install - eslint.config.js imports packages from node_modules
       - id: eslint
         name: ESLint
-        entry: bash -c 'cd frontend && npm run lint:fix'
-        language: system
+        entry: eslint --config frontend/eslint.config.js frontend/src/ --fix
+        language: node
         files: ^frontend/.*\.(ts|tsx|js|jsx)$
         pass_filenames: false
+        additional_dependencies:
+          - 'eslint@^9.0.0'
+          - '@eslint/js@^9.39.2'
+          - 'typescript-eslint@^8.49.0'
+          - '@typescript-eslint/eslint-plugin@^8.0.0'
+          - '@typescript-eslint/parser@^8.0.0'
+          - 'eslint-plugin-react@^7.37.5'
+          - 'eslint-plugin-react-hooks@^7.0.0'
+          - 'eslint-plugin-react-refresh@^0.4.25'
+          - 'eslint-plugin-prettier@^5.5.4'
+          - 'eslint-config-prettier@^10.1.8'
+          - 'globals@^16.5.0'
 
   # Python: type checking, compilation, testing, and coverage
   # Note: MyPy requires full project environment due to complex type dependencies
@@ -117,13 +136,14 @@ repos:
       # Python compilation check
       - id: python-compile
         name: Python compilation check
-        entry: uv run python -m compileall -q
-        language: system
+        entry: python -m compileall -q
+        language: python
         types: [python]
         args: [services, shared, tests]
         pass_filenames: false
 
       # MyPy type checking (reads configuration from pyproject.toml)
+      # Requires project dependencies: run 'uv sync' before using this hook
       - id: mypy
         name: mypy type check
         entry: uv run mypy
@@ -133,6 +153,7 @@ repos:
         args: [shared/, services/]
 
       # Python unit tests with coverage
+      # Requires project dependencies: run 'uv sync' before using this hook
       - id: pytest-coverage
         name: Python unit tests with coverage
         entry: bash -c 'output=$(uv run pytest --cov --cov-report=xml --cov-report= -qq 2>&1); if [ $? -ne 0 ]; then echo "$output"; exit 1; fi'
@@ -144,16 +165,18 @@ repos:
       # Diff coverage check for modified Python code
       - id: diff-coverage
         name: Python diff coverage check
-        entry: bash -c 'py_files=$(git diff --cached --name-only --diff-filter=ACM | grep -E "^(services|shared)/.*\.py$" | grep -v "__pycache__"); if [ -n "$py_files" ]; then uv run diff-cover coverage.xml --compare-branch=origin/main --fail-under=80 --ignore-whitespace --quiet || uv run diff-cover coverage.xml --compare-branch=origin/main --fail-under=80 --ignore-whitespace; else exit 0; fi'
-        language: system
+        entry: bash -c 'py_files=$(git diff --cached --name-only --diff-filter=ACM | grep -E "^(services|shared)/.*\.py$" | grep -v "__pycache__"); if [ -n "$py_files" ]; then diff-cover coverage.xml --compare-branch=origin/main --fail-under=80 --ignore-whitespace --quiet || diff-cover coverage.xml --compare-branch=origin/main --fail-under=80 --ignore-whitespace; else exit 0; fi'
+        language: python
         pass_filenames: false
         files: ^(services|shared|tests)/.*\.py$
         verbose: true
+        additional_dependencies: ['diff-cover~=9.2.0']
 
   # TypeScript/Frontend: linting, formatting, type checking, build, testing, and coverage
   - repo: local
     hooks:
       # Frontend build check
+      # Requires frontend dependencies: run 'cd frontend && npm install' before using this hook
       - id: frontend-build
         name: Frontend build check
         entry: bash -c 'cd frontend && npm run build'
@@ -162,15 +185,17 @@ repos:
         pass_filenames: false
 
       # TypeScript type check
-      # Note: Requires npm install - needs type definitions from node_modules
       - id: typescript
         name: TypeScript check
-        entry: bash -c 'cd frontend && npm run type-check'
-        language: system
+        entry: tsc --project frontend/tsconfig.json --noEmit
+        language: node
         files: ^frontend/.*\.(ts|tsx)$
         pass_filenames: false
+        additional_dependencies:
+          - 'typescript@^5.9.3'
 
       # Frontend unit tests with coverage
+      # Requires frontend dependencies: run 'cd frontend && npm install' before using this hook
       - id: vitest-coverage
         name: Frontend unit tests with coverage
         entry: bash -c 'cd frontend && npm run test:coverage -- --run --reporter=hanging-process 2>&1 | grep -E "(FAIL|Test Files.*failed|Duration)" && sed "s|^SF:src/|SF:frontend/src/|g" coverage/lcov.info > coverage/lcov-fixed.info || (sed "s|^SF:src/|SF:frontend/src/|g" coverage/lcov.info > coverage/lcov-fixed.info && exit 0)'
@@ -182,11 +207,12 @@ repos:
       # Diff coverage check for modified TypeScript code
       - id: diff-coverage-frontend
         name: Frontend diff coverage check
-        entry: bash -c 'ts_files=$(git diff --cached --name-only --diff-filter=ACM | grep -E "^frontend/src/.*\.(ts|tsx)$" | grep -v "\.test\."); if [ -n "$ts_files" ]; then uv run diff-cover frontend/coverage/lcov-fixed.info --compare-branch=origin/main --fail-under=80 --ignore-whitespace --quiet || uv run diff-cover frontend/coverage/lcov-fixed.info --compare-branch=origin/main --fail-under=80 --ignore-whitespace; else exit 0; fi'
-        language: system
+        entry: bash -c 'ts_files=$(git diff --cached --name-only --diff-filter=ACM | grep -E "^frontend/src/.*\.(ts|tsx)$" | grep -v "\.test\."); if [ -n "$ts_files" ]; then diff-cover frontend/coverage/lcov-fixed.info --compare-branch=origin/main --fail-under=80 --ignore-whitespace --quiet || diff-cover frontend/coverage/lcov-fixed.info --compare-branch=origin/main --fail-under=80 --ignore-whitespace; else exit 0; fi'
+        language: python
         pass_filenames: false
         files: ^frontend/.*\.(ts|tsx|js|jsx)$
         verbose: true
+        additional_dependencies: ['diff-cover~=9.2.0']
 
   # Complexity checking
   - repo: local
