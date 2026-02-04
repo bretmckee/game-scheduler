@@ -64,6 +64,20 @@ repos:
         files: \.(ts|tsx)$
         require_serial: true
 
+      - id: autocopyright
+        name: Add copyright headers (Shell scripts)
+        args:
+          - -s
+          - "#"
+          - -d
+          - scripts
+          - -g
+          - "*.sh"
+          - -l
+          - ./templates/mit-template.jinja2
+        files: \.sh$
+        require_serial: true
+
   # Ruff: Python linting and formatting (official repository)
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: 0470f7c8a653e950f7cc5a653204ceb3fde4c02a  # frozen: v0.15.0
