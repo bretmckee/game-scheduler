@@ -29,7 +29,7 @@ repos:
     hooks:
       - id: add-copyright-python
         name: Add copyright headers (Python)
-        entry: autocopyright -s "#" -d alembic -d services -d shared -d tests -g "*.py" -l "./templates/agpl-template.jinja2"
+        entry: autocopyright -s "#" -d alembic -d services -d shared -d tests -g "*.py" -l "./templates/mit-template.jinja2"
         language: python
         files: \.py$
         pass_filenames: false
@@ -38,7 +38,7 @@ repos:
 
       - id: add-copyright-typescript
         name: Add copyright headers (TypeScript)
-        entry: autocopyright -s "//" -d frontend/src -g "*.ts" -g "*.tsx" -l "./templates/agpl-template.jinja2"
+        entry: autocopyright -s "//" -d frontend/src -g "*.ts" -g "*.tsx" -l "./templates/mit-template.jinja2"
         language: python
         files: \.(ts|tsx)$
         pass_filenames: false

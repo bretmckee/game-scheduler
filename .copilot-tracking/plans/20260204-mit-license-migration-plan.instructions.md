@@ -44,30 +44,30 @@ Replace AGPL licensing with MIT across license files, headers, metadata, and doc
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Update license artifacts and tooling
+### [x] Phase 1: Update license artifacts and tooling
 
-- [ ] Task 1.1: Replace AGPL license text with MIT in COPYING.txt
+- [x] Task 1.1: Replace AGPL license text with MIT in COPYING.txt
 
   - Details: .copilot-tracking/details/20260204-mit-license-migration-details.md (Lines 11-23)
 
-- [ ] Task 1.2: Update autocopyright template and script for MIT headers
+- [x] Task 1.2: Update autocopyright template and script for MIT headers
 
   - Details: .copilot-tracking/details/20260204-mit-license-migration-details.md (Lines 25-38)
 
-- [ ] Task 1.3: Update project metadata license to MIT
+- [x] Task 1.3: Update project metadata license to MIT
   - Details: .copilot-tracking/details/20260204-mit-license-migration-details.md (Lines 40-51)
 
-### [ ] Phase 2: Update source file headers
+### [x] Phase 2: Update source file headers
 
-- [ ] Task 2.1: Apply MIT headers and adjust copyright years
+- [x] Task 2.1: Apply MIT headers and adjust copyright years
   - Details: .copilot-tracking/details/20260204-mit-license-migration-details.md (Lines 55-72)
 
-### [ ] Phase 3: Update documentation and UI references
+### [x] Phase 3: Update documentation and UI references
 
-- [ ] Task 3.1: Update README License section
+- [x] Task 3.1: Update README License section
   - Details: .copilot-tracking/details/20260204-mit-license-migration-details.md (Lines 76-87)
 
-- [ ] Task 3.2: Update About page and tests for MIT license
+- [x] Task 3.2: Update About page and tests for MIT license
   - Details: .copilot-tracking/details/20260204-mit-license-migration-details.md (Lines 89-102)
 
 ## Dependencies

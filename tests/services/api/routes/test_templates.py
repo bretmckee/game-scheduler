@@ -1,19 +1,22 @@
-# Copyright 2025 Bret McKee (bret.mckee@gmail.com)
+# Copyright 2025-2026 Bret McKee
 #
-# This file is part of Game_Scheduler. (https://github.com/game-scheduler)
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
 #
-# Game_Scheduler is free software: you can redistribute it and/or
-# modify it under the terms of the GNU Affero General Public License as published
-# by the Free Software Foundation, either version 3 of the License, or (at your
-# option) any later version.
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
 #
-# Game_Scheduler is distributed in the hope that it will be
-# useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General
-# Public License for more details.
-#
-# You should have received a copy of the GNU Affero General Public License along
-# with Game_Scheduler If not, see <https://www.gnu.org/licenses/>.
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
 
 
 """Unit tests for template endpoints."""
@@ -98,9 +101,7 @@ class TestBuildTemplateResponse:
         with patch("shared.discord.client.fetch_channel_name_safe") as mock_fetch:
             mock_fetch.return_value = "test-channel"
 
-            result = await templates.build_template_response(
-                mock_template, mock_discord_client
-            )
+            result = await templates.build_template_response(mock_template, mock_discord_client)
 
         assert result.id == mock_template.id
         assert result.guild_id == mock_template.guild_id
@@ -114,9 +115,7 @@ class TestBuildTemplateResponse:
         assert result.allowed_player_role_ids == mock_template.allowed_player_role_ids
         assert result.allowed_host_role_ids == mock_template.allowed_host_role_ids
         assert result.max_players == mock_template.max_players
-        assert (
-            result.expected_duration_minutes == mock_template.expected_duration_minutes
-        )
+        assert result.expected_duration_minutes == mock_template.expected_duration_minutes
         assert result.reminder_minutes == mock_template.reminder_minutes
         assert result.where == mock_template.where
         assert result.signup_instructions == mock_template.signup_instructions
@@ -125,9 +124,7 @@ class TestBuildTemplateResponse:
         assert result.created_at == "2024-01-01T12:00:00"
         assert result.updated_at == "2024-01-01T12:00:00"
 
-        mock_fetch.assert_awaited_once_with(
-            mock_template.channel_id, mock_discord_client
-        )
+        mock_fetch.assert_awaited_once_with(mock_template.channel_id, mock_discord_client)
 
     @pytest.mark.asyncio
     async def test_build_template_response_with_null_optional_fields(self):
@@ -163,9 +160,7 @@ class TestBuildTemplateResponse:
             template.updated_at = datetime(2024, 1, 1, 12, 0, 0)
             template.channel = channel_config
 
-            result = await templates.build_template_response(
-                template, mock_discord_client
-            )
+            result = await templates.build_template_response(template, mock_discord_client)
 
             assert result.id == template.id
             assert result.name == "Minimal Template"
@@ -182,14 +177,10 @@ class TestBuildTemplateResponse:
         with patch("shared.discord.client.fetch_channel_name_safe") as mock_fetch:
             mock_fetch.return_value = "resolved-channel"
 
-            result = await templates.build_template_response(
-                mock_template, mock_discord_client
-            )
+            result = await templates.build_template_response(mock_template, mock_discord_client)
 
             assert result.channel_name == "resolved-channel"
-            mock_fetch.assert_awaited_once_with(
-                mock_template.channel_id, mock_discord_client
-            )
+            mock_fetch.assert_awaited_once_with(mock_template.channel_id, mock_discord_client)
 
 
 class TestListTemplates:
@@ -201,9 +192,7 @@ class TestListTemplates:
     ):
         """Test listing templates with role filtering."""
         with (
-            patch(
-                "services.api.database.queries.require_guild_by_id"
-            ) as mock_get_guild,
+            patch("services.api.database.queries.require_guild_by_id") as mock_get_guild,
             patch("services.api.auth.roles.get_role_service") as mock_get_role_service,
             patch("shared.discord.client.fetch_channel_name_safe") as mock_fetch,
             patch(
@@ -235,13 +224,9 @@ class TestListTemplates:
             assert result[0].channel_name == "test-channel"
 
     @pytest.mark.asyncio
-    async def test_list_templates_guild_not_found(
-        self, mock_db, mock_current_user_unit
-    ):
+    async def test_list_templates_guild_not_found(self, mock_db, mock_current_user_unit):
         """Test listing templates when guild not found."""
-        with patch(
-            "services.api.database.queries.require_guild_by_id"
-        ) as mock_get_guild:
+        with patch("services.api.database.queries.require_guild_by_id") as mock_get_guild:
             mock_get_guild.side_effect = HTTPException(
                 status_code=404, detail="Guild configuration not found"
             )
@@ -342,9 +327,7 @@ class TestCreateTemplate:
         )
 
         with (
-            patch(
-                "services.api.database.queries.require_guild_by_id"
-            ) as mock_get_guild,
+            patch("services.api.database.queries.require_guild_by_id") as mock_get_guild,
             patch("services.api.auth.roles.get_role_service") as mock_get_role_service,
             patch(
                 "services.api.services.template_service.TemplateService"
@@ -390,9 +373,7 @@ class TestCreateTemplate:
         )
 
         with (
-            patch(
-                "services.api.database.queries.require_guild_by_id"
-            ) as mock_get_guild,
+            patch("services.api.database.queries.require_guild_by_id") as mock_get_guild,
             patch("services.api.auth.roles.get_role_service") as mock_get_role_service,
             patch(
                 "services.api.dependencies.permissions.require_bot_manager"
@@ -434,9 +415,7 @@ class TestDeleteTemplate:
             patch(
                 "services.api.services.template_service.TemplateService"
             ) as mock_template_service,
-            patch(
-                "services.api.database.queries.require_guild_by_id"
-            ) as mock_get_guild,
+            patch("services.api.database.queries.require_guild_by_id") as mock_get_guild,
             patch("services.api.auth.roles.get_role_service") as mock_get_role_service,
             patch(
                 "services.api.dependencies.permissions.require_bot_manager"
