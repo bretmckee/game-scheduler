@@ -575,15 +575,7 @@ Test Discord OAuth2 authentication flow with the web dashboard.
 
 ### Testing OAuth Flow
 
-#### Method 1: Automated Test Script
-
-```bash
-uv run python test_oauth.py
-```
-
-This opens your browser to the authorization URL and displays flow information.
-
-#### Method 2: Manual Testing with curl
+#### Method 1: Manual Testing with curl
 
 ```bash
 # Step 1: Get authorization URL
@@ -596,7 +588,7 @@ curl "http://localhost:8000/api/v1/auth/login?redirect_uri=http://localhost:8000
 # You'll be redirected to callback with success=true
 ```
 
-#### Method 3: API Documentation (Swagger UI)
+#### Method 2: API Documentation (Swagger UI)
 
 1. Open http://localhost:8000/docs
 2. Find `/api/v1/auth/login` endpoint
