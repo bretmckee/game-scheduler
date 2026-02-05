@@ -52,17 +52,17 @@ Extend existing guild sync operation to refresh channel lists for existing guild
 - [x] Task 2.1: Update `sync_user_guilds()` to process existing guilds
   - Details: .copilot-tracking/details/20260205-channel-sync-via-guild-sync-button-details.md (Lines 82-140)
 
-### [ ] Phase 3: Backend - Schema and Response Updates
+### [x] Phase 3: Backend - Schema and Response Updates
 
-- [ ] Task 3.1: Add `updated_channels` field to GuildSyncResponse schema
+- [x] Task 3.1: Add `updated_channels` field to GuildSyncResponse schema
   - Details: .copilot-tracking/details/20260205-channel-sync-via-guild-sync-button-details.md (Lines 142-170)
 
-- [ ] Task 3.2: Update sync_guilds endpoint to return new response format
+- [x] Task 3.2: Update sync_guilds endpoint to return new response format
   - Details: .copilot-tracking/details/20260205-channel-sync-via-guild-sync-button-details.md (Lines 172-200)
 
-### [ ] Phase 4: Backend - Filter Inactive Channels
+### [x] Phase 4: Backend - Filter Inactive Channels
 
-- [ ] Task 4.1: Filter channels by `is_active=True` in list_guild_channels endpoint
+- [x] Task 4.1: Filter channels by `is_active=True` in list_guild_channels endpoint
   - Details: .copilot-tracking/details/20260205-channel-sync-via-guild-sync-button-details.md (Lines 202-245)
 
 ### [ ] Phase 5: Frontend - UI Updates
