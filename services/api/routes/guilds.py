@@ -21,7 +21,6 @@
 
 """Guild configuration endpoints."""
 
-# ruff: noqa: B008
 import logging
 from typing import Annotated
 
@@ -207,9 +206,9 @@ async def list_guild_channels(
     db: Annotated[AsyncSession, Depends(database.get_db)],
 ) -> list[channel_schemas.ChannelConfigResponse]:
     """
-    List all configured channels for a guild by UUID.
+    List active channels for a guild by UUID.
 
-    Returns channels with their settings and inheritance information.
+    Only returns channels with is_active=True to hide deleted Discord channels.
     """
     guild_config = await queries.require_guild_by_id(
         db, guild_id, current_user.access_token, current_user.user.discord_id
@@ -222,6 +221,9 @@ async def list_guild_channels(
 
     channel_responses = []
     for channel in channels:
+        if not channel.is_active:
+            continue
+
         channel_name = await fetch_channel_name_safe(channel.channel_id)
 
         channel_responses.append(
@@ -293,13 +295,13 @@ async def sync_guilds(
     db: Annotated[AsyncSession, Depends(database.get_db)],
 ) -> guild_schemas.GuildSyncResponse:
     """
-    Sync user's Discord guilds with database.
+    Sync user's Discord guilds and channels with database.
 
-    Fetches user's guilds with MANAGE_GUILD permission and bot's guilds,
-    creates GuildConfiguration and ChannelConfiguration for new guilds,
-    and creates default template for each new guild.
+    - Creates new guilds with channels and default template
+    - Refreshes channels for existing guilds
+    - Marks deleted Discord channels as inactive
 
-    Returns count of new guilds and channels created.
+    Returns count of new guilds, new channels, and updated channels.
     """
     access_token = current_user.access_token
     user_discord_id = current_user.user.discord_id
@@ -309,6 +311,7 @@ async def sync_guilds(
     return guild_schemas.GuildSyncResponse(
         new_guilds=result["new_guilds"],
         new_channels=result["new_channels"],
+        updated_channels=result["updated_channels"],
     )
 
 
