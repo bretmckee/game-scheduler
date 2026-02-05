@@ -172,14 +172,7 @@ export const TemplateForm: FC<TemplateFormProps> = ({
       };
 
       if (template) {
-        // For updates, remove null values so backend only updates provided fields
-        const updateData: any = {};
-        for (const [key, value] of Object.entries(data)) {
-          if (value !== null) {
-            updateData[key] = value;
-          }
-        }
-        await onSubmit(updateData as TemplateUpdateRequest);
+        await onSubmit(data as TemplateUpdateRequest);
       } else {
         await onSubmit({ ...data, guild_id: guildId } as TemplateCreateRequest);
       }
