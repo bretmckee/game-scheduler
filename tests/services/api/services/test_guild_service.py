@@ -164,6 +164,137 @@ async def test_sync_user_guilds_expands_rls_context_for_new_guilds(
     mock_db.add.assert_called_once()
 
 
+@patch("services.api.services.guild_service.get_discord_client")
+@patch("services.api.services.guild_service.queries.get_guild_by_discord_id")
+@patch("services.api.services.guild_service._sync_guild_channels")
+@patch("services.api.services.guild_service.get_current_guild_ids")
+async def test_sync_user_guilds_syncs_channels_for_existing_guilds(
+    mock_get_current_guild_ids,
+    mock_sync_guild_channels,
+    mock_get_guild_by_discord_id,
+    mock_get_discord_client,
+):
+    """Test that sync_user_guilds syncs channels for existing guilds."""
+    # Setup mocks
+    mock_db = AsyncMock()
+    mock_discord_client = AsyncMock()
+    mock_get_discord_client.return_value = mock_discord_client
+
+    # User has MANAGE_GUILD permission for guild A (existing guild)
+    manage_guild_permission = 0x00000020
+    mock_discord_client.get_guilds = AsyncMock(
+        side_effect=[
+            # First call: user guilds
+            [
+                {"id": "existing_guild_a", "permissions": str(manage_guild_permission)},
+            ],
+            # Second call: bot guilds
+            [
+                {"id": "existing_guild_a"},
+            ],
+        ]
+    )
+
+    # Guild A already exists in database
+    existing_guild_config = MagicMock()
+    existing_guild_config.id = "guild_config_uuid_a"
+    existing_guild_config.guild_id = "existing_guild_a"
+
+    mock_execute_result = MagicMock()
+    mock_execute_result.scalars.return_value.all.return_value = [existing_guild_config]
+    mock_db.execute = AsyncMock(return_value=mock_execute_result)
+
+    mock_get_current_guild_ids.return_value = []
+    mock_get_guild_by_discord_id.return_value = existing_guild_config
+    mock_sync_guild_channels.return_value = 3  # 3 channels updated
+
+    # Execute
+    result = await guild_service.sync_user_guilds(mock_db, "access_token", "user_id")
+
+    # Verify no new guilds created
+    assert result["new_guilds"] == 0
+    assert result["new_channels"] == 0
+    assert result["updated_channels"] == 3
+
+    # Verify _sync_guild_channels was called for existing guild
+    mock_sync_guild_channels.assert_called_once_with(
+        mock_db,
+        mock_discord_client,
+        "guild_config_uuid_a",
+        "existing_guild_a",
+    )
+    mock_get_guild_by_discord_id.assert_called_once_with(mock_db, "existing_guild_a")
+
+
+@patch("services.api.services.guild_service.get_discord_client")
+@patch("services.api.services.guild_service.queries.get_guild_by_discord_id")
+@patch("services.api.services.guild_service._sync_guild_channels")
+@patch("services.api.services.guild_service._create_guild_with_channels_and_template")
+@patch("services.api.services.guild_service.get_current_guild_ids")
+async def test_sync_user_guilds_handles_both_new_and_existing_guilds(
+    mock_get_current_guild_ids,
+    mock_create_guild,
+    mock_sync_guild_channels,
+    mock_get_guild_by_discord_id,
+    mock_get_discord_client,
+):
+    """Test that sync_user_guilds handles both new and existing guilds in one operation."""
+    # Setup mocks
+    mock_db = AsyncMock()
+    mock_discord_client = AsyncMock()
+    mock_get_discord_client.return_value = mock_discord_client
+
+    # User has MANAGE_GUILD permission for both guilds
+    manage_guild_permission = 0x00000020
+    mock_discord_client.get_guilds = AsyncMock(
+        side_effect=[
+            # First call: user guilds
+            [
+                {"id": "existing_guild_a", "permissions": str(manage_guild_permission)},
+                {"id": "new_guild_b", "permissions": str(manage_guild_permission)},
+            ],
+            # Second call: bot guilds
+            [
+                {"id": "existing_guild_a"},
+                {"id": "new_guild_b"},
+            ],
+        ]
+    )
+
+    # Only guild A exists in database
+    existing_guild_config = MagicMock()
+    existing_guild_config.id = "guild_config_uuid_a"
+    existing_guild_config.guild_id = "existing_guild_a"
+
+    mock_execute_result = MagicMock()
+    mock_execute_result.scalars.return_value.all.return_value = [existing_guild_config]
+    mock_db.execute = AsyncMock(return_value=mock_execute_result)
+
+    mock_get_current_guild_ids.return_value = []
+    mock_get_guild_by_discord_id.return_value = existing_guild_config
+    mock_sync_guild_channels.return_value = 2  # 2 channels updated
+    mock_create_guild.return_value = (1, 5)  # 1 guild, 5 channels created
+
+    # Execute
+    result = await guild_service.sync_user_guilds(mock_db, "access_token", "user_id")
+
+    # Verify both operations occurred
+    assert result["new_guilds"] == 1
+    assert result["new_channels"] == 5
+    assert result["updated_channels"] == 2
+
+    # Verify _create_guild_with_channels_and_template called for new guild
+    mock_create_guild.assert_called_once_with(mock_db, mock_discord_client, "new_guild_b")
+
+    # Verify _sync_guild_channels called for existing guild
+    mock_sync_guild_channels.assert_called_once_with(
+        mock_db,
+        mock_discord_client,
+        "guild_config_uuid_a",
+        "existing_guild_a",
+    )
+
+
 class TestSyncUserGuildsHelpers:
     """Unit tests for sync_user_guilds helper methods."""
 

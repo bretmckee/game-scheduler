@@ -280,6 +280,10 @@ async def sync_user_guilds(db: AsyncSession, access_token: str, user_id: str) ->
     Fetches user's guilds with MANAGE_GUILD permission and bot's guilds,
     then creates GuildConfiguration and ChannelConfiguration for new guilds.
     Creates default template for each new guild.
+    Refreshes channels for existing guilds, marking new channels as active
+    and deleted channels as inactive.
+
+    Does not commit. Caller must commit transaction.
 
     Args:
         db: Database session
@@ -289,7 +293,8 @@ async def sync_user_guilds(db: AsyncSession, access_token: str, user_id: str) ->
     Returns:
         Dictionary with counts: {
             "new_guilds": number of new guilds created,
-            "new_channels": number of new channels created
+            "new_channels": number of new channels created for new guilds,
+            "updated_channels": number of channels synced for existing guilds
         }
     """
     discord_client = get_discord_client()
@@ -304,9 +309,7 @@ async def sync_user_guilds(db: AsyncSession, access_token: str, user_id: str) ->
     existing_guild_ids = await _get_existing_guild_ids(db)
 
     new_guild_ids = candidate_guild_ids - existing_guild_ids
-
-    if not new_guild_ids:
-        return {"new_guilds": 0, "new_channels": 0}
+    existing_candidate_guild_ids = candidate_guild_ids & existing_guild_ids
 
     # Create guild and channel configs for new guilds
     new_guilds_count = 0
@@ -319,4 +322,19 @@ async def sync_user_guilds(db: AsyncSession, access_token: str, user_id: str) ->
         new_guilds_count += guilds_created
         new_channels_count += channels_created
 
-    return {"new_guilds": new_guilds_count, "new_channels": new_channels_count}
+    # Sync channels for existing guilds
+    updated_channels_count = 0
+
+    for guild_discord_id in existing_candidate_guild_ids:
+        guild_config = await queries.get_guild_by_discord_id(db, guild_discord_id)
+        if guild_config:
+            updated = await _sync_guild_channels(
+                db, discord_client, guild_config.id, guild_discord_id
+            )
+            updated_channels_count += updated
+
+    return {
+        "new_guilds": new_guilds_count,
+        "new_channels": new_channels_count,
+        "updated_channels": updated_channels_count,
+    }
