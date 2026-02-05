@@ -16,6 +16,8 @@ Extend existing guild sync operation to refresh channel lists for existing guild
 ### Modified
 
 - services/api/services/guild_service.py - Added `_sync_guild_channels()` helper function to sync channels from Discord to database (get-or-create pattern with is_active flag, relies on ORM change tracking)
+- services/api/services/guild_service.py - Updated `sync_user_guilds()` to process existing guilds and sync their channels, returning updated_channels count in addition to new_guilds and new_channels
 - tests/services/api/services/test_guild_service.py - Added comprehensive unit tests for `_sync_guild_channels()` covering all scenarios (new channels, reactivation, deactivation, no changes)
+- tests/services/api/services/test_guild_service.py - Added unit tests for updated `sync_user_guilds()` covering existing guild sync, new guild creation, and mixed scenarios
 
 ### Removed
