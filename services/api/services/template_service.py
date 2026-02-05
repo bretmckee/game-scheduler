@@ -179,14 +179,13 @@ class TemplateService:
 
         Args:
             template: Existing template
-            **updates: Fields to update (only non-None values are applied)
+            **updates: Fields to update (all provided fields are applied, including None)
 
         Returns:
             Updated template
         """
         for key, value in updates.items():
-            if value is not None:
-                setattr(template, key, value)
+            setattr(template, key, value)
 
         return template
 

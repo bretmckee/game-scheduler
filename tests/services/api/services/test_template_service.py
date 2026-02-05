@@ -259,18 +259,81 @@ async def test_update_template(template_service, mock_db, sample_template):
 
 
 @pytest.mark.asyncio
-async def test_update_template_ignores_none_values(template_service, mock_db, sample_template):
-    """Test that update_template ignores None values."""
-    original_name = sample_template.name
+async def test_update_template_accepts_explicit_none(template_service, mock_db, sample_template):
+    """Test that update_template accepts explicit None values to clear fields."""
     updates = {
-        "name": None,
+        "description": None,
         "max_players": 10,
     }
 
     await template_service.update_template(sample_template, **updates)
 
-    assert sample_template.name == original_name
+    assert sample_template.description is None
     assert sample_template.max_players == 10
+
+
+@pytest.mark.asyncio
+async def test_clear_optional_text_fields(template_service, mock_db, sample_template):
+    """Test clearing description, where, and signup_instructions to null."""
+    sample_template.where = "Online via Discord"
+    sample_template.signup_instructions = "React to sign up"
+
+    updates = {
+        "description": None,
+        "where": None,
+        "signup_instructions": None,
+    }
+
+    await template_service.update_template(sample_template, **updates)
+
+    assert sample_template.description is None
+    assert sample_template.where is None
+    assert sample_template.signup_instructions is None
+
+
+@pytest.mark.asyncio
+async def test_update_preserves_omitted_fields(template_service, mock_db, sample_template):
+    """Test that omitted fields are preserved when not in updates dict."""
+    original_description = sample_template.description
+    original_where = sample_template.where
+
+    updates = {
+        "name": "Updated Name",
+    }
+
+    await template_service.update_template(sample_template, **updates)
+
+    assert sample_template.name == "Updated Name"
+    assert sample_template.description == original_description
+    assert sample_template.where == original_where
+
+
+@pytest.mark.asyncio
+async def test_clear_already_null_field(template_service, mock_db, sample_template):
+    """Test clearing a field that is already null."""
+    sample_template.where = None
+
+    updates = {
+        "where": None,
+    }
+
+    await template_service.update_template(sample_template, **updates)
+
+    assert sample_template.where is None
+
+
+@pytest.mark.asyncio
+async def test_update_to_new_value_after_null(template_service, mock_db, sample_template):
+    """Test updating a null field to a new value."""
+    sample_template.description = None
+
+    updates = {
+        "description": "New description",
+    }
+
+    await template_service.update_template(sample_template, **updates)
+
+    assert sample_template.description == "New description"
 
 
 @pytest.mark.asyncio
