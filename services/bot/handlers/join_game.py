@@ -109,9 +109,11 @@ async def handle_join_game(
         db.add(schedule)
         await db.commit()
 
-    await publisher.publish_game_updated(
-        game_id=game_id, guild_id=game.guild_id, updated_fields={"participants": True}
-    )
+        await publisher.publish_game_updated(
+            game_id=game_id,
+            guild_id=game.guild_id,
+            updated_fields={"participants": True},
+        )
 
     # Update button interaction view (no DM notification here)
     await interaction.edit_original_response(

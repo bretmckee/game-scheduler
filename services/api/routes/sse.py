@@ -82,7 +82,7 @@ async def game_updates(
                     )
                     yield f"data: {message}\n\n"
                 except TimeoutError:
-                    yield ": keepalive\n\n"
+                    yield 'data: {"type":"keepalive"}\n\n'
         finally:
             bridge.connections.pop(client_id, None)
             logger.info("SSE connection closed: %s", client_id)

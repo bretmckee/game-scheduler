@@ -53,17 +53,35 @@ BASE_DATABASE_URL = _raw_database_url.replace("postgresql+asyncpg://", "postgres
 ASYNC_DATABASE_URL = BASE_DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
 SYNC_DATABASE_URL = BASE_DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://")
 
+# Bot database URL with BYPASSRLS privilege (defaults to same as DATABASE_URL if not set)
+_raw_bot_database_url = os.getenv("BOT_DATABASE_URL", _raw_database_url)
+_bot_base_url = _raw_bot_database_url.replace("postgresql+asyncpg://", "postgresql://").replace(
+    "postgresql+psycopg2://", "postgresql://"
+)
+BOT_DATABASE_URL = _bot_base_url.replace("postgresql://", "postgresql+asyncpg://")
+
 # For backward compatibility - services importing DATABASE_URL get async version
 DATABASE_URL = ASYNC_DATABASE_URL
 
 # Async engine for API and Bot services
 engine = create_async_engine(ASYNC_DATABASE_URL, echo=False, pool_pre_ping=True)
 
+# Async engine for bot operations that need BYPASSRLS (SSE bridge, daemons)
+bot_engine = create_async_engine(BOT_DATABASE_URL, echo=False, pool_pre_ping=True)
+
 # Sync engine for Scheduler service
 sync_engine = create_sync_engine(SYNC_DATABASE_URL, echo=False, pool_pre_ping=True)
 
 AsyncSessionLocal = async_sessionmaker(
     engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+    autocommit=False,
+    autoflush=False,
+)
+
+BotAsyncSessionLocal = async_sessionmaker(
+    bot_engine,
     class_=AsyncSession,
     expire_on_commit=False,
     autocommit=False,
@@ -168,6 +186,30 @@ def get_db_session() -> AsyncSession:
         AsyncSession that must be used with 'async with' statement
     """
     return AsyncSessionLocal()
+
+
+def get_bypass_db_session() -> AsyncSession:
+    """
+    Get database session with BYPASSRLS privilege for system operations.
+
+    Use this for operations that need to bypass RLS policies, such as:
+    - SSE bridge looking up guild configurations
+    - Background daemons operating across all guilds
+    - System-level operations not tied to a specific user context
+
+    The bypass user (gamebot_bot) has BYPASSRLS privilege but is not a superuser.
+
+    Example:
+        async with get_bypass_db_session() as db:
+            guild = await db.execute(
+                select(GuildConfiguration).where(GuildConfiguration.id == guild_uuid)
+            )
+            await db.commit()
+
+    Returns:
+        AsyncSession that must be used with 'async with' statement
+    """
+    return BotAsyncSessionLocal()
 
 
 @contextmanager

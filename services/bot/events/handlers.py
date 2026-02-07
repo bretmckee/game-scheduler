@@ -104,7 +104,7 @@ class EventHandlers:
         await self.consumer.connect()
 
         # Bind to relevant routing keys
-        await self.consumer.bind("game.*")
+        await self.consumer.bind("game.#")
         await self.consumer.bind("notification.*")
 
         # Register handlers

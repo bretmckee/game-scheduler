@@ -247,13 +247,14 @@ describe('GameCard - Join/Leave Functionality', () => {
     expect(screen.queryByText('Join')).not.toBeInTheDocument();
   });
 
-  it('does not show join/leave buttons for host', () => {
+  it('shows join button for host who is not yet a participant', () => {
     const gameWithUserAsHost: GameSession = {
       ...mockGame,
       host: {
         ...mockGame.host,
         user_id: 'user-uuid-1',
       },
+      participants: [],
     };
 
     render(
@@ -264,7 +265,7 @@ describe('GameCard - Join/Leave Functionality', () => {
       </AuthContext.Provider>
     );
 
-    expect(screen.queryByText('Join')).not.toBeInTheDocument();
+    expect(screen.getByText('Join')).toBeInTheDocument();
     expect(screen.queryByText('Leave')).not.toBeInTheDocument();
   });
 
@@ -353,8 +354,9 @@ describe('GameCard - Join/Leave Functionality', () => {
     });
   });
 
-  it('displays error message when join fails', async () => {
+  it('refetches game state when join fails', async () => {
     const user = userEvent.setup();
+    const onGameUpdate = vi.fn();
     const errorResponse = {
       response: {
         data: {
@@ -364,11 +366,12 @@ describe('GameCard - Join/Leave Functionality', () => {
     };
 
     vi.mocked(apiClient.post).mockRejectedValue(errorResponse);
+    vi.mocked(apiClient.get).mockResolvedValue({ data: mockGame });
 
     render(
       <AuthContext.Provider value={mockAuthContext}>
         <MemoryRouter>
-          <GameCard game={mockGame} />
+          <GameCard game={mockGame} onGameUpdate={onGameUpdate} />
         </MemoryRouter>
       </AuthContext.Provider>
     );
@@ -377,19 +380,22 @@ describe('GameCard - Join/Leave Functionality', () => {
     await user.click(joinButton);
 
     await waitFor(() => {
-      expect(screen.getByText('Game is full')).toBeInTheDocument();
+      expect(apiClient.get).toHaveBeenCalledWith(`/api/v1/games/${mockGame.id}`);
+      expect(onGameUpdate).toHaveBeenCalledWith(mockGame);
     });
   });
 
-  it('displays generic error message when API error has no detail', async () => {
+  it('refetches game state when join fails with generic error', async () => {
     const user = userEvent.setup();
+    const onGameUpdate = vi.fn();
 
     vi.mocked(apiClient.post).mockRejectedValue(new Error('Network error'));
+    vi.mocked(apiClient.get).mockResolvedValue({ data: mockGame });
 
     render(
       <AuthContext.Provider value={mockAuthContext}>
         <MemoryRouter>
-          <GameCard game={mockGame} />
+          <GameCard game={mockGame} onGameUpdate={onGameUpdate} />
         </MemoryRouter>
       </AuthContext.Provider>
     );
@@ -398,7 +404,8 @@ describe('GameCard - Join/Leave Functionality', () => {
     await user.click(joinButton);
 
     await waitFor(() => {
-      expect(screen.getByText('Failed to join game. Please try again.')).toBeInTheDocument();
+      expect(apiClient.get).toHaveBeenCalledWith(`/api/v1/games/${mockGame.id}`);
+      expect(onGameUpdate).toHaveBeenCalledWith(mockGame);
     });
   });
 
@@ -420,5 +427,45 @@ describe('GameCard - Join/Leave Functionality', () => {
     await user.click(joinButton);
 
     expect(joinButton).toBeDisabled();
+  });
+
+  it('refetches game state when leave fails', async () => {
+    const user = userEvent.setup();
+    const onGameUpdate = vi.fn();
+    const gameWithParticipant: GameSession = {
+      ...mockGame,
+      participants: [
+        {
+          id: 'participant-2',
+          game_session_id: mockGame.id,
+          user_id: 'user-uuid-1',
+          discord_id: '987654321',
+          display_name: 'testuser',
+          avatar_url: null,
+          joined_at: '2025-12-20T11:00:00Z',
+          position_type: ParticipantType.SELF_ADDED,
+          position: 1,
+        },
+      ],
+    };
+
+    vi.mocked(apiClient.post).mockRejectedValue(new Error('Network error'));
+    vi.mocked(apiClient.get).mockResolvedValue({ data: mockGame });
+
+    render(
+      <AuthContext.Provider value={{ ...mockAuthContext, user: mockUser }}>
+        <MemoryRouter>
+          <GameCard game={gameWithParticipant} onGameUpdate={onGameUpdate} />
+        </MemoryRouter>
+      </AuthContext.Provider>
+    );
+
+    const leaveButton = screen.getByText('Leave');
+    await user.click(leaveButton);
+
+    await waitFor(() => {
+      expect(apiClient.get).toHaveBeenCalledWith(`/api/v1/games/${mockGame.id}`);
+      expect(onGameUpdate).toHaveBeenCalledWith(mockGame);
+    });
   });
 });

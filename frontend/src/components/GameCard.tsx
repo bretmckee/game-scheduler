@@ -50,7 +50,6 @@ export const GameCard: FC<GameCardProps> = ({ game, showActions = true, onGameUp
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isHost = user && game.host?.user_id === user.user_uuid;
   const isParticipant = user && game.participants?.some((p) => p.user_id === user.user_uuid);
 
   const handleJoinGame = async (e: React.MouseEvent) => {
@@ -67,7 +66,10 @@ export const GameCard: FC<GameCardProps> = ({ game, showActions = true, onGameUp
       }
     } catch (err: unknown) {
       console.error('Failed to join game:', err);
-      setError((err as any).response?.data?.detail || 'Failed to join game. Please try again.');
+      const response = await apiClient.get<GameSession>(`/api/v1/games/${game.id}`);
+      if (onGameUpdate) {
+        onGameUpdate(response.data);
+      }
     } finally {
       setActionLoading(false);
     }
@@ -87,7 +89,10 @@ export const GameCard: FC<GameCardProps> = ({ game, showActions = true, onGameUp
       }
     } catch (err: unknown) {
       console.error('Failed to leave game:', err);
-      setError((err as any).response?.data?.detail || 'Failed to leave game. Please try again.');
+      const response = await apiClient.get<GameSession>(`/api/v1/games/${game.id}`);
+      if (onGameUpdate) {
+        onGameUpdate(response.data);
+      }
     } finally {
       setActionLoading(false);
     }
@@ -204,7 +209,7 @@ export const GameCard: FC<GameCardProps> = ({ game, showActions = true, onGameUp
             View Details
           </Button>
 
-          {!isHost && !isParticipant && game.status === 'SCHEDULED' && (
+          {!isParticipant && game.status === 'SCHEDULED' && (
             <Button
               size="small"
               variant="contained"
@@ -215,7 +220,7 @@ export const GameCard: FC<GameCardProps> = ({ game, showActions = true, onGameUp
             </Button>
           )}
 
-          {!isHost && isParticipant && game.status === 'SCHEDULED' && (
+          {isParticipant && game.status === 'SCHEDULED' && (
             <Button
               size="small"
               variant="outlined"
