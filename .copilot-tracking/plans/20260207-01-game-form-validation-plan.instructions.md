@@ -45,107 +45,107 @@ Implement comprehensive frontend validation for game creation forms with reusabl
 ### [x] Phase 0: DurationSelector Component with TDD
 
 - [x] Task 0.1: Create DurationSelector component stub
-  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 13-25)
+  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 11-24)
 
 - [x] Task 0.2: Write failing tests for DurationSelector
-  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 27-43)
+  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 25-42)
 
 - [x] Task 0.3: Implement minimal DurationSelector
-  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 45-59)
+  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 43-59)
 
-- [x] Task 0.4: Update tests and add custom mode
-  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 61-76)
+- [x] Task 0.4: Add custom mode and pass remaining tests
+  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 60-75)
 
 - [x] Task 0.5: Refactor and add edge case tests
-  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 78-93)
+  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 76-95)
 
 ### [x] Phase 1: Shared Validation Utilities with TDD
 
 - [x] Task 1.1: Create validation utilities stub
-  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 95-113)
+  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 96-111)
 
 - [x] Task 1.2: Write failing tests for all validators
-  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 115-140)
+  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 112-131)
 
 - [x] Task 1.3: Implement validateDuration
-  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 142-156)
+  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 132-149)
 
 - [x] Task 1.4: Implement validateReminderMinutes
-  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 158-172)
+  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 150-167)
 
 - [x] Task 1.5: Implement validateMaxPlayers
-  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 174-188)
+  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 168-185)
 
 - [x] Task 1.6: Implement validateCharacterLimit
-  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 190-205)
+  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 186-204)
 
 - [x] Task 1.7: Implement validateFutureDate
-  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 207-222)
+  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 205-223)
 
 - [x] Task 1.8: Refactor and verify full coverage
-  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 224-238)
+  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 224-243)
 
 ### [ ] Phase 2: GameForm Validation Integration with TDD
 
 - [ ] Task 2.1: Add validation state to GameForm
-  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 240-254)
+  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 244-259)
 
 - [ ] Task 2.2: Write failing GameForm validation tests
-  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 256-274)
+  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 260-277)
 
 - [ ] Task 2.3: Implement GameForm validation handlers
-  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 276-292)
+  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 278-296)
 
 - [ ] Task 2.4: Replace duration TextField with DurationSelector
-  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 294-309)
+  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 297-315)
 
 - [ ] Task 2.5: Add date validation to DateTimePicker
-  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 311-326)
+  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 316-333)
 
 - [ ] Task 2.6: Add character counters to text fields
-  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 328-343)
+  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 334-352)
 
 ### [ ] Phase 3: TemplateForm Validation Integration with TDD
 
 - [ ] Task 3.1: Add on-blur validation to TemplateForm
-  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 345-358)
+  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 353-367)
 
 - [ ] Task 3.2: Write failing TemplateForm validation tests
-  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 360-377)
+  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 368-384)
 
 - [ ] Task 3.3: Implement TemplateForm validation
-  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 379-394)
+  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 385-401)
 
 - [ ] Task 3.4: Replace duration TextField with DurationSelector
-  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 396-410)
+  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 402-417)
 
 - [ ] Task 3.5: Add character counters
-  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 412-426)
+  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 418-435)
 
 ### [ ] Phase 4: Backend Schema Alignment with TDD
 
 - [ ] Task 4.1: Update template schema constraints
-  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 428-440)
+  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 436-450)
 
 - [ ] Task 4.2: Write/update API tests for schema validation
-  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 442-456)
+  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 451-468)
 
 - [ ] Task 4.3: Verify API tests pass
-  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 458-471)
+  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 469-486)
 
 ### [ ] Phase 5: Cleanup and Final Verification with TDD
 
 - [ ] Task 5.1: Remove deprecated parsing functions
-  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 473-486)
+  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 487-503)
 
 - [ ] Task 5.2: Write integration tests for error handling
-  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 488-504)
+  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 504-521)
 
 - [ ] Task 5.3: Run full test suite
-  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 506-520)
+  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 522-538)
 
 - [ ] Task 5.4: Manual QA testing
-  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 522-536)
+  - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 539-577)
 
 ## Dependencies
 

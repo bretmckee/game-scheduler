@@ -182,11 +182,11 @@ Pydantic provides:
 
 - [ ] Task 0.2: Write failing tests for DurationSelector
   - Create `frontend/src/components/__tests__/DurationSelector.test.tsx`
-  - Test preset selection (2h, 4h) - expect error thrown
-  - Test custom mode activation - expect error thrown
-  - Test custom hours/minutes input - expect error thrown
-  - Test value conversion (120 minutes → "2 hours" preset) - expect error thrown
-  - Verify tests fail with "not yet implemented" error
+  - Test preset selection (2h, 4h) with actual assertions
+  - Test custom mode activation with expected behavior
+  - Test custom hours/minutes input with expected values
+  - Test value conversion (120 minutes → "2 hours" preset)
+  - Verify tests fail correctly (stub throws error)
   - Details: Use vitest and @testing-library/react
 
 - [ ] Task 0.3: Implement minimal DurationSelector
@@ -194,10 +194,10 @@ Pydantic provides:
   - Add Select component with preset values (120, 240, 'custom')
   - Implement onChange handler for preset selection
   - Run tests - basic preset tests should pass
+  - No test changes needed - tests written correctly from start
   - Details: Use MUI Select, FormControl components
 
-- [ ] Task 0.4: Update tests and add custom mode
-  - Update passing tests to verify actual behavior
+- [ ] Task 0.4: Add custom mode and pass remaining tests
   - Add custom mode UI (hours/minutes TextFields)
   - Implement custom value calculation
   - Run tests - all tests should pass
@@ -228,14 +228,13 @@ Pydantic provides:
 
 - [ ] Task 1.2: Write failing tests for all validators
   - Create `frontend/src/utils/__tests__/fieldValidation.test.ts`
-  - Write comprehensive test cases for each validator:
-    - `validateDuration`: null, 0, 1, 120, 1440, 1441, -5
-    - `validateReminderMinutes`: "", "60", "60,15", "abc", "60,abc,15", "-60", "10081"
-    - `validateMaxPlayers`: "", "1", "50", "100", "0", "101", "abc", "-5"
-    - `validateCharacterLimit`: within limit, at 95%, exceeds limit
-    - `validateFutureDate`: null, past date, future date, minHours parameter
-  - All tests expect "not yet implemented" errors
-  - Verify tests fail correctly
+  - Write comprehensive test cases with actual assertions for each validator:
+    - `validateDuration`: null (valid), 0 (valid), 1 (valid), 120 (valid), 1440 (valid), 1441 (error), -5 (error)
+    - `validateReminderMinutes`: "" (valid), "60" (valid), "60,15" (valid), "abc" (error), "60,abc,15" (error), "-60" (error), "10081" (error)
+    - `validateMaxPlayers`: "" (valid), "1" (valid), "50" (valid), "100" (valid), "0" (error), "101" (error), "abc" (error), "-5" (error)
+    - `validateCharacterLimit`: within limit (valid), at 95% (warning), exceeds limit (error)
+    - `validateFutureDate`: null (error), past date (error), future date (valid), minHours validation
+  - Verify tests fail correctly (stubs throw NotImplementedError)
   - Details: Achieve 100% branch coverage target
 
 - [ ] Task 1.3: Implement validateDuration
@@ -243,18 +242,21 @@ Pydantic provides:
   - Handle null/0 as valid (optional field)
   - Validate range 1-1440 minutes
   - Run duration tests - should pass
+  - No test changes needed - tests written correctly from start
   - Details: Return appropriate error messages
 
 - [ ] Task 1.4: Implement validateReminderMinutes
   - Implement comma-separated parsing
   - Validate each value is number in range 1-10080
   - Run reminder tests - should pass
+  - No test changes needed
   - Details: Return array of numbers in ValidationResult.value
 
 - [ ] Task 1.5: Implement validateMaxPlayers
   - Parse integer from string
   - Validate range 1-100
   - Run max players tests - should pass
+  - No test changes needed
   - Details: Handle empty string as valid (optional)
 
 - [ ] Task 1.6: Implement validateCharacterLimit
@@ -262,6 +264,7 @@ Pydantic provides:
   - Return error if exceeds max
   - Return warning at 95%
   - Run character limit tests - should pass
+  - No test changes needed
   - Details: Include character count in messages
 
 - [ ] Task 1.7: Implement validateFutureDate
@@ -269,6 +272,7 @@ Pydantic provides:
   - Compare against current time
   - Apply minHoursInFuture offset
   - Run date validation tests - should pass
+  - No test changes needed
   - Details: Return user-friendly error messages
 
 - [ ] Task 1.8: Refactor and verify full coverage
@@ -290,11 +294,11 @@ Pydantic provides:
 
 - [ ] Task 2.2: Write failing GameForm validation tests
   - Create `frontend/src/components/__tests__/GameForm.validation.test.tsx`
-  - Test error display on blur for each field
+  - Test error display on blur for each field with actual assertions
   - Test error clearing when field corrected
   - Test form submission blocked with errors
   - Test successful submission with valid fields
-  - Verify tests fail (handlers not implemented)
+  - Verify tests fail correctly (handlers not implemented)
   - Details: Use @testing-library/user-event for interactions
 
 - [ ] Task 2.3: Implement GameForm validation handlers
@@ -302,14 +306,14 @@ Pydantic provides:
   - Implement blur handlers calling validators
   - Update TextField components with error/helperText props
   - Run GameForm tests - should pass
+  - No test changes needed
   - Details: Block form submission if any errors exist
 
 - [ ] Task 2.4: Replace duration TextField with DurationSelector
   - Import DurationSelector component
   - Replace duration TextField in JSX
   - Update duration change handler
-  - Update tests for new component
-  - All tests pass
+  - All tests pass (no test changes needed)
   - Details: Remove parseDurationString usage
 
 - [ ] Task 2.5: Add date validation to DateTimePicker
@@ -339,10 +343,10 @@ Pydantic provides:
 
 - [ ] Task 3.2: Write failing TemplateForm validation tests
   - Create `frontend/src/components/__tests__/TemplateForm.validation.test.tsx`
-  - Test on-blur validation behavior
-  - Test character counters
+  - Test on-blur validation behavior with actual assertions
+  - Test character counters with expected behavior
   - Test submit-time validation still works
-  - Verify tests fail correctly
+  - Verify tests fail correctly (handlers not implemented)
   - Details: Ensure consistency with GameForm patterns
 
 - [ ] Task 3.3: Implement TemplateForm validation
@@ -350,13 +354,13 @@ Pydantic provides:
   - Implement blur handlers
   - Update TextField components with error props
   - Run tests - should pass
+  - No test changes needed
   - Details: Replace inline validation in validate() method
 
 - [ ] Task 3.4: Replace duration TextField with DurationSelector
   - Import DurationSelector
   - Replace duration TextField
-  - Update tests
-  - All tests pass
+  - All tests pass (no test changes needed)
   - Details: Same pattern as GameForm
 
 - [ ] Task 3.5: Add character counters
@@ -428,11 +432,11 @@ Pydantic provides:
 
 - **Key TDD Requirements**:
   1. Create stubs with `throw new Error('not yet implemented')` BEFORE writing tests
-  2. Write tests expecting errors to be thrown (RED phase)
-  3. Run tests to verify they fail correctly
+  2. Write tests for desired behavior with actual assertions (RED phase)
+  3. Run tests to verify they fail correctly (stub throws error)
   4. Implement minimal solution to make tests pass (GREEN phase)
   5. Refactor with passing tests (REFACTOR phase)
-  6. Never skip steps or write implementation before tests
+  6. No test modification needed after implementation - tests written correctly from start
 
 - **Dependencies**:
   - MUI components (already imported)
