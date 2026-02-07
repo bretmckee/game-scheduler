@@ -42,21 +42,21 @@ Implement comprehensive frontend validation for game creation forms with reusabl
 
 ## Implementation Checklist
 
-### [ ] Phase 0: DurationSelector Component with TDD
+### [x] Phase 0: DurationSelector Component with TDD
 
-- [ ] Task 0.1: Create DurationSelector component stub
+- [x] Task 0.1: Create DurationSelector component stub
   - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 13-25)
 
-- [ ] Task 0.2: Write failing tests for DurationSelector
+- [x] Task 0.2: Write failing tests for DurationSelector
   - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 27-43)
 
-- [ ] Task 0.3: Implement minimal DurationSelector
+- [x] Task 0.3: Implement minimal DurationSelector
   - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 45-59)
 
-- [ ] Task 0.4: Update tests and add custom mode
+- [x] Task 0.4: Update tests and add custom mode
   - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 61-76)
 
-- [ ] Task 0.5: Refactor and add edge case tests
+- [x] Task 0.5: Refactor and add edge case tests
   - Details: .copilot-tracking/details/20260207-01-game-form-validation-details.md (Lines 78-93)
 
 ### [ ] Phase 1: Shared Validation Utilities with TDD
