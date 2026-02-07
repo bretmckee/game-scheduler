@@ -24,16 +24,16 @@ Create new TypeScript component file with stub implementation that throws error 
 
 ### Task 0.2: Write failing tests for DurationSelector
 
-Write comprehensive test suite that expects error to be thrown for all interactions.
+Write comprehensive test suite with actual assertions for desired behavior.
 
 - **Files**:
   - frontend/src/components/**tests**/DurationSelector.test.tsx - New test file
 - **Success**:
-  - Tests for preset selection (2h, 4h) expecting error
-  - Tests for custom mode activation expecting error
-  - Tests for custom hours/minutes input expecting error
-  - Tests for value conversion (120 min → "2 hours" preset) expecting error
-  - All tests fail with "not yet implemented" error message
+  - Tests for preset selection (2h, 4h) with actual assertions
+  - Tests for custom mode activation with expected behavior
+  - Tests for custom hours/minutes input with expected values
+  - Tests for value conversion (120 min → "2 hours" preset) with expected result
+  - All tests fail correctly (stub throws "not yet implemented" error)
 - **Research References**:
   - #file:../research/20260207-01-game-form-validation-research.md (Lines 206-215) - Test requirements
   - #file:../research/20260207-01-game-form-validation-research.md (Lines 456-462) - TDD methodology
@@ -51,18 +51,18 @@ Replace error-throwing stub with basic preset dropdown functionality to pass ini
   - onChange handler calls parent with selected preset value
   - Initial preset tests pass
   - Custom mode tests still fail (not yet implemented)
+  - No test changes needed - tests written correctly from start
 - **Research References**:
   - #file:../research/20260207-01-game-form-validation-research.md (Lines 217-226) - Minimal implementation
 - **Dependencies**:
   - Task 0.2 completion (tests must exist)
 
-### Task 0.4: Update tests and add custom mode
+### Task 0.4: Add custom mode and pass remaining tests
 
-Update passing tests to verify actual behavior and implement custom hours/minutes input.
+Implement custom hours/minutes input to pass remaining tests.
 
 - **Files**:
   - frontend/src/components/DurationSelector.tsx - Add custom mode UI
-  - frontend/src/components/**tests**/DurationSelector.test.tsx - Update tests
 - **Success**:
   - Custom mode appears when 'Custom...' selected
   - Hours and minutes TextFields render
@@ -140,6 +140,7 @@ Replace NotImplementedError with duration validation logic.
   - Validates range 1-1440 minutes (1 day max)
   - Returns appropriate error messages
   - Duration tests pass
+  - No test changes needed - tests written correctly from start
 - **Research References**:
   - #file:../research/20260207-01-game-form-validation-research.md (Lines 286-293) - Duration validation logic
   - #file:../research/20260207-01-game-form-validation-research.md (Lines 38-42) - Current duration parsing issues
@@ -157,6 +158,7 @@ Implement comma-separated value parsing and validation.
   - Validates each value is number in range 1-10080 (1 week max)
   - Returns array of numbers in ValidationResult.value
   - Reminder tests pass
+  - No test changes needed
 - **Research References**:
   - #file:../research/20260207-01-game-form-validation-research.md (Lines 295-302) - Reminder validation logic
   - #file:../research/20260207-01-game-form-validation-research.md (Lines 44-48) - Current reminder validation gaps
@@ -174,6 +176,7 @@ Implement integer parsing and range validation.
   - Validates range 1-100
   - Handles empty string as valid (optional field)
   - Max players tests pass
+  - No test changes needed
 - **Research References**:
   - #file:../research/20260207-01-game-form-validation-research.md (Lines 304-311) - Max players validation logic
   - #file:../research/20260207-01-game-form-validation-research.md (Lines 50-54) - Current max players validation gaps
@@ -192,6 +195,7 @@ Implement character counting with warning threshold at 95%.
   - Returns warning at 95% threshold
   - Includes character count in messages
   - Character limit tests pass
+  - No test changes needed
 - **Research References**:
   - #file:../research/20260207-01-game-form-validation-research.md (Lines 313-321) - Character limit validation logic
   - #file:../research/20260207-01-game-form-validation-research.md (Lines 56-59) - Current character limit gaps
@@ -210,6 +214,7 @@ Implement date comparison with configurable future offset.
   - Applies minHoursInFuture offset (default 0)
   - Returns user-friendly error messages
   - Date validation tests pass
+  - No test changes needed
 - **Research References**:
   - #file:../research/20260207-01-game-form-validation-research.md (Lines 323-331) - Date validation logic
   - #file:../research/20260207-01-game-form-validation-research.md (Lines 61-65) - Current date validation gaps
@@ -282,6 +287,7 @@ Implement blur handlers and wire to validation utilities.
   - TextField components display error/helperText props
   - Form submission blocked if any errors exist
   - GameForm tests pass
+  - No test changes needed
 - **Research References**:
   - #file:../research/20260207-01-game-form-validation-research.md (Lines 368-379) - Handler implementation
   - #file:../research/20260207-01-game-form-validation-research.md (Lines 140-152) - API documentation
@@ -294,14 +300,12 @@ Swap text-based duration input with new DurationSelector component.
 
 - **Files**:
   - frontend/src/components/GameForm.tsx - Replace TextField with DurationSelector
-  - frontend/src/components/**tests**/GameForm.validation.test.tsx - Update tests
 - **Success**:
   - DurationSelector component imported
   - Duration TextField replaced in JSX
   - Duration change handler updated
   - parseDurationString usage removed
-  - Tests updated for new component
-  - All tests pass
+  - All tests pass (no test changes needed)
 - **Research References**:
   - #file:../research/20260207-01-game-form-validation-research.md (Lines 381-390) - DurationSelector integration
   - #file:../research/20260207-01-game-form-validation-research.md (Lines 103-109) - parseDurationString problems
@@ -389,6 +393,7 @@ Implement blur handlers and update TextField components.
   - Implement blur handlers
   - Update TextField components with error props
   - Tests pass
+  - No test changes needed
 - **Research References**:
   - #file:../research/20260207-01-game-form-validation-research.md (Lines 439-449) - Implementation details
 - **Dependencies**:
@@ -403,8 +408,7 @@ Swap duration input to match GameForm pattern.
 - **Success**:
   - DurationSelector imported
   - Duration TextField replaced
-  - Tests updated
-  - All tests pass
+  - All tests pass (no test changes needed)
 - **Research References**:
   - #file:../research/20260207-01-game-form-validation-research.md (Lines 451-459) - DurationSelector integration
 - **Dependencies**:
