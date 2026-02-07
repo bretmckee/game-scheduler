@@ -1,6 +1,6 @@
 ---
-description: "Python coding conventions and guidelines"
-applyTo: "**/*.py"
+description: 'Python coding conventions and guidelines'
+applyTo: '**/*.py'
 ---
 
 # Python Coding Conventions
@@ -41,6 +41,7 @@ applyTo: "**/*.py"
 The project enforces comprehensive code quality through Ruff with 33 enabled rule categories. All code must pass linting with zero violations before commit.
 
 ### Security & Correctness (Required)
+
 - **S** (flake8-bandit): Detect security vulnerabilities
   - S608: SQL injection prevention (use parameterized queries or sql.Identifier)
   - S603/S607: Subprocess security (use shutil.which() for absolute paths)
@@ -50,25 +51,29 @@ The project enforces comprehensive code quality through Ruff with 33 enabled rul
 - **FAST** (FastAPI): Use Annotated pattern for all dependencies
 
 ### Code Quality Patterns (Required)
+
 - **RET** (flake8-return): Optimize return statements (no unnecessary else/assignment before return)
 - **SIM** (flake8-simplify): Use simpler code patterns (contextlib.suppress, combined conditions)
 - **TC** (flake8-type-checking): Move type-only imports to TYPE_CHECKING blocks
 - **PLE/PLW/PLC** (Pylint): Follow Pylint conventions
   - PLW0603: Document global statement usage with noqa comment explaining why
   - PLC0415: Import at module level unless there's a specific reason
-  - PLC2701: Avoid importing from private modules (_module)
+  - PLC2701: Avoid importing from private modules (\_module)
 
 ### Performance (Required)
+
 - **PERF** (Perflint): Avoid performance anti-patterns
 - **G004** (flake8-logging-format): Use lazy logging (logger.info("Message %s", var) not f-strings)
 
 ### Modern Python Standards (Required)
+
 - **UP** (pyupgrade): Use Python 3.13+ syntax and features
 - **ANN** (flake8-annotations): All functions must have type hints for parameters and returns
   - Use `Any` with `noqa:ANN401` only for framework-controlled parameters
   - ANN101/ANN102 ignored (self/cls type hints deprecated)
 
 ### Code Hygiene (Required)
+
 - **T20** (flake8-print): Use logging instead of print statements in production code
 - **EM** (flake8-errmsg): Extract exception messages to variables
 - **G/LOG** (flake8-logging-format): Use logger.exception() not logger.error() in exception handlers
@@ -78,6 +83,7 @@ The project enforces comprehensive code quality through Ruff with 33 enabled rul
 ### Examples
 
 #### Security - SQL Injection Prevention
+
 ```python
 # Bad: Hardcoded SQL (S608)
 query = f"SELECT * FROM {table_name}"
@@ -88,6 +94,7 @@ query = sql.SQL("SELECT * FROM {}").format(sql.Identifier(table_name))
 ```
 
 #### Performance - Lazy Logging
+
 ```python
 # Bad: F-string in logging (G004)
 logger.info(f"Processing game {game_id} with {count} participants")
@@ -97,6 +104,7 @@ logger.info("Processing game %s with %s participants", game_id, count)
 ```
 
 #### Type Hints - Comprehensive Annotations
+
 ```python
 # Bad: Missing type hints
 def process_data(items, max_count):
@@ -114,6 +122,7 @@ def process_data(items: list[int], max_count: int) -> list[int]:
 ```
 
 #### Code Simplification
+
 ```python
 # Bad: Try-except-pass (SIM105)
 try:
@@ -128,6 +137,7 @@ with suppress(Exception):
 ```
 
 ### Running Ruff
+
 ```bash
 # Check all files
 uv run ruff check .
@@ -143,6 +153,7 @@ uv run ruff check --select S,ASYNC,FAST .
 ```
 
 ### Configuration Location
+
 All Ruff configuration is in `pyproject.toml` under `[tool.ruff]` and `[tool.ruff.lint]` sections.
 
 ## Code Style and Formatting
@@ -295,6 +306,29 @@ module_name, package_name, ClassName, method_name, ExceptionName, function_name,
   """
   ...
   ```
+
+## Test-Driven Development (TDD)
+
+**ALL Python code MUST follow Test-Driven Development methodology.**
+
+### Required TDD Workflow
+
+1. **RED Phase**: Create stub function with `raise NotImplementedError("function_name not yet implemented")`
+2. **RED Phase**: Write failing tests using `pytest.raises(NotImplementedError, match="not yet implemented")`
+3. **GREEN Phase**: Implement minimal solution to make tests pass
+4. **GREEN Phase**: Update tests to verify actual behavior (remove pytest.raises)
+5. **REFACTOR Phase**: Improve implementation while keeping tests green
+
+### Testing Requirements
+
+- Write unit tests BEFORE implementing functionality (not after)
+- Use pytest with modern fixtures and parametrize decorators
+- Test the happy path, edge cases, and error conditions
+- Account for common edge cases like empty inputs, invalid data types, and large datasets
+- Include comments for edge cases and the expected behavior when non-obvious
+- All new functions must start with NotImplementedError and have failing tests first
+
+**See #file:.github/instructions/test-driven-development.instructions.md for complete TDD guidelines and examples.**
 
 ## Edge Cases and Testing
 

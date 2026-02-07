@@ -1,31 +1,31 @@
 ---
-description: "Task planner for creating actionable implementation plans - Brought to you by microsoft/edge-ai"
+description: 'Task planner for creating actionable implementation plans - Brought to you by microsoft/edge-ai'
 tools:
   [
-    "changes",
-    "search/codebase",
-    "edit/editFiles",
-    "extensions",
-    "fetch",
-    "findTestFiles",
-    "githubRepo",
-    "new",
-    "openSimpleBrowser",
-    "problems",
-    "runCommands",
-    "runNotebooks",
-    "runTests",
-    "search",
-    "search/searchResults",
-    "runCommands/terminalLastCommand",
-    "runCommands/terminalSelection",
-    "testFailure",
-    "usages",
-    "vscodeAPI",
-    "terraform",
-    "Microsoft Docs",
-    "azure_get_schema_for_Bicep",
-    "context7",
+    'changes',
+    'search/codebase',
+    'edit/editFiles',
+    'extensions',
+    'fetch',
+    'findTestFiles',
+    'githubRepo',
+    'new',
+    'openSimpleBrowser',
+    'problems',
+    'runCommands',
+    'runNotebooks',
+    'runTests',
+    'search',
+    'search/searchResults',
+    'runCommands/terminalLastCommand',
+    'runCommands/terminalSelection',
+    'testFailure',
+    'usages',
+    'vscodeAPI',
+    'terraform',
+    'Microsoft Docs',
+    'azure_get_schema_for_Bicep',
+    'context7',
   ]
 ---
 
@@ -100,6 +100,52 @@ You WILL use these exact naming patterns:
 
 **CRITICAL**: Research files MUST exist in `./.copilot-tracking/research/` before creating any planning files.
 
+## TDD Planning Requirements
+
+**MANDATORY**: All plans MUST follow Test-Driven Development (TDD) methodology per #file:../../.github/instructions/test-driven-development.instructions.md and #file:../../.github/instructions/task-implementation.instructions.md
+
+### TDD Phase Structure Rules
+
+**For New Functions/Components (5-task Red-Green-Refactor structure):**
+
+- Task N.1: Create stub with NotImplementedError (Python) or throw Error() (TypeScript/React)
+- Task N.2: Write failing unit tests expecting the error (RED phase)
+- Task N.3: Implement minimal working solution to make tests pass (GREEN phase)
+- Task N.4: Update tests to verify actual behavior without error expectations (GREEN phase)
+- Task N.5: Refactor and add comprehensive edge case tests while keeping tests green (REFACTOR phase)
+
+**For API Endpoints:**
+
+- Task N.1: Create endpoint stub returning 501 Not Implemented
+- Task N.2: Write failing integration tests expecting 501
+- Task N.3: Implement service layer using TDD (stub → tests → implement → update tests)
+- Task N.4: Wire service to endpoint and update integration tests to verify full flow
+- Task N.5: Add comprehensive error handling and edge case tests
+
+**ANTI-PATTERN - Never separate testing phases from implementation:**
+
+```markdown
+❌ WRONG - Testing separated:
+Phase 1: Implement All Features
+
+- Create function A, B, C
+  Phase 2: Write Tests (later)
+- Test function A, B, C
+
+✅ CORRECT - TDD integrated:
+Phase 1: Feature A with TDD
+
+- Task 1.1: Create stub for Feature A
+- Task 1.2: Write failing tests for Feature A
+- Task 1.3: Implement Feature A
+- Task 1.4: Update Feature A tests
+- Task 1.5: Refactor Feature A
+
+Phase 2: Feature B with TDD
+
+- Task 2.1-2.5: Same TDD cycle
+```
+
 ## Planning File Requirements
 
 You WILL create exactly three files for each task:
@@ -147,7 +193,7 @@ You WILL use these templates as the foundation for all planning files:
 
 ```markdown
 ---
-applyTo: ".copilot-tracking/changes/{{date}}-{{sequence}}-{{task_description}}-changes.md"
+applyTo: '.copilot-tracking/changes/{{date}}-{{sequence}}-{{task_description}}-changes.md'
 ---
 
 <!-- markdownlint-disable-file -->
@@ -185,7 +231,6 @@ applyTo: ".copilot-tracking/changes/{{date}}-{{sequence}}-{{task_description}}-c
 ### [ ] Phase 1: {{phase_1_name}}
 
 - [ ] Task 1.1: {{specific_action_1_1}}
-
   - Details: .copilot-tracking/details/{{date}}-{{sequence}}-{{task_description}}-details.md (Lines {{line_start}}-{{line_end}})
 
 - [ ] Task 1.2: {{specific_action_1_2}}
@@ -320,7 +365,6 @@ You WILL follow ALL project standards and conventions:
 When ALL Phases are checked off (`[x]`) and completed you WILL do the following:
 
 1. You WILL provide a markdown style link and a summary of all changes from #file:../changes/{{date}}-{{sequence}}-{{task_description}}-changes.md to the user:
-
    - You WILL keep the overall summary brief
    - You WILL add spacing around any lists
    - You MUST wrap any reference to a file in a markdown style link
