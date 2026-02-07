@@ -1,7 +1,24 @@
 ---
-description: "Game Scheduler Integration and E2E tests"
-applyTo: "**/tests/integration**.py, **/tests/e2e**.py, scripts/run-integration-tests.sh, scripts/run-e2e-tests.sh"
+description: 'Game Scheduler Integration and E2E tests'
+applyTo: '**/tests/integration**.py, **/tests/e2e**.py, scripts/run-integration-tests.sh, scripts/run-e2e-tests.sh'
 ---
+
+## Test-Driven Development for Integration Tests
+
+**Integration tests follow TDD principles where practical:**
+
+1. **For new API endpoints**: Write integration tests expecting 501 Not Implemented before implementing
+2. **For service layer methods**: Write integration tests with database after unit tests pass
+3. **For workflows**: Write tests for complete flow after individual components tested
+
+Integration tests verify:
+
+- Cross-service interactions
+- Database transactions and rollback
+- Authentication and authorization
+- Real infrastructure behavior (PostgreSQL, RabbitMQ, Valkey)
+
+See #file:../instructions/test-driven-development.instructions.md for complete TDD methodology.
 
 ## General Instructions
 
@@ -40,10 +57,12 @@ docker compose --env-file config/env.e2e down -v
 ```
 
 **Important notes:**
+
 - The container entrypoint is `pytest`, so you can pass any pytest options or specific test paths
 - The `SKIP_CLEANUP` variable prevents automatic teardown of the test environment to allow the service logs to be inspected
 - The `--build` flag in the scripts rebuilds the test container to pick up test code changes
 - To pick up changes in services (API, bot, daemon, etc.), rebuild them separately:
+
   ```bash
   # For integration tests
   docker compose --env-file config/env.int build

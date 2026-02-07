@@ -93,12 +93,60 @@ applyTo: '**/*.ts'
 - Keep UI layers thin; push heavy logic to services or state managers.
 - Use messaging or events to decouple UI from business logic.
 
+## Test-Driven Development (TDD)
+
+**ALL TypeScript code MUST follow Test-Driven Development methodology.**
+
+### Required TDD Workflow
+
+1. **RED Phase**: Create stub function/class with `throw new Error('functionName not yet implemented')`
+2. **RED Phase**: Write failing tests expecting the error to be thrown
+3. **GREEN Phase**: Implement minimal solution to make tests pass
+4. **GREEN Phase**: Update tests to verify actual behavior (remove error expectation)
+5. **REFACTOR Phase**: Improve implementation while keeping tests green
+
+### TDD Examples
+
+```typescript
+// RED: Create stub
+export async function fetchUserGuilds(userId: string): Promise<Guild[]> {
+  throw new Error('fetchUserGuilds not yet implemented');
+}
+
+// RED: Write failing test
+import { describe, it, expect } from 'vitest';
+
+describe('fetchUserGuilds', () => {
+  it('should fetch user guilds from API', async () => {
+    await expect(fetchUserGuilds('123')).rejects.toThrow('not yet implemented');
+    // After implementation: expect(guilds).toHaveLength(2);
+  });
+});
+
+// GREEN: Implement
+export async function fetchUserGuilds(userId: string): Promise<Guild[]> {
+  const response = await api.get(`/users/${userId}/guilds`);
+  return response.data;
+}
+
+// GREEN: Update test
+it('should fetch user guilds from API', async () => {
+  const guilds = await fetchUserGuilds('123');
+  expect(guilds).toHaveLength(2);
+  expect(guilds[0]).toHaveProperty('id');
+});
+```
+
+**See #file:.github/instructions/test-driven-development.instructions.md for complete TDD guidelines.**
+
 ## Testing Expectations
 
+- Follow TDD: Write tests BEFORE implementing functionality
 - Add or update unit tests with the project's framework and naming style.
 - Expand integration or end-to-end suites when behavior crosses modules or platform APIs.
 - Run targeted test scripts for quick feedback before submitting.
 - Avoid brittle timing assertions; prefer fake timers or injected clocks.
+- All new functions must start with throwing an error and have failing tests first
 
 ## Performance & Reliability
 

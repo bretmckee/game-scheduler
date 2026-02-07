@@ -1,6 +1,6 @@
 ---
-applyTo: "**/*.{py,js,jsx,ts,tsx,go}"
-description: "Coding best practices."
+applyTo: '**/*.{py,js,jsx,ts,tsx,go}'
+description: 'Coding best practices.'
 ---
 
 # Coding Best Practices
@@ -127,10 +127,21 @@ def process_user_data(user_id: str) -> UserData:
 
 ## Testing
 
+### Test-Driven Development (TDD) Requirement
+
+**ALL new code MUST follow Test-Driven Development methodology. See #file:.github/instructions/test-driven-development.instructions.md for complete TDD workflow.**
+
+### TDD Red-Green-Refactor Cycle (Required)
+
+1. **RED**: Create function stub with NotImplementedError → Write failing tests
+2. **GREEN**: Implement minimal solution → Make tests pass
+3. **REFACTOR**: Improve code → Keep tests passing
+
 ### Testing Standards
 
-- **Write tests first or alongside code**: TDD or test-during-development
-- **Write unit tests at the same time as code**: Don't defer testing to later; tests are part of the implementation, not an afterthought
+- **Write tests BEFORE implementation**: TDD is mandatory, not optional
+- **Write unit tests at the same time as code**: Tests are part of the implementation, not an afterthought
+- **Follow Red-Green-Refactor**: All new functions must start with NotImplementedError, then tests, then implementation
 - **Test the happy path and edge cases**: Include normal and boundary conditions
 - **Keep tests independent**: Tests should not depend on execution order
 - **Use descriptive test names**: Test names should describe what is being tested
@@ -138,11 +149,12 @@ def process_user_data(user_id: str) -> UserData:
 - **Test behavior, not implementation**: Focus on what the code does, not how
 
 ### Test Levels
+
 Different types of tests serve different purposes, all are important but are not interchangeable:
 
-- **Unit tests**: Test individual functions/methods in isolation. They should be fast and cover all code paths.
-- **Integration tests**: Test interactions between components covering  common workflows
-- **End-to-end tests**: Test complete user workflows
+- **Unit tests**: Test individual functions/methods in isolation using TDD. They should be fast and cover all code paths. Always written BEFORE implementation.
+- **Integration tests**: Test interactions between components covering common workflows. Use TDD when possible.
+- **End-to-end tests**: Test complete user workflows. Written after unit and integration tests are green.
 - **Performance tests**: Verify performance requirements are met
 
 ## Code Review Checklist
