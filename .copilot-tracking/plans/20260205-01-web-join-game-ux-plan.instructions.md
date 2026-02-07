@@ -68,15 +68,15 @@ Enable real-time synchronization of game join/leave actions across web and Disco
 - [x] Task 2.2: Add web_sse_events queue to RabbitMQ initialization
   - Details: .copilot-tracking/details/20260205-01-web-join-game-ux-details.md (Lines 90-100)
 
-### [ ] Phase 3: Frontend Real-Time Updates
+### [x] Phase 3: Frontend Real-Time Updates
 
-- [ ] Task 3.1: Create useGameUpdates React hook with EventSource
+- [x] Task 3.1: Create useGameUpdates React hook with EventSource
   - Details: .copilot-tracking/details/20260205-01-web-join-game-ux-details.md (Lines 102-119)
 
-- [ ] Task 3.2: Add join/leave buttons to GameCard component
+- [x] Task 3.2: Add join/leave buttons to GameCard component
   - Details: .copilot-tracking/details/20260205-01-web-join-game-ux-details.md (Lines 121-138)
 
-- [ ] Task 3.3: Integrate SSE updates in BrowseGames and MyGames pages
+- [x] Task 3.3: Integrate SSE updates in BrowseGames and MyGames pages
   - Details: .copilot-tracking/details/20260205-01-web-join-game-ux-details.md (Lines 140-156)
 
 ### [ ] Phase 4: Testing and Validation

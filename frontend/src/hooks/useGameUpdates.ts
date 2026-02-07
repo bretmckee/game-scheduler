@@ -1,4 +1,4 @@
-// Copyright 2025-2026 Bret McKee
+// Copyright 2026 Bret McKee
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -18,19 +18,43 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import '@testing-library/jest-dom';
+import { useEffect } from 'react';
 
-class MockEventSource {
-  url: string;
-  withCredentials: boolean;
-  onmessage: ((event: any) => void) | null = null;
-  onerror: (() => void) | null = null;
-  close = () => {};
-
-  constructor(url: string, options?: { withCredentials?: boolean }) {
-    this.url = url;
-    this.withCredentials = options?.withCredentials || false;
-  }
+interface GameUpdateEvent {
+  type: string;
+  game_id: string;
+  guild_id: string;
 }
 
-globalThis.EventSource = MockEventSource as any;
+export function useGameUpdates(
+  guildId: string | undefined,
+  onUpdate: (gameId: string) => void
+): void {
+  useEffect(() => {
+    const eventSource = new EventSource('/api/v1/sse/game-updates', {
+      withCredentials: true,
+    });
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data: GameUpdateEvent = JSON.parse(event.data);
+
+        if (data.type === 'game_updated') {
+          if (!guildId || data.guild_id === guildId) {
+            onUpdate(data.game_id);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to parse SSE event:', error);
+      }
+    };
+
+    eventSource.onerror = () => {
+      console.error('SSE connection error');
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  }, [guildId, onUpdate]);
+}

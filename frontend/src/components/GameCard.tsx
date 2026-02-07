@@ -18,7 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import { FC } from 'react';
+import { FC, useState } from 'react';
 import {
   Card,
   CardContent,
@@ -28,19 +28,70 @@ import {
   Chip,
   Box,
   Avatar,
+  CircularProgress,
+  Alert,
 } from '@mui/material';
 import { useNavigate } from 'react-router';
 import { GameSession } from '../types';
 import { Time } from '../constants/time';
 import { UI } from '../constants/ui';
+import { useAuth } from '../hooks/useAuth';
+import { apiClient } from '../api/client';
 
 interface GameCardProps {
   game: GameSession;
   showActions?: boolean;
+  onGameUpdate?: (updatedGame: GameSession) => void;
 }
 
-export const GameCard: FC<GameCardProps> = ({ game, showActions = true }) => {
+export const GameCard: FC<GameCardProps> = ({ game, showActions = true, onGameUpdate }) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [actionLoading, setActionLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const isHost = user && game.host?.user_id === user.user_uuid;
+  const isParticipant = user && game.participants?.some((p) => p.user_id === user.user_uuid);
+
+  const handleJoinGame = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    try {
+      setActionLoading(true);
+      setError(null);
+      await apiClient.post(`/api/v1/games/${game.id}/join`);
+
+      const response = await apiClient.get<GameSession>(`/api/v1/games/${game.id}`);
+      if (onGameUpdate) {
+        onGameUpdate(response.data);
+      }
+    } catch (err: unknown) {
+      console.error('Failed to join game:', err);
+      setError((err as any).response?.data?.detail || 'Failed to join game. Please try again.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleLeaveGame = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    try {
+      setActionLoading(true);
+      setError(null);
+      await apiClient.post(`/api/v1/games/${game.id}/leave`);
+
+      const response = await apiClient.get<GameSession>(`/api/v1/games/${game.id}`);
+      if (onGameUpdate) {
+        onGameUpdate(response.data);
+      }
+    } catch (err: unknown) {
+      console.error('Failed to leave game:', err);
+      setError((err as any).response?.data?.detail || 'Failed to leave game. Please try again.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -139,6 +190,12 @@ export const GameCard: FC<GameCardProps> = ({ game, showActions = true }) => {
             </Typography>
           )}
         </Box>
+
+        {error && (
+          <Alert severity="error" sx={{ mt: 2 }}>
+            {error}
+          </Alert>
+        )}
       </CardContent>
 
       {showActions && (
@@ -146,6 +203,29 @@ export const GameCard: FC<GameCardProps> = ({ game, showActions = true }) => {
           <Button size="small" onClick={() => navigate(`/games/${game.id}`)}>
             View Details
           </Button>
+
+          {!isHost && !isParticipant && game.status === 'SCHEDULED' && (
+            <Button
+              size="small"
+              variant="contained"
+              onClick={handleJoinGame}
+              disabled={actionLoading}
+            >
+              {actionLoading ? <CircularProgress size={20} /> : 'Join'}
+            </Button>
+          )}
+
+          {!isHost && isParticipant && game.status === 'SCHEDULED' && (
+            <Button
+              size="small"
+              variant="outlined"
+              color="error"
+              onClick={handleLeaveGame}
+              disabled={actionLoading}
+            >
+              {actionLoading ? <CircularProgress size={20} /> : 'Leave'}
+            </Button>
+          )}
         </CardActions>
       )}
     </Card>

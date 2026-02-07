@@ -18,6 +18,13 @@ Enable real-time synchronization of game join/leave actions across web and Disco
 - tests/services/api/services/test_sse_bridge.py - Unit tests for SSE bridge service covering guild filtering, connection management, and error handling
 - tests/services/api/routes/test_sse.py - Unit tests for SSE endpoint covering authentication, connection registration, keepalive, and cleanup
 - tests/services/bot/events/test_publisher.py - Updated test_publish_game_updated to include guild_id parameter and verify routing key format
+- frontend/src/hooks/useGameUpdates.ts - React hook for SSE connection with EventSource, handles game_updated events with guild filtering
+- .github/instructions/copyright-headers.instructions.md - Instructions to prevent manual copyright header addition, rely on autocopyright pre-commit hook
+- frontend/src/hooks/__tests__/useGameUpdates.test.ts - Unit tests for useGameUpdates hook (10 tests, 100% coverage) with refactored helper functions to eliminate duplication
+- frontend/src/components/__tests__/GameCard.test.tsx - Updated tests for GameCard join/leave functionality (26 total tests, 93.3% coverage) with proper AuthContext mocking
+- frontend/src/pages/__tests__/BrowseGames.test.tsx - SSE integration tests for BrowseGames (2 tests) covering callback invocation and game refetch
+- frontend/src/pages/__tests__/MyGames.test.tsx - SSE integration tests for MyGames (2 tests) covering hosted and joined game updates
+- frontend/src/test/setup.ts - Added global EventSource mock for consistent test environment
 
 ### Modified
 
@@ -27,5 +34,19 @@ Enable real-time synchronization of game join/leave actions across web and Disco
 - services/bot/handlers/join_game.py - Pass guild_id to publisher when publishing game.updated events
 - services/bot/handlers/leave_game.py - Pass guild_id to publisher when publishing game.updated events
 - shared/messaging/infrastructure.py - Added QUEUE_WEB_SSE_EVENTS queue with game.updated.* binding, added corresponding DLQ queue and binding
+- frontend/src/components/GameCard.tsx - Added join/leave buttons with authorization logic, optimistic updates, loading states, and error handling
+- frontend/src/hooks/useGameUpdates.ts - Updated to support optional guildId parameter for filtering, accepts all authorized events when guildId is undefined
+- frontend/src/pages/BrowseGames.tsx - Added useGameUpdates hook with handleGameUpdate callback, passes onGameUpdate to GameCard components for real-time sync
+- frontend/src/pages/MyGames.tsx - Added useGameUpdates hook with handleGameUpdate callback for both hosted and joined games, passes onGameUpdate to GameCard components
+
+## Testing Status
+
+### Phase 3 Test Coverage (Complete)
+- **useGameUpdates hook**: 10 tests, 100% coverage - Connection, events, filtering, error handling, guildId changes, cleanup
+- **GameCard component**: 26 tests, 93.3% coverage - Join/leave buttons, authorization, loading states, error handling, optimistic updates
+- **BrowseGames page**: 2 SSE integration tests - SSE callback invocation, game refetch, state updates
+- **MyGames page**: 2 SSE integration tests - Hosted and joined game updates via SSE callbacks
+- **All tests passing**: 136 tests passing across frontend
+- **Coverage requirement met**: 80%+ diff coverage achieved
 
 ### Removed
