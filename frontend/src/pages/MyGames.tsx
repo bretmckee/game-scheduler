@@ -35,6 +35,7 @@ import { GameSession, GameListResponse, Guild } from '../types';
 import { GameCard } from '../components/GameCard';
 import { useAuth } from '../hooks/useAuth';
 import { canUserCreateGames } from '../utils/permissions';
+import { useGameUpdates } from '../hooks/useGameUpdates';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -68,6 +69,26 @@ export const MyGames: FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tabValue, setTabValue] = useState(0);
+
+  const handleGameUpdate = (updatedGame: GameSession) => {
+    setHostedGames((prevGames) =>
+      prevGames.map((game) => (game.id === updatedGame.id ? updatedGame : game))
+    );
+    setJoinedGames((prevGames) =>
+      prevGames.map((game) => (game.id === updatedGame.id ? updatedGame : game))
+    );
+  };
+
+  const handleSSEUpdate = async (gameId: string) => {
+    try {
+      const response = await apiClient.get<GameSession>(`/api/v1/games/${gameId}`);
+      handleGameUpdate(response.data);
+    } catch (err) {
+      console.error('Failed to fetch updated game:', err);
+    }
+  };
+
+  useGameUpdates(undefined, handleSSEUpdate);
 
   useEffect(() => {
     const fetchGames = async () => {
@@ -170,7 +191,7 @@ export const MyGames: FC = () => {
           <TabPanel value={tabValue} index={0}>
             <Box>
               {hostedGames.map((game) => (
-                <GameCard key={game.id} game={game} />
+                <GameCard key={game.id} game={game} onGameUpdate={handleGameUpdate} />
               ))}
             </Box>
           </TabPanel>
@@ -183,7 +204,7 @@ export const MyGames: FC = () => {
             ) : (
               <Box>
                 {joinedGames.map((game) => (
-                  <GameCard key={game.id} game={game} />
+                  <GameCard key={game.id} game={game} onGameUpdate={handleGameUpdate} />
                 ))}
               </Box>
             )}
@@ -199,7 +220,7 @@ export const MyGames: FC = () => {
                 Joined Games
               </Typography>
               {joinedGames.map((game) => (
-                <GameCard key={game.id} game={game} />
+                <GameCard key={game.id} game={game} onGameUpdate={handleGameUpdate} />
               ))}
             </Box>
           )}

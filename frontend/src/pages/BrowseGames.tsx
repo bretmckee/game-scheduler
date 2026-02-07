@@ -35,6 +35,7 @@ import { useParams } from 'react-router';
 import { apiClient } from '../api/client';
 import { GameSession, Channel, GameListResponse } from '../types';
 import { GameCard } from '../components/GameCard';
+import { useGameUpdates } from '../hooks/useGameUpdates';
 
 export const BrowseGames: FC = () => {
   const { guildId } = useParams<{ guildId: string }>();
@@ -44,6 +45,23 @@ export const BrowseGames: FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedChannel, setSelectedChannel] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('SCHEDULED');
+
+  const handleGameUpdate = (updatedGame: GameSession) => {
+    setGames((prevGames) =>
+      prevGames.map((game) => (game.id === updatedGame.id ? updatedGame : game))
+    );
+  };
+
+  const handleSSEUpdate = async (gameId: string) => {
+    try {
+      const response = await apiClient.get<GameSession>(`/api/v1/games/${gameId}`);
+      handleGameUpdate(response.data);
+    } catch (err) {
+      console.error('Failed to fetch updated game:', err);
+    }
+  };
+
+  useGameUpdates(guildId, handleSSEUpdate);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -150,7 +168,7 @@ export const BrowseGames: FC = () => {
       ) : (
         <Box>
           {games.map((game) => (
-            <GameCard key={game.id} game={game} />
+            <GameCard key={game.id} game={game} onGameUpdate={handleGameUpdate} />
           ))}
         </Box>
       )}

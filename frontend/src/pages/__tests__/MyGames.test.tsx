@@ -43,6 +43,10 @@ vi.mock('../../utils/permissions', () => ({
   canUserCreateGames: vi.fn().mockResolvedValue(true),
 }));
 
+vi.mock('../../hooks/useGameUpdates', () => ({
+  useGameUpdates: vi.fn(),
+}));
+
 describe('MyGames - Server Selection Logic', () => {
   const mockUser: CurrentUser = {
     id: 'id-123',
@@ -173,6 +177,122 @@ describe('MyGames - Server Selection Logic', () => {
 
     await waitFor(() => {
       expect(apiClient.get).toHaveBeenCalledWith('/api/v1/guilds');
+    });
+  });
+});
+
+describe('MyGames - SSE Integration', () => {
+  const mockUser: CurrentUser = {
+    id: 'id-123',
+    user_uuid: 'user-123',
+    username: 'testuser',
+  };
+
+  const mockAuthContext = {
+    user: mockUser,
+    login: vi.fn(),
+    logout: vi.fn(),
+    refreshToken: vi.fn(),
+    loading: false,
+    refreshUser: vi.fn(),
+  };
+
+  const mockHostedGame = {
+    id: 'game-1',
+    title: 'Hosted Game',
+    host: { user_id: 'user-123', display_name: 'testuser' },
+    status: 'SCHEDULED',
+    participant_count: 2,
+  };
+
+  const mockJoinedGame = {
+    id: 'game-2',
+    title: 'Joined Game',
+    host: { user_id: 'other-user', display_name: 'other' },
+    participants: [{ user_id: 'user-123' }],
+    status: 'SCHEDULED',
+    participant_count: 3,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('updates hosted game when SSE event received', async () => {
+    let sseCallback: ((gameId: string) => void) | undefined;
+    const updatedGame = { ...mockHostedGame, participant_count: 3 };
+
+    vi.mocked(apiClient.get)
+      .mockResolvedValueOnce({
+        data: { games: [mockHostedGame], total: 1 },
+      })
+      .mockResolvedValueOnce({
+        data: { guilds: [] },
+      })
+      .mockResolvedValueOnce({
+        data: updatedGame,
+      });
+
+    const { useGameUpdates } = await import('../../hooks/useGameUpdates');
+    vi.mocked(useGameUpdates).mockImplementation((_guildId, callback) => {
+      sseCallback = callback;
+    });
+
+    render(
+      <AuthContext.Provider value={mockAuthContext}>
+        <BrowserRouter>
+          <MyGames />
+        </BrowserRouter>
+      </AuthContext.Provider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Hosted Game')).toBeInTheDocument();
+    });
+
+    sseCallback!('game-1');
+
+    await waitFor(() => {
+      expect(apiClient.get).toHaveBeenCalledWith('/api/v1/games/game-1');
+    });
+  });
+
+  it('updates joined game when SSE event received', async () => {
+    let sseCallback: ((gameId: string) => void) | undefined;
+    const updatedGame = { ...mockJoinedGame, participant_count: 4 };
+
+    vi.mocked(apiClient.get)
+      .mockResolvedValueOnce({
+        data: { games: [mockJoinedGame], total: 1 },
+      })
+      .mockResolvedValueOnce({
+        data: { guilds: [] },
+      })
+      .mockResolvedValueOnce({
+        data: updatedGame,
+      });
+
+    const { useGameUpdates } = await import('../../hooks/useGameUpdates');
+    vi.mocked(useGameUpdates).mockImplementation((_guildId, callback) => {
+      sseCallback = callback;
+    });
+
+    render(
+      <AuthContext.Provider value={mockAuthContext}>
+        <BrowserRouter>
+          <MyGames />
+        </BrowserRouter>
+      </AuthContext.Provider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Joined Game')).toBeInTheDocument();
+    });
+
+    sseCallback!('game-2');
+
+    await waitFor(() => {
+      expect(apiClient.get).toHaveBeenCalledWith('/api/v1/games/game-2');
     });
   });
 });
