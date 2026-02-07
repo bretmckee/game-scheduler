@@ -123,9 +123,12 @@ async def test_publish_game_created(bot_publisher, mock_publisher):
 async def test_publish_game_updated(bot_publisher, mock_publisher):
     """Test publishing game updated event."""
     game_id = "550e8400-e29b-41d4-a716-446655440000"
+    guild_id = "123456789012345678"
     updated_fields = {"title": "New Title", "max_players": 12}
 
-    await bot_publisher.publish_game_updated(game_id=game_id, updated_fields=updated_fields)
+    await bot_publisher.publish_game_updated(
+        game_id=game_id, guild_id=guild_id, updated_fields=updated_fields
+    )
 
     mock_publisher.publish.assert_awaited_once()
     call_args = mock_publisher.publish.call_args
@@ -134,9 +137,10 @@ async def test_publish_game_updated(bot_publisher, mock_publisher):
     assert isinstance(event, Event)
     assert event.event_type == EventType.GAME_UPDATED
     assert event.data["game_id"] == game_id
+    assert event.data["guild_id"] == guild_id
     assert event.data["updated_fields"] == updated_fields
 
-    assert call_args.kwargs["routing_key"] == "game.updated"
+    assert call_args.kwargs["routing_key"] == f"game.updated.{guild_id}"
 
 
 @pytest.mark.asyncio
