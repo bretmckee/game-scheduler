@@ -43,10 +43,12 @@ DLX_EXCHANGE = "game_scheduler.dlx"
 # Queue names
 QUEUE_BOT_EVENTS = "bot_events"
 QUEUE_NOTIFICATION = "notification_queue"
+QUEUE_WEB_SSE_EVENTS = "web_sse_events"
 
 # Dead letter queue names (per-queue DLQ pattern)
 QUEUE_BOT_EVENTS_DLQ = "bot_events.dlq"
 QUEUE_NOTIFICATION_DLQ = "notification_queue.dlq"
+QUEUE_WEB_SSE_EVENTS_DLQ = "web_sse_events.dlq"
 
 # Queue configuration
 PRIMARY_QUEUE_TTL_MS = 3600000  # 1 hour in milliseconds
@@ -60,12 +62,14 @@ PRIMARY_QUEUE_ARGUMENTS: dict[str, Any] = {
 PRIMARY_QUEUES = [
     QUEUE_BOT_EVENTS,
     QUEUE_NOTIFICATION,
+    QUEUE_WEB_SSE_EVENTS,
 ]
 
 # List of dead letter queues (no TTL, durable)
 DEAD_LETTER_QUEUES = [
     QUEUE_BOT_EVENTS_DLQ,
     QUEUE_NOTIFICATION_DLQ,
+    QUEUE_WEB_SSE_EVENTS_DLQ,
 ]
 
 # Routing key bindings (queue_name, routing_key)
@@ -76,6 +80,8 @@ QUEUE_BINDINGS = [
     (QUEUE_BOT_EVENTS, "channel.*"),
     # notification_queue receives DM notifications
     (QUEUE_NOTIFICATION, "notification.send_dm"),
+    # web_sse_events receives game update events for SSE broadcasting
+    (QUEUE_WEB_SSE_EVENTS, "game.updated.*"),
 ]
 
 # DLQ bindings to dead letter exchange
@@ -88,4 +94,6 @@ DLQ_BINDINGS = [
     (QUEUE_BOT_EVENTS_DLQ, "channel.*"),
     # notification_queue.dlq receives dead-lettered messages with notification.send_dm key
     (QUEUE_NOTIFICATION_DLQ, "notification.send_dm"),
+    # web_sse_events.dlq receives dead-lettered messages with game.updated.* key
+    (QUEUE_WEB_SSE_EVENTS_DLQ, "game.updated.*"),
 ]

@@ -60,12 +60,12 @@ Enable real-time synchronization of game join/leave actions across web and Disco
 - [x] Task 1.3: Integrate SSE bridge into API service lifespan
   - Details: .copilot-tracking/details/20260205-01-web-join-game-ux-details.md (Lines 54-68)
 
-### [ ] Phase 2: RabbitMQ Integration and Routing Keys
+### [x] Phase 2: RabbitMQ Integration and Routing Keys
 
-- [ ] Task 2.1: Update routing keys to include guild_id (hybrid approach)
+- [x] Task 2.1: Update routing keys to include guild_id (hybrid approach)
   - Details: .copilot-tracking/details/20260205-01-web-join-game-ux-details.md (Lines 70-88)
 
-- [ ] Task 2.2: Add web_sse_events queue to RabbitMQ initialization
+- [x] Task 2.2: Add web_sse_events queue to RabbitMQ initialization
   - Details: .copilot-tracking/details/20260205-01-web-join-game-ux-details.md (Lines 90-100)
 
 ### [ ] Phase 3: Frontend Real-Time Updates

@@ -1668,12 +1668,14 @@ class GameService:
             event_type=messaging_events.EventType.GAME_UPDATED,
             data={
                 "game_id": game.id,
+                "guild_id": game.guild_id,
                 "message_id": game.message_id or "",
                 "channel_id": game.channel.channel_id,
             },
         )
 
-        self.event_publisher.publish_deferred(event=event)
+        routing_key = f"game.updated.{game.guild_id}"
+        self.event_publisher.publish_deferred(event=event, routing_key=routing_key)
 
         logger.info("Deferred game.updated event for game %s", game.id)
 
