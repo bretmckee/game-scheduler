@@ -42,8 +42,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/sse", tags=["sse"])
 
-KEEPALIVE_INTERVAL_SECONDS = 30
-
 
 @router.get("/game-updates")
 async def game_updates(
@@ -80,7 +78,7 @@ async def game_updates(
             while True:
                 try:
                     message = await asyncio.wait_for(
-                        queue.get(), timeout=KEEPALIVE_INTERVAL_SECONDS
+                        queue.get(), timeout=bridge.keepalive_interval_seconds
                     )
                     yield f"data: {message}\n\n"
                 except TimeoutError:

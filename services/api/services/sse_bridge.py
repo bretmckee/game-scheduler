@@ -49,6 +49,19 @@ class SSEGameUpdateBridge:
         """Initialize SSE bridge with empty connection registry."""
         self.connections: dict[str, tuple[asyncio.Queue, str, str]] = {}
         self.consumer: EventConsumer | None = None
+        self.keepalive_interval_seconds: int = 30
+
+    def set_keepalive_interval(self, seconds: int) -> None:
+        """
+        Set keepalive interval for SSE connections.
+
+        Args:
+            seconds: Interval in seconds between keepalive pings
+        """
+        if seconds <= 0:
+            msg = "Keepalive interval must be positive"
+            raise ValueError(msg)
+        self.keepalive_interval_seconds = seconds
 
     async def start_consuming(self) -> None:
         """
@@ -101,27 +114,29 @@ class SSEGameUpdateBridge:
             try:
                 token_data = await tokens.get_user_tokens(session_token)
                 if not token_data:
-                    logger.debug("Session expired for client %s", client_id)
                     disconnected_clients.append(client_id)
                     continue
-
                 user_guilds = await oauth2.get_user_guilds(token_data["access_token"], discord_id)
+                user_guild_ids = {g["id"] for g in user_guilds}
 
-                if guild_id in {g["id"] for g in user_guilds}:
+                if guild_id in user_guild_ids:
                     try:
                         queue.put_nowait(message)
-                        logger.debug(
-                            "Sent game_updated event to client %s for game %s", client_id, game_id
-                        )
                     except asyncio.QueueFull:
-                        logger.warning("Queue full for client %s, dropping event", client_id)
+                        logger.warning(
+                            "Queue full for client %s, dropping event",
+                            client_id,
+                        )
 
             except Exception as e:
-                logger.warning("Failed to check guild membership for client %s: %s", client_id, e)
+                logger.warning(
+                    "Failed to check guild membership for client %s: %s",
+                    client_id,
+                    e,
+                )
 
         for client_id in disconnected_clients:
             self.connections.pop(client_id, None)
-            logger.debug("Removed disconnected client: %s", client_id)
 
 
 _sse_bridge: SSEGameUpdateBridge | None = None
