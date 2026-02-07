@@ -39,6 +39,18 @@ def sse_bridge():
 
 
 @pytest.fixture
+def mock_db_session():
+    """Create mock database session for testing."""
+    mock_db = AsyncMock()
+    mock_result = Mock()
+    mock_result.scalar_one_or_none.return_value = "123456789"  # Discord guild ID
+    mock_db.execute = AsyncMock(return_value=mock_result)
+    mock_db.__aenter__ = AsyncMock(return_value=mock_db)
+    mock_db.__aexit__ = AsyncMock()
+    return mock_db
+
+
+@pytest.fixture
 def mock_event():
     """Create mock game.updated event."""
     return Event(
@@ -52,7 +64,7 @@ def mock_event():
 
 
 @pytest.mark.asyncio
-async def test_broadcast_filters_by_guild_membership(sse_bridge, mock_event):
+async def test_broadcast_filters_by_guild_membership(sse_bridge, mock_event, mock_db_session):
     """Test that events are only sent to users who are guild members."""
     client_queue = asyncio.Queue()
     session_token = "test_session"
@@ -61,6 +73,10 @@ async def test_broadcast_filters_by_guild_membership(sse_bridge, mock_event):
     sse_bridge.connections["client1"] = (client_queue, session_token, discord_id)
 
     with (
+        patch(
+            "services.api.services.sse_bridge.get_bypass_db_session",
+            return_value=mock_db_session,
+        ),
         patch("services.api.services.sse_bridge.tokens.get_user_tokens") as mock_tokens,
         patch("services.api.services.sse_bridge.oauth2.get_user_guilds") as mock_guilds,
     ):
@@ -77,7 +93,7 @@ async def test_broadcast_filters_by_guild_membership(sse_bridge, mock_event):
 
 
 @pytest.mark.asyncio
-async def test_broadcast_skips_non_members(sse_bridge, mock_event):
+async def test_broadcast_skips_non_members(sse_bridge, mock_event, mock_db_session):
     """Test that events are not sent to non-guild members."""
     client_queue = asyncio.Queue()
     session_token = "test_session"
@@ -86,6 +102,10 @@ async def test_broadcast_skips_non_members(sse_bridge, mock_event):
     sse_bridge.connections["client1"] = (client_queue, session_token, discord_id)
 
     with (
+        patch(
+            "services.api.services.sse_bridge.get_bypass_db_session",
+            return_value=mock_db_session,
+        ),
         patch("services.api.services.sse_bridge.tokens.get_user_tokens") as mock_tokens,
         patch("services.api.services.sse_bridge.oauth2.get_user_guilds") as mock_guilds,
     ):
@@ -98,7 +118,7 @@ async def test_broadcast_skips_non_members(sse_bridge, mock_event):
 
 
 @pytest.mark.asyncio
-async def test_broadcast_removes_disconnected_clients(sse_bridge, mock_event):
+async def test_broadcast_removes_disconnected_clients(sse_bridge, mock_event, mock_db_session):
     """Test that clients with expired sessions are removed."""
     client_queue = asyncio.Queue()
     session_token = "expired_session"
@@ -106,7 +126,13 @@ async def test_broadcast_removes_disconnected_clients(sse_bridge, mock_event):
 
     sse_bridge.connections["client1"] = (client_queue, session_token, discord_id)
 
-    with patch("services.api.services.sse_bridge.tokens.get_user_tokens") as mock_tokens:
+    with (
+        patch(
+            "services.api.services.sse_bridge.get_bypass_db_session",
+            return_value=mock_db_session,
+        ),
+        patch("services.api.services.sse_bridge.tokens.get_user_tokens") as mock_tokens,
+    ):
         mock_tokens.return_value = None
 
         await sse_bridge._broadcast_to_clients(mock_event)
@@ -115,7 +141,7 @@ async def test_broadcast_removes_disconnected_clients(sse_bridge, mock_event):
 
 
 @pytest.mark.asyncio
-async def test_broadcast_handles_full_queue(sse_bridge, mock_event):
+async def test_broadcast_handles_full_queue(sse_bridge, mock_event, mock_db_session):
     """Test that events are dropped when client queue is full."""
     client_queue = asyncio.Queue(maxsize=1)
     await client_queue.put("existing_message")
@@ -126,6 +152,10 @@ async def test_broadcast_handles_full_queue(sse_bridge, mock_event):
     sse_bridge.connections["client1"] = (client_queue, session_token, discord_id)
 
     with (
+        patch(
+            "services.api.services.sse_bridge.get_bypass_db_session",
+            return_value=mock_db_session,
+        ),
         patch("services.api.services.sse_bridge.tokens.get_user_tokens") as mock_tokens,
         patch("services.api.services.sse_bridge.oauth2.get_user_guilds") as mock_guilds,
     ):
@@ -152,7 +182,7 @@ async def test_broadcast_handles_missing_guild_id(sse_bridge):
 
 
 @pytest.mark.asyncio
-async def test_broadcast_handles_api_errors(sse_bridge, mock_event):
+async def test_broadcast_handles_api_errors(sse_bridge, mock_event, mock_db_session):
     """Test that API errors during guild check don't crash the bridge."""
     client_queue = asyncio.Queue()
     session_token = "test_session"
@@ -160,7 +190,13 @@ async def test_broadcast_handles_api_errors(sse_bridge, mock_event):
 
     sse_bridge.connections["client1"] = (client_queue, session_token, discord_id)
 
-    with patch("services.api.services.sse_bridge.tokens.get_user_tokens") as mock_tokens:
+    with (
+        patch(
+            "services.api.services.sse_bridge.get_bypass_db_session",
+            return_value=mock_db_session,
+        ),
+        patch("services.api.services.sse_bridge.tokens.get_user_tokens") as mock_tokens,
+    ):
         mock_tokens.side_effect = Exception("API error")
 
         await sse_bridge._broadcast_to_clients(mock_event)
@@ -184,7 +220,7 @@ async def test_start_consuming_initializes_consumer(sse_bridge):
 
         assert sse_bridge.consumer is not None
         mock_consumer.connect.assert_called_once()
-        mock_consumer.bind.assert_called_once_with("game.updated.*")
+        mock_consumer.bind.assert_called_once_with("game.updated.#")
         mock_consumer.start_consuming.assert_called_once()
 
 
@@ -217,7 +253,7 @@ def test_get_sse_bridge_returns_singleton():
 
 
 @pytest.mark.asyncio
-async def test_broadcast_to_multiple_clients(sse_bridge, mock_event):
+async def test_broadcast_to_multiple_clients(sse_bridge, mock_event, mock_db_session):
     """Test broadcasting to multiple authorized clients."""
     queue1 = asyncio.Queue()
     queue2 = asyncio.Queue()
@@ -226,6 +262,10 @@ async def test_broadcast_to_multiple_clients(sse_bridge, mock_event):
     sse_bridge.connections["client2"] = (queue2, "session2", "user2")
 
     with (
+        patch(
+            "services.api.services.sse_bridge.get_bypass_db_session",
+            return_value=mock_db_session,
+        ),
         patch("services.api.services.sse_bridge.tokens.get_user_tokens") as mock_tokens,
         patch("services.api.services.sse_bridge.oauth2.get_user_guilds") as mock_guilds,
     ):

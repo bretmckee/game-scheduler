@@ -18,7 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface GameUpdateEvent {
   type: string;
@@ -30,31 +30,60 @@ export function useGameUpdates(
   guildId: string | undefined,
   onUpdate: (gameId: string) => void
 ): void {
+  const onUpdateRef = useRef(onUpdate);
+  const [reconnectTrigger, setReconnectTrigger] = useState(0);
+
+  useEffect(() => {
+    onUpdateRef.current = onUpdate;
+  }, [onUpdate]);
+
   useEffect(() => {
     const eventSource = new EventSource('/api/v1/sse/game-updates', {
       withCredentials: true,
     });
 
+    let lastMessageTime = Date.now();
+    const TIMEOUT_MS = 45000;
+    const TIMEOUT_CHECK_INTERVAL_MS = 10000;
+
+    eventSource.onopen = () => {
+      lastMessageTime = Date.now();
+    };
+
     eventSource.onmessage = (event) => {
+      lastMessageTime = Date.now();
+
       try {
         const data: GameUpdateEvent = JSON.parse(event.data);
 
+        if (data.type === 'keepalive') {
+          return;
+        }
+
         if (data.type === 'game_updated') {
           if (!guildId || data.guild_id === guildId) {
-            onUpdate(data.game_id);
+            onUpdateRef.current(data.game_id);
           }
         }
       } catch (error) {
-        console.error('Failed to parse SSE event:', error);
+        console.error('[SSE] Failed to parse event:', error);
       }
     };
 
     eventSource.onerror = () => {
-      console.error('SSE connection error');
+      // EventSource will automatically attempt to reconnect
     };
 
+    const timeoutCheckInterval = setInterval(() => {
+      const timeSinceLastMessage = Date.now() - lastMessageTime;
+      if (timeSinceLastMessage > TIMEOUT_MS && eventSource.readyState === 1) {
+        setReconnectTrigger((prev) => prev + 1);
+      }
+    }, TIMEOUT_CHECK_INTERVAL_MS);
+
     return () => {
+      clearInterval(timeoutCheckInterval);
       eventSource.close();
     };
-  }, [guildId, onUpdate]);
+  }, [guildId, reconnectTrigger]);
 }

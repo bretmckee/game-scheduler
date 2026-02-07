@@ -32,7 +32,6 @@ from dataclasses import dataclass
 from typing import Any
 
 from sqlalchemy import func
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -1489,6 +1488,22 @@ class GameService:
         # Get user (create if not exists)
         user = await self.participant_resolver.ensure_user_exists(self.db, user_discord_id)
 
+        # Check if user is already a participant (idempotent operation)
+        existing_participant_result = await self.db.execute(
+            select(participant_model.GameParticipant).where(
+                participant_model.GameParticipant.game_session_id == game_id,
+                participant_model.GameParticipant.user_id == user.id,
+            )
+        )
+        existing_participant = existing_participant_result.scalar_one_or_none()
+        if existing_participant is not None:
+            logger.info(
+                "User already in game (idempotent join): game_id=%s, user_id=%s",
+                game_id,
+                user.id,
+            )
+            return existing_participant
+
         # Check if game is full (count non-placeholder participants)
         count_result = await self.db.execute(
             select(func.count(participant_model.GameParticipant.id)).where(
@@ -1535,12 +1550,8 @@ class GameService:
             position=0,
         )
         self.db.add(participant)
-        try:
-            await self.db.flush()
-            await self.db.refresh(participant)
-        except IntegrityError:
-            msg = "User has already joined this game"
-            raise ValueError(msg) from None
+        await self.db.flush()
+        await self.db.refresh(participant)
 
         # Create delayed join notification schedule
         await schedule_join_notification(
@@ -1616,9 +1627,12 @@ class GameService:
         )
         participant = participant_result.scalar_one_or_none()
         if participant is None:
-            logger.error("Participant not found: game_id=%s, user_id=%s", game_id, user.id)
-            msg = "Not a participant of this game"
-            raise ValueError(msg)
+            logger.info(
+                "User not in game (already left or never joined): game_id=%s, user_id=%s",
+                game_id,
+                user.id,
+            )
+            return
 
         logger.info("Found participant: id=%s, deleting...", participant.id)
 

@@ -47,7 +47,7 @@ Example:
 """
 
 import uuid
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -65,6 +65,17 @@ from shared.models import user as user_model
 def mock_db():
     """Mock database session for service tests."""
     return AsyncMock(spec=AsyncSession)
+
+
+@pytest.fixture(autouse=True)
+def mock_bypass_db_session(mock_db):
+    """Auto-patch get_bypass_db_session to return the same mock_db for all tests."""
+    with patch("shared.database.get_bypass_db_session") as mock:
+        async_cm = AsyncMock()
+        async_cm.__aenter__.return_value = mock_db
+        async_cm.__aexit__.return_value = None
+        mock.return_value = async_cm
+        yield mock
 
 
 @pytest.fixture

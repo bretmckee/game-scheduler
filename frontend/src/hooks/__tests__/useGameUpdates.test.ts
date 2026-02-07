@@ -25,8 +25,10 @@ import { useGameUpdates } from '../useGameUpdates';
 class MockEventSource {
   url: string;
   withCredentials: boolean;
+  readyState: number = 1; // OPEN
   onmessage: ((event: any) => void) | null = null;
   onerror: (() => void) | null = null;
+  onopen: (() => void) | null = null;
   close = vi.fn();
 
   constructor(url: string, options?: { withCredentials?: boolean }) {
@@ -137,10 +139,10 @@ describe('useGameUpdates', () => {
     });
 
     expect(onUpdate).not.toHaveBeenCalled();
-    expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to parse SSE event:', expect.any(Error));
+    expect(consoleErrorSpy).toHaveBeenCalledWith('[SSE] Failed to parse event:', expect.any(Error));
   });
 
-  it('logs error on EventSource error', () => {
+  it('does not log on EventSource error', () => {
     const onUpdate = vi.fn();
     const consoleErrorSpy = setupConsoleErrorSpy();
 
@@ -148,7 +150,8 @@ describe('useGameUpdates', () => {
 
     mockEventSourceInstances[0]!.onerror!();
 
-    expect(consoleErrorSpy).toHaveBeenCalledWith('SSE connection error');
+    // EventSource onerror handler is empty (no logging) as EventSource handles reconnection automatically
+    expect(consoleErrorSpy).not.toHaveBeenCalled();
   });
 
   it('closes EventSource on unmount', () => {
@@ -177,5 +180,56 @@ describe('useGameUpdates', () => {
 
     expect(firstInstance.close).toHaveBeenCalled();
     expect(mockEventSourceInstances).toHaveLength(2);
+  });
+
+  it('handles keepalive messages', () => {
+    const onUpdate = vi.fn();
+
+    renderHook(() => useGameUpdates('guild-123', onUpdate));
+
+    const keepaliveData = { type: 'keepalive' };
+    triggerMessage(keepaliveData);
+
+    expect(onUpdate).not.toHaveBeenCalled();
+  });
+
+  it('triggers reconnection on timeout', () => {
+    vi.useFakeTimers();
+    const onUpdate = vi.fn();
+
+    const { rerender } = renderHook(() => useGameUpdates('guild-123', onUpdate));
+
+    expect(mockEventSourceInstances).toHaveLength(1);
+    const firstInstance = mockEventSourceInstances[0]!;
+
+    // Advance time past the timeout check interval (10s) and timeout threshold (45s)
+    vi.advanceTimersByTime(10000); // First timeout check
+    vi.advanceTimersByTime(10000); // Second timeout check
+    vi.advanceTimersByTime(10000); // Third timeout check
+    vi.advanceTimersByTime(10000); // Fourth timeout check
+    vi.advanceTimersByTime(10000); // Fifth timeout check - total 50s elapsed
+
+    // Force a re-render to process the reconnectTrigger state change
+    rerender();
+
+    // Should have triggered reconnection (new EventSource created)
+    expect(mockEventSourceInstances.length).toBeGreaterThan(1);
+    expect(firstInstance.close).toHaveBeenCalled();
+
+    vi.useRealTimers();
+  });
+
+  it('updates lastMessageTime on onopen', () => {
+    const onUpdate = vi.fn();
+
+    renderHook(() => useGameUpdates('guild-123', onUpdate));
+
+    const eventSource = mockEventSourceInstances[0]!;
+    expect(eventSource.onopen).toBeDefined();
+
+    // Trigger onopen handler
+    eventSource.onopen!();
+
+    // No error should occur (lastMessageTime updated internally)
   });
 });
