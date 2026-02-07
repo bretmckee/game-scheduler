@@ -38,7 +38,7 @@ export function calculateGameCapacity(game: GameSession, participants: Participa
 }
 ```
 
-**Then write comprehensive tests marked to expect failure:**
+**Then write tests for the desired behavior (they will naturally fail against the stub):**
 
 ```python
 import pytest
@@ -48,9 +48,8 @@ def test_calculate_game_capacity_with_available_slots():
     game = GameSession(max_participants=5)
     participants = [Participant(), Participant()]
 
-    with pytest.raises(NotImplementedError, match="not yet implemented"):
-        result = calculate_game_capacity(game, participants)
-        # After implementation, this will assert result == 3
+    result = calculate_game_capacity(game, participants)
+    assert result == 3
 ```
 
 ```typescript
@@ -61,16 +60,16 @@ describe('calculateGameCapacity', () => {
     const game = { maxParticipants: 5 };
     const participants = [{}, {}];
 
-    expect(() => calculateGameCapacity(game, participants)).toThrow('not yet implemented');
-    // After implementation: expect(result).toBe(3);
+    const result = calculateGameCapacity(game, participants);
+    expect(result).toBe(3);
   });
 });
 ```
 
-**Run tests to verify they fail correctly:**
+**Run tests to verify they fail correctly (stub will throw NotImplementedError):**
 
-- `uv run pytest tests/unit/test_game_capacity.py -v` (Python)
-- `npm test -- test_game_capacity` (TypeScript)
+- `uv run pytest tests/unit/test_game_capacity.py -v` (Python - will show NotImplementedError)
+- `npm test -- test_game_capacity` (TypeScript - will show Error: not yet implemented)
 
 ### Step 2: GREEN - Implement Minimal Working Solution
 
@@ -82,22 +81,12 @@ def calculate_game_capacity(game: GameSession, participants: list[Participant]) 
     return game.max_participants - len(participants)
 ```
 
-**Update tests to verify actual behavior:**
-
-```python
-def test_calculate_game_capacity_with_available_slots():
-    """Test capacity calculation when slots are available."""
-    game = GameSession(max_participants=5)
-    participants = [Participant(), Participant()]
-
-    result = calculate_game_capacity(game, participants)
-    assert result == 3
-```
-
 **Run tests to verify they pass:**
 
-- Tests should now pass without pytest.raises
-- All assertions should validate correct behavior
+- `uv run pytest tests/unit/test_game_capacity.py -v` (Python)
+- `npm test -- test_game_capacity` (TypeScript)
+- Tests should now pass - the implementation satisfies the test assertions
+- No test changes needed - tests were written correctly from the start
 
 ### Step 3: REFACTOR - Improve Implementation
 
@@ -150,26 +139,21 @@ Every implementation phase MUST follow this pattern:
   - Raise NotImplementedError with descriptive message
   - Details: [details file reference]
 
-- [ ] Task N.2: Write failing unit tests
-  - Test happy path with pytest.raises(NotImplementedError)
-  - Test edge cases with expected failures
+- [ ] Task N.2: Write failing unit tests for desired behavior
+  - Test happy path with actual assertions (will fail against stub)
+  - Test edge cases with expected behavior
   - Test error conditions
   - Document expected behavior in test docstrings
-  - Verify tests fail correctly
+  - Verify tests fail correctly (stub throws NotImplementedError)
   - Details: [details file reference]
 
 - [ ] Task N.3: Implement minimal working solution
   - Replace NotImplementedError with implementation
   - Make all tests pass
+  - No test changes needed - tests already verify correct behavior
   - Details: [details file reference]
 
-- [ ] Task N.4: Update tests to verify behavior
-  - Remove pytest.raises(NotImplementedError)
-  - Add actual assertions for correct behavior
-  - Verify all tests pass
-  - Details: [details file reference]
-
-- [ ] Task N.5: Refactor and add comprehensive tests
+- [ ] Task N.4: Refactor and add comprehensive tests
   - Improve implementation for edge cases
   - Add integration tests if needed
   - Refactor for clarity and performance
@@ -234,20 +218,18 @@ Every implementation phase MUST follow this pattern:
 **Write unit tests FIRST for every function:**
 
 1. Create stub with NotImplementedError
-2. Write tests expecting NotImplementedError
-3. Implement function
-4. Update tests to verify behavior
-5. Add edge case tests
+2. Write tests for desired behavior (they naturally fail against stub)
+3. Implement function to make tests pass
+4. Add edge case tests and refactor
 
 ### Integration Tests (TDD When Possible)
 
 **For service layer and API endpoints:**
 
 1. Create endpoint/service stub returning 501 Not Implemented
-2. Write tests expecting 501 or NotImplementedError
-3. Implement minimal functionality
-4. Update tests to verify integration
-5. Add tests for error paths and edge cases
+2. Write tests for desired integration behavior (they naturally fail)
+3. Implement minimal functionality to make tests pass
+4. Add tests for error paths and edge cases
 
 ### E2E Tests (Verify Complete Workflows)
 
@@ -263,10 +245,9 @@ Every implementation phase MUST follow this pattern:
 Before marking any implementation task complete:
 
 - [ ] Function stub created with NotImplementedError first
-- [ ] Failing tests written before implementation
-- [ ] Tests verified to fail correctly (red phase)
+- [ ] Tests for desired behavior written before implementation
+- [ ] Tests verified to fail correctly against stub (red phase)
 - [ ] Implementation makes tests pass (green phase)
-- [ ] Tests updated to verify actual behavior
 - [ ] Refactoring performed with passing tests
 - [ ] Edge cases covered with additional tests
 - [ ] Full test suite passes
@@ -277,15 +258,24 @@ Before marking any implementation task complete:
 ### Testing Exceptions and Errors
 
 ```python
-# RED: Test expecting NotImplementedError
-def test_validate_game_throws_on_invalid_data():
-    with pytest.raises(NotImplementedError):
-        validate_game_data(invalid_data)
+# RED: Stub that raises NotImplementedError
+def validate_game_data(data: dict) -> Game:
+    raise NotImplementedError("validate_game_data not yet implemented")
 
-# GREEN: After implementation, test actual exception
+# RED: Test for desired exception behavior (naturally fails against stub)
 def test_validate_game_throws_on_invalid_data():
     with pytest.raises(ValidationError, match="Invalid game data"):
         validate_game_data(invalid_data)
+
+# Test fails because stub raises NotImplementedError, not ValidationError
+
+# GREEN: After implementation, test passes
+def validate_game_data(data: dict) -> Game:
+    if not data.get('title'):
+        raise ValidationError("Invalid game data")
+    return Game(**data)
+
+# Test now passes - ValidationError is raised as expected
 ```
 
 ### Testing Async Functions
@@ -295,18 +285,21 @@ def test_validate_game_throws_on_invalid_data():
 async def fetch_game_from_api(game_id: int) -> Game:
     raise NotImplementedError("fetch_game_from_api not yet implemented")
 
-# RED: Test expecting failure
-@pytest.mark.asyncio
-async def test_fetch_game_from_api():
-    with pytest.raises(NotImplementedError):
-        await fetch_game_from_api(123)
-
-# GREEN: After implementation
+# RED: Test for desired behavior (naturally fails against stub)
 @pytest.mark.asyncio
 async def test_fetch_game_from_api():
     game = await fetch_game_from_api(123)
     assert game.id == 123
     assert game.title is not None
+
+# Test fails because stub raises NotImplementedError
+
+# GREEN: After implementation
+async def fetch_game_from_api(game_id: int) -> Game:
+    response = await api_client.get(f"/games/{game_id}")
+    return Game(**response.json())
+
+# Test now passes - returns Game with correct attributes
 ```
 
 ### Testing Database Operations
@@ -317,18 +310,21 @@ class GameRepository:
     def get_by_id(self, game_id: int) -> Game | None:
         raise NotImplementedError("get_by_id not yet implemented")
 
-# RED: Test with mock expecting NotImplementedError
-def test_get_game_by_id(mock_db_session):
-    repo = GameRepository(mock_db_session)
-    with pytest.raises(NotImplementedError):
-        repo.get_by_id(123)
-
-# GREEN: After implementation
+# RED: Test for desired behavior (naturally fails against stub)
 def test_get_game_by_id(mock_db_session):
     repo = GameRepository(mock_db_session)
     game = repo.get_by_id(123)
     assert game is not None
     assert game.id == 123
+
+# Test fails because stub raises NotImplementedError
+
+# GREEN: After implementation
+class GameRepository:
+    def get_by_id(self, game_id: int) -> Game | None:
+        return self.session.query(Game).filter(Game.id == game_id).first()
+
+# Test now passes - returns Game from database
 ```
 
 ## Anti-Patterns to Avoid
