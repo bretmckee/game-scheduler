@@ -47,36 +47,6 @@ export function validateDuration(minutes: number | null | undefined): Validation
   return { isValid: true };
 }
 
-export function validateReminderMinutes(value: string): ValidationResult {
-  if (!value || value.trim() === '') {
-    return { isValid: true, value: [] };
-  }
-
-  const parts = value.split(',').map((s) => s.trim());
-  const numbers: number[] = [];
-
-  for (const part of parts) {
-    const num = Number(part);
-    if (isNaN(num) || !Number.isInteger(num)) {
-      return { isValid: false, error: 'All reminder values must be numeric integers' };
-    }
-    if (num < 1) {
-      return { isValid: false, error: 'Reminder minutes must be at least 1' };
-    }
-
-    const MAX_REMINDER_MINUTES = 10080;
-    if (num > MAX_REMINDER_MINUTES) {
-      return {
-        isValid: false,
-        error: `Reminder minutes cannot exceed ${MAX_REMINDER_MINUTES} (1 week)`,
-      };
-    }
-    numbers.push(num);
-  }
-
-  return { isValid: true, value: numbers };
-}
-
 export function validateMaxPlayers(value: string): ValidationResult {
   if (!value || value.trim() === '') {
     return { isValid: true };
