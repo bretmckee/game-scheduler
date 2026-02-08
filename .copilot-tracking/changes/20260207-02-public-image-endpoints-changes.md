@@ -49,4 +49,13 @@ Migration from RLS-protected game_sessions table to separate game_images table f
 - frontend/src/pages/GameDetails.tsx - Updated image display to use /api/v1/public/images/{id} URLs (Lines 353-386, Phase 4)
 - frontend/src/types/index.ts - Added thumbnail_id and banner_image_id fields to GameSession interface (Lines 105-106, Phase 4)
 
+### Documentation
+
+- docs/developer/public-image-architecture.md - Comprehensive documentation of new public image architecture including security model, deduplication, API endpoints, usage examples, testing coverage, and migration notes (Lines 1-265, Phase 5)
+- docs/developer/README.md - Added reference to public image architecture documentation (Line 37, Phase 5)
+
 ### Removed
+
+- tests/services/api/routes/test_games_image_serving.py - Deprecated tests for old authenticated image endpoints (Lines 1-171, Phase 5)
+- tests/services/api/routes/conftest.py - Removed unused fixtures (sample_game_with_images, sample_game_no_images, create_mock_game_image) that were only used by deleted test file (Lines 32-82, Phase 5)
+- services/api/routes/games.py - Removed deprecated get_game_thumbnail and get_game_image endpoints (Lines 845-897, Phase 5)

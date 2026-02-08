@@ -13,6 +13,7 @@ Welcome to the Game Scheduler developer documentation. This guide covers everyth
 **[System Architecture](architecture.md)** - Microservices architecture, communication patterns, and design decisions
 
 Overview:
+
 - Discord Bot Service - Gateway interactions and notifications
 - Web API Service - FastAPI REST API for dashboard
 - Notification Daemon - Event-driven game reminders
@@ -31,6 +32,8 @@ Overview:
 
 **[Production Readiness: Guild Isolation](production-readiness.md)** - Multi-tenant security with Row-Level Security
 
+**[Public Image Architecture](public-image-architecture.md)** - Secure public image serving with deduplication and reference counting
+
 **[Docker Compose Dependencies](compose-dependencies.md)** - Service dependency graph and startup orchestration
 
 ## Testing
@@ -38,11 +41,13 @@ Overview:
 **[Testing Guide](TESTING.md)** - Comprehensive testing documentation covering unit, integration, and end-to-end tests
 
 Test types:
+
 - **Unit Tests** - Fast, isolated component tests
 - **Integration Tests** - Service integration with database/message broker
 - **End-to-End Tests** - Full system tests with Discord bot interactions
 
 Quick commands:
+
 ```bash
 # Run unit tests
 pre-commit run pytest-all --hook-stage manual

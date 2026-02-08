@@ -121,12 +121,12 @@ Migrate image storage from RLS-protected game_sessions table to separate game_im
 - [x] Task 4.3: Update E2E tests for new image URLs
   - Details: .copilot-tracking/details/20260207-02-public-image-endpoints-details.md (Lines 667-690)
 
-### [ ] Phase 5: Cleanup and Documentation
+### [x] Phase 5: Cleanup and Documentation
 
-- [ ] Task 5.1: Remove deprecated image endpoints from games.py
+- [x] Task 5.1: Remove deprecated image endpoints from games.py
   - Details: .copilot-tracking/details/20260207-02-public-image-endpoints-details.md (Lines 692-715)
 
-- [ ] Task 5.2: Update API documentation and CHANGELOG
+- [x] Task 5.2: Update API documentation and CHANGELOG
   - Details: .copilot-tracking/details/20260207-02-public-image-endpoints-details.md (Lines 717-745)
 
 ## Dependencies
