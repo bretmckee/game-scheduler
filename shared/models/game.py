@@ -24,8 +24,9 @@
 from datetime import datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING
+from uuid import UUID
 
-from sqlalchemy import JSON, ForeignKey, Integer, LargeBinary, String, Text, func, text
+from sqlalchemy import JSON, ForeignKey, Integer, String, Text, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, generate_uuid, utc_now
@@ -33,6 +34,7 @@ from .signup_method import SignupMethod
 
 if TYPE_CHECKING:
     from .channel import ChannelConfiguration
+    from .game_image import GameImage
     from .guild import GuildConfiguration
     from .participant import GameParticipant
     from .template import GameTemplate
@@ -104,10 +106,14 @@ class GameSession(Base):
     updated_at: Mapped[datetime] = mapped_column(
         default=utc_now, onupdate=utc_now, server_default=func.now()
     )
-    thumbnail_data: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
-    thumbnail_mime_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    image_data: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
-    image_mime_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
+
+    # Image references (FK to game_images table)
+    thumbnail_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("game_images.id", ondelete="SET NULL"), nullable=True
+    )
+    banner_image_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("game_images.id", ondelete="SET NULL"), nullable=True
+    )
 
     # Relationships
     template: Mapped["GameTemplate"] = relationship("GameTemplate", back_populates="games")
@@ -118,6 +124,12 @@ class GameSession(Base):
     host: Mapped["User"] = relationship("User", back_populates="hosted_games")
     participants: Mapped[list["GameParticipant"]] = relationship(
         "GameParticipant", back_populates="game"
+    )
+    thumbnail: Mapped["GameImage | None"] = relationship(
+        "GameImage", foreign_keys=[thumbnail_id], lazy="selectin"
+    )
+    banner_image: Mapped["GameImage | None"] = relationship(
+        "GameImage", foreign_keys=[banner_image_id], lazy="selectin"
     )
 
     def __repr__(self) -> str:

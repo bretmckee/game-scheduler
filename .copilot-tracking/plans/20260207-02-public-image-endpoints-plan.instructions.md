@@ -42,15 +42,15 @@ Migrate image storage from RLS-protected game_sessions table to separate game_im
 
 ## Implementation Checklist
 
-### [ ] Phase 0: Database Migration and Models
+### [x] Phase 0: Database Migration and Models
 
-- [ ] Task 0.1: Create Alembic migration for schema changes
+- [x] Task 0.1: Create Alembic migration for schema changes
   - Details: .copilot-tracking/details/20260207-02-public-image-endpoints-details.md (Lines 20-55)
 
-- [ ] Task 0.2: Create GameImage SQLAlchemy model
+- [x] Task 0.2: Create GameImage SQLAlchemy model
   - Details: .copilot-tracking/details/20260207-02-public-image-endpoints-details.md (Lines 57-80)
 
-- [ ] Task 0.3: Update GameSession model to use FK relationships
+- [x] Task 0.3: Update GameSession model to use FK relationships
   - Details: .copilot-tracking/details/20260207-02-public-image-endpoints-details.md (Lines 82-100)
 
 ### [ ] Phase 1: Image Storage Service with Deduplication (TDD)
