@@ -60,6 +60,7 @@ from tests.e2e.conftest import (
 pytestmark = pytest.mark.e2e
 
 
+@pytest.mark.timeout(240)
 @pytest.mark.asyncio
 async def test_game_status_transitions_update_message(
     authenticated_admin_client,

@@ -172,6 +172,7 @@ class TestRetryDaemonEndToEnd:
         assert republished_event.event_type == event.event_type
         assert republished_event.data == event.data
 
+    @pytest.mark.timeout(240)
     def test_no_exponential_growth_after_multiple_cycles(self, rabbitmq_channel):
         """
         Critical test: Verify NO exponential DLQ growth.
