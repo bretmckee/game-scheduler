@@ -40,24 +40,24 @@ Replace text-based comma-separated reminder input with intuitive Select + Chip m
 
 ## Implementation Checklist
 
-### [ ] Phase 0: ReminderSelector Component with TDD
+### [x] Phase 0: ReminderSelector Component with TDD
 
-- [ ] Task 0.1: Create ReminderSelector component stub
+- [x] Task 0.1: Create ReminderSelector component stub
   - Details: .copilot-tracking/details/20260208-01-reminder-time-selector-details.md (Lines 15-27)
 
-- [ ] Task 0.2: Write failing tests for ReminderSelector
+- [x] Task 0.2: Write failing tests for ReminderSelector
   - Details: .copilot-tracking/details/20260208-01-reminder-time-selector-details.md (Lines 29-44)
 
-- [ ] Task 0.3: Implement preset selection with dropdown
+- [x] Task 0.3: Implement preset selection with dropdown
   - Details: .copilot-tracking/details/20260208-01-reminder-time-selector-details.md (Lines 46-60)
 
-- [ ] Task 0.4: Add chip display with delete functionality
+- [x] Task 0.4: Add chip display with delete functionality
   - Details: .copilot-tracking/details/20260208-01-reminder-time-selector-details.md (Lines 62-75)
 
-- [ ] Task 0.5: Add custom minute input mode
+- [x] Task 0.5: Add custom minute input mode
   - Details: .copilot-tracking/details/20260208-01-reminder-time-selector-details.md (Lines 77-90)
 
-- [ ] Task 0.6: Refactor and add edge case tests
+- [x] Task 0.6: Refactor and add edge case tests
   - Details: .copilot-tracking/details/20260208-01-reminder-time-selector-details.md (Lines 92-105)
 
 ### [ ] Phase 1: GameForm Integration with TDD
