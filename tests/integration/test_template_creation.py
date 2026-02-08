@@ -638,3 +638,257 @@ async def test_create_template_minimal_fields(
 
     finally:
         await cleanup_test_session(session_token)
+
+
+@pytest.mark.asyncio
+async def test_create_template_description_exceeds_max_length(
+    admin_db_sync,
+    create_guild,
+    create_channel,
+    create_user,
+    seed_redis_cache,
+    api_base_url,
+):
+    """Verify template creation fails when description exceeds 4000 characters (422).
+
+    Ensures Pydantic schema validation enforces max_length constraint,
+    preventing excessively long descriptions.
+    """
+    # Setup test environment with bot manager role
+    bot_manager_role_id = "123456789012345678"
+    guild = create_guild(bot_manager_roles=[bot_manager_role_id])
+    channel = create_channel(guild_id=guild["id"])
+    create_user(discord_user_id=TEST_BOT_DISCORD_ID)
+
+    # Create authenticated session with bot manager role
+    session_token, _ = await create_test_session(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+    await seed_redis_cache(
+        user_discord_id=TEST_BOT_DISCORD_ID,
+        guild_discord_id=guild["guild_id"],
+        channel_discord_id=channel["channel_id"],
+        user_roles=[bot_manager_role_id],
+    )
+
+    try:
+        async with httpx.AsyncClient(
+            base_url=api_base_url,
+            timeout=10.0,
+            cookies={"session_token": session_token},
+        ) as client:
+            # Create template with description exceeding 4000 characters
+            response = await client.post(
+                f"/api/v1/guilds/{guild['id']}/templates",
+                json={
+                    "name": "Long Description Template",
+                    "guild_id": guild["id"],
+                    "channel_id": channel["id"],
+                    "description": "x" * 4001,  # Exceeds max_length=4000
+                },
+            )
+
+        # Verify validation failure
+        assert response.status_code == 422, (
+            f"Expected 422 Unprocessable Entity for description > 4000 chars, "
+            f"got {response.status_code}: {response.text}"
+        )
+
+        # Verify error mentions field validation
+        response_data = response.json()
+        error_str = str(response_data).lower()
+        assert "description" in error_str or "string" in error_str, (
+            "Response should indicate description validation failure"
+        )
+
+    finally:
+        await cleanup_test_session(session_token)
+
+
+@pytest.mark.asyncio
+async def test_create_template_where_exceeds_max_length(
+    admin_db_sync,
+    create_guild,
+    create_channel,
+    create_user,
+    seed_redis_cache,
+    api_base_url,
+):
+    """Verify template creation fails when where exceeds 500 characters (422).
+
+    Ensures Pydantic schema validation enforces max_length constraint,
+    preventing excessively long location strings.
+    """
+    # Setup test environment with bot manager role
+    bot_manager_role_id = "123456789012345678"
+    guild = create_guild(bot_manager_roles=[bot_manager_role_id])
+    channel = create_channel(guild_id=guild["id"])
+    create_user(discord_user_id=TEST_BOT_DISCORD_ID)
+
+    # Create authenticated session with bot manager role
+    session_token, _ = await create_test_session(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+    await seed_redis_cache(
+        user_discord_id=TEST_BOT_DISCORD_ID,
+        guild_discord_id=guild["guild_id"],
+        channel_discord_id=channel["channel_id"],
+        user_roles=[bot_manager_role_id],
+    )
+
+    try:
+        async with httpx.AsyncClient(
+            base_url=api_base_url,
+            timeout=10.0,
+            cookies={"session_token": session_token},
+        ) as client:
+            # Create template with where exceeding 500 characters
+            response = await client.post(
+                f"/api/v1/guilds/{guild['id']}/templates",
+                json={
+                    "name": "Long Location Template",
+                    "guild_id": guild["id"],
+                    "channel_id": channel["id"],
+                    "where": "x" * 501,  # Exceeds max_length=500
+                },
+            )
+
+        # Verify validation failure
+        assert response.status_code == 422, (
+            f"Expected 422 Unprocessable Entity for where > 500 chars, "
+            f"got {response.status_code}: {response.text}"
+        )
+
+        # Verify error mentions field validation
+        response_data = response.json()
+        error_str = str(response_data).lower()
+        assert "where" in error_str or "string" in error_str, (
+            "Response should indicate where validation failure"
+        )
+
+    finally:
+        await cleanup_test_session(session_token)
+
+
+@pytest.mark.asyncio
+async def test_create_template_signup_instructions_exceeds_max_length(
+    admin_db_sync,
+    create_guild,
+    create_channel,
+    create_user,
+    seed_redis_cache,
+    api_base_url,
+):
+    """Verify template creation fails when signup_instructions exceeds 1000 characters (422).
+
+    Ensures Pydantic schema validation enforces max_length constraint,
+    preventing excessively long signup instructions.
+    """
+    # Setup test environment with bot manager role
+    bot_manager_role_id = "123456789012345678"
+    guild = create_guild(bot_manager_roles=[bot_manager_role_id])
+    channel = create_channel(guild_id=guild["id"])
+    create_user(discord_user_id=TEST_BOT_DISCORD_ID)
+
+    # Create authenticated session with bot manager role
+    session_token, _ = await create_test_session(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+    await seed_redis_cache(
+        user_discord_id=TEST_BOT_DISCORD_ID,
+        guild_discord_id=guild["guild_id"],
+        channel_discord_id=channel["channel_id"],
+        user_roles=[bot_manager_role_id],
+    )
+
+    try:
+        async with httpx.AsyncClient(
+            base_url=api_base_url,
+            timeout=10.0,
+            cookies={"session_token": session_token},
+        ) as client:
+            # Create template with signup_instructions exceeding 1000 characters
+            response = await client.post(
+                f"/api/v1/guilds/{guild['id']}/templates",
+                json={
+                    "name": "Long Instructions Template",
+                    "guild_id": guild["id"],
+                    "channel_id": channel["id"],
+                    "signup_instructions": "x" * 1001,  # Exceeds max_length=1000
+                },
+            )
+
+        # Verify validation failure
+        assert response.status_code == 422, (
+            f"Expected 422 Unprocessable Entity for signup_instructions > 1000 chars, "
+            f"got {response.status_code}: {response.text}"
+        )
+
+        # Verify error mentions field validation
+        response_data = response.json()
+        error_str = str(response_data).lower()
+        assert "signup" in error_str or "string" in error_str, (
+            "Response should indicate signup_instructions validation failure"
+        )
+
+    finally:
+        await cleanup_test_session(session_token)
+
+
+@pytest.mark.asyncio
+async def test_create_template_fields_at_max_length(
+    admin_db_sync,
+    create_guild,
+    create_channel,
+    create_user,
+    seed_redis_cache,
+    api_base_url,
+):
+    """Verify template creation succeeds with fields at exactly max_length (201).
+
+    Ensures validation boundary is inclusive (max_length is allowed),
+    testing edge case where all fields are at their maximum allowed length.
+    """
+    # Setup test environment with bot manager role
+    bot_manager_role_id = "123456789012345678"
+    guild = create_guild(bot_manager_roles=[bot_manager_role_id])
+    channel = create_channel(guild_id=guild["id"])
+    create_user(discord_user_id=TEST_BOT_DISCORD_ID)
+
+    # Create authenticated session with bot manager role
+    session_token, _ = await create_test_session(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+    await seed_redis_cache(
+        user_discord_id=TEST_BOT_DISCORD_ID,
+        guild_discord_id=guild["guild_id"],
+        channel_discord_id=channel["channel_id"],
+        user_roles=[bot_manager_role_id],
+    )
+
+    try:
+        async with httpx.AsyncClient(
+            base_url=api_base_url,
+            timeout=10.0,
+            cookies={"session_token": session_token},
+        ) as client:
+            # Create template with fields at exactly max_length
+            response = await client.post(
+                f"/api/v1/guilds/{guild['id']}/templates",
+                json={
+                    "name": "Max Length Template",
+                    "guild_id": guild["id"],
+                    "channel_id": channel["id"],
+                    "description": "x" * 4000,  # Exactly max_length=4000
+                    "where": "y" * 500,  # Exactly max_length=500
+                    "signup_instructions": "z" * 1000,  # Exactly max_length=1000
+                },
+            )
+
+        # Verify successful creation at boundary
+        assert response.status_code == 201, (
+            f"Expected 201 Created for fields at max_length, "
+            f"got {response.status_code}: {response.text}"
+        )
+
+        # Verify response data
+        template_data = response.json()
+        assert template_data["name"] == "Max Length Template"
+        assert len(template_data["description"]) == 4000
+        assert len(template_data["where"]) == 500
+        assert len(template_data["signup_instructions"]) == 1000
+
+    finally:
+        await cleanup_test_session(session_token)
