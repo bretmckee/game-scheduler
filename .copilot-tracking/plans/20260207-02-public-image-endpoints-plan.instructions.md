@@ -110,15 +110,15 @@ Migrate image storage from RLS-protected game_sessions table to separate game_im
 - [x] Task 3.9: Run full test suite to verify REFACTOR phase
   - Details: .copilot-tracking/details/20260207-02-public-image-endpoints-details.md (Lines 592-605)
 
-### [ ] Phase 4: Consumer Updates
+### [x] Phase 4: Consumer Updates
 
-- [ ] Task 4.1: Update bot message formatter URLs and tests
+- [x] Task 4.1: Update bot message formatter URLs and tests
   - Details: .copilot-tracking/details/20260207-02-public-image-endpoints-details.md (Lines 607-635)
 
-- [ ] Task 4.2: Update frontend image display URLs and tests
+- [x] Task 4.2: Update frontend image display URLs and tests
   - Details: .copilot-tracking/details/20260207-02-public-image-endpoints-details.md (Lines 637-665)
 
-- [ ] Task 4.3: Update E2E tests for new image URLs
+- [x] Task 4.3: Update E2E tests for new image URLs
   - Details: .copilot-tracking/details/20260207-02-public-image-endpoints-details.md (Lines 667-690)
 
 ### [ ] Phase 5: Cleanup and Documentation

@@ -13,6 +13,10 @@ Migration from RLS-protected game_sessions table to separate game_images table f
 
 **Phase 2 Status**: COMPLETE - GameService integration with 6 passing integration tests
 
+**Phase 3 Status**: NOT STARTED (skipped per user request)
+
+**Phase 4 Status**: COMPLETE - Bot and frontend updated to use new public image URLs
+
 ## Changes
 
 ### Added
@@ -38,5 +42,11 @@ Migration from RLS-protected game_sessions table to separate game_images table f
   - Modified update_game to await \_update_image_fields
   - Modified delete_game to release image references before cancelling game
 - tests/conftest.py - Added reset_redis_singleton fixture to disconnect/reconnect Redis between integration tests with flushdb in teardown (Lines 282-300, Phase 2)
+- shared/schemas/game.py - Added thumbnail_id and banner_image_id fields to GameResponse schema (Lines 207-208, Phase 4)
+- services/bot/formatters/game_message.py - Updated format_game_announcement() to accept thumbnail_id and banner_image_id instead of has_thumbnail/has_image booleans, construct public image URLs (Lines 347-368, 389-392, 398-403, Phase 4)
+- services/bot/events/handlers.py - Updated format_game_announcement() call to pass thumbnail_id and banner_image_id as strings (Lines 1211-1212, Phase 4)
+- tests/services/bot/formatters/test_game_message.py - Updated tests to pass thumbnail_id and banner_image_id instead of has_thumbnail/has_image (Lines 946-978, 979-1009, Phase 4)
+- frontend/src/pages/GameDetails.tsx - Updated image display to use /api/v1/public/images/{id} URLs (Lines 353-386, Phase 4)
+- frontend/src/types/index.ts - Added thumbnail_id and banner_image_id fields to GameSession interface (Lines 105-106, Phase 4)
 
 ### Removed

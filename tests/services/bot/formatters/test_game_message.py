@@ -946,6 +946,8 @@ class TestGameEmbedImages:
     def test_format_game_announcement_with_images(self):
         """Test format_game_announcement passes image URLs to create_game_embed."""
         scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
+        thumbnail_uuid = "00000000-0000-0000-0000-000000000001"
+        banner_uuid = "00000000-0000-0000-0000-000000000002"
 
         with (
             patch("services.bot.formatters.game_message.discord.Embed") as mock_embed_class,
@@ -969,15 +971,15 @@ class TestGameEmbedImages:
                 max_players=5,
                 status="SCHEDULED",
                 signup_method="SELF_SIGNUP",
-                has_thumbnail=True,
-                has_image=True,
+                thumbnail_id=thumbnail_uuid,
+                banner_image_id=banner_uuid,
             )
 
             assert embed == mock_embed
             assert view == mock_view
 
     def test_format_game_announcement_without_images(self):
-        """Test format_game_announcement with has_thumbnail=False and has_image=False."""
+        """Test format_game_announcement with thumbnail_id=None and banner_image_id=None."""
         scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
 
         with (
@@ -1001,8 +1003,8 @@ class TestGameEmbedImages:
                 max_players=5,
                 status="SCHEDULED",
                 signup_method="SELF_SIGNUP",
-                has_thumbnail=False,
-                has_image=False,
+                thumbnail_id=None,
+                banner_image_id=None,
             )
 
             assert embed == mock_embed

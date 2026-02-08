@@ -102,6 +102,8 @@ export interface GameSession {
   updated_at: string;
   has_thumbnail?: boolean;
   has_image?: boolean;
+  thumbnail_id?: string | null;
+  banner_image_id?: string | null;
 }
 
 export interface Participant {

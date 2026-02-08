@@ -351,14 +351,14 @@ export const GameDetails: FC = () => {
 
         {(game.has_thumbnail || game.has_image) && (
           <Box sx={{ mb: 3 }}>
-            {game.has_thumbnail && (
+            {game.has_thumbnail && game.thumbnail_id && (
               <Box sx={{ mb: 2 }}>
                 <Typography variant="h6" gutterBottom>
                   Thumbnail
                 </Typography>
                 <Box
                   component="img"
-                  src={`/api/v1/games/${game.id}/thumbnail`}
+                  src={`/api/v1/public/images/${game.thumbnail_id}`}
                   alt="Game thumbnail"
                   sx={{
                     maxWidth: '200px',
@@ -370,14 +370,14 @@ export const GameDetails: FC = () => {
                 />
               </Box>
             )}
-            {game.has_image && (
+            {game.has_image && game.banner_image_id && (
               <Box>
                 <Typography variant="h6" gutterBottom>
                   Banner
                 </Typography>
                 <Box
                   component="img"
-                  src={`/api/v1/games/${game.id}/image`}
+                  src={`/api/v1/public/images/${game.banner_image_id}`}
                   alt="Game banner"
                   sx={{
                     maxWidth: '100%',
