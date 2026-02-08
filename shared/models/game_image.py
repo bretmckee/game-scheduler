@@ -28,7 +28,7 @@ from sqlalchemy import LargeBinary, String
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
-from .base import Base
+from .base import Base, utc_now
 
 
 class GameImage(Base):
@@ -48,9 +48,9 @@ class GameImage(Base):
     image_data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     mime_type: Mapped[str] = mapped_column(String(50), nullable=False)
     reference_count: Mapped[int] = mapped_column(nullable=False, default=0, server_default="0")
-    created_at: Mapped[datetime] = mapped_column(default=func.now, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(default=utc_now, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
-        default=func.now, onupdate=func.now, server_default=func.now()
+        default=utc_now, onupdate=utc_now, server_default=func.now()
     )
 
     def __repr__(self) -> str:
