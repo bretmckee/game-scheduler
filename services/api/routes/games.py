@@ -31,7 +31,6 @@ from datetime import UTC, datetime
 from typing import Annotated, NoReturn
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
-from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status as http_status
 
@@ -839,56 +838,4 @@ async def _build_game_response(
         has_image=game.banner_image_id is not None,
         thumbnail_id=str(game.thumbnail_id) if game.thumbnail_id else None,
         banner_image_id=str(game.banner_image_id) if game.banner_image_id else None,
-    )
-
-
-@router.get("/{game_id}/thumbnail", operation_id="get_game_thumbnail")
-@router.head("/{game_id}/thumbnail", operation_id="head_game_thumbnail")
-async def get_game_thumbnail(
-    game_id: str,
-    game_service: Annotated[games_service.GameService, Depends(_get_game_service)],
-) -> Response:
-    """Serve game thumbnail image."""
-    game = await game_service.get_game(game_id)
-    if not game:
-        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Game not found")
-
-    if not game.thumbnail:
-        raise HTTPException(
-            status_code=http_status.HTTP_404_NOT_FOUND,
-            detail="No thumbnail for this game",
-        )
-
-    return Response(
-        content=game.thumbnail.image_data,
-        media_type=game.thumbnail.mime_type,
-        headers={
-            "Cache-Control": "public, max-age=3600",
-        },
-    )
-
-
-@router.get("/{game_id}/image", operation_id="get_game_image")
-@router.head("/{game_id}/image", operation_id="head_game_image")
-async def get_game_image(
-    game_id: str,
-    game_service: Annotated[games_service.GameService, Depends(_get_game_service)],
-) -> Response:
-    """Serve game banner image."""
-    game = await game_service.get_game(game_id)
-    if not game:
-        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Game not found")
-
-    if not game.banner_image:
-        raise HTTPException(
-            status_code=http_status.HTTP_404_NOT_FOUND,
-            detail="No banner image for this game",
-        )
-
-    return Response(
-        content=game.banner_image.image_data,
-        media_type=game.banner_image.mime_type,
-        headers={
-            "Cache-Control": "public, max-age=3600",
-        },
     )
