@@ -29,7 +29,7 @@ class TemplateCreateRequest(BaseModel):
 
     guild_id: str = Field(..., description="Guild UUID")
     name: str = Field(..., min_length=1, max_length=100, description="Template name")
-    description: str | None = Field(None, description="Template description")
+    description: str | None = Field(None, max_length=4000, description="Template description")
     order: int = Field(default=0, ge=0, description="Sort order (0-based)")
     is_default: bool = Field(default=False, description="Whether this is the default template")
 
@@ -53,8 +53,10 @@ class TemplateCreateRequest(BaseModel):
     reminder_minutes: list[int] | None = Field(
         None, description="Default reminder times in minutes before game"
     )
-    where: str | None = Field(None, description="Default location/platform")
-    signup_instructions: str | None = Field(None, description="Default signup instructions")
+    where: str | None = Field(None, max_length=500, description="Default location/platform")
+    signup_instructions: str | None = Field(
+        None, max_length=1000, description="Default signup instructions"
+    )
 
     # Signup method configuration
     allowed_signup_methods: list[str] | None = Field(
@@ -70,7 +72,7 @@ class TemplateUpdateRequest(BaseModel):
     """Update game template (all fields optional)."""
 
     name: str | None = Field(None, min_length=1, max_length=100)
-    description: str | None = None
+    description: str | None = Field(None, max_length=4000)
     order: int | None = Field(None, ge=0)
     is_default: bool | None = None
 
@@ -84,8 +86,8 @@ class TemplateUpdateRequest(BaseModel):
     max_players: int | None = Field(None, ge=1, le=100)
     expected_duration_minutes: int | None = Field(None, ge=1)
     reminder_minutes: list[int] | None = None
-    where: str | None = None
-    signup_instructions: str | None = None
+    where: str | None = Field(None, max_length=500)
+    signup_instructions: str | None = Field(None, max_length=1000)
 
     # Signup method configuration
     allowed_signup_methods: list[str] | None = None

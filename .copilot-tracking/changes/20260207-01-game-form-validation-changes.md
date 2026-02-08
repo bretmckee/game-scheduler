@@ -28,6 +28,12 @@ Implementing comprehensive frontend validation for game creation forms with reus
 - Task 3.4: Replaced duration TextField with DurationSelector component
 - Task 3.5: Added character counter helper functions and UI constants for field limits
 
+**Phase 4 Complete**: Backend schema alignment verified with comprehensive validation tests:
+
+- Task 4.1: Updated template schemas with max_length constraints matching game schemas
+- Task 4.2: Added 4 integration tests for max_length validation (description 4000, where 500, signup_instructions 1000)
+- Task 4.3: All integration tests pass (4/4) confirming backend validation matches frontend constraints
+
 ## Changes
 
 ### Added
@@ -88,5 +94,17 @@ Implementing comprehensive frontend validation for game creation forms with reus
 - frontend/src/components/**tests**/GameForm.validation.test.tsx - Fixed test performance by using user.paste() for long text (480+ chars) and user.keyboard() for shorter inputs
 - frontend/src/contexts/AuthContext.tsx - Exported AuthContextType interface for test mocking- .pre-commit-config.yaml - Added per-test timeout to pytest (30s) and vitest (10s) to prevent indefinite test hangs
 - pyproject.toml - Added pytest-timeout dependency for pytest --timeout support
+
+- shared/schemas/template.py - Added max_length=4000 to description field in TemplateCreateRequest (Task 4.1)
+- shared/schemas/template.py - Added max_length=500 to where field in TemplateCreateRequest (Task 4.1)
+- shared/schemas/template.py - Added max_length=1000 to signup_instructions field in TemplateCreateRequest (Task 4.1)
+- shared/schemas/template.py - Added max_length=4000 to description field in TemplateUpdateRequest (Task 4.1)
+- shared/schemas/template.py - Added max_length=500 to where field in TemplateUpdateRequest (Task 4.1)
+- shared/schemas/template.py - Added max_length=1000 to signup_instructions field in TemplateUpdateRequest (Task 4.1)
+
+- tests/integration/test_template_creation.py - Added test_create_template_description_exceeds_max_length() test (Task 4.2)
+- tests/integration/test_template_creation.py - Added test_create_template_where_exceeds_max_length() test (Task 4.2)
+- tests/integration/test_template_creation.py - Added test_create_template_signup_instructions_exceeds_max_length() test (Task 4.2)
+- tests/integration/test_template_creation.py - Added test_create_template_fields_at_max_length() test (Task 4.2)
 
 ### Removed
