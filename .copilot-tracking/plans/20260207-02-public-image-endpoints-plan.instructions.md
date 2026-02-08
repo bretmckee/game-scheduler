@@ -53,21 +53,21 @@ Migrate image storage from RLS-protected game_sessions table to separate game_im
 - [x] Task 0.3: Update GameSession model to use FK relationships
   - Details: .copilot-tracking/details/20260207-02-public-image-endpoints-details.md (Lines 82-100)
 
-### [ ] Phase 1: Image Storage Service with Deduplication (TDD)
+### [x] Phase 1: Image Storage Service with Deduplication (TDD)
 
-- [ ] Task 1.1: Create failing integration tests for image storage
+- [x] Task 1.1: Create failing integration tests for image storage
   - Details: .copilot-tracking/details/20260207-02-public-image-endpoints-details.md (Lines 102-150)
 
-- [ ] Task 1.2: Run tests to verify RED phase (tests fail)
+- [x] Task 1.2: Run tests to verify RED phase (tests fail)
   - Details: .copilot-tracking/details/20260207-02-public-image-endpoints-details.md (Lines 152-160)
 
-- [ ] Task 1.3: Implement store_image() and release_image() functions
+- [x] Task 1.3: Implement store_image() and release_image() functions
   - Details: .copilot-tracking/details/20260207-02-public-image-endpoints-details.md (Lines 162-210)
 
-- [ ] Task 1.4: Run tests to verify GREEN phase (tests pass)
+- [x] Task 1.4: Run tests to verify GREEN phase (tests pass)
   - Details: .copilot-tracking/details/20260207-02-public-image-endpoints-details.md (Lines 212-220)
 
-- [ ] Task 1.5: Refactor and add edge case tests
+- [x] Task 1.5: Refactor and add edge case tests
   - Details: .copilot-tracking/details/20260207-02-public-image-endpoints-details.md (Lines 222-250)
 
 ### [ ] Phase 2: Game Service Integration (TDD)
