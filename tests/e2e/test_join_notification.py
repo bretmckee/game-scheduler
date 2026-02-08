@@ -56,6 +56,7 @@ from tests.e2e.helpers.discord import DMType
 pytestmark = pytest.mark.e2e
 
 
+@pytest.mark.timeout(240)
 @pytest.mark.asyncio
 async def test_join_notification_with_signup_instructions(
     authenticated_admin_client,
@@ -201,6 +202,7 @@ async def test_join_notification_with_signup_instructions(
     print("[TEST] ✓ Join notification DM delivery with signup instructions verified successfully")
 
 
+@pytest.mark.timeout(240)
 @pytest.mark.asyncio
 async def test_join_notification_without_signup_instructions(
     authenticated_admin_client,

@@ -58,6 +58,7 @@ from tests.e2e.helpers.discord import DMType
 pytestmark = pytest.mark.e2e
 
 
+@pytest.mark.timeout(240)
 @pytest.mark.asyncio
 async def test_game_reminder_dm_delivery(
     authenticated_admin_client,
