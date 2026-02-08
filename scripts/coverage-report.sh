@@ -47,13 +47,13 @@ rm -rf htmlcov/
 echo ""
 echo "Running unit tests with coverage..."
 echo "===================================="
-if ! COVERAGE_FILE=.coverage.unit pytest --cov=shared --cov=services --cov-report=; then
+if ! COVERAGE_FILE=.coverage.unit uv run pytest --cov=shared --cov=services --cov-report=; then
     echo "ERROR: Unit tests failed"
     exit 1
 fi
 
 # Capture unit test coverage immediately
-UNIT_COV=$(coverage report --data-file=.coverage.unit 2>/dev/null | awk '/^TOTAL/ {print $NF}')
+UNIT_COV=$(uv run coverage report --data-file=.coverage.unit 2>/dev/null | awk '/^TOTAL/ {print $NF}')
 echo "Unit tests completed with $UNIT_COV coverage"
 
 # Run integration tests
@@ -68,7 +68,7 @@ fi
 # Capture integration coverage if file exists
 INT_COV=""
 if [[ -f "coverage/.coverage.integration" ]]; then
-    INT_COV=$(coverage report --data-file=coverage/.coverage.integration 2>/dev/null | awk '/^TOTAL/ {print $NF}')
+    INT_COV=$(uv run coverage report --data-file=coverage/.coverage.integration 2>/dev/null | awk '/^TOTAL/ {print $NF}')
     echo "Integration tests completed with $INT_COV coverage"
 fi
 
@@ -90,7 +90,7 @@ if $RUN_E2E; then
         E2E_RAN=true
         # Capture e2e coverage if file exists
         if [[ -f "coverage/.coverage.e2e" ]]; then
-            E2E_COV=$(coverage report --data-file=coverage/.coverage.e2e 2>/dev/null | awk '/^TOTAL/ {print $NF}')
+            E2E_COV=$(uv run coverage report --data-file=coverage/.coverage.e2e 2>/dev/null | awk '/^TOTAL/ {print $NF}')
             echo "E2E tests completed with $E2E_COV coverage"
         fi
     fi
@@ -114,23 +114,23 @@ if ! ls .coverage* 1> /dev/null 2>&1; then
 fi
 
 # Now combine all files (keeping originals for individual reporting)
-coverage combine --keep
+uv run coverage combine --keep
 
 # Capture final combined coverage
-FINAL_COV=$(coverage report | awk '/^TOTAL/ {print $NF}')
+FINAL_COV=$(uv run coverage report | awk '/^TOTAL/ {print $NF}')
 
 # Generate reports
 echo ""
 echo "Coverage Report:"
 echo "================"
-coverage report
+uv run coverage report
 
 echo ""
 echo "Generating XML report (coverage.xml)..."
-coverage xml
+uv run coverage xml
 
 echo "Generating HTML report (htmlcov/)..."
-coverage html
+uv run coverage html
 
 echo ""
 echo "════════════════════════════════════════════════"
