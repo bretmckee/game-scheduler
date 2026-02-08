@@ -108,3 +108,18 @@ Implementing comprehensive frontend validation for game creation forms with reus
 - tests/integration/test_template_creation.py - Added test_create_template_fields_at_max_length() test (Task 4.2)
 
 ### Removed
+
+- frontend/src/components/GameForm.tsx - Removed formatDurationForDisplay() function (Task 5.1)
+- frontend/src/components/GameForm.tsx - Removed parseDurationString() function (Task 5.1)
+
+### Added
+
+- frontend/src/components/**tests**/GameForm.error-handling.test.tsx - Component error handling test suite with 11 tests covering backend validation errors, ValidationErrors component behavior, image upload validation, and error clearing (Task 5.2)
+
+### Fixed
+
+- pyproject.toml - Confirmed timeout = 30 configuration is valid per pytest-timeout documentation (Task 5.2)
+- scripts/coverage-report.sh - Updated all pytest and coverage commands to use 'uv run' to ensure correct Python environment with pytest-timeout plugin loaded (Task 5.3)
+- Task 5.3: Full test suite passed - 1449 unit tests (83.74% coverage), 83+ integration tests
+
+## Release Summary

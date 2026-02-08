@@ -127,55 +127,6 @@ interface GameFormProps {
   onValidationErrorClick?: (originalInput: string, newUsername: string) => void;
 }
 
-export const formatDurationForDisplay = (minutes: number | null): string => {
-  if (!minutes) return '';
-  const hours = Math.floor(minutes / Time.SECONDS_PER_MINUTE);
-  const remainingMinutes = minutes % Time.SECONDS_PER_MINUTE;
-  if (hours > 0 && remainingMinutes > 0) {
-    return `${hours}h ${remainingMinutes}m`;
-  } else if (hours > 0) {
-    return `${hours}h`;
-  } else {
-    return `${remainingMinutes}m`;
-  }
-};
-
-export const parseDurationString = (input: string): number | null => {
-  if (!input || !input.trim()) return null;
-
-  const trimmed = input.trim().toLowerCase();
-
-  // Parse formats like "1h 30m", "1h30m", "90m", "2h"
-  const hourMinuteMatch = trimmed.match(/^(\d+)h\s*(\d+)m$/);
-  if (hourMinuteMatch) {
-    return parseInt(hourMinuteMatch[1]!) * Time.SECONDS_PER_MINUTE + parseInt(hourMinuteMatch[2]!);
-  }
-
-  const hoursOnlyMatch = trimmed.match(/^(\d+)h$/);
-  if (hoursOnlyMatch) {
-    return parseInt(hoursOnlyMatch[1]!) * Time.SECONDS_PER_MINUTE;
-  }
-
-  const minutesOnlyMatch = trimmed.match(/^(\d+)m$/);
-  if (minutesOnlyMatch) {
-    return parseInt(minutesOnlyMatch[1]!);
-  }
-
-  // Parse colon format like "1:30" (hours:minutes)
-  const colonMatch = trimmed.match(/^(\d+):(\d+)$/);
-  if (colonMatch) {
-    return parseInt(colonMatch[1]!) * Time.SECONDS_PER_MINUTE + parseInt(colonMatch[2]!);
-  }
-
-  // Try parsing as plain number (minutes)
-  const numericValue = parseInt(trimmed);
-  if (!isNaN(numericValue) && numericValue > 0) {
-    return numericValue;
-  }
-
-  return null;
-};
-
 export const GameForm: FC<GameFormProps> = ({
   mode,
   initialData,
