@@ -21,7 +21,6 @@
 import { describe, it, expect } from 'vitest';
 import {
   validateDuration,
-  validateReminderMinutes,
   validateMaxPlayers,
   validateCharacterLimit,
   validateFutureDate,
@@ -68,50 +67,6 @@ describe('validateDuration', () => {
     const result = validateDuration(-5);
     expect(result.isValid).toBe(false);
     expect(result.error).toBeDefined();
-  });
-});
-
-describe('validateReminderMinutes', () => {
-  it('should accept empty string as valid (optional field)', () => {
-    const result = validateReminderMinutes('');
-    expect(result.isValid).toBe(true);
-    expect(result.value).toEqual([]);
-  });
-
-  it('should parse single valid value', () => {
-    const result = validateReminderMinutes('60');
-    expect(result.isValid).toBe(true);
-    expect(result.value).toEqual([60]);
-  });
-
-  it('should parse multiple valid values', () => {
-    const result = validateReminderMinutes('60,15');
-    expect(result.isValid).toBe(true);
-    expect(result.value).toEqual([60, 15]);
-  });
-
-  it('should reject non-numeric value', () => {
-    const result = validateReminderMinutes('abc');
-    expect(result.isValid).toBe(false);
-    expect(result.error).toContain('numeric');
-  });
-
-  it('should reject mixed valid and invalid values', () => {
-    const result = validateReminderMinutes('60,abc,15');
-    expect(result.isValid).toBe(false);
-    expect(result.error).toContain('numeric');
-  });
-
-  it('should reject negative value', () => {
-    const result = validateReminderMinutes('-60');
-    expect(result.isValid).toBe(false);
-    expect(result.error).toBeDefined();
-  });
-
-  it('should reject value exceeding 10080 (1 week)', () => {
-    const result = validateReminderMinutes('10081');
-    expect(result.isValid).toBe(false);
-    expect(result.error).toContain('10080');
   });
 });
 
