@@ -837,6 +837,8 @@ async def _build_game_response(
         updated_at=datetime_utils.format_datetime_as_utc(game.updated_at),
         has_thumbnail=game.thumbnail_id is not None,
         has_image=game.banner_image_id is not None,
+        thumbnail_id=str(game.thumbnail_id) if game.thumbnail_id else None,
+        banner_image_id=str(game.banner_image_id) if game.banner_image_id else None,
     )
 
 

@@ -203,6 +203,8 @@ class GameResponse(BaseModel):
     updated_at: str = Field(..., description="Last update timestamp (UTC ISO)")
     has_thumbnail: bool = Field(default=False, description="True if game has a thumbnail image")
     has_image: bool = Field(default=False, description="True if game has a banner image")
+    thumbnail_id: str | None = Field(None, description="UUID of thumbnail image if present")
+    banner_image_id: str | None = Field(None, description="UUID of banner image if present")
 
     model_config = {"from_attributes": True}
 

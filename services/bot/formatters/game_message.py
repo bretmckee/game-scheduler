@@ -363,8 +363,8 @@ def format_game_announcement(
     where: str | None = None,
     host_display_name: str | None = None,
     host_avatar_url: str | None = None,
-    has_thumbnail: bool = False,
-    has_image: bool = False,
+    thumbnail_id: str | None = None,
+    banner_image_id: str | None = None,
     guild_id: str | None = None,
 ) -> tuple[str | None, discord.Embed, GameView]:
     """Format a complete game announcement with embed and buttons.
@@ -387,8 +387,8 @@ def format_game_announcement(
         notify_role_ids: Optional list of Discord role IDs to mention
         where: Optional game location
         host_avatar_url: Optional host Discord CDN avatar URL for embed author icon
-        has_thumbnail: Whether game has a thumbnail image
-        has_image: Whether game has a banner image
+        thumbnail_id: UUID of thumbnail image if present
+        banner_image_id: UUID of banner image if present
         guild_id: Optional guild ID for special @everyone handling
 
     Returns:
@@ -400,11 +400,11 @@ def format_game_announcement(
     thumbnail_url = None
     image_url = None
 
-    if has_thumbnail:
-        thumbnail_url = f"{config.backend_url}/api/v1/games/{game_id}/thumbnail"
+    if thumbnail_id:
+        thumbnail_url = f"{config.backend_url}/api/v1/public/images/{thumbnail_id}"
 
-    if has_image:
-        image_url = f"{config.backend_url}/api/v1/games/{game_id}/image"
+    if banner_image_id:
+        image_url = f"{config.backend_url}/api/v1/public/images/{banner_image_id}"
 
     embed = formatter.create_game_embed(
         game_title=game_title,
