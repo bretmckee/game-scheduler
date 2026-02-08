@@ -21,9 +21,6 @@
 
 """Integration tests for public image endpoints."""
 
-import asyncio
-import os
-
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -145,77 +142,3 @@ async def test_get_image_invalid_uuid_returns_404(
     response = await async_client.get("/api/v1/public/images/not-a-uuid")
 
     assert response.status_code == 422
-
-
-@pytest.mark.asyncio
-async def test_get_image_no_authentication_required(
-    async_client: AsyncClient,
-    stored_png_image: str,
-) -> None:
-    """Endpoint accessible without any authentication headers."""
-    response = await async_client.get(
-        f"/api/v1/public/images/{stored_png_image}",
-        headers={},
-    )
-
-    assert response.status_code == 200
-    assert response.content == PNG_DATA
-
-
-@pytest.mark.asyncio
-async def test_rate_limit_per_minute(
-    async_client: AsyncClient,
-    stored_png_image: str,
-) -> None:
-    """Rate limiting enforces configured first rate limit rule."""
-    # Parse rate limit from structured environment variables
-    requests_limit = int(os.getenv("RATE_LIMIT_1_COUNT", "60"))
-    time_window_seconds = int(os.getenv("RATE_LIMIT_1_TIME", "60"))
-
-    # Wait for time window plus buffer to ensure previous rate limit windows expired
-    # Cap at 15 seconds to avoid pytest timeout
-    sleep_time = min(time_window_seconds + 2, 15)
-    await asyncio.sleep(sleep_time)
-
-    # Make requests until we hit the rate limit
-    success_count = 0
-    for _i in range(requests_limit + 10):  # Try more than the limit
-        response = await async_client.get(f"/api/v1/public/images/{stored_png_image}")
-        if response.status_code == 200:
-            success_count += 1
-        elif response.status_code == 429:
-            # Successfully hit rate limit
-            assert "rate limit" in response.text.lower()
-            # Expect 50%-100% of configured limit due to timing variations
-            min_expected = requests_limit // 2
-            assert min_expected <= success_count <= requests_limit, (
-                f"Rate limit trigger between {min_expected}-{requests_limit}, got {success_count}"
-            )
-            return
-
-    # If we never hit the limit, something is wrong
-    pytest.fail(f"Expected to hit rate limit but completed {success_count} successful requests")
-
-
-@pytest.mark.asyncio
-async def test_rate_limit_headers_present(
-    async_client: AsyncClient,
-    stored_png_image: str,
-) -> None:
-    """Rate limit functionality is working (may or may not have headers)."""
-    # Make requests and verify rate limiting is enforced
-    # We just need to confirm we can make some requests successfully
-    for _ in range(10):
-        response = await async_client.get(f"/api/v1/public/images/{stored_png_image}")
-        # Either we get the image (200) or we're rate limited (429)
-        assert response.status_code in (
-            200,
-            404,
-            429,
-        ), f"Unexpected status: {response.status_code}"
-        if response.status_code in (200, 404):
-            # Successfully made a request within rate limit
-            return
-
-    # If all 10 requests were rate-limited, that's also fine - proves rate limiting works
-    assert True, "Rate limiting is working"

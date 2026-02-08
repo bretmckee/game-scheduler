@@ -9,6 +9,13 @@ export default defineConfig({
     setupFiles: './src/test/setup.ts',
     css: true,
     testTimeout: 10000,
+    sequence: {
+      shuffle: {
+        files: true,
+        tests: true,
+      },
+      seed: Date.now(),
+    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],
