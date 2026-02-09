@@ -20,6 +20,48 @@
 # SOFTWARE.
 
 
+# Wrapper for autocopyright that accepts file arguments from pre-commit
+# Calls autocopyright once per file with a regex matching that specific file
+
 set -e
 
-exec python3 -u -m services.init.main
+# Parse options until we hit the file list
+COMMENT_SYMBOL=""
+LICENSE_PATH=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -s)
+            COMMENT_SYMBOL="$2"
+            shift 2
+            ;;
+        -l)
+            LICENSE_PATH="$2"
+            shift 2
+            ;;
+        *)
+            # Remaining args are files
+            break
+            ;;
+    esac
+done
+
+# Exit successfully if no files provided
+if [[ $# -eq 0 ]]; then
+    exit 0
+fi
+
+# Process each file
+EXIT_CODE=0
+for FILE in "$@"; do
+    # Get directory and filename
+    DIR=$(dirname "$FILE")
+    FILENAME=$(basename "$FILE")
+
+    # Run autocopyright for this specific file using exact glob match
+    if ! autocopyright -s "$COMMENT_SYMBOL" -d "$DIR" -g "${FILENAME}" -l "$LICENSE_PATH"; then
+        EXIT_CODE=1
+    fi
+done
+
+exit $EXIT_CODE
