@@ -30,58 +30,28 @@ repos:
       - id: check-merge-conflict
       - id: detect-private-key
 
-  # Copyright headers (applies to both Python and TypeScript)
-  - repo: https://github.com/Argmaster/autocopyright
-    rev: "6612ed69641e0e4887eed08c564eb8cfb62105c3"  # frozen: v1.1.0
+  # Copyright headers - using local wrapper to handle file arguments from pre-commit
+  - repo: local
     hooks:
-      - id: autocopyright
+      - id: autocopyright-python
         name: Add copyright headers (Python)
-        args:
-          - -s
-          - "#"
-          - -d
-          - alembic
-          - -d
-          - services
-          - -d
-          - shared
-          - -d
-          - tests
-          - -g
-          - "*.py"
-          - -l
-          - ./templates/mit-template.jinja2
+        entry: scripts/autocopyright-wrapper.sh -s "#" -l ./templates/mit-template.jinja2
+        language: script
         files: \.py$
         require_serial: true
 
-      - id: autocopyright
+      - id: autocopyright-typescript
         name: Add copyright headers (TypeScript)
-        args:
-          - -s
-          - "//"
-          - -d
-          - frontend/src
-          - -g
-          - "*.ts"
-          - -g
-          - "*.tsx"
-          - -l
-          - ./templates/mit-template.jinja2
+        entry: scripts/autocopyright-wrapper.sh -s "//" -l ./templates/mit-template.jinja2
+        language: script
         files: \.(ts|tsx)$
         require_serial: true
 
-      - id: autocopyright
+      - id: autocopyright-shell
         name: Add copyright headers (Shell scripts)
-        args:
-          - -s
-          - "#"
-          - -d
-          - scripts
-          - -g
-          - "*.sh"
-          - -l
-          - ./templates/mit-template.jinja2
-        files: \.sh$
+        entry: scripts/autocopyright-wrapper.sh -s "#" -l ./templates/mit-template.jinja2
+        language: script
+        types: [shell]
         require_serial: true
 
   # Ruff: Python linting and formatting (official repository)
