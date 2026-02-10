@@ -39,6 +39,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { Channel, GameSession, ParticipantType, SignupMethod, SIGNUP_METHOD_INFO } from '../types';
 import { ValidationErrors } from './ValidationErrors';
+import { ChannelValidationErrors } from './ChannelValidationErrors';
 import { formatParticipantDisplay } from '../utils/formatParticipant';
 import {
   EditableParticipantList,
@@ -126,6 +127,16 @@ interface GameFormProps {
   }> | null;
   validParticipants?: string[] | null;
   onValidationErrorClick?: (originalInput: string, newUsername: string) => void;
+  channelValidationErrors?: Array<{
+    type: string;
+    input: string;
+    reason: string;
+    suggestions: Array<{
+      id: string;
+      name: string;
+    }>;
+  }> | null;
+  onChannelValidationErrorClick?: (originalInput: string, newChannelName: string) => void;
 }
 
 export const GameForm: FC<GameFormProps> = ({
@@ -143,6 +154,8 @@ export const GameForm: FC<GameFormProps> = ({
   validationErrors,
   validParticipants,
   onValidationErrorClick,
+  channelValidationErrors,
+  onChannelValidationErrorClick,
 }) => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -372,7 +385,9 @@ export const GameForm: FC<GameFormProps> = ({
     if (locationError) return locationError;
     const MAX_LOCATION_LENGTH = 500;
     const count = formData.where.length;
-    if (count === 0) return 'Game location (optional, up to 500 characters)';
+    if (count === 0) {
+      return 'Location of the game. Type #channel-name to link to a Discord channel';
+    }
     return `${count}/${MAX_LOCATION_LENGTH} characters`;
   };
 
@@ -560,6 +575,13 @@ export const GameForm: FC<GameFormProps> = ({
 
         {validationErrors && (
           <ValidationErrors errors={validationErrors} onSuggestionClick={handleSuggestionClick} />
+        )}
+
+        {channelValidationErrors && onChannelValidationErrorClick && (
+          <ChannelValidationErrors
+            errors={channelValidationErrors}
+            onSuggestionClick={onChannelValidationErrorClick}
+          />
         )}
 
         <Box component="form" onSubmit={handleSubmit} sx={{ mt: 3 }}>

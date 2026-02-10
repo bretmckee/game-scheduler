@@ -69,12 +69,13 @@ Enable users to reference Discord channels in game location field using `#channe
 - [x] Task 2.3: Add error handling for validation failures
   - Details: .copilot-tracking/details/20260210-01-channel-links-in-game-location-details.md (Lines 172-190)
 
-### [ ] Phase 3: Frontend Error Display
+### [x] Phase 3: Frontend Error Display
 
-- [ ] Task 3.1: Update GameForm to display channel validation errors
-  - Details: .copilot-tracking/details/20260210-01-channel-links-in-game-location-details.md (Lines 192-210)
+- [x] Task 3.1: Update GameForm to display channel validation errors
+  - Details: .copilot-tracking/details/20260210-01-channel-links-in-game-location-details.md (Lines 165-190)
 
-- [ ] Task 3.2: Add helper text indicating channel mention support
+- [x] Task 3.2: Add helper text indicating channel mention support
+  - Details: .copilot-tracking/details/20260210-01-channel-links-in-game-location-details.md (Lines 192-211)
   - Details: .copilot-tracking/details/20260210-01-channel-links-in-game-location-details.md (Lines 212-225)
 
 ### [ ] Phase 4: End-to-End Testing
