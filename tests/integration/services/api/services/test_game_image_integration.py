@@ -28,7 +28,7 @@ cleaning up images with reference counting.
 
 import datetime
 import hashlib
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -132,6 +132,7 @@ async def test_create_game_with_thumbnail_stores_image(
         event_publisher=mock_event_publisher,
         discord_client=mock_discord_api_client,
         participant_resolver=mock_participant_resolver,
+        channel_resolver=MagicMock(),
     )
 
     game_data = GameCreateRequest(
@@ -196,6 +197,7 @@ async def test_create_game_with_both_images_stores_both(
         event_publisher=mock_event_publisher,
         discord_client=mock_discord_api_client,
         participant_resolver=mock_participant_resolver,
+        channel_resolver=MagicMock(),
     )
 
     game_data = GameCreateRequest(
@@ -266,6 +268,7 @@ async def test_create_two_games_same_image_deduplicates(
         event_publisher=mock_event_publisher,
         discord_client=mock_discord_api_client,
         participant_resolver=mock_participant_resolver,
+        channel_resolver=MagicMock(),
     )
 
     # Create first game with image
@@ -349,6 +352,7 @@ async def test_update_game_replaces_thumbnail(
         event_publisher=mock_event_publisher,
         discord_client=mock_discord_api_client,
         participant_resolver=mock_participant_resolver,
+        channel_resolver=MagicMock(),
     )
 
     # Create game with PNG thumbnail
@@ -443,6 +447,7 @@ async def test_delete_game_releases_images(
         event_publisher=mock_event_publisher,
         discord_client=mock_discord_api_client,
         participant_resolver=mock_participant_resolver,
+        channel_resolver=MagicMock(),
     )
 
     # Create game with thumbnail
@@ -523,6 +528,7 @@ async def test_delete_shared_image_keeps_image_until_all_refs_gone(
         event_publisher=mock_event_publisher,
         discord_client=mock_discord_api_client,
         participant_resolver=mock_participant_resolver,
+        channel_resolver=MagicMock(),
     )
 
     # Create two games with same image
