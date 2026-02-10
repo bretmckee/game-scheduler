@@ -366,4 +366,92 @@ describe('CreateGame', () => {
     // Verify signup_method is in the FormData
     expect(formData.get('signup_method')).toBe('HOST_SELECTED');
   });
+
+  it('handles channel validation errors from API', async () => {
+    const user = userEvent.setup();
+
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url === '/api/v1/guilds') {
+        return Promise.resolve({
+          data: { guilds: [mockGuild] },
+          status: StatusCodes.OK,
+          statusText: 'OK',
+          headers: {},
+          config: {} as any,
+        });
+      }
+      if (url === `/api/v1/guilds/${mockGuild.id}/templates`) {
+        return Promise.resolve({
+          data: [mockTemplate],
+          status: StatusCodes.OK,
+          statusText: 'OK',
+          headers: {},
+          config: {} as any,
+        });
+      }
+      if (url.includes('/config')) {
+        return Promise.resolve({ status: StatusCodes.FORBIDDEN });
+      }
+      return Promise.resolve({ data: [] });
+    });
+
+    vi.mocked(apiClient.post).mockRejectedValueOnce({
+      response: {
+        status: StatusCodes.UNPROCESSABLE_ENTITY,
+        data: {
+          detail: {
+            error: 'invalid_mentions',
+            message: 'Some channel mentions could not be resolved',
+            invalid_mentions: [
+              {
+                type: 'not_found',
+                input: '#nonexistent',
+                reason: "Channel '#nonexistent' not found",
+                suggestions: [
+                  { id: '789', name: 'general' },
+                  { id: '012', name: 'announcements' },
+                ],
+              },
+            ],
+            valid_participants: [],
+          },
+        },
+      },
+    });
+
+    renderWithAuth();
+
+    // Wait for template to be loaded and selected
+    await waitFor(() => {
+      expect(screen.getByText('Default Game (Default)')).toBeInTheDocument();
+    });
+
+    // Fill in required fields
+    await waitFor(() => {
+      expect(screen.getByRole('textbox', { name: /game title/i })).toBeInTheDocument();
+    });
+
+    // Fill in required fields
+    const titleInput = screen.getByRole('textbox', { name: /game title/i });
+    await user.clear(titleInput);
+    await user.paste('Test Game');
+
+    const descriptionInput = screen.getByRole('textbox', { name: /description/i });
+    await user.clear(descriptionInput);
+    await user.paste('Test Description');
+
+    // Submit the form
+    const submitButton = screen.getByRole('button', { name: /create game/i });
+    await user.click(submitButton);
+
+    // Wait for channel validation errors to appear
+    await waitFor(() => {
+      expect(screen.getByText('Could not resolve some #channel mentions')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('#nonexistent')).toBeInTheDocument();
+    expect(screen.getByText(/Channel '#nonexistent' not found/)).toBeInTheDocument();
+    expect(screen.getByText('#general')).toBeInTheDocument();
+    expect(screen.getByText('#announcements')).toBeInTheDocument();
+  });
 });

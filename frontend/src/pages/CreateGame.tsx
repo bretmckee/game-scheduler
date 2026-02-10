@@ -48,6 +48,16 @@ interface ValidationError {
   }>;
 }
 
+interface ChannelValidationError {
+  type: string;
+  input: string;
+  reason: string;
+  suggestions: Array<{
+    id: string;
+    name: string;
+  }>;
+}
+
 interface ValidationErrorResponse {
   error: string;
   message: string;
@@ -66,6 +76,9 @@ export const CreateGame: FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<ValidationError[] | null>(null);
   const [validParticipants, setValidParticipants] = useState<string[] | null>(null);
+  const [channelValidationErrors, setChannelValidationErrors] = useState<
+    ChannelValidationError[] | null
+  >(null);
   const [isBotManager, setIsBotManager] = useState<boolean>(false);
 
   // Load guilds on mount
@@ -224,7 +237,23 @@ export const CreateGame: FC = () => {
         (err as any).response.data?.detail?.error === 'invalid_mentions'
       ) {
         const errorData = (err as any).response.data.detail as ValidationErrorResponse;
-        setValidationErrors(errorData.invalid_mentions);
+
+        // Separate participant and channel validation errors
+        const participantErrors: ValidationError[] = [];
+        const channelErrors: ChannelValidationError[] = [];
+
+        errorData.invalid_mentions.forEach((mention: any) => {
+          if (mention.type) {
+            // Channel validation error (has 'type' field)
+            channelErrors.push(mention as ChannelValidationError);
+          } else {
+            // Participant validation error (no 'type' field)
+            participantErrors.push(mention as ValidationError);
+          }
+        });
+
+        setValidationErrors(participantErrors.length > 0 ? participantErrors : null);
+        setChannelValidationErrors(channelErrors.length > 0 ? channelErrors : null);
         setValidParticipants(errorData.valid_participants);
         setError(errorData.message);
         // Don't throw - let form stay open for corrections
@@ -245,6 +274,11 @@ export const CreateGame: FC = () => {
   const handleSuggestionClick = (_originalInput: string, _newUsername: string) => {
     setValidationErrors(null);
     setValidParticipants(null);
+    setError(null);
+  };
+
+  const handleChannelSuggestionClick = (_originalInput: string, _newChannelName: string) => {
+    setChannelValidationErrors(null);
     setError(null);
   };
 
@@ -272,7 +306,7 @@ export const CreateGame: FC = () => {
     );
   }
 
-  if (error && !validationErrors) {
+  if (error && !validationErrors && !channelValidationErrors) {
     return (
       <Container maxWidth="md" sx={{ mt: 4 }}>
         <Alert severity="error">{error}</Alert>
@@ -384,6 +418,8 @@ export const CreateGame: FC = () => {
                   validationErrors={validationErrors}
                   validParticipants={validParticipants}
                   onValidationErrorClick={handleSuggestionClick}
+                  channelValidationErrors={channelValidationErrors}
+                  onChannelValidationErrorClick={handleChannelSuggestionClick}
                 />
               )}
             </>
