@@ -38,6 +38,7 @@ from services.api.auth import roles as roles_module
 from services.api.dependencies import auth as auth_deps
 from services.api.dependencies import permissions as permissions_deps
 from services.api.dependencies.discord import get_discord_client
+from services.api.services import channel_resolver as channel_resolver_module
 from services.api.services import display_names as display_names_module
 from services.api.services import games as games_service
 from services.api.services import participant_resolver as resolver_module
@@ -101,12 +102,14 @@ async def _get_game_service(
     )
     discord_client = get_discord_client()
     participant_resolver = resolver_module.ParticipantResolver(discord_client)
+    channel_resolver = channel_resolver_module.ChannelResolver(discord_client)
 
     return games_service.GameService(
         db=db,
         event_publisher=deferred_publisher,
         discord_client=discord_client,
         participant_resolver=participant_resolver,
+        channel_resolver=channel_resolver,
     )
 
 

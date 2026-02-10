@@ -1388,6 +1388,7 @@ async def test_create_game_with_where_field(
     mock_db,
     mock_event_publisher,
     mock_participant_resolver,
+    mock_channel_resolver,
     mock_role_service,
     sample_template,
     sample_guild,
@@ -1403,6 +1404,10 @@ async def test_create_game_with_where_field(
         where="Discord Voice Channel #gaming",
         max_players=4,
         reminder_minutes=[60],
+    )
+
+    mock_channel_resolver.resolve_channel_mentions = AsyncMock(
+        return_value=("Discord Voice Channel #gaming", [])
     )
 
     created_game = game_model.GameSession(
@@ -1438,6 +1443,288 @@ async def test_create_game_with_where_field(
 
     assert isinstance(game, game_model.GameSession)
     assert game.where == "Discord Voice Channel #gaming"
+    mock_db.add.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_create_game_with_valid_channel_mention(
+    game_service,
+    mock_db,
+    mock_event_publisher,
+    mock_participant_resolver,
+    mock_channel_resolver,
+    mock_role_service,
+    sample_template,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """Test creating game with valid channel mention resolves to <#id> format."""
+    game_data = game_schemas.GameCreateRequest(
+        template_id=sample_template.id,
+        title="Test Game",
+        description="Test description",
+        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        where="Meet in #general lobby",
+        max_players=4,
+        reminder_minutes=[60],
+    )
+
+    mock_channel_resolver.resolve_channel_mentions = AsyncMock(
+        return_value=("Meet in <#123456789> lobby", [])
+    )
+
+    created_game = game_model.GameSession(
+        id=str(uuid.uuid4()),
+        title="Test Game",
+        description="Test description",
+        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        where="Meet in <#123456789> lobby",
+        guild_id=sample_guild.id,
+        channel_id=sample_channel.id,
+        host_id=sample_user.id,
+        status="SCHEDULED",
+        signup_method="SELF_SIGNUP",
+    )
+    created_game.host = sample_user
+    created_game.participants = []
+
+    setup_create_game_mocks(
+        mock_db,
+        sample_template,
+        sample_guild,
+        sample_user,
+        sample_channel,
+        created_game,
+    )
+
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
+        game = await game_service.create_game(
+            game_data=game_data,
+            host_user_id=sample_user.id,
+            access_token="token",
+        )
+
+    assert isinstance(game, game_model.GameSession)
+    assert game.where == "Meet in <#123456789> lobby"
+    mock_channel_resolver.resolve_channel_mentions.assert_awaited_once_with(
+        "Meet in #general lobby",
+        sample_guild.guild_id,
+    )
+    mock_db.add.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_create_game_with_invalid_channel_raises_validation_error(
+    game_service,
+    mock_db,
+    mock_event_publisher,
+    mock_participant_resolver,
+    mock_channel_resolver,
+    mock_role_service,
+    sample_template,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """Test creating game with invalid channel mention raises ValidationError."""
+    game_data = game_schemas.GameCreateRequest(
+        template_id=sample_template.id,
+        title="Test Game",
+        description="Test description",
+        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        where="Meet in #nonexistent",
+        max_players=4,
+        reminder_minutes=[60],
+    )
+
+    channel_errors = [
+        {
+            "type": "not_found",
+            "input": "#nonexistent",
+            "reason": "Channel '#nonexistent' not found",
+            "suggestions": [
+                {"id": "111111", "name": "general"},
+                {"id": "222222", "name": "gaming"},
+            ],
+        }
+    ]
+    mock_channel_resolver.resolve_channel_mentions = AsyncMock(
+        return_value=("Meet in #nonexistent", channel_errors)
+    )
+
+    template_result = MagicMock()
+    template_result.scalar_one_or_none.return_value = sample_template
+
+    guild_result = MagicMock()
+    guild_result.scalar_one_or_none.return_value = sample_guild
+
+    channel_result = MagicMock()
+    channel_result.scalar_one_or_none.return_value = sample_channel
+
+    host_result = MagicMock()
+    host_result.scalar_one_or_none.return_value = sample_user
+
+    mock_db.execute = AsyncMock(
+        side_effect=[
+            template_result,
+            guild_result,
+            channel_result,
+            host_result,
+        ]
+    )
+    mock_db.flush = AsyncMock()
+
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
+        with pytest.raises(resolver_module.ValidationError) as exc_info:
+            await game_service.create_game(
+                game_data=game_data,
+                host_user_id=sample_user.id,
+                access_token="token",
+            )
+
+    assert exc_info.value.invalid_mentions == channel_errors
+    assert exc_info.value.valid_participants == []
+
+
+@pytest.mark.asyncio
+async def test_create_game_with_ambiguous_channel_raises_validation_error(
+    game_service,
+    mock_db,
+    mock_event_publisher,
+    mock_participant_resolver,
+    mock_channel_resolver,
+    mock_role_service,
+    sample_template,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """Test creating game with ambiguous channel mention raises ValidationError."""
+    game_data = game_schemas.GameCreateRequest(
+        template_id=sample_template.id,
+        title="Test Game",
+        description="Test description",
+        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        where="Meet in #general",
+        max_players=4,
+        reminder_minutes=[60],
+    )
+
+    channel_errors = [
+        {
+            "type": "ambiguous",
+            "input": "#general",
+            "reason": "Multiple channels match '#general'",
+            "suggestions": [
+                {"id": "111111", "name": "general"},
+                {"id": "222222", "name": "general-chat"},
+            ],
+        }
+    ]
+    mock_channel_resolver.resolve_channel_mentions = AsyncMock(
+        return_value=("Meet in #general", channel_errors)
+    )
+
+    template_result = MagicMock()
+    template_result.scalar_one_or_none.return_value = sample_template
+
+    guild_result = MagicMock()
+    guild_result.scalar_one_or_none.return_value = sample_guild
+
+    channel_result = MagicMock()
+    channel_result.scalar_one_or_none.return_value = sample_channel
+
+    host_result = MagicMock()
+    host_result.scalar_one_or_none.return_value = sample_user
+
+    mock_db.execute = AsyncMock(
+        side_effect=[
+            template_result,
+            guild_result,
+            channel_result,
+            host_result,
+        ]
+    )
+    mock_db.flush = AsyncMock()
+
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
+        with pytest.raises(resolver_module.ValidationError) as exc_info:
+            await game_service.create_game(
+                game_data=game_data,
+                host_user_id=sample_user.id,
+                access_token="token",
+            )
+
+    assert exc_info.value.invalid_mentions == channel_errors
+    assert exc_info.value.valid_participants == []
+
+
+@pytest.mark.asyncio
+async def test_create_game_with_plain_text_location_unchanged(
+    game_service,
+    mock_db,
+    mock_event_publisher,
+    mock_participant_resolver,
+    mock_channel_resolver,
+    mock_role_service,
+    sample_template,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """Test creating game with plain text location (no mentions) works unchanged."""
+    game_data = game_schemas.GameCreateRequest(
+        template_id=sample_template.id,
+        title="Test Game",
+        description="Test description",
+        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        where="In-person at the office",
+        max_players=4,
+        reminder_minutes=[60],
+    )
+
+    mock_channel_resolver.resolve_channel_mentions = AsyncMock(
+        return_value=("In-person at the office", [])
+    )
+
+    created_game = game_model.GameSession(
+        id=str(uuid.uuid4()),
+        title="Test Game",
+        description="Test description",
+        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        where="In-person at the office",
+        guild_id=sample_guild.id,
+        channel_id=sample_channel.id,
+        host_id=sample_user.id,
+        status="SCHEDULED",
+        signup_method="SELF_SIGNUP",
+    )
+    created_game.host = sample_user
+    created_game.participants = []
+
+    setup_create_game_mocks(
+        mock_db,
+        sample_template,
+        sample_guild,
+        sample_user,
+        sample_channel,
+        created_game,
+    )
+
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
+        game = await game_service.create_game(
+            game_data=game_data,
+            host_user_id=sample_user.id,
+            access_token="token",
+        )
+
+    assert isinstance(game, game_model.GameSession)
+    assert game.where == "In-person at the office"
+    mock_channel_resolver.resolve_channel_mentions.assert_awaited_once_with(
+        "In-person at the office",
+        sample_guild.guild_id,
+    )
     mock_db.add.assert_called()
 
 

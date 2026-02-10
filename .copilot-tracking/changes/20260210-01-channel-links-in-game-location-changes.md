@@ -20,5 +20,13 @@ Enable users to reference Discord channels in game location field using `#channe
 
 - services/api/services/channel_resolver.py - Implemented resolve_channel_mentions with regex pattern r'#([\w-]+)', Discord API channel lookup, single match conversion to <#id>, multiple match disambiguation errors, not found errors with fuzzy suggestions (TDD GREEN phase - all tests passing). Fixed line length formatting (E501).
 - tests/services/api/services/test_channel_resolver.py - Added 8 edge case tests: multiple mentions in one location, channel at text start/end, adjacent mentions, empty guild channel list, filtering non-text channels, case-insensitive matching, mixed valid/invalid channels. Total 15 tests, 100% code coverage.
+- services/api/services/games.py - Added ChannelResolver import and parameter to GameService.**init**, added channel_resolver field initialization, integrated channel mention resolution in create_game method (after resolving template fields, before participant resolution) with ValidationError raised for invalid channel mentions
+- services/api/routes/games.py - Added channel_resolver_module import, instantiated ChannelResolver in get_game_service dependency and passed to GameService
+- tests/services/api/services/conftest.py - Added channel_resolver_module import, created mock_channel_resolver fixture (AsyncMock of ChannelResolver), updated game_service fixture to include mock_channel_resolver parameter
+- tests/integration/test_games_route_guild_isolation.py - Updated 6 GameService instantiations to include channel_resolver=MagicMock() parameter
+- tests/integration/services/api/services/test_game_image_integration.py - Updated 6 GameService instantiations to include channel_resolver=MagicMock() parameter
+- tests/services/api/services/test_games.py - Added 4 integration tests for channel resolution: test_create_game_with_valid_channel_mention (verifies <#id> format in database), test_create_game_with_invalid_channel_raises_validation_error (verifies ValidationError with suggestions), test_create_game_with_ambiguous_channel_raises_validation_error (verifies disambiguation error), test_create_game_with_plain_text_location_unchanged (verifies backward compatibility). Updated test_create_game_with_where_field to include mock_channel_resolver parameter and setup.
+
+**Note on Task 2.3**: No code changes needed. ValidationError from ChannelResolver is already handled by existing \_handle_game_operation_errors function in services/api/routes/games.py (returns HTTP 422 with invalid_mentions field). Existing tests verify error propagation works correctly.
 
 ### Removed
