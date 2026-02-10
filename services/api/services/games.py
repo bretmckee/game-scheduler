@@ -37,6 +37,7 @@ from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
 from services.api.auth import roles as roles_module
+from services.api.services import channel_resolver as channel_resolver_module
 from services.api.services import notification_schedule as notification_schedule_service
 from services.api.services import participant_resolver as resolver_module
 from services.api.services.notification_schedule import schedule_join_notification
@@ -87,6 +88,7 @@ class GameService:
         event_publisher: messaging_deferred_publisher.DeferredEventPublisher,
         discord_client: discord_client_module.DiscordAPIClient,
         participant_resolver: resolver_module.ParticipantResolver,
+        channel_resolver: channel_resolver_module.ChannelResolver,
     ) -> None:
         """
         Initialize game service.
@@ -96,11 +98,13 @@ class GameService:
             event_publisher: Deferred RabbitMQ event publisher
             discord_client: Discord API client
             participant_resolver: Participant resolver service
+            channel_resolver: Channel resolver service
         """
         self.db = db
         self.event_publisher = event_publisher
         self.discord_client = discord_client
         self.participant_resolver = participant_resolver
+        self.channel_resolver = channel_resolver
 
     async def _verify_bot_manager_permission(
         self,
@@ -596,6 +600,24 @@ class GameService:
 
         # Resolve field values from request and template
         resolved_fields = self._resolve_template_fields(game_data, template)
+
+        # Resolve channel mentions in location field
+        if resolved_fields["where"]:
+            (
+                resolved_location,
+                channel_errors,
+            ) = await self.channel_resolver.resolve_channel_mentions(
+                resolved_fields["where"],
+                guild_config.guild_id,
+            )
+
+            if channel_errors:
+                raise resolver_module.ValidationError(
+                    invalid_mentions=channel_errors,
+                    valid_participants=[],
+                )
+
+            resolved_fields["where"] = resolved_location
 
         # Resolve initial participants if provided
         valid_participants: list[dict[str, Any]] = []

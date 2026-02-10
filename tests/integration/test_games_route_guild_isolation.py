@@ -95,6 +95,7 @@ async def test_get_game_with_different_database_sessions(
         event_publisher=EventPublisher(),
         discord_client=MagicMock(),
         participant_resolver=MagicMock(),
+        channel_resolver=MagicMock(),
     )
 
     # Test game A
@@ -135,6 +136,7 @@ async def test_list_games_filters_by_guild_when_specified(admin_db, test_game_en
         event_publisher=EventPublisher(),
         discord_client=MagicMock(),
         participant_resolver=MagicMock(),
+        channel_resolver=MagicMock(),
     )
 
     await admin_db.commit()
@@ -167,6 +169,7 @@ async def test_list_games_with_channel_filter(admin_db, test_game_environment):
         event_publisher=EventPublisher(),
         discord_client=MagicMock(),
         participant_resolver=MagicMock(),
+        channel_resolver=MagicMock(),
     )
 
     await admin_db.commit()
@@ -205,6 +208,7 @@ async def test_list_games_with_status_filter(admin_db, test_environment):
         event_publisher=EventPublisher(),
         discord_client=MagicMock(),
         participant_resolver=MagicMock(),
+        channel_resolver=MagicMock(),
     )
 
     # List scheduled games - should find the game we created
@@ -251,6 +255,7 @@ async def test_list_games_pagination(admin_db, test_environment, create_template
         event_publisher=EventPublisher(),
         discord_client=MagicMock(),
         participant_resolver=MagicMock(),
+        channel_resolver=MagicMock(),
     )
 
     # Get first page
@@ -286,6 +291,7 @@ async def test_guild_isolation_in_list_games(admin_db, test_game_environment):
         event_publisher=EventPublisher(),
         discord_client=MagicMock(),
         participant_resolver=MagicMock(),
+        channel_resolver=MagicMock(),
     )
 
     await admin_db.commit()

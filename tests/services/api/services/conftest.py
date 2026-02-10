@@ -52,6 +52,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from services.api.services import channel_resolver as channel_resolver_module
 from services.api.services import games as games_service
 from services.api.services import participant_resolver as resolver_module
 from shared.discord import client as discord_client_module
@@ -99,13 +100,26 @@ def mock_participant_resolver():
 
 
 @pytest.fixture
-def game_service(mock_db, mock_event_publisher, mock_discord_client, mock_participant_resolver):
+def mock_channel_resolver():
+    """Mock channel resolver."""
+    return AsyncMock(spec=channel_resolver_module.ChannelResolver)
+
+
+@pytest.fixture
+def game_service(
+    mock_db,
+    mock_event_publisher,
+    mock_discord_client,
+    mock_participant_resolver,
+    mock_channel_resolver,
+):
     """Game service instance with mocked dependencies."""
     return games_service.GameService(
         db=mock_db,
         event_publisher=mock_event_publisher,
         discord_client=mock_discord_client,
         participant_resolver=mock_participant_resolver,
+        channel_resolver=mock_channel_resolver,
     )
 
 

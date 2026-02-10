@@ -58,15 +58,15 @@ Enable users to reference Discord channels in game location field using `#channe
 - [x] Task 1.5: Refactor and add edge case tests
   - Details: .copilot-tracking/details/20260210-01-channel-links-in-game-location-details.md (Lines 102-120)
 
-### [ ] Phase 2: Game Service Integration
+### [x] Phase 2: Game Service Integration
 
-- [ ] Task 2.1: Add channel resolution to GameService.create_game
+- [x] Task 2.1: Add channel resolution to GameService.create_game
   - Details: .copilot-tracking/details/20260210-01-channel-links-in-game-location-details.md (Lines 122-145)
 
-- [ ] Task 2.2: Write integration tests for game creation with channel mentions
+- [x] Task 2.2: Write integration tests for game creation with channel mentions
   - Details: .copilot-tracking/details/20260210-01-channel-links-in-game-location-details.md (Lines 147-170)
 
-- [ ] Task 2.3: Add error handling for validation failures
+- [x] Task 2.3: Add error handling for validation failures
   - Details: .copilot-tracking/details/20260210-01-channel-links-in-game-location-details.md (Lines 172-190)
 
 ### [ ] Phase 3: Frontend Error Display
