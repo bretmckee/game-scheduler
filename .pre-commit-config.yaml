@@ -33,6 +33,14 @@ repos:
   # Copyright headers - using local wrapper to handle file arguments from pre-commit
   - repo: local
     hooks:
+      - id: check-copyright-headers
+        name: Check for manual copyright headers
+        entry: scripts/check-copyright-precommit.sh
+        language: script
+        files: \.(py|ts|tsx|sh)$
+        pass_filenames: false
+        require_serial: true
+
       - id: autocopyright-python
         name: Add copyright headers (Python)
         entry: scripts/autocopyright-wrapper.sh -s "#" -l ./templates/mit-template.jinja2
