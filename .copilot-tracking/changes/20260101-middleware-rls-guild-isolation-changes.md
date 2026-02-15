@@ -2,7 +2,7 @@
 
 # Release Changes: Middleware-Based Guild Isolation with RLS
 
-**Related Plan**: 20260101-middleware-rls-guild-isolation-plan.instructions.md
+**Related Plan**: 20260101-middleware-rls-guild-isolation.plan.md
 **Implementation Date**: 2026-01-01
 
 ## Summary
@@ -38,7 +38,7 @@ Implementing transparent guild isolation using SQLAlchemy event listeners, Postg
 - alembic/env.py - Changed to use DATABASE_URL (gamebot_app) instead of ADMIN_DATABASE_URL for migrations (simpler architecture with app user running migrations)
 - tests/integration/test_database_infrastructure.py - Convert postgresql+asyncpg:// URL to postgresql:// for synchronous SQLAlchemy tests
 - tests/integration/test_notification_daemon.py - Convert postgresql+asyncpg:// URL to postgresql:// for psycopg2 connections
-- pyproject.toml - Exclude services/init/* from coverage reporting (infrastructure code)
+- pyproject.toml - Exclude services/init/\* from coverage reporting (infrastructure code)
 - shared/database.py - Added get_db_with_user_guilds() dependency function that fetches user's guilds, sets ContextVar, yields session, and clears ContextVar in finally block
 - services/api/routes/guilds.py - Migrated list_guilds() to use get_db_with_user_guilds dependency (line 47)
 - services/api/routes/export.py - Migrated export_game() to use get_db_with_user_guilds dependency (line 92)
@@ -66,21 +66,26 @@ Implementing transparent guild isolation using SQLAlchemy event listeners, Postg
 **Completed**: 2026-01-01
 
 #### Task 0.1: Create two-user database architecture
+
 **Status**: ✅ Completed
 **Details**: Created services/init/database_users.py with create_database_users() function that creates gamebot_admin (superuser) and gamebot_app (non-superuser) with appropriate permissions. Updated services/init/main.py to call this function as step 2/6 in initialization.
 
 #### Task 0.2: Update environment variables for both users
+
 **Status**: ✅ Completed
 **Details**: Updated all 6 environment files (dev, int, e2e, staging, prod, example) to use two-user architecture with POSTGRES_USER=postgres (bootstrap), POSTGRES_ADMIN_USER=gamebot_admin, POSTGRES_APP_USER=gamebot_app, ADMIN_DATABASE_URL (for migrations), and DATABASE_URL (for runtime). Updated alembic/env.py to use ADMIN_DATABASE_URL. Updated compose.yaml to pass new environment variables to init service.
 
 #### Task 0.3: Verify RLS enforcement with non-superuser
+
 **Status**: ✅ Completed
 **Details**: Verified in integration environment. Both users (gamebot_admin and gamebot_app) created successfully with correct roles. Confirmed gamebot_app is non-superuser and has SELECT/INSERT/UPDATE/DELETE permissions on all tables. Ready for RLS policy implementation.
 
 #### Task 0.4: Fix permission issues and simplify architecture
+
 **Status**: ✅ Completed
 **Completed**: 2026-01-01
 **Details**: After Phase 0 implementation, integration tests revealed permission errors when tables created by gamebot_admin couldn't be accessed by gamebot_app. Root cause: Alembic migrations ran as admin user, creating tables owned by admin. Solution: Grant CREATE permissions to gamebot_app and run ALL migrations as app user (not admin). This simplifies the architecture - admin user is created but minimally used. Changes:
+
 - services/init/database_users.py: Grant USAGE, CREATE ON SCHEMA public to gamebot_app
 - alembic/env.py: Use DATABASE_URL (gamebot_app) instead of ADMIN_DATABASE_URL for migrations
 - tests/integration/test_database_infrastructure.py: Convert postgresql+asyncpg:// to postgresql:// for synchronous tests
@@ -98,9 +103,11 @@ Implementing transparent guild isolation using SQLAlchemy event listeners, Postg
 **Started**: 2026-01-02
 
 #### Task 1.1: Write unit tests for ContextVar functions
+
 **Status**: ✅ Completed
 **Completed**: 2026-01-02
 **Details**: Created comprehensive unit tests for guild isolation ContextVar management in tests/shared/data_access/test_guild_isolation.py. Tests cover:
+
 - set_current_guild_ids and get_current_guild_ids basic functionality
 - get_current_guild_ids returns None when not set
 - clear_current_guild_ids properly clears context
@@ -111,10 +118,12 @@ Tests initially failed with ModuleNotFoundError as expected (red phase).
 **Test Results**: 4 tests written, verified failure before implementation.
 
 #### Task 1.2: Implement ContextVar functions
+
 **Status**: ✅ Completed
 **Completed**: 2026-01-02
 **Details**: Implemented thread-safe, async-safe ContextVar functions in shared/data_access/guild_isolation.py. Module provides:
-- _current_guild_ids: ContextVar for request-scoped guild ID storage
+
+- \_current_guild_ids: ContextVar for request-scoped guild ID storage
 - set_current_guild_ids(): Store guild IDs in current request context
 - get_current_guild_ids(): Retrieve guild IDs or None if not set
 - clear_current_guild_ids(): Clear guild IDs from context
@@ -122,10 +131,13 @@ Tests initially failed with ModuleNotFoundError as expected (red phase).
 Implementation uses Python's built-in contextvars module for automatic isolation between requests and async tasks. No global state or race conditions.
 
 **Test Results**: All 4 unit tests pass (green phase). Verified thread-safety and async task isolation.
+
 #### Task 1.3: Write integration tests for event listener
+
 **Status**: ✅ Completed
 **Completed**: 2026-01-02
 **Details**: Created integration tests in tests/integration/test_guild_isolation_rls.py to verify SQLAlchemy event listener sets PostgreSQL session variables. Tests cover:
+
 - Event listener sets app.current_guild_ids on transaction begin
 - Event listener handles empty guild list (empty string)
 - Event listener no-op when guild_ids not set (returns NULL/empty)
@@ -135,9 +147,11 @@ Tests marked with @pytest.mark.integration to run in isolated Docker environment
 **Test Results**: 3 integration tests written, verified failure before event listener implementation.
 
 #### Task 1.4: Implement SQLAlchemy event listener
+
 **Status**: ✅ Completed
 **Completed**: 2026-01-02
 **Details**: Implemented SQLAlchemy event listener in shared/data_access/guild_isolation.py that automatically sets PostgreSQL RLS context on transaction begin. Implementation:
+
 - Listens to AsyncSession.sync_session_class "after_begin" event
 - Reads guild_ids from ContextVar (get_current_guild_ids)
 - Skips setup if guild_ids is None (migrations, service operations)
@@ -152,9 +166,11 @@ Event listener fires automatically on every transaction begin, transparently inj
 **Test Command**: `./scripts/run-integration-tests.sh tests/integration/test_guild_isolation_rls.py -v`
 
 #### Task 1.5: Write tests for enhanced database dependency
+
 **Status**: ✅ Completed
 **Completed**: 2026-01-02
 **Details**: Created unit tests for get_db_with_user_guilds() dependency function in tests/services/api/test_database_dependencies.py. Tests cover:
+
 - Sets guild_ids in ContextVar from mocked Discord API response
 - Clears ContextVar on normal exit (generator consumed)
 - Clears ContextVar even when exception raised (proper cleanup)
@@ -164,9 +180,11 @@ Tests use mocked CurrentUser and Discord API guild responses. Tests initially fa
 **Test Results**: 3 tests written, verified failure before implementation (ImportError: cannot import name 'get_db_with_user_guilds').
 
 #### Task 1.6: Implement enhanced database dependency
+
 **Status**: ✅ Completed
 **Completed**: 2026-01-02
 **Details**: Implemented get_db_with_user_guilds() in shared/database.py that wraps session creation with guild context management. Implementation:
+
 - Takes current_user as parameter (FastAPI dependency injection)
 - Fetches user's guilds from Discord API via oauth2.get_user_guilds() (cached with 5-min TTL)
 - Extracts guild IDs from API response
@@ -181,9 +199,11 @@ Enhanced dependency ensures guild context always set for authenticated requests 
 **Test Command**: `uv run pytest tests/services/api/test_database_dependencies.py -v`
 
 #### Task 1.7: Register event listener in application startup
+
 **Status**: ✅ Completed
 **Completed**: 2026-01-02
 **Details**: Registered SQLAlchemy event listener at application startup by importing shared.data_access.guild_isolation module in services/api/app.py. Implementation:
+
 - Added import with noqa comment (import registers event listener as side effect)
 - Updated lifespan function docstring to document guild isolation middleware registration
 - Added log message confirming guild isolation middleware is active
@@ -193,9 +213,11 @@ Event listener registration happens automatically on module import. The import s
 **Test Results**: Application starts successfully. Event listener registered at startup. No behavior changes (RLS still disabled in Phase 1).
 
 #### Task 1.8: Create Alembic migration for RLS policies (disabled)
+
 **Status**: ✅ Completed
 **Completed**: 2026-01-02
 **Details**: Created Alembic migration (436f4d5b2b35_add_rls_policies_disabled.py) that establishes RLS infrastructure without enabling enforcement. Migration:
+
 - Creates indexes on guild_id columns for game_sessions and game_templates (performance optimization for RLS queries)
 - Creates guild_isolation_games policy on game_sessions table (checks if guild_id matches app.current_guild_ids session variable)
 - Creates guild_isolation_templates policy on game_templates table (same guild_id matching logic)
@@ -206,6 +228,7 @@ Event listener registration happens automatically on module import. The import s
 Migration uses proper down_revision chain (b49eb343d5a6) to avoid branching. Downgrade removes all policies and indexes.
 
 **Test Results**: Migration ran successfully in integration environment. Verified:
+
 - All three policies created (guild_isolation_games, guild_isolation_templates, guild_isolation_participants)
 - Indexes created (idx_game_sessions_guild_id, idx_game_templates_guild_id)
 - RLS disabled on all three tables (rowsecurity = false)
@@ -213,6 +236,7 @@ Migration uses proper down_revision chain (b49eb343d5a6) to avoid branching. Dow
 **Migration Command**: `docker compose --env-file config/env.int up -d --build init`
 
 **Verification Queries**:
+
 ```sql
 -- Check policies exist
 SELECT polname FROM pg_policy WHERE polrelid IN ('game_sessions'::regclass, 'game_templates'::regclass, 'game_participants'::regclass);
@@ -223,12 +247,15 @@ SELECT tablename, rowsecurity FROM pg_tables WHERE tablename IN ('game_sessions'
 -- Check indexes exist
 SELECT indexname FROM pg_indexes WHERE tablename IN ('game_sessions', 'game_templates') AND indexname LIKE '%guild_id%';
 ```
+
 #### Task 1.9: Full test suite validation (Phase 1)
+
 **Status**: ✅ Completed
 **Completed**: 2026-01-02
 **Details**: Fixed pytest warning configuration and verified all test suites pass with Phase 1 changes. Addressed breaking change from commit 409c4bf (Configure pytest to treat all warnings as errors) which caused integration tests to fail due to external library warnings.
 
 **Implementation**:
+
 - Fixed pytest configuration in pyproject.toml:
   - Moved `-W error` from addopts to filterwarnings array as first entry
   - Added ignore filter for pika.data DeprecationWarning (Python 3.13 datetime.utcfromtimestamp issue)
@@ -238,11 +265,13 @@ SELECT indexname FROM pg_indexes WHERE tablename IN ('game_sessions', 'game_temp
 - Updated integration test script to ensure system-ready before running tests (prevents race conditions)
 
 **Test Results**:
+
 - ✅ Unit tests: All pass
 - ✅ Integration tests: 81 passed (fixed from previous failures)
 - ✅ E2E tests: 31 passed
 
 **Commits**:
+
 - 7e459e8: Task 1.8: Fix integration test runner and verify all tests pass
 - cf20175: Remove ad-hoc warning filter and apply black formatting to RabbitMQ tests
 - f5f10e4: Fix pytest warning configuration to ignore external library warnings
@@ -255,11 +284,13 @@ SELECT indexname FROM pg_indexes WHERE tablename IN ('game_sessions', 'game_temp
 **Started**: 2026-01-02
 
 #### Task 2.1: Write integration tests for GameService RLS
+
 **Status**: ✅ Completed
 **Completed**: 2026-01-02
 **Details**: Created comprehensive integration tests for GameService.get_game() and GameService.list_games() guild isolation behavior. Tests document expected RLS behavior and serve as acceptance criteria for Phase 3.
 
 **Implementation**:
+
 - Enhanced tests/integration/conftest.py with shared multi-guild fixtures:
   - Added database fixtures (db_url, async_engine, async_session_factory, db, redis_client)
   - Added multi-guild test fixtures (guild_a_id, guild_b_id, guild_a_config, guild_b_config)
@@ -274,6 +305,7 @@ SELECT indexname FROM pg_indexes WHERE tablename IN ('game_sessions', 'game_temp
 - Tests verify expected behavior with set_current_guild_ids() context management
 
 **Test Results (RED Phase)**:
+
 - ✅ 7 tests pass (no guild context scenarios)
 - ⚠️ 3 tests marked as xfail (guild context filtering scenarios - expected until RLS enabled in Phase 3):
   - test_get_game_with_guild_context_filters_other_guild_game
@@ -284,21 +316,25 @@ SELECT indexname FROM pg_indexes WHERE tablename IN ('game_sessions', 'game_temp
 **Test Command**: `docker compose --env-file config/env.int run --build --rm --no-deps integration-tests tests/integration/test_game_service_guild_isolation.py -v`
 
 **Files Modified**:
+
 - tests/integration/conftest.py - Added shared multi-guild fixtures (improved reusability)
 - tests/integration/test_game_service_guild_isolation.py - NEW integration test suite
 
 #### Task 2.2: Migrate game service factory to use enhanced dependency
+
 **Status**: ✅ Completed
 **Completed**: 2026-01-02
-**Details**: Migrated _get_game_service() factory function in services/api/routes/games.py to use enhanced database dependency (get_db_with_user_guilds). Single-line change with zero breaking changes to existing functionality.
+**Details**: Migrated \_get_game_service() factory function in services/api/routes/games.py to use enhanced database dependency (get_db_with_user_guilds). Single-line change with zero breaking changes to existing functionality.
 
 **Implementation**:
+
 - Changed: `db: AsyncSession = Depends(database.get_db)`
 - To: `db: AsyncSession = Depends(database.get_db_with_user_guilds)`
 - Factory function signature and return type unchanged
 - All downstream route handlers unaffected (transparent change)
 
 **Test Results**:
+
 - ✅ All 88 integration tests pass (including 7 new passing tests from Task 2.1)
 - ⚠️ 3 expected xfail tests (same as Task 2.1 RED phase)
 - No breaking changes to existing game routes
@@ -307,6 +343,7 @@ SELECT indexname FROM pg_indexes WHERE tablename IN ('game_sessions', 'game_temp
 **Test Command**: `docker compose --env-file config/env.int run --build --rm --no-deps integration-tests tests/integration/ -v`
 
 **Initial Implementation (Synchronous Dependency)**:
+
 - Changed: `db: AsyncSession = Depends(database.get_db)`
 - To: `db: AsyncSession = Depends(database.get_db_with_user_guilds)`
 - Factory function signature unchanged
@@ -314,7 +351,8 @@ SELECT indexname FROM pg_indexes WHERE tablename IN ('game_sessions', 'game_temp
 **Issue Discovered**: E2E tests failed with 20 failures showing "query.current_user" missing validation errors. Root cause: get_db_with_user_guilds requires authentication dependency, breaking E2E tests that rely on real OAuth flow.
 
 **Final Implementation (Async Factory with Direct Guild Fetching)**:
-- Converted _get_game_service from sync to async function
+
+- Converted \_get_game_service from sync to async function
 - Added explicit Depends(auth_deps.get_current_user) parameter
 - Added explicit Depends(database.get_db) parameter (not get_db_with_user_guilds)
 - Function now directly calls oauth2.get_user_guilds() with try/except for DiscordAPIError
@@ -325,6 +363,7 @@ SELECT indexname FROM pg_indexes WHERE tablename IN ('game_sessions', 'game_temp
 **Integration Test Issue**: 5 integration tests (test_game_signup_methods.py, test_template_default_overrides.py) failed with Discord API 401 errors because they use invalid test tokens. Solution: Cache seeding pattern.
 
 **Cache Seeding Solution**:
+
 - Created shared helper function seed_user_guilds_cache() in tests/integration/conftest.py
 - Helper seeds CacheKeys.user_guilds(user_id) with guild IDs to bypass Discord API calls
 - Updated test_game_signup_methods.py to seed cache with guild membership
@@ -332,6 +371,7 @@ SELECT indexname FROM pg_indexes WHERE tablename IN ('game_sessions', 'game_temp
 - Pattern consistent with existing integration test approach (bypass external API calls)
 
 **Test Results**:
+
 - ✅ All 31 E2E tests pass (fixed authentication dependency issue)
 - ✅ 85 integration tests pass (5 previously failing tests now pass with cache seeding)
 - ⚠️ 3 expected xfail tests (guild isolation RLS scenarios - Phase 3)
@@ -339,17 +379,21 @@ SELECT indexname FROM pg_indexes WHERE tablename IN ('game_sessions', 'game_temp
 - Zero breaking changes to existing passing tests
 
 **Files Modified**:
-- services/api/routes/games.py - Lines 88-120: Complete rewrite of _get_game_service to async function with direct guild fetching
+
+- services/api/routes/games.py - Lines 88-120: Complete rewrite of \_get_game_service to async function with direct guild fetching
 - shared/database.py - Added TYPE_CHECKING imports to avoid circular dependency issues
 - tests/integration/conftest.py - Added seed_user_guilds_cache() shared helper function
 - tests/integration/test_game_signup_methods.py - Added cache seeding call
 - tests/integration/test_template_default_overrides.py - Added cache seeding calls in both test functions
+
 #### Task 2.3: Write integration tests for template routes RLS
+
 **Status**: ✅ Completed
 **Completed**: 2026-01-02
 **Details**: Created integration tests for template routes guild isolation in tests/integration/test_template_routes_guild_isolation.py. Tests verify that template route handlers properly filter results to only templates from the user's guilds when guild context is set.
 
 **Implementation**:
+
 - Created test_template_routes_guild_isolation.py with 3 test cases:
   1. test_list_templates_only_returns_user_guild_templates - Verifies list_templates filters to user's guild
   2. test_get_template_returns_404_for_other_guild_template - Verifies get_template returns 404 for other guild's template (xfail until RLS enabled)
@@ -361,10 +405,12 @@ SELECT indexname FROM pg_indexes WHERE tablename IN ('game_sessions', 'game_temp
 - Use seed_user_guilds_cache() to populate cache for integration tests
 
 **Test Results**:
+
 - ✅ 2 tests pass (list_templates filtering, no-context behavior)
 - ⚠️ 1 test marked xfail (get_template cross-guild 404 - expected until RLS enabled in Phase 3)
 
 **Expected Behavior**:
+
 - list_templates already filters by guild_id parameter, so test passes with current code
 - get_template test marked xfail because RLS not enabled yet - currently can fetch any template by ID
 - After RLS enabled in Phase 3, database query will return None for templates outside user's guilds
@@ -372,13 +418,17 @@ SELECT indexname FROM pg_indexes WHERE tablename IN ('game_sessions', 'game_temp
 **Test Command**: `docker compose --env-file config/env.int run --build --rm --no-deps integration-tests tests/integration/test_template_routes_guild_isolation.py -v`
 
 **Files Added**:
+
 - tests/integration/test_template_routes_guild_isolation.py - NEW integration test suite for template routes guild isolation
+
 #### Task 2.4: Migrate template route dependencies (7 functions)
+
 **Status**: ✅ Completed
 **Completed**: 2026-01-02
 **Details**: Migrated all 7 template route handler dependencies from `get_db` to `get_db_with_user_guilds` for automatic guild isolation RLS context setting. This is a transparent change with zero functional impact in Phase 2 (RLS disabled), but establishes the foundation for automatic database-level guild filtering when RLS is enabled in Phase 3.
 
 **Implementation**:
+
 - Modified services/api/routes/templates.py - Changed dependency in 7 route handlers:
   1. list_templates (line 47)
   2. get_template (line 128)
@@ -391,6 +441,7 @@ SELECT indexname FROM pg_indexes WHERE tablename IN ('game_sessions', 'game_temp
 - Changed to: `db: AsyncSession = Depends(database.get_db_with_user_guilds)`
 
 **Test Results**:
+
 - ✅ All 7 unit tests pass (tests/services/api/routes/test_templates.py)
 - ✅ All 2 integration tests pass, 1 xfail as expected (tests/integration/test_template_routes_guild_isolation.py)
 - ⚠️ 2 pre-existing failures in test_template_default_overrides.py confirmed to exist before Task 2.4 changes
@@ -401,16 +452,20 @@ SELECT indexname FROM pg_indexes WHERE tablename IN ('game_sessions', 'game_temp
 **Impact**: Zero breaking changes. All previously passing tests continue to pass. Template routes now ready for Phase 3 RLS enablement.
 
 **Files Modified**:
+
 - services/api/routes/templates.py - 7 dependency changes (lines 47, 128, 178, 242, 296, 328, 378)
 - shared/database.py - Changed CurrentUser import from TYPE_CHECKING forward reference to direct import to fix FastAPI OpenAPI schema generation
 
 **Issue Fixed**: After initial implementation, version endpoint test failed with Pydantic error during OpenAPI schema generation. Root cause: `get_db_with_user_guilds` used forward reference string `"auth_schemas.CurrentUser"` which FastAPI couldn't resolve. Fixed by importing `CurrentUser` directly instead of using TYPE_CHECKING conditional import.
+
 #### Task 2.5: Migrate guild routes dependency
+
 **Status**: ✅ Completed
 **Completed**: 2026-01-02
 **Details**: Migrated `list_guilds` route handler dependency from `get_db` to `get_db_with_user_guilds` for automatic guild isolation RLS context setting. Single-line change with zero functional impact in Phase 2 (RLS disabled), but establishes the foundation for automatic database-level guild filtering when RLS is enabled in Phase 3.
 
 **Implementation**:
+
 - Modified services/api/routes/guilds.py - Line 47, list_guilds function
 - Changed from: `db: AsyncSession = Depends(database.get_db)`
 - Changed to: `db: AsyncSession = Depends(database.get_db_with_user_guilds)`
@@ -418,6 +473,7 @@ SELECT indexname FROM pg_indexes WHERE tablename IN ('game_sessions', 'game_temp
 - All downstream logic unaffected (transparent change)
 
 **Test Results**:
+
 - ✅ All 13 unit tests pass (tests/services/api/routes/test_guilds.py)
 - Test command: `uv run pytest tests/services/api/routes/test_guilds.py -v`
 - Zero breaking changes to existing functionality
@@ -427,14 +483,17 @@ SELECT indexname FROM pg_indexes WHERE tablename IN ('game_sessions', 'game_temp
 **Impact**: Zero breaking changes. All previously passing tests continue to pass. Guild routes now ready for Phase 3 RLS enablement.
 
 **Files Modified**:
+
 - services/api/routes/guilds.py - 1 dependency change (line 47)
 
 #### Task 2.6: Migrate export route dependency
+
 **Status**: ✅ Completed
 **Completed**: 2026-01-02
 **Details**: Migrated `export_game` route handler dependency from `get_db` to `get_db_with_user_guilds` for automatic guild isolation RLS context setting. Single-line change with zero functional impact in Phase 2 (RLS disabled), but establishes the foundation for automatic database-level guild filtering when RLS is enabled in Phase 3.
 
 **Implementation**:
+
 - Modified services/api/routes/export.py - Line 92, export_game function
 - Changed from: `db: AsyncSession = Depends(database.get_db)`
 - Changed to: `db: AsyncSession = Depends(database.get_db_with_user_guilds)`
@@ -443,6 +502,7 @@ SELECT indexname FROM pg_indexes WHERE tablename IN ('game_sessions', 'game_temp
 - Updated tests/services/api/routes/test_export.py - All 4 test functions to override get_db_with_user_guilds instead of get_db (lines 96, 148, 191, 253)
 
 **Test Results**:
+
 - ✅ All 10 unit tests pass (tests/services/api/routes/test_export.py)
 - Test command: `uv run pytest tests/services/api/routes/test_export.py -v`
 - Zero breaking changes to existing functionality
@@ -451,16 +511,19 @@ SELECT indexname FROM pg_indexes WHERE tablename IN ('game_sessions', 'game_temp
 **Impact**: Zero breaking changes. All previously passing tests continue to pass. Export routes now ready for Phase 3 RLS enablement.
 
 **Files Modified**:
+
 - services/api/routes/export.py - 1 dependency change (line 92)
 - tests/services/api/routes/test_export.py - 4 test updates to override correct dependency (lines 96, 148, 191, 253)
 - services/api/routes/guilds.py - 1 dependency change (line 47)
 
 #### Task 2.7: Full test suite validation
+
 **Status**: ✅ Completed
 **Completed**: 2026-01-02
 **Details**: Comprehensive validation of all Phase 2 changes across unit, integration, and E2E test suites to confirm zero breaking changes and verify RLS context setting infrastructure is working correctly (even though RLS is not yet enforced).
 
 **Test Results**:
+
 - ✅ **Unit Tests**: 1004 passed in 29.46s
   - Command: `uv run pytest tests/shared/ tests/services/ -v`
   - All shared module tests pass
@@ -481,6 +544,7 @@ SELECT indexname FROM pg_indexes WHERE tablename IN ('game_sessions', 'game_temp
   - Zero failures or errors
 
 **Validation Summary**:
+
 - ✅ 8 locations migrated successfully (1 service factory + 7 route handlers)
 - ✅ RLS context set on every database query (even though not enforced yet)
 - ✅ Zero breaking changes across entire codebase
@@ -489,6 +553,7 @@ SELECT indexname FROM pg_indexes WHERE tablename IN ('game_sessions', 'game_temp
 - ✅ Ready for Phase 3: RLS enablement
 
 **Phase 2 Completion**: All tasks complete. Infrastructure is in place, all migrations complete, zero breaking changes confirmed across 1,125 total tests.
+
 ### Phase 3: Enable RLS + E2E Validation
 
 **Status**: ✅ Completed
@@ -496,11 +561,13 @@ SELECT indexname FROM pg_indexes WHERE tablename IN ('game_sessions', 'game_temp
 **Completed**: 2026-01-03
 
 #### Task 3.0: Multi-guild E2E infrastructure setup
+
 **Status**: ✅ Completed
 **Completed**: 2026-01-02
 **Details**: Set up Guild B, User B, and E2E fixtures for cross-guild isolation testing. This infrastructure enables Phase 3.1 E2E tests that verify users cannot access games/templates from other guilds.
 
 **Implementation**:
+
 - Modified config/env.e2e - Added environment variables for Guild B configuration (lines after DISCORD_USER_ID):
   - DISCORD_GUILD_B_ID (required - second test guild for isolation tests)
   - DISCORD_CHANNEL_B_ID (required - channel in Guild B)
@@ -537,6 +604,7 @@ SELECT indexname FROM pg_indexes WHERE tablename IN ('game_sessions', 'game_temp
   - All tests fail with clear messages if Guild B not configured
 
 **Test Results**:
+
 - ✅ Tests will validate proper Guild B configuration before isolation testing
 - ✅ Clear failure messages guide setup if Guild B not configured
 - ✅ Tests ensure proper isolation (User A ∉ Guild B, User B ∉ Guild A)
@@ -544,6 +612,7 @@ SELECT indexname FROM pg_indexes WHERE tablename IN ('game_sessions', 'game_temp
 **Impact**: Infrastructure ready for Task 3.1 E2E cross-guild isolation tests. Guild B setup is required for E2E tests - tests will fail with clear messages if not configured.
 
 **Files Modified**:
+
 - config/env.e2e - Added 4 optional environment variables for Guild B (uncommented for E2E use)
 - config/env.dev - Added 4 optional Guild B environment variables (commented out)
 - config/env.int - Added 4 optional Guild B environment variables (commented out)
@@ -557,11 +626,13 @@ SELECT indexname FROM pg_indexes WHERE tablename IN ('game_sessions', 'game_temp
 - TESTING_E2E.md - Added Guild B setup section and documentation
 
 #### Task 3.1: Write E2E tests for cross-guild isolation
+
 **Status**: ✅ Completed
 **Completed**: 2026-01-03
 **Details**: Created comprehensive E2E tests verifying cross-guild isolation before RLS enablement. Tests document expected behavior and serve as acceptance criteria for Phase 3.2+ when RLS is enabled.
 
 **Implementation**:
+
 - Created tests/e2e/test_guild_isolation_e2e.py with 8 comprehensive test cases:
   - test_user_cannot_list_games_from_other_guilds - Verifies game list filtering per guild
   - test_user_cannot_get_game_from_other_guild_by_id - Verifies 404 for cross-guild game access
@@ -577,6 +648,7 @@ SELECT indexname FROM pg_indexes WHERE tablename IN ('game_sessions', 'game_temp
 - Fixtures handle game creation, cleanup, and database polling for reliability
 
 **Test Results**:
+
 - ✅ All 8 tests created with proper xfail markers
 - ⚠️ Tests expected to fail until RLS enabled in Phase 3.2+
 - ✅ Tests document acceptance criteria for RLS enablement
@@ -585,59 +657,71 @@ SELECT indexname FROM pg_indexes WHERE tablename IN ('game_sessions', 'game_temp
 **Impact**: Complete E2E test coverage for cross-guild isolation scenarios. Tests will transition from xfail to passing when RLS is enabled in subsequent tasks.
 
 **Files Added**:
+
 - tests/e2e/test_guild_isolation_e2e.py - NEW E2E test suite with 8 comprehensive cross-guild isolation tests
 
 #### Task 3.2: Enable RLS on game_sessions table
+
 **Status**: ✅ Completed
 **Completed**: 2026-01-03
 **Details**: Created and applied Alembic migration bee86ec99cfa to enable Row-Level Security on game_sessions table, activating the guild_isolation_games policy created in Phase 1.
 
 **Implementation**:
+
 - Migration alembic/versions/bee86ec99cfa_enable_rls_game_sessions.py executes `ALTER TABLE game_sessions ENABLE ROW LEVEL SECURITY`
 - guild_isolation_games policy now enforces guild isolation at database level
 - All SELECT/INSERT/UPDATE/DELETE operations on game_sessions automatically filtered by app.current_guild_ids
 
 **Test Results**:
+
 - ✅ Migration applied successfully
 - ✅ RLS enabled and enforced on game_sessions table
 - ✅ Guild isolation working at database level for games
 
 #### Task 3.3: Enable RLS on game_templates table
+
 **Status**: ✅ Completed
 **Completed**: 2026-01-03
 **Details**: Created and applied Alembic migration d7f8e3a1b9c4 to enable Row-Level Security on game_templates table, activating the guild_isolation_templates policy created in Phase 1.
 
 **Implementation**:
+
 - Migration alembic/versions/d7f8e3a1b9c4_enable_rls_game_templates.py executes `ALTER TABLE game_templates ENABLE ROW LEVEL SECURITY`
 - guild_isolation_templates policy now enforces guild isolation at database level
 - All SELECT/INSERT/UPDATE/DELETE operations on game_templates automatically filtered by app.current_guild_ids
 
 **Test Results**:
+
 - ✅ Migration applied successfully
 - ✅ RLS enabled and enforced on game_templates table
 - ✅ Guild isolation working at database level for templates
 
 #### Task 3.4: Enable RLS on game_participants table
+
 **Status**: ✅ Completed
 **Completed**: 2026-01-03
 **Details**: Created and applied Alembic migration 13625652ab09 to enable Row-Level Security on game_participants table, activating the guild_isolation_participants policy created in Phase 1.
 
 **Implementation**:
+
 - Migration alembic/versions/13625652ab09_enable_rls_game_participants.py executes `ALTER TABLE game_participants ENABLE ROW LEVEL SECURITY`
 - guild_isolation_participants policy now enforces guild isolation at database level via subquery join to game_sessions
 - All SELECT/INSERT/UPDATE/DELETE operations on game_participants automatically filtered by guild context
 
 **Test Results**:
+
 - ✅ Migration applied successfully
 - ✅ RLS enabled and enforced on game_participants table
 - ✅ Guild isolation working at database level for participants
 
 #### Task 3.5: Verify E2E tests pass with RLS enabled
+
 **Status**: ✅ Completed
 **Completed**: 2026-01-03
 **Details**: Verified all 8 E2E guild isolation tests now pass with RLS enabled. Removed xfail markers from test_guild_isolation_e2e.py as tests now pass with RLS enforcement.
 
 **Test Results**:
+
 - ✅ All 8 E2E cross-guild isolation tests passing
 - ✅ Guild isolation working correctly across all operations (list, get, join, update, delete)
 - ✅ Template isolation working correctly
@@ -645,14 +729,17 @@ SELECT indexname FROM pg_indexes WHERE tablename IN ('game_sessions', 'game_temp
 - ✅ Users cannot access data from other guilds at database level
 
 #### Task 3.6: Production readiness validation
+
 **Status**: ✅ Completed
 **Completed**: 2026-01-03
 **Details**: Validated production readiness documentation and confirmed all checklist items complete. Documentation provides comprehensive guidance for deployment and monitoring.
 
 **Files**:
+
 - docs/PRODUCTION_READINESS_GUILD_ISOLATION.md - Complete production deployment guide with validation steps, monitoring, and rollback procedures
 
 **Validation**:
+
 - ✅ Implementation validation documented
 - ✅ Pre-production checklist complete
 - ✅ Rollback procedures documented
@@ -660,11 +747,13 @@ SELECT indexname FROM pg_indexes WHERE tablename IN ('game_sessions', 'game_temp
 - ✅ Deployment plan documented
 
 #### Task 3.7: Final comprehensive test suite validation
+
 **Status**: ✅ Completed
 **Completed**: 2026-01-03
 **Details**: Ran complete test suite (unit, integration, E2E) to verify zero breaking changes and confirm all guild isolation functionality working correctly with RLS enabled.
 
 **Test Results**:
+
 - ✅ All unit tests pass
 - ✅ All integration tests pass
 - ✅ All E2E tests pass (including 8 new guild isolation tests)
@@ -678,6 +767,7 @@ SELECT indexname FROM pg_indexes WHERE tablename IN ('game_sessions', 'game_temp
 **Completion Date**: 2026-01-03
 
 All phases complete. Middleware-based guild isolation with Row-Level Security successfully implemented with:
+
 - Zero breaking changes to existing code
 - Transparent database-level enforcement
 - Comprehensive test coverage (unit, integration, E2E)

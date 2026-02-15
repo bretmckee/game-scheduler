@@ -2,7 +2,7 @@
 
 # Release Changes: Ruff Linting Rules Expansion
 
-**Related Plan**: 20260125-ruff-rules-expansion-plan.instructions.md
+**Related Plan**: 20260125-ruff-rules-expansion.plan.md
 **Implementation Date**: 2026-01-25
 
 ## Summary
@@ -41,11 +41,11 @@ Incrementally expanding Ruff linting rules across 7 phases to address 878 violat
 - scripts/check_commit_duplicates.py - Removed unnecessary else after return statement (RET505)
 - services/api/dependencies/permissions.py - Removed unnecessary variable assignments before return in can_manage_game and can_export_game (RET504)
 - services/api/routes/templates.py - Removed superfluous else after raise in list_templates error handling (RET506)
-- services/api/services/display_names.py - Removed empty TYPE_CHECKING block (TC005) and simplified nested if-else in _build_avatar_url (RET505)
-- services/api/services/participant_resolver.py - Removed unnecessary assignment before return in _search_guild_members (RET504)
+- services/api/services/display_names.py - Removed empty TYPE_CHECKING block (TC005) and simplified nested if-else in \_build_avatar_url (RET505)
+- services/api/services/participant_resolver.py - Removed unnecessary assignment before return in \_search_guild_members (RET504)
 - services/bot/bot.py - Moved circular import forward declarations into proper TYPE_CHECKING block (TC001)
 - services/bot/commands/decorators.py - Added explicit None returns to improve consistency (RET502)
-- services/bot/events/handlers.py - Moved Callable import to TYPE_CHECKING block (TC003) and removed unnecessary assignment in _fetch_game_for_refresh (RET504)
+- services/bot/events/handlers.py - Moved Callable import to TYPE_CHECKING block (TC003) and removed unnecessary assignment in \_fetch_game_for_refresh (RET504)
 - services/bot/utils/discord_format.py - Simplified nested if-else chain in format_duration (RET505)
 - services/scheduler/generic_scheduler_daemon.py - Moved Session import to TYPE_CHECKING block (TC002)
 - shared/cache/client.py - Removed unnecessary assignments before return in get and expire methods (RET504)
@@ -72,7 +72,7 @@ Incrementally expanding Ruff linting rules across 7 phases to address 878 violat
 - shared/database_objects.py - Refactored 4 section header comments to avoid ERA001 false positives while maintaining purpose documentation
 - services/api/services/games.py - Combined nested if statements using and operator for template signup method validation (SIM102)
 - services/bot/bot.py - Combined nested if statements for button handler interaction type check (SIM102)
-- shared/telemetry.py - Added noqa:PLC2701 comments for intentional OpenTelemetry private API imports (_log_exporter and _logs modules)
+- shared/telemetry.py - Added noqa:PLC2701 comments for intentional OpenTelemetry private API imports (\_log_exporter and \_logs modules)
 - scripts/check_commit_duplicates.py - Added explicit encoding='utf-8' to open() call (PLW1514)
 - services/bot/formatters/game_message.py - Replaced try-except-pass with contextlib.suppress for status display error handling (SIM105)
 - services/bot/handlers/utils.py - Replaced try-except-pass with contextlib.suppress for interaction defer error handling (SIM105)
@@ -161,7 +161,7 @@ Incrementally expanding Ruff linting rules across 7 phases to address 878 violat
 - shared/schemas/game.py - Extracted 3 exception messages to variables (EM102: validation failures)
 - shared/utils/discord_tokens.py - Extracted 2 exception messages to variables (EM102: token parsing failures)
 - pyproject.toml - Added EM (flake8-errmsg) to select list for Phase 4.1a
-- .copilot-tracking/plans/20260125-ruff-rules-expansion-plan.instructions.md - Split Task 4.1 into 4.1a (EM complete) and 4.1b (RUF100 deferred to Phase 7 Task 7.3)
+- .copilot-tracking/plans/20260125-ruff-rules-expansion.plan.md - Split Task 4.1 into 4.1a (EM complete) and 4.1b (RUF100 deferred to Phase 7 Task 7.3)
 - .copilot-tracking/details/20260125-ruff-rules-expansion-details.md - Documented RUF100 deferral rationale and added Task 7.3 for manual cleanup after all rules enabled
 - scripts/init_rabbitmq.py - Converted logger.error with exc_info=True to logger.exception for proper exception handling (G201)
 - services/api/middleware/authorization.py - Converted logger.error with exc_info=True to logger.exception for request failure handling (G201)
@@ -179,16 +179,16 @@ Incrementally expanding Ruff linting rules across 7 phases to address 878 violat
 - services/api/routes/templates.py - Fixed RUF015 by replacing list(item.keys())[0] with next(iter(item.keys())) for template ID extraction
 - services/api/routes/games.py - Fixed RUF059 by prefixing unused total variable with underscore in list_games
 - services/api/services/games.py - Fixed 3 RUF059 violations by prefixing unused unpacked variables with underscores (actual_host_user_id, old_max_players, old_participants_snapshot)
-- services/bot/events/handlers.py - Fixed 2 RUF059 violations by prefixing unused channel variables with underscores; Fixed RUF006 by storing asyncio.create_task reference in _background_tasks set with cleanup callback
+- services/bot/events/handlers.py - Fixed 2 RUF059 violations by prefixing unused channel variables with underscores; Fixed RUF006 by storing asyncio.create_task reference in \_background_tasks set with cleanup callback
 - services/scheduler/config.py - Fixed RUF012 by annotating CELERY_ACCEPT_CONTENT with ClassVar[list[str]]
-- services/bot/commands/decorators.py - Fixed RUF022 by sorting __all__ exports alphabetically
-- shared/__init__.py - Fixed RUF022 by sorting __all__ exports alphabetically
-- shared/cache/__init__.py - Fixed RUF022 by sorting __all__ exports alphabetically
+- services/bot/commands/decorators.py - Fixed RUF022 by sorting **all** exports alphabetically
+- shared/**init**.py - Fixed RUF022 by sorting **all** exports alphabetically
+- shared/cache/**init**.py - Fixed RUF022 by sorting **all** exports alphabetically
 - shared/discord/client.py - Fixed 6 RUF010 violations by converting str(e) to !s format in network error messages
-- shared/messaging/__init__.py - Fixed RUF022 by sorting __all__ exports alphabetically
-- shared/models/__init__.py - Fixed RUF022 by sorting __all__ exports alphabetically
-- shared/schemas/__init__.py - Fixed RUF022 by sorting __all__ exports alphabetically (complex multi-section list)
-- shared/utils/__init__.py - Fixed RUF022 by sorting __all__ exports alphabetically (multi-section list)
+- shared/messaging/**init**.py - Fixed RUF022 by sorting **all** exports alphabetically
+- shared/models/**init**.py - Fixed RUF022 by sorting **all** exports alphabetically
+- shared/schemas/**init**.py - Fixed RUF022 by sorting **all** exports alphabetically (complex multi-section list)
+- shared/utils/**init**.py - Fixed RUF022 by sorting **all** exports alphabetically (multi-section list)
 
 ### Rejected Rules
 
@@ -226,7 +226,7 @@ Applied comprehensive type annotations throughout the codebase, fixing all ANN v
 
 ### Phase 5 Approach
 
-1. Auto-fixed 27 ANN204 violations (missing __init__ return types) with `ruff check --select ANN204 --fix --unsafe-fixes`
+1. Auto-fixed 27 ANN204 violations (missing **init** return types) with `ruff check --select ANN204 --fix --unsafe-fixes`
 2. Manually fixed 45 remaining violations:
    - Added return type annotations to public and private functions
    - Added parameter type annotations to function arguments
@@ -237,35 +237,37 @@ Applied comprehensive type annotations throughout the codebase, fixing all ANN v
 ### Phase 5 Core Changes
 
 **Auto-fixed ANN204 violations (27 files)**:
-- services/api/auth/__init__.py - Added `-> None` return type to `__init__`
-- services/api/database/__init__.py - Added `-> None` return type to `__init__`
-- services/api/dependencies/__init__.py - Added `-> None` return type to `__init__`
-- services/api/routes/__init__.py - Added `-> None` return type to `__init__`
-- services/api/services/__init__.py - Added `-> None` return type to `__init__`
-- services/bot/__init__.py - Added `-> None` return type to `__init__`
-- services/bot/auth/__init__.py - Added `-> None` return type to `__init__`
-- services/bot/commands/__init__.py - Added `-> None` return type to `__init__`
-- services/bot/events/__init__.py - Added `-> None` return type to `__init__`
-- services/bot/formatters/__init__.py - Added `-> None` return type to `__init__`
-- services/bot/handlers/__init__.py - Added `-> None` return type to `__init__`
-- services/bot/views/__init__.py - Added `-> None` return type to `__init__`
-- services/init/__init__.py - Added `-> None` return type to `__init__`
-- services/retry/__init__.py - Added `-> None` return type to `__init__`
-- services/scheduler/__init__.py - Added `-> None` return type to `__init__`
-- shared/__init__.py - Added `-> None` return type to `__init__`
-- shared/cache/__init__.py - Added `-> None` return type to `__init__`
-- shared/data_access/__init__.py - Added `-> None` return type to `__init__`
-- shared/discord/__init__.py - Added `-> None` return type to `__init__`
-- shared/messaging/__init__.py - Added `-> None` return type to `__init__`
-- shared/models/__init__.py - Added `-> None` return type to `__init__`
-- shared/schemas/__init__.py - Added `-> None` return type to `__init__`
-- shared/services/__init__.py - Added `-> None` return type to `__init__`
-- shared/utils/__init__.py - Added `-> None` return type to `__init__`
-- tests/__init__.py - Added `-> None` return type to `__init__`
-- tests/services/__init__.py - Added `-> None` return type to `__init__`
-- tests/shared/__init__.py - Added `-> None` return type to `__init__`
+
+- services/api/auth/**init**.py - Added `-> None` return type to `__init__`
+- services/api/database/**init**.py - Added `-> None` return type to `__init__`
+- services/api/dependencies/**init**.py - Added `-> None` return type to `__init__`
+- services/api/routes/**init**.py - Added `-> None` return type to `__init__`
+- services/api/services/**init**.py - Added `-> None` return type to `__init__`
+- services/bot/**init**.py - Added `-> None` return type to `__init__`
+- services/bot/auth/**init**.py - Added `-> None` return type to `__init__`
+- services/bot/commands/**init**.py - Added `-> None` return type to `__init__`
+- services/bot/events/**init**.py - Added `-> None` return type to `__init__`
+- services/bot/formatters/**init**.py - Added `-> None` return type to `__init__`
+- services/bot/handlers/**init**.py - Added `-> None` return type to `__init__`
+- services/bot/views/**init**.py - Added `-> None` return type to `__init__`
+- services/init/**init**.py - Added `-> None` return type to `__init__`
+- services/retry/**init**.py - Added `-> None` return type to `__init__`
+- services/scheduler/**init**.py - Added `-> None` return type to `__init__`
+- shared/**init**.py - Added `-> None` return type to `__init__`
+- shared/cache/**init**.py - Added `-> None` return type to `__init__`
+- shared/data_access/**init**.py - Added `-> None` return type to `__init__`
+- shared/discord/**init**.py - Added `-> None` return type to `__init__`
+- shared/messaging/**init**.py - Added `-> None` return type to `__init__`
+- shared/models/**init**.py - Added `-> None` return type to `__init__`
+- shared/schemas/**init**.py - Added `-> None` return type to `__init__`
+- shared/services/**init**.py - Added `-> None` return type to `__init__`
+- shared/utils/**init**.py - Added `-> None` return type to `__init__`
+- tests/**init**.py - Added `-> None` return type to `__init__`
+- tests/services/**init**.py - Added `-> None` return type to `__init__`
+- tests/shared/**init**.py - Added `-> None` return type to `__init__`
 
 **Manual type annotation additions**:
+
 - conftest.py - Added `-> list[dict[str, Any]]` return type to mock_oauth2_get_user_guilds fixture
 - scripts/check_commit_duplicates.py - Added `-> None` return type to main function
 - scripts/verify_button_states.py - Added return types to 4 functions: `load_guilds() -> dict[str, dict]`, `verify_guild() -> bool`, `format_participants() -> str`, `main() -> None`
@@ -283,7 +285,7 @@ Applied comprehensive type annotations throughout the codebase, fixing all ANN v
 - services/scheduler/notification_daemon_wrapper.py - Added `from typing import Any`; fixed variable reference from `_signum` to `signum` in signal handlers
 - services/scheduler/status_transition_daemon_wrapper.py - Added `from typing import Any`; fixed variable reference from `_signum` to `signum` in signal handlers
 - shared/cache/client.py - Added `noqa:ANN401` to `get_json() -> Any` return type and `set_json(value: Any)` parameter
-- shared/data_access/guild_isolation.py - Added type imports; added type annotations to `set_rls_context_on_transaction_begin(conn: Connection, _: Any)` parameters  # noqa:ANN401
+- shared/data*access/guild_isolation.py - Added type imports; added type annotations to `set_rls_context_on_transaction_begin(conn: Connection, *: Any)` parameters # noqa:ANN401
 - shared/database.py - Added Any import; added return types `-> AsyncGenerator[AsyncSession, None]` to get_db_with_user_guilds and `-> Generator[Session, None, None]` to get_sync_db_session
 - shared/telemetry.py - Added Tracer import; added `-> Tracer` return type to get_tracer
 - test_oauth.py - Added `-> None` return type to test_oauth_flow function
@@ -294,6 +296,7 @@ Applied comprehensive type annotations throughout the codebase, fixing all ANN v
 - pyproject.toml - Added `"ANN101", "ANN102"` to ignore list (deprecated rules for self/cls annotations)
 
 **Verification**:
+
 - Zero production code violations: `ruff check --exclude tests` passes with 0 errors
 - All 1391 tests pass: `pytest -xvs` successful
 - Pre-commit hooks pass: ruff formatting, ruff linting with full ANN rules enabled
@@ -307,21 +310,21 @@ Applied comprehensive type annotations throughout the codebase, fixing all ANN v
 Fixed all 27 ARG violations by prefixing unused parameters with underscore to indicate they are intentionally unused, following Python conventions for framework-required signatures:
 
 - services/api/app.py - Prefixed `app` parameter with underscore in lifespan context manager (FastAPI framework requirement)
-- services/api/dependencies/permissions.py - Prefixed unused `db`, `role_service`, and `db` parameters in verify_guild_membership, _require_permission, and _get_guild_id functions
+- services/api/dependencies/permissions.py - Prefixed unused `db`, `role_service`, and `db` parameters in verify_guild_membership, \_require_permission, and \_get_guild_id functions
 - services/api/middleware/error_handler.py - Prefixed unused `request` parameter with underscore in 3 FastAPI exception handlers (validation_exception_handler, database_exception_handler, general_exception_handler)
 - services/api/routes/auth.py - Prefixed unused `db` parameter in get_user_info for future database operations
 - services/api/routes/channels.py - Prefixed unused `current_user` parameters in create_channel_config and update_channel_config (permission checking done by dependency)
-- services/api/routes/games.py - Prefixed unused `current_user` parameter in _get_game_service dependency
+- services/api/routes/games.py - Prefixed unused `current_user` parameter in \_get_game_service dependency
 - services/api/services/calendar_export.py - Prefixed unused `user_id` and `discord_id` parameters in export_game for future authorization enhancements
 - services/api/services/participant_resolver.py - Prefixed unused `access_token` parameter in search_members for future Discord API enhancements
 - services/bot/auth/role_checker.py - Prefixed unused `channel_id` parameter in check_game_host_permission for future channel-specific permissions
 - services/bot/bot.py - Prefixed unused `args` and `kwargs` parameters in on_error method (discord.py event handler signature requirement)
-- services/bot/events/handlers.py - Prefixed unused `reminder_minutes` parameter in _send_reminder_dm for future reminder customization
-- services/bot/formatters/game_message.py - Prefixed unused `signup_instructions` parameter in _build_footer_text for future UI enhancements
+- services/bot/events/handlers.py - Prefixed unused `reminder_minutes` parameter in \_send_reminder_dm for future reminder customization
+- services/bot/formatters/game_message.py - Prefixed unused `signup_instructions` parameter in \_build_footer_text for future UI enhancements
 - services/bot/utils/discord_format.py - Prefixed unused `bot` parameter in get_member_display_info for future direct API calls
-- services/retry/retry_daemon.py - Prefixed unused `options` parameter in _observe_dlq_depth (OpenTelemetry callback signature requirement)
+- services/retry/retry_daemon.py - Prefixed unused `options` parameter in \_observe_dlq_depth (OpenTelemetry callback signature requirement)
 - services/retry/retry_daemon_wrapper.py - Prefixed unused `frame` parameter in signal_handler (signal handler signature requirement)
-- services/scheduler/generic_scheduler_daemon.py - Prefixed unused `process_dlq` parameter in __init__ for future DLQ processing support
+- services/scheduler/generic_scheduler_daemon.py - Prefixed unused `process_dlq` parameter in **init** for future DLQ processing support
 - services/scheduler/notification_daemon_wrapper.py - Prefixed unused `frame` parameter in signal_handler (signal handler signature requirement)
 - services/scheduler/status_transition_daemon_wrapper.py - Prefixed unused `frame` parameter in signal_handler (signal handler signature requirement)
 - shared/data_access/guild_isolation.py - Prefixed unused `session` and `transaction` parameters in set_rls_context_on_transaction_begin (SQLAlchemy event listener signature requirement)
@@ -330,9 +333,10 @@ Fixed all 27 ARG violations by prefixing unused parameters with underscore to in
 
 - pyproject.toml - Added ARG (flake8-unused-arguments) to select list
 - pyproject.toml - Added ARG001, ARG002, ARG004, ARG005 to per-file-ignores for tests (unused arguments common in test fixtures, mocks, and helpers)
-- tests/services/bot/events/test_handlers.py - Updated 3 test calls to _send_reminder_dm to use renamed _reminder_minutes parameter
-- services/bot/formatters/game_message.py - Updated format_game_announcement to pass _signup_instructions instead of signup_instructions
+- tests/services/bot/events/test_handlers.py - Updated 3 test calls to \_send_reminder_dm to use renamed \_reminder_minutes parameter
+- services/bot/formatters/game_message.py - Updated format_game_announcement to pass \_signup_instructions instead of signup_instructions
 - Verified zero violations: `ruff check --select ARG` returns clean
+
 ## Phase 7: Final Integration (In Progress)
 
 **Task 7.1: Update pre-commit hooks and CI/CD (Complete)**
@@ -347,11 +351,12 @@ Verified that pre-commit hooks and CI/CD pipeline properly use expanded Ruff rul
 - Verified all unit tests pass: 1391 tests passed in test suite
 
 **Configuration Status**:
+
 - Pre-commit hooks: ✅ Configured to use full pyproject.toml rule set with auto-fix
 - CI/CD Pipeline: ✅ Configured to enforce full pyproject.toml rule set
 - Developer workflow: ✅ No changes needed - existing hooks already optimal
 - Production code: ✅ Zero violations across all enabled rules (S, ASYNC, FAST, RET, SIM, TC, PLE, PLW, PLC, T20, ERA, A, DTZ, ICN, PT, G, EM, PERF, LOG, RUF, ARG)
-**Task 7.2: Fix ANN101/ANN102 deprecated warnings (Complete)**
+  **Task 7.2: Fix ANN101/ANN102 deprecated warnings (Complete)**
 
 - pyproject.toml - Removed ANN101 and ANN102 from ignore list as these rules have been removed from Ruff
 - Verified warning messages: "The following rules have been removed and ignoring them has no effect: ANN101, ANN102"

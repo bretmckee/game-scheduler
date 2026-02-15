@@ -2,7 +2,7 @@
 
 # Release Changes: Remaining Test Fixture Duplication Cleanup
 
-**Related Plan**: 20260107-remaining-fixture-duplication-plan.instructions.md
+**Related Plan**: 20260107-remaining-fixture-duplication.plan.md
 **Implementation Date**: 2026-01-07
 
 ## Summary

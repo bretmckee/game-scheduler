@@ -2,7 +2,7 @@
 
 # Release Changes: Duplicate Code Elimination
 
-**Related Plan**: 20260114-duplicate-code-elimination-plan.instructions.md
+**Related Plan**: 20260114-duplicate-code-elimination.plan.md
 **Implementation Date**: 2026-01-17
 
 ## Summary
@@ -126,17 +126,17 @@ Note: The plan file lists Tasks 4.2 (Create TemplateUpdate utility type) and 4.3
 
 - [shared/discord/game_embeds.py](shared/discord/game_embeds.py) - Centralized game list embed formatting function
 - [tests/shared/discord/test_game_embeds.py](tests/shared/discord/test_game_embeds.py) - Comprehensive unit tests for game embed builder
-- New helper methods added to existing files (build_template_response, _make_api_request, _fetch_channel_and_message)
+- New helper methods added to existing files (build_template_response, \_make_api_request, \_fetch_channel_and_message)
 
 ### Files Modified (7)
 
 - [services/api/routes/templates.py](services/api/routes/templates.py) - Added build_template_response helper, refactored 4 endpoints
 - [tests/services/api/routes/test_templates.py](tests/services/api/routes/test_templates.py) - Added helper tests, updated endpoint tests
-- [shared/discord/client.py](shared/discord/client.py) - Added _make_api_request base method, refactored 5 API methods
+- [shared/discord/client.py](shared/discord/client.py) - Added \_make_api_request base method, refactored 5 API methods
 - [tests/shared/discord/test_client.py](tests/shared/discord/test_client.py) - Added base method tests, updated API method tests
 - [services/bot/commands/list_games.py](services/bot/commands/list_games.py) - Removed duplicate embed function, use shared function
 - [services/bot/commands/my_games.py](services/bot/commands/my_games.py) - Removed duplicate embed function, use shared function
-- [services/bot/events/handlers.py](services/bot/events/handlers.py) - Added _fetch_channel_and_message helper, refactored 2 handlers, removed 67 lines of duplicate code
+- [services/bot/events/handlers.py](services/bot/events/handlers.py) - Added \_fetch_channel_and_message helper, refactored 2 handlers, removed 67 lines of duplicate code
 - [tests/services/bot/events/test_handlers.py](tests/services/bot/events/test_handlers.py) - Added helper tests, updated handler tests
 - [frontend/src/types/index.ts](frontend/src/types/index.ts) - Refactored TemplateUpdateRequest to use TypeScript utility types
 - [.jscpd.json](.jscpd.json) - Updated duplication threshold from 5% to 3%

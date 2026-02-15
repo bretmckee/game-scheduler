@@ -2,7 +2,7 @@
 
 # Release Changes: Fix Promotion Detection Bug with Placeholder Participants
 
-**Related Plan**: 20251224-promotion-detection-placeholder-bug-plan.instructions.md
+**Related Plan**: 20251224-promotion-detection-placeholder-bug.plan.md
 **Implementation Date**: 2025-12-24
 
 ## Summary
@@ -28,13 +28,14 @@ Fix waitlist promotion detection bug where users are not notified when promoted 
 - shared/utils/participant_sorting.py - Updated partition_participants() to use DEFAULT_MAX_PLAYERS constant
 - tests/shared/utils/test_participant_sorting.py - Updated tests to use DEFAULT_MAX_PLAYERS constant instead of hardcoded 10
 - services/api/services/games.py - Updated update_game() to use partition_participants() for old state overflow detection (Task 2.1)
-- services/api/services/games.py - Updated _detect_and_notify_promotions() to use partition_participants() for current state promotion detection (Task 2.2)
-- services/bot/events/handlers.py - Added partition_participants import and updated _handle_game_reminder() to use centralized partitioning utility (Task 3.1)
-- services/bot/events/handlers.py - Updated _handle_join_notification() to use partition_participants() for checking confirmed status (Task 3.2)
-- services/bot/events/handlers.py - Updated _handle_game_cancelled() helper to use partition_participants() for extracting participant IDs (Task 3.3)
+- services/api/services/games.py - Updated \_detect_and_notify_promotions() to use partition_participants() for current state promotion detection (Task 2.2)
+- services/bot/events/handlers.py - Added partition_participants import and updated \_handle_game_reminder() to use centralized partitioning utility (Task 3.1)
+- services/bot/events/handlers.py - Updated \_handle_join_notification() to use partition_participants() for checking confirmed status (Task 3.2)
+- services/bot/events/handlers.py - Updated \_handle_game_cancelled() helper to use partition_participants() for extracting participant IDs (Task 3.3)
 - services/api/routes/games.py - Updated download_calendar() to use partition_participants() for consistent participant partitioning (Task 4.1)
 
 ### Removed
+
 ### Skipped
 
 - Phase 5: Verification and Testing - Skipped as requested; manual testing and verification can be performed as needed

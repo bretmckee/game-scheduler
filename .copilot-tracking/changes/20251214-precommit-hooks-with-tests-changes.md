@@ -2,7 +2,7 @@
 
 # Release Changes: Pre-commit Hook Implementation with Intelligent Test Running
 
-**Related Plan**: 20251214-precommit-hooks-with-tests-plan.instructions.md
+**Related Plan**: 20251214-precommit-hooks-with-tests.plan.md
 **Implementation Date**: 2024-12-14
 
 ## Summary
@@ -61,12 +61,14 @@ None
 ### Deployment Notes
 
 **Setup Required:**
+
 1. Team members need to run `uv tool run pre-commit install` to activate hooks locally
 2. Hooks run automatically on every commit
 3. Performance expectation: 15-45 seconds per commit (tests only modified files)
 4. Emergency skip available with `--no-verify` flag
 
 **Key Features:**
+
 - Automatic code quality checks prevent committing files with lint/format errors
 - Intelligent test execution runs only tests for new/modified files
 - Manual hooks available for comprehensive test validation (pytest-all, vitest-all, ci-cd-workflow)
@@ -74,6 +76,7 @@ None
 - Maintains CI/CD as authoritative test suite
 
 **Manual Hooks Available:**
+
 - `pytest-all` - Run all Python unit tests
 - `vitest-all` - Run all frontend unit tests
 - `ci-cd-workflow` - Run full CI/CD pipeline locally (requires Docker, takes ~1-2 minutes)

@@ -2,7 +2,7 @@
 
 # Release Changes: Deployment Configuration Organization
 
-**Related Plan**: 20251226-deployment-config-organization-plan.instructions.md
+**Related Plan**: 20251226-deployment-config-organization.plan.md
 **Implementation Date**: 2025-12-26
 
 ## Summary

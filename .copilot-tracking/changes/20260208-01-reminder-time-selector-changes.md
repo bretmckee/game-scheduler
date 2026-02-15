@@ -2,7 +2,7 @@
 
 # Release Changes: Reminder Time Selector Component
 
-**Related Plan**: 20260208-01-reminder-time-selector-plan.instructions.md
+**Related Plan**: 20260208-01-reminder-time-selector.plan.md
 **Implementation Date**: 2026-02-08
 
 ## Summary

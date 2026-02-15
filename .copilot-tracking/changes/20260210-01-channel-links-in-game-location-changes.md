@@ -2,7 +2,7 @@
 
 # Release Changes: Discord Channel Links in Game Location Field
 
-**Related Plan**: 20260210-01-channel-links-in-game-location-plan.instructions.md
+**Related Plan**: 20260210-01-channel-links-in-game-location.plan.md
 **Implementation Date**: 2026-02-10
 
 ## Summary

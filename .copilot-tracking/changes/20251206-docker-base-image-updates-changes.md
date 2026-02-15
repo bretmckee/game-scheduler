@@ -2,7 +2,7 @@
 
 # Release Changes: Docker Base Image Version Updates
 
-**Related Plan**: 20251206-docker-base-image-updates-plan.instructions.md
+**Related Plan**: 20251206-docker-base-image-updates.plan.md
 **Implementation Date**: 2025-12-06
 
 ## Summary
@@ -130,7 +130,7 @@ PostgreSQL 15→17, and optionally Node.js 20→22.
 - .github/instructions/python.instructions.md - Updated Python version reference
   from 3.11+ to 3.13+
 - RUNTIME_CONFIG.md - Added documentation note about current base image versions
-- .copilot-tracking/plans/20251206-docker-base-image-updates-plan.instructions.md -
+- .copilot-tracking/plans/20251206-docker-base-image-updates.plan.md -
   Marked all phases complete
 
 ### Files Removed (0)

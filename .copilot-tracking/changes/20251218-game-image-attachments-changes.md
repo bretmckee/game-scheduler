@@ -2,7 +2,7 @@
 
 # Release Changes: Game Image Upload Feature
 
-**Related Plan**: 20251218-game-image-attachments-plan.instructions.md
+**Related Plan**: 20251218-game-image-attachments.plan.md
 **Implementation Date**: 2025-12-21
 
 ## Summary
@@ -24,7 +24,7 @@ Adding support for uploading and displaying thumbnail and banner images for game
 - services/api/routes/games.py - Updated GameResponse construction to populate has_thumbnail and has_image based on presence of image data
 - services/bot/formatters/game_message.py - Added thumbnail_url and image_url parameters to create_game_embed and format_game_announcement, generate URLs from API_BASE_URL config, set thumbnail and image on Discord embeds
 - services/bot/config.py - Added api_base_url configuration field for generating image URLs
-- services/bot/events/handlers.py - Updated _format_game_message to check for image data and pass has_thumbnail and has_image flags to format_game_announcement
+- services/bot/events/handlers.py - Updated \_format_game_message to check for image data and pass has_thumbnail and has_image flags to format_game_announcement
 - env/env.dev - Added API_BASE_URL with documentation for Cloudflare Tunnel setup, added CLOUDFLARE_TUNNEL_TOKEN configuration
 - env/env.int - Added API_BASE_URL=http://api:8000 for integration tests
 - env/env.e2e - Added API_BASE_URL=http://api:8000 for end-to-end tests

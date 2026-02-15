@@ -2,7 +2,7 @@
 
 # Release Changes: Game Model Refactor (Remove min_players, Add where field)
 
-**Related Plan**: 20251129-game-model-refactor-plan.instructions.md
+**Related Plan**: 20251129-game-model-refactor.plan.md
 **Implementation Date**: 2025-11-30
 
 ## Summary

@@ -2,7 +2,7 @@
 
 # Release Changes: Fix Template Description Deletion Bug
 
-**Related Plan**: 20260205-template-description-deletion-bug-plan.instructions.md
+**Related Plan**: 20260205-template-description-deletion-bug.plan.md
 **Implementation Date**: 2026-02-05
 
 ## Summary
@@ -14,7 +14,7 @@ Fix double-filtering anti-pattern preventing users from clearing optional text f
 ### Added
 
 - tests/services/api/services/test_template_service.py - Added five comprehensive unit tests for explicit null handling in template updates
-- frontend/src/components/__tests__/TemplateForm.test.tsx - Created comprehensive frontend tests for null value handling in template form submissions
+- frontend/src/components/**tests**/TemplateForm.test.tsx - Created comprehensive frontend tests for null value handling in template form submissions
 - tests/integration/test_template_field_clearing.py - Created integration tests verifying end-to-end field clearing through API and database
 
 ### Modified

@@ -2,7 +2,7 @@
 
 # Release Changes: MIT license migration for Game Scheduler
 
-**Related Plan**: 20260204-mit-license-migration-plan.instructions.md
+**Related Plan**: 20260204-mit-license-migration.plan.md
 **Implementation Date**: 2026-02-04
 
 ## Summary
@@ -21,19 +21,19 @@ Migration from AGPL-3.0-or-later to MIT license across all project artifacts, so
 - [scripts/add-copyright](scripts/add-copyright) - Updated template path from agpl-template.jinja2 to mit-template.jinja2 for both Python and TypeScript/TSX file processing
 - [.pre-commit-config.yaml](.pre-commit-config.yaml) - Updated template path from agpl-template.jinja2 to mit-template.jinja2 for both Python and TypeScript pre-commit hooks
 - [pyproject.toml](pyproject.toml#L7) - Changed project license metadata from "AGPL-3.0-or-later" to "MIT"
-- alembic/**/*.py (15 files) - Applied MIT license headers; removed AGPL headers; updated copyright to 2025-2026 for files originally from 2025, kept 2026 for files originally from 2026
-- services/**/*.py (99 files) - Applied MIT license headers; removed AGPL headers; updated copyright to 2025-2026 for files originally from 2025, kept 2026 for files originally from 2026
-- shared/**/*.py (56 files) - Applied MIT license headers; removed AGPL headers; updated copyright to 2025-2026 for files originally from 2025, kept 2026 for files originally from 2026
-- tests/**/*.py (189 files) - Applied MIT license headers; removed AGPL headers; updated copyright to 2025-2026 for files originally from 2025, kept 2026 for files originally from 2026
-- frontend/src/**/*.ts (12 files) - Applied MIT license headers; removed AGPL headers; updated copyright to 2025-2026 for files originally from 2025, kept 2026 for files originally from 2026
-- frontend/src/**/*.tsx (44 files) - Applied MIT license headers; removed AGPL headers; updated copyright to 2025-2026 for files originally from 2025, kept 2026 for files originally from 2026
+- alembic/\*_/_.py (15 files) - Applied MIT license headers; removed AGPL headers; updated copyright to 2025-2026 for files originally from 2025, kept 2026 for files originally from 2026
+- services/\*_/_.py (99 files) - Applied MIT license headers; removed AGPL headers; updated copyright to 2025-2026 for files originally from 2025, kept 2026 for files originally from 2026
+- shared/\*_/_.py (56 files) - Applied MIT license headers; removed AGPL headers; updated copyright to 2025-2026 for files originally from 2025, kept 2026 for files originally from 2026
+- tests/\*_/_.py (189 files) - Applied MIT license headers; removed AGPL headers; updated copyright to 2025-2026 for files originally from 2025, kept 2026 for files originally from 2026
+- frontend/src/\*_/_.ts (12 files) - Applied MIT license headers; removed AGPL headers; updated copyright to 2025-2026 for files originally from 2025, kept 2026 for files originally from 2026
+- frontend/src/\*_/_.tsx (44 files) - Applied MIT license headers; removed AGPL headers; updated copyright to 2025-2026 for files originally from 2025, kept 2026 for files originally from 2026
 
 ### Removed
 
 - templates/agpl-template.jinja2 - Removed obsolete AGPL header template file
 - README.md - Replaced AGPL license references with MIT license; updated copyright year to 2025-2026
 - frontend/src/pages/About.tsx - Replaced AGPL license text and GNU URL with MIT license text and OSI MIT URL; updated copyright year to 2025-2026
-- frontend/src/pages/__tests__/About.test.tsx - Updated test assertions to verify MIT license text and opensource.org link instead of AGPL and gnu.org
+- frontend/src/pages/**tests**/About.test.tsx - Updated test assertions to verify MIT license text and opensource.org link instead of AGPL and gnu.org
 
 ## Release Summary
 
@@ -50,13 +50,13 @@ Migration from AGPL-3.0-or-later to MIT license across all project artifacts, so
 - pyproject.toml - License metadata update to MIT
 - README.md - License section updated to MIT with 2025-2026 copyright
 - frontend/src/pages/About.tsx - License display updated to MIT with 2025-2026 copyright
-- frontend/src/pages/__tests__/About.test.tsx - Test assertions updated for MIT license
-- alembic/**/*.py (15 files) - MIT license headers with year adjustments
-- services/**/*.py (99 files) - MIT license headers with year adjustments
-- shared/**/*.py (56 files) - MIT license headers with year adjustments
-- tests/**/*.py (189 files) - MIT license headers with year adjustments
-- frontend/src/**/*.ts (12 files) - MIT license headers with year adjustments
-- frontend/src/**/*.tsx (44 files) - MIT license headers with year adjustments
+- frontend/src/pages/**tests**/About.test.tsx - Test assertions updated for MIT license
+- alembic/\*_/_.py (15 files) - MIT license headers with year adjustments
+- services/\*_/_.py (99 files) - MIT license headers with year adjustments
+- shared/\*_/_.py (56 files) - MIT license headers with year adjustments
+- tests/\*_/_.py (189 files) - MIT license headers with year adjustments
+- frontend/src/\*_/_.ts (12 files) - MIT license headers with year adjustments
+- frontend/src/\*_/_.tsx (44 files) - MIT license headers with year adjustments
 
 ### Files Removed (1)
 

@@ -2,7 +2,7 @@
 
 # Release Changes: Delayed Join Notification with Conditional Signup Instructions
 
-**Related Plan**: 20251218-signup-instructions-dm-plan.instructions.md
+**Related Plan**: 20251218-signup-instructions-dm.plan.md
 **Implementation Date**: 2025-12-20
 
 ## Summary
@@ -14,6 +14,7 @@ Replace immediate join confirmation DMs with single 60-second delayed notificati
 ### Added
 
 #### Database Migration
+
 - [alembic/versions/bcecd82ff82f_add_notification_type_participant_id.py](alembic/versions/bcecd82ff82f_add_notification_type_participant_id.py) - New migration adding notification_type and participant_id columns
   - Adds `notification_type` column (String(50), default='reminder') for distinguishing reminder vs join notifications
   - Adds `participant_id` column (nullable FK to game_participants.id) for participant-specific notifications
@@ -23,6 +24,7 @@ Replace immediate join confirmation DMs with single 60-second delayed notificati
   - Both upgrade() and downgrade() paths tested
 
 #### Integration Tests
+
 - [tests/integration/test_database_infrastructure.py](tests/integration/test_database_infrastructure.py#L150-L262) - Added three new tests
   - `test_notification_schedule_schema()` - Verifies all columns exist with correct types, nullability, and defaults
   - `test_notification_schedule_indexes()` - Verifies all required indexes including new ones
@@ -31,6 +33,7 @@ Replace immediate join confirmation DMs with single 60-second delayed notificati
 ### Modified
 
 #### Database Models
+
 - [shared/models/notification_schedule.py](shared/models/notification_schedule.py#L37-L52) - Extended NotificationSchedule model
   - Added `notification_type: Mapped[str]` field with default='reminder'
   - Added `participant_id: Mapped[str | None]` field with FK to game_participants.id
@@ -39,6 +42,7 @@ Replace immediate join confirmation DMs with single 60-second delayed notificati
   - Updated docstring to document both notification types
 
 #### Event System
+
 - [shared/messaging/events.py](shared/messaging/events.py#L53-L57) - Renamed and updated event type and payload
   - Renamed `GAME_REMINDER_DUE` to `NOTIFICATION_DUE` for generalized notifications
   - Replaced `GameReminderDueEvent` with `NotificationDueEvent` model
@@ -47,6 +51,7 @@ Replace immediate join confirmation DMs with single 60-second delayed notificati
   - Removed `reminder_minutes` field (kept only in database for schedule management)
 
 #### Event Builders
+
 - [services/scheduler/event_builders.py](services/scheduler/event_builders.py#L29-L57) - Renamed and updated event builder
   - Renamed `build_game_reminder_event` to `build_notification_event`
   - Updated to use `NotificationDueEvent` instead of `GameReminderDueEvent`
@@ -54,12 +59,14 @@ Replace immediate join confirmation DMs with single 60-second delayed notificati
   - Maintained TTL calculation logic for message expiration
 
 #### Daemon Wrapper
+
 - [services/scheduler/notification_daemon_wrapper.py](services/scheduler/notification_daemon_wrapper.py#L32-L73) - Updated event builder reference
   - Changed import from `build_game_reminder_event` to `build_notification_event`
   - Updated `event_builder` parameter in SchedulerDaemon instantiation
   - No other changes needed (daemon handles both notification types)
 
 #### Schedule Creation
+
 - [services/api/services/notification_schedule.py](services/api/services/notification_schedule.py#L137-L173) - Added join notification helper
   - New `schedule_join_notification()` function creates delayed notifications
   - Takes db, game_id, participant_id, game_scheduled_at, delay_seconds (default: 60)
@@ -84,6 +91,7 @@ Replace immediate join confirmation DMs with single 60-second delayed notificati
   - Schedule auto-cancelled if participant removed (CASCADE delete)
 
 #### Bot Event Handlers
+
 - [services/bot/events/handlers.py](services/bot/events/handlers.py#L40-L575) - Renamed handler, added routing, implemented join notifications
   - Updated import from `GameReminderDueEvent` to `NotificationDueEvent`
   - Updated `__init__` handler mapping: `NOTIFICATION_DUE` → `_handle_notification_due`
@@ -97,6 +105,7 @@ Replace immediate join confirmation DMs with single 60-second delayed notificati
   - Skips notification if participant no longer exists or is waitlisted
 
 #### Unit Tests
+
 - [tests/services/scheduler/test_event_builders.py](tests/services/scheduler/test_event_builders.py) - Updated all event builder tests (9 tests ✅)
   - Renamed class to `TestBuildNotificationEvent`
   - Updated all tests to use `build_notification_event`
@@ -114,6 +123,7 @@ Replace immediate join confirmation DMs with single 60-second delayed notificati
   - All reminder and join notification tests passing
 
 #### Integration Tests
+
 - CASCADE delete behavior verified by existing database infrastructure tests (Phase 1)
 - NotificationSchedule schema, indexes, and FK constraints validated in test_database_infrastructure.py
 - No additional integration tests needed (redundant with Phase 1)

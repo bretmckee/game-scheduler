@@ -2,7 +2,7 @@
 
 # Release Changes: Fix Authorization Test Failures
 
-**Related Plan**: 20251204-fix-authorization-test-failures-plan.instructions.md
+**Related Plan**: 20251204-fix-authorization-test-failures.plan.md
 **Implementation Date**: 2025-12-04
 
 ## Summary
