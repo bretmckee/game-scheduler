@@ -2,7 +2,7 @@
 
 # Release Changes: Validation on Submit with @ Display Enhancement
 
-**Related Plan**: 20251127-validation-on-submit-plan.instructions.md
+**Related Plan**: 20251127-validation-on-submit.plan.md
 **Implementation Date**: 2025-11-27
 
 ## Summary

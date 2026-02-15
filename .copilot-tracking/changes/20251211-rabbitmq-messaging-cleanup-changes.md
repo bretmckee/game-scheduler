@@ -2,7 +2,7 @@
 
 # Release Changes: RabbitMQ Messaging Architecture Cleanup
 
-**Related Plan**: 20251211-rabbitmq-messaging-cleanup-plan.instructions.md
+**Related Plan**: 20251211-rabbitmq-messaging-cleanup.plan.md
 **Implementation Date**: 2025-12-11
 
 ## Summary
@@ -13,12 +13,12 @@ Fix DLQ exponential growth bug and remove unused RabbitMQ queues by implementing
 
 ### Added
 
-- services/retry/__init__.py - Created retry service package
+- services/retry/**init**.py - Created retry service package
 - services/retry/retry_daemon.py - Implemented RetryDaemon class for dedicated DLQ processing
 - services/retry/retry_daemon_wrapper.py - Created entry point with signal handling and config loading
 - docker/retry.Dockerfile - Created multi-stage Dockerfile for retry service container
 - tests/integration/test_retry_daemon.py - Created end-to-end integration tests verifying DLQ exponential growth bug fix (3/5 passing including critical bug fix test)
-- tests/services/retry/__init__.py - Created unit test package for retry service
+- tests/services/retry/**init**.py - Created unit test package for retry service
 - tests/services/retry/test_retry_daemon.py - Created comprehensive unit tests for RetryDaemon class (18/18 passing with 100% coverage)
 - grafana-alloy/dashboards/retry-daemon-dashboard.json - Created Grafana dashboard with 8 panels monitoring DLQ depth, processing rates, duration, failures, and health
 - grafana-alloy/dashboards/README.md - Created comprehensive dashboard documentation with metrics overview, alert configuration, and troubleshooting guide
@@ -45,10 +45,10 @@ Fix DLQ exponential growth bug and remove unused RabbitMQ queues by implementing
 - .env.integration - Added RETRY_INTERVAL_SECONDS=5 for fast integration testing
 - services/scheduler/notification_daemon_wrapper.py - Set process_dlq=False and removed dlq_check_interval parameter
 - services/scheduler/status_transition_daemon_wrapper.py - Set process_dlq=False and removed dlq_check_interval parameter
-- services/scheduler/generic_scheduler_daemon.py - Removed process_dlq and dlq_check_interval parameters from __init__ (kept process_dlq as deprecated for backwards compatibility)
+- services/scheduler/generic_scheduler_daemon.py - Removed process_dlq and dlq_check_interval parameters from **init** (kept process_dlq as deprecated for backwards compatibility)
 - services/scheduler/generic_scheduler_daemon.py - Removed last_dlq_check instance variable and DLQ check logic from main loop
-- services/scheduler/generic_scheduler_daemon.py - Removed _process_dlq_messages method and pika import
-- services/scheduler/generic_scheduler_daemon.py - Fixed _process_item to not re-raise exceptions after rollback (maintain daemon stability)
+- services/scheduler/generic_scheduler_daemon.py - Removed \_process_dlq_messages method and pika import
+- services/scheduler/generic_scheduler_daemon.py - Fixed \_process_item to not re-raise exceptions after rollback (maintain daemon stability)
 - tests/services/scheduler/test_generic_scheduler_daemon.py - Removed TestSchedulerDaemonDLQProcessing test class
 - services/retry/retry_daemon.py - Added OpenTelemetry metrics (messages_processed_counter, messages_failed_counter, dlq_depth_gauge, processing_duration_histogram)
 - services/retry/retry_daemon.py - Added detailed span attributes for message processing (routing_key, event_type, retry_count)
@@ -69,11 +69,11 @@ Fix DLQ exponential growth bug and remove unused RabbitMQ queues by implementing
 
 ### Files Created (10)
 
-- services/retry/__init__.py - Retry service package initialization
+- services/retry/**init**.py - Retry service package initialization
 - services/retry/retry_daemon.py - RetryDaemon class with DLQ processing logic, OpenTelemetry metrics, and health checks
 - services/retry/retry_daemon_wrapper.py - Entry point with signal handling and environment configuration
 - docker/retry.Dockerfile - Multi-stage Dockerfile for retry service container
-- tests/services/retry/__init__.py - Unit test package for retry service
+- tests/services/retry/**init**.py - Unit test package for retry service
 - tests/services/retry/test_retry_daemon.py - Comprehensive unit tests (18/18 passing, 100% coverage)
 - tests/services/retry/test_retry_daemon_observability.py - Observability tests for metrics and health (9/9 passing)
 - tests/integration/test_retry_daemon.py - End-to-end integration tests (3/5 passing including critical bug fix verification)
@@ -109,33 +109,39 @@ Fix DLQ exponential growth bug and remove unused RabbitMQ queues by implementing
 **Updated Dependencies**: None
 
 **Infrastructure Changes**:
+
 - Removed queues: api_events, scheduler_events, DLQ (shared)
 - Added queues: bot_events.dlq, notification_queue.dlq
 - Added service: retry-daemon (dedicated DLQ processor)
 - Updated bindings: Per-queue DLQ routing via game_scheduler.dlx exchange
 
 **Configuration Updates**:
+
 - Added environment variable: RETRY_INTERVAL_SECONDS (default: 900 seconds / 15 minutes)
 - Removed parameters: process_dlq, dlq_check_interval from scheduler daemons
 
 ### Deployment Notes
 
 **Pre-Deployment:**
+
 1. Check current DLQ depth: `docker compose exec rabbitmq rabbitmqctl list_queues name messages | grep DLQ`
 2. Document or drain existing shared DLQ if desired
 
 **Deployment:**
+
 1. Set `RETRY_INTERVAL_SECONDS` in .env (optional, defaults to 900)
 2. Rebuild images: `docker compose -f compose.yml -f compose.production.yaml build`
 3. Restart services: `docker compose -f compose.yml -f compose.production.yaml up -d`
 
 **Post-Deployment Verification:**
+
 1. Confirm retry-daemon is running: `docker compose ps retry-daemon`
 2. Verify new DLQs exist: `docker compose exec rabbitmq rabbitmqctl list_queues | grep dlq`
 3. Monitor DLQ depth stays stable (no exponential growth)
 4. Check retry-daemon logs for successful processing
 
 **Rollback:**
+
 1. Stop retry-daemon: `docker compose stop retry-daemon`
 2. Checkout previous commit
 3. Rebuild and restart with old configuration

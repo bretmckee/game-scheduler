@@ -2,7 +2,7 @@
 
 # Release Changes: Unit Test Fixture Consolidation
 
-**Related Plan**: 20260126-unit-test-fixture-consolidation-plan.instructions.md
+**Related Plan**: 20260126-unit-test-fixture-consolidation.plan.md
 **Implementation Date**: 2026-01-26
 
 ## Summary

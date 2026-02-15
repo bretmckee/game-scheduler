@@ -2,7 +2,7 @@
 
 # Release Changes: Scheduler Daemon Consolidation and Bot Status Updates
 
-**Related Plan**: 20251204-scheduler-daemon-consolidation-plan.instructions.md
+**Related Plan**: 20251204-scheduler-daemon-consolidation.plan.md
 **Implementation Date**: 2025-12-04
 
 ## Summary
@@ -23,13 +23,13 @@ Consolidate duplicate daemon implementations into a single generic scheduler, mo
 ### Modified
 
 - shared/messaging/events.py - Added GAME_STATUS_TRANSITION_DUE event type to EventType enum
-- services/bot/events/handlers.py - Added _handle_status_transition_due method to update game status and refresh Discord message, registered GAME_STATUS_TRANSITION_DUE handler in event consumer; Removed manual updated_at assignment to rely on SQLAlchemy's automatic onupdate behavior
+- services/bot/events/handlers.py - Added \_handle_status_transition_due method to update game status and refresh Discord message, registered GAME_STATUS_TRANSITION_DUE handler in event consumer; Removed manual updated_at assignment to rely on SQLAlchemy's automatic onupdate behavior
 - tests/services/bot/events/test_handlers.py - Added tests for status transition handler and updated handler count assertion
 - docker/notification-daemon.Dockerfile - Updated to use notification_daemon_wrapper and copy generic daemon files
 - docker/status-transition-daemon.Dockerfile - Updated to use status_transition_daemon_wrapper and copy generic daemon files
 - tests/integration/test_status_transitions.py - Rewrote to use generic SchedulerDaemon with proper parameters instead of StatusTransitionDaemon compatibility wrapper, updated tests to check for executed status rather than game status updates since daemon now publishes events instead of directly updating database
 - tests/integration/test_notification_daemon.py - Rewrote to use generic SchedulerDaemon with proper parameters instead of NotificationDaemon compatibility wrapper
-- services/scheduler/generic_scheduler_daemon.py - Enhanced _cleanup method to wrap each connection close in try-except blocks for graceful error handling
+- services/scheduler/generic_scheduler_daemon.py - Enhanced \_cleanup method to wrap each connection close in try-except blocks for graceful error handling
 - README.md - Updated scheduler section to reflect new generic daemon architecture with wrappers and event builders instead of old daemon implementations
 
 ### Removed
@@ -49,6 +49,7 @@ Consolidate duplicate daemon implementations into a single generic scheduler, mo
 **Total Files Affected**: 23
 
 ### Files Created (7)
+
 - services/scheduler/generic_scheduler_daemon.py
 - services/scheduler/event_builders.py
 - shared/schemas/events.py
@@ -57,6 +58,7 @@ Consolidate duplicate daemon implementations into a single generic scheduler, mo
 - tests/services/scheduler/test_generic_scheduler_daemon.py
 
 ### Files Modified (7)
+
 - shared/messaging/events.py
 - services/bot/events/handlers.py
 - tests/services/bot/events/test_handlers.py
@@ -67,6 +69,7 @@ Consolidate duplicate daemon implementations into a single generic scheduler, mo
 - README.md
 
 ### Files Removed (9)
+
 - services/scheduler/notification_daemon.py
 - services/scheduler/status_transition_daemon.py
 - services/scheduler/schedule_queries.py
@@ -76,6 +79,7 @@ Consolidate duplicate daemon implementations into a single generic scheduler, mo
 - tests/services/scheduler/test_status_schedule_queries.py
 
 ### Test Results
+
 - Unit tests: 53 passed (tests/services/scheduler/)
 - Bot handler tests: 19 passed (tests/services/bot/events/test_handlers.py)
 - Integration tests: 11 passed (scripts/run-integration-tests.sh)
@@ -93,6 +97,7 @@ Consolidate duplicate daemon implementations into a single generic scheduler, mo
 **Breaking Changes**: None - The consolidation is fully backward compatible through wrapper modules.
 
 **Deployment Steps**:
+
 1. Build new Docker images with updated daemon implementations
 2. Deploy containers - wrappers maintain same entry points
 3. Verify scheduler daemons are running correctly

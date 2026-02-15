@@ -2,7 +2,7 @@
 
 # Release Changes: Pre-commit Standalone Configuration
 
-**Related Plan**: 20260128-precommit-standalone-configuration-plan.instructions.md
+**Related Plan**: 20260128-precommit-standalone-configuration.plan.md
 **Implementation Date**: 2026-01-28
 
 ## Summary
@@ -28,14 +28,17 @@ Transform pre-commit configuration from system-dependent local hooks to standalo
 - [README.md](README.md) (Lines 135-231) - Completely rewrote Pre-commit Hooks section with standalone vs system-dependent hook distinction, quick start guide, dependency table, and architecture notes
 
 ### Removed
+
 ## Phase Completion Notes
 
 ### Phase 1: Python Tools Migration ✅
+
 - Ruff successfully migrated to official repository with isolated environment
 - MyPy kept as language: system due to complex project type dependencies requirement
 - All Python linting/formatting works without `uv sync`
 
 ### Phase 2: Node.js Tools Migration ⚠️ PARTIALLY COMPLETED
+
 - Discovered pre-commit/mirrors-prettier is severely outdated (v3.1.0 max, need v3.7.4)
 - Discovered pre-commit/mirrors-eslint doesn't have recent v9.x versions
 - **Prettier successfully migrated** to `repo: local` with `language: node` + `additional_dependencies` pattern
@@ -47,14 +50,17 @@ Transform pre-commit configuration from system-dependent local hooks to standalo
 - Updated node version from "20" to "22.11.0" (LTS) for nodeenv compatibility
 
 **Standalone (work without npm install):**
+
 - prettier ✅
 - jscpd ✅
 
 **System-dependent (require npm install):**
+
 - eslint ❌ (config imports packages)
 - typescript ❌ (needs type definitions)
 
 **Verification Results:**
+
 ```bash
 # Fresh clone without npm install:
 pre-commit run prettier --all-files           # ✅ Passed
@@ -64,10 +70,12 @@ pre-commit run typescript --all-files         # ❌ Failed: needs type definitio
 ```
 
 **Isolated Environments Created:**
+
 - `/home/vscode/.cache/pre-commit/repofcf2iahq/node_env-22.11.0/` (prettier)
 - `/home/vscode/.cache/pre-commit/repo*/node_env-22.11.0/` (jscpd)
 
 ### Phase 3: Custom Tools Migration ⚠️ PARTIALLY COMPLETED
+
 - Complexipy and lizard converted from `language: system` to `language: python` with isolated environments ✅
 - Copyright headers no longer depend on scripts/add-copyright bash wrapper - now two direct hooks with autocopyright ✅
 - **TypeScript type checking CANNOT be standalone** - reverted to `language: system` (needs type definitions)
@@ -75,6 +83,7 @@ pre-commit run typescript --all-files         # ❌ Failed: needs type definitio
 - Most custom tools work without `uv sync` or `npm install`
 
 **Verification Results:**
+
 ```bash
 # Fresh clone without project setup:
 pre-commit run complexipy --all-files        # ✅ Passed without uv sync
@@ -86,10 +95,12 @@ pre-commit run jscpd-full --hook-stage manual --all-files # ✅ Passed without n
 ```
 
 **Isolated Environments Created:**
+
 - `~/.cache/pre-commit/repo*/py_env-python3.13/` (complexipy, lizard, autocopyright)
 - `~/.cache/pre-commit/repo*/node_env-22.11.0/` (jscpd)
 
 ### Phase 4: Documentation ✅
+
 - Identified 10 system-dependent hooks requiring full project environment (updated from 8)
 - Completely rewrote README.md Pre-commit Hooks section with clear categorization
 - Added Quick Start guide showing standalone hooks work without dependencies
@@ -98,11 +109,13 @@ pre-commit run jscpd-full --hook-stage manual --all-files # ✅ Passed without n
 - Explained that users can run linting/formatting immediately after `git clone`
 
 **System-dependent hooks requiring project setup:**
+
 - Python environment (`uv sync`): mypy, python-compile, pytest-coverage, diff-coverage, pytest-all (manual)
 - Frontend environment (`npm install`): eslint, typescript, frontend-build, vitest-coverage, diff-coverage-frontend, vitest-all (manual)
 - Docker: ci-cd-workflow (manual)
 
 **Documentation improvements:**
+
 - Quick Start section with example commands
 - Standalone vs System-dependent hook distinction with table
 - Architecture Notes explaining caching and environment management
@@ -115,6 +128,7 @@ pre-commit run jscpd-full --hook-stage manual --all-files # ✅ Passed without n
 Tested in `/tmp/game-scheduler-test` (fresh clone without `uv sync` or `npm install`):
 
 **Standalone Hooks (Work Immediately):**
+
 ```bash
 # Pre-commit framework hooks
 pre-commit run trailing-whitespace --all-files  # ✅ Passed
@@ -135,6 +149,7 @@ pre-commit run jscpd-full --hook-stage manual --all-files  # ✅ Passed
 ```
 
 **System-Dependent Hooks (Require Project Setup):**
+
 ```bash
 # Python tools (need uv sync)
 pre-commit run mypy --all-files                 # ❌ Failed: ModuleNotFoundError
@@ -147,6 +162,7 @@ pre-commit run frontend-build --all-files       # ❌ Failed: npm packages not f
 ```
 
 **Key Findings:**
+
 - **12 hooks work standalone** without any project dependencies (immediate post-clone)
 - **10 hooks require project setup** (as documented in README.md)
 - Confirmed that hooks with config files importing from node_modules cannot be standalone

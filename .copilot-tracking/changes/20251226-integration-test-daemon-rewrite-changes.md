@@ -2,7 +2,7 @@
 
 # Release Changes: Integration Test Daemon Pattern Rewrite
 
-**Related Plan**: 20251226-integration-test-daemon-rewrite-plan.instructions.md
+**Related Plan**: 20251226-integration-test-daemon-rewrite.plan.md
 **Implementation Date**: 2025-12-26
 
 ## Summary
@@ -15,7 +15,7 @@ Rewrite integration tests for notification daemon and status transition daemon t
 
 - tests/integration/conftest.py - Created shared fixtures with rabbitmq_url, rabbitmq_connection, and rabbitmq_channel for integration tests
 - tests/shared/polling.py - Created shared polling utilities module with wait_for_db_condition_async and wait_for_db_condition_sync for polling database conditions with timeouts
-- tests/shared/polling.py - Refactored to extract core polling logic into _poll_until_condition_async and _poll_until_condition_sync helpers, fixing timeout check to occur before database query
+- tests/shared/polling.py - Refactored to extract core polling logic into \_poll_until_condition_async and \_poll_until_condition_sync helpers, fixing timeout check to occur before database query
 
 ### Modified
 

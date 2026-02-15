@@ -2,7 +2,7 @@
 
 # Release Changes: Environment Initialization Service
 
-**Related Plan**: 20251128-environment-initialization-service-plan.instructions.md
+**Related Plan**: 20251128-environment-initialization-service.plan.md
 **Implementation Date**: 2025-11-28
 
 ## Summary

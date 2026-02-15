@@ -1,9 +1,11 @@
 <!-- markdownlint-disable-file -->
+
 # Task Research Notes: Guild Sync E2E Test Coverage
 
 ## Research Executed
 
 ### File Analysis
+
 - tests/e2e/test_01_authentication.py
   - Contains minimal guild sync test (lines 55-60) that only verifies response format
   - Does not verify database state, idempotency, or error handling
@@ -28,19 +30,22 @@
   - Returns counts of created guilds and channels
 
 ### Code Search Results
+
 - "wait_for_db_condition" and "wait_for_game_message_id"
   - Used extensively in e2e tests for polling database state
   - Pattern: Poll with predicate until condition met or timeout
   - Located in tests/shared/polling.py
-- "async def test.*" in tests/e2e/
+- "async def test.\*" in tests/e2e/
   - 16 test functions across test files
   - Common patterns: authenticated clients, fixtures for guild/channel/template IDs
   - Tests use admin_db fixture for direct database verification
 
 ### External Research
+
 N/A - All information gathered from project codebase
 
 ### Project Conventions
+
 - E2E tests use real Discord resources (guilds, channels, users) configured in env.e2e
 - Tests follow pattern: API call → wait for async processing → verify database state
 - Guild isolation testing requires Guild A and Guild B infrastructure
@@ -56,6 +61,7 @@ N/A - All information gathered from project codebase
 **Status**: Comprehensive guild sync tests now exist in test_guild_sync_e2e.py (640 lines)
 
 **Tests Implemented** (6 tests covering all requirements):
+
 1. ✅ test_complete_guild_creation - Verifies guild, channel, template creation with database validation
 2. ✅ test_sync_idempotency - Tests multiple syncs don't create duplicates
 3. ✅ test_multi_guild_sync - Verifies User A and User B sync their respective guilds
@@ -67,6 +73,7 @@ N/A - All information gathered from project codebase
 **Migration Task**: Update tests to use hermetic fixture pattern (discord_ids instead of individual fixtures)
 
 **Changes Needed**:
+
 1. Replace `discord_guild_id` parameter with `discord_ids` fixture
 2. Replace `discord_guild_b_id` parameter with `discord_ids` fixture
 3. Replace `discord_channel_id` parameter with `discord_ids` fixture
@@ -74,6 +81,7 @@ N/A - All information gathered from project codebase
 5. Update `fresh_guild_sync` fixture to use `discord_ids` instead of individual ID parameters
 
 **Original Test (test_01_authentication.py:55-60)** - Still exists but minimal:
+
 ```python
 async def test_synced_guild_creates_configs(synced_guild, discord_guild_id):
     """Verify guild sync creates necessary configurations."""
@@ -85,6 +93,7 @@ async def test_synced_guild_creates_configs(synced_guild, discord_guild_id):
 ### Guild Sync Implementation Details
 
 **What sync_user_guilds() Does**:
+
 1. Fetches user's guilds from Discord (with MANAGE_GUILD permission)
 2. Fetches bot's guilds from Discord
 3. Computes intersection (guilds where user is admin AND bot is installed)
@@ -98,6 +107,7 @@ async def test_synced_guild_creates_configs(synced_guild, discord_guild_id):
 7. Returns counts of created guilds and channels
 
 **Key Complexity Areas**:
+
 - RLS context management across multiple guild operations
 - Discord API calls (user guilds, bot guilds, guild channels)
 - Multi-step database creation (guild → channels → template)
@@ -106,6 +116,7 @@ async def test_synced_guild_creates_configs(synced_guild, discord_guild_id):
 ### E2E Test Infrastructure
 
 **Available Fixtures**:
+
 - `authenticated_admin_client` - HTTP client for User A (Guild A admin)
 - `authenticated_client_b` - HTTP client for User B (Guild B admin)
 - `admin_db` - Async database session with admin access
@@ -118,6 +129,7 @@ async def test_synced_guild_creates_configs(synced_guild, discord_guild_id):
 - `wait_for_db_condition` - Polling utility for async database changes
 
 **Test Environment** (config/env.e2e):
+
 - Real Discord bot tokens (DISCORD_BOT_TOKEN, DISCORD_ADMIN_BOT_A_TOKEN)
 - Real Discord guild IDs (DISCORD_GUILD_A_ID, DISCORD_GUILD_B_ID)
 - Real Discord channel IDs
@@ -127,6 +139,7 @@ async def test_synced_guild_creates_configs(synced_guild, discord_guild_id):
 ### Existing Test Patterns
 
 **Pattern 1: Database Verification After API Call**
+
 ```python
 # From test_guild_isolation_e2e.py:38-55
 guild_result = await admin_db.execute(
@@ -139,6 +152,7 @@ guild_a_db_id = guild_row[0]
 ```
 
 **Pattern 2: Cross-Guild Isolation Testing**
+
 ```python
 # From test_guild_routes_e2e.py:66-82
 # User B can access their own guild
@@ -151,6 +165,7 @@ assert response_a.status_code == 404
 ```
 
 **Pattern 3: Polling for Async Operations**
+
 ```python
 # From test_guild_isolation_e2e.py:98-110
 await wait_for_db_condition_async(
@@ -166,6 +181,7 @@ await wait_for_db_condition_async(
 ### Complete Examples
 
 **Guild Sync Service Implementation** (services/api/services/guild_service.py:210-256):
+
 ```python
 async def sync_user_guilds(db: AsyncSession, access_token: str, user_id: str) -> dict[str, int]:
     """
@@ -206,6 +222,7 @@ async def sync_user_guilds(db: AsyncSession, access_token: str, user_id: str) ->
 ```
 
 **Guild Creation Helper** (services/api/services/guild_service.py:150-208):
+
 ```python
 async def _create_guild_with_channels_and_template(
     db: AsyncSession,
@@ -256,6 +273,7 @@ async def _create_guild_with_channels_and_template(
 ```
 
 **E2E Fixture Pattern** (tests/e2e/conftest.py:236-258):
+
 ```python
 @pytest.fixture
 async def synced_guild(authenticated_admin_client, discord_guild_id):
@@ -277,6 +295,7 @@ async def synced_guild(authenticated_admin_client, discord_guild_id):
 ### API and Schema Documentation
 
 **Guild Sync Endpoint** (services/api/routes/guilds.py:287-310):
+
 ```python
 @router.post("/sync", response_model=guild_schemas.GuildSyncResponse)
 async def sync_guilds(
@@ -304,6 +323,7 @@ async def sync_guilds(
 ```
 
 **Response Schema** (shared/schemas/guild.py:84-88):
+
 ```python
 class GuildSyncResponse(BaseModel):
     """Response from guild sync operation."""
@@ -315,6 +335,7 @@ class GuildSyncResponse(BaseModel):
 ### Configuration Examples
 
 **E2E Environment Configuration** (config/env.e2e:1-50):
+
 ```bash
 # Discord Bot Configuration
 DISCORD_BOT_TOKEN=<token value>
@@ -340,23 +361,27 @@ COMPOSE_FILE=compose.yaml:compose.e2e.yaml
 ### Technical Requirements
 
 **Database Tables Involved**:
+
 - `guild_configurations` - Guild config records (guild_id = Discord snowflake)
 - `channel_configurations` - Channel config records (channel_id = Discord snowflake, guild_id = guild config UUID)
 - `game_templates` - Template records (guild_id = guild config UUID, channel_id = channel config UUID)
 - `users` - User records (discord_id = Discord snowflake)
 
 **RLS Context Management**:
+
 - Uses PostgreSQL session variables: `SET LOCAL app.current_guild_id = '<uuid>'`
 - Supports multiple guild IDs: `SET LOCAL app.current_guild_ids = 'id1,id2,id3'`
 - Context must include both Discord snowflake (for creation) and UUID (for template)
 
 **Discord API Calls**:
+
 - `GET /users/@me/guilds` (with user OAuth token) - Get user's guilds with permissions
 - `GET /users/@me/guilds` (with bot token) - Get bot's guilds
 - `GET /guilds/{guild_id}/channels` (with bot token) - Get guild channels
 - Rate limit: 1 req/sec for user guilds endpoint (enforced with asyncio.sleep(1.1))
 
 **Test Execution Requirements**:
+
 - Real Discord bot with access to test guilds
 - User accounts with MANAGE_GUILD permission in test guilds
 - Bot installed in test guilds with channel view permissions
@@ -370,6 +395,7 @@ Create comprehensive e2e test suite for guild sync functionality that verifies:
 ### Test Suite: test_guild_sync_e2e.py
 
 **Test 1: Verify Complete Guild Creation**
+
 - Call /guilds/sync endpoint
 - Verify GuildConfiguration created in database with correct Discord snowflake
 - Verify ChannelConfiguration records created for all text channels
@@ -378,6 +404,7 @@ Create comprehensive e2e test suite for guild sync functionality that verifies:
 - Verify user can access created guild through /guilds endpoint
 
 **Test 2: Idempotency (Multiple Syncs)**
+
 - Call /guilds/sync endpoint twice
 - Verify first call creates records (new_guilds > 0)
 - Verify second call creates no records (new_guilds = 0, new_channels = 0)
@@ -385,6 +412,7 @@ Create comprehensive e2e test suite for guild sync functionality that verifies:
 - Verify guild remains accessible after second sync
 
 **Test 3: Multi-Guild Sync**
+
 - Setup: Ensure bot is in both Guild A and Guild B
 - User A syncs (admin in Guild A only)
 - Verify only Guild A created
@@ -393,6 +421,7 @@ Create comprehensive e2e test suite for guild sync functionality that verifies:
 - Verify cross-guild isolation (User A cannot see Guild B data)
 
 **Test 4: Channel Filtering (Text Channels Only)**
+
 - Setup: Mock or use guild with voice channels
 - Call /guilds/sync
 - Verify only text channels (type=0) created in database
@@ -400,6 +429,7 @@ Create comprehensive e2e test suite for guild sync functionality that verifies:
 - Verify default template uses first text channel
 
 **Test 5: Template Creation Edge Cases**
+
 - Test guild with no channels (verify template not created)
 - Test guild with only voice channels (verify template not created)
 - Test guild with text channels (verify template created)
@@ -407,6 +437,7 @@ Create comprehensive e2e test suite for guild sync functionality that verifies:
 - Verify template channel_id matches first text channel
 
 **Test 6: RLS Enforcement After Sync**
+
 - User A syncs Guild A
 - User B syncs Guild B
 - Verify User A can query Guild A games/templates
@@ -415,12 +446,14 @@ Create comprehensive e2e test suite for guild sync functionality that verifies:
 - Verify User B gets 404 for Guild A games/templates
 
 **Test 7: Permission Checking**
+
 - Test user without MANAGE_GUILD permission
 - Verify /guilds/sync returns empty result (no new guilds)
 - Test bot not installed in user's admin guilds
 - Verify /guilds/sync returns empty result
 
 **Test 8: Discord API Error Handling**
+
 - Test with invalid Discord token (mock or separate test)
 - Test with Discord API timeout/error (mock or separate test)
 - Verify appropriate error response
@@ -431,6 +464,7 @@ Create comprehensive e2e test suite for guild sync functionality that verifies:
 **Migration Status**: ✅ COMPLETE
 
 **Changes Applied**:
+
 1. ✅ Updated `fresh_guild_sync` fixture to use `discord_ids` parameter
 2. ✅ Updated all 7 test functions to use `discord_ids` instead of individual fixtures:
    - test_complete_guild_creation
@@ -445,15 +479,17 @@ Create comprehensive e2e test suite for guild sync functionality that verifies:
 5. ✅ Preserved fresh_guild_sync cleanup pattern (appropriate for testing /guilds/sync endpoint)
 
 **Key Differences from Other E2E Tests**:
+
 - Guild sync tests do NOT use `fresh_guild_a`/`fresh_guild_b` fixtures
 - Reason: Testing the /guilds/sync endpoint itself, which creates guilds
 - Uses custom `fresh_guild_sync` fixture that starts with empty database
 - All other E2E tests should use `fresh_guild_a`/`fresh_guild_b` for pre-created guilds
 
 **Next Steps**:
+
 - Run tests: `docker compose --env-file config/env.e2e run --rm e2e-tests tests/e2e/test_guild_sync_e2e.py -v`
 - Verify all 7 tests pass with hermetic fixtures
-- Update remaining E2E tests to use hermetic pattern per 20260201-e2e-test-hermetic-isolation-plan.instructions.md
+- Update remaining E2E tests to use hermetic pattern per 20260201-e2e-test-hermetic-isolation.plan.md
 
 **Original Implementation Guidance**:
 

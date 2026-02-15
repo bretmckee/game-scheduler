@@ -2,7 +2,7 @@
 
 # Release Changes: Game Creation Form Validation
 
-**Related Plan**: 20260207-01-game-form-validation-plan.instructions.md
+**Related Plan**: 20260207-01-game-form-validation.plan.md
 **Implementation Date**: 2026-02-07
 
 ## Summary

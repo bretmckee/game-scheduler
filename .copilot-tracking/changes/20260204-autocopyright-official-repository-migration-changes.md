@@ -2,7 +2,7 @@
 
 # Release Changes: Autocopyright Official Repository Migration
 
-**Related Plan**: 20260204-autocopyright-official-repository-migration-plan.instructions.md
+**Related Plan**: 20260204-autocopyright-official-repository-migration.plan.md
 **Implementation Date**: 2026-02-04
 
 ## Summary
@@ -27,6 +27,7 @@ Migrate autocopyright from local pre-commit hooks to the official Argmaster/auto
 Successfully migrated autocopyright from local pre-commit hooks to the official Argmaster/autocopyright repository (v1.1.0). The migration enables automatic version management via pre-commit autoupdate and eliminates the need for the obsolete scripts/add-copyright wrapper.
 
 **Validation Results:**
+
 - ✅ Python copyright hook executes successfully on individual and all files
 - ✅ TypeScript copyright hook executes successfully with correct `//` comment syntax
 - ✅ Both hooks maintain existing copyright headers correctly

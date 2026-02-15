@@ -2,7 +2,7 @@
 
 # Release Changes: Complete Celery Elimination and Notification System Consolidation
 
-**Related Plan**: 20251203-celery-elimination-notification-consolidation-plan.instructions.md
+**Related Plan**: 20251203-celery-elimination-notification-consolidation.plan.md
 **Implementation Date**: 2025-12-03
 
 ## Summary
@@ -24,9 +24,9 @@ Eliminated Celery completely from the codebase by migrating game status transiti
 
 ### Modified
 
-- shared/models/__init__.py - Added GameStatusSchedule model import and export
+- shared/models/**init**.py - Added GameStatusSchedule model import and export
 - shared/messaging/events.py - Added GameStartedEvent model for game.started event publishing
-- shared/messaging/__init__.py - Added GameStartedEvent export
+- shared/messaging/**init**.py - Added GameStartedEvent export
 - services/api/services/games.py - Integrated game_status_schedule with game creation, updates, and cancellation (Task 3.1, 3.2, 3.3)
 - docker-compose.base.yml - Added status-transition-daemon service definition with healthcheck and dependency configuration
 - docker/test.Dockerfile - Updated uv pip install command to use --group dev for dependency groups
@@ -50,6 +50,7 @@ Eliminated Celery completely from the codebase by migrating game status transiti
 ## Notes
 
 Phase 4 (Deploy and Validate) is complete:
+
 - Task 4.1 ✅: status-transition-daemon service added to docker-compose.base.yml with healthcheck, DATABASE_URL, RABBITMQ_URL env vars
 - Task 4.2 ✅: status-transition-daemon.Dockerfile created following multi-stage build pattern (base + production stages)
 - Task 4.3 ✅: Integration tests created with 3 test classes and 6 tests - ALL PASSING:
@@ -61,6 +62,7 @@ Phase 4 (Deploy and Validate) is complete:
 - Test script enhanced to build before running and pass arguments for selective test execution
 
 Phase 4 validation demonstrates:
+
 - PostgreSQL LISTEN/NOTIFY trigger fires correctly on game_status_schedule changes
 - Query functions correctly retrieve due transitions and mark them executed
 - Daemon successfully processes transitions, updates game status, and publishes events
@@ -68,12 +70,14 @@ Phase 4 validation demonstrates:
 - Future transition scheduling and processing works as expected
 
 Bug fixes applied during Phase 4 validation:
+
 - Fixed daemon tight-loop issue by removing unnecessary buffer_seconds parameter - daemon now waits until exact transition time
 - Fixed NOTIFY channel mismatch: daemon was listening on 'game_status_changed' but trigger sent to 'game_status_schedule_changed'
 - Fixed trigger to always send NOTIFY (removed 10-minute window restriction) enabling true event-driven architecture without polling
 - Updated logging levels from DEBUG to INFO for better monitoring visibility
 
 Post-deployment fixes (database connection stability):
+
 - Added database session recovery in status_transition_daemon.py to handle PostgreSQL connection closures during long LISTEN waits
 - Added database session recovery in notification_daemon.py to handle PostgreSQL connection closures during long LISTEN waits
 - Both daemons now catch database query exceptions, close stale sessions, create fresh sessions, and retry queries
@@ -82,6 +86,7 @@ Post-deployment fixes (database connection stability):
 - Fixed busy loop issue by changing wait_time calculation from int() to float in both daemons - int() truncation was discarding fractional seconds (e.g., 165.6s → 165s), causing immediate re-loops on remaining 0.6s instead of proper waiting
 
 Phase 5 (Remove Celery Infrastructure) is complete:
+
 - Task 5.1 ✅: Removed all Celery application files (celery_app.py, beat.py, worker.py, tasks/update_game_status.py)
 - Task 5.2 ✅: Removed scheduler and scheduler-beat services from docker-compose.base.yml
 - Task 5.2 ✅: Removed scheduler.Dockerfile and scheduler-entrypoint.sh
@@ -93,6 +98,7 @@ Phase 5 (Remove Celery Infrastructure) is complete:
 - Task 5.4 ✅: Updated README.md project structure to reflect new daemon architecture
 
 **Celery Completely Eliminated:**
+
 - Zero Celery code remains in codebase
 - Zero Celery services in docker-compose
 - Zero Celery dependencies in pyproject.toml
@@ -115,9 +121,9 @@ Phase 5 (Remove Celery Infrastructure) is complete:
 
 ### Files Modified (11)
 
-- shared/models/__init__.py - Added GameStatusSchedule model export
+- shared/models/**init**.py - Added GameStatusSchedule model export
 - shared/messaging/events.py - Added GameStartedEvent model
-- shared/messaging/__init__.py - Added GameStartedEvent export
+- shared/messaging/**init**.py - Added GameStartedEvent export
 - services/api/services/games.py - Integrated status schedule with game CRUD operations
 - services/scheduler/status_transition_daemon.py - Removed RabbitMQ, added session recovery
 - services/scheduler/notification_daemon.py - Added session recovery for connection stability

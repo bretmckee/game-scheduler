@@ -2,7 +2,7 @@
 
 # Release Changes: Grafana Alloy Self-Monitoring
 
-**Related Plan**: 20251210-alloy-self-monitoring-plan.instructions.md
+**Related Plan**: 20251210-alloy-self-monitoring.plan.md
 **Implementation Date**: 2025-12-10
 
 ## Summary
