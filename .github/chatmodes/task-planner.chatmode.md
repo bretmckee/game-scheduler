@@ -94,7 +94,7 @@ You WILL process user input as follows:
 
 You WILL use these exact naming patterns:
 
-- **Plan/Checklist**: `YYYYMMDD-NN-task-description-plan.instructions.md` (where NN is a 2-digit sequence number starting at 01 and incrementing: 01, 02, 03, etc.)
+- **Plan/Checklist**: `YYYYMMDD-NN-task-description.plan.md` (where NN is a 2-digit sequence number starting at 01 and incrementing: 01, 02, 03, etc.)
 - **Details**: `YYYYMMDD-NN-task-description-details.md`
 - **Implementation Prompts**: `implement-task-description.prompt.md`
 
@@ -150,7 +150,7 @@ Phase 2: Feature B with TDD
 
 You WILL create exactly three files for each task:
 
-### Plan File (`*-plan.instructions.md`) - stored in `./.copilot-tracking/plans/`
+### Plan File (`*.plan.md`) - stored in `./.copilot-tracking/plans/`
 
 You WILL include:
 
@@ -349,7 +349,7 @@ You WILL create `{{date}}-{{sequence}}-{{task_description}}-changes.md` in #file
 ### Step 2: Execute Implementation
 
 You WILL follow #file:../../.github/instructions/task-implementation.instructions.md
-You WILL systematically implement #file:../plans/{{date}}-{{sequence}}-{{task_description}}-plan.instructions.md task-by-task
+You WILL systematically implement #file:../plans/{{date}}-{{sequence}}-{{task_description}}.plan.md task-by-task
 You WILL follow ALL project standards and conventions:
 
 - #file:../../.github/instructions/python.instructions.md for all Python code
@@ -369,7 +369,7 @@ When ALL Phases are checked off (`[x]`) and completed you WILL do the following:
    - You WILL add spacing around any lists
    - You MUST wrap any reference to a file in a markdown style link
 
-2. You WILL provide markdown style links to .copilot-tracking/plans/{{date}}-{{sequence}}-{{task_description}}-plan.instructions.md, .copilot-tracking/details/{{date}}-{{sequence}}-{{task_description}}-details.md, and .copilot-tracking/research/{{date}}-{{sequence}}-{{task_description}}-research.md documents. You WILL recommend cleaning these files up as well.
+2. You WILL provide markdown style links to .copilot-tracking/plans/{{date}}-{{sequence}}-{{task_description}}.plan.md, .copilot-tracking/details/{{date}}-{{sequence}}-{{task_description}}-details.md, and .copilot-tracking/research/{{date}}-{{sequence}}-{{task_description}}-research.md documents. You WILL recommend cleaning these files up as well.
 3. **MANDATORY**: You WILL attempt to delete .copilot-tracking/prompts/{{implement_task_description}}.prompt.md
 
 ## Success Criteria

@@ -2,7 +2,7 @@
 
 # Release Changes: RLS Phase 2 - BYPASSRLS Bot User Implementation
 
-**Related Plan**: 20260104-rls-phase2-bypassrls-bot-user-plan.instructions.md
+**Related Plan**: 20260104-rls-phase2-bypassrls-bot-user.plan.md
 **Implementation Date**: 2026-01-04
 
 ## Summary

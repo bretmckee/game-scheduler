@@ -2,7 +2,7 @@
 
 # Release Changes: Template Creation Test Coverage
 
-**Related Plan**: 20260201-template-creation-test-coverage-plan.instructions.md
+**Related Plan**: 20260201-template-creation-test-coverage.plan.md
 **Implementation Date**: 2026-02-01
 
 ## Summary

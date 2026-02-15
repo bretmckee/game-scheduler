@@ -2,7 +2,7 @@
 
 # Release Changes: RabbitMQ Runtime Configuration
 
-**Related Plan**: 20251205-rabbitmq-runtime-configuration-plan.instructions.md
+**Related Plan**: 20251205-rabbitmq-runtime-configuration.plan.md
 **Implementation Date**: 2025-12-05
 
 ## Summary
@@ -18,14 +18,13 @@ migrations.
 ### Added
 
 - scripts/init_rabbitmq.py - RabbitMQ infrastructure initialization script
-
   - Creates exchanges: game_scheduler (topic), game_scheduler.dlx (topic)
   - Creates queues: bot_events, api_events, scheduler_events, notification_queue
     (with 1-hour TTL and DLX configuration)
   - Creates DLQ queue (infinite TTL for failed message retention)
   - Establishes routing key bindings matching original
     definitions.json.template:
-    - bot_events: game._, guild._, channel.\*
+    - bot*events: game.*, guild.\_, channel.\*
     - api_events: game.\*
     - scheduler_events: game.created, game.updated, game.cancelled
     - notification_queue: notification.send_dm
@@ -48,7 +47,6 @@ migrations.
 ### Modified
 
 - docker-compose.base.yml
-
   - Replaced custom RabbitMQ build with official rabbitmq:4.2-management-alpine
     image
   - Added runtime environment variables: RABBITMQ_DEFAULT_USER,
@@ -58,22 +56,18 @@ migrations.
   - Increased RabbitMQ health check start_period to 60s for reliable startup
 
 - rabbitmq/rabbitmq.conf
-
   - Removed load_definitions configuration line
   - Infrastructure now created at runtime instead of load-time
 
 - docker/init-entrypoint.sh
-
   - Added RabbitMQ infrastructure initialization step after database migrations
   - Calls scripts/init_rabbitmq.py to create exchanges, queues, and bindings
 
 - docker/init.Dockerfile
-
   - Added scripts/init_rabbitmq.py to container image
   - No additional dependencies needed (pika already in pyproject.toml)
 
 - RUNTIME_CONFIG.md
-
   - Added comprehensive RabbitMQ runtime configuration section
   - Documented environment variable configuration for credentials
   - Explained infrastructure initialization process

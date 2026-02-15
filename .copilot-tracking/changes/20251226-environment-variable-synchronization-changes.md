@@ -2,7 +2,7 @@
 
 # Release Changes: Environment Variable Configuration Synchronization
 
-**Related Plan**: 20251226-environment-variable-synchronization-plan.instructions.md
+**Related Plan**: 20251226-environment-variable-synchronization.plan.md
 **Implementation Date**: 2025-12-26
 
 ## Summary
@@ -58,7 +58,7 @@ Synchronize all environment configuration files to ensure consistent variable or
 - config/env/env.staging - Preserved all existing credential values (Discord tokens, Grafana API keys, database passwords)
 - config/env/env.staging - Included development-only variables with commented values (HOST_WORKSPACE_FOLDER, ALLOY_HOST_PORT, port mappings)
 - config/env/env.e2e - Reorganized entire file to match standardized 12-section structure with test-specific focus
-- config/env/env.e2e - Maintained test-specific variables (DISCORD_USER_ID, DISCORD_GUILD_ID, DISCORD_ADMIN_BOT_* configuration)
+- config/env/env.e2e - Maintained test-specific variables (DISCORD*USER_ID, DISCORD_GUILD_ID, DISCORD_ADMIN_BOT*\* configuration)
 - config/env/env.e2e - Commented out non-test variables while preserving their documentation
 - config/env/env.int - Reorganized entire file to match standardized 12-section structure with integration test focus
 - config/env/env.int - Maintained integration test-specific variables (RETRY_INTERVAL_SECONDS, REDIS_COMMAND)

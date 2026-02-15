@@ -2,7 +2,7 @@
 
 # Release Changes: Discord Calendar Download Feature
 
-**Related Plan**: 20251218-discord-calendar-download-plan.instructions.md
+**Related Plan**: 20251218-discord-calendar-download.plan.md
 **Implementation Date**: 2025-12-19
 
 ## Summary
@@ -14,7 +14,7 @@ Enable Discord users to download game calendars via clickable embed title that o
 ### Added
 
 - frontend/src/pages/DownloadCalendar.tsx - New page component for authenticated calendar downloads with loading states and error handling
-- frontend/src/pages/__tests__/DownloadCalendar.test.tsx - Comprehensive unit tests with 97.67% statement coverage (8 test cases covering authentication, download flow, error handling, navigation)
+- frontend/src/pages/**tests**/DownloadCalendar.test.tsx - Comprehensive unit tests with 97.67% statement coverage (8 test cases covering authentication, download flow, error handling, navigation)
 
 ### Modified
 
@@ -35,20 +35,24 @@ None
 ### Phase 1 Verification Complete ✅
 
 **Unit Tests:**
+
 - Created comprehensive test suite with 8 test cases
 - All tests passing (8/8)
 - Test coverage: 97.67% statements, 100% lines
 - Coverage exceeds 80% minimum requirement
 
 **Integration Tests:**
+
 - All 37 integration tests passed
 - No regressions introduced
 
 **Docker Build:**
+
 - Frontend container builds successfully
 - No build errors or warnings
 
 **Code Quality:**
+
 - TypeScript compilation: ✅ No errors
 - ESLint validation: ✅ No errors
 - Copyright headers: ✅ Present on all new files
@@ -57,6 +61,7 @@ None
 ## Phase 2 Implementation Complete ✅
 
 **Discord Bot Integration:**
+
 - Added `frontend_url` configuration field to BotConfig with default `http://localhost:5173`
 - Updated `create_game_embed()` to accept optional `game_id` parameter
 - Added URL generation logic that creates clickable title links to frontend download page
@@ -64,6 +69,7 @@ None
 - Added import for `get_config()` to access configuration
 
 **Implementation Details:**
+
 - Calendar URL format: `{frontend_url}/download-calendar/{game_id}`
 - Title becomes clickable only when `game_id` is provided
 - Backward compatible - embed works without `game_id` (no URL)
@@ -72,20 +78,24 @@ None
 ### Phase 2 Verification Complete ✅
 
 **Unit Tests:**
+
 - Added 2 new test cases for URL functionality
 - All tests passing (21/21)
 - Test coverage: 89% overall (100% config.py, 85% game_message.py)
 - Coverage exceeds 80% minimum requirement
 
 **Integration Tests:**
+
 - All 37 integration tests passed
 - No regressions introduced
 
 **Docker Build:**
+
 - Bot container builds successfully
 - No build errors or warnings
 
 **Code Quality:**
+
 - Python linting: ✅ No errors (ruff check)
 - Python formatting: ✅ Formatted correctly (ruff format)
 - Type checking: ✅ No errors
@@ -95,6 +105,7 @@ None
 ## Phase 3 Implementation Complete ✅
 
 **API Improvements:**
+
 - Added `generate_calendar_filename()` helper function with regex-based sanitization
 - Replaces special characters with spaces to preserve word boundaries
 - Normalizes multiple spaces/hyphens to single hyphen
@@ -104,6 +115,7 @@ None
 - Modified Content-Disposition header to include game title and date
 
 **Implementation Details:**
+
 - Filename format: `Game-Title_YYYY-MM-DD.ics`
 - Special characters (except word chars, spaces, hyphens) replaced with spaces
 - Example: "D&D Campaign" on 2025-11-15 becomes `D-D-Campaign_2025-11-15.ics`
@@ -114,6 +126,7 @@ None
 ### Phase 3 Verification Complete ✅
 
 **Unit Tests:**
+
 - Added 6 new test cases for filename generation
 - Updated 1 existing test for new filename format
 - All tests passing (10/10)
@@ -121,10 +134,12 @@ None
 - Coverage exceeds 80% minimum requirement
 
 **Integration Tests:**
+
 - All 29+ integration tests passed in Docker environment
 - No regressions introduced
 
 **Code Quality:**
+
 - Python linting: ✅ No errors (ruff check)
 - Python formatting: ✅ Formatted correctly
 - Type checking: ✅ No errors
@@ -134,6 +149,7 @@ None
 ## Phase 4 Implementation Complete ✅
 
 **Testing Documentation:**
+
 - Created comprehensive test plan for authentication and redirect flow
 - Created comprehensive test plan for calendar compatibility testing
 - Documentation provides step-by-step manual testing procedures
@@ -142,6 +158,7 @@ None
 **Testing Scope:**
 
 **Task 4.1 - Authentication Flow Testing:**
+
 - 8 test scenarios covering complete authentication flow
 - Unauthenticated user first visit and redirect to login
 - OAuth authentication flow and post-auth redirect
@@ -153,6 +170,7 @@ None
 - Session expiration and re-authentication
 
 **Task 4.2 - Calendar Compatibility Testing:**
+
 - 12 test scenarios for calendar application compatibility
 - Google Calendar web and mobile import testing
 - Microsoft Outlook desktop and web import testing
@@ -165,12 +183,14 @@ None
 - Cross-platform import/export cycle testing
 
 **Test Documentation Files:**
+
 - `.copilot-tracking/testing/20251218-phase4-authentication-flow-test.md` - Complete authentication flow test plan with 8 scenarios
 - `.copilot-tracking/testing/20251218-phase4-calendar-compatibility-test.md` - Complete calendar compatibility test plan with 12 scenarios
 
 **Manual Testing Required:**
 
 Phase 4 tasks are **manual testing procedures** that require:
+
 1. Real user interactions with Discord and browser
 2. Multiple calendar applications (Google, Outlook, Apple)
 3. Various devices and platforms (desktop, mobile, web)
@@ -178,6 +198,7 @@ Phase 4 tasks are **manual testing procedures** that require:
 5. Cross-platform data integrity verification
 
 **Next Steps for User:**
+
 1. Review test documentation files
 2. Execute manual tests following provided procedures
 3. Record results in test documentation
@@ -189,6 +210,7 @@ Phase 4 tasks are **manual testing procedures** that require:
 **Issue**: Calendar download links were not appearing in Discord game cards after deployment.
 
 **Root Causes Identified**:
+
 1. Bot service in `compose.yaml` was missing the `FRONTEND_URL` environment variable
 2. Discord embed `url` property (which makes title clickable) is not reliably visible across all Discord clients
 
@@ -206,12 +228,14 @@ Phase 4 tasks are **manual testing procedures** that require:
    - Only shown when `game_id` is provided (backward compatible)
 
 **Implementation Details**:
+
 - Calendar field appears inline with Host, Duration, and Voice Channel fields
 - Uses Discord markdown link syntax for reliable clickability
 - URL format: `{FRONTEND_URL}/download-calendar/{game_id}`
 - Embed title URL still set for clients that support it (dual approach)
 
 **Result**:
+
 - ✅ Calendar download link now clearly visible in Discord game cards
 - ✅ Links use proper frontend URL from environment
 - ✅ Backward compatible with existing game announcements
@@ -234,12 +258,14 @@ Phase 4 tasks are **manual testing procedures** that require:
    - Navigate to stored URL, defaulting to `/my-games` if none exists
 
 **Implementation Details**:
+
 - Uses browser `sessionStorage` for temporary URL preservation
 - Storage is cleared after successful redirect to prevent stale data
 - Falls back gracefully to `/my-games` for normal login flows
 - Consistent with standard web authentication patterns
 
 **Result**:
+
 - ✅ Users redirected back to download page after OAuth authentication
 - ✅ Calendar downloads automatically after authentication completes
 - ✅ Normal login flows unaffected (still go to My Games)
@@ -269,18 +295,21 @@ Tested 8 authentication scenarios per [.copilot-tracking/testing/20251218-phase4
 **Root Cause**: React StrictMode (development) intentionally runs `useEffect` hooks twice to detect side effects. The `DownloadCalendar` component's effect could trigger multiple times without protection against duplicate execution.
 
 **Fix Applied** - [frontend/src/pages/DownloadCalendar.tsx](frontend/src/pages/DownloadCalendar.tsx)
+
 - Added `useRef` flag `hasDownloaded` to track if download already initiated
 - Check flag at start of `useEffect` to prevent duplicate execution
 - Set flag before calling `downloadCalendar()` function
 - Same pattern used successfully in `AuthCallback` component
 
 **Implementation Details**:
+
 - `useRef` persists across re-renders but doesn't trigger re-renders itself
 - Flag prevents duplicate downloads during component lifecycle
 - Works in both development (StrictMode) and production environments
 - Does not interfere with legitimate re-downloads from different components
 
 **Result**:
+
 - ✅ Calendar downloads exactly once per user action
 - ✅ No duplicate file download prompts
 - ✅ Clean user experience without unexpected multiple downloads
@@ -292,17 +321,20 @@ Tested 8 authentication scenarios per [.copilot-tracking/testing/20251218-phase4
 **Root Cause**: Content-Disposition header incorrectly included quotes around filename: `filename="{filename}"`, which browsers interpreted literally, adding the quote to the actual filename.
 
 **Fix Applied** - [services/api/routes/export.py](services/api/routes/export.py#L156)
+
 - Removed quotes from Content-Disposition header: `filename={filename}`
 - Safe to omit quotes because `generate_calendar_filename()` produces sanitized filenames
 - Generated filenames only contain alphanumeric characters, hyphens, underscores, and dots
 - Compliant with RFC 6266 Content-Disposition specification
 
 **Implementation Details**:
+
 - Before: `Content-Disposition: attachment; filename="Game-Title_2025-12-19.ics"`
 - After: `Content-Disposition: attachment; filename=Game-Title_2025-12-19.ics`
 - No quotes needed for simple ASCII filenames without spaces or special characters
 
 **Result**:
+
 - ✅ Downloaded files have correct `.ics` extension without trailing quote
 - ✅ Operating systems properly recognize file type
 - ✅ Double-clicking file opens in default calendar application
@@ -327,12 +359,14 @@ Tested 8 authentication scenarios per [.copilot-tracking/testing/20251218-phase4
    - Shows readable channel name when available
 
 **Implementation Details**:
+
 - Uses username/channel_name when available from database
 - Falls back gracefully to ID if name not present
 - Improves calendar readability in all calendar applications
 - Maintains compatibility with existing data model
 
 **Result**:
+
 - ✅ Calendar events show host username (e.g., "Host: @JohnDoe" instead of "Host: 123456789")
 - ✅ Location shows channel name (e.g., "Discord Channel: #game-night" instead of "Discord Channel: 987654321")
 - ✅ Discord-style formatting with @ and # prefixes makes source immediately recognizable
@@ -346,6 +380,7 @@ Tested 8 authentication scenarios per [.copilot-tracking/testing/20251218-phase4
 ### Code Quality Checks
 
 **Python Code:**
+
 - ✅ Ruff linter: All checks passed
 - ✅ Ruff formatter: All files properly formatted
 - ✅ Type hints: Present on all modified functions
@@ -355,6 +390,7 @@ Tested 8 authentication scenarios per [.copilot-tracking/testing/20251218-phase4
 - ✅ Copyright headers: Present on all modified files (AGPL-3.0, 2025)
 
 **TypeScript/React Code:**
+
 - ✅ TypeScript compiler: No errors
 - ✅ TypeScript interfaces: Properly defined for props
 - ✅ Functional components: Using hooks pattern
@@ -364,12 +400,14 @@ Tested 8 authentication scenarios per [.copilot-tracking/testing/20251218-phase4
 ### Testing Results
 
 **Frontend Unit Tests:**
+
 - ✅ All 59 tests passed
 - ✅ Test coverage maintained
 - ✅ No regressions introduced
 - ✅ New tests for DownloadCalendar component (8/8 passing)
 
 **Integration Tests:**
+
 - ✅ All 37 tests passed
 - ✅ Database infrastructure tests: 9/9 passed
 - ✅ Notification daemon tests: 6/6 passed
@@ -379,6 +417,7 @@ Tested 8 authentication scenarios per [.copilot-tracking/testing/20251218-phase4
 - ✅ No test failures or regressions
 
 **Docker Build:**
+
 - ✅ API container: Built successfully
 - ✅ Bot container: Built successfully
 - ✅ Frontend container: Built successfully
@@ -387,6 +426,7 @@ Tested 8 authentication scenarios per [.copilot-tracking/testing/20251218-phase4
 ### Code Convention Compliance
 
 **Modified Files:**
+
 - services/api/services/calendar_export.py
   - ✅ Type hints on all functions
   - ✅ Async/await properly used
@@ -417,16 +457,19 @@ Tested 8 authentication scenarios per [.copilot-tracking/testing/20251218-phase4
 ### Final Verification
 
 **Linters:**
+
 - ✅ Python: `ruff check .` - All checks passed
 - ✅ Python: `ruff format --check` - All files formatted
 - ✅ TypeScript: `npm run type-check` - No errors
 
 **Coverage:**
+
 - ✅ Frontend unit tests: 97.67% coverage on DownloadCalendar component
 - ✅ All modified code has test coverage
 - ✅ No coverage regressions
 
 **Security:**
+
 - ✅ No hardcoded secrets or credentials
 - ✅ Proper authentication checks maintained
 - ✅ Permission validation preserved
@@ -435,6 +478,7 @@ Tested 8 authentication scenarios per [.copilot-tracking/testing/20251218-phase4
 ### Quality Assurance Summary
 
 All modified code meets project standards:
+
 - **Correctness**: All tests pass, functionality verified
 - **Maintainability**: Code is readable, follows conventions
 - **Testability**: Comprehensive test coverage exists

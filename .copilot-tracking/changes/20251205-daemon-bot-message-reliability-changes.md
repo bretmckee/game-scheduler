@@ -2,7 +2,7 @@
 
 # Release Changes: Daemon-Bot Message Reliability and Error Handling
 
-**Related Plan**: 20251205-daemon-bot-message-reliability-plan.instructions.md
+**Related Plan**: 20251205-daemon-bot-message-reliability.plan.md
 **Implementation Date**: 2025-12-05
 
 ## Summary

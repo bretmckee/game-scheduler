@@ -2,7 +2,7 @@
 
 # Release Changes: Web Join Game UX with Real-Time Cross-Platform Sync
 
-**Related Plan**: 20260205-01-web-join-game-ux-plan.instructions.md
+**Related Plan**: 20260205-01-web-join-game-ux.plan.md
 **Implementation Date**: 2026-02-07
 
 ## Summary

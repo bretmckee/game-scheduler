@@ -2,7 +2,7 @@
 
 # Release Changes: Consolidate Test Fixtures
 
-**Related Plan**: 20260104-consolidate-test-fixtures-plan.instructions.md
+**Related Plan**: 20260104-consolidate-test-fixtures.plan.md
 **Implementation Date**: 2026-01-04
 
 ## Summary
@@ -18,6 +18,7 @@
 **Phase 4 Complete**: All deprecated fixtures deleted from tests/integration/conftest.py. All integration tests passing after cleanup (129 tests).
 
 **Key Achievements**:
+
 - Consolidated database session fixtures (admin_db_sync, admin_db, app_db, bot_db) with automatic cleanup
 - Implemented factory pattern for data creation (create_guild, create_channel, create_user, create_template, create_game)
 - Created Redis cache seeding fixture (seed_redis_cache) that works in both sync and async contexts
@@ -30,7 +31,7 @@
 - Task 1.4: Migrated test_template_default_overrides.py (tests passing)
 - Task 1.5: Migrated test_game_signup_methods.py - replaced custom fixtures with helper functions (3 tests passing)
 - Consolidated RabbitMQ helper functions (get_queue_message_count, consume_one_message, purge_queue) to tests/integration/conftest.py
-- Eliminated duplicate _create_test_data helper methods across test files
+- Eliminated duplicate \_create_test_data helper methods across test files
 - Task 2.1: Migrated test_guild_queries.py - eliminated 12 local fixtures, reduced test code by 60%
 - Task 2.2: Migrated test_games_route_guild_isolation.py - eliminated 14 local fixtures, reduced file by 26%
 - **Task 3.1 Complete**: Analyzed tests/e2e/conftest.py and documented migration plan:
@@ -79,11 +80,11 @@
 
 - tests/conftest.py - Fixed admin_db_url_sync to properly remove asyncpg driver, implemented event loop management for sync Redis client fixture, added sync wrapper for seed_redis_cache to work in both sync and async contexts, added test_game_environment composite fixture for daemon integration tests
 - tests/integration/test_shared_fixtures.py - Fixed Redis client assertions, updated seed_redis_cache calls to use sync wrapper instead of asyncio.run(), added module-level @pytest.mark.integration marker
-- tests/integration/test_notification_daemon.py - Replaced custom test_game_session fixture with shared factory fixtures (create_guild, create_channel, create_user, create_game), removed db_session fixture in favor of admin_db_sync, updated all test functions to use factory pattern with dictionary access, removed duplicate _create_test_data helper methods in favor of shared test_game_environment fixture, removed duplicate get_queue_message_count and consume_one_message functions
+- tests/integration/test_notification_daemon.py - Replaced custom test_game_session fixture with shared factory fixtures (create_guild, create_channel, create_user, create_game), removed db_session fixture in favor of admin_db_sync, updated all test functions to use factory pattern with dictionary access, removed duplicate \_create_test_data helper methods in favor of shared test_game_environment fixture, removed duplicate get_queue_message_count and consume_one_message functions
 - tests/integration/test_status_transitions.py - Removed custom db_url, db_session, and test_game_session fixtures, replaced with shared admin_db_sync and test_game_environment fixtures, updated all test functions to use factory pattern, removed unused sqlalchemy imports (create_engine, sessionmaker), removed duplicate get_queue_message_count and consume_one_message functions
 - tests/integration/test_retry_daemon.py - Removed duplicate rabbitmq_url, rabbitmq_connection, and rabbitmq_channel fixtures in favor of shared fixtures from tests/integration/conftest.py, removed duplicate get_queue_message_count, consume_one_message, and purge_queue functions, removed unused helper functions (publish_event_with_ttl, get_queue_arguments)
 - tests/integration/test_game_signup_methods.py - Removed duplicate consume_one_message function, now imports from tests/integration/conftest.py
-- tests/integration/test_game_signup_methods.py - Replaced custom test_user, test_template, and authenticated_client fixtures with helper functions (_create_test_user, _create_test_template, _create_authenticated_client), updated all tests to use shared factory fixtures and manage session cleanup, fixed parameter names (discord_user_id not discord_id), all 3 tests passing
+- tests/integration/test_game_signup_methods.py - Replaced custom test_user, test_template, and authenticated_client fixtures with helper functions (\_create_test_user, \_create_test_template, \_create_authenticated_client), updated all tests to use shared factory fixtures and manage session cleanup, fixed parameter names (discord_user_id not discord_id), all 3 tests passing
 - tests/integration/test_guild_queries.py - Completely rewritten to use shared fixtures (admin_db, create_guild, create_channel, create_user), removed all local fixture definitions (db_url, async_engine, async_session_factory, db, guild_b_config, channel_id, user_id, sample_game_data, sample_template_data), simplified test code by 60%, all 21 tests passing
 - tests/integration/test_games_route_guild_isolation.py - Completely rewritten to use shared fixtures (admin_db, create_guild, create_channel, create_user, create_template, create_game), removed all local fixture definitions (db_url, async_engine, async_session_factory, db, redis_client, guild_a_id, guild_b_id, guild_a_config, guild_b_config, channel_a, channel_b, template_a, template_b, user_a, user_b, game_a, game_b), simplified from 434 lines to 319 lines (26% reduction), all 6 tests passing
 - tests/conftest.py - Added TimeoutType enum and test_timeouts fixture (session-scoped) to provide standard timeout values for polling operations in both integration and E2E tests

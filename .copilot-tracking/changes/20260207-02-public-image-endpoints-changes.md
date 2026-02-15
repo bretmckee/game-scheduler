@@ -2,7 +2,7 @@
 
 # Release Changes: Secure Public Image Architecture with Deduplication
 
-**Related Plan**: 20260207-02-public-image-endpoints-plan.instructions.md
+**Related Plan**: 20260207-02-public-image-endpoints.plan.md
 **Implementation Date**: 2026-02-08
 
 ## Summary

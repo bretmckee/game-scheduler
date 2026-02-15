@@ -2,7 +2,7 @@
 
 # Release Changes: Documentation Reorganization by User Persona
 
-**Related Plan**: 20260201-documentation-reorganization-by-persona-plan.instructions.md
+**Related Plan**: 20260201-documentation-reorganization-by-persona.plan.md
 **Implementation Date**: 2026-02-01
 
 ## Summary

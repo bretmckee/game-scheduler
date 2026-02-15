@@ -1,7 +1,7 @@
 # Implementation Changes: Game Card UI Consolidation - Web and Discord
 
 **Date:** December 20, 2025
-**Plan:** [20251220-game-card-ui-consolidation-plan.instructions.md](../plans/20251220-game-card-ui-consolidation-plan.instructions.md)
+**Plan:** [20251220-game-card-ui-consolidation.plan.md](../plans/20251220-game-card-ui-consolidation.plan.md)
 **Details:** [20251220-game-card-ui-consolidation-details.md](../details/20251220-game-card-ui-consolidation-details.md)
 
 ## Implementation Progress
@@ -23,6 +23,7 @@
 ### Notes
 
 **Phase 1 Completed:** All web layout restructuring tasks completed and verified working
+
 - Moved signup instructions to appear just before Participants section
 - Added guild name + # prefix to channel name in Location field (fetched from Discord API)
 - Moved Duration field directly below When field
@@ -36,6 +37,7 @@
 **API Enhancement:** Added guild_name field to GameResponse schema and fetching from Discord API with caching
 
 **Phase 3 Completed:** Discord bot card field reorganization completed
+
 - Verified host author field with avatar already implemented correctly (lines 118-123)
 - Reorganized embed fields to match web layout order:
   1. When field includes calendar link inline (no separate Calendar field)

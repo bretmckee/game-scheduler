@@ -12,6 +12,7 @@ While implementing the E2E test for waitlist promotion DMs, we discovered a bug 
 **Bug:** Promotion DMs not sent when placeholder participants occupy confirmed slots
 
 **Root Cause:**
+
 ```python
 # services/api/services/games.py, lines ~810-816
 old_all_participants = [p for p in game.participants if p.user_id and p.user]  # ❌ Filters placeholders
@@ -22,6 +23,7 @@ old_overflow_ids = {p.user.discord_id for p in old_sorted_participants[old_max_p
 The code filters out placeholders BEFORE determining overflow position, but `max_players` applies to ALL participants. This causes real users to appear "confirmed" even when placeholders occupy those slots.
 
 **Example Scenario:**
+
 - Game: max_players=1, participants=["Reserved", "<@user_id>"]
 - Visual: Reserved (1/1 confirmed), user (overflow)
 - Detection sees: 1 real participant (user) with max_players=1 → position 0/1 → NOT overflow
@@ -52,6 +54,7 @@ The code filters out placeholders BEFORE determining overflow position, but `max
 The bug should now be fixed in `services/api/services/games.py::update_game()`:
 
 **Expected Fix:**
+
 ```python
 # Include ALL participants (including placeholders) when determining overflow
 old_all_participants = game.participants  # Include placeholders
@@ -74,6 +77,7 @@ This matches the bot formatter pattern and correctly identifies overflow partici
 ```
 
 **Expected Output:**
+
 - Both parametrized tests should PASS
 - Debug output should show promotion DM received:
   - "✓ Test user received promotion DM: ✅ Good news! A spot opened up..."
@@ -98,7 +102,8 @@ Should show bug fix commit inserted BEFORE the E2E test commit, making the test 
 ### 4. Mark Task 5.3 Complete
 
 If tests pass, update task tracking:
-- `.copilot-tracking/plans/20251222-e2e-test-strategy-plan.instructions.md`
+
+- `.copilot-tracking/plans/20251222-e2e-test-strategy.plan.md`
   - Change Task 5.3 status from "❌ NOT STARTED" to "✅ COMPLETE"
 - `.copilot-tracking/changes/20251222-e2e-test-strategy-changes.md`
   - Add Task 5.3 completion entry with test details
@@ -114,6 +119,7 @@ If tests pass, update task tracking:
 ### Short Term (Task 5.4)
 
 Continue with E2E test strategy:
+
 - **Task 5.4:** Join notification → delayed DM test
   - Create game with signup instructions
   - User joins game
@@ -122,6 +128,7 @@ Continue with E2E test strategy:
 ### Medium Term (Architectural Improvement)
 
 Consider implementing the centralized `partition_participants()` utility:
+
 - See `.copilot-tracking/research/20251224-promotion-detection-bug.md` for detailed design
 - Benefits: Single source of truth, prevents future bugs, easier to enhance
 - Migration: 6+ locations currently duplicate sort+slice logic
@@ -129,20 +136,24 @@ Consider implementing the centralized `partition_participants()` utility:
 ## Key Files Reference
 
 **Test File:**
+
 - `tests/e2e/test_waitlist_promotion.py` - E2E test exposing/validating bug fix
 
 **Bug Location (Fixed):**
+
 - `services/api/services/games.py` - Lines ~810-816 in `update_game()`
 - `services/api/services/games.py` - Lines ~1184-1250 promotion detection methods
 
 **Related Logic:**
+
 - `services/bot/events/handlers.py` - Bot handlers using sort+slice pattern (lines 393-403, 511-513, 858-862)
 - `services/bot/formatters/game_message.py` - Formatter that correctly handles placeholders
 - `shared/utils/participant_sorting.py` - Core sorting utility
 
 **Documentation:**
+
 - `.copilot-tracking/research/20251224-promotion-detection-bug.md` - Complete bug analysis
-- `.copilot-tracking/plans/20251222-e2e-test-strategy-plan.instructions.md` - Task 5.3 definition
+- `.copilot-tracking/plans/20251222-e2e-test-strategy.plan.md` - Task 5.3 definition
 - `.copilot-tracking/details/20251222-e2e-test-strategy-details.md` - Task 5.3 details
 
 ## Quick Context Restore Commands
@@ -155,7 +166,7 @@ Consider implementing the centralized `partition_participants()` utility:
 git show HEAD~1  # Or wherever the fix commit landed
 
 # Review task tracking
-code .copilot-tracking/plans/20251222-e2e-test-strategy-plan.instructions.md
+code .copilot-tracking/plans/20251222-e2e-test-strategy.plan.md
 
 # Check for any other failing tests
 pytest tests/services/api/services/test_games_promotion.py -v
@@ -175,6 +186,7 @@ pytest tests/services/api/services/test_games_promotion.py -v
 The bug revealed a larger architectural issue: participant ordering logic is duplicated in 6+ locations with inconsistent placeholder handling. Consider creating centralized `partition_participants()` utility as documented in the bug research file.
 
 This would provide:
+
 - Single source of truth for participant ordering
 - Consistent placeholder handling across all services
 - Easier to enhance for future features (priority tiers, reserved slots, etc.)

@@ -2,7 +2,7 @@
 
 # Release Changes: Database-Backed Event-Driven Notification Scheduler
 
-**Related Plan**: 20251127-database-backed-notification-scheduler-plan.instructions.md
+**Related Plan**: 20251127-database-backed-notification-scheduler.plan.md
 **Implementation Date**: 2025-11-27
 
 ## Summary

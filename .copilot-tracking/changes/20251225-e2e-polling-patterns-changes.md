@@ -2,7 +2,7 @@
 
 # Release Changes: E2E Test Polling Pattern Refactoring
 
-**Related Plan**: 20251225-e2e-polling-patterns-plan.instructions.md
+**Related Plan**: 20251225-e2e-polling-patterns.plan.md
 **Implementation Date**: 2025-12-25
 
 ## Summary
@@ -115,13 +115,14 @@ Refactoring E2E tests to replace inconsistent sleep patterns with modular pollin
 - shared/message_formats.py - Added DMPredicates class with static methods returning predicate functions for matching each DM type
 - shared/message_formats.py - Added DiscordMessage Protocol for type hints in predicates
 - tests/e2e/helpers/discord.py - Added import for DMPredicates from shared.message_formats
-- tests/e2e/helpers/discord.py - Replaced inline lambda predicates in wait_for_recent_dm with DMPredicates.* calls
+- tests/e2e/helpers/discord.py - Replaced inline lambda predicates in wait_for_recent_dm with DMPredicates.\* calls
 - tests/e2e/helpers/discord.py - Updated wait_for_recent_dm docstring to mention centralized predicates from shared.message_formats
 - tests/e2e/helpers/test_discord.py - Fixed test_promotion_dm_type to use actual promotion message format ("A spot opened up", "moved from the waitlist")
 
 ### Removed
 
 None
+
 - tests/e2e/test_user_join.py - Added wait_for_game_message_id import and replaced immediate query with helper call (2 locations)
 - tests/e2e/test_waitlist_promotion.py - Added wait_for_game_message_id import and replaced immediate query with helper call
 - tests/e2e/test_game_reminder.py - Added wait_for_game_message_id import and replaced immediate query with helper call

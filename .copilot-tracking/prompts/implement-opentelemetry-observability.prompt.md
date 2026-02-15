@@ -16,7 +16,7 @@ You WILL create `20251206-opentelemetry-observability-changes.md` in #file:../ch
 ### Step 2: Execute Implementation
 
 You WILL follow #file:../../.github/instructions/task-implementation.instructions.md
-You WILL systematically implement #file:../plans/20251206-opentelemetry-observability-plan.instructions.md task-by-task
+You WILL systematically implement #file:../plans/20251206-opentelemetry-observability.plan.md task-by-task
 You WILL follow ALL project standards and conventions:
 
 - #file:../../.github/instructions/python.instructions.md for all Python code
@@ -32,12 +32,11 @@ You WILL follow ALL project standards and conventions:
 When ALL Phases are checked off (`[x]`) and completed you WILL do the following:
 
 1. You WILL provide a markdown style link and a summary of all changes from #file:../changes/20251206-opentelemetry-observability-changes.md to the user:
-
    - You WILL keep the overall summary brief
    - You WILL add spacing around any lists
    - You MUST wrap any reference to a file in a markdown style link
 
-2. You WILL provide markdown style links to .copilot-tracking/plans/20251206-opentelemetry-observability-plan.instructions.md, .copilot-tracking/details/20251206-opentelemetry-observability-details.md, and .copilot-tracking/research/20251206-opentelemetry-compatibility-research.md documents. You WILL recommend cleaning these files up as well.
+2. You WILL provide markdown style links to .copilot-tracking/plans/20251206-opentelemetry-observability.plan.md, .copilot-tracking/details/20251206-opentelemetry-observability-details.md, and .copilot-tracking/research/20251206-opentelemetry-compatibility-research.md documents. You WILL recommend cleaning these files up as well.
 3. **MANDATORY**: You WILL attempt to delete .copilot-tracking/prompts/implement-opentelemetry-observability.prompt.md
 
 ## Success Criteria

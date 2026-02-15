@@ -2,7 +2,7 @@
 
 # Release Changes: NPM Warnings Elimination Phase 3 - MUI Framework Upgrade
 
-**Related Plan**: 20251214-npm-warnings-phase3-mui-upgrade-plan.instructions.md
+**Related Plan**: 20251214-npm-warnings-phase3-mui-upgrade.plan.md
 **Implementation Date**: 2025-12-14
 
 ## Summary
@@ -45,6 +45,7 @@ This phase evaluates and implements Material-UI (MUI) upgrade from v5.18.0 to v7
 The project uses MUI extensively but with a relatively simple component set:
 
 **@mui/material components (29 unique components):**
+
 - Layout: Box, Container, Stack, Grid (implied usage)
 - Typography: Typography
 - Form Controls: TextField, Select, MenuItem, FormControl, FormHelperText, Switch, Checkbox
@@ -56,21 +57,25 @@ The project uses MUI extensively but with a relatively simple component set:
 - Inputs: Input fields through TextField
 
 **@mui/icons-material:**
+
 - Standard usage: EditIcon, DeleteIcon, StarIcon, StarBorderIcon, DragIndicatorIcon, LockIcon
 - Common pattern: Individual icon imports
 
 **@mui/x-date-pickers:**
+
 - DateTimePicker
 - LocalizationProvider
 - AdapterDateFns
 
 **Styling Patterns:**
+
 - **sx prop**: Used extensively (20+ instances) for inline styling
 - **styled() components**: NONE found - project does NOT use styled components
 - **Theme customization**: Custom theme in `theme.ts` with Discord-inspired color scheme
 - **NO direct @mui/base usage** - deprecation warning is from transitive dependencies only
 
 **Key Findings:**
+
 1. Simple component usage - mostly standard Material-UI patterns
 2. Heavy reliance on sx prop for styling (good for v7 compatibility)
 3. Custom theme configuration present but straightforward
@@ -83,12 +88,14 @@ The project uses MUI extensively but with a relatively simple component set:
 **v5 → v6 Breaking Changes Analysis:**
 
 **Critical Changes Affecting This Project:**
+
 1. **Grid2 API changes** - Not used yet, but recommended for new development
 2. **TypeScript minimum version**: v4.7 required (currently using v5.3.3 ✓)
 3. **React version support**: React 17+ required (currently using v19.0.0 ✓)
 4. **Ripple effect changes**: May affect button tests with @testing-library/react
 
 **Minor Impact Changes:**
+
 - Accordion: Summary structure changes (NOT USED in this project)
 - Autocomplete: New reason values in callbacks (NOT USED)
 - Chip: Focus behavior on ESC key (USED but minor impact)
@@ -97,6 +104,7 @@ The project uses MUI extensively but with a relatively simple component set:
 - Typography color prop: No longer a system prop (USED with standard colors only)
 
 **No Impact Changes:**
+
 - Divider vertical orientation changes
 - useMediaQuery type changes
 - Box component type changes
@@ -105,19 +113,22 @@ The project uses MUI extensively but with a relatively simple component set:
 **v6 → v7 Breaking Changes Analysis:**
 
 **Critical Changes Affecting This Project:**
+
 1. **Package layout updates**: Deep imports no longer work (NOT USING deep imports ✓)
 2. **Grid → GridLegacy rename**: Would need updates IF using old Grid
 3. **Grid2 → Grid rename**: Clean migration path available
 4. **Theme behavior**: Mode changes no longer trigger re-renders (GOOD for performance)
-5. **CSS variables**: Recommended to use theme.vars.* for styling
+5. **CSS variables**: Recommended to use theme.vars.\* for styling
 
 **Compatibility Analysis:**
+
 - Current package.json shows @mui/material v5.15.0
 - No deprecated APIs in use (createMuiTheme, Hidden, experimentalStyled, etc.)
 - Theme customization is straightforward and compatible
 - sx prop usage is fully compatible with v7
 
 **Available Codemods:**
+
 - v6.0.0/grid-v2-props - For Grid2 migration
 - v6.0.0/list-item-button-prop - Not needed (not using ListItem button prop)
 - v6.0.0/styled - For theme.applyStyles() migration
@@ -131,6 +142,7 @@ The project uses MUI extensively but with a relatively simple component set:
 **Migration Complexity Assessment:**
 
 **Low Risk Factors:**
+
 1. ✅ Simple component usage (29 components, all standard)
 2. ✅ No styled() usage (eliminates major migration path)
 3. ✅ Extensive sx prop usage (fully compatible)
@@ -143,17 +155,20 @@ The project uses MUI extensively but with a relatively simple component set:
 10. ✅ Multiple codemods available for automation
 
 **Moderate Risk Factors:**
+
 1. ⚠️ Grid component usage needs verification (might need GridLegacy migration)
 2. ⚠️ Test updates needed for ripple effect changes
 3. ⚠️ Theme.palette.mode usage patterns need review
 4. ⚠️ Two major version jumps (v5→v6→v7) instead of one
 
 **High Risk Factors:**
+
 1. ❌ NONE identified
 
 **Estimated Migration Effort:**
 
 **v5 → v6 Migration:**
+
 - Dependency updates: 30 minutes
 - Codemod execution: 30 minutes
 - Theme updates (theme.applyStyles()): 1 hour
@@ -162,6 +177,7 @@ The project uses MUI extensively but with a relatively simple component set:
 - **Subtotal: 4-5 hours**
 
 **v6 → v7 Migration:**
+
 - Dependency updates: 15 minutes
 - Grid component review/migration: 1-2 hours
 - Package layout verification: 30 minutes
@@ -173,6 +189,7 @@ The project uses MUI extensively but with a relatively simple component set:
 **Total Estimated Effort: 8-10 hours**
 
 **MUI v5 LTS Support Timeline:**
+
 - v5 is in Long-Term Support (LTS) mode
 - Security updates and critical bug fixes continue
 - No end-of-life date announced yet
@@ -181,23 +198,24 @@ The project uses MUI extensively but with a relatively simple component set:
 
 **Decision Matrix:**
 
-| Factor | Upgrade to v7 | Stay on v5 LTS |
-|--------|---------------|----------------|
-| Development Effort | 8-10 hours | 0 hours |
-| Risk Level | LOW | NONE |
-| Bundle Size | Smaller (-25% in v6) | Current |
-| Performance | Better (CSS vars, no re-renders) | Current |
-| Features | Modern (RSC ready, Pigment CSS) | Stable |
-| Security | Latest | LTS patches |
-| @mui/base warning | Eliminated | Remains (low priority) |
-| ESM Support | Improved | Adequate |
-| Dependencies | Consolidated | Current |
-| Testing Effort | Moderate | None |
-| Breaking Changes | Manageable | None |
+| Factor             | Upgrade to v7                    | Stay on v5 LTS         |
+| ------------------ | -------------------------------- | ---------------------- |
+| Development Effort | 8-10 hours                       | 0 hours                |
+| Risk Level         | LOW                              | NONE                   |
+| Bundle Size        | Smaller (-25% in v6)             | Current                |
+| Performance        | Better (CSS vars, no re-renders) | Current                |
+| Features           | Modern (RSC ready, Pigment CSS)  | Stable                 |
+| Security           | Latest                           | LTS patches            |
+| @mui/base warning  | Eliminated                       | Remains (low priority) |
+| ESM Support        | Improved                         | Adequate               |
+| Dependencies       | Consolidated                     | Current                |
+| Testing Effort     | Moderate                         | None                   |
+| Breaking Changes   | Manageable                       | None                   |
 
 **RECOMMENDATION: UPGRADE TO MUI v7**
 
 **Rationale:**
+
 1. **Low Risk**: Simple component usage, no high-risk patterns, good tooling support
 2. **High Value**: -25% bundle size, better performance, modern features
 3. **Strategic Fit**: Aligns with React 19 upgrade (completed in Phase 2)
@@ -208,6 +226,7 @@ The project uses MUI extensively but with a relatively simple component set:
 8. **Future-Proof**: RSC readiness, Pigment CSS optional migration path
 
 **Migration Approach:**
+
 - Upgrade v5 → v6 first (stabilize and test)
 - Then upgrade v6 → v7 (complete migration)
 - Run codemods for automated changes
@@ -217,6 +236,7 @@ The project uses MUI extensively but with a relatively simple component set:
 
 **Alternative (If Migration Delayed):**
 If immediate upgrade is not feasible, staying on v5 LTS is acceptable:
+
 - v5 remains supported with security updates
 - @mui/base deprecation warning can be suppressed (low priority)
 - Migration can be deferred to future sprint
@@ -229,6 +249,7 @@ If immediate upgrade is not feasible, staying on v5 LTS is acceptable:
 ### Upgrade Path: v5 → v6 → v7
 
 **v5 → v6 Upgrade:**
+
 - Updated package.json with MUI v6 versions
 - Installed dependencies: 1 package added, 7 removed, 8 changed
 - Type check: ✅ Passed
@@ -236,12 +257,14 @@ If immediate upgrade is not feasible, staying on v5 LTS is acceptable:
 - Bundle size: 895.05 kB (slight increase expected with v6 features)
 
 **v6 → v7 Upgrade:**
+
 - Updated package.json with MUI v7 versions
 - Installed dependencies: 8 packages changed
 - Type check: ❌ 3 Grid component errors (expected)
 - Build: Not attempted (type errors present)
 
 **Expected Breaking Changes Identified:**
+
 1. Grid component API change: `item` prop removed, `size` prop introduced
 2. Grid2 → Grid rename completed upstream
 3. Three files affected: GameForm.tsx, GuildDashboard.tsx, GuildListPage.tsx
@@ -251,10 +274,12 @@ If immediate upgrade is not feasible, staying on v5 LTS is acceptable:
 ### Grid Component Migration
 
 **Pattern Change:**
+
 - **v5 API**: `<Grid item xs={12} md={6}>`
 - **v7 API**: `<Grid size={{ xs: 12, md: 6 }}>`
 
 **Files Updated:**
+
 1. ✅ frontend/src/components/GameForm.tsx (line 442)
 2. ✅ frontend/src/pages/GuildDashboard.tsx (line 172)
 3. ✅ frontend/src/pages/GuildListPage.tsx (line 168)
@@ -262,6 +287,7 @@ If immediate upgrade is not feasible, staying on v5 LTS is acceptable:
 ### Verification Results
 
 **Type Check**: ✅ PASSED
+
 ```
 npm run type-check
 > tsc --noEmit
@@ -269,6 +295,7 @@ npm run type-check
 ```
 
 **Build**: ✅ PASSED
+
 ```
 npm run build
 ✓ 1321 modules transformed
@@ -277,6 +304,7 @@ dist/assets/index-0itUeiS4.js  895.70 kB │ gzip: 268.34 kB
 ```
 
 **Tests**: ✅ ALL PASSED
+
 ```
 Test Files  10 passed (10)
 Tests       51 passed (51)
@@ -284,12 +312,14 @@ Duration    8.95s
 ```
 
 ### Bundle Size Analysis
+
 - v5 bundle: Not recorded
 - v7 bundle: 895.70 kB (268.34 kB gzipped)
 - Bundle increase: +0.65 kB from v6 (minimal)
 - Expected reduction from v5: ~25% (per MUI docs)
 
 ### No Additional Changes Required
+
 - ✅ No styled() components to migrate
 - ✅ No theme.palette.mode usage requiring theme.applyStyles()
 - ✅ No @mui/base direct usage
@@ -299,11 +329,13 @@ Duration    8.95s
 - ✅ Date pickers updated to compatible v7.24.0
 
 ### Docker Build Verification
+
 **Build Command**: `docker compose build frontend`
 **Build Time**: 172.3s
 **Result**: ✅ SUCCESS
 
 **Build Stages:**
+
 1. Base image: node:22-alpine
 2. Dependency installation: npm ci (15.1s)
 3. Development setup: 120.9s
@@ -311,11 +343,13 @@ Duration    8.95s
 5. Image export: 32.5s (12.3s layer export)
 
 **Image Details:**
+
 - Image: dockerhub.boneheads.us:5050/game-scheduler-frontend:latest
 - Manifest: sha256:aacd80869ec3a5206e9a881421ebba64f1f2da8cedf590fb2810d7e99c3c70
 - Status: Built and tagged successfully
 
 **Verification:**
+
 - ✅ No build errors
 - ✅ No dependency warnings
 - ✅ MUI v7 packages installed successfully in Docker
@@ -326,6 +360,7 @@ Duration    8.95s
 **Total Migration Time**: ~30 minutes (faster than 8-10 hour estimate)
 
 **Success Factors:**
+
 1. Simple component usage patterns
 2. No complex customizations
 3. Automated Grid migration straightforward
@@ -333,6 +368,7 @@ Duration    8.95s
 5. No unexpected breaking changes
 
 **Outcome:**
+
 - ✅ MUI upgraded from v5.15.0 to v7.3.6
 - ✅ All TypeScript compilation passes
 - ✅ All 51 tests pass
@@ -345,6 +381,7 @@ Duration    8.95s
 ### Verification
 
 **Package Versions:**
+
 ```json
 "@mui/material": "^7.3.6"
 "@mui/icons-material": "^7.3.6"
@@ -354,13 +391,16 @@ Duration    8.95s
 ```
 
 **Deprecation Warning Status:**
+
 ```bash
 $ npm list @mui/base
 └── (empty)
 ```
+
 ✅ @mui/base no longer in dependency tree
 
 **Build Verification:**
+
 - TypeScript: ✅ No errors
 - Vite Build: ✅ Successful (895.70 kB)
 - Test Suite: ✅ 51/51 passing
@@ -369,12 +409,14 @@ $ npm list @mui/base
 ### Remaining Tasks (Optional)
 
 **Manual Testing Recommended:**
+
 - [x] Test Grid layouts in browser (GameForm, GuildDashboard, GuildListPage)
 - [x] Verify responsive breakpoints (xs, sm, md)
 - [x] Check dark mode styling (if applicable)
 - [x] Test date picker functionality
 
 **Docker Build Verification:**
+
 - [x] Build frontend Docker image - Completed in 172.3s
 - [x] Verify production bundle in container - Image successfully built and tagged
 - [x] Test in compose environment - Manual testing completed
@@ -382,10 +424,12 @@ $ npm list @mui/base
 ### Files Changed Summary
 
 **Configuration:**
+
 - ✅ frontend/package.json
 - ✅ frontend/package.json.v5.backup (created)
 
 **Source Code:**
+
 - ✅ frontend/src/components/GameForm.tsx
 - ✅ frontend/src/pages/GuildDashboard.tsx
 - ✅ frontend/src/pages/GuildListPage.tsx
@@ -396,11 +440,13 @@ $ npm list @mui/base
 ### Migration Efficiency
 
 **Estimated vs Actual:**
+
 - Estimated: 8-10 hours
 - Actual: ~30 minutes
 - Efficiency: 16-20x faster than estimated
 
 **Why So Fast:**
+
 1. Simple component usage (no complex patterns)
 2. Minimal breaking changes affecting this codebase
 3. No deprecated APIs in use
@@ -410,6 +456,7 @@ $ npm list @mui/base
 ### Next Steps
 
 **Recommended:**
+
 1. Commit changes with descriptive message
 2. Create PR for code review
 3. Perform manual UI testing
@@ -417,6 +464,7 @@ $ npm list @mui/base
 5. Deploy to test environment
 
 **Commit Message Suggestion:**
+
 ```
 feat(deps): upgrade Material-UI from v5 to v7
 
@@ -463,6 +511,7 @@ Bundle size: 895.70 kB (268.34 kB gzipped)
 **New Dependencies**: None (version upgrades only)
 
 **Updated Dependencies**:
+
 - @mui/material: v5.15.0 → v7.3.6 (2 major versions)
 - @mui/icons-material: v5.15.0 → v7.3.6 (2 major versions)
 - @mui/x-date-pickers: v6.20.2 → v7.24.0 (1 major version)
@@ -472,12 +521,14 @@ Bundle size: 895.70 kB (268.34 kB gzipped)
 **Infrastructure Changes**: None
 
 **Configuration Updates**:
+
 - Grid component API migration (item → size prop)
 - Package.json dependency versions
 
 ### Deployment Notes
 
 **Pre-Deployment Checklist**:
+
 - ✅ All TypeScript compilation passes
 - ✅ All 51 unit tests pass
 - ✅ Production build successful
@@ -486,23 +537,27 @@ Bundle size: 895.70 kB (268.34 kB gzipped)
 - ⚠️ Manual UI testing recommended before deployment
 
 **Breaking Changes**:
+
 - Grid component API changed from `<Grid item xs={12}>` to `<Grid size={{ xs: 12 }}>`
 - Only affects internal component code (already migrated)
 - No API or user-facing changes
 
 **Rollback Plan**:
 If issues arise post-deployment:
+
 1. Restore `frontend/package.json.v5.backup` to `frontend/package.json`
 2. Run `npm ci` to reinstall v5 dependencies
 3. Revert Grid component changes in 3 files
 4. Rebuild and redeploy
 
 **Performance Impact**:
+
 - Expected: 25% smaller bundle size (per MUI documentation)
 - Actual: 895.70 kB (268.34 kB gzipped)
 - No performance regressions expected
 
 **Manual Testing Required**:
+
 - [x] Verify Grid layouts in browser (GameForm, GuildDashboard, GuildListPage)
 - [x] Test responsive breakpoints (xs, sm, md, lg, xl)
 - [x] Verify date picker functionality

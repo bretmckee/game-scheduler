@@ -2,7 +2,7 @@
 
 # Release Changes: Guild Sync E2E Test Coverage
 
-**Related Plan**: 20260201-guild-sync-e2e-test-coverage-plan.instructions.md
+**Related Plan**: 20260201-guild-sync-e2e-test-coverage.plan.md
 **Implementation Date**: 2026-02-01
 
 ## Summary

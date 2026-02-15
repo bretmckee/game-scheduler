@@ -1,7 +1,8 @@
 <!-- markdownlint-disable-file -->
+
 # Release Changes: Reducing Complexity of GameService::create_game()
 
-**Related Plan**: 20260107-create-game-complexity-reduction-plan.instructions.md
+**Related Plan**: 20260107-create-game-complexity-reduction.plan.md
 **Implementation Date**: 2026-01-15
 
 ## Summary
@@ -23,6 +24,7 @@ Refactor the 344-line `GameService::create_game()` method to reduce cyclomatic c
 **Status**: ✅ Completed
 
 **Findings**:
+
 - Reviewed tests/services/api/services/test_games.py - comprehensive unit test coverage with 41 tests
 - Tests cover core create_game() scenarios:
   - Basic game creation without participants
@@ -42,6 +44,7 @@ Refactor the 344-line `GameService::create_game()` method to reduce cyclomatic c
 **Status**: ✅ Completed
 
 **Results**:
+
 - All 41 unit tests in test_games.py pass successfully
 - Test execution time: 0.78s
 - Baseline established for comparison after refactoring
@@ -56,6 +59,7 @@ Refactor the 344-line `GameService::create_game()` method to reduce cyclomatic c
 **Status**: ✅ Completed
 
 **Original State** (before refactoring started):
+
 - **Line Count**: 344 lines
 - **Cyclomatic Complexity**: 24 (threshold: 25)
 - **Cognitive Complexity**: 48 (threshold: 49)
@@ -74,12 +78,14 @@ Refactor the 344-line `GameService::create_game()` method to reduce cyclomatic c
 - **PLR0915 Status**: ✅ PASSING (statements: 155, max allowed: 50)
 
 **Refactoring Completed**:
+
 - ✅ Phase 2: Extracted `_resolve_game_host()` (85 lines, ~8 branches)
 - ✅ Phase 3: Extracted `_resolve_template_fields()` (52 lines, ~7 branches)
 - ✅ Phase 4: Extracted `_create_participant_records()` (participant creation logic)
 - ✅ Phase 5: Extracted `_create_game_status_schedules()` (status schedule logic)
 
 **Remaining Concerns in create_game()**:
+
 - Database queries (template, guild, channel)
 - Permission checking via role service
 - Participant resolution and validation
@@ -89,6 +95,7 @@ Refactor the 344-line `GameService::create_game()` method to reduce cyclomatic c
 
 **Comparison to Other Methods in File**:
 From radon analysis of [services/api/services/games.py](../../services/api/services/games.py):
+
 - `update_game`: C (15) - highest complexity
 - `_update_game_fields`: C (13)
 - `_resolve_game_host`: C (12)
@@ -96,12 +103,14 @@ From radon analysis of [services/api/services/games.py](../../services/api/servi
 - `join_game`: B (10)
 
 **Project Complexity Limits**:
+
 - Ruff C901 max-complexity: 25
 - Complexipy max-complexity-allowed: 49
 - Total cognitive complexity in file: 140
 - Current violations in file: 2 other methods exceed PLR0912 (>12 branches)
 
 **Goal Achievement**:
+
 - ✅ **Cyclomatic Complexity Target**: < 15 (achieved: 10)
 - ✅ **Cognitive Complexity Target**: < 20 (achieved: 10)
 - ✅ **Maintainability**: Method reduced by 48%, now easier to understand and test
@@ -120,6 +129,7 @@ From radon analysis of [services/api/services/games.py](../../services/api/servi
 **Status**: ✅ Completed
 
 **Implementation**:
+
 - Created new private method `_resolve_game_host()` at line 87 in [services/api/services/games.py](services/api/services/games.py#L87-L200)
 - Method signature: `async def _resolve_game_host(self, game_data, guild_config, requester_user_id, access_token) -> tuple[str, user_model.User]`
 - Extracted 85 lines of host resolution logic including:
@@ -137,6 +147,7 @@ From radon analysis of [services/api/services/games.py](../../services/api/servi
 **Status**: ✅ Completed
 
 **Changes**:
+
 - Replaced 85 lines of inline host resolution logic with 3-line method call at [services/api/services/games.py](services/api/services/games.py#L250-L252)
 - Original logic (lines 149-233 in old version) replaced with:
   ```python
@@ -148,11 +159,13 @@ From radon analysis of [services/api/services/games.py](../../services/api/servi
 - All error handling preserved
 
 **Code Location**: [services/api/services/games.py](services/api/services/games.py#L250-L252)
+
 ### Task 3.2: Update `create_game()` to use resolved fields dictionary
 
 **Status**: ✅ Completed
 
 **Changes**:
+
 - Replaced 52 lines of field resolution logic (lines 343-394 in old version) with 3-line method call at [services/api/services/games.py](services/api/services/games.py#L341-L343)
 - Original logic including:
   - Individual ternary operations for 5 fields
@@ -180,6 +193,7 @@ From radon analysis of [services/api/services/games.py](../../services/api/servi
 **Status**: ✅ Completed
 
 **Changes**:
+
 - Added 9 comprehensive unit tests for `_resolve_template_fields()` method at [tests/services/api/services/test_games.py](tests/services/api/services/test_games.py#L204-L560)
 - Tests cover all functionality:
   - `test_resolve_template_fields_uses_request_values` - Request values take precedence
@@ -201,6 +215,7 @@ From radon analysis of [services/api/services/games.py](../../services/api/servi
 **Status**: ✅ Completed
 
 **Changes**:
+
 - Removed 7 integration tests that were made redundant by the new unit tests:
   1. `test_create_game_with_empty_reminders_overrides_template` - replaced by unit test
   2. `test_create_game_with_cleared_optional_fields_overrides_template` - replaced by unit test
@@ -221,6 +236,7 @@ From radon analysis of [services/api/services/games.py](../../services/api/servi
 **Status**: ✅ All tasks completed
 
 **Overall Impact**:
+
 - Extracted 52 lines of template field resolution logic into focused `_resolve_template_fields()` method
 - Reduced `create_game()` method from ~200 lines to ~155 lines
 - Added comprehensive unit test coverage for extracted logic
@@ -229,9 +245,10 @@ From radon analysis of [services/api/services/games.py](../../services/api/servi
 - No functional changes to behavior
 
 **Complexity Verification**:
+
 - ✅ No C901 (cyclomatic complexity) violations on `create_game()`
-- ⚠️  Still has PLR0912 (13 branches > 12 threshold)
-- ⚠️  Still has PLR0915 (58 statements > 50 threshold)
+- ⚠️ Still has PLR0912 (13 branches > 12 threshold)
+- ⚠️ Still has PLR0915 (58 statements > 50 threshold)
 - 📊 Progress: Reduced from baseline of 24 cyclomatic complexity (estimated ~20-22 now based on extracted method)
 - 🎯 Target: Need further extraction to reach <15 cyclomatic, <20 cognitive complexity
 - Note: `_resolve_template_fields()` is clean with no complexity violations
@@ -243,29 +260,33 @@ From radon analysis of [services/api/services/games.py](../../services/api/servi
 **Status**: ✅ Completed
 
 **Test Results**:
+
 - All 41 tests pass without modification
 - Test execution time: 0.70s (baseline: 0.78s)
 - No test failures or warnings
 - All host override tests pass (6 tests covering bot manager scenarios)
 
 **Complexity Metrics**:
+
 - `create_game()` function length: 297 lines (down from 344 lines, -47 lines)
 - `create_game()` cyclomatic complexity: 15 branches (down from 24, **-9 branches**)
 - `create_game()` statements: 67 (down from ~95, -28 statements)
 - `_resolve_game_host()` complexity: ~8 branches, well below threshold
 
 **Progress Toward Goals**:
+
 - Cyclomatic complexity target: < 15 ✅ **ACHIEVED** (now at 15)
 - Cognitive complexity target: < 20 (estimated at ~33, need more extraction)
 - Line reduction: 47 lines extracted
 
 **Command**: `uv run pytest tests/services/api/services/test_games.py -v --tb=short`
 
-### Phase 2 Additional: Unit Tests for _resolve_game_host()
+### Phase 2 Additional: Unit Tests for \_resolve_game_host()
 
 **Status**: ✅ Completed
 
 **Implementation**:
+
 - Added 9 dedicated unit tests for `_resolve_game_host()` method
 - Tests cover all code paths and edge cases:
   - `test_resolve_game_host_no_override_uses_requester` - Default behavior
@@ -279,14 +300,17 @@ From radon analysis of [services/api/services/games.py](../../services/api/servi
   - `test_resolve_game_host_resolution_failure_wraps_exception` - Exception handling
 
 **Bug Fix**:
+
 - Fixed User model instantiation to remove `username` and `display_name` parameters that don't exist in the model
 
 **Test Results**:
+
 - All 50 tests pass (41 original + 9 new)
 - Diff coverage check passes (100% coverage of new code)
 - All pre-commit hooks pass
 
 **Code Location**: [tests/services/api/services/test_games.py](tests/services/api/services/test_games.py#L208-L392)
+
 ## Phase 3: Template Field Resolution Extraction - In Progress
 
 ### Task 3.1: Create `_resolve_template_fields()` method
@@ -294,6 +318,7 @@ From radon analysis of [services/api/services/games.py](../../services/api/servi
 **Status**: ✅ Completed
 
 **Implementation**:
+
 - Created new private method `_resolve_template_fields()` at line 195 in [services/api/services/games.py](services/api/services/games.py#L195-L259)
 - Method signature: `def _resolve_template_fields(self, game_data, template) -> dict[str, Any]`
 - Extracted all field resolution logic including:
@@ -307,6 +332,7 @@ From radon analysis of [services/api/services/games.py](../../services/api/servi
 - All ternary operations and fallback logic preserved exactly
 
 **Code Location**: [services/api/services/games.py](services/api/services/games.py#L195-L259)
+
 ## Phase 4: Participant Record Creation Extraction - Completed
 
 ### Task 4.1: Create `_create_participant_records()` method
@@ -314,6 +340,7 @@ From radon analysis of [services/api/services/games.py](../../services/api/servi
 **Status**: ✅ Completed
 
 **Implementation**:
+
 - Created new async private method `_create_participant_records()`
 - Method signature: `async def _create_participant_records(self, game_id: str, valid_participants: list[dict[str, Any]]) -> None`
 - Extracted participant creation loop (lines 397-424 from original create_game)
@@ -326,6 +353,7 @@ From radon analysis of [services/api/services/games.py](../../services/api/servi
 **Code Location**: [services/api/services/games.py](services/api/services/games.py#L197-L237)
 
 **Key Features**:
+
 - Enumerate with start=1 for sequential positions
 - Discord user path: calls ensure_user_exists, creates GameParticipant with user_id
 - Placeholder path: creates GameParticipant with display_name, null user_id
@@ -337,6 +365,7 @@ From radon analysis of [services/api/services/games.py](../../services/api/servi
 **Status**: ✅ Completed
 
 **Changes**:
+
 - Replaced inline participant loop (18 lines) with single method call
 - New call: `await self._create_participant_records(game.id, valid_participants)`
 - Simplified comment from 2 lines to 1 line
@@ -344,6 +373,7 @@ From radon analysis of [services/api/services/games.py](../../services/api/servi
 - Code at [services/api/services/games.py](services/api/services/games.py#L433-L434)
 
 **Impact**:
+
 - Removed nested conditional (if participant["type"] == "discord")
 - Reduced local variable scope
 - Eliminated enumerate loop from create_game
@@ -354,6 +384,7 @@ From radon analysis of [services/api/services/games.py](../../services/api/servi
 **Status**: ✅ Completed
 
 **New Tests Added**:
+
 1. `test_create_participant_records_with_discord_user` - Verifies Discord user participant creation
 2. `test_create_participant_records_with_placeholder` - Verifies placeholder participant creation
 3. `test_create_participant_records_with_mixed_participants` - Tests 4 mixed participants with correct sequential positions
@@ -362,6 +393,7 @@ From radon analysis of [services/api/services/games.py](../../services/api/servi
 **Code Location**: [tests/services/api/services/test_games.py](tests/services/api/services/test_games.py#L772-L884)
 
 **Coverage**:
+
 - Discord user type with ensure_user_exists mock verification
 - Placeholder type with display_name verification
 - Mixed participants verifying position sequence (1, 2, 3, 4)
@@ -373,6 +405,7 @@ From radon analysis of [services/api/services/games.py](../../services/api/servi
 **Status**: ✅ Completed
 
 **Changes**:
+
 - Simplified `test_create_game_with_valid_participants` docstring from "with valid initial participants" to "resolves and delegates participant creation"
 - Test now focuses on resolution and delegation, not detailed participant creation
 - Removed redundant assertions about participant details (now covered by unit tests)
@@ -381,6 +414,7 @@ From radon analysis of [services/api/services/games.py](../../services/api/servi
 **Code Location**: [tests/services/api/services/test_games.py](tests/services/api/services/test_games.py#L1001-L1061)
 
 **Rationale**:
+
 - Detailed participant creation logic now tested in `_create_participant_records()` unit tests
 - create_game tests should focus on orchestration, not implementation details
 - Reduces test coupling to implementation specifics
@@ -390,11 +424,13 @@ From radon analysis of [services/api/services/games.py](../../services/api/servi
 **Status**: ✅ Completed
 
 **Results**:
+
 - All 4 new unit tests for `_create_participant_records()` pass
 - All 56 GameService tests pass (was 52, now 56 with 4 new tests)
 - Test execution time: 0.79s
 - No test failures or regressions
 - Verification command: `uv run pytest tests/services/api/services/test_games.py -q`
+
 ## Phase 5: Status Schedule Creation Extraction - Completed
 
 ### Task 5.1: Create `_create_game_status_schedules()` method
@@ -404,6 +440,7 @@ From radon analysis of [services/api/services/games.py](../../services/api/servi
 **Code Location**: [services/api/services/games.py](services/api/services/games.py#L236-L279)
 
 **Implementation Details**:
+
 - Extracted status schedule creation logic into new private method
 - Method signature: `async def _create_game_status_schedules(game, expected_duration_minutes) -> None`
 - Conditional logic preserved: only creates schedules if game status is SCHEDULED
@@ -414,6 +451,7 @@ From radon analysis of [services/api/services/games.py](../../services/api/servi
 - Method complexity: cyclomatic ~1, cognitive ~4
 
 **Code Changes**:
+
 - New method added before `_resolve_template_fields()` at line 236
 - Encapsulates 23 lines of schedule creation logic
 - Takes game object and expected_duration_minutes as parameters
@@ -426,6 +464,7 @@ From radon analysis of [services/api/services/games.py](../../services/api/servi
 **Code Location**: [services/api/services/games.py](services/api/services/games.py#L521-L524)
 
 **Implementation Details**:
+
 - Replaced 36 lines of inline schedule creation logic with single method call
 - Lines replaced: ~475-505 (if block with schedule creation)
 - New call: `await self._create_game_status_schedules(game, resolved_fields["expected_duration_minutes"])`
@@ -433,6 +472,7 @@ From radon analysis of [services/api/services/games.py](../../services/api/servi
 - Preserved comment about status schedule population
 
 **Benefits**:
+
 - Reduced create_game() method length by ~33 lines
 - Reduced conditional nesting depth
 - Extracted status schedule concerns
@@ -443,6 +483,7 @@ From radon analysis of [services/api/services/games.py](../../services/api/servi
 **Status**: ✅ Completed
 
 **New Tests Added**:
+
 1. `test_create_game_status_schedules_for_scheduled_game` - Verifies both schedules created with correct times
 2. `test_create_game_status_schedules_uses_default_duration_when_none` - Tests DEFAULT_GAME_DURATION_MINUTES fallback
 3. `test_create_game_status_schedules_skips_non_scheduled_game` - Tests conditional logic for non-SCHEDULED games
@@ -451,6 +492,7 @@ From radon analysis of [services/api/services/games.py](../../services/api/servi
 **Code Location**: [tests/services/api/services/test_games.py](tests/services/api/services/test_games.py#L913-L1028)
 
 **Coverage**:
+
 - SCHEDULED game with explicit duration (90 minutes)
 - SCHEDULED game with None duration (uses DEFAULT_GAME_DURATION_MINUTES constant)
 - Non-SCHEDULED game (IN_PROGRESS status) - no schedules created
@@ -459,6 +501,7 @@ From radon analysis of [services/api/services/games.py](../../services/api/servi
 - Uses imported DEFAULT_GAME_DURATION_MINUTES constant for maintainability
 
 **Test Quality**:
+
 - Tests use the actual constant, not hardcoded values
 - Proper mocking of db.add with call verification
 - Clear test names describing scenarios
@@ -469,13 +512,15 @@ From radon analysis of [services/api/services/games.py](../../services/api/servi
 **Status**: ✅ Completed
 
 **Analysis**:
+
 - Evaluated `test_create_game_creates_status_schedules` integration test
 - **Decision**: Kept the integration test as it serves a different purpose
 - Integration test validates full create_game() orchestration including schedule creation
-- Unit tests validate isolated _create_game_status_schedules() logic
+- Unit tests validate isolated \_create_game_status_schedules() logic
 - Both test types provide value and are not redundant
 
 **Rationale**:
+
 - Integration tests verify end-to-end workflow
 - Unit tests verify isolated component behavior
 - Complementary coverage, not duplication
@@ -485,6 +530,7 @@ From radon analysis of [services/api/services/games.py](../../services/api/servi
 **Status**: ✅ Completed
 
 **Test Results**:
+
 - All 4 new unit tests for `_create_game_status_schedules()` pass
 - All 60 GameService tests pass (was 56, now 60 with 4 new tests)
 - Test execution time: 0.77s
@@ -492,10 +538,12 @@ From radon analysis of [services/api/services/games.py](../../services/api/servi
 - Verification command: `uv run pytest tests/services/api/services/test_games.py -q`
 
 **Complexity Reduction**:
+
 - create_game() cyclomatic complexity reduced from ~7 to ~6
 - create_game() cognitive complexity reduced from ~22 to ~18
 - Method length reduced by ~33 lines
 - Conditional nesting depth reduced
+
 ## Phase 7: Update Complexity Thresholds - Completed
 
 ### Task 7.1: Update Ruff configuration with new thresholds
@@ -503,11 +551,13 @@ From radon analysis of [services/api/services/games.py](../../services/api/servi
 **Status**: ✅ Completed
 
 **Changes**:
+
 - Updated [pyproject.toml](../../pyproject.toml) Ruff configuration to prevent regression
 - Reduced cyclomatic complexity threshold from 25 to 17
 - Reduced cognitive complexity threshold from 49 to 20
 
 **Configuration Changes** ([pyproject.toml](../../pyproject.toml#L75-L78)):
+
 ```toml
 [tool.ruff.lint.mccabe]
 max-complexity = 17  # Reduced from 25
@@ -517,6 +567,7 @@ max-complexity-allowed = 20  # Reduced from 49
 ```
 
 **Rationale**:
+
 - Cyclomatic complexity set to 17 (current highest in codebase: `ParticipantResolver.resolve_initial_participants` at 17)
 - Represents 32% reduction from previous threshold of 25
 - Cognitive complexity set to 20 to match our target goal
@@ -525,6 +576,7 @@ max-complexity-allowed = 20  # Reduced from 49
 
 **Codebase Analysis** (from radon):
 Functions at complexity >= 11:
+
 - C (17): `ParticipantResolver.resolve_initial_participants`
 - C (16): `_build_game_response`, `GameMessageFormatter.create_game_embed`, `EventHandlers._handle_game_reminder`
 - C (15): `GameService.update_game`, `DisplayNameResolver.resolve_display_names_and_avatars`, `sync_user_guilds`, `EventHandlers._handle_player_removed`
@@ -538,15 +590,18 @@ Functions at complexity >= 11:
 **Status**: ✅ Completed
 
 **Verification**:
+
 - Ran `uv run ruff check --select C901 services/ shared/`
 - Result: "All checks passed!" ✅
 - No functions exceed new cyclomatic complexity threshold of 17
 - Only auto-fixable violations found (UP042 - replace-str-enum)
 
 **Pre-commit Hooks**:
+
 - Complexipy will run as part of pre-commit to enforce cognitive complexity threshold of 20
 - All new code must stay below these thresholds
 
 **Documentation**:
+
 - Thresholds documented in [pyproject.toml](../../pyproject.toml)
 - Future refactoring candidates identified (functions at complexity 15-17)

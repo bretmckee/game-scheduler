@@ -2,7 +2,7 @@
 
 # Release Changes: Game Card Host Avatar Display Enhancement
 
-**Related Plan**: 20251219-game-card-host-avatar-display-plan.instructions.md
+**Related Plan**: 20251219-game-card-host-avatar-display.plan.md
 **Implementation Date**: 2025-12-20
 
 ## Summary
@@ -17,7 +17,7 @@ Add host Discord avatar display to both web frontend GameCard component and Disc
 - services/api/services/display_names.py - Added `_build_avatar_url()` static method to construct Discord CDN URLs with proper priority (guild > user > None)
 - shared/cache/keys.py - Added `display_name_avatar()` cache key method for caching display names and avatar URLs together
 - tests/services/api/services/test_display_names.py - Added 8 new unit tests for avatar resolution functionality including cache, API, priority, and error handling
-- frontend/src/components/__tests__/GameCard.test.tsx - Added 12 comprehensive tests for GameCard avatar display covering avatar URLs, fallback initials, layout, and accessibility
+- frontend/src/components/**tests**/GameCard.test.tsx - Added 12 comprehensive tests for GameCard avatar display covering avatar URLs, fallback initials, layout, and accessibility
 - tests/services/bot/formatters/test_game_message.py - Added 5 new tests for Discord embed author field functionality including avatar URL handling, animated avatars, and graceful fallbacks
 - tests/integration/test_avatar_integration.py - Added comprehensive integration test suite with 10 tests covering complete avatar data flow from Discord API through caching to frontend/bot display, including priority rules and error handling
 
@@ -66,6 +66,7 @@ No files removed.
 The following manual testing should be performed in a staging or live environment:
 
 #### Task 3.2: Test Web Frontend with Real Discord Avatars
+
 - [ ] Verify GameCard displays actual Discord avatars when URLs present
 - [ ] Check initials display correctly when avatar URL is null
 - [ ] Ensure no CORS errors when loading avatar images
@@ -74,6 +75,7 @@ The following manual testing should be performed in a staging or live environmen
 - [ ] Verify accessibility (screen reader announces host with avatar)
 
 #### Task 3.3: Test Discord Bot Embeds in Live Environment
+
 - [ ] Verify embed author field displays at top with avatar icon in Discord client
 - [ ] Check avatar images render correctly in Discord
 - [ ] Test with both guild-specific and user avatars
@@ -82,6 +84,7 @@ The following manual testing should be performed in a staging or live environmen
 - [ ] Verify layout matches expected visual design
 
 #### Task 3.4: Verify Avatar Caching and Performance
+
 - [ ] Monitor cache hit rate (should be > 80% for repeat lookups)
 - [ ] Verify cache TTL of 5 minutes is enforced
 - [ ] Confirm avatar URLs cached alongside display names
@@ -99,9 +102,11 @@ The following manual testing should be performed in a staging or live environmen
 - ⏸️ Task 3.4: Manual performance/caching verification deferred to consolidation work
 
 ### Task 3.2 Status: ✅ PASSED
+
 Web frontend GameCard displays Discord avatars correctly.
 
 ### Task 3.3 Status: ✅ PASSED
+
 **Issues Found and Fixed**:
 
 1. **Duplicate Host Field Issue**: Discord bot embed was displaying host name in both author field (top) and as a separate Host field (middle), with no avatar showing.
@@ -118,6 +123,7 @@ Web frontend GameCard displays Discord avatars correctly.
 **Verification**: After applying both fixes and restarting the bot container, Discord embeds now correctly display host avatar at the top in the author field when participants join/leave games.
 
 ### Task 3.4 Status: ⏸️ DEFERRED
+
 Performance and caching verification deferred until Discord API client consolidation work is completed. This will provide a complete picture of caching across both API and bot services.
 
 **Rationale**: Current implementation has caching only in API service (web frontend). Bot service makes uncached Discord API calls. Rather than test incomplete caching now, this task will be completed after implementing shared caching described in `.copilot-tracking/research/20251220-discord-client-consolidation-research.md`.

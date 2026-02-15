@@ -2,7 +2,7 @@
 
 # Release Changes: Remove channel_name from Database
 
-**Related Plan**: 20251201-remove-channel-name-from-database-plan.instructions.md
+**Related Plan**: 20251201-remove-channel-name-from-database.plan.md
 **Implementation Date**: 2025-12-01
 
 ## Summary

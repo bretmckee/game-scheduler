@@ -2,7 +2,7 @@
 
 # Release Changes: Docker Compose Environment Reorganization
 
-**Related Plan**: 20251211-docker-compose-environment-reorganization-plan.instructions.md
+**Related Plan**: 20251211-docker-compose-environment-reorganization.plan.md
 **Implementation Date**: 2025-12-12
 
 ## Summary
@@ -53,7 +53,7 @@ Consolidating Docker Compose files to use modern naming conventions and standard
 
 - DEPLOYMENT_QUICKSTART.md - Updated all compose file references to use --env-file env/env.prod.local pattern, documented COMPOSE_FILE variable behavior, updated environment configuration sections to reference env/ directory, added environment-specific logging and port exposure documentation
 - README.md - Updated development setup to document .env symlink pattern, added COMPOSE_FILE variable explanation, documented all five environments (dev, prod, staging, e2e, int) with their compose file patterns, updated project structure to show env/ directory and compose file organization, replaced docker-compose.base.yml references with modern compose.yaml base configuration
-- TESTING_E2E.md - Updated environment file references to env/env.int and env/env.e2e with COMPOSE_FILE variable documentation, updated test execution commands to use --env-file env/env.{environment} pattern, updated CI/CD examples to create env files in env/ directory, updated security notes to reference env/* .gitignore protection
+- TESTING_E2E.md - Updated environment file references to env/env.int and env/env.e2e with COMPOSE_FILE variable documentation, updated test execution commands to use --env-file env/env.{environment} pattern, updated CI/CD examples to create env files in env/ directory, updated security notes to reference env/\* .gitignore protection
 - DOCKER_PORTS.md - Updated base configuration reference from docker-compose.base.yml to compose.yaml, updated test environment references from docker-compose.test.yml to compose.e2e.yaml and compose.int.yaml, updated production reference from compose.production.yaml to compose.prod.yaml, added compose.staging.yaml to See Also section
 - grafana-alloy/TESTING_PHASE1.md - Updated prerequisites reference from docker-compose.base.yml to compose.yaml, updated troubleshooting section to reference .env symlink instead of .env being in same directory as docker-compose.yml
 - grafana-alloy/TESTING_PHASE2.md - Updated database name reference comment from docker-compose.base.yml to compose.yaml
@@ -61,7 +61,7 @@ Consolidating Docker Compose files to use modern naming conventions and standard
 ### Phase 7 Changes - Verification and Cleanup
 
 - .gitignore - Updated Docker section: removed compose.override.yaml and compose.local.yaml patterns (modern compose files should be tracked since they use environment variable references, not hardcoded secrets; only legacy docker-compose.override.yml pattern remains for backwards compatibility)
-- .env.integration - Removed from git tracking (file remains locally but is now properly protected by .env* pattern)
+- .env.integration - Removed from git tracking (file remains locally but is now properly protected by .env\* pattern)
 - compose.override.yaml - Re-added to git tracking (contains no secrets, only shared development configuration with environment variable references)
 - docker-compose.base.yml - Deleted from repository (merged into compose.yaml)
 - docker-compose.yml - Deleted from repository (merged into compose.yaml)
@@ -106,7 +106,7 @@ Consolidating Docker Compose files to use modern naming conventions and standard
 - docker-compose.base.yml - Merged into compose.yaml
 - docker-compose.yml - Merged into compose.yaml
 - docker-compose.test.yml - Deprecated by compose.e2e.yaml and compose.int.yaml
-- .env.integration - Untracked from git (still exists locally, protected by .env* pattern)
+- .env.integration - Untracked from git (still exists locally, protected by .env\* pattern)
 
 ### Dependencies & Infrastructure
 
@@ -127,18 +127,21 @@ Consolidating Docker Compose files to use modern naming conventions and standard
 ### Deployment Notes
 
 **Breaking Changes**:
+
 - Direct use of `docker compose up` requires `.env` symlink to `env/env.dev` (already in place)
 - Production deployments must use `docker compose --env-file env/env.prod.local up -d`
 - All environment-specific deployments use single `--env-file` parameter
 - Old `docker-compose.base.yml` and `docker-compose.yml` files removed from repository
 
 **Migration Steps**:
+
 1. Ensure `.env` symlink points to `env/env.dev` (already configured)
 2. Update any deployment scripts to use `--env-file env/env.{environment}` pattern
 3. Verify `COMPOSE_FILE` variable is set in each environment file
 4. Test each environment configuration with `docker compose --env-file env/env.{environment} config`
 
 **Environment Usage**:
+
 - **Development**: `docker compose up` (uses .env → env/env.dev)
 - **Production**: `docker compose --env-file env/env.prod.local up -d`
 - **Staging**: `docker compose --env-file env/env.staging up -d`

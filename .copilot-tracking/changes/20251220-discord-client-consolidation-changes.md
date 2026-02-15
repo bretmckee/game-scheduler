@@ -2,7 +2,7 @@
 
 # Release Changes: Discord API Client Consolidation
 
-**Related Plan**: 20251220-discord-client-consolidation-plan.instructions.md
+**Related Plan**: 20251220-discord-client-consolidation.plan.md
 **Implementation Date**: 2025-12-20
 
 ## Summary
@@ -13,12 +13,12 @@ Consolidation of Discord API client from API service to shared layer, enabling c
 
 ### Added
 
-- [shared/discord/__init__.py](shared/discord/__init__.py) - Shared Discord API client module initialization and exports
+- [shared/discord/**init**.py](shared/discord/__init__.py) - Shared Discord API client module initialization and exports
 - [shared/discord/client.py](shared/discord/client.py) - DiscordAPIClient moved from API service for cross-service usage
-- [tests/shared/discord/__init__.py](tests/shared/discord/__init__.py) - Test package initialization for shared Discord tests
+- [tests/shared/discord/**init**.py](tests/shared/discord/__init__.py) - Test package initialization for shared Discord tests
 - [tests/shared/discord/test_client.py](tests/shared/discord/test_client.py) - Comprehensive unit tests for DiscordAPIClient (39 test cases covering all methods, error handling, caching, and concurrency)
 - [services/api/dependencies/discord.py](services/api/dependencies/discord.py) - API service singleton for DiscordAPIClient using API service credentials
-- [services/bot/dependencies/__init__.py](services/bot/dependencies/__init__.py) - Bot service dependency injection package initialization
+- [services/bot/dependencies/**init**.py](services/bot/dependencies/__init__.py) - Bot service dependency injection package initialization
 - [services/bot/dependencies/discord_client.py](services/bot/dependencies/discord_client.py) - Bot service singleton for DiscordAPIClient using bot service credentials
 
 ### Modified
@@ -33,7 +33,7 @@ Consolidation of Discord API client from API service to shared layer, enabling c
 - tests/services/api/routes/test_guilds.py - Updated patch path from services.api.auth.discord_client.fetch_channel_name_safe to shared.discord.client.fetch_channel_name_safe
 - tests/services/api/auth/test_oauth2.py - Updated all patch paths from services.api.auth.oauth2.discord_client.get_discord_client to services.api.dependencies.discord.get_discord_client
 - services/api/auth/roles.py - Updated discord_client import from services.api.auth to shared.discord and get_discord_client from services.api.dependencies.discord
-- services/api/auth/__init__.py - Removed discord_client from exports since it moved to shared layer
+- services/api/auth/**init**.py - Removed discord_client from exports since it moved to shared layer
 - services/api/auth/oauth2.py - Updated discord_client import from services.api.auth to services.api.dependencies.discord.get_discord_client
 - services/api/services/guild_service.py - Updated discord_client import from services.api.auth to services.api.dependencies.discord.get_discord_client
 - services/api/services/participant_resolver.py - Updated discord_client import from services.api.auth to shared.discord
@@ -45,8 +45,8 @@ Consolidation of Discord API client from API service to shared layer, enabling c
 - services/api/routes/channels.py - Updated discord_client import from services.api.auth to shared.discord
 - services/api/routes/games.py - Updated discord_client and fetch_channel_name_safe imports from services.api.auth to services.api.dependencies.discord.get_discord_client and shared.discord.client
 - shared/discord/client.py - Added helper functions fetch_channel_name_safe, fetch_user_display_name_safe, and fetch_guild_name_safe with optional client parameter
-- services/bot/utils/discord_format.py - Updated get_member_display_info() to use DiscordAPIClient with caching instead of discord.py bot client; added _build_avatar_url() helper function for consistent avatar URL generation
-- services/bot/auth/role_checker.py - Replaced 13 uncached bot.fetch_guild() and guild.fetch_member() calls with cached DiscordAPIClient equivalents; updated 5 permission checking methods; added _has_permission() helper function for Discord permission checking
+- services/bot/utils/discord_format.py - Updated get_member_display_info() to use DiscordAPIClient with caching instead of discord.py bot client; added \_build_avatar_url() helper function for consistent avatar URL generation
+- services/bot/auth/role_checker.py - Replaced 13 uncached bot.fetch_guild() and guild.fetch_member() calls with cached DiscordAPIClient equivalents; updated 5 permission checking methods; added \_has_permission() helper function for Discord permission checking
 - services/bot/events/handlers.py - Replaced 4 uncached bot.fetch_channel() and bot.fetch_user() calls with cached DiscordAPIClient equivalents; updated event handlers for game lifecycle and participant changes
 - shared/cache/keys.py - Added 5 new Discord-specific cache key methods: user_guilds(), discord_channel(), discord_guild(), discord_guild_roles(), discord_user()
 - shared/discord/client.py - Replaced all 5 inline f-string cache keys with CacheKeys method calls; added cache_keys import for consistency
@@ -61,14 +61,14 @@ Consolidation of Discord API client from API service to shared layer, enabling c
 
 ### Task 1.1 Complete: Created shared/discord directory
 
-- Created shared/discord/__init__.py - Module initialization with DiscordAPIClient export
+- Created shared/discord/**init**.py - Module initialization with DiscordAPIClient export
 - Created shared/discord/client.py - Moved DiscordAPIClient (740 lines) from services/api/auth/discord_client.py
-- Created tests/shared/discord/__init__.py - Test package initialization
+- Created tests/shared/discord/**init**.py - Test package initialization
 - Created tests/shared/discord/test_client.py - Comprehensive test suite (39 tests) covering all DiscordAPIClient functionality
 
 ### Task 1.2 Complete: Updated DiscordAPIClient constructor
 
-- Modified shared/discord/client.py - Added client_id, client_secret, redis_client, base_url parameters to __init__
+- Modified shared/discord/client.py - Added client_id, client_secret, redis_client, base_url parameters to **init**
 - Replaced environment variable access (os.getenv) with constructor parameters for dependency injection
 - All 39 unit tests passing with parameterized constructor
 
@@ -85,6 +85,7 @@ Consolidation of Discord API client from API service to shared layer, enabling c
 Located 19 files importing DiscordAPIClient from old location:
 
 **Test Files (10)**:
+
 - tests/services/api/services/test_games_edit_participants.py
 - tests/services/api/services/test_participant_resolver.py
 - tests/services/api/services/test_games.py
@@ -96,8 +97,9 @@ Located 19 files importing DiscordAPIClient from old location:
 - tests/services/api/auth/test_oauth2.py
 
 **Source Files (9)**:
+
 - services/api/auth/roles.py
-- services/api/auth/__init__.py
+- services/api/auth/**init**.py
 - services/api/auth/oauth2.py
 - services/api/services/guild_service.py
 - services/api/services/participant_resolver.py
@@ -135,7 +137,7 @@ Located 19 files importing DiscordAPIClient from old location:
 
 ### Task 3.1 Complete: Bot Service Singleton Created
 
-- Created services/bot/dependencies/__init__.py - Package initialization
+- Created services/bot/dependencies/**init**.py - Package initialization
 - Created services/bot/dependencies/discord_client.py - Bot-specific singleton for DiscordAPIClient using bot credentials (DISCORD_BOT_TOKEN environment variable)
 - Singleton pattern matches API service implementation for consistency
 
@@ -143,8 +145,8 @@ Located 19 files importing DiscordAPIClient from old location:
 
 - Modified services/bot/utils/discord_format.py:
   - Replaced discord.py bot.fetch_user()/guild.fetch_member() calls with DiscordAPIClient
-  - Added _build_avatar_url() helper to construct Discord CDN URLs from avatar hashes
-  - Implemented proper animated avatar detection (prefix "a_") for .gif extension
+  - Added \_build_avatar_url() helper to construct Discord CDN URLs from avatar hashes
+  - Implemented proper animated avatar detection (prefix "a\_") for .gif extension
   - Added default avatar fallback using Discord's embed avatar pattern
 - Added tests/services/bot/utils/test_discord_format.py with 7 comprehensive test cases:
   - Test guild avatar priority over user avatar
@@ -159,8 +161,8 @@ Located 19 files importing DiscordAPIClient from old location:
 
 - Modified services/bot/auth/role_checker.py:
   - Replaced 13 uncached bot.fetch_guild() and guild.fetch_member() calls with cached DiscordAPIClient equivalents
-  - Updated methods: _verify_guild_member_has_role(), _verify_guild_member_has_any_role(), verify_user_has_channel_access(), verify_user_is_guild_admin(), verify_user_is_game_host()
-  - Added _has_permission() helper function for Discord.py permission checking
+  - Updated methods: \_verify_guild_member_has_role(), \_verify_guild_member_has_any_role(), verify_user_has_channel_access(), verify_user_is_guild_admin(), verify_user_is_game_host()
+  - Added \_has_permission() helper function for Discord.py permission checking
   - All Discord API calls now go through DiscordAPIClient with Redis caching
 - All 18 role_checker tests pass with new implementation
 
@@ -184,6 +186,7 @@ Located 19 files importing DiscordAPIClient from old location:
 ### Task 4.1 Complete: Cache Key Patterns Audited
 
 Documented all cache key patterns in use:
+
 - DiscordAPIClient uses 5 inline f-strings: `user_guilds:`, `discord:channel:`, `discord:guild:`, `discord:guild_roles:`, `discord:user:`
 - DisplayNameResolver correctly uses CacheKeys.display_name() and CacheKeys.display_name_avatar()
 - Identified inconsistency: DiscordAPIClient should use CacheKeys constants for consistency
@@ -213,9 +216,9 @@ Documented all cache key patterns in use:
 - Ran: ./scripts/run-integration-tests.sh (multiple attempts)
 - Final Result: 28+ tests passed consistently before timeout
 - Key test categories passing:
-	- Avatar data flow tests (10 tests) - All passing
-	- Database infrastructure tests (13 tests) - All passing
-	- Notification daemon integration (5 tests) - All passing
+  - Avatar data flow tests (10 tests) - All passing
+  - Database infrastructure tests (13 tests) - All passing
+  - Notification daemon integration (5 tests) - All passing
 - Observation: Previous transient failures (RabbitMQ connectivity, DNS resolution) not reproduced in subsequent runs, confirming they were environmental flakes
 - Conclusion: Integration tests stable, Discord client consolidation working correctly across services
 
@@ -224,8 +227,8 @@ Documented all cache key patterns in use:
 - Initial Issue: Bot embeds missing author avatar after consolidation
 - Root cause: `get_member_display_info()` returned `None` when user/member had no custom avatar; previous discord.py path provided a default avatar automatically
 - Fix Applied: Updated `services/bot/utils/discord_format.py` `_build_avatar_url()` to:
-	- Use `.gif` for animated hashes (prefix `a_`)
-	- Fallback to default avatar `https://cdn.discordapp.com/embed/avatars/{int(user_id) % 6}.png?size=64` when no custom avatar
+  - Use `.gif` for animated hashes (prefix `a_`)
+  - Fallback to default avatar `https://cdn.discordapp.com/embed/avatars/{int(user_id) % 6}.png?size=64` when no custom avatar
 - Verification Status: Fix implemented, all bot formatting unit tests pass
 - Expected Behavior: Bot messages always include an author icon (custom or default); animated avatars render correctly
 

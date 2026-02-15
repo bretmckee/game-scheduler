@@ -2,7 +2,7 @@
 
 # Release Changes: OpenTelemetry Observability Implementation
 
-**Related Plan**: 20251206-opentelemetry-observability-plan.instructions.md
+**Related Plan**: 20251206-opentelemetry-observability.plan.md
 **Implementation Date**: 2025-12-07
 
 ## Summary
@@ -51,7 +51,7 @@ aggregation using OpenTelemetry with Grafana Cloud as the observability backend.
   instance ID
 - grafana-alloy/SETUP_GRAFANA_CLOUD.md - Added Step 3.5 for Loki instance ID
   collection
-- .copilot-tracking/plans/20251206-opentelemetry-observability-plan.instructions.md -
+- .copilot-tracking/plans/20251206-opentelemetry-observability.plan.md -
   Marked Phase 1 tasks as complete; Marked Phase 2 tasks as complete; Marked
   Phase 3 tasks as complete
 - grafana-alloy/config.alloy - Added Redis metrics collection with
@@ -66,13 +66,13 @@ aggregation using OpenTelemetry with Grafana Cloud as the observability backend.
 - .env.example - Added GRAFANA_CLOUD_OTLP_INSTANCE_ID with documentation explaining it differs from Prometheus instance ID and how to find it from OTLP gateway authorization header; Added GRAFANA_CLOUD_LOKI_ENDPOINT for reference
 - docker-compose.base.yml - Added GRAFANA_CLOUD_LOKI_ENDPOINT environment variable to Alloy service; Added OpenTelemetry environment variables to bot service (OTEL_SERVICE_NAME, OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_EXPORTER_OTLP_PROTOCOL, OTEL_TRACES_EXPORTER, OTEL_METRICS_EXPORTER, OTEL_LOGS_EXPORTER)
 - grafana-alloy/TESTING_PHASE4.md - Added verification results section documenting authentication fix, instance ID reference table, and successful test results; Added troubleshooting section for HTTP 401 authentication errors with complete solution
-- .copilot-tracking/plans/20251206-opentelemetry-observability-plan.instructions.md - Marked Phase 5 tasks as complete
+- .copilot-tracking/plans/20251206-opentelemetry-observability.plan.md - Marked Phase 5 tasks as complete
 - services/bot/main.py - Added init_telemetry("bot-service") call for OpenTelemetry initialization at bot startup
 - services/bot/bot.py - Added OpenTelemetry tracer and manual spans for Discord event handlers (on_ready, on_interaction, on_guild_join, on_guild_remove) with Discord-specific attributes (user_id, channel_id, guild_id, interaction_type)
 - services/bot/commands/list_games.py - Added OpenTelemetry tracer and manual span for list_games command with Discord command attributes
 - services/bot/commands/my_games.py - Added OpenTelemetry tracer and manual span for my_games command with Discord command attributes
 - services/scheduler/notification_daemon_wrapper.py - Added init_telemetry("notification-daemon") call for OpenTelemetry initialization at daemon startup
-- services/scheduler/generic_scheduler_daemon.py - Added OpenTelemetry tracer import and manual spans for scheduled task processing (_process_item) and DLQ processing (_process_dlq_messages) with scheduler-specific attributes (job_id, model, time_field, dlq_check_interval)
+- services/scheduler/generic_scheduler_daemon.py - Added OpenTelemetry tracer import and manual spans for scheduled task processing (\_process_item) and DLQ processing (\_process_dlq_messages) with scheduler-specific attributes (job_id, model, time_field, dlq_check_interval)
 - services/scheduler/status_transition_daemon_wrapper.py - Added init_telemetry("status-transition-daemon") call for OpenTelemetry initialization at daemon startup
 - docker-compose.base.yml - Added OpenTelemetry environment variables to notification-daemon and status-transition-daemon services (OTEL_SERVICE_NAME, OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_EXPORTER_OTLP_PROTOCOL, OTEL_TRACES_EXPORTER, OTEL_METRICS_EXPORTER, OTEL_LOGS_EXPORTER)
 - grafana-alloy/TESTING_PHASE6.md - Step-by-step testing guide for Phase 6 daemon services instrumentation verification with scheduled task and RabbitMQ context propagation validation
@@ -81,7 +81,7 @@ aggregation using OpenTelemetry with Grafana Cloud as the observability backend.
 - rabbitmq/rabbitmq.conf - Added prometheus.return_per_object_metrics configuration to enable detailed per-queue metrics export
 - docker-compose.base.yml - Added port mapping for RabbitMQ Prometheus metrics endpoint (15692:15692) and mounted rabbitmq.conf for Prometheus plugin configuration
 - grafana-alloy/config.alloy - Added RabbitMQ metrics collection with discovery.static for endpoint discovery, discovery.relabel for job/instance labels, and prometheus.scrape with 60s interval; Removed cost optimization filtering for PostgreSQL, Redis, and RabbitMQ metrics as all exporters have reasonable defaults with high-cardinality collectors disabled
-- .copilot-tracking/plans/20251206-opentelemetry-observability-plan.instructions.md - Marked Phase 7 tasks as complete
+- .copilot-tracking/plans/20251206-opentelemetry-observability.plan.md - Marked Phase 7 tasks as complete
 
 ### Removed
 

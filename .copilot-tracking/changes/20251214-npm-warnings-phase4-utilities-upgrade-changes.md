@@ -2,7 +2,7 @@
 
 # Release Changes: NPM Warnings Elimination Phase 4 - Routing & Utilities Upgrade
 
-**Related Plan**: 20251214-npm-warnings-phase4-utilities-upgrade-plan.instructions.md
+**Related Plan**: 20251214-npm-warnings-phase4-utilities-upgrade.plan.md
 **Implementation Date**: 2025-12-14
 
 ## Summary
@@ -10,6 +10,7 @@
 Phase 4 of NPM warnings elimination successfully upgraded React Router to v7 and, after discovering MUI adapter incompatibility, upgraded both MUI X Date Pickers to v8 and date-fns to v4. All deprecation warnings eliminated, accessibility improved, and all tests passing.
 
 **Key Achievements**:
+
 - React Router 6.20.0 → 7.1.1 (simple import updates)
 - MUI X Date Pickers 7.24.0 → 8.22.0 (improved accessibility)
 - date-fns 2.30.0 → 4.1.0 (eliminated deprecation warnings)
@@ -25,9 +26,11 @@ Phase 4 of NPM warnings elimination successfully upgraded React Router to v7 and
 ### Modified
 
 **Package Updates**:
+
 - `frontend/package.json` - Replaced `react-router-dom@^6.20.0` with `react-router@^7.1.1`
 
 **Import Updates (18 source files)**:
+
 - `frontend/src/App.tsx` - Updated React Router imports
 - `frontend/src/components/ProtectedRoute.tsx` - Updated React Router imports
 - `frontend/src/components/GameCard.tsx` - Updated React Router imports
@@ -60,6 +63,7 @@ Phase 4 of NPM warnings elimination successfully upgraded React Router to v7 and
 **Router Configuration**: Traditional `<Routes>` approach (not using `createBrowserRouter`)
 
 **Components Used**:
+
 - `BrowserRouter` - Root router wrapper in App.tsx
 - `Routes`, `Route` - Declarative route configuration
 - `Navigate` - Redirect component for fallback route
@@ -69,11 +73,13 @@ Phase 4 of NPM warnings elimination successfully upgraded React Router to v7 and
 - `useSearchParams` - Query parameters (1 file: AuthCallback.tsx)
 
 **Data Loading Patterns**:
+
 - ❌ NOT using React Router data APIs (`useLoaderData`, `createBrowserRouter`, `loader`, `action`)
 - ✅ Using standard React patterns (useEffect, useState, axios)
 - All data fetching is component-based, not route-based
 
 **Route Structure**:
+
 ```
 / (redirect to /my-games)
 /login
@@ -90,6 +96,7 @@ Phase 4 of NPM warnings elimination successfully upgraded React Router to v7 and
 ```
 
 **Files Using React Router**: 19 files total
+
 - App.tsx (main router setup)
 - ProtectedRoute.tsx (auth guard)
 - Layout.tsx (layout wrapper)
@@ -119,18 +126,21 @@ Phase 4 of NPM warnings elimination successfully upgraded React Router to v7 and
    - `json()` and `defer()` deprecated - N/A (not used in this project)
 
 **Migration Effort Estimate**: LOW
+
 - Simple package swap and import updates
 - No behavioral changes required (not using data router features)
 - All current patterns remain valid in v7
 - Estimated time: 30-60 minutes
 
 **Migration Steps**:
+
 1. Update package.json: remove `react-router-dom`, add `react-router@latest`
 2. Run find/replace: `"react-router-dom"` → `"react-router"` in 19 files
 3. Test all routes and navigation
 4. Run test suite
 
 **Risks**: MINIMAL
+
 - Current implementation uses stable, non-deprecated APIs
 - No complex data loading patterns to migrate
 - Straightforward import updates only
@@ -140,6 +150,7 @@ Phase 4 of NPM warnings elimination successfully upgraded React Router to v7 and
 **DECISION**: ✅ PROCEED WITH REACT ROUTER v7 UPGRADE
 
 **Rationale**:
+
 1. **Low Migration Effort**: Simple package swap + import updates (estimated 30-60 minutes)
 2. **No Breaking Changes**: Project uses traditional `<Routes>` approach, not data router APIs
 3. **Zero Behavioral Changes**: All current patterns remain valid in v7
@@ -148,6 +159,7 @@ Phase 4 of NPM warnings elimination successfully upgraded React Router to v7 and
 6. **Good ROI**: Small investment for long-term maintainability
 
 **Migration Plan**:
+
 - Part of Phase 3 implementation
 - Will be done alongside date-fns assessment
 - Simple mechanical changes (package swap + imports)
@@ -174,6 +186,7 @@ Phase 4 of NPM warnings elimination successfully upgraded React Router to v7 and
    - All routing functionality preserved
 
 ### Verification:
+
 - ✅ Package installation successful
 - ✅ No peer dependency conflicts
 - ✅ All imports updated correctly
@@ -182,6 +195,7 @@ Phase 4 of NPM warnings elimination successfully upgraded React Router to v7 and
 - ✅ TypeScript compilation successful (via tests)
 
 ### Migration Time: ~15 minutes
+
 - Actual time was even less than estimated 30-60 minutes
 - Straightforward mechanical changes as predicted
 
@@ -192,20 +206,24 @@ Phase 4 of NPM warnings elimination successfully upgraded React Router to v7 and
 **Current Version**: `date-fns@^2.30.0`
 
 **Usage Pattern**: INDIRECT ONLY
+
 - ❌ No direct imports of date-fns in application code
 - ✅ Used exclusively through MUI X Date Pickers adapter
 - Single usage point: `GameForm.tsx` component
 
 **MUI X Date Pickers Integration**:
+
 - Package: `@mui/x-date-pickers@7.29.4`
 - Adapter: `AdapterDateFns` (imported from `@mui/x-date-pickers/AdapterDateFns`)
 - Component: `DateTimePicker` wrapped in `LocalizationProvider`
 - Date handling: Standard JavaScript `Date` objects throughout application
 
 **Files Using MUI Date Pickers**: 1 file
+
 - `frontend/src/components/GameForm.tsx` - Game scheduling date/time picker
 
 **Application Date Handling**:
+
 - All date manipulation uses native JavaScript Date methods
 - No direct date-fns function calls (format, parse, add, sub, etc.)
 - MUI adapter handles all date-fns interactions internally
@@ -214,16 +232,19 @@ Phase 4 of NPM warnings elimination successfully upgraded React Router to v7 and
 ### Task 2.2: date-fns v4 Breaking Changes Review - COMPLETED
 
 **MUI X Date Pickers Compatibility**:
+
 - Current: `@mui/x-date-pickers@7.29.4`
 - Peer Dependency: `date-fns: '^2.25.0 || ^3.2.0 || ^4.0.0'`
 - ✅ **MUI X SUPPORTS date-fns v2, v3, AND v4**
 
 **date-fns v4 Adapter Differences**:
+
 - date-fns v2.x: Use `AdapterDateFnsV2` import path
 - date-fns v3.x/v4.x: Use `AdapterDateFns` import path (already using this)
 - Locale imports change slightly (named exports vs default for v2)
 
 **Breaking Changes** (from research):
+
 1. **ESM-only**: No longer provides CommonJS builds
    - Impact: NONE (project uses ES modules)
 2. **Function Signatures**: Some function signatures changed
@@ -234,11 +255,13 @@ Phase 4 of NPM warnings elimination successfully upgraded React Router to v7 and
 **Latest Version**: `date-fns@4.1.0`
 
 **Migration Requirements**:
+
 1. Update `package.json`: `"date-fns": "^4.1.0"`
 2. No code changes needed (already using correct adapter import)
 3. Run tests to verify MUI adapter compatibility
 
 **Migration Effort Estimate**: MINIMAL
+
 - Package version update only
 - No application code changes required
 - MUI adapter handles all compatibility
@@ -249,6 +272,7 @@ Phase 4 of NPM warnings elimination successfully upgraded React Router to v7 and
 **DECISION**: ✅ PROCEED WITH date-fns v4 UPGRADE
 
 **Rationale**:
+
 1. **Minimal Migration Effort**: Simple package version update (10-15 minutes)
 2. **Zero Code Changes**: No direct date-fns usage in application
 3. **MUI Compatibility**: Full support in current MUI X Date Pickers version
@@ -258,12 +282,14 @@ Phase 4 of NPM warnings elimination successfully upgraded React Router to v7 and
 7. **Excellent ROI**: Tiny investment, removes deprecation warning
 
 **Benefits**:
+
 - Eliminates date-fns deprecation warnings
 - Modern ESM-only package (smaller bundle, faster loading)
 - Improved tree-shaking and dead code elimination
 - Access to latest bug fixes and improvements
 
 **Migration Plan**:
+
 - Part of Phase 3 implementation (if approved)
 - Update package.json version
 - Run `npm install`
@@ -273,6 +299,7 @@ Phase 4 of NPM warnings elimination successfully upgraded React Router to v7 and
 **Timeline**: Include in Phase 3 implementation
 
 **Verification Steps**:
+
 1. Install date-fns@^4.1.0
 2. Verify GameForm.tsx DateTimePicker functionality
 3. Run full test suite
@@ -285,22 +312,26 @@ Phase 4 of NPM warnings elimination successfully upgraded React Router to v7 and
 **Attempted**: 2025-12-15
 
 **Error Encountered**:
+
 ```
 Error: Package subpath './_lib/format/longFormatters' is not defined by "exports" in /app/frontend/node_modules/date-fns/package.json
  ❯ Object.<anonymous> node_modules/@mui/x-date-pickers/node/AdapterDateFns/AdapterDateFns.js:51:46
 ```
 
 **Root Cause**:
+
 - MUI X Date Pickers v7.29.4 adapter accesses internal date-fns paths (`_lib/format/longFormatters`)
 - date-fns v4 changed package exports and no longer exports internal `_lib` paths
 - Despite peer dependency claim of supporting `date-fns@^4.0.0`, the adapter code is incompatible
 
 **Test Results**:
+
 - 2 test suites failed (GameForm.test.tsx, EditGame.test.tsx)
 - Both failures due to AdapterDateFns import error
 - 8 test suites passed (38 tests) - all components not using date picker
 
 **Investigation**:
+
 - Latest MUI X Date Pickers: v8.22.0
 - MUI v8 also claims `date-fns@^4.0.0` peer dependency support
 - Actual compatibility unknown without testing MUI v8
@@ -308,6 +339,7 @@ Error: Package subpath './_lib/format/longFormatters' is not defined by "exports
 **Decision**: ❌ CANNOT UPGRADE date-fns WITH CURRENT MUI VERSION
 
 **Options**:
+
 1. **Stay on date-fns v2** (CURRENT)
    - No changes required
    - Known working state
@@ -325,6 +357,7 @@ Error: Package subpath './_lib/format/longFormatters' is not defined by "exports
    - No immediate action required
 
 **Recommendation**: DEFER date-fns v4 upgrade
+
 - Current date-fns v2.30.0 works correctly
 - MUI adapter compatibility is a blocker
 - Upgrading MUI v7→v8 is out of scope for this phase
@@ -337,11 +370,13 @@ Error: Package subpath './_lib/format/longFormatters' is not defined by "exports
 **Tested**: date-fns v3.6.0
 
 **Result**: ❌ SAME ERROR
+
 ```
 Error: Package subpath './_lib/format/longFormatters' is not defined by "exports"
 ```
 
 **Finding**:
+
 - Both date-fns v3 and v4 have the same package structure issue
 - MUI X Date Pickers v7.29.4 adapter is only compatible with date-fns v2
 - The `_lib` internal paths were removed starting in date-fns v3.0.0
@@ -365,6 +400,7 @@ The Phase 2 assessment incorrectly concluded that date-fns v3/v4 would "just wor
 **Target Version**: `@mui/x-date-pickers@latest` (v8.x)
 
 **Usage Audit**:
+
 - Single component using date picker: `GameForm.tsx`
 - Components used:
   - `DateTimePicker` - Main picker component
@@ -399,12 +435,14 @@ The Phase 2 assessment incorrectly concluded that date-fns v3/v4 would "just wor
    - Safe to run, won't break existing code
 
 **Migration Effort Estimate**: LOW (15-20 minutes)
+
 - Update package version
 - No code changes needed (adapter import stays `AdapterDateFns`)
 - Run tests to verify
 - Visual QA of DateTimePicker behavior
 
 **Benefits**:
+
 - Enables date-fns v4 upgrade (removes deprecation warning)
 - Improved accessibility with new DOM structure
 - Better UX with action bar buttons
@@ -415,6 +453,7 @@ The Phase 2 assessment incorrectly concluded that date-fns v3/v4 would "just wor
 **DECISION**: ✅ PROCEED WITH MUI X DATE PICKERS v8 UPGRADE
 
 **Rationale**:
+
 1. **Minimal Migration Effort**: Simple package update + run codemod (15-20 minutes)
 2. **Unblocks date-fns v4**: Primary goal of this phase
 3. **No Breaking Changes for Our Usage**: Simple DateTimePicker usage not affected
@@ -422,6 +461,7 @@ The Phase 2 assessment incorrectly concluded that date-fns v3/v4 would "just wor
 5. **Low Risk**: Standard component usage, no complex customization
 
 **Migration Plan**:
+
 1. Upgrade `@mui/x-date-pickers` to latest (v8.x)
 2. Run MUI codemod (safety check, likely no changes needed)
 3. Upgrade date-fns to v4.1.0
@@ -435,6 +475,7 @@ The Phase 2 assessment incorrectly concluded that date-fns v3/v4 would "just wor
 ### Task 5.1: Upgrade MUI X Date Pickers to v8.22.0 - COMPLETED
 
 **Package Update**:
+
 - Previous: `@mui/x-date-pickers@7.24.0`
 - New: `@mui/x-date-pickers@8.22.0`
 - Installation: Successful with no peer dependency conflicts
@@ -444,6 +485,7 @@ The Phase 2 assessment incorrectly concluded that date-fns v3/v4 would "just wor
 **Command**: `npx @mui/x-codemod@latest v8.0.0/pickers/preset-safe src/`
 
 **Results**:
+
 - 48 files processed
 - 1 file modified: `GameForm.tsx`
 - Change: `AdapterDateFns` import updated from `/AdapterDateFns` to `/AdapterDateFnsV2`
@@ -452,11 +494,13 @@ The Phase 2 assessment incorrectly concluded that date-fns v3/v4 would "just wor
 ### Task 5.3: Upgrade date-fns to v4.1.0 - COMPLETED
 
 **Package Update**:
+
 - Previous: `date-fns@2.30.0`
 - New: `date-fns@4.1.0`
 - Installation: Successful
 
 **Adapter Update**:
+
 - Reverted adapter import from `AdapterDateFnsV2` back to `AdapterDateFns`
 - In MUI v8: `AdapterDateFns` = date-fns v3/v4 adapter
 - In MUI v8: `AdapterDateFnsV2` = date-fns v2 adapter (legacy)
@@ -464,27 +508,32 @@ The Phase 2 assessment incorrectly concluded that date-fns v3/v4 would "just wor
 ### Task 5.4: Fix Test Suite for MUI v8 DOM Structure - COMPLETED
 
 **Issue**: MUI X Date Pickers v8 introduced accessible DOM structure:
+
 - Old: Single `<input>` element with all date/time data
 - New: Individual `<span>` sections for each date/time component + hidden `<input>` for form submission
 - Tests were querying by label text which now matches multiple elements
 
 **Solution**:
+
 - Created helper function `getDatePickerHiddenInput()` to query the hidden input by CSS selector
 - Updated all 6 GameForm tests to use the helper function
 - Tests now correctly access the hidden input containing the formatted date string
 
 **Files Modified**:
+
 - `frontend/src/components/__tests__/GameForm.test.tsx` - Test queries updated
 
 ### Task 5.5: Verify All Tests Pass - COMPLETED
 
 **Test Results**:
+
 - ✅ 10 test suites passed
 - ✅ 51 tests passed (51/51)
 - ✅ 0 failures
 - Duration: 8.92s
 
 **Verification**:
+
 - All DateTimePicker functionality preserved
 - Date formatting correct (MM/DD/YYYY HH:MM AM/PM)
 - getNextHalfHour logic working correctly
@@ -494,18 +543,21 @@ The Phase 2 assessment incorrectly concluded that date-fns v3/v4 would "just wor
 ### Migration Summary
 
 **Actual Time**: ~25 minutes
+
 - Package upgrades: 5 minutes
 - Codemod execution: 2 minutes
 - Test fixes: 15 minutes
 - Verification: 3 minutes
 
 **Changes**:
+
 1. `@mui/x-date-pickers`: 7.24.0 → 8.22.0
 2. `date-fns`: 2.30.0 → 4.1.0
 3. `GameForm.tsx`: Adapter import uses `AdapterDateFns` (v3/v4 adapter)
 4. `GameForm.test.tsx`: Test queries updated for accessible DOM structure
 
 **Benefits Achieved**:
+
 - ✅ Eliminated date-fns v2 deprecation warnings
 - ✅ Modern ESM-only packages (better tree-shaking)
 - ✅ Improved accessibility (individual focusable date/time sections)
@@ -513,11 +565,13 @@ The Phase 2 assessment incorrectly concluded that date-fns v3/v4 would "just wor
 - ✅ Future-proof MUI ecosystem compatibility
 
 **Breaking Changes Handled**:
+
 - New accessible DOM structure (tests updated)
 - Hidden input for form submission (tests query corrected)
 - All existing functionality preserved
 
 **No Breaking Changes**:
+
 - Standard DateTimePicker usage unchanged
 - No behavioral changes in date selection
 - No UI/UX changes visible to users

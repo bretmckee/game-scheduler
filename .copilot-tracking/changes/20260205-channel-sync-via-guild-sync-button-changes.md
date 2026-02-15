@@ -2,7 +2,7 @@
 
 # Release Changes: Channel Sync via Guild Sync Button
 
-**Related Plan**: 20260205-channel-sync-via-guild-sync-button-plan.instructions.md
+**Related Plan**: 20260205-channel-sync-via-guild-sync-button.plan.md
 **Implementation Date**: 2026-02-05
 
 ## Summary
@@ -33,15 +33,18 @@ Extend existing guild sync operation to refresh channel lists for existing guild
 ### Testing
 
 #### Unit Tests
+
 - tests/services/api/services/test_guild_service.py - Added 7 unit tests for `_sync_guild_channels()` and `sync_user_guilds()` covering all edge cases
 - All unit tests passing ✅
 
 #### Integration Tests
+
 - tests/integration/test_guild_sync_channel_operations.py - 8 integration tests against real PostgreSQL database
 - Tests verify: new channel creation, marking inactive, reactivation, filtering, foreign key integrity, accurate counts, and no-change scenarios
 - All integration tests passing ✅
 - Discord client properly mocked (no real API calls in tests)
 
 #### Manual Validation Required
+
 - Create game with specific channel, delete channel from Discord, sync guilds, verify channel marked inactive but game still references it
 - Verify inactive channels don't appear in dropdowns for new templates/games

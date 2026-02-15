@@ -2,7 +2,7 @@
 
 # Release Changes: Game Template System
 
-**Related Plan**: 20251201-game-template-system-plan.instructions.md
+**Related Plan**: 20251201-game-template-system.plan.md
 **Implementation Date**: 2025-12-02
 
 ## Summary
@@ -214,12 +214,14 @@ Replace three-level inheritance system (Guild → Channel → Game) with templat
 ## Post-Implementation Verification (2025-12-03)
 
 ### Coding Standards Compliance
+
 - ✅ All code follows project conventions
 - ✅ Copyright notices present on all files
 - ✅ Python linting passes (ruff check and format)
 - ✅ TypeScript compilation successful
 
 ### Test Results
+
 - ✅ 527/527 unit tests passing (100%)
 - ✅ 10/10 integration tests passing (100%)
 - ✅ 34/34 frontend tests passing (100%)
@@ -227,11 +229,13 @@ Replace three-level inheritance system (Guild → Channel → Game) with templat
 - ✅ Overall API services: 86% coverage (exceeds 80% minimum)
 
 ### Build Verification
+
 - ✅ API container builds successfully
 - ✅ Bot container builds successfully
 - ✅ Frontend container builds successfully
 
 ### Issues Fixed During Verification
+
 - Fixed missing `roles` prop in TemplateList component usage in TemplateManagement.tsx
 - Updated EditGame and GuildConfig test suites to match simplified component implementations after template system refactoring
 - Refactored GuildConfig test suite to use proper beforeEach setup for consistent API mocking across all tests

@@ -2,7 +2,7 @@
 
 # Release Changes: Frontend Docker Build Optimization
 
-**Related Plan**: 20251127-frontend-docker-build-optimization-plan.instructions.md
+**Related Plan**: 20251127-frontend-docker-build-optimization.plan.md
 **Implementation Date**: 2025-11-27
 
 ## Summary

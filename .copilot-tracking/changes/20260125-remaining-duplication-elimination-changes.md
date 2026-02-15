@@ -2,7 +2,7 @@
 
 # Release Changes: Remaining Code Duplication Elimination
 
-**Related Plan**: 20260125-remaining-duplication-elimination-plan.instructions.md
+**Related Plan**: 20260125-remaining-duplication-elimination.plan.md
 **Implementation Date**: 2026-01-25
 
 ## Summary
@@ -16,6 +16,7 @@ Phase 3 complete - consolidated authorization permission checks into generic `_r
 Phase 4 complete - implemented optional improvements for display name resolution and game error handling. Extracted `_resolve_display_name()` helper to eliminate duplication in display name service (2 instances). Created `_handle_game_operation_errors()` helper to consolidate game operation error handling (2 instances). Added comprehensive unit tests for both helpers.
 
 **Duplication Metrics**:
+
 - Baseline: 22 clone pairs
 - After Phase 1: 22 clone pairs (participant count query was not detected by jscpd due to size)
 - After Phase 2: 22 clone pairs (response builders not detected by jscpd due to structure changes)
@@ -28,7 +29,7 @@ Phase 4 complete - implemented optional improvements for display name resolution
 ### Added
 
 - services/bot/handlers/utils.py - Added `get_participant_count()` helper function to query non-placeholder participant counts
-- tests/services/bot/handlers/__init__.py - Created handlers test directory structure
+- tests/services/bot/handlers/**init**.py - Created handlers test directory structure
 - tests/services/bot/handlers/test_utils.py - Created comprehensive unit tests for `get_participant_count()` helper with 5 test cases
 - tests/services/api/routes/test_channels.py - Created comprehensive unit tests for `_build_channel_config_response()` helper with 6 test cases
 

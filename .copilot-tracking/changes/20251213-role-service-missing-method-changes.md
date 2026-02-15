@@ -2,7 +2,7 @@
 
 # Release Changes: Fix Type Errors Found by MyPy
 
-**Related Plan**: 20251213-role-service-missing-method-plan.instructions.md
+**Related Plan**: 20251213-role-service-missing-method.plan.md
 **Implementation Date**: 2025-12-12
 
 ## Summary

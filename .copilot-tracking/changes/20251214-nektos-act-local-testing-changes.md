@@ -2,7 +2,7 @@
 
 # Release Changes: Local GitHub Actions Testing with nektos/act
 
-**Related Plan**: 20251214-nektos-act-local-testing-plan.instructions.md
+**Related Plan**: 20251214-nektos-act-local-testing.plan.md
 **Implementation Date**: 2025-12-14
 
 ## Summary

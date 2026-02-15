@@ -2,7 +2,7 @@
 
 # Release Changes: Pre-commit Complete Standalone Configuration
 
-**Related Plan**: 20260204-precommit-complete-standalone-plan.instructions.md
+**Related Plan**: 20260204-precommit-complete-standalone.plan.md
 **Implementation Date**: 2026-02-04
 
 ## Summary

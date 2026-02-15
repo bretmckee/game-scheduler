@@ -2,7 +2,7 @@
 
 # Release Changes: Participant Ordering Schema Refactoring
 
-**Related Plan**: 20251224-participant-ordering-schema-refactor-plan.instructions.md
+**Related Plan**: 20251224-participant-ordering-schema-refactor.plan.md
 **Implementation Date**: 2025-12-24
 
 ## Summary
@@ -13,7 +13,7 @@ Replace single `pre_filled_position` field with two-field system (`position_type
 
 ### Added
 
-- alembic/versions/8438728f8184_replace_prefilled_position_with_.py - Reversible migration to transform pre_filled_position to position_type/position fields with data preservation
+- alembic/versions/8438728f8184*replace_prefilled_position_with*.py - Reversible migration to transform pre_filled_position to position_type/position fields with data preservation
 
 ### Modified
 
@@ -34,12 +34,14 @@ Replace single `pre_filled_position` field with two-field system (`position_type
 ## Release Summary
 
 **Phase 1 Complete**: Enum definition and database migration successfully implemented and tested.
+
 - ParticipantType IntEnum added with sparse values (8000, 24000)
 - Reversible migration transforms pre_filled_position → (position_type, position)
 - Database schema verified with new fields
 - Migration tested and verified on development database
 
 **Phase 2 Complete**: Model and schema updates successfully implemented.
+
 - GameParticipant model updated with position_type and position fields (SmallInteger with server defaults)
 - ParticipantResponse schema updated to expose new fields
 - All test fixtures across entire test suite updated to use new field structure
@@ -47,6 +49,7 @@ Replace single `pre_filled_position` field with two-field system (`position_type
 - All hard-coded magic numbers replaced with ParticipantType enum constants
 
 **Phase 3 Complete**: Sorting logic successfully refactored and verified.
+
 - Replaced two-list sorting approach with single three-tuple sort key
 - Eliminated NULL checking and list merging complexity
 - Updated PartitionedParticipants docstring to reflect new sorting behavior

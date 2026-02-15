@@ -2,7 +2,7 @@
 
 # Release Changes: E2E Test Strategy - Discord Message Validation
 
-**Related Plan**: 20251222-e2e-test-strategy-plan.instructions.md
+**Related Plan**: 20251222-e2e-test-strategy.plan.md
 **Implementation Date**: 2025-12-22
 
 ## Summary
@@ -20,7 +20,7 @@ Implementation of true end-to-end testing that validates Discord bot behavior an
 
 ### Added
 
-- tests/e2e/helpers/__init__.py - Module initializer for E2E test helpers
+- tests/e2e/helpers/**init**.py - Module initializer for E2E test helpers
 - tests/e2e/helpers/discord.py - DiscordTestHelper class with connect/disconnect and async context manager support
 - tests/e2e/test_game_announcement.py - E2E test file with environment fixtures for Discord message validation
 - tests/e2e/test_00_environment.py - Environment validation test that runs first to verify E2E setup
@@ -67,7 +67,7 @@ Implementation of true end-to-end testing that validates Discord bot behavior an
 - services/init/seed_e2e.py - Updated to seed admin bot user in database using DISCORD_ADMIN_BOT_TOKEN
 - compose.e2e.yaml - Added DISCORD_ADMIN_BOT_TOKEN to both init and e2e-tests service environments
 - tests/e2e/test_game_announcement.py - Updated to use authenticated_admin_client instead of http_client (Phase 3)
-- services/bot/events/handlers.py - Added _handle_game_cancelled method to update Discord messages when games are cancelled (Task 5.1)
+- services/bot/events/handlers.py - Added \_handle_game_cancelled method to update Discord messages when games are cancelled (Task 5.1)
 - tests/e2e/test_game_announcement.py - Added test_template_id fixture to get default template from synced guild (Phase 3)
 - tests/e2e/test_game_announcement.py - Added template_id field to game creation request (Phase 3)
 - tests/e2e/test_game_announcement.py - Updated API call to use await with AsyncClient (Phase 3)
@@ -78,9 +78,9 @@ Implementation of true end-to-end testing that validates Discord bot behavior an
 - compose.e2e.yaml - Added DISCORD_BOT_TOKEN environment variable mapping for bot service (Phase 3)
 - tests/e2e/helpers/discord.py - Added embed field validation in verify_game_embed() (Phase 3)
 - tests/e2e/test_game_announcement.py - Implemented full Discord message verification with embed content validation (Phase 3)
-- services/api/services/games.py - Fixed _remove_participants() to load participant.user relationship with selectinload (Task 5.2)
-- services/api/services/games.py - Fixed _publish_player_removed() to use game.channel.channel_id for Discord channel ID (Task 5.2)
-- services/bot/events/handlers.py - Fixed _handle_player_removed() datetime parsing using fromisoformat() instead of undefined game.scheduled_at (Task 5.2)
+- services/api/services/games.py - Fixed \_remove_participants() to load participant.user relationship with selectinload (Task 5.2)
+- services/api/services/games.py - Fixed \_publish_player_removed() to use game.channel.channel_id for Discord channel ID (Task 5.2)
+- services/bot/events/handlers.py - Fixed \_handle_player_removed() datetime parsing using fromisoformat() instead of undefined game.scheduled_at (Task 5.2)
 - services/api/services/games.py - Fixed update_game() to refresh game.participants relationship after commit to get updated state (Task 5.3)
   - Added `await self.db.refresh(game, ["participants"])` after commit (line ~889)
   - Ensures promotion detection sees correct participant list after deletions
@@ -105,6 +105,7 @@ Implementation of true end-to-end testing that validates Discord bot behavior an
 ## Success Metrics
 
 **Phase 3 Complete:**
+
 - ✅ 1/1 E2E test passing (test_game_creation_posts_announcement_to_discord)
 - ✅ Game creation via API succeeds (201 response)
 - ✅ Discord bot posts announcement message
@@ -113,6 +114,7 @@ Implementation of true end-to-end testing that validates Discord bot behavior an
 - ✅ Embed content verified (title, host mention, player count)
 
 **Phase 5 Progress:**
+
 - ✅ Task 5.1: Game cancellation message update test passing
 - ✅ Task 5.2: Player removal DM notification test passing (fixed 2 event publishing bugs)
 - ✅ Task 5.3: Waitlist promotion DM notification test passing (both scenarios: via_removal and via_max_players_increase)
