@@ -52,21 +52,21 @@ Implement Discord webhook endpoint with Ed25519 signature validation to automati
 - [x] Task 1.3: Update APIConfig to include discord_public_key
   - Details: .copilot-tracking/details/20260214-01-discord-webhook-events-automatic-sync-details.md (Lines 41-51)
 
-### [ ] Phase 2: Webhook Signature Validation (TDD)
+### [x] Phase 2: Webhook Signature Validation (TDD)
 
-- [ ] Task 2.1: Create validate_discord_webhook dependency stub
+- [x] Task 2.1: Create validate_discord_webhook dependency stub
   - Details: .copilot-tracking/details/20260214-01-discord-webhook-events-automatic-sync-details.md (Lines 53-63)
 
-- [ ] Task 2.2: Write failing tests for signature validation
+- [x] Task 2.2: Write failing tests for signature validation
   - Details: .copilot-tracking/details/20260214-01-discord-webhook-events-automatic-sync-details.md (Lines 65-80)
 
-- [ ] Task 2.3: Implement Ed25519 signature validation
+- [x] Task 2.3: Implement Ed25519 signature validation
   - Details: .copilot-tracking/details/20260214-01-discord-webhook-events-automatic-sync-details.md (Lines 82-94)
 
-- [ ] Task 2.4: Update tests to verify actual signature validation
+- [x] Task 2.4: Update tests to verify actual signature validation
   - Details: .copilot-tracking/details/20260214-01-discord-webhook-events-automatic-sync-details.md (Lines 96-107)
 
-- [ ] Task 2.5: Refactor validation with comprehensive edge case tests
+- [x] Task 2.5: Refactor validation with comprehensive edge case tests
   - Details: .copilot-tracking/details/20260214-01-discord-webhook-events-automatic-sync-details.md (Lines 109-120)
 
 ### [ ] Phase 3: Webhook Endpoint Implementation (TDD)
