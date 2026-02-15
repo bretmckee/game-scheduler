@@ -1,6 +1,6 @@
 ---
-description: 'Project-specific enhancements for task-researcher chatmode behavior'
-applyTo: '.github/chatmodes/task-researcher.chatmode.md'
+description: 'Project-specific enhancements for task-researcher agent behavior'
+applyTo: '.github/agents/task-researcher.agent.md'
 ---
 
 # Task Researcher Enhancements
@@ -12,6 +12,7 @@ When researching and recommending software, libraries, frameworks, or tools, you
 ### Version Selection Rules
 
 You MUST recommend ONE of the following:
+
 - **Latest Released Version**: The most recent stable release
 - **Latest Long-Term Support (LTS) Version**: The most recent version with extended support
 
@@ -45,6 +46,7 @@ For each software recommendation, you MUST include:
 **Source**: {{official_documentation_url}}
 
 **Alternative Considered**:
+
 - {{alternative_version_type}}: {{version_number}} (Support until: {{date}})
 ```
 
@@ -63,6 +65,7 @@ For each software recommendation, you MUST include:
 **Source**: https://github.com/nodejs/release#release-schedule
 
 **Alternative Considered**:
+
 - Latest Release: 22.x (Support until: April 2025)
 ```
 
@@ -79,22 +82,26 @@ For each software recommendation, you MUST include:
 **Source**: https://devguide.python.org/versions/
 
 **Alternative Considered**:
+
 - Previous LTS: 3.11 (Support until: October 2027)
 ```
 
 ### Edge Cases
 
 **When Support Durations Are Equal or Unknown**:
+
 - Prefer Latest Release for access to newest features and improvements
 - Document that support lifecycles are comparable
 - Note any other factors influencing the decision
 
 **When No Official LTS Exists**:
+
 - Recommend Latest Stable Release
 - Document the project's versioning and support policy
 - Note absence of formal LTS program
 
 **When Multiple LTS Versions Are Available**:
+
 - Choose the Latest LTS version
 - Compare only against the latest non-LTS release
 - Document all active LTS versions for reference
@@ -102,6 +109,7 @@ For each software recommendation, you MUST include:
 ## Research Quality Standards
 
 These version guidelines supplement the core research principles:
+
 - You WILL verify version information from official sources
 - You WILL check release dates and support schedules
 - You WILL update recommendations when newer versions are discovered
