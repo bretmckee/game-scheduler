@@ -39,6 +39,7 @@ COPY shared/ ./shared/
 COPY services/ ./services/
 COPY alembic/ ./alembic/
 COPY alembic.ini ./
+COPY scripts/ ./scripts/
 COPY tests/ ./tests/
 
 # Create non-root user
