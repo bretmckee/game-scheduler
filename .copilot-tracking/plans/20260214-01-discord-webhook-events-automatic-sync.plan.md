@@ -89,55 +89,46 @@ Implement Discord webhook endpoint with Ed25519 signature validation to automati
 ### [ ] Phase 4: Bot Guild Sync Service (TDD)
 
 - [ ] Task 4.1: Create sync_all_bot_guilds stub in guild_service
-  - Details: .copilot-tracking/details/20260214-01-discord-webhook-events-automatic-sync-details.md (Lines 194-204)
+  - Details: .copilot-tracking/details/20260214-01-discord-webhook-events-automatic-sync-details.md (Lines 211-223)
 
-- [ ] Task 4.2: Write failing tests for bot guild sync
-  - Details: .copilot-tracking/details/20260214-01-discord-webhook-events-automatic-sync-details.md (Lines 206-223)
+- [ ] Task 4.2: Write tests with real assertions marked as expected failures
+  - Details: .copilot-tracking/details/20260214-01-discord-webhook-events-automatic-sync-details.md (Lines 224-242)
 
-- [ ] Task 4.3: Implement guild creation logic (new guilds only)
-  - Details: .copilot-tracking/details/20260214-01-discord-webhook-events-automatic-sync-details.md (Lines 225-238)
+- [ ] Task 4.3: Implement bot guild sync and remove xfail markers
+  - Details: .copilot-tracking/details/20260214-01-discord-webhook-events-automatic-sync-details.md (Lines 243-266)
 
-- [ ] Task 4.4: Implement channel creation for new guilds
-  - Details: .copilot-tracking/details/20260214-01-discord-webhook-events-automatic-sync-details.md (Lines 240-251)
-
-- [ ] Task 4.5: Implement default template creation and inactive guild marking
-  - Details: .copilot-tracking/details/20260214-01-discord-webhook-events-automatic-sync-details.md (Lines 253-265)
-
-- [ ] Task 4.6: Update tests and add comprehensive edge cases
-  - Details: .copilot-tracking/details/20260214-01-discord-webhook-events-automatic-sync-details.md (Lines 267-278)
+- [ ] Task 4.4: Refactor and add comprehensive edge case tests
+  - Details: .copilot-tracking/details/20260214-01-discord-webhook-events-automatic-sync-details.md (Lines 267-285)
 
 ### [ ] Phase 5: RabbitMQ Integration for Webhook
 
 - [ ] Task 5.1: Update webhook endpoint to publish sync_guild message
-  - Details: .copilot-tracking/details/20260214-01-discord-webhook-events-automatic-sync-details.md (Lines 280-291)
+  - Details: .copilot-tracking/details/20260214-01-discord-webhook-events-automatic-sync-details.md (Lines 288-303)
 
 - [ ] Task 5.2: Add integration tests for RabbitMQ message publishing
-  - Details: .copilot-tracking/details/20260214-01-discord-webhook-events-automatic-sync-details.md (Lines 293-303)
+  - Details: .copilot-tracking/details/20260214-01-discord-webhook-events-automatic-sync-details.md (Lines 304-318)
 
 ### [ ] Phase 6: Lazy Channel Loading (TDD)
 
 - [ ] Task 6.1: Create refresh_guild_channels function stub
-  - Details: .copilot-tracking/details/20260214-01-discord-webhook-events-automatic-sync-details.md (Lines 305-315)
+  - Details: .copilot-tracking/details/20260214-01-discord-webhook-events-automatic-sync-details.md (Lines 321-333)
 
-- [ ] Task 6.2: Write failing tests for channel refresh
-  - Details: .copilot-tracking/details/20260214-01-discord-webhook-events-automatic-sync-details.md (Lines 317-331)
+- [ ] Task 6.2: Write tests with real assertions marked as expected failures
+  - Details: .copilot-tracking/details/20260214-01-discord-webhook-events-automatic-sync-details.md (Lines 334-351)
 
-- [ ] Task 6.3: Implement channel fetching and database sync
-  - Details: .copilot-tracking/details/20260214-01-discord-webhook-events-automatic-sync-details.md (Lines 333-344)
+- [ ] Task 6.3: Implement channel refresh and remove xfail markers
+  - Details: .copilot-tracking/details/20260214-01-discord-webhook-events-automatic-sync-details.md (Lines 352-374)
 
-- [ ] Task 6.4: Add refresh query parameter to GET /guilds/{guild_id}/channels
-  - Details: .copilot-tracking/details/20260214-01-discord-webhook-events-automatic-sync-details.md (Lines 346-357)
-
-- [ ] Task 6.5: Update tests and add comprehensive edge cases
-  - Details: .copilot-tracking/details/20260214-01-discord-webhook-events-automatic-sync-details.md (Lines 359-370)
+- [ ] Task 6.4: Refactor and add comprehensive edge case tests
+  - Details: .copilot-tracking/details/20260214-01-discord-webhook-events-automatic-sync-details.md (Lines 375-403)
 
 ### [ ] Phase 7: Manual Discord Portal Configuration
 
 - [ ] Task 7.1: Document webhook configuration steps in deployment docs
-  - Details: .copilot-tracking/details/20260214-01-discord-webhook-events-automatic-sync-details.md (Lines 372-382)
+  - Details: .copilot-tracking/details/20260214-01-discord-webhook-events-automatic-sync-details.md (Lines 406-421)
 
 - [ ] Task 7.2: Create testing checklist for webhook validation
-  - Details: .copilot-tracking/details/20260214-01-discord-webhook-events-automatic-sync-details.md (Lines 384-394)
+  - Details: .copilot-tracking/details/20260214-01-discord-webhook-events-automatic-sync-details.md (Lines 422-438)
 
 ## Dependencies
 
