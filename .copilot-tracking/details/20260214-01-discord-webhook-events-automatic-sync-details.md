@@ -285,22 +285,9 @@ Refactor implementation for quality and add comprehensive edge case tests (REFAC
 
 ## Phase 5: Move Sync Logic to Bot Service (Architecture Refactoring)
 
-### Task 5.1: Add GUILD_SYNC_REQUESTED event type
+### Task 5.1: Move sync_all_bot_guilds() from API to bot service
 
-Add new event type for guild synchronization requests to shared messaging module.
-
-- **Files**:
-  - shared/messaging/events.py - Add GUILD_SYNC_REQUESTED = 11 to EventType enum
-- **Success**:
-  - EventType.GUILD_SYNC_REQUESTED = 11 added to enum
-  - Event type documented with comment explaining bot guild sync purpose
-- **Research References**:
-  - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 602-609) - Event type specification
-- **Dependencies**: Phase 4 completion
-
-### Task 5.2: Create bot service guild_sync module with moved sync logic
-
-Move sync_all_bot_guilds() from API service to new bot service module.
+Move sync_all_bot_guilds() from API service to new bot service module without behavioral changes.
 
 - **Files**:
   - services/bot/guild_sync.py (new file) - Guild sync logic relocated from API service
@@ -316,9 +303,41 @@ Move sync_all_bot_guilds() from API service to new bot service module.
 - **Research References**:
   - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 611-626) - Bot service implementation
   - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 587-600) - Architecture rationale
+- **Dependencies**: Phase 4 completion
+
+### Task 5.2: Move and update unit tests to bot service
+
+Relocate unit tests from API service to bot service with updated imports and structure.
+
+- **Files**:
+  - tests/unit/services/bot/test_guild_sync.py (new file) - Relocated tests
+  - tests/unit/services/api/services/test_guild_service_bot_sync.py - Remove file after content moved
+- **Success**:
+  - Tests moved from tests/unit/services/api/services/test_guild_service_bot_sync.py
+  - Import paths updated to reference services/bot/guild_sync.py
+  - Fixture references updated for bot service context
+  - Old test file removed
+- **Research References**:
+  - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 656-657) - Test relocation
 - **Dependencies**: Task 5.1 completion
 
-### Task 5.3: Add guild sync to bot service startup
+### Task 5.3: Verify all tests pass after relocation
+
+Run comprehensive test suite to verify code and test relocation was successful.
+
+- **Files**:
+  - (Verification only - no file changes)
+- **Success**:
+  - uv run pytest tests/unit/services/bot/test_guild_sync.py passes
+  - uv run pytest tests/integration/ passes
+  - uv run pytest tests/e2e/ passes
+  - No import errors or broken references
+  - All existing functionality preserved
+- **Research References**:
+  - None - verification step
+- **Dependencies**: Task 5.2 completion
+
+### Task 5.4: Add guild sync to bot service startup
 
 Add automatic guild sync to bot service startup lifecycle.
 
@@ -332,42 +351,9 @@ Add automatic guild sync to bot service startup lifecycle.
   - Sync completes before bot starts processing RabbitMQ messages
 - **Research References**:
   - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 628-641) - Startup sync implementation
-- **Dependencies**: Task 5.2 completion
-
-### Task 5.4: Add bot event handler for webhook-triggered guild sync
-
-Create RabbitMQ event handler in bot service to process GUILD_SYNC_REQUESTED events from webhook.
-
-- **Files**:
-  - services/bot/events/handlers.py - Add handle_guild_sync_requested handler
-- **Success**:
-  - async def handle_guild_sync_requested(event: Event) added
-  - Handler creates database session and calls sync_all_bot_guilds()
-  - Proper error handling and logging
-  - Handler registered in EventHandlers.**init**() with self.\_handlers[EventType.GUILD_SYNC_REQUESTED]
-  - Processes webhook-triggered sync requests (separate from startup sync)
-- **Research References**:
-  - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 643-654) - Bot handler implementation
 - **Dependencies**: Task 5.3 completion
 
-### Task 5.5: Move and update unit tests to bot service
-
-Relocate unit tests from API service to bot service with updated imports and structure.
-
-- **Files**:
-  - tests/unit/services/bot/test_guild_sync.py (new file) - Relocated tests
-  - tests/unit/services/api/services/test_guild_service_bot_sync.py - Remove file after content moved
-- **Success**:
-  - Tests moved from tests/unit/services/api/services/test_guild_service_bot_sync.py
-  - Import paths updated to reference services/bot/guild_sync.py
-  - Fixture references updated for bot service context
-  - All tests pass with new location
-  - Old test file removed
-- **Research References**:
-  - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 656-657) - Test relocation
-- **Dependencies**: Task 5.4 completion
-
-### Task 5.6: Add E2E session fixture for bot startup sync verification
+### Task 5.5: Add E2E session fixture for bot startup sync verification
 
 Create session-scoped autouse fixture to verify bot startup sync works and clean up for hermetic tests.
 
@@ -384,7 +370,54 @@ Create session-scoped autouse fixture to verify bot startup sync works and clean
 - **Research References**:
   - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 659-735) - E2E fixture implementation and rationale
   - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 737-758) - Alternative approaches considered
+- **Dependencies**: Task 5.4 completion
+
+### Task 5.6: Verify all tests pass with startup sync
+
+Run comprehensive test suite to verify bot startup sync works correctly with E2E fixture.
+
+- **Files**:
+  - (Verification only - no file changes)
+- **Success**:
+  - uv run pytest tests/unit/services/bot/test_guild_sync.py passes
+  - uv run pytest tests/integration/ passes
+  - uv run pytest tests/e2e/ passes
+  - Bot startup sync creates guilds without errors
+  - E2E fixture cleanup works correctly
+  - No test failures or duplicate key violations
+  - All existing functionality preserved
+- **Research References**:
+  - None - verification step
 - **Dependencies**: Task 5.5 completion
+
+### Task 5.7: Add GUILD_SYNC_REQUESTED event type
+
+Add new event type for guild synchronization requests to shared messaging module.
+
+- **Files**:
+  - shared/messaging/events.py - Add GUILD_SYNC_REQUESTED = 11 to EventType enum
+- **Success**:
+  - EventType.GUILD_SYNC_REQUESTED = 11 added to enum
+  - Event type documented with comment explaining bot guild sync purpose
+- **Research References**:
+  - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 602-609) - Event type specification
+- **Dependencies**: Task 5.6 completion
+
+### Task 5.8: Add bot event handler for webhook-triggered guild sync
+
+Create RabbitMQ event handler in bot service to process GUILD_SYNC_REQUESTED events from webhook.
+
+- **Files**:
+  - services/bot/events/handlers.py - Add handle_guild_sync_requested handler
+- **Success**:
+  - async def handle_guild_sync_requested(event: Event) added
+  - Handler creates database session and calls sync_all_bot_guilds()
+  - Proper error handling and logging
+  - Handler registered in EventHandlers.**init**() with self.\_handlers[EventType.GUILD_SYNC_REQUESTED]
+  - Processes webhook-triggered sync requests (separate from startup sync)
+- **Research References**:
+  - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 643-654) - Bot handler implementation
+- **Dependencies**: Task 5.7 completion
 
 ## Phase 6: RabbitMQ Integration for Webhook
 
