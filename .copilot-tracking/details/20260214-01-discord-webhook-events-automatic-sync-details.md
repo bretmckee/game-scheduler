@@ -221,85 +221,67 @@ Create bot-driven guild sync function stub in guild service.
   - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 263-339) - Bot sync specification
 - **Dependencies**: Phase 3 completion
 
-### Task 4.2: Write failing tests for bot guild sync
+### Task 4.2: Write tests with real assertions marked as expected failures
 
-Write comprehensive tests for bot guild sync (RED phase).
+Write comprehensive tests for bot guild sync with ACTUAL assertions marked @pytest.mark.xfail (RED phase).
 
 - **Files**:
   - tests/unit/api/services/test_guild_service_bot_sync.py (new file) - Bot sync tests
 - **Success**:
-  - Tests expect NotImplementedError
+  - Tests use @pytest.mark.xfail(reason="Function not yet implemented", strict=True)
+  - Tests contain REAL assertions for desired behavior (not expecting NotImplementedError)
   - Test cases: new guild creation, existing guild skip, removed guild marking inactive
   - Tests mock DiscordAPIClient.get_guilds() and get_guild_channels()
   - Tests verify database state after sync
   - Tests verify return values (new_guilds, new_channels counts)
+  - Tests run and show as "xfailed" (expected failures)
 - **Research References**:
   - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 263-339) - Sync logic specification
   - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 379-388) - Testing requirements
 - **Dependencies**: Task 4.1 completion
 
-### Task 4.3: Implement guild creation logic (new guilds only)
+### Task 4.3: Implement bot guild sync and remove xfail markers
 
-Implement new guild creation from bot guild list (GREEN phase).
+Implement complete bot guild sync logic and remove @pytest.mark.xfail markers from tests (GREEN phase).
 
 - **Files**:
-  - services/api/services/guild_service.py - Guild creation implementation
+  - services/api/services/guild_service.py - Complete guild sync implementation
+  - tests/unit/api/services/test_guild_service_bot_sync.py - Remove xfail markers only
 - **Success**:
   - Fetches bot guilds using bot token
   - Queries existing guild IDs from database
-  - Creates GuildConfiguration for new guilds only
-  - Sets is_active=True for new guilds
-  - Returns count of new guilds created
-- **Research References**:
-  - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 263-339) - Implementation details
-- **Dependencies**: Task 4.2 completion
-
-### Task 4.4: Implement channel creation for new guilds
-
-Implement channel fetching and creation for newly added guilds (GREEN phase).
-
-- **Files**:
-  - services/api/services/guild_service.py - Channel creation logic
-- **Success**:
+  - Creates GuildConfiguration for new guilds only (sets is_active=True)
   - Fetches channels for each new guild
   - Creates ChannelConfiguration for text/voice/announcement channels (types 0, 2, 5)
-  - Sets is_active=True
-  - Returns count of new channels created
-- **Research References**:
-  - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 263-339) - Channel sync specification
-- **Dependencies**: Task 4.3 completion
-
-### Task 4.5: Implement default template creation and inactive guild marking
-
-Complete sync logic with template creation and removed guild detection (GREEN phase).
-
-- **Files**:
-  - services/api/services/guild_service.py - Template creation and inactive marking
-- **Success**:
   - Creates default GameTemplate for each new guild (is_default=True)
   - Marks guilds as inactive if bot no longer present (optional)
+  - Returns count of new guilds and new channels created
   - Commits transaction with proper error handling
   - Logs sync results
+  - Remove @pytest.mark.xfail markers from all tests (DO NOT modify test assertions)
+  - All tests pass
 - **Research References**:
   - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 263-339) - Complete sync implementation
-- **Dependencies**: Task 4.4 completion
+- **Dependencies**: Task 4.2 completion
 
-### Task 4.6: Update tests and add comprehensive edge cases
+### Task 4.4: Refactor and add comprehensive edge case tests
 
-Update tests for actual behavior and add edge cases (REFACTOR phase).
+Refactor implementation for quality and add comprehensive edge case tests (REFACTOR phase).
 
 - **Files**:
-  - tests/unit/api/services/test_guild_service_bot_sync.py - Updated and expanded tests
+  - services/api/services/guild_service.py - Refactored implementation
+  - tests/unit/api/services/test_guild_service_bot_sync.py - Additional edge case tests
 - **Success**:
+  - Refactor implementation for clarity and maintainability
+  - Add edge case tests: empty guild list, Discord API errors, database constraint violations
+  - Add tests verifying idempotency (safe to run multiple times)
   - Tests verify new guild/channel/template creation
   - Tests verify existing guilds unchanged
-  - Edge cases: empty guild list, Discord API errors, database constraint violations
-  - Tests verify idempotency (safe to run multiple times)
   - Test coverage >95%
   - All tests pass
 - **Research References**:
   - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 379-388) - Testing strategy
-- **Dependencies**: Task 4.5 completion
+- **Dependencies**: Task 4.3 completion
 
 ## Phase 5: RabbitMQ Integration for Webhook
 
@@ -349,60 +331,66 @@ Create channel refresh function stub in guild service.
   - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 341-355) - Lazy loading specification
 - **Dependencies**: Phase 5 completion
 
-### Task 6.2: Write failing tests for channel refresh
+### Task 6.2: Write tests with real assertions marked as expected failures
 
-Write comprehensive tests for on-demand channel refresh (RED phase).
+Write comprehensive tests for channel refresh with ACTUAL assertions marked @pytest.mark.xfail (RED phase).
 
 - **Files**:
   - tests/unit/api/services/test_guild_service_channel_refresh.py (new file) - Channel refresh tests
 - **Success**:
-  - Tests expect NotImplementedError
+  - Tests use @pytest.mark.xfail(reason="Function not yet implemented", strict=True)
+  - Tests contain REAL assertions for desired behavior (not expecting NotImplementedError)
   - Test cases: new channel creation, deleted channel marking inactive, reactivated channel
   - Tests mock Discord API channel fetch
   - Tests verify database state after refresh
+  - Tests run and show as "xfailed" (expected failures)
 - **Research References**:
   - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 341-355) - Channel refresh logic
   - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 379-388) - Testing requirements
 - **Dependencies**: Task 6.1 completion
 
-### Task 6.3: Implement channel fetching and database sync
+### Task 6.3: Implement channel refresh and remove xfail markers
 
-Implement fresh channel fetching and database synchronization (GREEN phase).
+Implement complete channel refresh logic and remove @pytest.mark.xfail markers from tests (GREEN phase).
 
 - **Files**:
   - services/api/services/guild_service.py - Channel refresh implementation
+  - services/api/routes/guilds.py - Update channels endpoint with refresh parameter
+  - tests/unit/api/services/test_guild_service_channel_refresh.py - Remove xfail markers only
 - **Success**:
   - Fetches channels from Discord for specified guild
   - Creates new ChannelConfiguration records
   - Marks deleted channels as inactive
   - Reactivates previously inactive channels that reappear
   - Returns updated channel list
+  - Adds refresh: bool = Query(False) parameter to GET /guilds/{guild_id}/channels
+  - Calls refresh_guild_channels() when refresh=true
+  - Maintains backward compatibility (refresh=false uses cached channels)
+  - Remove @pytest.mark.xfail markers from all tests (DO NOT modify test assertions)
+  - All tests pass
 - **Research References**:
-  - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 341-355) - Implementation details
+  - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 341-355) - Implementation details and API endpoint
 - **Dependencies**: Task 6.2 completion
 
-### Task 6.4: Add refresh query parameter to GET /guilds/{guild_id}/channels
+### Task 6.4: Refactor and add comprehensive edge case tests
 
-Add refresh capability to existing guild channels endpoint.
-
-- **Files**:
-  - services/api/routes/guilds.py - Update channels endpoint
-- **Success**:
-  - Adds refresh: bool = Query(False) parameter
-  - Calls refresh_guild_channels() when refresh=true
-  - Returns channels from database
-  - Maintains backward compatibility (refresh=false uses cached channels)
-- **Research References**:
-  - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 341-355) - API endpoint specification
-- **Dependencies**: Task 6.3 completion
-
-### Task 6.5: Update tests and add comprehensive edge cases
-
-Update tests for actual behavior and add edge cases (REFACTOR phase).
+Refactor implementation for quality and add comprehensive edge case tests (REFACTOR phase).
 
 - **Files**:
-  - tests/unit/api/services/test_guild_service_channel_refresh.py - Updated tests
+  - services/api/services/guild_service.py - Refactored implementation
+  - tests/unit/api/services/test_guild_service_channel_refresh.py - Additional edge case tests
   - tests/integration/api/routes/test_guilds.py - Endpoint integration tests
+- **Success**:
+  - Refactor implementation for clarity and maintainability
+  - Add edge case tests: Discord API errors, non-existent guilds, channel type filtering
+  - Add integration tests for endpoint with refresh parameter
+  - Tests verify channel addition, deletion, and reactivation
+  - Tests verify endpoint backward compatibility
+  - Test coverage >95%
+  - All tests pass
+- **Research References**:
+  - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 379-388) - Testing strategy
+- **Dependencies**: Task 6.3 completion
 - **Success**:
   - Tests verify channel refresh updates database
   - Tests verify refresh=false uses cached channels
