@@ -5,13 +5,31 @@ applyTo: '**/*.py,**/*.ts,**/*.tsx,**/*.js,**/*.jsx'
 
 # Test-Driven Development (TDD) Instructions
 
+## Applicability
+
+**TDD methodology applies ONLY to languages with mature unit testing frameworks:**
+
+- ✅ **Python** (pytest, unittest)
+- ✅ **TypeScript/JavaScript** (Vitest, Jest, Mocha)
+- ✅ **Other languages** with established testing frameworks
+
+**TDD does NOT apply to:**
+
+- ❌ **Bash scripts** (no practical unit test framework)
+- ❌ **Dockerfiles** (no unit test framework)
+- ❌ **YAML/JSON configuration files** (no unit tests)
+- ❌ **SQL migration scripts** (use integration tests instead)
+- ❌ **Infrastructure-as-Code** without test frameworks
+
+**For non-testable file types:** Create and verify functionality through integration tests, manual testing, or other appropriate validation methods.
+
 ## Core TDD Principle
 
-**ALL new functionality MUST follow the Red-Green-Refactor cycle. Write tests BEFORE writing implementation code.**
+**ALL new functionality in testable languages MUST follow the Red-Green-Refactor cycle. Write tests BEFORE writing implementation code.**
 
 ## TDD Workflow (Red-Green-Refactor)
 
-### Step 1: RED - Create Failing Test Infrastructure
+### Step 1: RED - Create Stub and Failing Tests
 
 **ALWAYS start by creating the interface with NotImplementedError:**
 
@@ -38,42 +56,45 @@ export function calculateGameCapacity(game: GameSession, participants: Participa
 }
 ```
 
-**Then write tests for the desired behavior (they will naturally fail against the stub):**
+**Then write tests for the ACTUAL desired behavior using expected failure markers:**
 
 ```python
 import pytest
 
+@pytest.mark.xfail(reason="Function not yet implemented", strict=True)
 def test_calculate_game_capacity_with_available_slots():
     """Test capacity calculation when slots are available."""
     game = GameSession(max_participants=5)
     participants = [Participant(), Participant()]
 
     result = calculate_game_capacity(game, participants)
-    assert result == 3
+    assert result == 3  # REAL assertion from day 1
 ```
 
 ```typescript
-import { describe, it, expect } from 'vitest';
+import { describe, test, expect } from 'vitest';
 
 describe('calculateGameCapacity', () => {
-  it('should calculate available slots correctly', () => {
+  test.failing('should calculate available slots correctly', () => {
     const game = { maxParticipants: 5 };
     const participants = [{}, {}];
 
     const result = calculateGameCapacity(game, participants);
-    expect(result).toBe(3);
+    expect(result).toBe(3); // REAL assertion from day 1
   });
 });
 ```
 
-**Run tests to verify they fail correctly (stub will throw NotImplementedError):**
+**Run tests to verify expected failures:**
 
-- `uv run pytest tests/unit/test_game_capacity.py -v` (Python - will show NotImplementedError)
-- `npm test -- test_game_capacity` (TypeScript - will show Error: not yet implemented)
+- `uv run pytest tests/unit/test_game_capacity.py -v` (Python - shows "1 xfailed")
+- `npm test -- test_game_capacity` (TypeScript - shows test as expected failure)
 
-### Step 2: GREEN - Implement Minimal Working Solution
+**Key Point:** Tests contain REAL assertions for the desired behavior, just marked as expected failures. Tests are NOT modified after implementation - only the xfail marker is removed.
 
-**Remove NotImplementedError and implement the simplest solution that makes tests pass:**
+### Step 2: GREEN - Implement and Remove xfail Markers
+
+**Replace NotImplementedError with the simplest solution that makes tests pass:**
 
 ```python
 def calculate_game_capacity(game: GameSession, participants: list[Participant]) -> int:
@@ -81,12 +102,42 @@ def calculate_game_capacity(game: GameSession, participants: list[Participant]) 
     return game.max_participants - len(participants)
 ```
 
-**Run tests to verify they pass:**
+**Remove the xfail marker from tests (no other changes to tests):**
 
-- `uv run pytest tests/unit/test_game_capacity.py -v` (Python)
-- `npm test -- test_game_capacity` (TypeScript)
-- Tests should now pass - the implementation satisfies the test assertions
-- No test changes needed - tests were written correctly from the start
+```python
+import pytest
+
+# @pytest.mark.xfail removed - that's the ONLY change
+def test_calculate_game_capacity_with_available_slots():
+    """Test capacity calculation when slots are available."""
+    game = GameSession(max_participants=5)
+    participants = [Participant(), Participant()]
+
+    result = calculate_game_capacity(game, participants)
+    assert result == 3  # SAME assertion - unchanged
+```
+
+```typescript
+import { describe, test, expect } from 'vitest';
+
+describe('calculateGameCapacity', () => {
+  test('should calculate available slots correctly', () => {
+    // .failing removed
+    const game = { maxParticipants: 5 };
+    const participants = [{}, {}];
+
+    const result = calculateGameCapacity(game, participants);
+    expect(result).toBe(3); // SAME assertion - unchanged
+  });
+});
+```
+
+**Run tests to verify they now pass:**
+
+- `uv run pytest tests/unit/test_game_capacity.py -v` (Python - shows "1 passed")
+- `npm test -- test_game_capacity` (TypeScript - shows "1 passed")
+
+**Critical:** The test assertions are NEVER modified - only the xfail/failing marker is removed.
 
 ### Step 3: REFACTOR - Improve Implementation
 
@@ -139,22 +190,26 @@ Every implementation phase MUST follow this pattern:
   - Raise NotImplementedError with descriptive message
   - Details: [details file reference]
 
-- [ ] Task N.2: Write failing unit tests for desired behavior
-  - Test happy path with actual assertions (will fail against stub)
-  - Test edge cases with expected behavior
+- [ ] Task N.2: Write tests with real assertions marked as expected failures
+  - Use @pytest.mark.xfail (Python) or test.failing (TypeScript) markers
+  - Write ACTUAL assertions for desired behavior (not expecting NotImplementedError)
+  - Test happy path with real expected values
+  - Test edge cases with real expected behavior
   - Test error conditions
   - Document expected behavior in test docstrings
-  - Verify tests fail correctly (stub throws NotImplementedError)
+  - Verify tests show as "xfailed" or "expected failure" when run
   - Details: [details file reference]
 
-- [ ] Task N.3: Implement minimal working solution
-  - Replace NotImplementedError with implementation
-  - Make all tests pass
-  - No test changes needed - tests already verify correct behavior
+- [ ] Task N.3: Implement solution and remove xfail markers
+  - Replace NotImplementedError with minimal working implementation
+  - Remove @pytest.mark.xfail or test.failing markers from tests
+  - DO NOT modify test assertions - they are already correct
+  - Run tests to verify they pass
   - Details: [details file reference]
 
 - [ ] Task N.4: Refactor and add comprehensive tests
   - Improve implementation for edge cases
+  - Add additional tests for boundary conditions
   - Add integration tests if needed
   - Refactor for clarity and performance
   - Verify full test suite passes
@@ -189,26 +244,23 @@ Every implementation phase MUST follow this pattern:
 ### Phase 1: Game Capacity Calculation
 
 - [ ] Task 1.1: Create calculate_game_capacity stub
-- [ ] Task 1.2: Write failing unit tests for capacity
-- [ ] Task 1.3: Implement capacity calculation
-- [ ] Task 1.4: Update tests to verify behavior
-- [ ] Task 1.5: Refactor and add edge case tests
+- [ ] Task 1.2: Write tests with real assertions marked xfail
+- [ ] Task 1.3: Implement capacity calculation and remove xfail markers
+- [ ] Task 1.4: Refactor and add edge case tests
 
 ### Phase 2: Database Schema for Capacity
 
 - [ ] Task 2.1: Create migration stub
-- [ ] Task 2.2: Write migration tests (up/down/idempotency)
-- [ ] Task 2.3: Implement migration
-- [ ] Task 2.4: Verify migration tests pass
-- [ ] Task 2.5: Test with real database
+- [ ] Task 2.2: Write migration tests with xfail markers
+- [ ] Task 2.3: Implement migration and remove xfail markers
+- [ ] Task 2.4: Test with real database and add edge cases
 
 ### Phase 3: Join Handler Integration
 
 - [ ] Task 3.1: Create join_with_capacity_check stub
-- [ ] Task 3.2: Write failing integration tests
-- [ ] Task 3.3: Integrate capacity check into handler
-- [ ] Task 3.4: Update tests to verify integration
-- [ ] Task 3.5: Add e2e tests for full workflow
+- [ ] Task 3.2: Write integration tests with xfail markers
+- [ ] Task 3.3: Implement handler and remove xfail markers
+- [ ] Task 3.4: Add e2e tests for full workflow
 ```
 
 ## TDD for Different Test Levels
@@ -218,8 +270,8 @@ Every implementation phase MUST follow this pattern:
 **Write unit tests FIRST for every function:**
 
 1. Create stub with NotImplementedError
-2. Write tests for desired behavior (they naturally fail against stub)
-3. Implement function to make tests pass
+2. Write tests with REAL assertions marked with @pytest.mark.xfail or test.failing
+3. Implement function and remove xfail markers (DO NOT modify test assertions)
 4. Add edge case tests and refactor
 
 ### Integration Tests (TDD When Possible)
@@ -244,10 +296,14 @@ Every implementation phase MUST follow this pattern:
 
 Before marking any implementation task complete:
 
+- [ ] Language is appropriate for TDD (Python, TypeScript/JavaScript, etc.)
 - [ ] Function stub created with NotImplementedError first
-- [ ] Tests for desired behavior written before implementation
-- [ ] Tests verified to fail correctly against stub (red phase)
+- [ ] Tests with REAL assertions written before implementation
+- [ ] Tests marked with xfail/failing markers (red phase)
+- [ ] Tests verified to show as "xfailed" or "expected failure" when run
 - [ ] Implementation makes tests pass (green phase)
+- [ ] xfail/failing markers removed (test assertions NOT modified)
+- [ ] Tests now show as "passed"
 - [ ] Refactoring performed with passing tests
 - [ ] Edge cases covered with additional tests
 - [ ] Full test suite passes
@@ -262,18 +318,24 @@ Before marking any implementation task complete:
 def validate_game_data(data: dict) -> Game:
     raise NotImplementedError("validate_game_data not yet implemented")
 
-# RED: Test for desired exception behavior (naturally fails against stub)
+# RED: Test for desired exception behavior marked as xfail
+@pytest.mark.xfail(reason="Function not yet implemented", strict=True)
 def test_validate_game_throws_on_invalid_data():
     with pytest.raises(ValidationError, match="Invalid game data"):
         validate_game_data(invalid_data)
 
-# Test fails because stub raises NotImplementedError, not ValidationError
+# Test shows as "xfailed" - expects ValidationError but gets NotImplementedError
 
-# GREEN: After implementation, test passes
+# GREEN: After implementation, remove xfail marker
 def validate_game_data(data: dict) -> Game:
     if not data.get('title'):
         raise ValidationError("Invalid game data")
     return Game(**data)
+
+# Remove @pytest.mark.xfail decorator - test assertions unchanged
+def test_validate_game_throws_on_invalid_data():
+    with pytest.raises(ValidationError, match="Invalid game data"):
+        validate_game_data(invalid_data)
 
 # Test now passes - ValidationError is raised as expected
 ```
@@ -285,19 +347,27 @@ def validate_game_data(data: dict) -> Game:
 async def fetch_game_from_api(game_id: int) -> Game:
     raise NotImplementedError("fetch_game_from_api not yet implemented")
 
-# RED: Test for desired behavior (naturally fails against stub)
+# RED: Test for desired behavior marked as xfail
 @pytest.mark.asyncio
+@pytest.mark.xfail(reason="Function not yet implemented", strict=True)
 async def test_fetch_game_from_api():
     game = await fetch_game_from_api(123)
-    assert game.id == 123
+    assert game.id == 123  # REAL assertion from day 1
     assert game.title is not None
 
-# Test fails because stub raises NotImplementedError
+# Test shows as "xfailed"
 
-# GREEN: After implementation
+# GREEN: Implement and remove xfail marker
 async def fetch_game_from_api(game_id: int) -> Game:
     response = await api_client.get(f"/games/{game_id}")
     return Game(**response.json())
+
+# Remove @pytest.mark.xfail decorator only
+@pytest.mark.asyncio
+async def test_fetch_game_from_api():
+    game = await fetch_game_from_api(123)
+    assert game.id == 123  # SAME assertion - unchanged
+    assert game.title is not None
 
 # Test now passes - returns Game with correct attributes
 ```
@@ -310,19 +380,27 @@ class GameRepository:
     def get_by_id(self, game_id: int) -> Game | None:
         raise NotImplementedError("get_by_id not yet implemented")
 
-# RED: Test for desired behavior (naturally fails against stub)
+# RED: Test for desired behavior marked as xfail
+@pytest.mark.xfail(reason="Method not yet implemented", strict=True)
 def test_get_game_by_id(mock_db_session):
     repo = GameRepository(mock_db_session)
     game = repo.get_by_id(123)
-    assert game is not None
+    assert game is not None  # REAL assertion from day 1
     assert game.id == 123
 
-# Test fails because stub raises NotImplementedError
+# Test shows as "xfailed"
 
-# GREEN: After implementation
+# GREEN: Implement and remove xfail marker
 class GameRepository:
     def get_by_id(self, game_id: int) -> Game | None:
         return self.session.query(Game).filter(Game.id == game_id).first()
+
+# Remove @pytest.mark.xfail decorator only
+def test_get_game_by_id(mock_db_session):
+    repo = GameRepository(mock_db_session)
+    game = repo.get_by_id(123)
+    assert game is not None  # SAME assertion - unchanged
+    assert game.id == 123
 
 # Test now passes - returns Game from database
 ```
@@ -378,10 +456,16 @@ Phase 2: Write tests for features  # ❌ TOO LATE
 
 ## Summary
 
-**TDD is not optional - it is the required workflow for all new code:**
+**TDD is required for all testable languages (Python, TypeScript/JavaScript, etc.):**
 
-1. **RED**: Create stub with NotImplementedError → Write failing tests
-2. **GREEN**: Implement minimal solution → Make tests pass
+1. **RED**: Create stub with NotImplementedError → Write tests with REAL assertions marked xfail/failing
+2. **GREEN**: Implement minimal solution → Remove xfail/failing markers (DO NOT modify test assertions)
 3. **REFACTOR**: Improve code → Keep tests passing
 
-**Every task plan MUST integrate tests adjacent to implementation, never as a separate later phase.**
+**Key principles:**
+
+- Tests contain correct assertions from day 1
+- Only xfail/failing markers are removed after implementation
+- Test assertions are NEVER modified between RED and GREEN phases
+- Every task plan MUST integrate tests adjacent to implementation, never as a separate later phase
+- TDD only applies to languages with unit testing frameworks (not bash, Dockerfiles, YAML, etc.)

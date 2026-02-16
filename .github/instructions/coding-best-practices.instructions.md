@@ -129,19 +129,21 @@ def process_user_data(user_id: str) -> UserData:
 
 ### Test-Driven Development (TDD) Requirement
 
-**ALL new code MUST follow Test-Driven Development methodology. See #file:.github/instructions/test-driven-development.instructions.md for complete TDD workflow.**
+**ALL new code in testable languages (Python, TypeScript/JavaScript) MUST follow Test-Driven Development methodology. See #file:.github/instructions/test-driven-development.instructions.md for complete TDD workflow.**
+
+**TDD does NOT apply to:** Bash scripts, Dockerfiles, YAML configs, or other files without unit testing frameworks.
 
 ### TDD Red-Green-Refactor Cycle (Required)
 
-1. **RED**: Create function stub with NotImplementedError → Write failing tests
-2. **GREEN**: Implement minimal solution → Make tests pass
+1. **RED**: Create function stub with NotImplementedError → Write tests with REAL assertions marked xfail/failing
+2. **GREEN**: Implement minimal solution → Remove xfail/failing markers (DO NOT modify test assertions)
 3. **REFACTOR**: Improve code → Keep tests passing
 
 ### Testing Standards
 
-- **Write tests BEFORE implementation**: TDD is mandatory, not optional
+- **Write tests BEFORE implementation**: TDD is mandatory for testable languages (Python, TypeScript/JavaScript), not optional
 - **Write unit tests at the same time as code**: Tests are part of the implementation, not an afterthought
-- **Follow Red-Green-Refactor**: All new functions must start with NotImplementedError, then tests, then implementation
+- **Follow Red-Green-Refactor**: All new functions must start with NotImplementedError, then tests with REAL assertions marked xfail/failing, then implementation with marker removal only
 - **Test the happy path and edge cases**: Include normal and boundary conditions
 - **Keep tests independent**: Tests should not depend on execution order
 - **Use descriptive test names**: Test names should describe what is being tested
@@ -152,8 +154,8 @@ def process_user_data(user_id: str) -> UserData:
 
 Different types of tests serve different purposes, all are important but are not interchangeable:
 
-- **Unit tests**: Test individual functions/methods in isolation using TDD. They should be fast and cover all code paths. Always written BEFORE implementation.
-- **Integration tests**: Test interactions between components covering common workflows. Use TDD when possible.
+- **Unit tests**: Test individual functions/methods in isolation using TDD. They should be fast and cover all code paths. Always written BEFORE implementation using xfail/failing markers.
+- **Integration tests**: Test interactions between components covering common workflows. Use TDD when possible with xfail markers.
 - **End-to-end tests**: Test complete user workflows. Written after unit and integration tests are green.
 - **Performance tests**: Verify performance requirements are met
 

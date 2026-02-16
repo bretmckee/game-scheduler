@@ -314,19 +314,69 @@ module_name, package_name, ClassName, method_name, ExceptionName, function_name,
 ### Required TDD Workflow
 
 1. **RED Phase**: Create stub function with `raise NotImplementedError("function_name not yet implemented")`
-2. **RED Phase**: Write failing tests using `pytest.raises(NotImplementedError, match="not yet implemented")`
-3. **GREEN Phase**: Implement minimal solution to make tests pass
-4. **GREEN Phase**: Update tests to verify actual behavior (remove pytest.raises)
-5. **REFACTOR Phase**: Improve implementation while keeping tests green
+2. **RED Phase**: Write tests with REAL assertions marked with `@pytest.mark.xfail(reason="Function not yet implemented", strict=True)`
+3. **GREEN Phase**: Implement minimal solution and remove `@pytest.mark.xfail` decorators (DO NOT modify test assertions)
+4. **REFACTOR Phase**: Improve implementation while keeping tests green
+
+### TDD Examples
+
+```python
+# RED: Create stub function
+def calculate_game_score(players: list[Player], game: Game) -> int:
+    """Calculate total score for a game.
+
+    Args:
+        players: List of players in the game
+        game: The game instance
+
+    Returns:
+        Total calculated score
+
+    Raises:
+        NotImplementedError: Function not yet implemented
+    """
+    raise NotImplementedError("calculate_game_score not yet implemented")
+
+# RED: Write test with REAL assertions marked xfail
+import pytest
+
+@pytest.mark.xfail(reason="Function not yet implemented", strict=True)
+def test_calculate_game_score():
+    """Test game score calculation."""
+    players = [Player(id=1, points=10), Player(id=2, points=15)]
+    game = Game(id=1, multiplier=2)
+
+    result = calculate_game_score(players, game)
+    assert result == 50  # REAL assertion from day 1: (10+15)*2
+
+# GREEN: Implement function
+def calculate_game_score(players: list[Player], game: Game) -> int:
+    """Calculate total score for a game."""
+    total_points = sum(p.points for p in players)
+    return total_points * game.multiplier
+
+# GREEN: Remove xfail marker only (assertions unchanged)
+# @pytest.mark.xfail removed - that's the ONLY change
+def test_calculate_game_score():
+    """Test game score calculation."""
+    players = [Player(id=1, points=10), Player(id=2, points=15)]
+    game = Game(id=1, multiplier=2)
+
+    result = calculate_game_score(players, game)
+    assert result == 50  # SAME assertion - unchanged
+```
 
 ### Testing Requirements
 
 - Write unit tests BEFORE implementing functionality (not after)
 - Use pytest with modern fixtures and parametrize decorators
 - Test the happy path, edge cases, and error conditions
+- Use `@pytest.mark.xfail` for tests written before implementation
+- Test assertions should describe ACTUAL desired behavior from day 1
+- Only remove xfail markers after implementation - NEVER modify test assertions
 - Account for common edge cases like empty inputs, invalid data types, and large datasets
 - Include comments for edge cases and the expected behavior when non-obvious
-- All new functions must start with NotImplementedError and have failing tests first
+- All new functions must start with NotImplementedError and have tests with real assertions marked xfail
 
 **See #file:.github/instructions/test-driven-development.instructions.md for complete TDD guidelines and examples.**
 

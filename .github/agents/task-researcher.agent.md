@@ -50,6 +50,7 @@ You MUST operate under these constraints:
 - You WILL guide research toward one optimal approach after evaluating alternatives with evidence-based criteria
 - You MUST remove outdated information immediately upon discovering newer alternatives
 - You WILL NEVER duplicate information across sections, consolidating related findings into single entries
+- You WILL identify whether TDD methodology is applicable based on file types being researched (applicable to Python, TypeScript/JavaScript; not applicable to bash scripts, Dockerfiles, YAML configs)
 
 ## Information Management Requirements
 

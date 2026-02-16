@@ -124,9 +124,9 @@ Instructions for building high-quality ReactJS applications with modern patterns
 #### Required TDD Workflow
 
 1. **RED Phase**: Create stub component/function that throws `Error('ComponentName not yet implemented')`
-2. **RED Phase**: Write failing tests using Vitest/Jest expecting the error to be thrown
+2. **RED Phase**: Write tests with REAL assertions marked with `test.failing()` (Vitest) or equivalent
 3. **GREEN Phase**: Implement minimal solution to make tests pass
-4. **GREEN Phase**: Update tests to verify actual behavior (remove error expectation)
+4. **GREEN Phase**: Remove `test.failing()` markers (DO NOT modify test assertions)
 5. **REFACTOR Phase**: Improve implementation while keeping tests green
 
 #### TDD for React Components
@@ -137,13 +137,13 @@ export function GameCard({ game }: GameCardProps) {
   throw new Error('GameCard not yet implemented');
 }
 
-// RED: Write failing test
-import { render } from '@testing-library/react';
+// RED: Write test with REAL assertions marked failing
+import { render, screen } from '@testing-library/react';
+import { test, expect } from 'vitest';
 
-test('renders game title', () => {
-  expect(() => render(<GameCard game={mockGame} />))
-    .toThrow('not yet implemented');
-  // After implementation: expect(screen.getByText('Game Title')).toBeInTheDocument();
+test.failing('renders game title', () => {
+  render(<GameCard game={mockGame} />);
+  expect(screen.getByText('Game Title')).toBeInTheDocument();  // REAL assertion from day 1
 });
 
 // GREEN: Implement component
@@ -151,10 +151,10 @@ export function GameCard({ game }: GameCardProps) {
   return <div>{game.title}</div>;
 }
 
-// GREEN: Update test to verify behavior
-test('renders game title', () => {
+// GREEN: Remove .failing marker only (test assertions unchanged)
+test('renders game title', () => {  // .failing removed
   render(<GameCard game={mockGame} />);
-  expect(screen.getByText('Game Title')).toBeInTheDocument();
+  expect(screen.getByText('Game Title')).toBeInTheDocument();  // SAME assertion - unchanged
 });
 ```
 
@@ -166,10 +166,12 @@ export function calculateAvailableSlots(maxParticipants: number, current: number
   throw new Error('calculateAvailableSlots not yet implemented');
 }
 
-// RED: Write failing test
-test('calculates available slots', () => {
-  expect(() => calculateAvailableSlots(5, 2)).toThrow('not yet implemented');
-  // After implementation: expect(result).toBe(3);
+// RED: Write test with REAL assertion marked failing
+import { test, expect } from 'vitest';
+
+test.failing('calculates available slots', () => {
+  const result = calculateAvailableSlots(5, 2);
+  expect(result).toBe(3); // REAL assertion from day 1
 });
 
 // GREEN: Implement function
@@ -177,9 +179,11 @@ export function calculateAvailableSlots(maxParticipants: number, current: number
   return maxParticipants - current;
 }
 
-// GREEN: Update test
+// GREEN: Remove .failing marker only (test assertions unchanged)
 test('calculates available slots', () => {
-  expect(calculateAvailableSlots(5, 2)).toBe(3);
+  // .failing removed
+  const result = calculateAvailableSlots(5, 2);
+  expect(result).toBe(3); // SAME assertion - unchanged
 });
 ```
 

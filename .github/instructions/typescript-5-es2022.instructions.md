@@ -100,10 +100,9 @@ applyTo: '**/*.ts'
 ### Required TDD Workflow
 
 1. **RED Phase**: Create stub function/class with `throw new Error('functionName not yet implemented')`
-2. **RED Phase**: Write failing tests expecting the error to be thrown
-3. **GREEN Phase**: Implement minimal solution to make tests pass
-4. **GREEN Phase**: Update tests to verify actual behavior (remove error expectation)
-5. **REFACTOR Phase**: Improve implementation while keeping tests green
+2. **RED Phase**: Write tests with REAL assertions marked with `test.failing()` (Vitest) or equivalent
+3. **GREEN Phase**: Implement minimal solution and remove `test.failing()` markers (DO NOT modify test assertions)
+4. **REFACTOR Phase**: Improve implementation while keeping tests green
 
 ### TDD Examples
 
@@ -113,13 +112,14 @@ export async function fetchUserGuilds(userId: string): Promise<Guild[]> {
   throw new Error('fetchUserGuilds not yet implemented');
 }
 
-// RED: Write failing test
-import { describe, it, expect } from 'vitest';
+// RED: Write test with REAL assertions marked failing
+import { describe, test, expect } from 'vitest';
 
 describe('fetchUserGuilds', () => {
-  it('should fetch user guilds from API', async () => {
-    await expect(fetchUserGuilds('123')).rejects.toThrow('not yet implemented');
-    // After implementation: expect(guilds).toHaveLength(2);
+  test.failing('should fetch user guilds from API', async () => {
+    const guilds = await fetchUserGuilds('123');
+    expect(guilds).toHaveLength(2); // REAL assertion from day 1
+    expect(guilds[0]).toHaveProperty('id');
   });
 });
 
@@ -129,11 +129,14 @@ export async function fetchUserGuilds(userId: string): Promise<Guild[]> {
   return response.data;
 }
 
-// GREEN: Update test
-it('should fetch user guilds from API', async () => {
-  const guilds = await fetchUserGuilds('123');
-  expect(guilds).toHaveLength(2);
-  expect(guilds[0]).toHaveProperty('id');
+// GREEN: Remove .failing marker only (assertions unchanged)
+describe('fetchUserGuilds', () => {
+  test('should fetch user guilds from API', async () => {
+    // .failing removed
+    const guilds = await fetchUserGuilds('123');
+    expect(guilds).toHaveLength(2); // SAME assertion - unchanged
+    expect(guilds[0]).toHaveProperty('id');
+  });
 });
 ```
 
@@ -142,11 +145,14 @@ it('should fetch user guilds from API', async () => {
 ## Testing Expectations
 
 - Follow TDD: Write tests BEFORE implementing functionality
-- Add or update unit tests with the project's framework and naming style.
-- Expand integration or end-to-end suites when behavior crosses modules or platform APIs.
-- Run targeted test scripts for quick feedback before submitting.
-- Avoid brittle timing assertions; prefer fake timers or injected clocks.
-- All new functions must start with throwing an error and have failing tests first
+- Use `test.failing()` (Vitest) for tests written before implementation
+- Test assertions should describe ACTUAL desired behavior from day 1
+- Only remove failing markers after implementation - NEVER modify test assertions
+- Add or update unit tests with the project's framework and naming style
+- Expand integration or end-to-end suites when behavior crosses modules or platform APIs
+- Run targeted test scripts for quick feedback before submitting
+- Avoid brittle timing assertions; prefer fake timers or injected clocks
+- All new functions must start with throwing an error and have tests with real assertions marked failing
 
 ## Performance & Reliability
 
