@@ -283,42 +283,146 @@ Refactor implementation for quality and add comprehensive edge case tests (REFAC
   - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 379-388) - Testing strategy
 - **Dependencies**: Task 4.3 completion
 
-## Phase 5: RabbitMQ Integration for Webhook
+## Phase 5: Move Sync Logic to Bot Service (Architecture Refactoring)
 
-### Task 5.1: Update webhook endpoint to publish sync_guild message
+### Task 5.1: Add GUILD_SYNC_REQUESTED event type
 
-Connect webhook endpoint to sync logic via RabbitMQ message.
+Add new event type for guild synchronization requests to shared messaging module.
 
 - **Files**:
-  - services/api/routes/webhooks.py - RabbitMQ message publishing
+  - shared/messaging/events.py - Add GUILD_SYNC_REQUESTED = 11 to EventType enum
 - **Success**:
-  - Injects RabbitMQ client dependency
-  - Publishes {"type": "sync_guild"} message on APPLICATION_AUTHORIZED
-  - Logs message publication
+  - EventType.GUILD_SYNC_REQUESTED = 11 added to enum
+  - Event type documented with comment explaining bot guild sync purpose
+- **Research References**:
+  - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 602-609) - Event type specification
+- **Dependencies**: Phase 4 completion
+
+### Task 5.2: Create bot service guild_sync module with moved sync logic
+
+Move sync_all_bot_guilds() from API service to new bot service module.
+
+- **Files**:
+  - services/bot/guild_sync.py (new file) - Guild sync logic relocated from API service
+  - services/api/services/guild_service.py - Remove sync_all_bot_guilds() function
+- **Success**:
+  - services/bot/guild_sync.py created with async def sync_all_bot_guilds(discord_client: DiscordAPIClient, db: AsyncSession) -> None
+  - Function implementation moved from services/api/services/guild_service.py
+  - Uses bot token from bot service config
+  - Handles RLS context setup for service users
+  - Creates missing guilds/channels/default templates
+  - Logs sync results
+  - Original function removed from API service
+- **Research References**:
+  - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 611-626) - Bot service implementation
+  - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 587-600) - Architecture rationale
+- **Dependencies**: Task 5.1 completion
+
+### Task 5.3: Add guild sync to bot service startup
+
+Add automatic guild sync to bot service startup lifecycle.
+
+- **Files**:
+  - services/bot/app.py - Add sync_all_bot_guilds() call to bot startup/lifespan
+- **Success**:
+  - Bot service lifespan function calls sync_all_bot_guilds() on startup
+  - Uses bot service's discord_client and database session
+  - Logs sync results
+  - Handles errors gracefully (logs but doesn't fail startup)
+  - Sync completes before bot starts processing RabbitMQ messages
+- **Research References**:
+  - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 628-641) - Startup sync implementation
+- **Dependencies**: Task 5.2 completion
+
+### Task 5.4: Add bot event handler for webhook-triggered guild sync
+
+Create RabbitMQ event handler in bot service to process GUILD_SYNC_REQUESTED events from webhook.
+
+- **Files**:
+  - services/bot/events/handlers.py - Add handle_guild_sync_requested handler
+- **Success**:
+  - async def handle_guild_sync_requested(event: Event) added
+  - Handler creates database session and calls sync_all_bot_guilds()
+  - Proper error handling and logging
+  - Handler registered in EventHandlers.**init**() with self.\_handlers[EventType.GUILD_SYNC_REQUESTED]
+  - Processes webhook-triggered sync requests (separate from startup sync)
+- **Research References**:
+  - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 643-654) - Bot handler implementation
+- **Dependencies**: Task 5.3 completion
+
+### Task 5.5: Move and update unit tests to bot service
+
+Relocate unit tests from API service to bot service with updated imports and structure.
+
+- **Files**:
+  - tests/unit/services/bot/test_guild_sync.py (new file) - Relocated tests
+  - tests/unit/services/api/services/test_guild_service_bot_sync.py - Remove file after content moved
+- **Success**:
+  - Tests moved from tests/unit/services/api/services/test_guild_service_bot_sync.py
+  - Import paths updated to reference services/bot/guild_sync.py
+  - Fixture references updated for bot service context
+  - All tests pass with new location
+  - Old test file removed
+- **Research References**:
+  - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 656-657) - Test relocation
+- **Dependencies**: Task 5.4 completion
+
+### Task 5.6: Add E2E session fixture for bot startup sync verification
+
+Create session-scoped autouse fixture to verify bot startup sync works and clean up for hermetic tests.
+
+- **Files**:
+  - tests/e2e/conftest.py - Add verify_and_cleanup_startup_sync fixture
+- **Success**:
+  - @pytest.fixture(scope="session", autouse=True) added
+  - Fixture waits for bot startup sync to complete (asyncio.sleep(2))
+  - Verifies test guilds (111, 222) were created with channels and templates
+  - Cleans up startup-created data for hermetic test execution
+  - Deletes GameTemplate, ChannelConfiguration, GuildConfiguration in correct order
+  - Runs before pytest-randomly (session scope executes first)
+  - E2E tests pass without duplicate key violations
+- **Research References**:
+  - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 659-735) - E2E fixture implementation and rationale
+  - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 737-758) - Alternative approaches considered
+- **Dependencies**: Task 5.5 completion
+
+## Phase 6: RabbitMQ Integration for Webhook
+
+### Task 6.1: Update webhook endpoint to publish GUILD_SYNC_REQUESTED event
+
+Connect webhook endpoint to bot sync logic via RabbitMQ event.
+
+- **Files**:
+  - services/api/routes/webhooks.py - RabbitMQ event publishing
+- **Success**:
+  - Injects EventPublisher dependency
+  - Publishes Event(event_type=EventType.GUILD_SYNC_REQUESTED, data={}) on APPLICATION_AUTHORIZED
+  - Logs event publication
   - Handles RabbitMQ errors gracefully (still returns 204)
+  - Bot service handler (Task 5.4) processes the event
 - **Research References**:
   - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 227-261) - RabbitMQ architecture
   - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 153-225) - Webhook implementation
-- **Dependencies**: Phase 4 completion
+- **Dependencies**: Phase 5 completion
 
-### Task 5.2: Add integration tests for RabbitMQ message publishing
+### Task 6.2: Add integration tests for RabbitMQ event publishing
 
-Add tests verifying RabbitMQ message publication.
+Add tests verifying RabbitMQ event publication from webhook endpoint.
 
 - **Files**:
   - tests/integration/api/routes/test_webhooks.py - RabbitMQ integration tests
 - **Success**:
-  - Tests mock RabbitMQ client
-  - Tests verify publish() called with correct exchange/routing_key/message
+  - Tests mock EventPublisher
+  - Tests verify publish() called with Event(event_type=EventType.GUILD_SYNC_REQUESTED, data={})
   - Tests verify webhook succeeds even if RabbitMQ fails
   - All tests pass
 - **Research References**:
   - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 390-409) - Integration testing
-- **Dependencies**: Task 5.1 completion
+- **Dependencies**: Task 6.1 completion
 
-## Phase 6: Lazy Channel Loading (TDD)
+## Phase 7: Lazy Channel Loading (TDD)
 
-### Task 6.1: Create refresh_guild_channels function stub
+### Task 7.1: Create refresh_guild_channels function stub
 
 Create channel refresh function stub in guild service.
 
@@ -329,9 +433,9 @@ Create channel refresh function stub in guild service.
   - Raises NotImplementedError
 - **Research References**:
   - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 341-355) - Lazy loading specification
-- **Dependencies**: Phase 5 completion
+- **Dependencies**: Phase 6 completion
 
-### Task 6.2: Write tests with real assertions marked as expected failures
+### Task 7.2: Write tests with real assertions marked as expected failures
 
 Write comprehensive tests for channel refresh with ACTUAL assertions marked @pytest.mark.xfail (RED phase).
 
@@ -347,9 +451,9 @@ Write comprehensive tests for channel refresh with ACTUAL assertions marked @pyt
 - **Research References**:
   - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 341-355) - Channel refresh logic
   - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 379-388) - Testing requirements
-- **Dependencies**: Task 6.1 completion
+- **Dependencies**: Task 7.1 completion
 
-### Task 6.3: Implement channel refresh and remove xfail markers
+### Task 7.3: Implement channel refresh and remove xfail markers
 
 Implement complete channel refresh logic and remove @pytest.mark.xfail markers from tests (GREEN phase).
 
@@ -370,9 +474,9 @@ Implement complete channel refresh logic and remove @pytest.mark.xfail markers f
   - All tests pass
 - **Research References**:
   - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 341-355) - Implementation details and API endpoint
-- **Dependencies**: Task 6.2 completion
+- **Dependencies**: Task 7.2 completion
 
-### Task 6.4: Refactor and add comprehensive edge case tests
+### Task 7.4: Refactor and add comprehensive edge case tests
 
 Refactor implementation for quality and add comprehensive edge case tests (REFACTOR phase).
 
@@ -390,7 +494,7 @@ Refactor implementation for quality and add comprehensive edge case tests (REFAC
   - All tests pass
 - **Research References**:
   - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 379-388) - Testing strategy
-- **Dependencies**: Task 6.3 completion
+- **Dependencies**: Task 7.3 completion
 - **Success**:
   - Tests verify channel refresh updates database
   - Tests verify refresh=false uses cached channels
@@ -399,11 +503,11 @@ Refactor implementation for quality and add comprehensive edge case tests (REFAC
   - All tests pass
 - **Research References**:
   - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 379-388) - Testing strategy
-- **Dependencies**: Task 6.4 completion
+- **Dependencies**: Task 7.4 completion
 
-## Phase 7: Manual Discord Portal Configuration
+## Phase 8: Manual Discord Portal Configuration
 
-### Task 7.1: Document webhook configuration steps in deployment docs
+### Task 8.1: Document webhook configuration steps in deployment docs
 
 Create documentation for webhook configuration in Discord Developer Portal.
 
@@ -417,9 +521,9 @@ Create documentation for webhook configuration in Discord Developer Portal.
   - Troubleshooting common issues
 - **Research References**:
   - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 452-483) - Manual configuration steps
-- **Dependencies**: Phase 6 completion
+- **Dependencies**: Phase 7 completion
 
-### Task 7.2: Create testing checklist for webhook validation
+### Task 8.2: Create testing checklist for webhook validation
 
 Create comprehensive testing checklist for webhook validation.
 
@@ -433,7 +537,7 @@ Create comprehensive testing checklist for webhook validation.
   - Rollback procedures
 - **Research References**:
   - #file:../research/20260214-01-discord-webhook-events-automatic-sync-research.md (Lines 390-409) - Manual testing guidance
-- **Dependencies**: Task 7.1 completion
+- **Dependencies**: Task 8.1 completion
 
 ## Dependencies
 

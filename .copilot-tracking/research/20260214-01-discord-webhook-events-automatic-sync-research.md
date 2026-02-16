@@ -575,3 +575,228 @@ dependencies = [
 - Track last_seen timestamp on guilds
 - Mark guilds inactive if bot not present during cleanup
 - Consider polling as fallback for removal detection
+
+## Architectural Issues and Refactoring Plan
+
+### Problem: Misplaced Guild Sync Logic
+
+The initial implementation (Phase 4) placed `sync_all_bot_guilds()` in [services/api/services/guild_service.py](services/api/services/guild_service.py) and called it directly from API startup in [services/api/app.py](services/api/app.py). This violates the project's RabbitMQ-based microservice architecture in several ways:
+
+**Architecture Violations:**
+
+1. **Service Boundary Violation**: Guild synchronization is a bot-driven operation that should be handled by the bot service, not the API service
+2. **Tight Coupling**: Direct function calls between services prevent independent deployment and scaling
+3. **Missing Message Bus**: Bypasses the RabbitMQ event-driven architecture used elsewhere in the project
+4. **Token Misplacement**: API service shouldn't directly use bot token for Discord operations
+
+**Evidence from Codebase:**
+
+- Existing bot operations use RabbitMQ event handlers in [services/bot/events/handlers.py](services/bot/events/handlers.py)
+- Game lifecycle events publish to RabbitMQ rather than calling service methods directly
+- Bot service owns Discord bot operations (status management, embeds, notifications)
+- API service publishes events; bot service consumes and executes Discord actions
+
+### Refactoring Approach: RabbitMQ-Based Guild Sync
+
+**Architecture Decision: Two Different Sync Triggers**
+
+Guild sync is triggered in two fundamentally different scenarios:
+
+1. **Bot Startup Sync** (Internal Operation)
+   - Triggered by: Bot service starting up
+   - Handler: Bot service calls `sync_all_bot_guilds()` directly in its startup lifecycle
+   - Message Queue: **NOT used** - bot manages its own initialization
+   - Rationale: Each service handles its own startup responsibilities
+
+2. **Webhook Sync** (External Event)
+   - Triggered by: Discord APPLICATION_AUTHORIZED webhook received by API
+   - Handler: API publishes `GUILD_SYNC_REQUESTED` event → Bot service consumes and syncs
+   - Message Queue: **Used** - enables cross-service communication
+   - Rationale: External events arrive at API, which publishes to bot for Discord operations
+
+This separation keeps concerns clear: internal operations are self-managed, external events use the message bus.
+
+**Step 1: Add Guild Sync Event Type**
+
+Add new event type to [shared/messaging/events.py](shared/messaging/events.py):
+
+```python
+class EventType(IntEnum):
+    # Existing events...
+    GUILD_SYNC_REQUESTED = 11  # Request bot to sync all guilds
+```
+
+**Step 2: Move Sync Logic to Bot Service**
+
+Create [services/bot/guild_sync.py](services/bot/guild_sync.py) with relocated `sync_all_bot_guilds()` function:
+
+```python
+async def sync_all_bot_guilds(
+    discord_client: DiscordAPIClient,
+    db: AsyncSession
+) -> None:
+    """Sync all guilds the bot is member of, creating configs and default templates."""
+    # Move implementation from services/api/services/guild_service.py
+    # Uses bot token from bot service config
+    # Handles RLS context setup
+    # Creates missing guilds/channels/templates
+```
+
+**Step 3: Add Bot Startup Sync**
+
+Modify [services/bot/app.py](services/bot/app.py) to sync guilds on bot service startup:
+
+```python
+# In bot service lifespan/startup
+async def startup():
+    logger.info("Starting bot service...")
+    await sync_all_bot_guilds(discord_client, db)
+    logger.info("Guild sync complete")
+    # Continue with normal bot startup...
+```
+
+**Rationale**: Bot owns guild sync logic, so it should sync on its own startup. No need for API to publish message telling bot to do its internal initialization.
+
+**Step 4: Add Bot Event Handler for Webhooks**
+
+Update [services/bot/events/handlers.py](services/bot/events/handlers.py) to handle webhook-triggered syncs:
+
+```python
+async def handle_guild_sync_requested(event: Event) -> None:
+    """Handle webhook-triggered request to sync all bot guilds."""
+    async with get_async_session() as db:
+        await sync_all_bot_guilds(discord_client, db)
+
+# Register in EventHandlers.__init__
+self._handlers[EventType.GUILD_SYNC_REQUESTED] = handle_guild_sync_requested
+```
+
+**Rationale**: Webhooks arrive at API service (external event), so API publishes RabbitMQ event for bot to process. This separates concerns: API handles HTTP, bot handles Discord operations.
+
+**Step 5: Move and Update Tests**
+
+- Move tests from [tests/unit/services/api/services/test_guild_service_bot_sync.py](tests/unit/services/api/services/test_guild_service_bot_sync.py) to `tests/unit/services/bot/test_guild_sync.py`
+- Update imports and fixture references
+- Add integration tests for RabbitMQ message flow
+
+### E2E Testing Strategy
+
+**Challenge:** E2E tests were failing with duplicate key violations because:
+
+1. API startup sync creates guilds (e.g., guild_id 111)
+2. Test fixtures also try to create the same guilds
+3. PostgreSQL unique constraint violation on `ix_users_discord_id`
+
+**Solution: Session-Scoped Autouse Fixture**
+
+Add to [tests/e2e/conftest.py](tests/e2e/conftest.py):
+
+```python
+@pytest.fixture(scope="session", autouse=True)
+async def verify_and_cleanup_startup_sync(
+    async_session_maker: Callable[[], AsyncContextManager[AsyncSession]]
+) -> AsyncGenerator[None, None]:
+    """
+    Verify startup sync creates guilds, then clean up for hermetic tests.
+
+    Runs before pytest-randomly because session fixtures execute first.
+    Provides test coverage for automatic guild sync feature.
+    """
+    # Wait for API startup sync to complete
+    await asyncio.sleep(2)
+
+    # Verify expected guilds were created
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(GuildConfiguration).where(
+                GuildConfiguration.guild_id.in_([111, 222])
+            )
+        )
+        guilds = result.scalars().all()
+        assert len(guilds) == 2, "Startup sync should create test guilds"
+
+        # Verify channels and templates created
+        for guild in guilds:
+            channels = await session.execute(
+                select(ChannelConfiguration).where(
+                    ChannelConfiguration.guild_id == guild.guild_id
+                )
+            )
+            assert len(channels.scalars().all()) > 0, f"Guild {guild.guild_id} missing channels"
+
+            templates = await session.execute(
+                select(GameTemplate).where(
+                    GameTemplate.guild_id == guild.guild_id
+                )
+            )
+            assert len(templates.scalars().all()) > 0, f"Guild {guild.guild_id} missing templates"
+
+    # Clean up startup-created data for hermetic tests
+    async with async_session_maker() as session:
+        # Delete in correct order to respect foreign keys
+        await session.execute(delete(GameTemplate).where(GameTemplate.guild_id.in_([111, 222])))
+        await session.execute(delete(ChannelConfiguration).where(ChannelConfiguration.guild_id.in_([111, 222])))
+        await session.execute(delete(GuildConfiguration).where(GuildConfiguration.guild_id.in_([111, 222])))
+        await session.commit()
+
+    yield
+
+    # Cleanup after all tests (if needed)
+```
+
+**Key Benefits:**
+
+- Session scope ensures runs once before all tests
+- Autouse means no explicit fixture dependency needed
+- Runs before pytest-randomly because session fixtures execute first
+- Provides actual test coverage for startup sync feature
+- Cleans up for hermetic test execution
+- No need to disable startup sync in e2e environment
+
+**Alternative Considered: Environment-Based Disabling**
+
+Initially considered adding `ENVIRONMENT=e2e` to [config/env.e2e](config/env.e2e) and checking in startup code:
+
+```python
+if config.environment not in ["test", "e2e"]:
+    await sync_all_bot_guilds(...)
+```
+
+**Rejected because:**
+
+- Reduces test coverage by disabling the feature being tested
+- E2E environment should mimic production behavior
+- Loses ability to verify automatic sync works correctly
+- Session fixture approach tests the feature AND maintains hermetic tests
+
+### Implementation Dependencies
+
+**Files to Modify:**
+
+- [shared/messaging/events.py](shared/messaging/events.py) - Add GUILD_SYNC_REQUESTED event type
+- [services/api/app.py](services/api/app.py) - Replace direct call with RabbitMQ publish
+- [services/bot/events/handlers.py](services/bot/events/handlers.py) - Add sync handler
+- [tests/e2e/conftest.py](tests/e2e/conftest.py) - Add session-scoped autouse fixture
+
+**Files to Create:**
+
+- [services/bot/guild_sync.py](services/bot/guild_sync.py) - Move sync logic here
+- [tests/unit/services/bot/test_guild_sync.py](tests/unit/services/bot/test_guild_sync.py) - Move/update tests
+
+**Files to Remove:**
+
+- Tests in [tests/unit/services/api/services/test_guild_service_bot_sync.py](tests/unit/services/api/services/test_guild_service_bot_sync.py) (after moving)
+
+### Success Criteria
+
+**Refactoring Complete When:**
+
+- Guild sync logic resides in bot service, not API service
+- Bot service syncs guilds on its own startup (no RabbitMQ message needed)
+- API webhook endpoint publishes GUILD_SYNC_REQUESTED event for webhook-triggered syncs
+- Bot service consumes GUILD_SYNC_REQUESTED events and executes sync
+- All unit tests moved and passing
+- E2E tests include session fixture verifying bot startup sync
+- No duplicate key violations in e2e test runs
+- Startup sync still works in all environments (dev, staging, production)
+- Clear separation: internal operations self-managed, external events use message bus
