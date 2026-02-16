@@ -31,20 +31,25 @@ Implementation progress MUST be tracked in a corresponding changes files located
    - **FULLY understand all implementation details before proceeding**
    - Gather any additional required context as needed
 
-3. **Implement the task using TDD methodology:**
+3. **Implement the task using TDD methodology (for Python, TypeScript/JavaScript only):**
    - **RED Phase (if creating new function/component):**
      - Create stub with NotImplementedError (Python) or throw Error() (TypeScript/JavaScript)
-     - Write tests expecting the error to be thrown
-     - Run tests to verify they fail correctly
+     - Write tests with REAL assertions marked as expected failures (@pytest.mark.xfail or test.failing)
+     - Run tests to verify they show as "xfailed" or "expected failure"
 
    - **GREEN Phase (if implementing functionality):**
      - Replace error with minimal working implementation
+     - Remove xfail/failing markers from tests (DO NOT modify test assertions)
      - Run tests to verify they pass
 
    - **REFACTOR Phase (if improving code):**
      - Improve implementation for edge cases and clarity
      - Add comprehensive tests
      - Keep all tests passing
+
+   - **Non-testable files (bash scripts, Dockerfiles, YAML):**
+     - Implement functionality directly
+     - Verify through integration tests or manual testing
 
    - Follow existing code patterns and conventions from the workspace
    - Create working functionality that meets all task requirements specified in the details
@@ -61,8 +66,8 @@ Implementation progress MUST be tracked in a corresponding changes files located
 
 **Every implementation MUST:**
 
-- **Follow Test-Driven Development (TDD)**: All new code must follow the Red-Green-Refactor cycle. See #file:../../.github/instructions/test-driven-development.instructions.md
-- **Write tests BEFORE implementation**: Create function stubs with NotImplementedError, write failing tests, then implement
+- **Follow Test-Driven Development (TDD) for testable languages**: Python, TypeScript/JavaScript, and others with unit testing frameworks must follow the Red-Green-Refactor cycle. See #file:../../.github/instructions/test-driven-development.instructions.md
+- **Write tests BEFORE implementation**: Create function stubs with NotImplementedError, write tests with real assertions marked xfail/failing, then implement and remove markers
 - Follow existing workspace patterns and conventions (check `copilot/` folder for standards)
 - Implement complete, working functionality that meets all task requirements
 - Include appropriate error handling and validation
@@ -130,7 +135,7 @@ Implementation progress MUST be tracked in a corresponding changes files located
 
 ### Template for New Feature Implementation (Python)
 
-**Every new feature MUST follow this TDD structure:**
+**Every new feature in Python MUST follow this TDD structure:**
 
 ```markdown
 ### Phase N: Feature Name (e.g., Game Capacity Validation)
@@ -141,27 +146,23 @@ Implementation progress MUST be tracked in a corresponding changes files located
   - Add to appropriate module
   - Details: [details file reference]
 
-- [ ] Task N.2: Write failing unit tests
-  - Test happy path with pytest.raises(NotImplementedError, match="not yet implemented")
-  - Test edge cases expecting NotImplementedError
-  - Test error conditions
+- [ ] Task N.2: Write tests with real assertions marked as expected failures
+  - Use @pytest.mark.xfail(reason="Function not yet implemented", strict=True)
+  - Test happy path with ACTUAL assertions for desired behavior
+  - Test edge cases with REAL expected values
+  - Test error conditions with actual exception types expected
   - Document expected behavior in test docstrings
-  - Run tests to verify they fail correctly (RED phase)
+  - Run tests to verify they show as "xfailed" (RED phase)
   - Details: [details file reference]
 
-- [ ] Task N.3: Implement minimal working solution
-  - Replace NotImplementedError with implementation
-  - Use simplest approach that makes tests pass
+- [ ] Task N.3: Implement solution and remove xfail markers
+  - Replace NotImplementedError with minimal working implementation
+  - Remove @pytest.mark.xfail decorators from tests
+  - DO NOT modify test assertions - they are already correct
   - Run tests to verify they pass (GREEN phase)
   - Details: [details file reference]
 
-- [ ] Task N.4: Update tests to verify behavior
-  - Remove pytest.raises(NotImplementedError) from tests
-  - Add actual assertions for correct behavior
-  - Verify all tests pass with real implementation
-  - Details: [details file reference]
-
-- [ ] Task N.5: Refactor and add comprehensive tests
+- [ ] Task N.4: Refactor and add comprehensive tests
   - Improve implementation for edge cases and performance
   - Add additional tests for boundary conditions
   - Add integration tests if needed
@@ -180,23 +181,26 @@ Implementation progress MUST be tracked in a corresponding changes files located
   - Return JSONResponse({"detail": "Not implemented"}, status_code=501)
   - Details: [details file reference]
 
-- [ ] Task N.2: Write failing integration tests
-  - Test endpoint returns 501
-  - Test authentication requirements
-  - Test authorization checks (expecting 501 after auth succeeds)
+- [ ] Task N.2: Write integration tests with real assertions marked as expected failures
+  - Use @pytest.mark.xfail for integration tests
+  - Test endpoint with REAL assertions for expected status codes and responses
+  - Test authentication requirements with actual expected behavior
+  - Test authorization checks with real expected outcomes
+  - Run tests to verify they show as "xfailed"
   - Details: [details file reference]
 
-- [ ] Task N.3: Implement service layer with TDD
-  - Create service method stub with NotImplementedError
-  - Write service layer unit tests (expecting NotImplementedError)
-  - Implement service method
-  - Update service tests to verify behavior
+- [ ] Task N.3: Implement service layer and endpoint, remove xfail markers
+  - Create service method with minimal implementation
+  - Wire service to endpoint, remove 501 response
+  - Remove @pytest.mark.xfail from integration tests
+  - DO NOT modify test assertions
+  - Run tests to verify they pass
   - Details: [details file reference]
 
-- [ ] Task N.4: Wire service to endpoint
-  - Remove 501 response from endpoint
-  - Call service method from endpoint
-  - Update integration tests to verify full flow
+- [ ] Task N.4: Add comprehensive error handling tests
+  - Test validation errors (400, 422)
+  - Test authorization failures (403, 404)
+  - Test edge cases and race conditions
   - Details: [details file reference]
 
 - [ ] Task N.5: Add comprehensive error handling tests
@@ -216,30 +220,27 @@ Implementation progress MUST be tracked in a corresponding changes files located
   - Define TypeScript interfaces for props
   - Details: [details file reference]
 
-- [ ] Task N.2: Write failing component tests
-  - Test component throws error when rendered
-  - Test with various prop combinations (expecting errors)
+- [ ] Task N.2: Write component tests with real assertions marked as failing
+  - Use test.failing() for Vitest tests
+  - Test with REAL assertions for expected rendered content
+  - Test various prop combinations with actual expected outputs
+  - Test user interactions with real expected behaviors
   - Document expected rendering behavior in tests
-  - Run tests to verify they fail correctly (RED phase)
+  - Run tests to verify they show as failing/todo (RED phase)
   - Details: [details file reference]
 
-- [ ] Task N.3: Implement minimal rendering
-  - Replace error throw with basic component structure
-  - Render props to satisfy tests
+- [ ] Task N.3: Implement component and remove failing markers
+  - Replace error throw with minimal component implementation
+  - Remove test.failing() markers from tests
+  - DO NOT modify test assertions - they are already correct
   - Run tests to verify they pass (GREEN phase)
   - Details: [details file reference]
 
-- [ ] Task N.4: Update tests to verify rendering
-  - Remove error expectation from tests
-  - Add assertions for rendered content
-  - Test user interactions and event handlers
-  - Details: [details file reference]
-
-- [ ] Task N.5: Refactor and enhance component
+- [ ] Task N.4: Refactor and enhance component
   - Add styling and accessibility features
   - Improve component structure and performance
   - Add tests for edge cases and accessibility
-  - Verify all tests pass
+  - Verify all tests pass (REFACTOR phase)
   - Details: [details file reference]
 ```
 
@@ -285,17 +286,21 @@ Implementation progress MUST be tracked in a corresponding changes files located
    a. Read entire details section for that task from details markdown file
    b. Fully understand all implementation requirements
 
-   c. FOLLOW TDD WORKFLOW:
+   c. FOLLOW TDD WORKFLOW (for Python, TypeScript/JavaScript):
       - If task creates new function/component:
         * Create stub with NotImplementedError or throw Error()
-        * Write failing tests expecting NotImplementedError/Error
-        * Verify tests fail correctly (RED phase)
+        * Write tests with REAL assertions marked xfail/failing
+        * Verify tests show as "xfailed" or "expected failure" (RED phase)
       - If task implements functionality:
         * Implement minimal working solution
+        * Remove xfail/failing markers (DO NOT modify assertions)
         * Verify tests pass (GREEN phase)
       - If task refactors:
         * Improve implementation while keeping tests green
         * Add edge case tests (REFACTOR phase)
+      - For non-testable files (bash, Docker, YAML):
+        * Implement functionality directly
+        * Verify through integration tests or manual testing
 
    d. Implement task with working code following workspace patterns and TDD
    e. Validate implementation meets task requirements and all tests pass
@@ -331,10 +336,9 @@ Implementation is complete when:
 ### Phase 1: Waitlist Promotion Logic
 
 - [ ] Task 1.1: Create calculate_next_promotion stub
-- [ ] Task 1.2: Write failing tests for promotion calculation
-- [ ] Task 1.3: Implement promotion logic
-- [ ] Task 1.4: Update tests to verify behavior
-- [ ] Task 1.5: Add edge case tests and refactor
+- [ ] Task 1.2: Write tests with real assertions marked xfail
+- [ ] Task 1.3: Implement promotion logic and remove xfail markers
+- [ ] Task 1.4: Add edge case tests and refactor
 ```
 
 **Implementation Sequence:**
@@ -362,12 +366,13 @@ def calculate_next_promotion(
     raise NotImplementedError("calculate_next_promotion not yet implemented")
 ```
 
-**Task 1.2 - Write Failing Tests:**
+**Task 1.2 - Write Tests with Real Assertions Marked xfail:**
 
 ```python
 # tests/unit/services/test_participant_service.py
 import pytest
 
+@pytest.mark.xfail(reason="Function not yet implemented", strict=True)
 def test_calculate_next_promotion_with_waitlist():
     """Test promotion with available waitlist participants."""
     game = GameSession(max_participants=3)
@@ -377,12 +382,13 @@ def test_calculate_next_promotion_with_waitlist():
         Participant(status=ParticipantStatus.WAITLIST, order=3),
     ]
 
-    with pytest.raises(NotImplementedError, match="not yet implemented"):
-        result = calculate_next_promotion(game, participants)
-        # After implementation: assert result.order == 3
+    result = calculate_next_promotion(game, participants)
+    assert result is not None  # REAL assertion from day 1
+    assert result.order == 3
+    assert result.status == ParticipantStatus.WAITLIST
 ```
 
-**Task 1.3 - Implement Solution:**
+**Task 1.3 - Implement Solution and Remove xfail:**
 
 ```python
 def calculate_next_promotion(
@@ -398,9 +404,10 @@ def calculate_next_promotion(
     return min(waitlist, key=lambda p: p.order) if waitlist else None
 ```
 
-**Task 1.4 - Update Tests:**
+**Remove xfail marker only (test assertions unchanged):**
 
 ```python
+# @pytest.mark.xfail removed - that's the ONLY change
 def test_calculate_next_promotion_with_waitlist():
     """Test promotion with available waitlist participants."""
     game = GameSession(max_participants=3)
@@ -411,22 +418,24 @@ def test_calculate_next_promotion_with_waitlist():
     ]
 
     result = calculate_next_promotion(game, participants)
-    assert result is not None
+    assert result is not None  # SAME assertion - unchanged
     assert result.order == 3
     assert result.status == ParticipantStatus.WAITLIST
 ```
 
-**Task 1.5 - Add Edge Cases:**
+**Task 1.4 - Add Edge Cases:**
 
 ```python
+@pytest.mark.xfail(reason="Edge case not yet handled", strict=True)
 def test_calculate_next_promotion_no_waitlist():
     """Test when no waitlist participants exist."""
     game = GameSession(max_participants=5)
     participants = [Participant(status=ParticipantStatus.CONFIRMED, order=1)]
 
     result = calculate_next_promotion(game, participants)
-    assert result is None
+    assert result is None  # REAL assertion from day 1
 
+@pytest.mark.xfail(reason="Edge case not yet handled", strict=True)
 def test_calculate_next_promotion_game_full():
     """Test when game is at capacity."""
     game = GameSession(max_participants=2)
@@ -437,7 +446,7 @@ def test_calculate_next_promotion_game_full():
     ]
 
     result = calculate_next_promotion(game, participants)
-    assert result is None
+    assert result is None  # REAL assertion from day 1
 ```
 
 ### Example 2: React Component Implementation
@@ -448,10 +457,9 @@ def test_calculate_next_promotion_game_full():
 ### Phase 2: GameCapacityBadge Component
 
 - [ ] Task 2.1: Create component stub
-- [ ] Task 2.2: Write failing component tests
-- [ ] Task 2.3: Implement basic rendering
-- [ ] Task 2.4: Update tests to verify rendering
-- [ ] Task 2.5: Add styling and accessibility
+- [ ] Task 2.2: Write component tests with real assertions marked failing
+- [ ] Task 2.3: Implement component and remove failing markers
+- [ ] Task 2.4: Add styling and accessibility
 ```
 
 **Task 2.1 - Create Stub:**
@@ -468,23 +476,23 @@ export function GameCapacityBadge({ current, maximum }: GameCapacityBadgeProps) 
 }
 ```
 
-**Task 2.2 - Write Failing Tests:**
+**Task 2.2 - Write Tests with Real Assertions Marked Failing:**
 
 ```typescript
 // frontend/src/components/GameCapacityBadge.test.tsx
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
+import { test, describe, expect } from 'vitest';
 import { GameCapacityBadge } from './GameCapacityBadge';
 
 describe('GameCapacityBadge', () => {
-  it('renders capacity information', () => {
-    expect(() => render(<GameCapacityBadge current={2} maximum={5} />))
-      .toThrow('not yet implemented');
-    // After implementation: expect(screen.getByText('2/5')).toBeInTheDocument();
+  test.failing('renders capacity information', () => {
+    render(<GameCapacityBadge current={2} maximum={5} />);
+    expect(screen.getByText('2/5')).toBeInTheDocument();  // REAL assertion from day 1
   });
 });
 ```
 
-**Task 2.3 - Implement Basic Rendering:**
+**Task 2.3 - Implement Component and Remove Failing Marker:**
 
 ```typescript
 export function GameCapacityBadge({ current, maximum }: GameCapacityBadgeProps) {
@@ -492,22 +500,24 @@ export function GameCapacityBadge({ current, maximum }: GameCapacityBadgeProps) 
 }
 ```
 
-**Task 2.4 - Update Tests:**
+**Remove test.failing only (test assertions unchanged):**
 
 ```typescript
-it('renders capacity information', () => {
-  render(<GameCapacityBadge current={2} maximum={5} />);
-  expect(screen.getByText('2/5')).toBeInTheDocument();
-});
+describe('GameCapacityBadge', () => {
+  test('renders capacity information', () => {  // .failing removed
+    render(<GameCapacityBadge current={2} maximum={5} />);
+    expect(screen.getByText('2/5')).toBeInTheDocument();  // SAME assertion - unchanged
+  });
 
-it('shows full capacity visually', () => {
-  render(<GameCapacityBadge current={5} maximum={5} />);
-  const badge = screen.getByText('5/5');
-  expect(badge).toBeInTheDocument();
+  test('shows full capacity visually', () => {
+    render(<GameCapacityBadge current={5} maximum={5} />);
+    const badge = screen.getByText('5/5');
+    expect(badge).toBeInTheDocument();
+  });
 });
 ```
 
-**Task 2.5 - Add Styling:**
+**Task 2.4 - Add Styling:**
 
 ```typescript
 export function GameCapacityBadge({ current, maximum }: GameCapacityBadgeProps) {
@@ -533,10 +543,9 @@ export function GameCapacityBadge({ current, maximum }: GameCapacityBadgeProps) 
 ### Phase 3: Leave Game Endpoint
 
 - [ ] Task 3.1: Create endpoint stub returning 501
-- [ ] Task 3.2: Write failing integration tests
-- [ ] Task 3.3: Create service method with TDD
-- [ ] Task 3.4: Wire service to endpoint
-- [ ] Task 3.5: Add comprehensive error tests
+- [ ] Task 3.2: Write integration tests with real assertions marked xfail
+- [ ] Task 3.3: Implement endpoint and remove xfail markers
+- [ ] Task 3.4: Add comprehensive error tests
 ```
 
 **Task 3.1 - Endpoint Stub:**
@@ -555,40 +564,18 @@ async def leave_game(
     )
 ```
 
-**Task 3.2 - Integration Tests:**
+**Task 3.2 - Integration Tests with Real Assertions Marked xfail:**
 
 ```python
-async def test_leave_game_returns_not_implemented(authenticated_client):
+@pytest.mark.asyncio
+@pytest.mark.xfail(reason="Endpoint not yet implemented", strict=True)
+async def test_leave_game_success(authenticated_client):
+    """Test successfully leaving a game."""
     response = await authenticated_client.delete("/api/games/123/participants/me")
-    assert response.status_code == 501
+    assert response.status_code == 204  # REAL assertion from day 1
 ```
 
-**Task 3.3 - Service Layer TDD:**
-
-```python
-# Service stub
-async def leave_game(game_id: str, user_id: str, db: AsyncSession) -> None:
-    raise NotImplementedError("leave_game not yet implemented")
-
-# Service tests
-async def test_leave_game_service():
-    with pytest.raises(NotImplementedError):
-        await leave_game("game-123", "user-456", mock_db)
-
-# Service implementation
-async def leave_game(game_id: str, user_id: str, db: AsyncSession) -> None:
-    participant = await db.execute(
-        select(Participant).where(
-            Participant.game_id == game_id,
-            Participant.user_id == user_id
-        )
-    )
-    if participant := participant.scalar_one_or_none():
-        await db.delete(participant)
-        await db.flush()
-```
-
-**Task 3.4 - Wire to Endpoint:**
+**Task 3.3 - Implement Endpoint and Remove xfail:**
 
 ```python
 @router.delete("/games/{game_id}/participants/me")
@@ -604,18 +591,33 @@ async def leave_game(
     return Response(status_code=204)
 ```
 
-**Task 3.5 - Error Tests:**
+**Remove xfail marker only (test assertions unchanged):**
 
 ```python
+@pytest.mark.asyncio
+# @pytest.mark.xfail removed - that's the ONLY change
+async def test_leave_game_success(authenticated_client):
+    """Test successfully leaving a game."""
+    response = await authenticated_client.delete("/api/games/123/participants/me")
+    assert response.status_code == 204  # SAME assertion - unchanged
+```
+
+**Task 3.4 - Error Tests:**
+
+```python
+@pytest.mark.asyncio
+@pytest.mark.xfail(reason="Error handling not yet implemented", strict=True)
 async def test_leave_game_not_participant(authenticated_client):
     """Test leaving game when not a participant."""
     response = await authenticated_client.delete("/api/games/123/participants/me")
-    assert response.status_code == 404
+    assert response.status_code == 404  # REAL assertion from day 1
 
+@pytest.mark.asyncio
+@pytest.mark.xfail(reason="Error handling not yet implemented", strict=True)
 async def test_leave_game_unauthorized(unauthenticated_client):
     """Test leaving game without authentication."""
     response = await unauthenticated_client.delete("/api/games/123/participants/me")
-    assert response.status_code == 401
+    assert response.status_code == 401  # REAL assertion from day 1
 ```
 
 ## Template Changes File
