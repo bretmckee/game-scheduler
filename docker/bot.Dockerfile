@@ -45,9 +45,9 @@ RUN mkdir -p /home/appuser/.cache && chown -R appuser:appgroup /home/appuser/.ca
 
 USER appuser
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD python -c "import sys; sys.exit(0)"
+# Health check waits for bot to complete guild sync on startup
+HEALTHCHECK --interval=5s --timeout=3s --start-period=60s --retries=5 \
+    CMD test -f /tmp/bot-ready || exit 1
 
 # Use python -m for module execution in development
 CMD ["python", "-m", "services.bot.main"]
@@ -85,8 +85,8 @@ RUN chown -R appuser:appgroup /app
 
 USER appuser
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD python -c "import sys; sys.exit(0)"
+# Health check waits for bot to complete guild sync on startup
+HEALTHCHECK --interval=5s --timeout=3s --start-period=60s --retries=5 \
+    CMD test -f /tmp/bot-ready || exit 1
 
 CMD ["python", "-m", "services.bot.main"]

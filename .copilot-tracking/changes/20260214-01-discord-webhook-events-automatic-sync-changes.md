@@ -511,7 +511,76 @@ Implementing Discord webhook endpoint with Ed25519 signature validation to autom
 - API service functions properly stubbed for future RabbitMQ migration
 
 **Phase 5 Complete**: ✅
-**All Tasks (5.1-5.3) Completed**
+**All Tasks (5.1-5.4) Completed**
+
+#### Task 5.5: Add E2E ordered test for bot startup sync verification using pytest-order
+
+**Status**: ✅ Completed
+
+**Files Created**:
+
+- [tests/e2e/test_00_bot_startup_sync.py](../../tests/e2e/test_00_bot_startup_sync.py) - E2E test verifying bot startup guild sync
+
+**Files Modified**:
+
+- [pyproject.toml](../../pyproject.toml) - Added pytest-order to dependency-groups dev
+- [docker/bot.Dockerfile](../../docker/bot.Dockerfile) - Added healthcheck for bot readiness
+- [docker/bot-entrypoint.sh](../../docker/bot-entrypoint.sh) - Bot startup script
+- [compose.yaml](../../compose.yaml) - Added bot healthcheck configuration
+- [compose.e2e.yaml](../../compose.e2e.yaml) - E2E tests depend on bot health
+- [services/bot/bot.py](../../services/bot/bot.py) - Creates /tmp/bot-ready after guild sync
+- [tests/e2e/conftest.py](../../tests/e2e/conftest.py) - Added cleanup_startup_sync_guilds fixture
+- [shared/data_access/guild_queries.py](../../shared/data_access/guild_queries.py) - Added shared data access functions
+
+**Changes**:
+
+- Added pytest-order>=1.3.0 to [dependency-groups] dev for Docker E2E tests
+- Registered 'order' marker in pytest configuration
+- Created E2E test with @pytest.mark.order(0) to run first before other tests
+- Implemented file-based bot healthcheck (/tmp/bot-ready) with 60s start-period
+- Bot creates healthcheck file after guild sync completes in setup_hook()
+- E2E tests wait for bot health (condition: service_healthy) before starting
+- Added cleanup_startup_sync_guilds fixture to delete guilds after test
+- Moved shared functions to shared/data_access/guild_queries.py:
+  - get_channel_by_discord_id() - Query channel by Discord ID
+  - create_channel_config() - Create new channel configuration
+  - create_default_template() - Create default template
+- Updated imports across bot service, API service, and all test files
+- Fixed 18 bot unit tests with updated mock paths
+- Fixed 13 API unit tests with updated mock paths
+
+**Test Results**:
+
+- E2E test runs first at [1%] due to @pytest.mark.order(0)
+- Verifies guilds created during bot startup sync
+- All 72 E2E tests passing in 409.50s (6:49)
+- No UniqueViolationError - bot sync completes before other tests
+- Hermetic test isolation via cleanup fixture
+
+#### Task 5.6: Verify all tests pass with startup sync
+
+**Status**: ✅ Completed
+
+**Test Results**:
+
+- All 18 bot guild_sync unit tests: ✅ PASSING
+- All 13 API unit tests: ✅ PASSING
+- All 72 E2E tests: ✅ PASSING (409.50s)
+- pytest-order working correctly (test_00_bot_startup_sync runs first)
+- Bot healthcheck working correctly (tests wait for bot readiness)
+- No test failures or ordering issues
+- All code quality checks passing (ruff, mypy, complexity)
+
+**Architecture Improvements**:
+
+- Eliminated cross-service dependencies (bot can't import from services.api)
+- Centralized shared data access logic in shared/data_access/guild_queries.py
+- Docker container isolation properly maintained
+- Bot healthcheck ensures sync completes before tests run
+- Cleanup fixture ensures hermetic test isolation
+
+**Phase 5 Complete**: ✅
+**All Tasks (5.1-5.6) Completed**
 
 ---
 
@@ -535,5 +604,5 @@ Implementing Discord webhook endpoint with Ed25519 signature validation to autom
 
 ## Summary
 
-**Total Tasks Completed**: 23 / 32
-**Current Phase**: 5 - Move Sync Logic to Bot Service ✅ COMPLETE (all 3 tasks)
+**Total Tasks Completed**: 25 / 32
+**Current Phase**: 5 - Move Sync Logic to Bot Service ✅ COMPLETE (all 6 tasks)

@@ -106,9 +106,9 @@ async def test_update_guild_config_ignores_none_values():
 @pytest.mark.asyncio
 @patch("services.api.services.guild_service.get_discord_client")
 @patch("services.bot.guild_sync.get_current_guild_ids")
-@patch("services.api.services.guild_service.channel_service.create_channel_config")
-@patch("services.api.services.guild_service.queries.get_channel_by_discord_id")
-@patch("services.bot.guild_sync.template_service_module.TemplateService")
+@patch("services.api.services.guild_service.guild_queries.create_channel_config")
+@patch("services.api.services.guild_service.guild_queries.get_channel_by_discord_id")
+@patch("services.bot.guild_sync.guild_queries.create_default_template")
 async def test_sync_user_guilds_expands_rls_context_for_new_guilds(
     mock_template_service_class,
     mock_get_channel,
@@ -380,7 +380,7 @@ class TestSyncUserGuildsHelpers:
         assert result == set()
 
     @pytest.mark.asyncio
-    @patch("services.api.services.guild_service.channel_service.create_channel_config")
+    @patch("services.api.services.guild_service.guild_queries.create_channel_config")
     async def test_sync_guild_channels_adds_new_channels(self, mock_create_channel):
         """Test that new Discord channels are added to database."""
         mock_db = AsyncMock()
@@ -447,7 +447,7 @@ class TestSyncUserGuildsHelpers:
         assert existing_channel_2.is_active is False  # Missing from Discord
 
     @pytest.mark.asyncio
-    @patch("services.api.services.guild_service.channel_service.create_channel_config")
+    @patch("services.api.services.guild_service.guild_queries.create_channel_config")
     async def test_sync_guild_channels_reactivates_existing_channels(self, mock_create_channel):
         """Test that inactive channels are reactivated if they reappear in Discord."""
         mock_db = AsyncMock()
@@ -499,7 +499,7 @@ class TestSyncUserGuildsHelpers:
         mock_db.execute = AsyncMock(return_value=mock_execute_result)
 
         with patch(
-            "services.api.services.guild_service.channel_service.create_channel_config"
+            "services.api.services.guild_service.guild_queries.create_channel_config"
         ) as mock_create:
             result = await guild_service._sync_guild_channels(
                 mock_db, mock_discord_client, "guild_uuid", "guild_discord_id"

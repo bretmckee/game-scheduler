@@ -1037,3 +1037,217 @@ Delete the async `verify_and_cleanup_startup_sync` fixture from [tests/e2e/conft
 - All 71 E2E tests pass without ScopeMismatch errors
 - Test appears in pytest output with proper PASS/FAIL reporting
 - Random test order maintained for unmarked tests (finding dependencies)
+
+## Code Sharing Architecture: Move Shared Functions to shared/data_access (2026-02-17)
+
+### Problem: Bot Service Cannot Import API Modules
+
+**Root Cause**: [services/bot/guild_sync.py](services/bot/guild_sync.py) imports functions from API service modules:
+
+```python
+from services.api.database import queries
+from services.api.services import channel_service
+from services.api.services import template_service as template_service_module
+```
+
+**Docker Isolation Issue**: Bot service container does not have access to `services/api/*` modules:
+
+- Each service runs in separate Docker container
+- Bot container only includes `services/bot/`, `shared/`, and `tests/`
+- Bot startup fails with: `ModuleNotFoundError: No module named 'services.api'`
+- E2E tests fail because bot never starts successfully
+
+**Functions Needed by Bot**:
+
+1. `queries.get_channel_by_discord_id(db, discord_id)` - Lookup channel by Discord snowflake ID
+2. `channel_service.create_channel_config(db, guild_id, channel_discord_id, **settings)` - Create channel configuration
+3. `template_service_module.TemplateService(db).create_default_template(guild_id, channel_id)` - Create default template
+
+**Usage Locations**:
+
+- Bot: [services/bot/guild_sync.py](services/bot/guild_sync.py) lines 160-173
+- API: [services/api/routes/channels.py](services/api/routes/channels.py), [services/api/services/guild_service.py](services/api/services/guild_service.py)
+
+### Research: Existing Shared Data Access Pattern
+
+**Analysis of shared/data_access/guild_queries.py**:
+
+- Contains simple async query functions for guild-scoped operations
+- Enforces guild isolation via required `guild_id` parameters
+- Sets RLS context: `SET LOCAL app.current_guild_id`
+- Functions don't commit; caller commits transaction
+- Returns created/updated model objects
+
+**Existing Functions**:
+
+```python
+# Game operations
+async def create_game(db, guild_id, game_data) -> GameSession
+async def get_game_by_id(db, guild_id, game_id) -> GameSession | None
+async def update_game(db, guild_id, game_id, updates) -> GameSession
+
+# Template operations - ALREADY EXISTS
+async def create_template(db, guild_id, template_data) -> GameTemplate
+async def get_template_by_id(db, guild_id, template_id) -> GameTemplate | None
+async def update_template(db, guild_id, template_id, updates) -> GameTemplate
+
+# Participant operations
+async def add_participant(db, guild_id, game_id, user_id) -> GameParticipant
+async def remove_participant(db, guild_id, game_id, user_id) -> None
+```
+
+**Pattern Observed**:
+
+- Standalone async functions (not class methods)
+- Guild isolation enforcement with RLS context
+- Simple create/read/update operations
+- No business logic or complex workflows
+- Consolidates scattered queries to eliminate duplication
+
+### Recommended Solution: Add Channel Functions to shared/data_access
+
+**Add Three Functions to shared/data_access/guild_queries.py**:
+
+```python
+async def get_channel_by_discord_id(
+    db: AsyncSession,
+    discord_id: str
+) -> ChannelConfiguration | None:
+    """
+    Fetch channel configuration by Discord channel ID.
+
+    Args:
+        db: Database session for query execution
+        discord_id: Discord channel snowflake ID
+
+    Returns:
+        Channel configuration or None if not found
+    """
+    result = await db.execute(
+        select(ChannelConfiguration)
+        .options(selectinload(ChannelConfiguration.guild))
+        .where(ChannelConfiguration.channel_id == discord_id)
+    )
+    return result.scalar_one_or_none()
+
+
+async def create_channel_config(
+    db: AsyncSession,
+    guild_id: str,
+    channel_discord_id: str,
+    **settings: Any,
+) -> ChannelConfiguration:
+    """
+    Create new channel configuration with guild isolation enforcement.
+
+    Does not commit. Caller must commit transaction.
+
+    Args:
+        db: Database session for query execution
+        guild_id: Parent guild UUID (required for isolation)
+        channel_discord_id: Discord channel snowflake ID
+        **settings: Additional configuration settings
+
+    Returns:
+        Created channel configuration
+
+    Raises:
+        ValueError: If guild_id is empty
+    """
+    if not guild_id:
+        msg = "guild_id cannot be empty"
+        raise ValueError(msg)
+
+    await db.execute(text(f"SET LOCAL app.current_guild_id = '{guild_id}'"))
+
+    channel_config = ChannelConfiguration(
+        guild_id=guild_id,
+        channel_id=channel_discord_id,
+        **settings,
+    )
+    db.add(channel_config)
+    await db.flush()
+    return channel_config
+
+
+async def create_default_template(
+    db: AsyncSession,
+    guild_id: str,
+    channel_id: str
+) -> GameTemplate:
+    """
+    Create default template for guild initialization.
+
+    Convenience wrapper around create_template() with default values.
+    Does not commit. Caller must commit transaction.
+
+    Args:
+        db: Database session for query execution
+        guild_id: Guild UUID (required for isolation)
+        channel_id: Channel UUID for default template
+
+    Returns:
+        Created default template
+
+    Raises:
+        ValueError: If guild_id is empty
+    """
+    return await create_template(
+        db,
+        guild_id,
+        {
+            "name": "Default",
+            "description": "Default game template",
+            "is_default": True,
+            "channel_id": channel_id,
+            "order": 0,
+        }
+    )
+```
+
+**Migration Steps**:
+
+1. Add three functions to [shared/data_access/guild_queries.py](shared/data_access/guild_queries.py)
+2. Update bot imports: Change from `services.api.*` to `shared.data_access.guild_queries`
+3. Update API imports: Change to use shared versions
+4. Update test mocks: Change patch paths to `shared.data_access.guild_queries.*`
+5. Deprecate old API service versions (optional cleanup)
+
+**Files to Modify**:
+
+- [shared/data_access/guild_queries.py](shared/data_access/guild_queries.py) - Add three functions
+- [services/bot/guild_sync.py](services/bot/guild_sync.py) - Update imports
+- [services/api/routes/channels.py](services/api/routes/channels.py) - Update imports
+- [services/api/services/guild_service.py](services/api/services/guild_service.py) - Update imports
+- [tests/services/bot/test_guild_sync.py](tests/services/bot/test_guild_sync.py) - Update mocks
+- [tests/services/api/services/test_guild_service.py](tests/services/api/services/test_guild_service.py) - Update mocks
+
+**Benefits**:
+
+- Eliminates bot service import errors (fixes ModuleNotFoundError)
+- Follows existing shared/data_access pattern
+- Consolidates channel operations in one location
+- Enables both bot and API to use same code
+- Maintains guild isolation enforcement
+- No code duplication between services
+
+**Alternative Considered: Duplicate Logic**
+
+**Rejected because**:
+
+- Violates DRY principle (Don't Repeat Yourself)
+- Creates maintenance burden (update logic in two places)
+- Increases risk of divergence between implementations
+- Shared functions are simple database operations with no service-specific logic
+
+### Success Criteria
+
+**Code Sharing Complete When**:
+
+- Three functions added to shared/data_access/guild_queries.py
+- Bot service imports from shared.data_access (not services.api)
+- API service imports from shared.data_access
+- Bot service starts successfully in Docker
+- E2E test test_bot_startup_sync_creates_guilds passes
+- All unit tests updated with new mock paths
+- All 18 bot guild_sync unit tests pass

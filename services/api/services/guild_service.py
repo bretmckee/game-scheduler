@@ -29,12 +29,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.api.database import queries
 from services.api.dependencies.discord import get_discord_client
-from services.api.services import channel_service
 from services.bot.guild_sync import (
     _create_guild_with_channels_and_template,
     _expand_rls_context_for_guilds,
     _get_existing_guild_ids,
 )
+from shared.data_access import guild_queries
 from shared.discord.client import DiscordAPIClient
 from shared.models.channel import ChannelConfiguration
 from shared.models.guild import GuildConfiguration
@@ -169,7 +169,7 @@ async def _sync_guild_channels(
                 channel.is_active = True
                 channels_updated += 1
         else:
-            await channel_service.create_channel_config(
+            await guild_queries.create_channel_config(
                 db, guild_config_id, channel_discord_id, is_active=True
             )
             channels_updated += 1

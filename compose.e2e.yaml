@@ -94,7 +94,7 @@ services:
       api:
         condition: service_started
       bot:
-        condition: service_started
+        condition: service_healthy
       notification-daemon:
         condition: service_started
       status-transition-daemon:
