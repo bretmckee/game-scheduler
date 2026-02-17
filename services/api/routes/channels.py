@@ -21,7 +21,6 @@
 
 """Channel configuration endpoints."""
 
-# ruff: noqa: B008
 import logging
 from typing import Annotated
 
@@ -29,10 +28,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.api import dependencies
-from services.api.database import queries
 from services.api.dependencies import permissions
 from services.api.services import channel_service
 from shared import database
+from shared.data_access import guild_queries
 from shared.discord import client as discord_client_module
 from shared.models.channel import ChannelConfiguration
 from shared.schemas import auth as auth_schemas
@@ -71,7 +70,7 @@ async def get_channel(
     Requires user to be member of the parent guild.
     """
 
-    channel_config = await queries.get_channel_by_id(db, channel_id)
+    channel_config = await db.get(ChannelConfiguration, channel_id)
 
     if not channel_config:
         raise HTTPException(
@@ -102,14 +101,14 @@ async def create_channel_config(
 
     Requires MANAGE_CHANNELS permission in the guild.
     """
-    existing = await queries.get_channel_by_discord_id(db, request.channel_id)
+    existing = await guild_queries.get_channel_by_discord_id(db, request.channel_id)
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Channel configuration already exists",
         )
 
-    channel_config = await channel_service.create_channel_config(
+    channel_config = await guild_queries.create_channel_config(
         db,
         guild_id=request.guild_id,
         channel_discord_id=request.channel_id,
@@ -133,7 +132,7 @@ async def update_channel_config(
 
     Requires MANAGE_CHANNELS permission in the guild.
     """
-    channel_config = await queries.get_channel_by_id(db, channel_id)
+    channel_config = await db.get(ChannelConfiguration, channel_id)
     if not channel_config:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

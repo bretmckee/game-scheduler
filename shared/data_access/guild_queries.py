@@ -30,9 +30,13 @@ Centralized database access layer that:
 All functions require guild_id parameter and set RLS context before queries.
 """
 
+from typing import Any
+
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
+from shared.models.channel import ChannelConfiguration
 from shared.models.game import GameSession
 from shared.models.participant import GameParticipant
 from shared.models.template import GameTemplate
@@ -458,3 +462,94 @@ async def update_template(
         setattr(template, key, value)
     await db.flush()
     return template
+
+
+async def get_channel_by_discord_id(
+    db: AsyncSession, discord_id: str
+) -> ChannelConfiguration | None:
+    """
+    Fetch channel configuration by Discord channel ID.
+
+    Args:
+        db: Database session for query execution
+        discord_id: Discord channel snowflake ID
+
+    Returns:
+        Channel configuration or None if not found
+    """
+    result = await db.execute(
+        select(ChannelConfiguration)
+        .options(selectinload(ChannelConfiguration.guild))
+        .where(ChannelConfiguration.channel_id == discord_id)
+    )
+    return result.scalar_one_or_none()
+
+
+async def create_channel_config(
+    db: AsyncSession,
+    guild_id: str,
+    channel_discord_id: str,
+    **settings: Any,  # noqa: ANN401
+) -> ChannelConfiguration:
+    """
+    Create new channel configuration with guild isolation enforcement.
+
+    Does not commit. Caller must commit transaction.
+
+    Args:
+        db: Database session for query execution
+        guild_id: Parent guild UUID (required for isolation)
+        channel_discord_id: Discord channel snowflake ID
+        **settings: Additional configuration settings
+
+    Returns:
+        Created channel configuration
+
+    Raises:
+        ValueError: If guild_id is empty
+    """
+    if not guild_id:
+        msg = "guild_id cannot be empty"
+        raise ValueError(msg)
+
+    await db.execute(text(f"SET LOCAL app.current_guild_id = '{guild_id}'"))
+
+    channel_config = ChannelConfiguration(
+        guild_id=guild_id,
+        channel_id=channel_discord_id,
+        **settings,
+    )
+    db.add(channel_config)
+    await db.flush()
+    return channel_config
+
+
+async def create_default_template(db: AsyncSession, guild_id: str, channel_id: str) -> GameTemplate:
+    """
+    Create default template for guild initialization.
+
+    Convenience wrapper around create_template() with default values.
+    Does not commit. Caller must commit transaction.
+
+    Args:
+        db: Database session for query execution
+        guild_id: Guild UUID (required for isolation)
+        channel_id: Channel UUID for default template
+
+    Returns:
+        Created default template
+
+    Raises:
+        ValueError: If guild_id is empty
+    """
+    return await create_template(
+        db,
+        guild_id,
+        {
+            "name": "Default",
+            "description": "Default game template",
+            "is_default": True,
+            "channel_id": channel_id,
+            "order": 0,
+        },
+    )

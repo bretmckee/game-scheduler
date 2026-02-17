@@ -31,10 +31,29 @@ from shared.models.channel import ChannelConfiguration
 from shared.models.guild import GuildConfiguration
 
 
+def create_mock_db_with_id_generation():
+    """
+    Create mock database session that automatically assigns UUIDs to added objects.
+
+    Required because guild_queries.create_channel_config validates guild_id is not empty.
+    """
+    mock_db = AsyncMock()
+
+    def mock_add_side_effect(obj):
+        if isinstance(obj, GuildConfiguration) and not obj.id:
+            obj.id = str(uuid4())
+        if isinstance(obj, ChannelConfiguration) and not obj.id:
+            obj.id = str(uuid4())
+
+    mock_db.add = Mock(side_effect=mock_add_side_effect)
+    mock_db.flush = AsyncMock()
+    return mock_db
+
+
 @pytest.mark.asyncio
 async def test_sync_all_bot_guilds_creates_new_guilds():
     """Test that sync_all_bot_guilds creates new guilds with channels and templates."""
-    mock_db = AsyncMock()
+    mock_db = create_mock_db_with_id_generation()
     mock_discord_client = AsyncMock()
 
     # Mock bot guilds from Discord API
@@ -66,9 +85,6 @@ async def test_sync_all_bot_guilds_creates_new_guilds():
         ]
     )
 
-    mock_db.add = Mock()
-    mock_db.flush = AsyncMock()
-
     # Execute
     result = await guild_sync.sync_all_bot_guilds(mock_discord_client, mock_db, "bot_token_123")
 
@@ -87,7 +103,7 @@ async def test_sync_all_bot_guilds_creates_new_guilds():
 @pytest.mark.asyncio
 async def test_sync_all_bot_guilds_skip_existing_guilds():
     """Test that sync_all_bot_guilds skips existing guilds without updating them."""
-    mock_db = AsyncMock()
+    mock_db = create_mock_db_with_id_generation()
     mock_discord_client = AsyncMock()
 
     # Mock bot guilds from Discord API (mix of new and existing)
@@ -112,9 +128,6 @@ async def test_sync_all_bot_guilds_skip_existing_guilds():
         ]
     )
 
-    mock_db.add = Mock()
-    mock_db.flush = AsyncMock()
-
     # Execute
     result = await guild_sync.sync_all_bot_guilds(mock_discord_client, mock_db, "bot_token_123")
 
@@ -127,11 +140,13 @@ async def test_sync_all_bot_guilds_skip_existing_guilds():
 
 
 @pytest.mark.asyncio
-@patch("services.bot.guild_sync.queries.get_channel_by_discord_id")
-@patch("services.bot.guild_sync.template_service_module.TemplateService")
+@patch("services.bot.guild_sync.guild_queries.create_channel_config")
+@patch("services.bot.guild_sync.guild_queries.get_channel_by_discord_id")
+@patch("services.bot.guild_sync.guild_queries.create_default_template")
 async def test_sync_all_bot_guilds_creates_default_template(
     mock_template_service_class,
     mock_get_channel,
+    mock_create_channel,
 ):
     """Test that sync_all_bot_guilds creates default template for new guilds."""
     mock_db = AsyncMock()
@@ -156,14 +171,14 @@ async def test_sync_all_bot_guilds_creates_default_template(
         ]
     )
 
-    # Mock channel lookup
+    # Mock channel creation and lookup to return consistent object
     mock_channel = MagicMock(spec=ChannelConfiguration)
     mock_channel.id = str(uuid4())
+    mock_create_channel.return_value = AsyncMock()
     mock_get_channel.return_value = mock_channel
 
-    # Mock template service
-    mock_template_service = AsyncMock()
-    mock_template_service_class.return_value = mock_template_service
+    # Mock template creation
+    mock_template_service_class.return_value = AsyncMock()
 
     mock_db.add = Mock()
     mock_db.flush = AsyncMock()
@@ -171,11 +186,11 @@ async def test_sync_all_bot_guilds_creates_default_template(
     # Execute
     await guild_sync.sync_all_bot_guilds(mock_discord_client, mock_db, "bot_token_123")
 
-    # Verify template service was called to create default template
-    mock_template_service.create_default_template.assert_awaited_once()
-    call_args = mock_template_service.create_default_template.call_args
+    # Verify template creation was called with correct arguments
+    mock_template_service_class.assert_awaited_once()
+    call_args = mock_template_service_class.call_args
     assert call_args is not None
-    assert call_args[0][1] == mock_channel.id  # Second positional arg is channel_id
+    assert call_args[0][2] == mock_channel.id  # Third positional arg is channel_id
 
 
 @pytest.mark.asyncio
@@ -220,7 +235,14 @@ async def test_sync_all_bot_guilds_filters_channel_types():
         ]
     )
 
-    mock_db.add = Mock()
+    # Track created objects so we can set IDs on them
+    def mock_add_side_effect(obj):
+        if isinstance(obj, GuildConfiguration) and not obj.id:
+            obj.id = str(uuid4())
+        if isinstance(obj, ChannelConfiguration) and not obj.id:
+            obj.id = str(uuid4())
+
+    mock_db.add = Mock(side_effect=mock_add_side_effect)
     mock_db.flush = AsyncMock()
 
     # Execute
@@ -282,10 +304,15 @@ async def test_sync_all_bot_guilds_sets_is_active_true():
 
     added_objects = []
 
-    def track_add(obj):
+    def track_add_with_ids(obj):
+        if isinstance(obj, GuildConfiguration) and not obj.id:
+            obj.id = str(uuid4())
+        if isinstance(obj, ChannelConfiguration) and not obj.id:
+            obj.id = str(uuid4())
         added_objects.append(obj)
 
-    mock_db.add = Mock(side_effect=track_add)
+    mock_db.add = Mock(side_effect=track_add_with_ids)
+    mock_db.flush = AsyncMock()
     mock_db.flush = AsyncMock()
 
     # Execute
@@ -325,7 +352,17 @@ async def test_sync_all_bot_guilds_idempotency():
         ]
     )
 
-    mock_db.add = Mock()
+    # Track created objects so we can set IDs on them
+    created_objects = []
+
+    def mock_add_side_effect(obj):
+        if isinstance(obj, GuildConfiguration) and not obj.id:
+            obj.id = str(uuid4())
+        if isinstance(obj, ChannelConfiguration) and not obj.id:
+            obj.id = str(uuid4())
+        created_objects.append(obj)
+
+    mock_db.add = Mock(side_effect=mock_add_side_effect)
     mock_db.flush = AsyncMock()
 
     # Execute first time
@@ -367,7 +404,7 @@ async def test_sync_all_bot_guilds_handles_discord_api_error_on_get_guilds():
 @pytest.mark.asyncio
 async def test_sync_all_bot_guilds_handles_discord_api_error_on_get_channels():
     """Test that sync handles Discord API errors when fetching channels."""
-    mock_db = AsyncMock()
+    mock_db = create_mock_db_with_id_generation()
     mock_discord_client = AsyncMock()
 
     # Mock bot guilds
@@ -440,7 +477,7 @@ async def test_sync_all_bot_guilds_verifies_existing_guilds_unchanged():
 @pytest.mark.asyncio
 async def test_sync_all_bot_guilds_handles_multiple_new_guilds():
     """Test syncing multiple new guilds in a single operation."""
-    mock_db = AsyncMock()
+    mock_db = create_mock_db_with_id_generation()
     mock_discord_client = AsyncMock()
 
     # Mock multiple bot guilds
@@ -468,9 +505,6 @@ async def test_sync_all_bot_guilds_handles_multiple_new_guilds():
             [{"id": "ch4", "type": 0, "name": "general"}],
         ]
     )
-
-    mock_db.add = Mock()
-    mock_db.flush = AsyncMock()
 
     # Execute
     result = await guild_sync.sync_all_bot_guilds(mock_discord_client, mock_db, "bot_token_123")
@@ -563,9 +597,9 @@ class TestGuildSyncHelpers:
         assert result == set()
 
     @pytest.mark.asyncio
-    @patch("services.bot.guild_sync.template_service_module.TemplateService")
-    @patch("services.bot.guild_sync.queries.get_channel_by_discord_id")
-    @patch("services.bot.guild_sync.channel_service.create_channel_config")
+    @patch("services.bot.guild_sync.guild_queries.create_default_template")
+    @patch("services.bot.guild_sync.guild_queries.get_channel_by_discord_id")
+    @patch("services.bot.guild_sync.guild_queries.create_channel_config")
     async def test_create_guild_with_channels_and_template_with_text_channels(
         self, mock_create_channel, mock_get_channel, mock_template_service_class
     ):
@@ -587,9 +621,8 @@ class TestGuildSyncHelpers:
         mock_channel_config.id = "channel_config_uuid"
         mock_get_channel.return_value = mock_channel_config
 
-        # Mock template service
-        mock_template_service = AsyncMock()
-        mock_template_service_class.return_value = mock_template_service
+        # Mock template creation
+        mock_template_service_class.return_value = AsyncMock()
 
         (
             guilds_created,
@@ -609,7 +642,7 @@ class TestGuildSyncHelpers:
         assert mock_create_channel.call_count == 3
 
         # Verify template was created for first text channel
-        mock_template_service.create_default_template.assert_awaited_once()
+        mock_template_service_class.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_create_guild_with_channels_and_template_with_no_channels(self):
@@ -635,7 +668,7 @@ class TestGuildSyncHelpers:
         mock_db.add.assert_called()
 
     @pytest.mark.asyncio
-    @patch("services.bot.guild_sync.channel_service.create_channel_config")
+    @patch("services.bot.guild_sync.guild_queries.create_channel_config")
     async def test_create_guild_with_channels_and_template_with_only_voice_channels(
         self, mock_create_channel
     ):

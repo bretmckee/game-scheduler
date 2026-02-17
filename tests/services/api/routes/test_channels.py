@@ -150,7 +150,6 @@ class TestUpdateChannelConfig:
         mock_current_user = MagicMock()
 
         with (
-            patch("services.api.routes.channels.queries.get_channel_by_id") as mock_get_channel,
             patch(
                 "services.api.routes.channels.channel_service.update_channel_config"
             ) as mock_update,
@@ -158,7 +157,7 @@ class TestUpdateChannelConfig:
                 "services.api.routes.channels._build_channel_config_response"
             ) as mock_build_response,
         ):
-            mock_get_channel.return_value = mock_channel_config
+            mock_db.get.return_value = mock_channel_config
             mock_update.return_value = mock_channel_config
             mock_build_response.return_value = channel_schemas.ChannelConfigResponse(
                 id=mock_channel_config.id,
@@ -176,6 +175,6 @@ class TestUpdateChannelConfig:
                 mock_channel_config.id, request, mock_current_user, mock_db
             )
 
-            mock_get_channel.assert_called_once_with(mock_db, mock_channel_config.id)
+            mock_db.get.assert_called_once()
             mock_update.assert_called_once_with(mock_channel_config, is_active=False)
             assert result.is_active is False

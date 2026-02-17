@@ -65,6 +65,7 @@ dev = [
     "lizard>=1.20.0",
     "pre-commit>=4.0.0",
     "pytest-randomly>=3.16.0",
+    "pytest-order>=1.2.0",
 ]
 
 [project.urls]
@@ -174,6 +175,7 @@ timeout = 30
 markers = [
     "integration: Integration tests requiring RabbitMQ, Postgres, Redis",
     "e2e: End-to-end tests requiring Discord bot and full stack",
+    "order: Test execution order (used with pytest-order plugin)",
 ]
 addopts = "-m 'not e2e and not integration' --strict-markers"
 filterwarnings = [
@@ -211,6 +213,7 @@ dev = [
     "autocopyright~=1.1.0",
     "pre-commit~=4.0.0",
     "pytest-randomly>=4.0.1",
+    "pytest-order>=1.3.0",
 ]
 
 [tool.coverage.run]

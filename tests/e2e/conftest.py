@@ -836,6 +836,37 @@ async def main_bot_helper(discord_main_bot_token):
     await helper.disconnect()
 
 
+@pytest.fixture(autouse=True)
+async def cleanup_startup_sync_guilds(
+    request: pytest.FixtureRequest,
+    admin_db: AsyncSession,
+    discord_ids: DiscordTestEnvironment,
+) -> AsyncGenerator[None]:
+    """
+    Remove guilds created by bot startup sync after test_00_bot_startup_sync.
+
+    This fixture automatically runs after the startup sync E2E test completes,
+    ensuring hermetic test isolation for subsequent E2E tests. Only activates
+    for the specific test that verifies bot startup behavior.
+    """
+    yield
+
+    if request.node.name == "test_bot_startup_sync_creates_guilds":
+        await admin_db.execute(
+            text(
+                """
+                DELETE FROM guild_configurations
+                WHERE guild_id IN (:guild_a_id, :guild_b_id)
+                """
+            ),
+            {
+                "guild_a_id": discord_ids.guild_a_id,
+                "guild_b_id": discord_ids.guild_b_id,
+            },
+        )
+        await admin_db.commit()
+
+
 @pytest.fixture
 def valid_png_data() -> bytes:
     """

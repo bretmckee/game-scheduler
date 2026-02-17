@@ -26,9 +26,7 @@ from typing import Any
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.api.database import queries
-from services.api.services import channel_service
-from services.api.services import template_service as template_service_module
+from shared.data_access import guild_queries
 from shared.data_access.guild_isolation import (
     get_current_guild_ids,
     set_current_guild_ids,
@@ -157,7 +155,7 @@ async def _create_guild_with_channels_and_template(
     channels_created = 0
     for channel in guild_channels:
         if channel.get("type") in valid_channel_types:
-            await channel_service.create_channel_config(
+            await guild_queries.create_channel_config(
                 db, guild_config.id, channel["id"], is_active=True
             )
             channels_created += 1
@@ -167,10 +165,9 @@ async def _create_guild_with_channels_and_template(
         first_channel = next((ch for ch in guild_channels if ch.get("type") == text_channel), None)
         if first_channel:
             # Get the created channel config UUID
-            channel_config = await queries.get_channel_by_discord_id(db, first_channel["id"])
+            channel_config = await guild_queries.get_channel_by_discord_id(db, first_channel["id"])
             if channel_config:
-                template_svc = template_service_module.TemplateService(db)
-                await template_svc.create_default_template(guild_config.id, channel_config.id)
+                await guild_queries.create_default_template(db, guild_config.id, channel_config.id)
 
     return (1, channels_created)
 

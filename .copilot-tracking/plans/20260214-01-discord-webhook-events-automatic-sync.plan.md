@@ -114,10 +114,10 @@ Implement Discord webhook endpoint with Ed25519 signature validation to automati
 - [x] Task 5.4: Add guild sync to bot service startup
   - Details: .copilot-tracking/details/20260214-01-discord-webhook-events-automatic-sync-details.md (Lines 340-354)
 
-- [ ] Task 5.5: Add E2E ordered test for bot startup sync verification using pytest-order
+- [x] Task 5.5: Add E2E ordered test for bot startup sync verification using pytest-order
   - Details: .copilot-tracking/details/20260214-01-discord-webhook-events-automatic-sync-details.md (Lines 356-387)
 
-- [ ] Task 5.6: Verify all tests pass with startup sync
+- [x] Task 5.6: Verify all tests pass with startup sync
   - Details: .copilot-tracking/details/20260214-01-discord-webhook-events-automatic-sync-details.md (Lines 375-391)
 
 - [ ] Task 5.7: Add GUILD_SYNC_REQUESTED event type

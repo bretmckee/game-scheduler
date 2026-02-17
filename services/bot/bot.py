@@ -22,6 +22,7 @@
 """Discord bot implementation with Gateway connection."""
 
 import logging
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import discord
@@ -116,6 +117,9 @@ class GameSchedulerBot(commands.Bot):
                     sync_results["new_guilds"],
                     sync_results["new_channels"],
                 )
+                # Mark bot as ready after successful sync
+                Path("/tmp/bot-ready").touch()  # noqa: ASYNC240, S108
+                logger.info("Bot marked as healthy")
         except Exception as e:
             logger.exception("Failed to sync guilds on startup: %s", e)
 
