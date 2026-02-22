@@ -62,15 +62,15 @@ if [ -z "$DISCORD_GUILD_A_ID" ] || [ -z "$DISCORD_GUILD_A_CHANNEL_ID" ]; then
   echo "Tests may fail without these. See docs/developer/TESTING.md for setup instructions"
 fi
 
-if [ -n "$SKIP_CLEANUP" ]; then
-  echo "Skipping e2e test environment cleanup (SKIP_CLEANUP is set)"
-else
-  cleanup() {
+cleanup() {
+  if [ -n "$SKIP_CLEANUP" ]; then
+    echo "Skipping e2e test environment cleanup (SKIP_CLEANUP is set)"
+  else
     echo "Cleaning up e2e test environment..."
     docker compose --env-file "$ENV_FILE" down -v
-  }
-  trap cleanup EXIT
-fi
+  fi
+}
+trap cleanup EXIT
 
 echo "Running e2e tests..."
 
@@ -78,7 +78,7 @@ if [ -n "$SKIP_STARTUP" ]; then
   echo "Skipping e2e test environment startup (SKIP_STARTUP is set)"
 else
   # Ensure full stack (including bot) is healthy before running tests
-  docker compose --env-file "$ENV_FILE" up -d --build
+  docker compose --env-file "$ENV_FILE" up -d --build system-ready
 fi
 
 # Build if needed, then run tests without restarting dependencies

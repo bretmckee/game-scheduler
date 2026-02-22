@@ -22,27 +22,33 @@
 
 # Run integration tests in isolated Docker environment
 # These tests verify notification daemon and PostgreSQL LISTEN/NOTIFY
+#
+# Environment variables:
+#   SKIP_STARTUP=1   - Skip building and starting the test environment (use existing)
+#   SKIP_CLEANUP=1   - Skip cleanup after tests (leave environment running)
 
 set -e
 
 # Environment file location
 ENV_FILE="config/env.int"
 
-if [ -z "$ASSUME_SYSTEM_READY" ]; then
-  cleanup() {
+cleanup() {
+  if [ -n "$SKIP_CLEANUP" ]; then
+    echo "Skipping integration test environment cleanup (SKIP_CLEANUP is set)"
+  else
     echo "Cleaning up integration test environment..."
     docker compose --env-file "$ENV_FILE" down -v
-  }
-  trap cleanup EXIT
-fi
+  fi
+}
+trap cleanup EXIT
 
 echo "Running integration tests..."
 
-if [ -z "$ASSUME_SYSTEM_READY" ]; then
+if [ -n "$SKIP_STARTUP" ]; then
+  echo "Skipping integration test environment startup (SKIP_STARTUP is set)"
+else
   # Ensure full stack (including init) is healthy before running tests
   docker compose --env-file "$ENV_FILE" up -d --build system-ready
-else
-  echo "Skipping system-ready startup and cleanup (ASSUME_SYSTEM_READY is set)"
 fi
 
 # Build if needed, then run tests without restarting dependencies
