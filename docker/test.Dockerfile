@@ -26,11 +26,11 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # Create coverage directory for mounted coverage files
 RUN mkdir -p /app/coverage
 
-# Copy dependency files
-COPY pyproject.toml ./
+# Copy dependency files including lock file for reproducible builds
+COPY pyproject.toml uv.lock ./
 
 # Install all dependencies including dev dependencies (pytest, etc.)
-# Use --group to install dependency groups with uv
+# uv will use uv.lock for version resolution
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv pip install --system -e . && uv pip install --system --group dev
 
