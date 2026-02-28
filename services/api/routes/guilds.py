@@ -22,17 +22,22 @@
 """Guild configuration endpoints."""
 
 import logging
+import os
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.api import dependencies
 from services.api.auth import oauth2
+from services.api.config import get_api_config
 from services.api.database import queries
 from services.api.dependencies import permissions
 from services.api.dependencies.discord import get_discord_client
 from services.api.services import guild_service
+from services.bot.guild_sync import sync_all_bot_guilds
 from shared import database
 from shared.discord.client import DiscordAPIClient, fetch_channel_name_safe
 from shared.models.guild import GuildConfiguration
@@ -42,6 +47,14 @@ from shared.schemas import guild as guild_schemas
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/guilds", tags=["guilds"])
+
+# Rate limiter for sync endpoint
+limiter = Limiter(key_func=get_remote_address)
+
+# Rate limit for sync endpoint (effectively unlimited in test environments)
+SYNC_RATE_LIMIT = (
+    "999999/second" if os.getenv("TEST_ENVIRONMENT", "").lower() == "true" else "1/minute"
+)
 
 
 async def _build_guild_config_response(
@@ -299,27 +312,35 @@ async def list_guild_roles(
 
 
 @router.post("/sync", response_model=guild_schemas.GuildSyncResponse)
+@limiter.limit(SYNC_RATE_LIMIT)
 async def sync_guilds(
-    current_user: Annotated[auth_schemas.CurrentUser, Depends(dependencies.auth.get_current_user)],
+    request: Request,  # noqa: ARG001
+    _current_user: Annotated[auth_schemas.CurrentUser, Depends(dependencies.auth.get_current_user)],
     db: Annotated[AsyncSession, Depends(database.get_db)],
 ) -> guild_schemas.GuildSyncResponse:
     """
-    Sync user's Discord guilds and channels with database.
+    Sync bot's Discord guilds and channels with database.
 
-    - Creates new guilds with channels and default template
-    - Refreshes channels for existing guilds
-    - Marks deleted Discord channels as inactive
+    Uses sync_all_bot_guilds to sync ALL guilds the bot is in (not just
+    user's guilds). Creates new guilds and refreshes channels for existing
+    guilds. Rate limited to 1 request per minute per IP address (effectively
+    unlimited in test environments).
 
     Returns count of new guilds, new channels, and updated channels.
-
-    TODO: Migrate to RabbitMQ message pattern (Phase 6, Task 6.1).
-    This endpoint will publish GUILD_SYNC_REQUESTED event instead of calling
-    guild_service.sync_user_guilds() directly. Bot service will handle sync.
     """
-    access_token = current_user.access_token
-    user_discord_id = current_user.user.discord_id
+    config = get_api_config()
+    discord_client = get_discord_client()
 
-    result = await guild_service.sync_user_guilds(db, access_token, user_discord_id)
+    result = await sync_all_bot_guilds(discord_client, db, config.discord_bot_token)
+
+    await db.commit()
+
+    logger.info(
+        "Guild sync completed: %d new guilds, %d new channels, %d updated channels",
+        result["new_guilds"],
+        result["new_channels"],
+        result["updated_channels"],
+    )
 
     return guild_schemas.GuildSyncResponse(
         new_guilds=result["new_guilds"],

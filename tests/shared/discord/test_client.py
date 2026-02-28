@@ -672,10 +672,37 @@ class TestGuildMethods:
         mock_session.get = MagicMock(return_value=mock_context_manager)
         discord_client._session = mock_session
 
-        result = await discord_client.get_guild_channels(guild_id="guild123")
+        # Mock Redis cache to return None (cache miss)
+        with patch("shared.cache.client.get_redis_client") as mock_get_redis:
+            mock_redis = AsyncMock()
+            mock_redis.get = AsyncMock(return_value=None)
+            mock_redis.set = AsyncMock()
+            mock_get_redis.return_value = mock_redis
 
-        assert len(result) == 2
-        assert result[0]["name"] == "general"
+            result = await discord_client.get_guild_channels(guild_id="guild123")
+
+            assert len(result) == 2
+            assert result[0]["name"] == "general"
+
+    @pytest.mark.asyncio
+    async def test_get_guild_channels_cache_hit(self, discord_client):
+        """Test get_guild_channels() returns cached data."""
+        cached_data = [
+            {"id": "channel1", "name": "cached-general", "type": 0},
+            {"id": "channel2", "name": "cached-announcements", "type": 0},
+        ]
+
+        with patch("shared.cache.client.get_redis_client") as mock_get_redis:
+            mock_redis = AsyncMock()
+            mock_redis.get = AsyncMock(return_value=json.dumps(cached_data))
+            mock_get_redis.return_value = mock_redis
+
+            result = await discord_client.get_guild_channels(guild_id="guild123")
+
+            assert len(result) == 2
+            assert result[0]["name"] == "cached-general"
+            # Verify no Discord API call was made
+            assert discord_client._session is None
 
 
 class TestUnifiedTokenFunctionality:
@@ -743,6 +770,135 @@ class TestUnifiedTokenFunctionality:
             assert "Authorization" in call_args[1]["headers"]
             assert call_args[1]["headers"]["Authorization"] == f"Bearer {oauth_token}"
             assert len(result) == 1
+
+    @pytest.mark.asyncio
+    async def test_get_guilds_retry_429_with_retry_after(self, discord_client):
+        """Test get_guilds() retries on 429 with retry-after header."""
+        # First attempt: 429 with retry-after header
+        mock_response_429 = AsyncMock()
+        mock_response_429.status = 429
+        mock_response_429.headers = {
+            "retry-after": "0.1",
+            "x-ratelimit-remaining": "0",
+        }
+        mock_response_429.json = AsyncMock(return_value={"message": "You are being rate limited"})
+
+        # Second attempt: success
+        mock_response_200 = AsyncMock()
+        mock_response_200.status = 200
+        mock_response_200.headers = {"x-ratelimit-remaining": "50"}
+        mock_response_200.json = AsyncMock(return_value=[{"id": "guild1", "name": "Test Guild"}])
+
+        mock_session = MagicMock()
+        mock_session.closed = False
+
+        # Create context managers for each response
+        mock_cm_429 = MagicMock()
+        mock_cm_429.__aenter__ = AsyncMock(return_value=mock_response_429)
+        mock_cm_429.__aexit__ = AsyncMock(return_value=None)
+
+        mock_cm_200 = MagicMock()
+        mock_cm_200.__aenter__ = AsyncMock(return_value=mock_response_200)
+        mock_cm_200.__aexit__ = AsyncMock(return_value=None)
+
+        mock_session.get = MagicMock(side_effect=[mock_cm_429, mock_cm_200])
+        discord_client._session = mock_session
+
+        # Execute and verify retry succeeded
+        result = await discord_client.get_guilds()
+        assert len(result) == 1
+        assert result[0]["name"] == "Test Guild"
+        assert mock_session.get.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_get_guilds_retry_429_with_reset_after(self, discord_client):
+        """Test get_guilds() retries on 429 with x-ratelimit-reset-after header."""
+        # First attempt: 429 with x-ratelimit-reset-after header
+        mock_response_429 = AsyncMock()
+        mock_response_429.status = 429
+        mock_response_429.headers = {
+            "x-ratelimit-reset-after": "0.1",
+            "x-ratelimit-remaining": "0",
+        }
+        mock_response_429.json = AsyncMock(return_value={"message": "You are being rate limited"})
+
+        # Second attempt: success
+        mock_response_200 = AsyncMock()
+        mock_response_200.status = 200
+        mock_response_200.headers = {"x-ratelimit-remaining": "50"}
+        mock_response_200.json = AsyncMock(return_value=[{"id": "guild1", "name": "Test Guild"}])
+
+        mock_session = MagicMock()
+        mock_session.closed = False
+
+        mock_cm_429 = MagicMock()
+        mock_cm_429.__aenter__ = AsyncMock(return_value=mock_response_429)
+        mock_cm_429.__aexit__ = AsyncMock(return_value=None)
+
+        mock_cm_200 = MagicMock()
+        mock_cm_200.__aenter__ = AsyncMock(return_value=mock_response_200)
+        mock_cm_200.__aexit__ = AsyncMock(return_value=None)
+
+        mock_session.get = MagicMock(side_effect=[mock_cm_429, mock_cm_200])
+        discord_client._session = mock_session
+
+        result = await discord_client.get_guilds()
+        assert len(result) == 1
+        assert result[0]["name"] == "Test Guild"
+        assert mock_session.get.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_get_guilds_retry_exhausted(self, discord_client):
+        """Test get_guilds() raises error after max retries exhausted."""
+        # All attempts return 429
+        mock_response_429 = AsyncMock()
+        mock_response_429.status = 429
+        mock_response_429.headers = {
+            "retry-after": "0.01",
+            "x-ratelimit-remaining": "0",
+        }
+        mock_response_429.json = AsyncMock(return_value={"message": "You are being rate limited"})
+
+        mock_session = MagicMock()
+        mock_session.closed = False
+
+        mock_cm = MagicMock()
+        mock_cm.__aenter__ = AsyncMock(return_value=mock_response_429)
+        mock_cm.__aexit__ = AsyncMock(return_value=None)
+
+        # Return same 429 response for all 3 attempts
+        mock_session.get = MagicMock(return_value=mock_cm)
+        discord_client._session = mock_session
+
+        # Verify it raises after exhausting retries
+        with pytest.raises(DiscordAPIError) as exc_info:
+            await discord_client.get_guilds()
+
+        assert exc_info.value.status == 429
+        assert "rate limited" in exc_info.value.message.lower()
+        assert mock_session.get.call_count == 3  # max_retries
+
+    @pytest.mark.asyncio
+    async def test_get_guilds_network_error(self, discord_client):
+        """Test get_guilds() raises error on network failure."""
+        mock_session = MagicMock()
+        mock_session.closed = False
+
+        # Network error during request
+        mock_cm_error = MagicMock()
+        mock_cm_error.__aenter__ = AsyncMock(side_effect=aiohttp.ClientError("Connection timeout"))
+        mock_cm_error.__aexit__ = AsyncMock(return_value=None)
+
+        mock_session.get = MagicMock(return_value=mock_cm_error)
+        discord_client._session = mock_session
+
+        # Verify network error raises DiscordAPIError with status 500
+        with pytest.raises(DiscordAPIError) as exc_info:
+            await discord_client.get_guilds()
+
+        assert exc_info.value.status == 500
+        assert "network error" in exc_info.value.message.lower()
+        assert mock_session.get.call_count == 1
 
     @pytest.mark.asyncio
     async def test_fetch_guild_with_bot_token(self, discord_client, mock_redis):

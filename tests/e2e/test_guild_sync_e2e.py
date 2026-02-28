@@ -40,6 +40,9 @@ from httpx import AsyncClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from shared.cache import client as cache_client
+from shared.cache import keys as cache_keys
+
 pytestmark = pytest.mark.e2e
 
 
@@ -55,6 +58,11 @@ async def fresh_guild_sync(
     Deletes guilds after test to ensure test independence.
     Uses discord_ids fixture for environment variable management.
     """
+    # Clear cache for both guilds
+    redis = await cache_client.get_redis_client()
+    await redis.delete(cache_keys.CacheKeys.discord_guild_channels(discord_ids.guild_a_id))
+    await redis.delete(cache_keys.CacheKeys.discord_guild_channels(discord_ids.guild_b_id))
+
     # Clean up before test
     await admin_db.execute(text("DELETE FROM game_sessions"))
     await admin_db.execute(text("DELETE FROM game_templates"))
@@ -66,6 +74,10 @@ async def fresh_guild_sync(
     await admin_db.commit()
 
     yield
+
+    # Clear cache again after test
+    await redis.delete(cache_keys.CacheKeys.discord_guild_channels(discord_ids.guild_a_id))
+    await redis.delete(cache_keys.CacheKeys.discord_guild_channels(discord_ids.guild_b_id))
 
     # Clean up after test for hermeticity
     await admin_db.execute(text("DELETE FROM game_sessions"))
@@ -193,12 +205,12 @@ async def test_complete_guild_creation(
     assert guild["guild_id"] == discord_ids.guild_a_id
     guild_db_id = guild["id"]
 
-    # Verify channels created
+    # Verify channels created for guild A
     channels = await get_channels_for_guild(guild_db_id)
     assert len(channels) > 0, "No channels found for guild"
-    assert len(channels) == sync_results["new_channels"], (
-        f"Channel count mismatch: API={sync_results['new_channels']}, DB={len(channels)}"
-    )
+
+    # Note: sync creates channels for ALL bot guilds, not just guild A,
+    # so we verify guild A has channels but don't compare to total new_channels
 
     # Verify at least one channel is the expected text channel
     channel_ids = [ch["channel_id"] for ch in channels]
@@ -299,77 +311,6 @@ async def test_sync_idempotency(
     guilds_data = guilds_response.json()
     guild_ids = [g["id"] for g in guilds_data["guilds"]]
     assert guild_db_id in guild_ids, "Guild not accessible after second sync"
-
-
-@pytest.mark.asyncio
-async def test_multi_guild_sync(
-    authenticated_admin_client: AsyncClient,
-    authenticated_client_b: AsyncClient,
-    discord_ids,
-    admin_db: AsyncSession,
-    get_guild_by_discord_id,
-    get_channels_for_guild,
-    fresh_guild_sync,
-):
-    """
-    Verify multi-guild sync with cross-guild isolation.
-
-    User A syncs and only Guild A is created.
-    User B syncs and only Guild B is created.
-    Each user can only see their own guild's data.
-    """
-    # User A syncs - should create Guild A
-    response_a = await authenticated_admin_client.post("/api/v1/guilds/sync")
-    assert response_a.status_code == 200, f"User A sync failed: {response_a.text}"
-
-    sync_a_results = response_a.json()
-    assert sync_a_results["new_guilds"] > 0, "User A sync should create guild"
-
-    # Verify Guild A created
-    guild_a = await get_guild_by_discord_id(discord_ids.guild_a_id)
-    assert guild_a is not None, f"Guild A {discord_ids.guild_a_id} not found in database"
-    guild_a_db_id = guild_a["id"]
-
-    # Verify Guild B does NOT exist yet
-    guild_b = await get_guild_by_discord_id(discord_ids.guild_b_id)
-    assert guild_b is None, "Guild B should not exist before User B sync"
-
-    # User B syncs - should create Guild B
-    response_b = await authenticated_client_b.post("/api/v1/guilds/sync")
-    assert response_b.status_code == 200, f"User B sync failed: {response_b.text}"
-
-    sync_b_results = response_b.json()
-    assert sync_b_results["new_guilds"] > 0, "User B sync should create guild"
-
-    # Verify Guild B created
-    guild_b = await get_guild_by_discord_id(discord_ids.guild_b_id)
-    assert guild_b is not None, f"Guild B {discord_ids.guild_b_id} not found in database"
-    guild_b_db_id = guild_b["id"]
-
-    # Verify both guilds have channels
-    channels_a = await get_channels_for_guild(guild_a_db_id)
-    assert len(channels_a) > 0, "Guild A should have channels"
-
-    channels_b = await get_channels_for_guild(guild_b_db_id)
-    assert len(channels_b) > 0, "Guild B should have channels"
-
-    # Verify User A can only see Guild A
-    guilds_a_response = await authenticated_admin_client.get("/api/v1/guilds")
-    assert guilds_a_response.status_code == 200
-    guilds_a_data = guilds_a_response.json()
-    guild_a_ids = [g["id"] for g in guilds_a_data["guilds"]]
-
-    assert guild_a_db_id in guild_a_ids, "User A should see Guild A"
-    assert guild_b_db_id not in guild_a_ids, "User A should NOT see Guild B"
-
-    # Verify User B can only see Guild B
-    guilds_b_response = await authenticated_client_b.get("/api/v1/guilds")
-    assert guilds_b_response.status_code == 200
-    guilds_b_data = guilds_b_response.json()
-    guild_b_ids = [g["id"] for g in guilds_b_data["guilds"]]
-
-    assert guild_b_db_id in guild_b_ids, "User B should see Guild B"
-    assert guild_a_db_id not in guild_b_ids, "User B should NOT see Guild A"
 
 
 @pytest.mark.asyncio
@@ -485,8 +426,6 @@ async def test_channel_filtering(
     response = await authenticated_admin_client.post("/api/v1/guilds/sync")
     assert response.status_code == 200, f"Sync failed: {response.text}"
 
-    sync_results = response.json()
-
     # Get guild from database
     guild = await get_guild_by_discord_id(discord_ids.guild_a_id)
     assert guild is not None, "Guild not found in database"
@@ -505,10 +444,8 @@ async def test_channel_filtering(
         f"Expected text channel {discord_ids.channel_a_id} not found in synced channels"
     )
 
-    # Verify response count matches database count
-    assert sync_results["new_channels"] == len(channels), (
-        f"Channel count mismatch: API={sync_results['new_channels']}, DB={len(channels)}"
-    )
+    # Note: sync creates channels for ALL bot guilds, not just guild A,
+    # so we verify guild A has text channels but don't compare to total new_channels
 
     # Verify default template uses a text channel
     templates = await get_templates_for_guild(guild_db_id)
@@ -575,7 +512,7 @@ async def test_template_creation_with_channels(
 
 
 @pytest.mark.asyncio
-async def test_sync_respects_user_permissions(
+async def test_sync_creates_all_guilds(
     authenticated_admin_client: AsyncClient,
     authenticated_client_b: AsyncClient,
     discord_ids,
@@ -583,55 +520,70 @@ async def test_sync_respects_user_permissions(
     fresh_guild_sync,
 ):
     """
-    Verify sync only includes guilds where user has MANAGE_GUILD permission.
+    Verify sync creates and refreshes ALL bot guilds globally with RLS isolation.
 
-    The sync endpoint computes candidate guilds as:
-    (main bot guilds ∩ user admin guilds)
+    The sync endpoint syncs all guilds where the bot is installed,
+    regardless of which user calls it. This is a global operation.
+    However, RLS ensures each user can only access guilds where they have roles.
 
     Setup:
-    - Admin Bot A: Has MANAGE_GUILD in Guild A only (not in Guild B)
-    - Admin Bot B: Has MANAGE_GUILD in Guild B only (not in Guild A)
     - Main Bot: Installed in both Guild A and Guild B
+    - User A: Has roles in Guild A only
+    - User B: Has roles in Guild B only
 
     Expected behavior:
-    - Admin Bot A syncs → only Guild A created (A is in both sets)
-    - Admin Bot B syncs → only Guild B created (B is in both sets)
-    - Each bot only sees guilds where they have MANAGE_GUILD permission
+    - Any authenticated user calls sync → both Guild A and Guild B are synced
+    - Sync is a global operation, not per-user
+    - Both new guilds are created and existing guilds are refreshed
+    - RLS ensures User A sees only Guild A, User B sees only Guild B
     """
-    # Admin Bot A syncs - should only create Guild A
-    # Main bot guilds {A, B} ∩ Admin Bot A admin guilds {A} = {A}
+    # Any user syncs - should create BOTH Guild A and Guild B
     response_a = await authenticated_admin_client.post("/api/v1/guilds/sync")
-    assert response_a.status_code == 200, f"Admin Bot A sync failed: {response_a.text}"
+    assert response_a.status_code == 200, f"Sync failed: {response_a.text}"
 
     sync_a_results = response_a.json()
     assert "new_guilds" in sync_a_results
     assert "new_channels" in sync_a_results
 
-    # Verify Guild A was synced (Admin Bot A has MANAGE_GUILD in A)
+    # Verify both Guild A and Guild B were synced (bot is in both)
     guild_a = await get_guild_by_discord_id(discord_ids.guild_a_id)
-    assert guild_a is not None, (
-        "Guild A should be synced - Admin Bot A has MANAGE_GUILD permission in Guild A"
-    )
+    assert guild_a is not None, "Guild A should be synced - bot is installed in Guild A"
+    guild_a_db_id = guild_a["id"]
 
-    # Verify Guild B was NOT synced by Admin Bot A (no MANAGE_GUILD in B, not a member)
     guild_b = await get_guild_by_discord_id(discord_ids.guild_b_id)
-    assert guild_b is None, (
-        "Guild B should NOT be synced by Admin Bot A - "
-        "Admin Bot A lacks MANAGE_GUILD in Guild B and is not a member"
-    )
+    assert guild_b is not None, "Guild B should be synced - bot is installed in Guild B"
+    guild_b_db_id = guild_b["id"]
 
-    # Admin Bot B syncs - should only create Guild B
-    # Main bot guilds {A, B} ∩ Admin Bot B admin guilds {B} = {B}
+    # Second sync by different user should not create new guilds (already exist)
     response_b = await authenticated_client_b.post("/api/v1/guilds/sync")
-    assert response_b.status_code == 200, f"Admin Bot B sync failed: {response_b.text}"
+    assert response_b.status_code == 200, f"Second sync failed: {response_b.text}"
 
-    # Now verify Guild B exists (Admin Bot B has MANAGE_GUILD in B)
-    guild_b = await get_guild_by_discord_id(discord_ids.guild_b_id)
-    assert guild_b is not None, (
-        "Guild B should be synced - Admin Bot B has MANAGE_GUILD permission in Guild B"
-    )
+    sync_b_results = response_b.json()
+    assert sync_b_results["new_guilds"] == 0, "Second sync should not create new guilds"
 
-    # Verify Guild A still exists and wasn't touched by Admin Bot B's sync
+    # Verify both guilds still exist and IDs are unchanged
     guild_a_after = await get_guild_by_discord_id(discord_ids.guild_a_id)
-    assert guild_a_after is not None, "Guild A should still exist after Admin Bot B sync"
-    assert guild_a_after["id"] == guild_a["id"], "Guild A ID should be unchanged"
+    assert guild_a_after is not None, "Guild A should still exist"
+    assert guild_a_after["id"] == guild_a_db_id, "Guild A ID should be unchanged"
+
+    guild_b_after = await get_guild_by_discord_id(discord_ids.guild_b_id)
+    assert guild_b_after is not None, "Guild B should still exist"
+    assert guild_b_after["id"] == guild_b_db_id, "Guild B ID should be unchanged"
+
+    # Verify RLS enforcement: User A can only see Guild A
+    guilds_a_response = await authenticated_admin_client.get("/api/v1/guilds")
+    assert guilds_a_response.status_code == 200
+    guilds_a_data = guilds_a_response.json()
+    guild_a_ids = [g["id"] for g in guilds_a_data["guilds"]]
+
+    assert guild_a_db_id in guild_a_ids, "User A should see Guild A"
+    assert guild_b_db_id not in guild_a_ids, "User A should NOT see Guild B (RLS enforcement)"
+
+    # Verify RLS enforcement: User B can only see Guild B
+    guilds_b_response = await authenticated_client_b.get("/api/v1/guilds")
+    assert guilds_b_response.status_code == 200
+    guilds_b_data = guilds_b_response.json()
+    guild_b_ids = [g["id"] for g in guilds_b_data["guilds"]]
+
+    assert guild_b_db_id in guild_b_ids, "User B should see Guild B"
+    assert guild_a_db_id not in guild_b_ids, "User B should NOT see Guild A (RLS enforcement)"

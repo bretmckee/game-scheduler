@@ -102,7 +102,7 @@ async def test_sync_all_bot_guilds_creates_new_guilds():
 
 @pytest.mark.asyncio
 async def test_sync_all_bot_guilds_skip_existing_guilds():
-    """Test that sync_all_bot_guilds skips existing guilds without updating them."""
+    """Test that sync_all_bot_guilds refreshes channels for existing guilds."""
     mock_db = create_mock_db_with_id_generation()
     mock_discord_client = AsyncMock()
 
@@ -114,17 +114,31 @@ async def test_sync_all_bot_guilds_skip_existing_guilds():
         ]
     )
 
-    # Mock existing guild in database
-    existing_guild = MagicMock(spec=GuildConfiguration)
-    existing_guild.guild_id = "guild_existing"
-    mock_execute_result = MagicMock()
-    mock_execute_result.scalars.return_value.all.return_value = [existing_guild]
-    mock_db.execute = AsyncMock(return_value=mock_execute_result)
+    # Create existing guild object with proper attributes
+    class MockGuild:
+        def __init__(self, guild_id, db_id):
+            self.guild_id = guild_id
+            self.id = db_id
 
-    # Mock channel data only for new guild
+    existing_guild = MockGuild("guild_existing", str(uuid4()))
+
+    # Create a flexible mock result that works for multiple query types
+    mock_result = MagicMock()
+    mock_result.scalars.return_value.all.return_value = [
+        existing_guild
+    ]  # For _get_existing_guild_ids
+    mock_result.scalar_one_or_none.return_value = existing_guild  # For _refresh_guild_channels
+    mock_result.fetchall.return_value = []  # For channel queries
+
+    mock_db.execute = AsyncMock(return_value=mock_result)
+
+    # Mock channel data for both guilds
     mock_discord_client.get_guild_channels = AsyncMock(
-        return_value=[
-            {"id": "channel_new_text", "type": 0, "name": "general"},
+        side_effect=[
+            # Channels for guild_new (during creation)
+            [{"id": "channel_new_text", "type": 0, "name": "general"}],
+            # Channels for guild_existing (during refresh)
+            [{"id": "channel_existing_text", "type": 0, "name": "general"}],
         ]
     )
 
@@ -134,9 +148,18 @@ async def test_sync_all_bot_guilds_skip_existing_guilds():
     # Verify only new guild was created
     assert result["new_guilds"] == 1
     assert result["new_channels"] == 1
+    # Verify existing guild had 1 channel created during refresh
+    assert result["updated_channels"] == 1
 
-    # Verify get_guild_channels called only once (for new guild)
-    mock_discord_client.get_guild_channels.assert_awaited_once_with("guild_new")
+    # Verify get_guild_channels called twice (once for new guild, once for existing)
+    assert mock_discord_client.get_guild_channels.await_count == 2
+    mock_discord_client.get_guild_channels.assert_any_await("guild_new")
+    mock_discord_client.get_guild_channels.assert_any_await("guild_existing")
+
+    # Verify get_guild_channels called twice (once for new guild, once for existing)
+    assert mock_discord_client.get_guild_channels.await_count == 2
+    mock_discord_client.get_guild_channels.assert_any_await("guild_new")
+    mock_discord_client.get_guild_channels.assert_any_await("guild_existing")
 
 
 @pytest.mark.asyncio

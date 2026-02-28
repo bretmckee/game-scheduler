@@ -66,9 +66,8 @@ class TestGameSchedulerBot:
         """Test that bot has correct intents enabled."""
         bot = GameSchedulerBot(bot_config)
 
-        # Bot uses minimal intents (none) as it only responds to interactions
-        assert bot.intents.value == 0
-        assert bot.intents.guilds is False
+        # Bot uses guilds intent to receive guild join/remove events
+        assert bot.intents.guilds is True
         assert bot.intents.guild_messages is False
         assert bot.intents.message_content is False
 

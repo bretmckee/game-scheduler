@@ -170,6 +170,13 @@ async def fresh_guild_a(
     now = datetime.now(UTC).replace(tzinfo=None)
 
     try:
+        # Delete any existing guild record to ensure clean state
+        await admin_db.execute(
+            text("DELETE FROM guild_configurations WHERE guild_id = :guild_id"),
+            {"guild_id": discord_ids.guild_a_id},
+        )
+        await admin_db.commit()
+
         # Insert guild configuration
         await admin_db.execute(
             text(
@@ -239,6 +246,7 @@ async def fresh_guild_a(
 
     finally:
         if guild_db_id:
+            await admin_db.rollback()
             await admin_db.execute(
                 text("DELETE FROM guild_configurations WHERE id = :id"),
                 {"id": guild_db_id},
@@ -267,6 +275,13 @@ async def fresh_guild_b(
     now = datetime.now(UTC).replace(tzinfo=None)
 
     try:
+        # Delete any existing guild record to ensure clean state
+        await admin_db.execute(
+            text("DELETE FROM guild_configurations WHERE guild_id = :guild_id"),
+            {"guild_id": discord_ids.guild_b_id},
+        )
+        await admin_db.commit()
+
         # Insert guild configuration
         await admin_db.execute(
             text(
@@ -336,6 +351,7 @@ async def fresh_guild_b(
 
     finally:
         if guild_db_id:
+            await admin_db.rollback()
             await admin_db.execute(
                 text("DELETE FROM guild_configurations WHERE id = :id"),
                 {"id": guild_db_id},
@@ -632,6 +648,13 @@ async def synced_guild(
     now = datetime.now(UTC).replace(tzinfo=None)
 
     try:
+        # Delete any existing guild record to ensure clean state
+        await admin_db.execute(
+            text("DELETE FROM guild_configurations WHERE guild_id = :guild_id"),
+            {"guild_id": discord_ids.guild_a_id},
+        )
+        await admin_db.commit()
+
         # Insert guild configuration
         await admin_db.execute(
             text(
@@ -701,6 +724,7 @@ async def synced_guild(
 
     finally:
         if guild_db_id:
+            await admin_db.rollback()
             await admin_db.execute(
                 text("DELETE FROM guild_configurations WHERE id = :id"),
                 {"id": guild_db_id},
@@ -730,6 +754,13 @@ async def synced_guild_b(
     now = datetime.now(UTC).replace(tzinfo=None)
 
     try:
+        # Delete any existing guild record to ensure clean state
+        await admin_db.execute(
+            text("DELETE FROM guild_configurations WHERE guild_id = :guild_id"),
+            {"guild_id": discord_ids.guild_b_id},
+        )
+        await admin_db.commit()
+
         # Insert guild configuration
         await admin_db.execute(
             text(
@@ -799,6 +830,7 @@ async def synced_guild_b(
 
     finally:
         if guild_db_id:
+            await admin_db.rollback()
             await admin_db.execute(
                 text("DELETE FROM guild_configurations WHERE id = :id"),
                 {"id": guild_db_id},

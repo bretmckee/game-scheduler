@@ -147,14 +147,12 @@ async def _create_guild_with_channels_and_template(
     guild_channels = await client.get_guild_channels(guild_discord_id)
 
     # Create channel configs for text, voice, and announcement channels
-    text_channel = 0
-    voice_channel = 2
-    announcement_channel = 5
-    valid_channel_types = {text_channel, voice_channel, announcement_channel}
+    # Discord channel types: 0=text, 2=voice, 5=announcement
+    supported_channel_types = {0, 2, 5}
 
     channels_created = 0
     for channel in guild_channels:
-        if channel.get("type") in valid_channel_types:
+        if channel.get("type") in supported_channel_types:
             await guild_queries.create_channel_config(
                 db, guild_config.id, channel["id"], is_active=True
             )
@@ -162,7 +160,7 @@ async def _create_guild_with_channels_and_template(
 
     # Create default template for the guild using first text channel
     if guild_channels:
-        first_channel = next((ch for ch in guild_channels if ch.get("type") == text_channel), None)
+        first_channel = next((ch for ch in guild_channels if ch.get("type") == 0), None)
         if first_channel:
             # Get the created channel config UUID
             channel_config = await guild_queries.get_channel_by_discord_id(db, first_channel["id"])
@@ -172,6 +170,88 @@ async def _create_guild_with_channels_and_template(
     return (1, channels_created)
 
 
+async def _refresh_guild_channels(
+    db: AsyncSession, discord_client: DiscordAPIClient, guild_discord_id: str
+) -> int:
+    """
+    Refresh channels for an existing guild from Discord.
+
+    Fetches channels from Discord API and updates database:
+    - Creates new channel records for new channels
+    - Marks deleted channels as inactive
+    - Reactivates previously inactive channels that reappear
+
+    Does not commit. Caller must commit transaction.
+
+    Args:
+        db: Database session
+        discord_client: Discord API client
+        guild_discord_id: Discord guild ID (snowflake)
+
+    Returns:
+        Number of channels modified (created, activated, or deactivated)
+    """
+    # Get guild configuration to find database UUID
+    guild_result = await db.execute(
+        select(GuildConfiguration).where(GuildConfiguration.guild_id == guild_discord_id)
+    )
+    guild = guild_result.scalar_one_or_none()
+    if not guild:
+        return 0
+
+    # Fetch channels from Discord
+    discord_channels = await discord_client.get_guild_channels(guild_discord_id)
+
+    # Filter for text, voice, and announcement channels (types 0, 2, 5)
+    supported_channel_types = {0, 2, 5}
+    discord_text_channel_ids = {
+        ch["id"] for ch in discord_channels if ch.get("type") in supported_channel_types
+    }
+
+    # Get existing channels from database
+    channels_result = await db.execute(
+        text(
+            "SELECT id, channel_id, is_active FROM channel_configurations "
+            "WHERE guild_id = :guild_id"
+        ),
+        {"guild_id": str(guild.id)},
+    )
+    existing_channels = {
+        row[1]: {"id": row[0], "is_active": row[2]} for row in channels_result.fetchall()
+    }
+
+    modified_count = 0
+
+    # Add new channels or reactivate existing ones
+    for channel_discord_id in discord_text_channel_ids:
+        if channel_discord_id in existing_channels:
+            channel_info = existing_channels[channel_discord_id]
+            if not channel_info["is_active"]:
+                # Reactivate channel
+                await db.execute(
+                    text("UPDATE channel_configurations SET is_active = true WHERE id = :id"),
+                    {"id": str(channel_info["id"])},
+                )
+                modified_count += 1
+        else:
+            # Create new channel
+            await guild_queries.create_channel_config(
+                db, str(guild.id), channel_discord_id, is_active=True
+            )
+            modified_count += 1
+
+    # Mark missing channels as inactive
+    for channel_discord_id, channel_info in existing_channels.items():
+        if channel_discord_id not in discord_text_channel_ids and channel_info["is_active"]:
+            await db.execute(
+                text("UPDATE channel_configurations SET is_active = false WHERE id = :id"),
+                {"id": str(channel_info["id"])},
+            )
+            modified_count += 1
+
+    return modified_count
+
+
 async def sync_all_bot_guilds(
     discord_client: DiscordAPIClient, db: AsyncSession, bot_token: str
 ) -> dict[str, int]:
@@ -179,7 +259,7 @@ async def sync_all_bot_guilds(
     Sync all bot guilds using bot token (no user authentication required).
 
     Fetches all guilds the bot is present in and creates new guild configurations
-    with channels and default templates. Does not update existing guilds (lazy loading).
+    with channels and default templates. Refreshes channels for existing guilds.
 
     Does not commit. Caller must commit transaction.
 
@@ -191,7 +271,8 @@ async def sync_all_bot_guilds(
     Returns:
         Dictionary with counts: {
             "new_guilds": number of new guilds created,
-            "new_channels": number of new channels created
+            "new_channels": number of new channels created,
+            "updated_channels": number of channels updated in existing guilds
         }
     """
     # Fetch all bot guilds using bot token
@@ -218,7 +299,15 @@ async def sync_all_bot_guilds(
         new_guilds_count += guilds_created
         new_channels_count += channels_created
 
+    # Refresh channels for existing guilds
+    updated_channels_count = 0
+    existing_guilds_in_bot = bot_guild_ids & existing_guild_ids
+    for guild_discord_id in existing_guilds_in_bot:
+        updated_count = await _refresh_guild_channels(db, discord_client, guild_discord_id)
+        updated_channels_count += updated_count
+
     return {
         "new_guilds": new_guilds_count,
         "new_channels": new_channels_count,
+        "updated_channels": updated_channels_count,
     }

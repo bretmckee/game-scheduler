@@ -72,7 +72,7 @@ class GameSchedulerBot(commands.Bot):
         self.event_publisher: BotEventPublisher | None = None
         self.api_cache = None
 
-        intents = discord.Intents.none()
+        intents = discord.Intents(guilds=True)
 
         super().__init__(
             command_prefix="!",

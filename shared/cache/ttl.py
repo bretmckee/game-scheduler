@@ -34,5 +34,6 @@ class CacheTTL:
     USER_GUILDS: int = 300  # 5 minutes - Discord user guild membership
     DISCORD_CHANNEL: int = 300  # 5 minutes - Discord channel objects
     DISCORD_GUILD: int = 600  # 10 minutes - Discord guild objects
+    DISCORD_GUILD_CHANNELS: int = 300  # 5 minutes - Discord guild channels list
     DISCORD_USER: int = 300  # 5 minutes - Discord user objects
     MESSAGE_UPDATE_THROTTLE: int = 2  # 2 seconds - Rate limit for message updates

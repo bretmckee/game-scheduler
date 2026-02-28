@@ -25,6 +25,24 @@ API routes module initialization.
 Exports all API route routers.
 """
 
-from services.api.routes import auth
+from services.api.routes import (
+    auth,
+    channels,
+    export,
+    games,
+    guilds,
+    public,
+    sse,
+    templates,
+)
 
-__all__ = ["auth"]
+__all__ = [
+    "auth",
+    "channels",
+    "export",
+    "games",
+    "guilds",
+    "public",
+    "sse",
+    "templates",
+]

@@ -304,7 +304,11 @@ class DiscordAPIClient:
         Fetch guilds accessible with the given token (bot or OAuth).
 
         Automatically detects token type and applies appropriate caching strategy:
-        - Bot tokens: No caching (bots typically in stable guild set)
+        - Bot tokens: No caching (honors rate limits with retry logic)
+          Rationale: We need fresh guild lists to handle back-to-back guild join events.
+          Caching would risk missing new guilds when processing rapid join notifications.
+          Instead, we handle Discord's rate limits by sleeping and retrying when we receive
+          429 responses.
         - OAuth tokens with user_id: Cached with double-checked locking
         - OAuth tokens without user_id: No caching
 
@@ -318,6 +322,8 @@ class DiscordAPIClient:
         Raises:
             DiscordAPIError: If fetching guilds fails
         """
+        use_token = token or self.bot_token
+
         # Fast path: check cache for OAuth tokens with user_id
         if user_id:
             cache_key = cache_keys.CacheKeys.user_guilds(user_id)
@@ -341,17 +347,106 @@ class DiscordAPIClient:
                     return json.loads(cached)
 
                 # Fetch from Discord and cache
-                guilds_data = await self._fetch_guilds_uncached(token)
+                guilds_data = await self._fetch_guilds_uncached(use_token)
                 await redis.set(cache_key, json.dumps(guilds_data), ttl=ttl.CacheTTL.USER_GUILDS)
                 logger.debug("Cached %s guilds for user: %s", len(guilds_data), user_id)
                 return guilds_data
 
         # No caching for bot tokens or OAuth tokens without user_id
-        return await self._fetch_guilds_uncached(token)
+        # Bot tokens honor rate limits with retry logic in _fetch_guilds_uncached
+        return await self._fetch_guilds_uncached(use_token)
+
+    def _get_error_message(self, response_data: Any, default: str) -> str:  # noqa: ANN401
+        """Extract error message from response data."""
+        if isinstance(response_data, dict):
+            return response_data.get("message", default)
+        return default
+
+    def _get_retry_wait_time(self, headers: dict[str, str]) -> float:
+        """Extract retry wait time from rate limit headers."""
+        retry_after = headers.get("retry-after")
+        reset_after = headers.get("x-ratelimit-reset-after")
+        return float(retry_after or reset_after or 1.0)
+
+    async def _handle_rate_limit_response(
+        self,
+        response: aiohttp.ClientResponse,
+        response_data: Any,  # noqa: ANN401
+        attempt: int,
+        max_retries: int,
+    ) -> bool:
+        """
+        Handle 429 rate limit response.
+
+        Args:
+            response: HTTP response object
+            response_data: Parsed JSON response data
+            attempt: Current attempt number (0-indexed)
+            max_retries: Maximum number of retries
+
+        Returns:
+            True if should retry, False if should raise error
+
+        Raises:
+            DiscordAPIError: If final retry attempt failed
+        """
+        wait_time = self._get_retry_wait_time(dict(response.headers))
+
+        if attempt < max_retries - 1:
+            logger.warning(
+                "Rate limited on guilds fetch (attempt %d/%d), waiting %.2fs",
+                attempt + 1,
+                max_retries,
+                wait_time,
+            )
+            await asyncio.sleep(wait_time)
+            return True
+
+        # Final attempt failed
+        error_msg = self._get_error_message(response_data, "Rate limited")
+        raise DiscordAPIError(response.status, error_msg, dict(response.headers))
+
+    async def _process_guilds_response(
+        self,
+        response: aiohttp.ClientResponse,
+        attempt: int,
+        max_retries: int,
+    ) -> list[dict[str, Any]] | None:
+        """
+        Process guilds API response and handle errors.
+
+        Args:
+            response: HTTP response object
+            attempt: Current attempt number (0-indexed)
+            max_retries: Maximum number of retries
+
+        Returns:
+            List of guild data if successful, None if should retry
+
+        Raises:
+            DiscordAPIError: If response indicates non-retryable error
+        """
+        response_data = await response.json()
+        guild_count = len(response_data) if isinstance(response_data, list) else "N/A"
+        self._log_response(response, f"Returned {guild_count} guilds")
+
+        if response.status == status.HTTP_429_TOO_MANY_REQUESTS:
+            should_retry = await self._handle_rate_limit_response(
+                response, response_data, attempt, max_retries
+            )
+            return None if should_retry else response_data
+
+        if response.status != status.HTTP_200_OK:
+            error_msg = self._get_error_message(response_data, "Unknown error")
+            raise DiscordAPIError(response.status, error_msg, dict(response.headers))
+
+        return response_data
 
     async def _fetch_guilds_uncached(self, token: str) -> list[dict[str, Any]]:
         """
         Internal method to fetch guilds from Discord API without caching.
+
+        Handles rate limiting by retrying with exponential backoff when receiving 429.
 
         Args:
             token: Discord bot token or OAuth access token
@@ -360,37 +455,32 @@ class DiscordAPIClient:
             List of guild objects from Discord API
 
         Raises:
-            DiscordAPIError: If fetching guilds fails
+            DiscordAPIError: If fetching guilds fails after retries
         """
         session = await self._get_session()
         url = f"{DISCORD_API_BASE}/users/@me/guilds"
 
-        self._log_request("GET", url, "get_guilds")
-        try:
-            async with session.get(
-                url,
-                headers={"Authorization": self._get_auth_header(token)},
-            ) as response:
-                response_data = await response.json()
-                guild_count = len(response_data) if isinstance(response_data, list) else "N/A"
-                self._log_response(response, f"Returned {guild_count} guilds")
+        max_retries = 3
+        for attempt in range(max_retries):
+            self._log_request("GET", url, "get_guilds")
+            try:
+                async with session.get(
+                    url,
+                    headers={"Authorization": self._get_auth_header(token)},
+                ) as response:
+                    result = await self._process_guilds_response(response, attempt, max_retries)
+                    if result is not None:
+                        return result
+            except aiohttp.ClientError as e:
+                logger.error("Network error fetching guilds: %s", e)
+                raise DiscordAPIError(500, f"Network error: {e!s}") from e
 
-                if response.status != status.HTTP_200_OK:
-                    error_msg = (
-                        response_data.get("message", "Unknown error")
-                        if isinstance(response_data, dict)
-                        else "Unknown error"
-                    )
-                    raise DiscordAPIError(response.status, error_msg, dict(response.headers))
-
-                return response_data
-        except aiohttp.ClientError as e:
-            logger.error("Network error fetching guilds: %s", e)
-            raise DiscordAPIError(500, f"Network error: {e!s}") from e
+        # Should never reach here, but just in case
+        raise DiscordAPIError(429, "Rate limit exceeded after max retries", {})
 
     async def get_guild_channels(self, guild_id: str) -> list[dict[str, Any]]:
         """
-        Fetch all channels in a guild using bot token.
+        Fetch all channels in a guild using bot token with Redis caching.
 
         Args:
             guild_id: Discord guild (server) ID
@@ -401,6 +491,16 @@ class DiscordAPIClient:
         Raises:
             DiscordAPIError: If fetching channels fails
         """
+        cache_key = cache_keys.CacheKeys.discord_guild_channels(guild_id)
+        redis = await cache_client.get_redis_client()
+
+        # Check cache first
+        cached = await redis.get(cache_key)
+        if cached:
+            logger.debug("Cache hit for guild channels: %s", guild_id)
+            return json.loads(cached)
+
+        # Fetch from Discord API
         session = await self._get_session()
         url = f"{DISCORD_API_BASE}/guilds/{guild_id}/channels"
 
@@ -421,6 +521,14 @@ class DiscordAPIClient:
                         else "Unknown error"
                     )
                     raise DiscordAPIError(response.status, error_msg, dict(response.headers))
+
+                # Cache the result
+                await redis.set(
+                    cache_key,
+                    json.dumps(response_data),
+                    ttl=ttl.CacheTTL.DISCORD_GUILD_CHANNELS,
+                )
+                logger.debug("Cached %s channels for guild: %s", channel_count, guild_id)
 
                 return response_data
         except aiohttp.ClientError as e:

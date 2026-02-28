@@ -91,6 +91,11 @@ class CacheKeys:
         return f"discord:guild_roles:{guild_id}"
 
     @staticmethod
+    def discord_guild_channels(guild_id: str) -> str:
+        """Return cache key for Discord guild channels list."""
+        return f"discord:guild_channels:{guild_id}"
+
+    @staticmethod
     def discord_user(user_id: str) -> str:
         """Return cache key for Discord user information."""
         return f"discord:user:{user_id}"
