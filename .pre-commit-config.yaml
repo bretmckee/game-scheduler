@@ -232,6 +232,7 @@ repos:
         pass_filenames: false
         types_or: [python, ts, tsx, javascript]
         verbose: true
+        additional_dependencies: ['pathspec>=1.0.4']
 
       # Full scan with detailed console output (manual, for investigation)
       - id: jscpd-full

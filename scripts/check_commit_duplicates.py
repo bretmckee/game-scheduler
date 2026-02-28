@@ -18,9 +18,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-
-# Copyright (C) 2024 Bret McKee
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """
 Check if commit introduces duplicates or duplicates existing code.
 Only fails if duplicates overlap with actual changed lines (not just changed files).
@@ -32,7 +29,38 @@ import re
 import shutil
 import subprocess  # noqa: S404 - Used safely with shell=False
 import sys
+import tomllib
 from pathlib import Path
+
+import pathspec
+
+
+def _load_config() -> dict:
+    """Load duplicate-check configuration from pyproject.toml."""
+    config_path = Path("pyproject.toml")
+    if not config_path.exists():
+        return {"min-lines": 0, "overrides": {}}
+
+    with open(config_path, "rb") as f:
+        data = tomllib.load(f)
+
+    tool_config = data.get("tool", {}).get("duplicate-check", {})
+    return {
+        "min-lines": tool_config.get("min-lines", 0),
+        "overrides": tool_config.get("overrides", {}),
+    }
+
+
+def _get_min_lines_threshold(file1: str, file2: str, config: dict) -> int:
+    """Get min-lines threshold for a duplicate based on file patterns."""
+    overrides = config.get("overrides", {})
+
+    for pattern, threshold in overrides.items():
+        spec = pathspec.PathSpec.from_lines("gitwildmatch", [pattern])
+        if spec.match_file(file1) and spec.match_file(file2):
+            return threshold
+
+    return config.get("min-lines", 0)
 
 
 def _should_track_file(filepath: str) -> bool:
@@ -153,23 +181,25 @@ def _format_duplicate_for_output(
     dup_info: dict, first_overlaps: bool, second_overlaps: bool
 ) -> dict:
     """Format duplicate information for user output."""
-    return {
+    result = {
         "file1": dup_info["first_file"],
         "lines1": f"{dup_info['first_start']}-{dup_info['first_end']}",
         "file2": dup_info["second_file"],
         "lines2": f"{dup_info['second_start']}-{dup_info['second_end']}",
         "line_count": dup_info["line_count"],
-        "tokens": dup_info["tokens"],
         "fragment": dup_info["fragment"][:100],
         "overlaps_file1": first_overlaps,
         "overlaps_file2": second_overlaps,
     }
+    if dup_info["tokens"] > 0:
+        result["tokens"] = dup_info["tokens"]
+    return result
 
 
 def _find_commit_related_duplicates(
-    duplicates: list[dict], changed_line_ranges: dict[str, set[int]]
+    duplicates: list[dict], changed_line_ranges: dict[str, set[int]], config: dict
 ) -> list[dict]:
-    """Find duplicates that overlap with changed lines."""
+    """Find duplicates that overlap with changed lines and meet threshold."""
     commit_related = []
 
     for dup in duplicates:
@@ -177,8 +207,12 @@ def _find_commit_related_duplicates(
         first_overlaps, second_overlaps = _check_duplicate_overlap(dup_info, changed_line_ranges)
 
         if first_overlaps or second_overlaps:
-            formatted = _format_duplicate_for_output(dup_info, first_overlaps, second_overlaps)
-            commit_related.append(formatted)
+            min_lines = _get_min_lines_threshold(
+                dup_info["first_file"], dup_info["second_file"], config
+            )
+            if dup_info["line_count"] >= min_lines:
+                formatted = _format_duplicate_for_output(dup_info, first_overlaps, second_overlaps)
+                commit_related.append(formatted)
 
     return commit_related
 
@@ -190,7 +224,10 @@ def _print_duplicate_report(commit_related_duplicates: list[dict]) -> None:
     )
     for i, dup in enumerate(commit_related_duplicates, 1):
         print(f"{i}. {dup['file1']}:{dup['lines1']} ↔ {dup['file2']}:{dup['lines2']}")
-        print(f"   {dup['line_count']} lines, {dup['tokens']} tokens")
+        line_info = f"   {dup['line_count']} lines"
+        if "tokens" in dup:
+            line_info += f", {dup['tokens']} tokens"
+        print(line_info)
         if dup["overlaps_file1"] and dup["overlaps_file2"]:
             print("   ⚠️  Both files have changes in duplicate region")
         elif dup["overlaps_file1"]:
@@ -205,6 +242,7 @@ def _print_duplicate_report(commit_related_duplicates: list[dict]) -> None:
 
 
 def main(report_file: str) -> int:
+    config = _load_config()
     changed_line_ranges = get_changed_line_ranges()
 
     if not changed_line_ranges:
@@ -218,7 +256,9 @@ def main(report_file: str) -> int:
         report = json.load(f)
 
     duplicates = report.get("duplicates", [])
-    commit_related_duplicates = _find_commit_related_duplicates(duplicates, changed_line_ranges)
+    commit_related_duplicates = _find_commit_related_duplicates(
+        duplicates, changed_line_ranges, config
+    )
 
     if commit_related_duplicates:
         total_changed_lines = sum(len(lines) for lines in changed_line_ranges.values())

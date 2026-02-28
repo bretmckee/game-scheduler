@@ -232,5 +232,11 @@ omit = [
 precision = 2
 skip_empty = true
 
+[tool.duplicate-check]
+min-lines = 0
+
+[tool.duplicate-check.overrides]
+"tests/**" = 10
+
 [tool.setuptools_scm]
 fallback_version = "0.0.0+unknown"
