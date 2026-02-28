@@ -1,4 +1,4 @@
-# Copyright 2025-2026 Bret McKee
+# Copyright 2026 Bret McKee
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -19,8 +19,31 @@
 # SOFTWARE.
 
 
-"""Discord slash commands for game scheduling bot."""
+"""Tests for command setup module."""
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
+from services.bot.commands import list_games, my_games
 from services.bot.commands.setup import setup_commands
 
-__all__ = ["setup_commands"]
+
+class TestSetupCommands:
+    """Tests for setup_commands function."""
+
+    @pytest.mark.asyncio
+    async def test_setup_commands_registers_all_commands(self) -> None:
+        """Test that setup_commands calls setup on both list_games and my_games."""
+        mock_bot = MagicMock()
+        mock_list_setup = AsyncMock()
+        mock_my_setup = AsyncMock()
+
+        with (
+            patch.object(list_games, "setup", mock_list_setup),
+            patch.object(my_games, "setup", mock_my_setup),
+        ):
+            await setup_commands(mock_bot)
+
+        mock_list_setup.assert_awaited_once_with(mock_bot)
+        mock_my_setup.assert_awaited_once_with(mock_bot)

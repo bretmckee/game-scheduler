@@ -149,6 +149,43 @@ class TestGameSchedulerBot:
                     assert mock_logger.info.call_count >= 2
 
     @pytest.mark.asyncio
+    async def test_setup_hook_guild_sync_success(self, bot_config: BotConfig) -> None:
+        """Test setup_hook marks bot as ready when guild sync succeeds."""
+        bot_config.environment = "production"
+        bot = GameSchedulerBot(bot_config)
+
+        mock_publisher = MagicMock()
+        mock_publisher.connect = AsyncMock()
+
+        mock_db = AsyncMock()
+        mock_db_ctx = MagicMock()
+        mock_db_ctx.__aenter__ = AsyncMock(return_value=mock_db)
+        mock_db_ctx.__aexit__ = AsyncMock(return_value=None)
+
+        with (
+            patch("services.bot.commands.setup_commands", new_callable=AsyncMock),
+            patch(
+                "services.bot.events.publisher.BotEventPublisher",
+                return_value=mock_publisher,
+            ),
+            patch("services.bot.handlers.ButtonHandler"),
+            patch("services.bot.events.handlers.EventHandlers"),
+            patch("services.bot.bot.get_discord_client"),
+            patch("services.bot.bot.get_db_session", return_value=mock_db_ctx),
+            patch(
+                "services.bot.bot.sync_all_bot_guilds",
+                new_callable=AsyncMock,
+                return_value={"new_guilds": 1, "new_channels": 2},
+            ),
+            patch("services.bot.bot.Path") as mock_path,
+            patch.object(bot.tree, "sync", new_callable=AsyncMock),
+        ):
+            await bot.setup_hook()
+
+            mock_path.assert_called_once_with("/tmp/bot-ready")
+            mock_path.return_value.touch.assert_called_once()
+
+    @pytest.mark.asyncio
     async def test_on_disconnect_event(self, bot_config: BotConfig) -> None:
         """Test on_disconnect event handler logs warning."""
         bot = GameSchedulerBot(bot_config)

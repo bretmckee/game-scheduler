@@ -1,4 +1,4 @@
-# Copyright 2025-2026 Bret McKee
+# Copyright 2026 Bret McKee
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -19,8 +19,25 @@
 # SOFTWARE.
 
 
-"""Discord slash commands for game scheduling bot."""
+"""Command registration and setup for the Discord bot."""
 
-from services.bot.commands.setup import setup_commands
+from typing import TYPE_CHECKING
 
-__all__ = ["setup_commands"]
+if TYPE_CHECKING:
+    from services.bot.bot import GameSchedulerBot
+
+
+async def setup_commands(bot: "GameSchedulerBot") -> None:
+    """
+    Register all slash commands with the bot.
+
+    Args:
+        bot: Bot instance to register commands with
+    """
+    from services.bot.commands import (  # noqa: PLC0415
+        list_games,
+        my_games,
+    )
+
+    await list_games.setup(bot)
+    await my_games.setup(bot)

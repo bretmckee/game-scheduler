@@ -182,7 +182,7 @@ async def test_promotion_when_participant_removed(
     def mock_refresh_side_effect(game, attribute_names=None):
         # After removal, participant list has one less confirmed participant
         # This simulates what would happen after db.refresh() in real scenario
-        game.participants = participants[1:] + [overflow_participant]
+        game.participants = [*participants[1:], overflow_participant]
 
     mock_db.refresh = AsyncMock(side_effect=mock_refresh_side_effect)
 
@@ -203,7 +203,7 @@ async def test_promotion_when_participant_removed(
                 f"{len(participants_list)} participants"
             )
         else:
-            participants_list = participants[1:] + [overflow_participant]
+            participants_list = [*participants[1:], overflow_participant]
             print(
                 f"\nget_game call #{get_game_call_count[0]}: "
                 f"returning AFTER removal - {len(participants_list)} participants"

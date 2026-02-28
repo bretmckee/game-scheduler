@@ -25,6 +25,11 @@
 
 set -e
 
+# Change to repository root (parent of scripts directory)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$REPO_ROOT"
+
 # Parse options until we hit the file list
 COMMENT_SYMBOL=""
 LICENSE_PATH=""
@@ -51,17 +56,47 @@ if [[ $# -eq 0 ]]; then
     exit 0
 fi
 
-# Process each file
-EXIT_CODE=0
-for FILE in "$@"; do
-    # Get directory and filename
-    DIR=$(dirname "$FILE")
-    FILENAME=$(basename "$FILE")
+# Exit successfully if no files provided
+if [[ $# -eq 0 ]]; then
+    exit 0
+fi
 
-    # Run autocopyright for this specific file using exact glob match
-    if ! autocopyright -s "$COMMENT_SYMBOL" -d "$DIR" -g "${FILENAME}" -l "$LICENSE_PATH"; then
-        EXIT_CODE=1
+# Extract unique top-level directories and file extensions from file paths
+# E.g., services/api/routes/games.py -> services, *.py
+#       shared/models/game.py -> shared, *.py
+#       frontend/src/App.tsx -> frontend/src, *.tsx (to avoid node_modules)
+declare -A TOP_DIRS
+declare -A EXTENSIONS
+for FILE in "$@"; do
+    # Skip files in excluded directories
+    if [[ "$FILE" =~ (node_modules|\.venv|venv|__pycache__|\.git|\.pytest_cache|\.mypy_cache|htmlcov|coverage|dist|build) ]]; then
+        continue
     fi
+
+    # Get the first two components for frontend files, otherwise just first
+    if [[ "$FILE" == frontend/* ]]; then
+        TOP_DIR=$(echo "$FILE" | cut -d'/' -f1-2)
+    else
+        TOP_DIR=$(echo "$FILE" | cut -d'/' -f1)
+    fi
+    TOP_DIRS["$TOP_DIR"]=1
+
+    # Extract file extension
+    EXT="${FILE##*.}"
+    EXTENSIONS["*.$EXT"]=1
 done
 
-exit $EXIT_CODE
+# Build -d arguments for each unique top-level directory
+DIR_ARGS=()
+for DIR in "${!TOP_DIRS[@]}"; do
+    DIR_ARGS+=(-d "$DIR")
+done
+
+# Build -g arguments for each unique extension
+GLOB_ARGS=()
+for PATTERN in "${!EXTENSIONS[@]}"; do
+    GLOB_ARGS+=(-g "$PATTERN")
+done
+
+# Call autocopyright once to scan all top-level directories with all patterns
+autocopyright -s "$COMMENT_SYMBOL" "${DIR_ARGS[@]}" "${GLOB_ARGS[@]}" -l "$LICENSE_PATH"

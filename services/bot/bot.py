@@ -118,7 +118,7 @@ class GameSchedulerBot(commands.Bot):
                     sync_results["new_channels"],
                 )
                 # Mark bot as ready after successful sync
-                Path("/tmp/bot-ready").touch()  # noqa: ASYNC240, S108
+                Path("/tmp/bot-ready").touch()  # noqa: S108, ASYNC240, RUF100
                 logger.info("Bot marked as healthy")
         except Exception as e:
             logger.exception("Failed to sync guilds on startup: %s", e)
@@ -179,7 +179,13 @@ class GameSchedulerBot(commands.Bot):
             if interaction.type == discord.InteractionType.component and self.button_handler:
                 await self.button_handler.handle_interaction(interaction)
 
-    async def on_error(self, event_method: str, /, *_args: Any, **_kwargs: Any) -> None:  # noqa: ANN401
+    async def on_error(
+        self,
+        event_method: str,
+        /,
+        *_args: Any,  # noqa: ANN401
+        **_kwargs: Any,  # noqa: ANN401
+    ) -> None:
         """
         Handle errors during event processing.
 

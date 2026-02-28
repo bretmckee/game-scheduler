@@ -19,6 +19,8 @@
 # SOFTWARE.
 
 
+# ruff: noqa: PLC2701  # OTLPLogExporter is only available via a private module; no public alternative exists.
+
 """
 OpenTelemetry instrumentation initialization for Python services.
 
@@ -33,7 +35,7 @@ from opentelemetry import metrics, trace
 
 # OpenTelemetry's official public API for OTLP exporters
 from opentelemetry.exporter.otlp.proto.http._log_exporter import (
-    OTLPLogExporter,  # noqa: PLC2701
+    OTLPLogExporter,
 )
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -43,8 +45,8 @@ from opentelemetry.instrumentation.redis import RedisInstrumentor
 from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
 
 # OpenTelemetry's official public API for logging
-from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler  # noqa: PLC2701
-from opentelemetry.sdk._logs.export import BatchLogRecordProcessor  # noqa: PLC2701
+from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.resources import Resource
