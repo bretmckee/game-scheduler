@@ -156,7 +156,7 @@ describe('GuildListPage', () => {
     });
 
     vi.mocked(apiClient.post).mockResolvedValue({
-      data: { new_guilds: 1, new_channels: 2, updated_channels: 0 },
+      data: { new_guilds: 1, new_channels: 2 },
     });
 
     const syncButton = screen.getByRole('button', { name: /Sync Servers and Channels/i });
@@ -174,14 +174,14 @@ describe('GuildListPage', () => {
     });
 
     vi.mocked(apiClient.post).mockResolvedValue({
-      data: { new_guilds: 0, new_channels: 1, updated_channels: 3 },
+      data: { new_guilds: 0, new_channels: 1 },
     });
 
     const syncButton = screen.getByRole('button', { name: /Sync Servers and Channels/i });
     await userEvent.click(syncButton);
 
     await waitFor(() => {
-      expect(screen.getByText(/Synced 1 new channel, 3 updated channels/)).toBeInTheDocument();
+      expect(screen.getByText(/Synced 1 new channel/)).toBeInTheDocument();
     });
   });
 
@@ -192,7 +192,7 @@ describe('GuildListPage', () => {
     });
 
     vi.mocked(apiClient.post).mockResolvedValue({
-      data: { new_guilds: 0, new_channels: 0, updated_channels: 0 },
+      data: { new_guilds: 0, new_channels: 0 },
     });
 
     const syncButton = screen.getByRole('button', { name: /Sync Servers and Channels/i });
@@ -210,16 +210,14 @@ describe('GuildListPage', () => {
     });
 
     vi.mocked(apiClient.post).mockResolvedValue({
-      data: { new_guilds: 2, new_channels: 1, updated_channels: 1 },
+      data: { new_guilds: 2, new_channels: 1 },
     });
 
     const syncButton = screen.getByRole('button', { name: /Sync Servers and Channels/i });
     await userEvent.click(syncButton);
 
     await waitFor(() => {
-      expect(
-        screen.getByText(/Synced 2 new servers, 1 new channel, 1 updated channel/)
-      ).toBeInTheDocument();
+      expect(screen.getByText(/Synced 2 new servers, 1 new channel/)).toBeInTheDocument();
     });
   });
 });

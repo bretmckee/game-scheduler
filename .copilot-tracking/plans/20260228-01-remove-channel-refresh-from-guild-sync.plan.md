@@ -37,42 +37,42 @@ Remove the existing-guild channel refresh loop from `sync_all_bot_guilds` so the
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Remove channel refresh from backend
+### [x] Phase 1: Remove channel refresh from backend
 
-- [ ] Task 1.1: Remove the existing-guild refresh loop from `sync_all_bot_guilds` in `guild_sync.py`
+- [x] Task 1.1: Remove the existing-guild refresh loop from `sync_all_bot_guilds` in `guild_sync.py`
   - Details: .copilot-tracking/details/20260228-01-remove-channel-refresh-from-guild-sync-details.md (Lines 14–36)
 
-- [ ] Task 1.2: Remove `updated_channels` from `GuildSyncResponse` in `shared/schemas/guild.py`
+- [x] Task 1.2: Remove `updated_channels` from `GuildSyncResponse` in `shared/schemas/guild.py`
   - Details: .copilot-tracking/details/20260228-01-remove-channel-refresh-from-guild-sync-details.md (Lines 38–52)
 
-- [ ] Task 1.3: Remove `updated_channels` logging and return value from the sync route in `guilds.py`
+- [x] Task 1.3: Remove `updated_channels` logging and return value from the sync route in `guilds.py`
   - Details: .copilot-tracking/details/20260228-01-remove-channel-refresh-from-guild-sync-details.md (Lines 54–68)
 
-### [ ] Phase 2: Update backend unit tests
+### [x] Phase 2: Update backend unit tests
 
-- [ ] Task 2.1: Update `tests/services/bot/test_guild_sync.py` — remove `updated_channels` assertions and fix `get_guild_channels` call-count expectations
+- [x] Task 2.1: Update `tests/services/bot/test_guild_sync.py` — remove `updated_channels` assertions and fix `get_guild_channels` call-count expectations
   - Details: .copilot-tracking/details/20260228-01-remove-channel-refresh-from-guild-sync-details.md (Lines 71–92)
 
-- [ ] Task 2.2: Update `tests/services/api/routes/test_guilds.py` — remove `updated_channels` from mock return values and assertions
+- [x] Task 2.2: Update `tests/services/api/routes/test_guilds.py` — remove `updated_channels` from mock return values and assertions
   - Details: .copilot-tracking/details/20260228-01-remove-channel-refresh-from-guild-sync-details.md (Lines 94–109)
 
-### [ ] Phase 3: Update frontend code and tests
+### [x] Phase 3: Update frontend code and tests
 
-- [ ] Task 3.1: Remove `updated_channels` from `GuildSyncResponse` interface in `frontend/src/api/guilds.ts`
+- [x] Task 3.1: Remove `updated_channels` from `GuildSyncResponse` interface in `frontend/src/api/guilds.ts`
   - Details: .copilot-tracking/details/20260228-01-remove-channel-refresh-from-guild-sync-details.md (Lines 112–124)
 
-- [ ] Task 3.2: Remove `updated_channels` conditional and message from `frontend/src/pages/GuildListPage.tsx`
+- [x] Task 3.2: Remove `updated_channels` conditional and message from `frontend/src/pages/GuildListPage.tsx`
   - Details: .copilot-tracking/details/20260228-01-remove-channel-refresh-from-guild-sync-details.md (Lines 126–148)
 
-- [ ] Task 3.3: Update `frontend/src/pages/__tests__/GuildListPage.test.tsx`
+- [x] Task 3.3: Update `frontend/src/pages/__tests__/GuildListPage.test.tsx`
   - Details: .copilot-tracking/details/20260228-01-remove-channel-refresh-from-guild-sync-details.md (Lines 150–175)
 
-### [ ] Phase 4: Update e2e tests
+### [x] Phase 4: Update e2e tests
 
-- [ ] Task 4.1: Update `tests/e2e/test_channel_refresh_e2e.py` — replace sync-button channel-population step with the per-guild `GET /{guild_id}/channels?refresh=true` endpoint
+- [x] Task 4.1: Update `tests/e2e/test_channel_refresh_e2e.py` — replace sync-button channel-population step with the per-guild `GET /{guild_id}/channels?refresh=true` endpoint
   - Details: .copilot-tracking/details/20260228-01-remove-channel-refresh-from-guild-sync-details.md (Lines 178–205)
 
-- [ ] Task 4.2: Update docstrings in `tests/e2e/test_guild_sync_e2e.py` that reference channel refresh behaviour
+- [x] Task 4.2: Update docstrings in `tests/e2e/test_guild_sync_e2e.py` that reference channel refresh behaviour
   - Details: .copilot-tracking/details/20260228-01-remove-channel-refresh-from-guild-sync-details.md (Lines 207–218)
 
 ## Dependencies

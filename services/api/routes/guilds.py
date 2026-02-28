@@ -336,16 +336,14 @@ async def sync_guilds(
     await db.commit()
 
     logger.info(
-        "Guild sync completed: %d new guilds, %d new channels, %d updated channels",
+        "Guild sync completed: %d new guilds, %d new channels",
         result["new_guilds"],
         result["new_channels"],
-        result["updated_channels"],
     )
 
     return guild_schemas.GuildSyncResponse(
         new_guilds=result["new_guilds"],
         new_channels=result["new_channels"],
-        updated_channels=result["updated_channels"],
     )
 
 

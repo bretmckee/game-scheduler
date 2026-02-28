@@ -92,21 +92,21 @@ async def test_refresh_creates_new_channels(
     scalars_mock.all = MagicMock(return_value=mock_channels)
     existing_channels_result.scalars = MagicMock(return_value=scalars_mock)
 
-    # Mock updated channels query
+    # Mock final channels query
     new_channel = MagicMock(spec=ChannelConfiguration)
     new_channel.id = "channel-uuid-4"
     new_channel.channel_id = "444444444"
     new_channel.is_active = True
 
-    updated_channels = [*mock_channels, new_channel]
-    updated_channels_result = MagicMock()
-    updated_scalars_mock = MagicMock()
-    updated_scalars_mock.all = MagicMock(return_value=updated_channels)
-    updated_channels_result.scalars = MagicMock(return_value=updated_scalars_mock)
+    all_channels = [*mock_channels, new_channel]
+    all_channels_result = MagicMock()
+    all_channels_scalars_mock = MagicMock()
+    all_channels_scalars_mock.all = MagicMock(return_value=all_channels)
+    all_channels_result.scalars = MagicMock(return_value=all_channels_scalars_mock)
 
     # Configure AsyncMock to return these results in sequence
     mock_db_unit.execute = AsyncMock(
-        side_effect=[guild_result, existing_channels_result, updated_channels_result]
+        side_effect=[guild_result, existing_channels_result, all_channels_result]
     )
 
     with (
@@ -154,14 +154,14 @@ async def test_refresh_marks_deleted_channels_inactive(
     scalars_mock.all = MagicMock(return_value=mock_channels)
     existing_channels_result.scalars = MagicMock(return_value=scalars_mock)
 
-    # Mock updated channels query
-    updated_channels_result = MagicMock()
-    updated_scalars_mock = MagicMock()
-    updated_scalars_mock.all = MagicMock(return_value=mock_channels)
-    updated_channels_result.scalars = MagicMock(return_value=updated_scalars_mock)
+    # Mock final channels query
+    all_channels_result = MagicMock()
+    all_channels_scalars_mock = MagicMock()
+    all_channels_scalars_mock.all = MagicMock(return_value=mock_channels)
+    all_channels_result.scalars = MagicMock(return_value=all_channels_scalars_mock)
 
     mock_db_unit.execute = AsyncMock(
-        side_effect=[guild_result, existing_channels_result, updated_channels_result]
+        side_effect=[guild_result, existing_channels_result, all_channels_result]
     )
 
     with patch("services.api.services.guild_service.get_discord_client") as mock_get_client:
@@ -198,14 +198,14 @@ async def test_refresh_reactivates_channels(
     scalars_mock.all = MagicMock(return_value=mock_channels)
     existing_channels_result.scalars = MagicMock(return_value=scalars_mock)
 
-    # Mock updated channels query
-    updated_channels_result = MagicMock()
-    updated_scalars_mock = MagicMock()
-    updated_scalars_mock.all = MagicMock(return_value=mock_channels)
-    updated_channels_result.scalars = MagicMock(return_value=updated_scalars_mock)
+    # Mock final channels query
+    all_channels_result = MagicMock()
+    all_channels_scalars_mock = MagicMock()
+    all_channels_scalars_mock.all = MagicMock(return_value=mock_channels)
+    all_channels_result.scalars = MagicMock(return_value=all_channels_scalars_mock)
 
     mock_db_unit.execute = AsyncMock(
-        side_effect=[guild_result, existing_channels_result, updated_channels_result]
+        side_effect=[guild_result, existing_channels_result, all_channels_result]
     )
 
     with patch("services.api.services.guild_service.get_discord_client") as mock_get_client:
@@ -242,14 +242,14 @@ async def test_refresh_filters_non_text_channels(
     scalars_mock.all = MagicMock(return_value=mock_channels)
     existing_channels_result.scalars = MagicMock(return_value=scalars_mock)
 
-    # Mock updated channels query
-    updated_channels_result = MagicMock()
-    updated_scalars_mock = MagicMock()
-    updated_scalars_mock.all = MagicMock(return_value=mock_channels)
-    updated_channels_result.scalars = MagicMock(return_value=updated_scalars_mock)
+    # Mock final channels query
+    all_channels_result = MagicMock()
+    all_channels_scalars_mock = MagicMock()
+    all_channels_scalars_mock.all = MagicMock(return_value=mock_channels)
+    all_channels_result.scalars = MagicMock(return_value=all_channels_scalars_mock)
 
     mock_db_unit.execute = AsyncMock(
-        side_effect=[guild_result, existing_channels_result, updated_channels_result]
+        side_effect=[guild_result, existing_channels_result, all_channels_result]
     )
 
     with (
@@ -291,14 +291,14 @@ async def test_refresh_returns_channel_list(
     scalars_mock.all = MagicMock(return_value=mock_channels)
     existing_channels_result.scalars = MagicMock(return_value=scalars_mock)
 
-    # Mock updated channels query
-    updated_channels_result = MagicMock()
-    updated_scalars_mock = MagicMock()
-    updated_scalars_mock.all = MagicMock(return_value=mock_channels[:2])
-    updated_channels_result.scalars = MagicMock(return_value=updated_scalars_mock)
+    # Mock final channels query
+    all_channels_result = MagicMock()
+    all_channels_scalars_mock = MagicMock()
+    all_channels_scalars_mock.all = MagicMock(return_value=mock_channels[:2])
+    all_channels_result.scalars = MagicMock(return_value=all_channels_scalars_mock)
 
     mock_db_unit.execute = AsyncMock(
-        side_effect=[guild_result, existing_channels_result, updated_channels_result]
+        side_effect=[guild_result, existing_channels_result, all_channels_result]
     )
 
     with patch("services.api.services.guild_service.get_discord_client") as mock_get_client:
@@ -372,7 +372,7 @@ async def test_refresh_handles_guild_with_no_channels(
     scalars_mock.all = MagicMock(return_value=[])
     existing_channels_result.scalars = MagicMock(return_value=scalars_mock)
 
-    # Mock updated channels query - new channels created
+    # Mock final channels query - new channels created
     new_channel1 = MagicMock(spec=ChannelConfiguration)
     new_channel1.id = "ch-1"
     new_channel1.channel_id = "111111111"
@@ -383,13 +383,13 @@ async def test_refresh_handles_guild_with_no_channels(
     new_channel2.channel_id = "222222222"
     new_channel2.is_active = True
 
-    updated_channels_result = MagicMock()
-    updated_scalars_mock = MagicMock()
-    updated_scalars_mock.all = MagicMock(return_value=[new_channel1, new_channel2])
-    updated_channels_result.scalars = MagicMock(return_value=updated_scalars_mock)
+    all_channels_result = MagicMock()
+    all_channels_scalars_mock = MagicMock()
+    all_channels_scalars_mock.all = MagicMock(return_value=[new_channel1, new_channel2])
+    all_channels_result.scalars = MagicMock(return_value=all_channels_scalars_mock)
 
     mock_db_unit.execute = AsyncMock(
-        side_effect=[guild_result, existing_channels_result, updated_channels_result]
+        side_effect=[guild_result, existing_channels_result, all_channels_result]
     )
 
     with (

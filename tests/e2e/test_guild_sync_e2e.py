@@ -520,7 +520,7 @@ async def test_sync_creates_all_guilds(
     fresh_guild_sync,
 ):
     """
-    Verify sync creates and refreshes ALL bot guilds globally with RLS isolation.
+    Verify sync creates ALL bot guilds globally with RLS isolation.
 
     The sync endpoint syncs all guilds where the bot is installed,
     regardless of which user calls it. This is a global operation.
@@ -534,7 +534,7 @@ async def test_sync_creates_all_guilds(
     Expected behavior:
     - Any authenticated user calls sync → both Guild A and Guild B are synced
     - Sync is a global operation, not per-user
-    - Both new guilds are created and existing guilds are refreshed
+    - New guilds are created; existing guilds are not modified by sync
     - RLS ensures User A sees only Guild A, User B sees only Guild B
     """
     # Any user syncs - should create BOTH Guild A and Guild B

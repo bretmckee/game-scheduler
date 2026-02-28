@@ -271,8 +271,7 @@ async def sync_all_bot_guilds(
     Returns:
         Dictionary with counts: {
             "new_guilds": number of new guilds created,
-            "new_channels": number of new channels created,
-            "updated_channels": number of channels updated in existing guilds
+            "new_channels": number of new channels created
         }
     """
     # Fetch all bot guilds using bot token
@@ -299,15 +298,7 @@ async def sync_all_bot_guilds(
         new_guilds_count += guilds_created
         new_channels_count += channels_created
 
-    # Refresh channels for existing guilds
-    updated_channels_count = 0
-    existing_guilds_in_bot = bot_guild_ids & existing_guild_ids
-    for guild_discord_id in existing_guilds_in_bot:
-        updated_count = await _refresh_guild_channels(db, discord_client, guild_discord_id)
-        updated_channels_count += updated_count
-
     return {
         "new_guilds": new_guilds_count,
         "new_channels": new_channels_count,
-        "updated_channels": updated_channels_count,
     }

@@ -141,11 +141,11 @@ async def refresh_guild_channels(
         if channel_discord_id not in discord_text_channel_ids and channel.is_active:
             channel.is_active = False
 
-    # Fetch updated channel list
-    updated_channels_result = await db.execute(
+    # Fetch final channel list after all updates
+    all_channels_result = await db.execute(
         select(ChannelConfiguration).where(ChannelConfiguration.guild_id == guild_id)
     )
-    updated_channels = updated_channels_result.scalars().all()
+    all_channels = all_channels_result.scalars().all()
 
     return [
         {
@@ -153,5 +153,5 @@ async def refresh_guild_channels(
             "channel_id": ch.channel_id,
             "is_active": ch.is_active,
         }
-        for ch in updated_channels
+        for ch in all_channels
     ]

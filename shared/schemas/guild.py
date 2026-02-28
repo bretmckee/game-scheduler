@@ -89,6 +89,3 @@ class GuildSyncResponse(BaseModel):
 
     new_guilds: int = Field(..., description="Number of new guilds created")
     new_channels: int = Field(..., description="Number of channels added for new guilds")
-    updated_channels: int = Field(
-        ..., description="Number of channels added/updated for existing guilds"
-    )

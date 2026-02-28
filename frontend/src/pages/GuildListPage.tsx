@@ -56,7 +56,7 @@ export const GuildListPage: FC = () => {
 
       const result: GuildSyncResponse = await syncUserGuilds();
 
-      if (result.new_guilds > 0 || result.new_channels > 0 || result.updated_channels > 0) {
+      if (result.new_guilds > 0 || result.new_channels > 0) {
         const messageParts: string[] = [];
         if (result.new_guilds > 0) {
           messageParts.push(`${result.new_guilds} new server${result.new_guilds > 1 ? 's' : ''}`);
@@ -64,11 +64,6 @@ export const GuildListPage: FC = () => {
         if (result.new_channels > 0) {
           messageParts.push(
             `${result.new_channels} new channel${result.new_channels > 1 ? 's' : ''}`
-          );
-        }
-        if (result.updated_channels > 0) {
-          messageParts.push(
-            `${result.updated_channels} updated channel${result.updated_channels > 1 ? 's' : ''}`
           );
         }
         setSyncMessage(`Synced ${messageParts.join(', ')}`);

@@ -23,7 +23,6 @@ import { apiClient } from './client';
 export interface GuildSyncResponse {
   new_guilds: number;
   new_channels: number;
-  updated_channels: number;
 }
 
 export const syncUserGuilds = async (): Promise<GuildSyncResponse> => {

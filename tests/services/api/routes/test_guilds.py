@@ -551,7 +551,6 @@ class TestSyncGuilds:
             mock_sync.return_value = {
                 "new_guilds": 2,
                 "new_channels": 10,
-                "updated_channels": 0,
             }
 
             result = await guilds.sync_guilds(
@@ -564,7 +563,6 @@ class TestSyncGuilds:
             mock_db.commit.assert_called_once()
             assert result.new_guilds == 2
             assert result.new_channels == 10
-            assert result.updated_channels == 0
 
     @pytest.mark.asyncio
     async def test_sync_guilds_limiter_configured(self):
@@ -611,7 +609,6 @@ class TestSyncGuilds:
             mock_sync.return_value = {
                 "new_guilds": 0,
                 "new_channels": 0,
-                "updated_channels": 0,
             }
 
             result = await guilds.sync_guilds(
@@ -622,7 +619,6 @@ class TestSyncGuilds:
 
             assert result.new_guilds == 0
             assert result.new_channels == 0
-            assert result.updated_channels == 0
             mock_db.commit.assert_called_once()
 
     @pytest.mark.asyncio
@@ -695,7 +691,6 @@ class TestSyncGuilds:
             mock_sync.return_value = {
                 "new_guilds": 1,
                 "new_channels": 5,
-                "updated_channels": 0,
             }
 
             with pytest.raises(Exception) as exc_info:
