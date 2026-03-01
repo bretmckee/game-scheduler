@@ -41,26 +41,26 @@ Add a pre-commit hook (`scripts/check_lint_suppressions.py`) that blocks bare/bl
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Script with TDD
+### [x] Phase 1: Script with TDD
 
-- [ ] Task 1.1: Create stub `scripts/check_lint_suppressions.py`
+- [x] Task 1.1: Create stub `scripts/check_lint_suppressions.py`
   - Details: .copilot-tracking/details/20260301-02-lint-suppression-scanner-details.md (Lines 14-42)
 
-- [ ] Task 1.2: Write failing tests (RED phase)
+- [x] Task 1.2: Write failing tests (RED phase)
   - Details: .copilot-tracking/details/20260301-02-lint-suppression-scanner-details.md (Lines 44-90)
 
-- [ ] Task 1.3: Implement scanning logic, remove xfail markers (GREEN phase)
+- [x] Task 1.3: Implement scanning logic, remove xfail markers (GREEN phase)
   - Details: .copilot-tracking/details/20260301-02-lint-suppression-scanner-details.md (Lines 92-137)
 
-- [ ] Task 1.4: Refactor and add comprehensive edge case tests (REFACTOR phase)
+- [x] Task 1.4: Refactor and add comprehensive edge case tests (REFACTOR phase)
   - Details: .copilot-tracking/details/20260301-02-lint-suppression-scanner-details.md (Lines 139-170)
 
-### [ ] Phase 2: Hook Integration and Documentation
+### [x] Phase 2: Hook Integration and Documentation
 
-- [ ] Task 2.1: Register hook in `.pre-commit-config.yaml`
+- [x] Task 2.1: Register hook in `.pre-commit-config.yaml`
   - Details: .copilot-tracking/details/20260301-02-lint-suppression-scanner-details.md (Lines 172-196)
 
-- [ ] Task 2.2: Update `.github/instructions/quality-check-overrides.instructions.md`
+- [x] Task 2.2: Update `.github/instructions/quality-check-overrides.instructions.md`
   - Details: .copilot-tracking/details/20260301-02-lint-suppression-scanner-details.md (Lines 198-236)
 
 ## Dependencies

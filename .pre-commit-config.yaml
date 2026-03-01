@@ -234,6 +234,13 @@ repos:
         verbose: true
         additional_dependencies: ['pathspec>=1.0.4']
 
+      # Block bare/blanket lint suppressions and gate specific suppressions behind APPROVED_OVERRIDES
+      - id: check-lint-suppressions
+        name: Check for unapproved lint suppressions
+        entry: python scripts/check_lint_suppressions.py
+        language: python
+        pass_filenames: false
+
       # Full scan with detailed console output (manual, for investigation)
       - id: jscpd-full
         name: Full duplicate code check (threshold 2%)

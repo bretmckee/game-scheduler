@@ -39,6 +39,10 @@ The following actions require explanation and explicit user consent before imple
 - **`/* eslint-disable */`**: Disables ESLint for entire file or sections
 - **`// @ts-ignore`**: Suppresses TypeScript errors
 - **`// @ts-expect-error`**: Suppresses expected TypeScript errors
+- **`# noqa: complexipy`**: Suppresses complexipy cognitive complexity check
+- **`#lizard forgives`**: Suppresses all lizard warnings for a function
+- **`#lizard forgives(metric)`**: Suppresses a specific lizard metric for a function
+- **`#lizard forgive global`**: Suppresses all lizard warnings for global code
 - Any inline comment designed to silence warnings or errors
 
 ### Configuration Modifications
@@ -60,6 +64,18 @@ The following actions require explanation and explicit user consent before imple
 - Using `pytest -k` to exclude specific tests
 - Commenting out test cases
 - Modifying test configuration to reduce coverage requirements
+
+## `APPROVED_OVERRIDES` Environment Variable
+
+Some specific (non-blanket) suppression comments are gated rather than permanently blocked.
+The `check-lint-suppressions` pre-commit hook enforces this gate.
+
+- **What it controls**: The number of specific/count-based suppression comments permitted in a single commit
+- **Does NOT apply to bare/blanket suppressions**: Bare suppressions (`# noqa`, `# type: ignore`, `// @ts-ignore`, `/* eslint-disable */`, `#lizard forgive global`, etc.) are always blocked with no override path
+- **Resets per commit**: No banking across commits — each commit requires its own approval
+- **Usage**: `APPROVED_OVERRIDES=2 git commit -m "..."` to permit exactly two specific suppressions in that commit
+
+This mirrors the `APPROVED_SKIP` mechanism for `SKIP`-based bypasses.
 
 ## Required Approval Process
 
@@ -96,6 +112,7 @@ participant validation logic across multiple functions, which would actually
 reduce readability and make the code harder to maintain.
 
 **Alternatives Considered**:
+
 - Extracting validation logic: Would create many small functions with unclear boundaries
 - Simplifying logic: Already using early returns and clear conditionals
 
