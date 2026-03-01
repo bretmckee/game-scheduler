@@ -198,11 +198,15 @@ class TestListTemplates:
             patch(
                 "services.api.services.template_service.TemplateService"
             ) as mock_template_service,
+            patch(
+                "services.api.dependencies.permissions.check_bot_manager_permission",
+                new_callable=AsyncMock,
+            ) as mock_check_manager,
         ):
             mock_get_guild.return_value = mock_guild_config
+            mock_check_manager.return_value = False
 
             mock_role_service = AsyncMock()
-            mock_role_service.has_permissions.return_value = True
             mock_get_role_service.return_value = mock_role_service
 
             mock_discord_client = AsyncMock()
@@ -222,6 +226,48 @@ class TestListTemplates:
             assert len(result) == 1
             assert result[0].name == "Test Template"
             assert result[0].channel_name == "test-channel"
+
+    @pytest.mark.asyncio
+    async def test_list_templates_maintainer_sees_all(
+        self, mock_db, mock_current_user_unit, mock_guild_config, mock_template
+    ):
+        """Maintainer bypasses role filtering and sees all templates."""
+        with (
+            patch("services.api.database.queries.require_guild_by_id") as mock_get_guild,
+            patch("services.api.auth.roles.get_role_service") as mock_get_role_service,
+            patch("shared.discord.client.fetch_channel_name_safe") as mock_fetch,
+            patch(
+                "services.api.services.template_service.TemplateService"
+            ) as mock_template_service,
+            patch(
+                "services.api.dependencies.permissions.check_bot_manager_permission",
+                new_callable=AsyncMock,
+            ) as mock_check_manager,
+        ):
+            mock_get_guild.return_value = mock_guild_config
+            mock_check_manager.return_value = True
+
+            mock_role_service = AsyncMock()
+            mock_get_role_service.return_value = mock_role_service
+
+            mock_discord_client = AsyncMock()
+            mock_fetch.return_value = "test-channel"
+
+            mock_service = AsyncMock()
+            mock_service.get_templates_for_user.return_value = [mock_template]
+            mock_template_service.return_value = mock_service
+
+            result = await templates.list_templates(
+                guild_id=mock_guild_config.id,
+                current_user=mock_current_user_unit,
+                db=mock_db,
+                discord_client=mock_discord_client,
+            )
+
+            assert len(result) == 1
+            mock_service.get_templates_for_user.assert_awaited_once()
+            _, kwargs = mock_service.get_templates_for_user.call_args
+            assert kwargs.get("is_manager") is True
 
     @pytest.mark.asyncio
     async def test_list_templates_guild_not_found(self, mock_db, mock_current_user_unit):

@@ -497,6 +497,34 @@ async def require_bot_manager(
     )
 
 
+async def check_bot_manager_permission(
+    guild_id: str,
+    current_user: auth_schemas.CurrentUser,
+    role_service: roles_module.RoleVerificationService,
+    db: AsyncSession,
+) -> bool:
+    """
+    Return True if user has bot manager permission (including maintainer bypass).
+
+    Boolean wrapper around require_bot_manager for use in contexts that need a
+    predicate rather than an exception-raising dependency.
+
+    Args:
+        guild_id: Database guild UUID or Discord guild ID
+        current_user: Current authenticated user
+        role_service: Role verification service
+        db: Database session
+
+    Returns:
+        True if user has bot manager permission or is a maintainer
+    """
+    try:
+        await require_bot_manager(guild_id, current_user, role_service, db)
+        return True
+    except HTTPException:
+        return False
+
+
 async def require_game_host(
     guild_id: str,
     channel_id: str | None = None,

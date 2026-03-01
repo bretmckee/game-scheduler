@@ -150,6 +150,41 @@ async def test_get_templates_for_user_no_matching_roles(template_service, mock_d
 
 
 @pytest.mark.asyncio
+async def test_get_templates_for_user_is_manager_skips_filtering(template_service, mock_db):
+    """Test that is_manager=True returns all templates without role filtering."""
+    restricted_template = GameTemplate(
+        id="template-uuid-restricted",
+        guild_id="guild-uuid-1",
+        name="Manager Only Template",
+        channel_id="channel-uuid-1",
+        order=1,
+        is_default=False,
+        allowed_host_role_ids=["mgr-role-id"],
+    )
+
+    mock_scalars = Mock()
+    mock_scalars.all.return_value = [restricted_template]
+    mock_result = Mock()
+    mock_result.scalars.return_value = mock_scalars
+    mock_db.execute.return_value = mock_result
+
+    mock_role_service = AsyncMock()
+
+    result = await template_service.get_templates_for_user(
+        guild_id="guild-uuid-1",
+        user_id="user123",
+        discord_guild_id="123456789",
+        role_service=mock_role_service,
+        access_token="access_token",
+        is_manager=True,
+    )
+
+    assert len(result) == 1
+    assert result[0].name == "Manager Only Template"
+    mock_role_service.check_game_host_permission.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_get_templates_for_user_empty_allowed_roles(template_service, mock_db):
     """Test that templates with empty allowed_host_role_ids are visible to everyone."""
     public_template = GameTemplate(

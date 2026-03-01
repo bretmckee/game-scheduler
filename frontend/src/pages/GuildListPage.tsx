@@ -32,21 +32,51 @@ import {
   CircularProgress,
   Alert,
   Button,
+  Switch,
+  FormControlLabel,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { useAuth } from '../hooks/useAuth';
+import { toggleMaintainerMode, refreshMaintainers } from '../api/maintainers';
 import { apiClient } from '../api/client';
 import { syncUserGuilds, GuildSyncResponse } from '../api/guilds';
 import { Guild } from '../types';
 
 export const GuildListPage: FC = () => {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, refreshUser } = useAuth();
   const navigate = useNavigate();
   const [guilds, setGuilds] = useState<Guild[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [confirmRefreshOpen, setConfirmRefreshOpen] = useState(false);
+
+  const handleToggleMaintainer = async () => {
+    try {
+      await toggleMaintainerMode();
+      await refreshUser();
+    } catch (err: any) {
+      console.error('Failed to toggle maintainer mode:', err);
+      setError(err.response?.data?.detail || 'Failed to toggle maintainer mode.');
+    }
+  };
+
+  const handleConfirmRefreshMaintainers = async () => {
+    setConfirmRefreshOpen(false);
+    try {
+      await refreshMaintainers();
+      await refreshUser();
+    } catch (err: any) {
+      console.error('Failed to refresh maintainers:', err);
+      setError(err.response?.data?.detail || 'Failed to refresh maintainers.');
+    }
+  };
 
   const handleSyncGuilds = async () => {
     try {
@@ -151,21 +181,50 @@ export const GuildListPage: FC = () => {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Box>
           <Typography variant="h4" gutterBottom>
-            My Servers
+            {user?.is_maintainer ? 'All Servers (Maintainer Mode)' : 'Your Servers'}
           </Typography>
           <Typography variant="body1" color="text.secondary">
             Select a server to manage game sessions and configurations.
           </Typography>
         </Box>
-        <Button
-          variant="outlined"
-          startIcon={<RefreshIcon />}
-          onClick={handleSyncGuilds}
-          disabled={syncing}
-        >
-          {syncing ? 'Syncing...' : 'Sync Servers and Channels'}
-        </Button>
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+          {user?.can_be_maintainer && (
+            <FormControlLabel
+              control={<Switch checked={!!user?.is_maintainer} onChange={handleToggleMaintainer} />}
+              label="Maintainer Mode"
+            />
+          )}
+          {user?.is_maintainer && (
+            <Button variant="outlined" color="warning" onClick={() => setConfirmRefreshOpen(true)}>
+              Refresh Maintainers
+            </Button>
+          )}
+          <Button
+            variant="outlined"
+            startIcon={<RefreshIcon />}
+            onClick={handleSyncGuilds}
+            disabled={syncing}
+          >
+            {syncing ? 'Syncing...' : 'Sync Servers and Channels'}
+          </Button>
+        </Box>
       </Box>
+
+      <Dialog open={confirmRefreshOpen} onClose={() => setConfirmRefreshOpen(false)}>
+        <DialogTitle>Refresh Maintainers</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            This will refresh the maintainer list and log out all other elevated maintainers.
+            Continue?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmRefreshOpen(false)}>Cancel</Button>
+          <Button onClick={handleConfirmRefreshMaintainers} color="warning" autoFocus>
+            Confirm
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {syncMessage && (
         <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSyncMessage(null)}>

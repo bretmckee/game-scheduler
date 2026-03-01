@@ -50,6 +50,7 @@ class TemplateService:
         discord_guild_id: str,
         role_service: roles_module.RoleVerificationService,
         access_token: str | None = None,
+        is_manager: bool = False,
     ) -> list[GameTemplate]:
         """
         Get templates user can access, sorted for dropdown.
@@ -78,6 +79,9 @@ class TemplateService:
             )
         )
         all_templates = list(result.scalars().all())
+
+        if is_manager:
+            return all_templates
 
         # Filter templates using centralized permission check
         templates = []

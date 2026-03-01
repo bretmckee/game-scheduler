@@ -43,10 +43,10 @@ router = APIRouter(prefix="/api/v1/maintainers", tags=["maintainers"])
 async def toggle_maintainer_mode(
     current_user: Annotated[auth_schemas.CurrentUser, Depends(dependencies.auth.get_current_user)],
 ) -> dict[str, bool]:
-    """Toggle maintainer mode on for the current user.
+    """Toggle maintainer mode for the current user.
 
-    Requires can_be_maintainer in session; re-validates against Discord
-    application info (cached); sets is_maintainer=True on success.
+    Requires can_be_maintainer in session. When enabling, re-validates against
+    Discord application info (cached). When disabling, clears the flag directly.
     """
     redis = await cache_client.get_redis_client()
     session_key = f"session:{current_user.session_token}"
@@ -57,6 +57,14 @@ async def toggle_maintainer_mode(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=err_msg)
 
     discord_id = str(session_data.get("user_id", ""))
+    currently_enabled = bool(session_data.get("is_maintainer"))
+
+    if currently_enabled:
+        session_data["is_maintainer"] = False
+        await redis.set_json(session_key, session_data, ttl=cache_ttl.CacheTTL.SESSION)
+        logger.info("Maintainer mode disabled for user %s", discord_id)
+        return {"is_maintainer": False}
+
     if not await oauth2.is_app_maintainer(discord_id):
         err_msg = "User is not in the application team"
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=err_msg)

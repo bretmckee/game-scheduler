@@ -21,7 +21,6 @@
 
 """Game template endpoints."""
 
-# ruff: noqa: B008
 import logging
 from typing import Annotated
 
@@ -97,8 +96,11 @@ async def list_templates(
         db, guild_id, current_user.access_token, current_user.user.discord_id
     )
 
-    # Get templates with permission filtering
     role_service = roles_module.get_role_service()
+    is_manager = await dependencies.permissions.check_bot_manager_permission(
+        guild_config.guild_id, current_user, role_service, db
+    )
+
     template_svc = template_service_module.TemplateService(db)
     templates = await template_svc.get_templates_for_user(
         guild_id,
@@ -106,18 +108,11 @@ async def list_templates(
         guild_config.guild_id,
         role_service,
         current_user.access_token,
+        is_manager=is_manager,
     )
 
-    # Validate that user has access to at least one template
     if not templates:
-        # Check if user is admin to provide appropriate error message
-        is_admin = await role_service.check_bot_manager_permission(
-            current_user.user.discord_id,
-            guild_config.guild_id,
-            db,
-            current_user.access_token,
-        )
-        if is_admin:
+        if is_manager:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="No templates configured for this server. Please create a template first.",

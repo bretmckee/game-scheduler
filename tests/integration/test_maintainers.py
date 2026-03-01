@@ -152,6 +152,43 @@ async def test_toggle_returns_403_if_not_in_discord_team(
         await cleanup_test_session(session_token)
 
 
+@pytest.mark.asyncio
+async def test_toggle_disables_maintainer_mode(
+    create_user,
+    redis_client_async,
+    api_base_url,
+):
+    """Toggle endpoint sets is_maintainer=False when maintainer mode is already enabled."""
+    create_user(discord_user_id=TEST_MAINTAINER_DISCORD_ID)
+
+    session_token, _ = await create_test_session(
+        TEST_DISCORD_TOKEN,
+        TEST_MAINTAINER_DISCORD_ID,
+        can_be_maintainer=True,
+        is_maintainer=True,
+    )
+
+    try:
+        async with httpx.AsyncClient(
+            base_url=api_base_url,
+            timeout=10.0,
+            cookies={"session_token": session_token},
+        ) as client:
+            response = await client.post("/api/v1/maintainers/toggle")
+
+        assert response.status_code == 200, (
+            f"Expected 200, got {response.status_code}: {response.text}"
+        )
+
+        session_data = await redis_client_async.get_json(f"session:{session_token}")
+        assert session_data is not None, "Session should still exist"
+        assert session_data.get("is_maintainer") is False, (
+            "is_maintainer should be False after toggling off"
+        )
+    finally:
+        await cleanup_test_session(session_token)
+
+
 # ===========================================================================
 # Refresh Endpoint Tests (Task 4.5 — RED phase; xfail against 501 stub)
 # ===========================================================================

@@ -26,6 +26,7 @@ import { GuildListPage } from '../GuildListPage';
 import { AuthContext } from '../../contexts/AuthContext';
 import { CurrentUser, Guild } from '../../types';
 import { apiClient } from '../../api/client';
+import * as maintainersApi from '../../api/maintainers';
 
 const mockNavigate = vi.fn();
 
@@ -38,6 +39,7 @@ vi.mock('react-router-dom', async () => {
 });
 
 vi.mock('../../api/client');
+vi.mock('../../api/maintainers');
 
 describe('GuildListPage', () => {
   const mockGuilds: Guild[] = [
@@ -85,17 +87,21 @@ describe('GuildListPage', () => {
     ],
   };
 
+  const mockRefreshUser = vi.fn();
+
   const mockAuthContextValue = {
     user: mockUser,
     loading: false,
     login: vi.fn(),
     logout: vi.fn(),
-    refreshUser: vi.fn(),
+    refreshUser: mockRefreshUser,
   };
 
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(apiClient.get).mockResolvedValue({ data: { guilds: mockGuilds } });
+    vi.mocked(maintainersApi.toggleMaintainerMode).mockResolvedValue(undefined);
+    vi.mocked(maintainersApi.refreshMaintainers).mockResolvedValue(undefined);
   });
 
   const renderWithAuth = (user: CurrentUser | null = mockUser, loading = false) => {
@@ -122,7 +128,7 @@ describe('GuildListPage', () => {
   it('renders guild list when user has guilds', async () => {
     renderWithAuth();
     await waitFor(() => {
-      expect(screen.getByText('My Servers')).toBeInTheDocument();
+      expect(screen.getByText('Your Servers')).toBeInTheDocument();
     });
     expect(screen.getByText('Test Guild 1')).toBeInTheDocument();
     expect(screen.getByText('Test Guild 2')).toBeInTheDocument();
@@ -152,7 +158,7 @@ describe('GuildListPage', () => {
   it('displays success message with new guilds and channels on sync', async () => {
     renderWithAuth();
     await waitFor(() => {
-      expect(screen.getByText('My Servers')).toBeInTheDocument();
+      expect(screen.getByText('Your Servers')).toBeInTheDocument();
     });
 
     vi.mocked(apiClient.post).mockResolvedValue({
@@ -170,7 +176,7 @@ describe('GuildListPage', () => {
   it('displays success message with updated channels on sync', async () => {
     renderWithAuth();
     await waitFor(() => {
-      expect(screen.getByText('My Servers')).toBeInTheDocument();
+      expect(screen.getByText('Your Servers')).toBeInTheDocument();
     });
 
     vi.mocked(apiClient.post).mockResolvedValue({
@@ -188,7 +194,7 @@ describe('GuildListPage', () => {
   it('displays success message when all synced', async () => {
     renderWithAuth();
     await waitFor(() => {
-      expect(screen.getByText('My Servers')).toBeInTheDocument();
+      expect(screen.getByText('Your Servers')).toBeInTheDocument();
     });
 
     vi.mocked(apiClient.post).mockResolvedValue({
@@ -206,7 +212,7 @@ describe('GuildListPage', () => {
   it('handles proper pluralization in sync messages', async () => {
     renderWithAuth();
     await waitFor(() => {
-      expect(screen.getByText('My Servers')).toBeInTheDocument();
+      expect(screen.getByText('Your Servers')).toBeInTheDocument();
     });
 
     vi.mocked(apiClient.post).mockResolvedValue({
@@ -218,6 +224,106 @@ describe('GuildListPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Synced 2 new servers, 1 new channel/)).toBeInTheDocument();
+    });
+  });
+
+  it('shows maintainer toggle for can_be_maintainer user', async () => {
+    const maintainerUser: CurrentUser = { ...mockUser, can_be_maintainer: true };
+    renderWithAuth(maintainerUser);
+    await waitFor(() => {
+      expect(screen.getByText('Maintainer Mode')).toBeInTheDocument();
+    });
+  });
+
+  it('does not show maintainer toggle for regular user', async () => {
+    renderWithAuth();
+    await waitFor(() => {
+      expect(screen.getByText('Your Servers')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('Maintainer Mode')).not.toBeInTheDocument();
+  });
+
+  it('shows All Servers title when is_maintainer is true', async () => {
+    const maintainerUser: CurrentUser = {
+      ...mockUser,
+      can_be_maintainer: true,
+      is_maintainer: true,
+    };
+    renderWithAuth(maintainerUser);
+    await waitFor(() => {
+      expect(screen.getByText('All Servers (Maintainer Mode)')).toBeInTheDocument();
+    });
+  });
+
+  it('calls toggleMaintainerMode and refreshUser when toggle clicked', async () => {
+    const maintainerUser: CurrentUser = { ...mockUser, can_be_maintainer: true };
+    renderWithAuth(maintainerUser);
+    await waitFor(() => {
+      expect(screen.getByText('Maintainer Mode')).toBeInTheDocument();
+    });
+    await userEvent.click(screen.getByText('Maintainer Mode'));
+    await waitFor(() => {
+      expect(maintainersApi.toggleMaintainerMode).toHaveBeenCalledTimes(1);
+      expect(mockRefreshUser).toHaveBeenCalled();
+    });
+  });
+
+  it('shows error when toggleMaintainerMode fails', async () => {
+    vi.mocked(maintainersApi.toggleMaintainerMode).mockRejectedValue({
+      response: { data: { detail: 'Not authorized' } },
+    });
+    const maintainerUser: CurrentUser = { ...mockUser, can_be_maintainer: true };
+    renderWithAuth(maintainerUser);
+    await waitFor(() => {
+      expect(screen.getByText('Maintainer Mode')).toBeInTheDocument();
+    });
+    await userEvent.click(screen.getByText('Maintainer Mode'));
+    await waitFor(() => {
+      expect(screen.getByText('Not authorized')).toBeInTheDocument();
+    });
+  });
+
+  it('calls refreshMaintainers and refreshUser via confirm dialog', async () => {
+    const maintainerUser: CurrentUser = {
+      ...mockUser,
+      can_be_maintainer: true,
+      is_maintainer: true,
+    };
+    renderWithAuth(maintainerUser);
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Refresh Maintainers/i })).toBeInTheDocument();
+    });
+    await userEvent.click(screen.getByRole('button', { name: /Refresh Maintainers/i }));
+    await waitFor(() => {
+      expect(screen.getByText(/This will refresh the maintainer list/)).toBeInTheDocument();
+    });
+    await userEvent.click(screen.getByRole('button', { name: /Confirm/i }));
+    await waitFor(() => {
+      expect(maintainersApi.refreshMaintainers).toHaveBeenCalledTimes(1);
+      expect(mockRefreshUser).toHaveBeenCalled();
+    });
+  });
+
+  it('shows error when refreshMaintainers fails', async () => {
+    vi.mocked(maintainersApi.refreshMaintainers).mockRejectedValue({
+      response: { data: { detail: 'Refresh failed' } },
+    });
+    const maintainerUser: CurrentUser = {
+      ...mockUser,
+      can_be_maintainer: true,
+      is_maintainer: true,
+    };
+    renderWithAuth(maintainerUser);
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Refresh Maintainers/i })).toBeInTheDocument();
+    });
+    await userEvent.click(screen.getByRole('button', { name: /Refresh Maintainers/i }));
+    await waitFor(() => {
+      expect(screen.getByText(/This will refresh the maintainer list/)).toBeInTheDocument();
+    });
+    await userEvent.click(screen.getByRole('button', { name: /Confirm/i }));
+    await waitFor(() => {
+      expect(screen.getByText('Refresh failed')).toBeInTheDocument();
     });
   });
 });

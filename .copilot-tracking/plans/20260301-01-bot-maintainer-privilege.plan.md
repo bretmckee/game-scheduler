@@ -134,21 +134,21 @@ Add a dual-flag (`can_be_maintainer` / `is_maintainer`) privilege system allowin
 - [x] Task 4.6: Implement refresh endpoint and remove xfail markers (GREEN)
   - Details: .copilot-tracking/details/20260301-01-bot-maintainer-privilege-details.md (Lines 311-324)
 
-### [ ] Phase 5: Frontend
+### [x] Phase 5: Frontend
 
-- [ ] Task 5.1: Add `can_be_maintainer` / `is_maintainer` to `CurrentUser` interface
+- [x] Task 5.1: Add `can_be_maintainer` / `is_maintainer` to `CurrentUser` interface
   - Details: .copilot-tracking/details/20260301-01-bot-maintainer-privilege-details.md (Lines 328-339)
 
-- [ ] Task 5.2: Create `frontend/src/api/maintainers.ts` stub module
+- [x] Task 5.2: Create `frontend/src/api/maintainers.ts` stub module
   - Details: .copilot-tracking/details/20260301-01-bot-maintainer-privilege-details.md (Lines 340-351)
 
-- [ ] Task 5.3: Write Vitest `test.failing` tests for `maintainers.ts` (RED)
+- [x] Task 5.3: Write Vitest `test.failing` tests for `maintainers.ts` (RED)
   - Details: .copilot-tracking/details/20260301-01-bot-maintainer-privilege-details.md (Lines 352-363)
 
-- [ ] Task 5.4: Implement `maintainers.ts` and remove `test.failing` markers (GREEN)
+- [x] Task 5.4: Implement `maintainers.ts` and remove `test.failing` markers (GREEN)
   - Details: .copilot-tracking/details/20260301-01-bot-maintainer-privilege-details.md (Lines 364-376)
 
-- [ ] Task 5.5: Add maintainer controls to `GuildListPage.tsx`
+- [x] Task 5.5: Add maintainer controls to `GuildListPage.tsx`
   - Details: .copilot-tracking/details/20260301-01-bot-maintainer-privilege-details.md (Lines 377-395)
 
 ## Dependencies

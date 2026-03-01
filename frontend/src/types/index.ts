@@ -137,6 +137,8 @@ export interface CurrentUser {
   discriminator?: string;
   avatar?: string | null;
   guilds?: DiscordGuild[];
+  can_be_maintainer?: boolean;
+  is_maintainer?: boolean;
 }
 
 export interface DiscordGuild {
