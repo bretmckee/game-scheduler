@@ -71,7 +71,7 @@ def mock_game():
     return game
 
 
-def test_export_game_as_host_success(app, mock_user, mock_game):
+def test_export_game_as_host_success(app, mock_user, mock_game, mock_get_user_tokens):
     """Test successful export of game as host."""
     mock_ical = b"BEGIN:VCALENDAR\r\nVERSION:2.0\r\nEND:VCALENDAR\r\n"
 
@@ -133,7 +133,7 @@ def test_export_game_as_host_success(app, mock_user, mock_game):
         app.dependency_overrides.clear()
 
 
-def test_export_game_not_found(app, mock_user):
+def test_export_game_not_found(app, mock_user, mock_get_user_tokens):
     """Test export of non-existent game returns 404."""
     # Mock database session returning None
     mock_db = AsyncMock()
@@ -179,7 +179,7 @@ def test_export_game_not_found(app, mock_user):
         app.dependency_overrides.clear()
 
 
-def test_export_game_permission_denied(app, mock_user, mock_game):
+def test_export_game_permission_denied(app, mock_user, mock_game, mock_get_user_tokens):
     """Test export without permission returns 403."""
     # User is not host or participant
     mock_game.host_id = "different-user"
@@ -238,7 +238,7 @@ def test_export_game_permission_denied(app, mock_user, mock_game):
         app.dependency_overrides.clear()
 
 
-def test_export_game_as_participant(app, mock_user, mock_game):
+def test_export_game_as_participant(app, mock_user, mock_game, mock_get_user_tokens):
     """Test successful export as participant."""
     mock_ical = b"BEGIN:VCALENDAR\r\nVERSION:2.0\r\nEND:VCALENDAR\r\n"
 

@@ -78,7 +78,12 @@ class TestListGuilds:
 
     @pytest.mark.asyncio
     async def test_list_guilds_success(
-        self, mock_db, mock_current_user_unit, mock_guild_config, mock_user_guilds
+        self,
+        mock_db,
+        mock_current_user_unit,
+        mock_guild_config,
+        mock_user_guilds,
+        mock_get_user_tokens,
     ):
         """Test listing guilds with configurations."""
         with (
@@ -95,7 +100,9 @@ class TestListGuilds:
             assert result.guilds[0].guild_name == "Test Guild"
 
     @pytest.mark.asyncio
-    async def test_list_guilds_no_configs(self, mock_db, mock_current_user_unit, mock_user_guilds):
+    async def test_list_guilds_no_configs(
+        self, mock_db, mock_current_user_unit, mock_user_guilds, mock_get_user_tokens
+    ):
         """Test listing guilds when no configurations exist."""
         with (
             patch("services.api.auth.oauth2.get_user_guilds") as mock_get_guilds,

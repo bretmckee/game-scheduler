@@ -50,6 +50,15 @@ from shared.utils.security_constants import (
 logger = logging.getLogger(__name__)
 
 
+async def _get_user_guilds(current_user: auth_schemas.CurrentUser) -> list[dict]:
+    """Fetch the guild list for the current user, using the bot token for maintainers."""
+    token_data = await tokens.get_user_tokens(current_user.session_token)
+    if not token_data:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No session found")
+    access_token = tokens.get_guild_token(token_data)
+    return await oauth2.get_user_guilds(access_token, current_user.user.discord_id)
+
+
 async def _check_guild_membership(user_discord_id: str, guild_id: str, access_token: str) -> bool:
     """
     Check if user is a member of a Discord guild (low-level helper).
@@ -97,12 +106,7 @@ async def verify_guild_membership(
         HTTPException(404): If user is not a member of the guild
         HTTPException(401): If session token is invalid
     """
-    token_data = await tokens.get_user_tokens(current_user.session_token)
-    if not token_data:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No session found")
-
-    access_token = token_data["access_token"]
-    user_guilds = await oauth2.get_user_guilds(access_token, current_user.user.discord_id)
+    user_guilds = await _get_user_guilds(current_user)
 
     is_member = any(g["id"] == guild_id for g in user_guilds)
 
@@ -308,6 +312,9 @@ async def _require_permission(
     if not token_data:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired")
 
+    if token_data.get("is_maintainer"):
+        return current_user
+
     access_token = token_data["access_token"]
     discord_guild_id = await _resolve_guild_id(
         guild_id, db, access_token, current_user.user.discord_id
@@ -440,12 +447,7 @@ async def get_guild_name(
     Raises:
         HTTPException(401): If session token is invalid
     """
-    token_data = await tokens.get_user_tokens(current_user.session_token)
-    if not token_data:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No session found")
-
-    access_token = token_data["access_token"]
-    user_guilds = await oauth2.get_user_guilds(access_token, current_user.user.discord_id)
+    user_guilds = await _get_user_guilds(current_user)
     user_guilds_dict = {g["id"]: g for g in user_guilds}
 
     return user_guilds_dict.get(guild_discord_id, {}).get("name", "Unknown Guild")
@@ -530,6 +532,9 @@ async def require_game_host(
     if not token_data:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired")
 
+    if token_data.get("is_maintainer"):
+        return current_user
+
     access_token = token_data["access_token"]
 
     has_permission = await role_service.check_game_host_permission(
@@ -590,6 +595,8 @@ async def can_manage_game(
         return True
 
     token_data = await tokens.get_user_tokens(current_user.session_token)
+    if token_data and token_data.get("is_maintainer"):
+        return True
     access_token = token_data["access_token"] if token_data else None
 
     return await role_service.check_bot_manager_permission(
@@ -679,6 +686,9 @@ async def require_administrator(
     token_data = await tokens.get_user_tokens(current_user.session_token)
     if not token_data:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired")
+
+    if token_data.get("is_maintainer"):
+        return current_user
 
     access_token = token_data["access_token"]
 

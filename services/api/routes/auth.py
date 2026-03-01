@@ -242,9 +242,11 @@ async def get_user_info(
     else:
         access_token = token_data["access_token"]
 
+    guild_token = tokens.get_guild_token({**token_data, "access_token": access_token})
+
     try:
         user_info = await oauth2.get_user_from_token(access_token)
-        guilds = await oauth2.get_user_guilds(access_token, current_user.user.discord_id)
+        guilds = await oauth2.get_user_guilds(guild_token, current_user.user.discord_id)
 
         return auth_schemas.UserInfoResponse(
             id=user_info["id"],
@@ -252,6 +254,8 @@ async def get_user_info(
             username=user_info["username"],
             avatar=user_info.get("avatar"),
             guilds=guilds,
+            can_be_maintainer=bool(token_data.get("can_be_maintainer")),
+            is_maintainer=bool(token_data.get("is_maintainer")),
         )
     except Exception as e:
         logger.error("Failed to fetch user info: %s", e)

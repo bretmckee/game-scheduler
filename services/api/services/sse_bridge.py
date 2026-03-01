@@ -144,7 +144,8 @@ class SSEGameUpdateBridge:
                 if not token_data:
                     disconnected_clients.append(client_id)
                     continue
-                user_guilds = await oauth2.get_user_guilds(token_data["access_token"], discord_id)
+                guild_token = tokens.get_guild_token(token_data)
+                user_guilds = await oauth2.get_user_guilds(guild_token, discord_id)
                 user_guild_ids = {g["id"] for g in user_guilds}
 
                 logger.info(

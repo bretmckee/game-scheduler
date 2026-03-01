@@ -233,7 +233,7 @@ async def is_token_expired(expires_at: datetime) -> bool:
 
 
 def get_guild_token(session_data: dict) -> str:
-    """Return the bot token for maintainers or the decrypted OAuth token otherwise."""
+    """Return the bot token for maintainers or the OAuth token otherwise."""
     if session_data.get("is_maintainer"):
         return config.get_api_config().discord_bot_token
-    return decrypt_token(session_data["access_token"])
+    return session_data["access_token"]

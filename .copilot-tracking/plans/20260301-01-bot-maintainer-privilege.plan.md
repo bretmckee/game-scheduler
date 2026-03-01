@@ -97,21 +97,21 @@ Add a dual-flag (`can_be_maintainer` / `is_maintainer`) privilege system allowin
 - [x] Task 2.8: Update OAuth callback to pass `can_be_maintainer` to `store_user_tokens()`
   - Details: .copilot-tracking/details/20260301-01-bot-maintainer-privilege-details.md (Lines 162-175)
 
-### [ ] Phase 3: Route and Permission Updates
+### [x] Phase 3: Route and Permission Updates
 
-- [ ] Task 3.1: Update `get_user_info()` — split token variable and extend `UserInfoResponse`
+- [x] Task 3.1: Update `get_user_info()` — split token variable and extend `UserInfoResponse`
   - Details: .copilot-tracking/details/20260301-01-bot-maintainer-privilege-details.md (Lines 178-191)
 
-- [ ] Task 3.2: Update `services/api/dependencies/permissions.py` — `get_guild_token()` and `is_maintainer` short-circuits
+- [x] Task 3.2: Update `services/api/dependencies/permissions.py` — `get_guild_token()` and `is_maintainer` short-circuits
   - Details: .copilot-tracking/details/20260301-01-bot-maintainer-privilege-details.md (Lines 192-208)
 
-- [ ] Task 3.3: Update `services/api/services/sse_bridge.py` at line 147
+- [x] Task 3.3: Update `services/api/services/sse_bridge.py` at line 147
   - Details: .copilot-tracking/details/20260301-01-bot-maintainer-privilege-details.md (Lines 209-220)
 
-- [ ] Task 3.4: Update `shared/database.py` `get_db_with_user_guilds()`
+- [x] Task 3.4: Update `shared/database.py` `get_db_with_user_guilds()`
   - Details: .copilot-tracking/details/20260301-01-bot-maintainer-privilege-details.md (Lines 221-232)
 
-- [ ] Task 3.5: Update `services/api/routes/guilds.py` `list_guilds()`
+- [x] Task 3.5: Update `services/api/routes/guilds.py` `list_guilds()`
   - Details: .copilot-tracking/details/20260301-01-bot-maintainer-privilege-details.md (Lines 233-245)
 
 ### [x] Phase 4: New Maintainer API Endpoints

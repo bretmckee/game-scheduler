@@ -28,7 +28,7 @@ from collections.abc import AsyncGenerator, Generator
 from contextlib import contextmanager
 from typing import Any
 
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 from sqlalchemy import create_engine as create_sync_engine
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -140,13 +140,17 @@ def get_db_with_user_guilds() -> Any:  # noqa: ANN401
         """Inner dependency that receives current_user and provides DB session."""
         from services.api.auth import (  # noqa: PLC0415 - avoid circular dependency
             oauth2,
+            tokens,
         )
         from services.api.database import queries  # noqa: PLC0415
 
+        token_data = await tokens.get_user_tokens(current_user.session_token)
+        if not token_data:
+            raise HTTPException(status_code=401, detail="No session found")
+        guild_token = tokens.get_guild_token(token_data)
+
         # Fetch user's guilds (cached with 5-min TTL) - returns Discord IDs
-        user_guilds = await oauth2.get_user_guilds(
-            current_user.access_token, current_user.user.discord_id
-        )
+        user_guilds = await oauth2.get_user_guilds(guild_token, current_user.user.discord_id)
         discord_guild_ids = [g["id"] for g in user_guilds]
 
         # Set up RLS context and convert Discord IDs to database UUIDs

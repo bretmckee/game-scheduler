@@ -31,7 +31,7 @@ from slowapi.util import get_remote_address
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.api import dependencies
-from services.api.auth import oauth2
+from services.api.auth import oauth2, tokens
 from services.api.config import get_api_config
 from services.api.database import queries
 from services.api.dependencies import permissions
@@ -84,9 +84,12 @@ async def list_guilds(
 
     Returns guild configurations with current settings.
     """
+    token_data = await tokens.get_user_tokens(current_user.session_token)
+    if not token_data:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No session found")
     # Get guilds with automatic caching from discord client
     user_guilds = await oauth2.get_user_guilds(
-        current_user.access_token, current_user.user.discord_id
+        tokens.get_guild_token(token_data), current_user.user.discord_id
     )
     user_guilds_dict = {g["id"]: g for g in user_guilds}
 

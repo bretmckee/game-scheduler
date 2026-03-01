@@ -989,6 +989,32 @@ def mock_current_user_unit():
 
 
 @pytest.fixture
+def mock_get_user_tokens():
+    """
+    Patch tokens.get_user_tokens for unit/route tests that should not hit Redis.
+
+    Returns the patch context so callers do not need to know the full target path.
+    Use this fixture whenever the code under test reaches get_db_with_user_guilds(),
+    list_guilds(), verify_guild_membership(), or any other path that calls
+    tokens.get_user_tokens() internally.
+    """
+    token_data = {
+        "user_id": "123456789",
+        "access_token": "test_access_token",
+        "refresh_token": "test_refresh_token",
+        "expires_at": datetime(2099, 1, 1),
+        "can_be_maintainer": False,
+        "is_maintainer": False,
+    }
+    with patch(
+        "services.api.auth.tokens.get_user_tokens",
+        new_callable=AsyncMock,
+        return_value=token_data,
+    ) as mock:
+        yield mock
+
+
+@pytest.fixture
 def mock_role_service():
     """
     Mock role checking service for permission tests.

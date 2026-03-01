@@ -54,7 +54,9 @@ def mock_user_guilds():
 
 
 @pytest.mark.asyncio
-async def test_get_db_with_user_guilds_sets_context(mock_current_user, mock_user_guilds):
+async def test_get_db_with_user_guilds_sets_context(
+    mock_current_user, mock_user_guilds, mock_get_user_tokens
+):
     """Enhanced dependency sets guild_ids in ContextVar."""
     mock_db_session = AsyncMock()
 
@@ -82,7 +84,9 @@ async def test_get_db_with_user_guilds_sets_context(mock_current_user, mock_user
 
 
 @pytest.mark.asyncio
-async def test_get_db_with_user_guilds_clears_context_on_exit(mock_current_user, mock_user_guilds):
+async def test_get_db_with_user_guilds_clears_context_on_exit(
+    mock_current_user, mock_user_guilds, mock_get_user_tokens
+):
     """Enhanced dependency clears ContextVar in finally block."""
     mock_db_session = AsyncMock()
 
@@ -106,7 +110,7 @@ async def test_get_db_with_user_guilds_clears_context_on_exit(mock_current_user,
 
 @pytest.mark.asyncio
 async def test_get_db_with_user_guilds_clears_context_on_exception(
-    mock_current_user, mock_user_guilds
+    mock_current_user, mock_user_guilds, mock_get_user_tokens
 ):
     """Enhanced dependency clears ContextVar even if exception raised."""
     mock_db_session = AsyncMock()

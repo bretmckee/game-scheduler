@@ -33,8 +33,8 @@ BOT_TOKEN = "Bot.test.token"
 def _make_session(*, is_maintainer: bool = False) -> dict:
     return {
         "user_id": "123",
-        "access_token": "enc_oauth_token",
-        "refresh_token": "enc_refresh",
+        "access_token": "plain_oauth_token",
+        "refresh_token": "plain_refresh",
         "expires_at": "2099-01-01T00:00:00",
         "can_be_maintainer": True,
         "is_maintainer": is_maintainer,
@@ -45,10 +45,7 @@ def test_get_guild_token_returns_bot_token_for_maintainer():
     """Test that a maintainer session returns the bot token."""
     session = _make_session(is_maintainer=True)
 
-    with (
-        patch("services.api.auth.tokens.config") as mock_cfg,
-        patch("services.api.auth.tokens.decrypt_token", return_value="decrypted_oauth"),
-    ):
+    with patch("services.api.auth.tokens.config") as mock_cfg:
         mock_cfg.get_api_config.return_value.discord_bot_token = BOT_TOKEN
         result = tokens.get_guild_token(session)
 
@@ -56,28 +53,26 @@ def test_get_guild_token_returns_bot_token_for_maintainer():
 
 
 def test_get_guild_token_returns_oauth_token_for_regular_user():
-    """Test that a non-maintainer session returns the decrypted OAuth token."""
+    """Test that a non-maintainer session returns the OAuth token."""
     session = _make_session(is_maintainer=False)
 
-    with patch("services.api.auth.tokens.decrypt_token", return_value="decrypted_oauth"):
-        result = tokens.get_guild_token(session)
+    result = tokens.get_guild_token(session)
 
-    assert result == "decrypted_oauth"
+    assert result == "plain_oauth_token"
 
 
 def test_get_guild_token_returns_oauth_token_when_flag_missing():
-    """Test that a session without is_maintainer falls back to OAuth token."""
+    """Test that a session without is_maintainer falls back to the OAuth token."""
     session = {
         "user_id": "123",
-        "access_token": "enc_oauth_token",
-        "refresh_token": "enc_refresh",
+        "access_token": "plain_oauth_token",
+        "refresh_token": "plain_refresh",
         "expires_at": "2099-01-01T00:00:00",
     }
 
-    with patch("services.api.auth.tokens.decrypt_token", return_value="decrypted_oauth"):
-        result = tokens.get_guild_token(session)
+    result = tokens.get_guild_token(session)
 
-    assert result == "decrypted_oauth"
+    assert result == "plain_oauth_token"
 
 
 @pytest.mark.asyncio

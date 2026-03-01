@@ -67,6 +67,8 @@ class UserInfoResponse(BaseModel):
     username: str = Field(..., description="Discord username")
     avatar: str | None = Field(None, description="Avatar hash")
     guilds: list[dict] = Field(default_factory=list, description="User's guilds")
+    can_be_maintainer: bool = Field(False, description="User can enable maintainer mode")
+    is_maintainer: bool = Field(False, description="User has maintainer mode active")
 
 
 class CurrentUser(BaseModel):
