@@ -54,47 +54,47 @@ Add a dual-flag (`can_be_maintainer` / `is_maintainer`) privilege system allowin
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Shared Infrastructure
+### [x] Phase 1: Shared Infrastructure
 
-- [ ] Task 1.1: Add `APP_INFO = 3600` to `CacheTTL` in `shared/cache/ttl.py`
+- [x] Task 1.1: Add `APP_INFO = 3600` to `CacheTTL` in `shared/cache/ttl.py`
   - Details: .copilot-tracking/details/20260301-01-bot-maintainer-privilege-details.md (Lines 13-24)
 
-- [ ] Task 1.2: Add `app_info()` static method to `CacheKeys` in `shared/cache/keys.py`
+- [x] Task 1.2: Add `app_info()` static method to `CacheKeys` in `shared/cache/keys.py`
   - Details: .copilot-tracking/details/20260301-01-bot-maintainer-privilege-details.md (Lines 25-36)
 
-- [ ] Task 1.3: Add `get_application_info()` stub to `DiscordAPIClient` in `shared/discord/client.py`
+- [x] Task 1.3: Add `get_application_info()` stub to `DiscordAPIClient` in `shared/discord/client.py`
   - Details: .copilot-tracking/details/20260301-01-bot-maintainer-privilege-details.md (Lines 37-46)
 
-- [ ] Task 1.4: Write xfail tests for `get_application_info()` (RED)
+- [x] Task 1.4: Write xfail tests for `get_application_info()` (RED)
   - Details: .copilot-tracking/details/20260301-01-bot-maintainer-privilege-details.md (Lines 47-58)
 
-- [ ] Task 1.5: Implement `get_application_info()` and remove xfail markers (GREEN)
+- [x] Task 1.5: Implement `get_application_info()` and remove xfail markers (GREEN)
   - Details: .copilot-tracking/details/20260301-01-bot-maintainer-privilege-details.md (Lines 59-72)
 
-### [ ] Phase 2: Auth Helper Functions
+### [x] Phase 2: Auth Helper Functions
 
-- [ ] Task 2.1: Add `is_app_maintainer()` stub to `services/api/auth/oauth2.py`
+- [x] Task 2.1: Add `is_app_maintainer()` stub to `services/api/auth/oauth2.py`
   - Details: .copilot-tracking/details/20260301-01-bot-maintainer-privilege-details.md (Lines 76-87)
 
-- [ ] Task 2.2: Write xfail tests for `is_app_maintainer()` (RED)
+- [x] Task 2.2: Write xfail tests for `is_app_maintainer()` (RED)
   - Details: .copilot-tracking/details/20260301-01-bot-maintainer-privilege-details.md (Lines 88-99)
 
-- [ ] Task 2.3: Implement `is_app_maintainer()` and remove xfail markers (GREEN)
+- [x] Task 2.3: Implement `is_app_maintainer()` and remove xfail markers (GREEN)
   - Details: .copilot-tracking/details/20260301-01-bot-maintainer-privilege-details.md (Lines 100-111)
 
-- [ ] Task 2.4: Add `get_guild_token()` stub to `services/api/auth/tokens.py`
+- [x] Task 2.4: Add `get_guild_token()` stub to `services/api/auth/tokens.py`
   - Details: .copilot-tracking/details/20260301-01-bot-maintainer-privilege-details.md (Lines 113-124)
 
-- [ ] Task 2.5: Write xfail tests for `get_guild_token()` (RED)
+- [x] Task 2.5: Write xfail tests for `get_guild_token()` (RED)
   - Details: .copilot-tracking/details/20260301-01-bot-maintainer-privilege-details.md (Lines 125-136)
 
-- [ ] Task 2.6: Implement `get_guild_token()` and remove xfail markers (GREEN)
+- [x] Task 2.6: Implement `get_guild_token()` and remove xfail markers (GREEN)
   - Details: .copilot-tracking/details/20260301-01-bot-maintainer-privilege-details.md (Lines 137-147)
 
-- [ ] Task 2.7: Update `store_user_tokens()` / `get_user_tokens()` with TDD cycle
+- [x] Task 2.7: Update `store_user_tokens()` / `get_user_tokens()` with TDD cycle
   - Details: .copilot-tracking/details/20260301-01-bot-maintainer-privilege-details.md (Lines 148-161)
 
-- [ ] Task 2.8: Update OAuth callback to pass `can_be_maintainer` to `store_user_tokens()`
+- [x] Task 2.8: Update OAuth callback to pass `can_be_maintainer` to `store_user_tokens()`
   - Details: .copilot-tracking/details/20260301-01-bot-maintainer-privilege-details.md (Lines 162-175)
 
 ### [ ] Phase 3: Route and Permission Updates
@@ -114,24 +114,24 @@ Add a dual-flag (`can_be_maintainer` / `is_maintainer`) privilege system allowin
 - [ ] Task 3.5: Update `services/api/routes/guilds.py` `list_guilds()`
   - Details: .copilot-tracking/details/20260301-01-bot-maintainer-privilege-details.md (Lines 233-245)
 
-### [ ] Phase 4: New Maintainer API Endpoints
+### [x] Phase 4: New Maintainer API Endpoints
 
-- [ ] Task 4.1: Create `POST /api/v1/maintainers/toggle` stub (501)
+- [x] Task 4.1: Create `POST /api/v1/maintainers/toggle` stub (501)
   - Details: .copilot-tracking/details/20260301-01-bot-maintainer-privilege-details.md (Lines 249-261)
 
-- [ ] Task 4.2: Write xfail integration tests for toggle endpoint (RED)
+- [x] Task 4.2: Write xfail integration tests for toggle endpoint (RED)
   - Details: .copilot-tracking/details/20260301-01-bot-maintainer-privilege-details.md (Lines 262-273)
 
-- [ ] Task 4.3: Implement toggle endpoint and remove xfail markers (GREEN)
+- [x] Task 4.3: Implement toggle endpoint and remove xfail markers (GREEN)
   - Details: .copilot-tracking/details/20260301-01-bot-maintainer-privilege-details.md (Lines 274-286)
 
-- [ ] Task 4.4: Create `POST /api/v1/maintainers/refresh` stub (501)
+- [x] Task 4.4: Create `POST /api/v1/maintainers/refresh` stub (501)
   - Details: .copilot-tracking/details/20260301-01-bot-maintainer-privilege-details.md (Lines 287-298)
 
-- [ ] Task 4.5: Write xfail integration tests for refresh endpoint (RED)
+- [x] Task 4.5: Write xfail integration tests for refresh endpoint (RED)
   - Details: .copilot-tracking/details/20260301-01-bot-maintainer-privilege-details.md (Lines 299-310)
 
-- [ ] Task 4.6: Implement refresh endpoint and remove xfail markers (GREEN)
+- [x] Task 4.6: Implement refresh endpoint and remove xfail markers (GREEN)
   - Details: .copilot-tracking/details/20260301-01-bot-maintainer-privilege-details.md (Lines 311-324)
 
 ### [ ] Phase 5: Frontend

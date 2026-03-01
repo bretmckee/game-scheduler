@@ -86,7 +86,11 @@ def decrypt_token(encrypted_token: str) -> str:
 
 
 async def store_user_tokens(
-    user_id: str, access_token: str, refresh_token: str, expires_in: int
+    user_id: str,
+    access_token: str,
+    refresh_token: str,
+    expires_in: int,
+    can_be_maintainer: bool = False,
 ) -> str:
     """
     Store user OAuth2 tokens in Redis session.
@@ -108,11 +112,13 @@ async def store_user_tokens(
 
     expiry = datetime.now(UTC).replace(tzinfo=None) + timedelta(seconds=expires_in)
 
-    session_data: dict[str, str] = {
+    session_data: dict[str, str | bool] = {
         "user_id": user_id,
         "access_token": encrypted_access,
         "refresh_token": encrypted_refresh,
         "expires_at": expiry.isoformat(),
+        "can_be_maintainer": can_be_maintainer,
+        "is_maintainer": False,
     }
 
     session_key = f"session:{session_token}"
@@ -155,6 +161,8 @@ async def get_user_tokens(session_token: str) -> dict[str, Any] | None:
         "access_token": decrypted_access,
         "refresh_token": decrypted_refresh,
         "expires_at": datetime.fromisoformat(str(session_data.get("expires_at", ""))),
+        "can_be_maintainer": bool(session_data.get("can_be_maintainer")),
+        "is_maintainer": bool(session_data.get("is_maintainer")),
     }
 
 
@@ -222,3 +230,10 @@ async def is_token_expired(expires_at: datetime) -> bool:
     now = datetime.now(UTC).replace(tzinfo=None)
     buffer = timedelta(minutes=5)
     return now >= (expires_at - buffer)
+
+
+def get_guild_token(session_data: dict) -> str:
+    """Return the bot token for maintainers or the decrypted OAuth token otherwise."""
+    if session_data.get("is_maintainer"):
+        return config.get_api_config().discord_bot_token
+    return decrypt_token(session_data["access_token"])

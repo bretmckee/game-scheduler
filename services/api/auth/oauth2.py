@@ -198,3 +198,16 @@ def calculate_token_expiry(expires_in: int) -> datetime:
         UTC datetime when token will expire
     """
     return datetime.now(UTC) + timedelta(seconds=expires_in)
+
+
+async def is_app_maintainer(discord_id: str) -> bool:
+    """Check whether a Discord user is an owner or team member of this application."""
+    discord = get_discord_client()
+    app_info = await discord.get_application_info()
+    owner_id = app_info.get("owner", {}).get("id")
+    if owner_id == discord_id:
+        return True
+    team = app_info.get("team")
+    if team:
+        return any(m.get("user", {}).get("id") == discord_id for m in team.get("members", []))
+    return False

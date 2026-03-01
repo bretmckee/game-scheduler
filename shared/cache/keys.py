@@ -99,3 +99,8 @@ class CacheKeys:
     def discord_user(user_id: str) -> str:
         """Return cache key for Discord user information."""
         return f"discord:user:{user_id}"
+
+    @staticmethod
+    def app_info() -> str:
+        """Return cache key for Discord application info."""
+        return "discord:app_info"

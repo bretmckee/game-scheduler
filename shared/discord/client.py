@@ -264,6 +264,22 @@ class DiscordAPIClient:
             data=data,
         )
 
+    async def get_application_info(self) -> dict[str, Any]:
+        """Fetch Discord application info for the bot, with 1-hour caching."""
+        redis = await cache_client.get_redis_client()
+        cached = await redis.get(cache_keys.CacheKeys.app_info())
+        if cached:
+            logger.debug("Cache hit for application info")
+            return json.loads(cached)
+        return await self._make_api_request(
+            method="GET",
+            url=f"{DISCORD_API_BASE}/oauth2/applications/@me",
+            operation_name="get_application_info",
+            headers={"Authorization": self._get_auth_header()},
+            cache_key=cache_keys.CacheKeys.app_info(),
+            cache_ttl=ttl.CacheTTL.APP_INFO,
+        )
+
     async def get_user_info(self, access_token: str) -> dict[str, Any]:
         """
         Fetch current user information.
@@ -356,7 +372,11 @@ class DiscordAPIClient:
         # Bot tokens honor rate limits with retry logic in _fetch_guilds_uncached
         return await self._fetch_guilds_uncached(use_token)
 
-    def _get_error_message(self, response_data: Any, default: str) -> str:  # noqa: ANN401
+    def _get_error_message(
+        self,
+        response_data: Any,  # noqa: ANN401
+        default: str,
+    ) -> str:
         """Extract error message from response data."""
         if isinstance(response_data, dict):
             return response_data.get("message", default)

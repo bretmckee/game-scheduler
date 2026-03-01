@@ -107,6 +107,15 @@ async def callback(
 
     discord_id = user_data["id"]
 
+    try:
+        can_be_maintainer = await oauth2.is_app_maintainer(discord_id)
+    except Exception:
+        logger.warning(
+            "Could not check maintainer status for user %s, defaulting to False",
+            discord_id,
+        )
+        can_be_maintainer = False
+
     result = await db.execute(
         select(user_model.User).where(user_model.User.discord_id == discord_id)
     )
@@ -122,6 +131,7 @@ async def callback(
         token_data["access_token"],
         token_data["refresh_token"],
         token_data["expires_in"],
+        can_be_maintainer=can_be_maintainer,
     )
 
     config = get_api_config()

@@ -112,6 +112,9 @@ services:
     environment:
       PYTHONUNBUFFERED: "1"
 
+  cloudflared:
+    command: tunnel --no-autoupdate --loglevel debug run
+
 networks:
   app-network:
     name: ${CONTAINER_PREFIX:-gamebot-dev}-network

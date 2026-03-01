@@ -48,6 +48,7 @@ from services.api.routes import (
     export,
     games,
     guilds,
+    maintainers,
     public,
     sse,
     templates,
@@ -154,6 +155,7 @@ def create_app() -> FastAPI:
     app.include_router(templates.router)
     app.include_router(games.router)
     app.include_router(export.router)
+    app.include_router(maintainers.router)
     app.include_router(public.router)
     app.include_router(sse.router)
 
