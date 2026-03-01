@@ -47,7 +47,7 @@ rm -rf htmlcov/
 echo ""
 echo "Running unit tests with coverage..."
 echo "===================================="
-if ! COVERAGE_FILE=.coverage.unit uv run pytest --cov=shared --cov=services --cov-report=; then
+if ! COVERAGE_FILE=.coverage.unit uv run pytest -q --cov=shared --cov=services --cov-report=; then
     echo "ERROR: Unit tests failed"
     exit 1
 fi

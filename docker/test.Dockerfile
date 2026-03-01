@@ -57,4 +57,4 @@ ENTRYPOINT ["pytest"]
 
 # Default command runs all integration tests when service is 'integration-tests'
 # or all e2e tests when service is 'e2e-tests'
-CMD ["tests/integration/", "-v", "--tb=short"]
+CMD ["tests/integration/", "-q", "--tb=short"]
