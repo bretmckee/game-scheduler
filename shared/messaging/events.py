@@ -48,6 +48,7 @@ class EventType(StrEnum):
     PLAYER_JOINED = "game.player_joined"
     PLAYER_LEFT = "game.player_left"
     PLAYER_REMOVED = "game.player_removed"
+    PARTICIPANT_DROP_DUE = "game.participant_drop_due"
     WAITLIST_ADDED = "game.waitlist_added"
     WAITLIST_REMOVED = "game.waitlist_removed"
 

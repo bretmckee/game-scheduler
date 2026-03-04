@@ -1,4 +1,4 @@
-# Copyright 2025-2026 Bret McKee
+# Copyright 2026 Bret McKee
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -19,38 +19,29 @@
 # SOFTWARE.
 
 
-"""
-Event payload schemas for scheduler system.
+"""Event builder for participant action scheduler daemon."""
 
-Defines Pydantic models for event payloads published by scheduler daemons.
-"""
-
-from datetime import datetime
-from uuid import UUID
-
-from pydantic import BaseModel
+from shared.messaging.events import Event, EventType
+from shared.models.participant_action_schedule import ParticipantActionSchedule
 
 
-class GameStatusTransitionDueEvent(BaseModel):
+def build_participant_action_event(
+    record: ParticipantActionSchedule,
+) -> tuple[Event, None]:
     """
-    Payload for game.status_transition_due event.
+    Build PARTICIPANT_DROP_DUE event from a ParticipantActionSchedule record.
 
-    Published by status transition daemon when a scheduled status change
-    is due. The bot receives this event and updates the game status.
+    Args:
+        record: ParticipantActionSchedule record with a pending "drop" action
+
+    Returns:
+        Tuple of (Event, None) — participant drop events have no TTL
     """
-
-    game_id: UUID
-    target_status: str
-    transition_time: datetime
-
-
-class ParticipantDropDueEvent(BaseModel):
-    """
-    Payload for game.participant_drop_due event.
-
-    Published by participant action daemon when a deadline-based auto-drop
-    action is due. The bot receives this event and removes the participant.
-    """
-
-    game_id: UUID
-    participant_id: str
+    event = Event(
+        event_type=EventType.PARTICIPANT_DROP_DUE,
+        data={
+            "game_id": record.game_id,
+            "participant_id": record.participant_id,
+        },
+    )
+    return (event, None)

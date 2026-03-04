@@ -1,4 +1,4 @@
-# Copyright 2025-2026 Bret McKee
+# Copyright 2026 Bret McKee
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -17,40 +17,3 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-
-
-"""
-Event payload schemas for scheduler system.
-
-Defines Pydantic models for event payloads published by scheduler daemons.
-"""
-
-from datetime import datetime
-from uuid import UUID
-
-from pydantic import BaseModel
-
-
-class GameStatusTransitionDueEvent(BaseModel):
-    """
-    Payload for game.status_transition_due event.
-
-    Published by status transition daemon when a scheduled status change
-    is due. The bot receives this event and updates the game status.
-    """
-
-    game_id: UUID
-    target_status: str
-    transition_time: datetime
-
-
-class ParticipantDropDueEvent(BaseModel):
-    """
-    Payload for game.participant_drop_due event.
-
-    Published by participant action daemon when a deadline-based auto-drop
-    action is due. The bot receives this event and removes the participant.
-    """
-
-    game_id: UUID
-    participant_id: str

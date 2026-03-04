@@ -113,15 +113,45 @@ with optional participant carry-over and deadline-based auto-drop confirmation.
 
 ## Test Results
 
-- Unit tests: 113 passed (0 failed, 0 xfailed)
+- Unit tests: 1205 passed (0 failed, 4 xfailed — pre-existing clone endpoint xfails)
 - Integration tests: 4 xfailed (`test_clone_game_endpoint.py` — awaiting real DB/MQ)
 - Frontend: TypeScript OK, ESLint OK (0 errors)
-- Lint: all Phase 1 + Phase 2 backend files pass `ruff check`
+- Lint: all Phase 1 + Phase 2 + Phase 3 backend files pass `ruff check`
+
+## Phase 3: PARTICIPANT_DROP_DUE event + handler (COMPLETE)
+
+### Task 3.1: Add `PARTICIPANT_DROP_DUE` to `EventType`; event builder stub; bot handler stub
+
+**Files Changed**:
+
+- [shared/messaging/events.py](shared/messaging/events.py) — MODIFIED: added `PARTICIPANT_DROP_DUE = "game.participant_drop_due"` to `EventType` enum
+- [services/scheduler/participant_action_event_builder.py](services/scheduler/participant_action_event_builder.py) — NEW: `build_participant_action_event` stub (implemented in Task 3.3)
+- [services/bot/handlers/participant_drop.py](services/bot/handlers/participant_drop.py) — NEW: `handle_participant_drop_due(data, bot, publisher)` stub (implemented in Task 3.3)
+
+### Task 3.2: xfail unit + integration tests for drop event handler
+
+**Files Changed**:
+
+- [tests/unit/bot/handlers/test_participant_drop_handler.py](tests/unit/bot/handlers/test_participant_drop_handler.py) — NEW: 3 xfail unit tests: `test_handler_deletes_participant`, `test_handler_sends_removal_dm`, `test_handler_publishes_game_updated` (xfail markers removed in Task 3.3)
+- [tests/integration/test_participant_drop_event.py](tests/integration/test_participant_drop_event.py) — NEW: 2 xfail integration tests: `test_handler_removes_participant_from_db`, `test_handler_is_idempotent_when_participant_missing` (xfail markers removed in Task 3.3)
+
+### Task 3.3: Implement event builder + bot handler; remove xfail markers
+
+**Files Changed**:
+
+- [services/scheduler/participant_action_event_builder.py](services/scheduler/participant_action_event_builder.py) — MODIFIED: implemented `build_participant_action_event` — creates `PARTICIPANT_DROP_DUE` event with `{"game_id": record.game_id, "participant_id": record.participant_id}` data
+- [services/bot/handlers/participant_drop.py](services/bot/handlers/participant_drop.py) — MODIFIED: implemented `handle_participant_drop_due` — queries `GameParticipant` with selectinload of `.game` and `.user`, deletes participant, commits, sends `DMFormats.removal` DM via `bot.fetch_user`, publishes `GAME_UPDATED` via publisher
+- [tests/unit/bot/handlers/test_participant_drop_handler.py](tests/unit/bot/handlers/test_participant_drop_handler.py) — MODIFIED: removed all 3 `@pytest.mark.xfail` decorators; added `_patch_db` helper; set `mock_participant.game = mock_game`; all 3 tests pass
+- [tests/integration/test_participant_drop_event.py](tests/integration/test_participant_drop_event.py) — MODIFIED: removed both `@pytest.mark.xfail` decorators
+
+### Task 3.4: Edge-case tests + guard clauses
+
+**Files Changed**:
+
+- [tests/unit/bot/handlers/test_participant_drop_handler.py](tests/unit/bot/handlers/test_participant_drop_handler.py) — MODIFIED: added `test_handler_skips_when_participant_not_found` (participant not in DB → no delete/DM/publish), `test_handler_drops_participant_from_cancelled_game` (cancelled game → participant still removed); all 5 unit tests pass
 
 ## Pending Phases
 
-- Phase 2: Clone with YES/NO carryover
-- Phase 3: PARTICIPANT_DROP_DUE event + handler
 - Phase 4: clone_confirmation DM format + bot view
 - Phase 5: clone_confirmation notification type wired into notification daemon
 - Phase 6: Participant action daemon
