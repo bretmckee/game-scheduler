@@ -152,7 +152,44 @@ with optional participant carry-over and deadline-based auto-drop confirmation.
 
 ## Pending Phases
 
-- Phase 4: clone_confirmation DM format + bot view
 - Phase 5: clone_confirmation notification type wired into notification daemon
 - Phase 6: Participant action daemon
 - Phase 7: Frontend YES_WITH_DEADLINE + remove 422 guard
+
+## Phase 4: clone_confirmation DM format + bot view (COMPLETE)
+
+### Task 4.1: DMFormats.clone_confirmation stub + CloneConfirmationView stub
+
+**Files Changed**:
+
+- [shared/message_formats.py](shared/message_formats.py) — MODIFIED: added `clone_confirmation(game_title, deadline_unix)` stub static method (raises `NotImplementedError`) and `DMPredicates.clone_confirmation` predicate
+- [services/bot/views/clone_confirmation_view.py](services/bot/views/clone_confirmation_view.py) — NEW: `CloneConfirmationView(discord.ui.View)` with `confirm_button` and `decline_button` stubs (each raising `NotImplementedError`); stores `schedule_id`, `game_id`, `participant_id`, `publisher`
+- [services/bot/views/**init**.py](services/bot/views/__init__.py) — MODIFIED: added `CloneConfirmationView` import and `__all__` entry
+
+### Task 4.2: xfail unit tests for message format and button interactions
+
+**Files Changed**:
+
+- [tests/unit/test_clone_confirmation_dm.py](tests/unit/test_clone_confirmation_dm.py) — NEW: 3 xfail tests: `test_clone_confirmation_includes_game_title`, `test_clone_confirmation_includes_deadline`, `test_clone_confirmation_includes_confirm_prompt` (xfail markers removed in Task 4.3)
+- [tests/unit/bot/views/**init**.py](tests/unit/bot/views/__init__.py) — NEW: empty package init for views test directory
+- [tests/unit/bot/views/test_clone_confirmation_view.py](tests/unit/bot/views/test_clone_confirmation_view.py) — NEW: 3 xfail tests: `test_confirm_button_deletes_participant_action_schedule`, `test_confirm_button_sends_pg_notify`, `test_decline_button_calls_drop_handler` (xfail markers removed in Task 4.3)
+
+### Task 4.3: Implement DMFormats.clone_confirmation + bot DM view; remove xfail
+
+**Files Changed**:
+
+- [shared/message_formats.py](shared/message_formats.py) — MODIFIED: implemented `clone_confirmation` returning message with game title, Discord timestamp for deadline, and "confirm" prompt text
+- [services/bot/views/clone_confirmation_view.py](services/bot/views/clone_confirmation_view.py) — MODIFIED: implemented `_confirm_callback` (SELECT + DELETE `ParticipantActionSchedule`, pg_notify `participant_action_schedule_changed`, commit, ephemeral followup); implemented `_decline_callback` (calls `handle_participant_drop_due` with game_id + participant_id, ephemeral followup)
+- [tests/unit/test_clone_confirmation_dm.py](tests/unit/test_clone_confirmation_dm.py) — MODIFIED: removed all 3 `@pytest.mark.xfail` decorators; all 3 tests pass
+- [tests/unit/bot/views/test_clone_confirmation_view.py](tests/unit/bot/views/test_clone_confirmation_view.py) — MODIFIED: made `view` fixture async (discord.ui.View requires running event loop), added `followup` and `defer` mocks to `mock_interaction`; removed all 3 `@pytest.mark.xfail` decorators; all 3 tests pass
+
+### Task 4.4: Add decline path end-to-end unit test
+
+**Files Changed**:
+
+- [tests/unit/bot/views/test_clone_confirmation_view.py](tests/unit/bot/views/test_clone_confirmation_view.py) — MODIFIED: added `test_decline_path_removes_participant_and_publishes_game_updated` — runs real `handle_participant_drop_due` (only mocks DB session and Discord client), verifies participant deleted, commit called, and GAME_UPDATED published; all 4 view tests pass
+
+## Test Results (Phase 4)
+
+- Unit tests: 125 passed (0 failed)
+- Lint: all Phase 4 files pass `ruff check`

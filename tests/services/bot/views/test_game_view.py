@@ -181,7 +181,7 @@ class TestGameView:
         interaction = MagicMock()
         interaction.response.defer = AsyncMock()
 
-        await view._join_button_callback(interaction)
+        await view.join_button.callback(interaction)
         interaction.response.defer.assert_called_once()
 
     @pytest.mark.asyncio
@@ -191,7 +191,7 @@ class TestGameView:
         interaction = MagicMock()
         interaction.response.defer = AsyncMock()
 
-        await view._leave_button_callback(interaction)
+        await view.leave_button.callback(interaction)
         interaction.response.defer.assert_called_once()
 
     @pytest.mark.asyncio

@@ -26,9 +26,19 @@ allowing players to join and leave games via Discord buttons.
 """
 
 import discord
-from discord.ui import Button, View
+from discord.ui import View
 
 from shared.models.signup_method import SignupMethod
+
+
+class _JoinButton(discord.ui.Button):
+    async def callback(self, interaction: discord.Interaction) -> None:
+        await interaction.response.defer()
+
+
+class _LeaveButton(discord.ui.Button):
+    async def callback(self, interaction: discord.Interaction) -> None:
+        await interaction.response.defer()
 
 
 class GameView(View):
@@ -65,42 +75,22 @@ class GameView(View):
         self.is_started = is_started
         self.signup_method = signup_method
 
-        self.join_button: Button[GameView] = Button(
+        self.join_button = _JoinButton(
             style=discord.ButtonStyle.success,
             label="Join Game",
             custom_id=f"join_game_{game_id}",
             disabled=is_started or (signup_method == SignupMethod.HOST_SELECTED.value),
         )
-        # Type ignore: discord.py's callback assignment pattern not fully typed
-        self.join_button.callback = self._join_button_callback  # type: ignore[method-assign]
 
-        self.leave_button: Button[GameView] = Button(
+        self.leave_button = _LeaveButton(
             style=discord.ButtonStyle.danger,
             label="Leave Game",
             custom_id=f"leave_game_{game_id}",
             disabled=is_started,
         )
-        # Type ignore: discord.py's callback assignment pattern not fully typed
-        self.leave_button.callback = self._leave_button_callback  # type: ignore[method-assign]
 
         self.add_item(self.join_button)
         self.add_item(self.leave_button)
-
-    async def _join_button_callback(self, interaction: discord.Interaction) -> None:
-        """Handle join button click.
-
-        This is a placeholder that will be replaced by the actual handler
-        when the view is registered with the bot.
-        """
-        await interaction.response.defer()
-
-    async def _leave_button_callback(self, interaction: discord.Interaction) -> None:
-        """Handle leave button click.
-
-        This is a placeholder that will be replaced by the actual handler
-        when the view is registered with the bot.
-        """
-        await interaction.response.defer()
 
     def update_button_states(
         self, is_full: bool, is_started: bool, signup_method: str | None = None

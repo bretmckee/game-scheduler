@@ -136,6 +136,25 @@ class DMFormats:
         waitlist_prefix = "🎫 **[Waitlist]** " if is_waitlist else ""
         return f"{waitlist_prefix}Your game '{game_title}' starts <t:{game_time_unix}:R>"
 
+    @staticmethod
+    def clone_confirmation(game_title: str, deadline_unix: int) -> str:
+        """
+        Format clone confirmation DM asking participant to confirm their spot.
+
+        Args:
+            game_title: Title of the cloned game
+            deadline_unix: Unix timestamp of the confirmation deadline
+
+        Returns:
+            Formatted clone confirmation message with confirm/decline prompt
+        """
+        return (
+            f"🎲 You've been carried over to **{game_title}**!\n\n"
+            f"Please confirm your spot by <t:{deadline_unix}:F> "
+            f"(<t:{deadline_unix}:R>) using the buttons below. "
+            f"If you don't confirm in time you'll be automatically removed."
+        )
+
 
 class DMPredicates:
     """Predicates for matching Discord DMs in tests."""
@@ -210,5 +229,22 @@ class DMPredicates:
 
         def predicate(dm: DiscordMessage) -> bool:
             return bool(dm.content and game_title in dm.content and "starts <t:" in dm.content)
+
+        return predicate
+
+    @staticmethod
+    def clone_confirmation(game_title: str) -> Callable[[DiscordMessage], bool]:
+        """
+        Predicate to match clone confirmation DMs.
+
+        Args:
+            game_title: Title of the cloned game
+
+        Returns:
+            Predicate function for wait_for_dm_matching
+        """
+
+        def predicate(dm: DiscordMessage) -> bool:
+            return bool(dm.content and game_title in dm.content and "confirm" in dm.content.lower())
 
         return predicate

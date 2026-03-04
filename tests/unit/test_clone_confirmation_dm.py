@@ -1,4 +1,4 @@
-# Copyright 2025-2026 Bret McKee
+# Copyright 2026 Bret McKee
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -19,9 +19,27 @@
 # SOFTWARE.
 
 
-"""View components package."""
+"""Unit tests for DMFormats.clone_confirmation message text."""
 
-from services.bot.views.clone_confirmation_view import CloneConfirmationView
-from services.bot.views.game_view import GameView
+from shared.message_formats import DMFormats
 
-__all__ = ["CloneConfirmationView", "GameView"]
+GAME_TITLE = "Weekend Dungeon Crawl"
+DEADLINE_UNIX = 1777777777
+
+
+def test_clone_confirmation_includes_game_title():
+    """Message must include the game title."""
+    msg = DMFormats.clone_confirmation(GAME_TITLE, DEADLINE_UNIX)
+    assert GAME_TITLE in msg
+
+
+def test_clone_confirmation_includes_deadline():
+    """Message must reference the deadline as a Discord timestamp."""
+    msg = DMFormats.clone_confirmation(GAME_TITLE, DEADLINE_UNIX)
+    assert str(DEADLINE_UNIX) in msg
+
+
+def test_clone_confirmation_includes_confirm_prompt():
+    """Message must prompt the participant to confirm their spot."""
+    msg = DMFormats.clone_confirmation(GAME_TITLE, DEADLINE_UNIX)
+    assert "confirm" in msg.lower()
