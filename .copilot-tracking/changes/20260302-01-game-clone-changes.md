@@ -152,9 +152,30 @@ with optional participant carry-over and deadline-based auto-drop confirmation.
 
 ## Pending Phases
 
-- Phase 5: clone_confirmation notification type wired into notification daemon
 - Phase 6: Participant action daemon
 - Phase 7: Frontend YES_WITH_DEADLINE + remove 422 guard
+
+## Phase 5: clone_confirmation notification type wired into notification daemon (COMPLETE)
+
+### Task 5.1: Add clone_confirmation handling stub in bot's notification handler
+
+**Files Changed**:
+
+- [services/bot/events/handlers.py](services/bot/events/handlers.py) — MODIFIED: added `elif notification_event.notification_type == "clone_confirmation":` branch to `_handle_notification_due`; added `_handle_clone_confirmation` stub method (raises `NotImplementedError`)
+
+### Task 5.2: Write xfail integration tests for notification daemon firing clone_confirmation
+
+**Files Changed**:
+
+- [tests/integration/test_clone_confirmation_notification.py](tests/integration/test_clone_confirmation_notification.py) — NEW: `TestCloneConfirmationNotificationDaemon` class with `test_daemon_fires_clone_confirmation_notification` xfail integration test that inserts a `clone_confirmation` NotificationSchedule record with past notification_time, waits for `sent=True`, and verifies a BOT_EVENTS message is published with `notification_type="clone_confirmation"` (xfail marker removed in Task 5.3)
+
+### Task 5.3: Implement handler; remove xfail markers
+
+**Files Changed**:
+
+- [services/bot/events/handlers.py](services/bot/events/handlers.py) — MODIFIED: added imports for `get_bot_publisher`, `CloneConfirmationView`, and `ParticipantActionSchedule`; implemented `_handle_clone_confirmation`: fetches game+participant via `_fetch_join_notification_data`, fetches `ParticipantActionSchedule`, creates `CloneConfirmationView` with the schedule and publisher, sends DM via `bot.fetch_user().send(message, view=view)`; falls back to plain join DM if no schedule record found
+- [tests/integration/test_clone_confirmation_notification.py](tests/integration/test_clone_confirmation_notification.py) — MODIFIED: removed `@pytest.mark.xfail` decorator; integration test now passes
+- [tests/services/bot/events/test_handlers.py](tests/services/bot/events/test_handlers.py) — MODIFIED: added `test_handle_clone_confirmation_sends_dm_with_view`, `test_handle_clone_confirmation_skips_when_participant_not_found`, and `test_handle_clone_confirmation_falls_back_to_join_dm_when_no_schedule` unit tests; all 3 pass
 
 ## Phase 4: clone_confirmation DM format + bot view (COMPLETE)
 
@@ -193,3 +214,9 @@ with optional participant carry-over and deadline-based auto-drop confirmation.
 
 - Unit tests: 125 passed (0 failed)
 - Lint: all Phase 4 files pass `ruff check`
+
+## Test Results (Phase 5)
+
+- Unit tests: 1215 passed (0 failed, 4 xfailed — pre-existing)
+- New unit tests added: 3 (`test_handle_clone_confirmation_*`)
+- Lint: all Phase 5 files pass `ruff check`

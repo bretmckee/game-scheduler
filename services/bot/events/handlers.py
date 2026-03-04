@@ -31,8 +31,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.bot.dependencies.discord_client import get_discord_client
+from services.bot.events.publisher import get_bot_publisher
 from services.bot.formatters.game_message import format_game_announcement
 from services.bot.utils.discord_format import get_member_display_info
+from services.bot.views.clone_confirmation_view import CloneConfirmationView
 from shared.cache.client import get_redis_client
 from shared.cache.keys import CacheKeys
 from shared.cache.ttl import CacheTTL
@@ -51,6 +53,7 @@ from shared.models import user as user_model
 from shared.models.base import utc_now
 from shared.models.game import GameSession
 from shared.models.participant import GameParticipant
+from shared.models.participant_action_schedule import ParticipantActionSchedule
 from shared.schemas.events import GameStatusTransitionDueEvent
 from shared.utils.games import resolve_max_players
 from shared.utils.participant_sorting import partition_participants
@@ -494,6 +497,8 @@ class EventHandlers:
             await self._handle_game_reminder(notification_event)
         elif notification_event.notification_type == "join_notification":
             await self._handle_join_notification(notification_event)
+        elif notification_event.notification_type == "clone_confirmation":
+            await self._handle_clone_confirmation(notification_event)
         else:
             logger.error(
                 "Unknown notification type: %s for game %s",
@@ -794,6 +799,72 @@ class EventHandlers:
         except Exception as e:
             logger.exception(
                 "Failed to handle join notification for game %s, participant %s: %s",
+                event.game_id,
+                event.participant_id,
+                e,
+            )
+
+    async def _handle_clone_confirmation(self, event: NotificationDueEvent) -> None:
+        """Handle clone_confirmation notification — send DM with confirm/decline buttons."""
+        try:
+            async with get_db_session() as db:
+                game, participant = await self._fetch_join_notification_data(db, event)
+                if not game or not participant:
+                    return
+
+                schedule_result = await db.execute(
+                    select(ParticipantActionSchedule).where(
+                        ParticipantActionSchedule.participant_id == event.participant_id
+                    )
+                )
+                schedule = schedule_result.scalar_one_or_none()
+
+                if not schedule:
+                    logger.warning(
+                        "No ParticipantActionSchedule for participant %s in game %s — "
+                        "sending plain join DM instead",
+                        event.participant_id,
+                        event.game_id,
+                    )
+                    message = self._format_join_notification_message(game)
+                    await self._send_join_notification_dm(participant, message, str(event.game_id))
+                    return
+
+            publisher = get_bot_publisher()
+            view = CloneConfirmationView(
+                schedule_id=schedule.id,
+                game_id=str(event.game_id),
+                participant_id=str(event.participant_id),
+                publisher=publisher,
+            )
+            message = DMFormats.clone_confirmation(
+                game.title,
+                int(schedule.action_time.timestamp()),
+            )
+
+            try:
+                user = await self.bot.fetch_user(int(participant.user.discord_id))
+                await user.send(message, view=view)
+                logger.info(
+                    "✓ Sent clone_confirmation DM to %s for game %s",
+                    participant.user.discord_id,
+                    event.game_id,
+                )
+            except discord.Forbidden:
+                logger.warning(
+                    "Cannot send clone_confirmation DM to user %s: DMs disabled or bot blocked",
+                    participant.user.discord_id,
+                )
+            except discord.HTTPException as e:
+                logger.exception(
+                    "Discord HTTP error sending clone_confirmation DM to %s: %s",
+                    participant.user.discord_id,
+                    e,
+                )
+
+        except Exception as e:
+            logger.exception(
+                "Failed to handle clone_confirmation for game %s, participant %s: %s",
                 event.game_id,
                 event.participant_id,
                 e,

@@ -2418,3 +2418,127 @@ async def test_refresh_game_message_handles_exception(event_handlers, sample_gam
         mock_db.return_value.__aexit__.return_value = None
 
         await event_handlers._refresh_game_message(sample_game.id)
+
+
+@pytest.mark.asyncio
+async def test_handle_clone_confirmation_sends_dm_with_view(event_handlers, mock_bot, sample_game):
+    """_handle_clone_confirmation sends a DM with CloneConfirmationView when schedule exists."""
+    participant_id = str(uuid4())
+    participant = MagicMock()
+    participant.id = participant_id
+    participant.user = MagicMock()
+    participant.user.discord_id = "555000000000000001"
+
+    schedule = MagicMock()
+    schedule.id = str(uuid4())
+    schedule.action_time = datetime(2026, 4, 1, 18, 0, 0, tzinfo=UTC)
+
+    mock_user = AsyncMock()
+    mock_bot.fetch_user = AsyncMock(return_value=mock_user)
+
+    event = NotificationDueEvent(
+        game_id=sample_game.id,
+        notification_type="clone_confirmation",
+        participant_id=participant_id,
+    )
+
+    mock_db_instance = MagicMock()
+    schedule_result = MagicMock()
+    schedule_result.scalar_one_or_none = MagicMock(return_value=schedule)
+    mock_db_instance.execute = AsyncMock(return_value=schedule_result)
+
+    with (
+        patch("services.bot.events.handlers.get_db_session") as mock_db,
+        patch.object(
+            event_handlers,
+            "_fetch_join_notification_data",
+            new_callable=AsyncMock,
+            return_value=(sample_game, participant),
+        ),
+        patch("services.bot.events.handlers.get_bot_publisher"),
+        patch("services.bot.events.handlers.CloneConfirmationView") as mock_view_cls,
+        patch("services.bot.events.handlers.DMFormats") as mock_fmt,
+    ):
+        mock_db.return_value.__aenter__ = AsyncMock(return_value=mock_db_instance)
+        mock_db.return_value.__aexit__ = AsyncMock(return_value=None)
+        mock_fmt.clone_confirmation.return_value = "Clone confirmation DM text"
+
+        await event_handlers._handle_clone_confirmation(event)
+
+    mock_view_cls.assert_called_once()
+    mock_user.send.assert_awaited_once()
+    send_kwargs = mock_user.send.call_args
+    assert send_kwargs[1]["view"] is mock_view_cls.return_value
+
+
+@pytest.mark.asyncio
+async def test_handle_clone_confirmation_skips_when_participant_not_found(event_handlers, mock_bot):
+    """_handle_clone_confirmation returns early when participant is not found."""
+    event = NotificationDueEvent(
+        game_id=str(uuid4()),
+        notification_type="clone_confirmation",
+        participant_id=str(uuid4()),
+    )
+
+    mock_db_instance = MagicMock()
+
+    with (
+        patch("services.bot.events.handlers.get_db_session") as mock_db,
+        patch.object(
+            event_handlers,
+            "_fetch_join_notification_data",
+            new_callable=AsyncMock,
+            return_value=(None, None),
+        ),
+    ):
+        mock_db.return_value.__aenter__ = AsyncMock(return_value=mock_db_instance)
+        mock_db.return_value.__aexit__ = AsyncMock(return_value=None)
+
+        await event_handlers._handle_clone_confirmation(event)
+
+    mock_bot.fetch_user.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_handle_clone_confirmation_falls_back_to_join_dm_when_no_schedule(
+    event_handlers, mock_bot, sample_game
+):
+    """_handle_clone_confirmation sends a plain join DM when no ParticipantActionSchedule."""
+    participant_id = str(uuid4())
+    participant = MagicMock()
+    participant.id = participant_id
+    participant.user = MagicMock()
+    participant.user.discord_id = "555000000000000002"
+
+    event = NotificationDueEvent(
+        game_id=sample_game.id,
+        notification_type="clone_confirmation",
+        participant_id=participant_id,
+    )
+
+    mock_db_instance = MagicMock()
+    no_schedule_result = MagicMock()
+    no_schedule_result.scalar_one_or_none = MagicMock(return_value=None)
+    mock_db_instance.execute = AsyncMock(return_value=no_schedule_result)
+
+    with (
+        patch("services.bot.events.handlers.get_db_session") as mock_db,
+        patch.object(
+            event_handlers,
+            "_fetch_join_notification_data",
+            new_callable=AsyncMock,
+            return_value=(sample_game, participant),
+        ),
+        patch.object(
+            event_handlers,
+            "_send_join_notification_dm",
+            new_callable=AsyncMock,
+        ) as mock_send_join,
+    ):
+        mock_db.return_value.__aenter__ = AsyncMock(return_value=mock_db_instance)
+        mock_db.return_value.__aexit__ = AsyncMock(return_value=None)
+
+        await event_handlers._handle_clone_confirmation(event)
+
+    mock_send_join.assert_awaited_once()
+    mock_bot.fetch_user.assert_not_called()
