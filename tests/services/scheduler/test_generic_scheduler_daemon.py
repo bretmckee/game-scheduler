@@ -25,6 +25,7 @@ Note: These are focused unit tests for error/edge cases.
 Happy path scenarios are covered by integration tests.
 """
 
+import logging
 from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, Mock, patch
 from uuid import uuid4
@@ -43,7 +44,10 @@ def mock_event_builder():
     def builder(record):
         event = Event(
             event_type=EventType.NOTIFICATION_DUE,
-            data={"game_id": str(record.game_id), "reminder_minutes": record.reminder_minutes},
+            data={
+                "game_id": str(record.game_id),
+                "reminder_minutes": record.reminder_minutes,
+            },
         )
         return event, None
 
@@ -54,6 +58,7 @@ def mock_event_builder():
 def daemon(mock_event_builder):
     """Create SchedulerDaemon instance for testing."""
     return SchedulerDaemon(
+        service_name="test",
         database_url="postgresql://test:test@localhost/test",
         rabbitmq_url="amqp://test:test@localhost/",
         notify_channel="test_channel",
@@ -71,6 +76,7 @@ class TestSchedulerDaemonInitialization:
     def test_init_stores_all_configuration_parameters(self, mock_event_builder):
         """Daemon stores all configuration parameters correctly."""
         daemon = SchedulerDaemon(
+            service_name="test",
             database_url="postgresql://user:pass@host/db",
             rabbitmq_url="amqp://user:pass@host/",
             notify_channel="my_channel",
@@ -723,3 +729,43 @@ class TestSchedulerDaemonTupleHandling:
         mock_publisher.publish.assert_called_once()
         call_args = mock_publisher.publish.call_args
         assert call_args[1]["expiration_ms"] is None
+
+
+class TestSchedulerDaemonServiceName:
+    """Tests for service_name attribution in log messages and OTel spans."""
+
+    @patch.object(SchedulerDaemon, "connect")
+    @patch.object(SchedulerDaemon, "_cleanup")
+    def test_run_log_includes_service_name(self, mock_cleanup, mock_connect, daemon, caplog):
+        """run() startup log message contains the service_name in brackets."""
+        with caplog.at_level(logging.INFO, logger="services.scheduler.generic_scheduler_daemon"):
+            daemon.run(lambda: True)
+
+        assert "[test]" in caplog.text
+
+    def test_process_item_span_includes_service_name_attribute(self, daemon):
+        """_process_item OTel span attributes include scheduler.service_name."""
+        mock_db = MagicMock()
+        mock_publisher = MagicMock()
+        daemon.db = mock_db
+        daemon.publisher = mock_publisher
+
+        mock_item = MagicMock()
+        mock_item.id = str(uuid4())
+        mock_item.game_id = str(uuid4())
+        mock_item.reminder_minutes = 60
+        mock_item.sent = False
+        mock_db.query.return_value.filter_by.return_value.first.return_value = mock_item
+
+        with patch("services.scheduler.generic_scheduler_daemon.tracer") as mock_tracer:
+            mock_span_ctx = MagicMock()
+            mock_span_ctx.__enter__ = Mock(return_value=mock_span_ctx)
+            mock_span_ctx.__exit__ = Mock(return_value=False)
+            mock_tracer.start_as_current_span.return_value = mock_span_ctx
+
+            daemon._process_item(mock_item)
+
+        call_kwargs = mock_tracer.start_as_current_span.call_args
+        attributes = call_kwargs.kwargs.get("attributes", {})
+        assert "scheduler.service_name" in attributes
+        assert attributes["scheduler.service_name"] == "test"

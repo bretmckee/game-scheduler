@@ -57,6 +57,7 @@ class SchedulerDaemon:
 
     def __init__(
         self,
+        service_name: str,
         database_url: str,
         rabbitmq_url: str,
         notify_channel: str,
@@ -71,6 +72,7 @@ class SchedulerDaemon:
         Initialize generic scheduler daemon.
 
         Args:
+            service_name: Logical name of this scheduler instance (used in logs and OTel)
             database_url: PostgreSQL connection string (psycopg2 format)
             rabbitmq_url: RabbitMQ connection string
             notify_channel: PostgreSQL LISTEN channel name
@@ -81,6 +83,7 @@ class SchedulerDaemon:
             max_timeout: Maximum seconds to wait between checks (default: 15 min)
             process_dlq: Deprecated parameter, kept for backwards compatibility
         """
+        self._service_name = service_name
         self.database_url = database_url
         self.rabbitmq_url = rabbitmq_url
         self.notify_channel = notify_channel
@@ -123,7 +126,11 @@ class SchedulerDaemon:
         Args:
             shutdown_flag: Callable returning True when shutdown is requested
         """
-        logger.info("Starting scheduler daemon for %s", self.model_class.__name__)
+        logger.info(
+            "Starting scheduler daemon [%s] for %s",
+            self._service_name,
+            self.model_class.__name__,
+        )
 
         self.connect()
 
@@ -233,6 +240,7 @@ class SchedulerDaemon:
                 "scheduler.job_id": str(item.id),
                 "scheduler.model": self.model_class.__name__,
                 "scheduler.time_field": self.time_field,
+                "scheduler.service_name": self._service_name,
             },
         ):
             try:

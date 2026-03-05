@@ -213,20 +213,52 @@ Remove the three individual wrapper Python files, their unit test files, and the
 
 ## Phase 6: Update Documentation
 
-### Task 6.1: Update documentation and env var references
+### Task 6.1: Update CI/CD workflow
 
-Scan documentation and config templates for old service names (`notification-daemon`, `status-transition-daemon`, `participant-action-daemon`) and old env vars (`NOTIFICATION_DAEMON_LOG_LEVEL`, etc.). Update or remove them.
+Update `.github/workflows/ci-cd.yml` to replace `notification-daemon` with `scheduler` in the service matrix (line 201). This is a functional gap — leaving the old name will break CI after the service rename.
+
+- **Files**:
+  - `.github/workflows/ci-cd.yml` — replace `notification-daemon` in the service list with `scheduler`
+- **Success**:
+  - CI pipeline references `scheduler` service, not `notification-daemon`
+- **Research References**:
+  - #file:../research/20260305-01-scheduler-daemon-consolidation-research.md
+- **Dependencies**:
+  - Phase 4 complete
+
+### Task 6.2: Update documentation and env var references
+
+Scan documentation and config templates for old service names and old env vars.
 
 - **Files**:
   - `docs/` — search and update any service name references
-  - `config/` and `config.template/` — replace old env vars with `SCHEDULER_LOG_LEVEL`
+  - `config/` and `config.template/` — replace `NOTIFICATION_DAEMON_LOG_LEVEL`, `STATUS_TRANSITION_DAEMON_LOG_LEVEL`, `PARTICIPANT_ACTION_DAEMON_LOG_LEVEL` with `SCHEDULER_LOG_LEVEL`
 - **Success**:
   - `grep -r "notification-daemon\|status-transition-daemon\|participant-action-daemon" docs/ config/` returns no matches
   - `grep -r "NOTIFICATION_DAEMON_LOG_LEVEL\|STATUS_TRANSITION_DAEMON_LOG_LEVEL\|PARTICIPANT_ACTION_DAEMON_LOG_LEVEL" .` returns no matches
 - **Research References**:
   - #file:../research/20260305-01-scheduler-daemon-consolidation-research.md (Lines 159-170) — env var replacement details
 - **Dependencies**:
-  - Phase 5 complete
+  - Task 6.1 complete
+
+### Task 6.3: Update in-code comments and docstrings
+
+Update stale references to old daemon names in comments and docstrings across source files. These do not cause failures but should be kept accurate.
+
+- **Files**:
+  - `shared/schemas/events.py` — docstrings on `GameStatusChangedEvent` and `ParticipantDroppedEvent` reference "status transition daemon" and "participant action daemon"; update to reference `scheduler` service
+  - `shared/models/participant_action_schedule.py` — model docstring references `participant_action_daemon`; update to `scheduler`
+  - `shared/models/game_status_schedule.py` — model docstring references `status_transition_daemon`; update to `scheduler`
+  - `services/api/services/games.py` — comment about `participant_action_daemon` wake-up; update to `scheduler`
+  - `services/retry/__init__.py` — comment references "notification and status transition daemons"; update to `scheduler`
+  - `services/scheduler/generic_scheduler_daemon.py` — module docstring still says "Replaces duplicate notification and status transition daemon implementations"; update to reflect the consolidated scheduler
+  - Integration/E2E test docstrings in `tests/integration/test_notification_daemon.py`, `tests/integration/test_status_transitions.py`, `tests/integration/test_participant_action_daemon.py`, `tests/integration/test_clone_confirmation_notification.py`, `tests/conftest.py` — class/method docstrings reference old container names; update to reference `scheduler` container
+- **Success**:
+  - `grep -rn "notification.daemon\|status.transition.daemon\|participant.action.daemon" --include="*.py" services/ shared/ tests/` returns only intentional occurrences (none expected after update)
+- **Research References**:
+  - #file:../research/20260305-01-scheduler-daemon-consolidation-research.md
+- **Dependencies**:
+  - Task 6.2 complete
 
 ---
 

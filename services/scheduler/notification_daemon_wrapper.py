@@ -53,6 +53,7 @@ def main() -> None:
     rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://guest:guest@rabbitmq:5672/")
 
     daemon = SchedulerDaemon(
+        service_name="notification",
         database_url=BASE_DATABASE_URL,
         rabbitmq_url=rabbitmq_url,
         notify_channel="notification_schedule_changed",

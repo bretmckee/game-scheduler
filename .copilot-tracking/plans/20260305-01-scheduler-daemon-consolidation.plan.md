@@ -43,18 +43,18 @@ Consolidate three separate scheduler daemon containers (`notification-daemon`, `
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Update `SchedulerDaemon` with `service_name`
+### [x] Phase 1: Update `SchedulerDaemon` with `service_name`
 
-- [ ] Task 1.1: Add `service_name: str` stub parameter to `SchedulerDaemon.__init__`
+- [x] Task 1.1: Add `service_name: str` stub parameter to `SchedulerDaemon.__init__`
   - Details: .copilot-tracking/details/20260305-01-scheduler-daemon-consolidation-details.md (Lines 13-26)
 
-- [ ] Task 1.2: Write xfail tests for `service_name` log prefix and OTel span attribute (RED)
+- [x] Task 1.2: Write xfail tests for `service_name` log prefix and OTel span attribute (RED)
   - Details: .copilot-tracking/details/20260305-01-scheduler-daemon-consolidation-details.md (Lines 27-39)
 
-- [ ] Task 1.3: Implement `service_name` in log messages and OTel spans; remove xfail markers (GREEN)
+- [x] Task 1.3: Implement `service_name` in log messages and OTel spans; remove xfail markers (GREEN)
   - Details: .copilot-tracking/details/20260305-01-scheduler-daemon-consolidation-details.md (Lines 40-54)
 
-- [ ] Task 1.4: Update existing wrapper callers to pass `service_name`
+- [x] Task 1.4: Update existing wrapper callers to pass `service_name`
   - Details: .copilot-tracking/details/20260305-01-scheduler-daemon-consolidation-details.md (Lines 55-72)
 
 ### [ ] Phase 2: Create Unified `scheduler_daemon_wrapper.py`
