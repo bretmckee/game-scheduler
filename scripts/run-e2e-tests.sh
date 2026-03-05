@@ -26,8 +26,21 @@
 # REQUIRED: Set up test Discord bot and guild first (see docs/developer/TESTING.md)
 #
 # Environment variables:
-#   SKIP_STARTUP=1   - Skip building and starting the test environment (use existing)
-#   SKIP_CLEANUP=1   - Skip cleanup after tests (leave environment running)
+#   SKIP_STARTUP=1   - Skip building and starting the test environment.
+#                      Use when the environment is already running from a prior
+#                      SKIP_CLEANUP=1 run. Do NOT use for a first run or after
+#                      making service code changes, because it skips rebuilding
+#                      the containers.
+#   SKIP_CLEANUP=1   - Skip teardown after tests (leaves containers and volumes
+#                      running). Use when you want to re-run tests quickly without
+#                      rebuilding, or to inspect logs and state after a failure.
+#                      Without this, cleanup destroys all volumes (resets database
+#                      state) and docker logs become unavailable.
+#
+# Iterative debugging pattern:
+#   First run:       SKIP_CLEANUP=1 ./scripts/run-e2e-tests.sh
+#   Re-run:          SKIP_STARTUP=1 SKIP_CLEANUP=1 ./scripts/run-e2e-tests.sh
+#   Final/clean run: SKIP_STARTUP=1 ./scripts/run-e2e-tests.sh
 
 set -e
 
