@@ -57,31 +57,31 @@ Consolidate three separate scheduler daemon containers (`notification-daemon`, `
 - [x] Task 1.4: Update existing wrapper callers to pass `service_name`
   - Details: .copilot-tracking/details/20260305-01-scheduler-daemon-consolidation-details.md (Lines 55-72)
 
-### [ ] Phase 2: Create Unified `scheduler_daemon_wrapper.py`
+### [x] Phase 2: Create Unified `scheduler_daemon_wrapper.py`
 
-- [ ] Task 2.1: Create stub `scheduler_daemon_wrapper.py` with `main()` raising `NotImplementedError`
+- [x] Task 2.1: Create stub `scheduler_daemon_wrapper.py` with `main()` raising `NotImplementedError`
   - Details: .copilot-tracking/details/20260305-01-scheduler-daemon-consolidation-details.md (Lines 76-88)
 
-- [ ] Task 2.2: Write xfail unit tests for thread startup and shutdown signal handling (RED)
+- [x] Task 2.2: Write xfail unit tests for thread startup and shutdown signal handling (RED)
   - Details: .copilot-tracking/details/20260305-01-scheduler-daemon-consolidation-details.md (Lines 89-101)
 
-- [ ] Task 2.3: Implement full wrapper with thread lifecycle and signal handling; remove xfail markers (GREEN)
+- [x] Task 2.3: Implement full wrapper with thread lifecycle and signal handling; remove xfail markers (GREEN)
   - Details: .copilot-tracking/details/20260305-01-scheduler-daemon-consolidation-details.md (Lines 102-117)
 
-- [ ] Task 2.4: Add edge-case tests (thread crash isolation, graceful shutdown, LOG_LEVEL default)
+- [x] Task 2.4: Add edge-case tests (thread crash isolation, graceful shutdown, LOG_LEVEL default)
   - Details: .copilot-tracking/details/20260305-01-scheduler-daemon-consolidation-details.md (Lines 118-131)
 
-### [ ] Phase 3: Create `docker/scheduler.Dockerfile`
+### [x] Phase 3: Create `docker/scheduler.Dockerfile`
 
-- [ ] Task 3.1: Create `docker/scheduler.Dockerfile` consolidating all three daemon file copies
+- [x] Task 3.1: Create `docker/scheduler.Dockerfile` consolidating all three daemon file copies
   - Details: .copilot-tracking/details/20260305-01-scheduler-daemon-consolidation-details.md (Lines 135-150)
 
-### [ ] Phase 4: Update Compose Files
+### [x] Phase 4: Update Compose Files
 
-- [ ] Task 4.1: Update `compose.yaml` — replace 3 daemon services with single `scheduler` service
+- [x] Task 4.1: Update `compose.yaml` — replace 3 daemon services with single `scheduler` service
   - Details: .copilot-tracking/details/20260305-01-scheduler-daemon-consolidation-details.md (Lines 153-167)
 
-- [ ] Task 4.2: Update `compose.prod.yaml`, `compose.int.yaml`, `compose.e2e.yaml`, `compose.staging.yaml`, `compose.override.yaml`
+- [x] Task 4.2: Update `compose.prod.yaml`, `compose.int.yaml`, `compose.e2e.yaml`, `compose.staging.yaml`, `compose.override.yaml`
   - Details: .copilot-tracking/details/20260305-01-scheduler-daemon-consolidation-details.md (Lines 168-186)
 
 ### [ ] Phase 5: Delete Old Files

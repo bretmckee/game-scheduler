@@ -22,13 +22,7 @@ services:
     environment:
       LOG_LEVEL: DEBUG
 
-  notification-daemon:
-    build:
-      target: production
-    environment:
-      LOG_LEVEL: DEBUG
-
-  status-transition-daemon:
+  scheduler:
     build:
       target: production
     environment:
@@ -40,9 +34,7 @@ services:
     depends_on:
       api:
         condition: service_healthy
-      notification-daemon:
-        condition: service_healthy
-      status-transition-daemon:
+      scheduler:
         condition: service_healthy
       retry-daemon:
         condition: service_healthy

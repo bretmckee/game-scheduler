@@ -18,11 +18,7 @@ services:
     build:
       target: production
 
-  notification-daemon:
-    build:
-      target: production
-
-  status-transition-daemon:
+  scheduler:
     build:
       target: production
 
@@ -32,9 +28,7 @@ services:
     depends_on:
       api:
         condition: service_healthy
-      notification-daemon:
-        condition: service_healthy
-      status-transition-daemon:
+      scheduler:
         condition: service_healthy
       retry-daemon:
         condition: service_healthy

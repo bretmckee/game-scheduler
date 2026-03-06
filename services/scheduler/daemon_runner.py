@@ -23,6 +23,7 @@
 
 import logging
 import signal
+from collections.abc import Callable
 from types import FrameType
 
 from shared.telemetry import flush_telemetry
@@ -32,6 +33,25 @@ from .generic_scheduler_daemon import SchedulerDaemon
 logger = logging.getLogger(__name__)
 
 
+def register_shutdown_signals() -> Callable[[], bool]:
+    """
+    Register SIGTERM/SIGINT handlers and return a shutdown-flag callable.
+
+    Returns a zero-argument callable that returns True once a signal has been
+    received, and False before then.
+    """
+    flag: list[bool] = [False]
+
+    def _signal_handler(_signum: int, _frame: FrameType | None) -> None:
+        logger.info("Received signal %s, initiating graceful shutdown", _signum)
+        flag[0] = True
+
+    signal.signal(signal.SIGTERM, _signal_handler)
+    signal.signal(signal.SIGINT, _signal_handler)
+
+    return lambda: flag[0]
+
+
 def run_daemon(daemon: SchedulerDaemon) -> None:
     """
     Run a SchedulerDaemon with standard SIGTERM/SIGINT handling and telemetry flush.
@@ -39,17 +59,8 @@ def run_daemon(daemon: SchedulerDaemon) -> None:
     Registers signal handlers, starts the daemon loop, and ensures telemetry is
     flushed on exit regardless of how the process terminates.
     """
-    shutdown_requested = False
-
-    def _signal_handler(_signum: int, _frame: FrameType | None) -> None:
-        nonlocal shutdown_requested
-        logger.info("Received signal %s, initiating graceful shutdown", _signum)
-        shutdown_requested = True
-
-    signal.signal(signal.SIGTERM, _signal_handler)
-    signal.signal(signal.SIGINT, _signal_handler)
-
+    shutdown_flag = register_shutdown_signals()
     try:
-        daemon.run(lambda: shutdown_requested)
+        daemon.run(shutdown_flag)
     finally:
         flush_telemetry()

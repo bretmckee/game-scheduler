@@ -50,23 +50,7 @@ services:
       DISCORD_BOT_CLIENT_ID: ${DISCORD_BOT_CLIENT_ID}
       PYTEST_RUNNING: "1"
 
-  notification-daemon:
-    build:
-      target: production
-    volumes: []
-    environment:
-      LOG_LEVEL: DEBUG
-      PYTEST_RUNNING: "1"
-
-  status-transition-daemon:
-    build:
-      target: production
-    volumes: []
-    environment:
-      LOG_LEVEL: DEBUG
-      PYTEST_RUNNING: "1"
-
-  participant-action-daemon:
+  scheduler:
     build:
       target: production
     volumes: []
@@ -104,11 +88,7 @@ services:
         condition: service_started
       bot:
         condition: service_healthy
-      notification-daemon:
-        condition: service_started
-      status-transition-daemon:
-        condition: service_started
-      participant-action-daemon:
+      scheduler:
         condition: service_started
       retry-daemon:
         condition: service_started

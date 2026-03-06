@@ -34,22 +34,12 @@ services:
       LOG_LEVEL: DEBUG
       PYTEST_RUNNING: "1"
 
-  notification-daemon:
-    environment:
-      LOG_LEVEL: DEBUG
-      PYTEST_RUNNING: "1"
-
-  status-transition-daemon:
+  scheduler:
     environment:
       LOG_LEVEL: DEBUG
       PYTEST_RUNNING: "1"
 
   retry-daemon:
-    environment:
-      LOG_LEVEL: DEBUG
-      PYTEST_RUNNING: "1"
-
-  participant-action-daemon:
     environment:
       LOG_LEVEL: DEBUG
       PYTEST_RUNNING: "1"
@@ -84,11 +74,7 @@ services:
         condition: service_healthy
       retry-daemon:
         condition: service_started
-      notification-daemon:
-        condition: service_started
-      status-transition-daemon:
-        condition: service_started
-      participant-action-daemon:
+      scheduler:
         condition: service_started
     networks:
       - app-network

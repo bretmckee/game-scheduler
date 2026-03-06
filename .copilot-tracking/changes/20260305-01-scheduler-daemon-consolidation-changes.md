@@ -13,6 +13,10 @@ Consolidate three separate scheduler daemon containers (`notification-daemon`, `
 
 ### Added
 
+- `services/scheduler/scheduler_daemon_wrapper.py` — new unified entry point; starts all three `SchedulerDaemon` instances as daemon threads with a shared shutdown flag, SIGTERM/SIGINT handling, per-thread exception isolation, and telemetry flush (Phase 2)
+- `tests/unit/services/scheduler/test_scheduler_daemon_wrapper.py` — 10 unit tests covering thread startup, signal handling, crash isolation, and `LOG_LEVEL` defaults (Phase 2)
+- `docker/scheduler.Dockerfile` — new multi-stage Dockerfile consolidating file copies for all scheduler modules with `CMD` pointing to `scheduler_daemon_wrapper` (Phase 3)
+
 ### Modified
 
 - `services/scheduler/generic_scheduler_daemon.py` — Added required `service_name: str` parameter to `SchedulerDaemon.__init__`; stored as `self._service_name` (Task 1.1 stub; not yet used in log messages or OTel spans)
@@ -22,5 +26,11 @@ Consolidate three separate scheduler daemon containers (`notification-daemon`, `
 - `services/scheduler/notification_daemon_wrapper.py` — Added `service_name="notification"` to `SchedulerDaemon` constructor call (Task 1.4)
 - `services/scheduler/status_transition_daemon_wrapper.py` — Added `service_name="status-transition"` to `SchedulerDaemon` constructor call (Task 1.4)
 - `services/scheduler/participant_action_daemon_wrapper.py` — Added `service_name="participant-action"` to `SchedulerDaemon` constructor call (Task 1.4)
+- `compose.yaml` — Replaced three daemon service definitions (`notification-daemon`, `status-transition-daemon`, `participant-action-daemon`) with a single `scheduler` service using `docker/scheduler.Dockerfile` and `SCHEDULER_LOG_LEVEL` env var (Task 4.1)
+- `compose.prod.yaml` — Replaced two daemon service build stubs with single `scheduler` stub; updated `frontend.depends_on` to reference `scheduler` (Task 4.2)
+- `compose.staging.yaml` — Replaced two daemon service stubs with single `scheduler` stub; updated `frontend.depends_on` to reference `scheduler` (Task 4.2)
+- `compose.override.yaml` — Replaced two daemon dev override blocks with single `scheduler` dev override with volume mounts (Task 4.2)
+- `compose.int.yaml` — Replaced three daemon service environment stubs with single `scheduler` stub; updated `system-ready.depends_on` to reference `scheduler` (Task 4.2)
+- `compose.e2e.yaml` — Replaced three daemon service stubs with single `scheduler` stub; updated `system-ready.depends_on` to reference `scheduler` (Task 4.2)
 
 ### Removed
