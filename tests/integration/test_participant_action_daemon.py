@@ -19,9 +19,9 @@
 # SOFTWARE.
 
 
-"""Integration tests for participant action daemon.
+"""Integration tests for participant action scheduler service.
 
-Verifies that the participant-action-daemon container picks up overdue
+Verifies that the scheduler container picks up overdue
 ParticipantActionSchedule records, marks them as processed, and publishes
 PARTICIPANT_DROP_DUE events to the bot_events RabbitMQ queue.
 """
@@ -78,7 +78,7 @@ def _insert_participant(admin_db_sync, game_id: str, user_id: str) -> str:
 class TestParticipantActionDaemonIntegration:
     """Integration tests for participant action daemon service.
 
-    These tests run against the actual participant-action-daemon container
+    These tests run against the actual scheduler container
     started by docker-compose, validating that the running service processes
     overdue ParticipantActionSchedule records correctly.
     """
@@ -90,7 +90,7 @@ class TestParticipantActionDaemonIntegration:
         rabbitmq_channel,
         test_game_environment,
     ):
-        """Running participant-action-daemon marks overdue records processed and publishes event."""
+        """Running scheduler service marks overdue records processed and publishes event."""
         env = test_game_environment()
         game_id = env["game"]["id"]
         user_id = env["user"]["id"]

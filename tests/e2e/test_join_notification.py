@@ -164,7 +164,7 @@ async def test_join_notification_with_signup_instructions(
     )
     print(f"[TEST] ✓ Notification scheduled {time_until_notification:.1f} seconds from now")
 
-    # Wait for notification daemon to process and send DM
+    # Wait for scheduler service to process and send DM
     join_dm = await main_bot_helper.wait_for_recent_dm(
         user_id=discord_user_id,
         game_title=game_title,
@@ -281,7 +281,7 @@ async def test_join_notification_without_signup_instructions(
     assert schedule_row is not None, "Join notification schedule entry should be created"
     print(f"[TEST] ✓ Join notification schedule created (id: {schedule_row[0]})")
 
-    # Wait for notification daemon to process and send DM
+    # Wait for scheduler service to process and send DM
     join_dm = await main_bot_helper.wait_for_recent_dm(
         user_id=discord_user_id,
         game_title=game_title,

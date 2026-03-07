@@ -39,7 +39,7 @@ class ParticipantActionSchedule(CreatedAtMixin, Base):
     Scheduled actions for individual participants.
 
     Each record represents one pending action (e.g., "drop") to be executed
-    at a specific time if not cleared beforehand. The participant_action_daemon
+    at a specific time if not cleared beforehand. The scheduler service
     queries MIN(action_time) to determine when to wake up next.
 
     A UNIQUE constraint on participant_id ensures at most one pending action

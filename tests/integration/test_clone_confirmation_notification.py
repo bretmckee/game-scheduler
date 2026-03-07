@@ -19,9 +19,9 @@
 # SOFTWARE.
 
 
-"""Integration tests for clone_confirmation notification daemon processing.
+"""Integration tests for clone_confirmation notification scheduler processing.
 
-Verifies that the notification daemon picks up clone_confirmation records,
+Verifies that the scheduler service picks up clone_confirmation records,
 marks them as sent, and publishes a NOTIFICATION_DUE event to RabbitMQ with
 the correct notification_type in the payload.
 """
@@ -76,7 +76,7 @@ def _insert_participant(admin_db_sync, game_id: str, user_id: str) -> str:
 
 
 class TestCloneConfirmationNotificationDaemon:
-    """Integration tests for notification daemon processing of clone_confirmation records."""
+    """Integration tests for scheduler service processing of clone_confirmation records."""
 
     def test_daemon_fires_clone_confirmation_notification(
         self,

@@ -22,8 +22,8 @@
 """
 Generic scheduler daemon for database-backed event-driven scheduling.
 
-Replaces duplicate notification and status transition daemon implementations
-with a single parameterized scheduler using PostgreSQL LISTEN/NOTIFY.
+Used by the consolidated scheduler service to run multiple scheduling
+threads with a single parameterized implementation using PostgreSQL LISTEN/NOTIFY.
 """
 
 import logging

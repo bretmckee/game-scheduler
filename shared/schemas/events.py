@@ -35,7 +35,7 @@ class GameStatusTransitionDueEvent(BaseModel):
     """
     Payload for game.status_transition_due event.
 
-    Published by status transition daemon when a scheduled status change
+    Published by the scheduler service when a scheduled status change
     is due. The bot receives this event and updates the game status.
     """
 
@@ -48,7 +48,7 @@ class ParticipantDropDueEvent(BaseModel):
     """
     Payload for game.participant_drop_due event.
 
-    Published by participant action daemon when a deadline-based auto-drop
+    Published by the scheduler service when a deadline-based auto-drop
     action is due. The bot receives this event and removes the participant.
     """
 

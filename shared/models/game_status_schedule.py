@@ -38,7 +38,7 @@ class GameStatusSchedule(CreatedAtMixin, Base):
     Scheduled status transitions for games.
 
     Each record represents one status transition to be executed at a specific time.
-    The status_transition_daemon queries MIN(transition_time) to determine when
+    The scheduler service queries MIN(transition_time) to determine when
     to wake up next.
     """
 

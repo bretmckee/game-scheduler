@@ -141,7 +141,7 @@ def test_timeouts() -> dict[TimeoutType, int]:
     - MESSAGE_CREATE: Discord message creation (10s)
     - MESSAGE_UPDATE: Discord message edit/refresh (10s)
     - DM_IMMEDIATE: DMs sent immediately by API events (10s)
-    - DM_SCHEDULED: DMs sent by notification daemon polling (150s)
+    - DM_SCHEDULED: DMs sent by scheduler service polling (150s)
     - STATUS_TRANSITION: Status transitions via daemon polling (150s)
     - DB_WRITE: Database write operations (5s)
 

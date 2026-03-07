@@ -23,5 +23,5 @@
 Retry service for DLQ processing.
 
 Dedicated service for handling dead letter queue messages,
-separate from notification and status transition daemons.
+separate from the scheduler service.
 """

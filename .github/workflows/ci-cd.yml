@@ -198,7 +198,7 @@ jobs:
 
     strategy:
       matrix:
-        service: [api, bot, scheduler, frontend, init, notification-daemon]
+        service: [api, bot, scheduler, frontend, init]
 
     steps:
       - name: Checkout code

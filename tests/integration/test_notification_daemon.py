@@ -19,7 +19,7 @@
 # SOFTWARE.
 
 
-"""Integration tests for notification daemon with PostgreSQL LISTEN/NOTIFY.
+"""Integration tests for notification scheduler service with PostgreSQL LISTEN/NOTIFY.
 
 These tests are designed to run in Docker with docker-compose where all
 services (PostgreSQL, RabbitMQ) are available.
@@ -153,7 +153,7 @@ class TestPostgresListenerIntegration:
 class TestNotificationDaemonIntegration:
     """Integration tests for notification daemon service.
 
-    These tests run against the actual notification-daemon container started
+    These tests run against the actual scheduler container started
     by docker-compose, validating that the running service processes
     notifications correctly.
     """
@@ -165,7 +165,7 @@ class TestNotificationDaemonIntegration:
         rabbitmq_channel,
         test_game_environment,
     ):
-        """Test that running notification-daemon processes due notifications."""
+        """Test that the running scheduler service processes due notifications."""
         env = test_game_environment()
 
         notif_id = str(uuid4())

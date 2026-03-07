@@ -921,7 +921,7 @@ class GameService:
         Create ParticipantActionSchedule and clone_confirmation notifications
         for participants carried over with YES_WITH_DEADLINE.
 
-        Sends pg_notify after inserting records so the participant_action_daemon
+        Sends pg_notify after inserting records so the scheduler service
         wakes up and schedules the nearest deadline.
 
         Does not commit. Caller must commit.

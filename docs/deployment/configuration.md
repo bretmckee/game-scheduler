@@ -146,7 +146,7 @@ To change RabbitMQ credentials:
    ```bash
    docker compose down rabbitmq
    docker compose up -d rabbitmq
-   docker compose restart api bot notification-daemon status-transition-daemon
+   docker compose restart api bot scheduler
    ```
 
 **Note:** RabbitMQ stores user credentials in its database. To fully reset:
@@ -229,15 +229,18 @@ docker compose exec rabbitmq rabbitmqctl list_queues name messages | grep dlq
 #### What DLQ Growth Indicates
 
 **Healthy State:**
+
 - DLQ message count stays at 0 or occasionally spikes then clears
 - Indicates messages are being processed successfully
 
 **Warning Signs:**
+
 - DLQ message count consistently >10 messages
 - DLQ depth growing over time (not clearing between retry cycles)
 - Indicates underlying issues requiring investigation
 
 **Common Causes:**
+
 - **Bot service down:** Messages can't be consumed from primary queue
 - **Database connectivity issues:** Bot/API can't process messages successfully
 - **Discord API errors:** Bot can't send messages to Discord
@@ -248,16 +251,19 @@ docker compose exec rabbitmq rabbitmqctl list_queues name messages | grep dlq
 #### DLQ Messages Not Clearing
 
 1. **Check retry service logs:**
+
    ```bash
    docker compose logs retry-daemon
    ```
 
 2. **Verify retry service is running:**
+
    ```bash
    docker compose ps retry-daemon
    ```
 
 3. **Check RabbitMQ connectivity:**
+
    ```bash
    docker compose logs retry-daemon | grep "Connection refused"
    ```
@@ -272,6 +278,7 @@ docker compose exec rabbitmq rabbitmqctl list_queues name messages | grep dlq
 If retry service fails to process DLQ messages:
 
 1. **Drain DLQ manually (caution: messages will be lost):**
+
    ```bash
    docker compose exec rabbitmq rabbitmqctl purge_queue bot_events.dlq
    docker compose exec rabbitmq rabbitmqctl purge_queue notification_queue.dlq
@@ -321,8 +328,8 @@ No rebuild required! The new interval takes effect immediately.
 **Rollback procedure:**
 
 1. Stop retry-daemon: `docker compose stop retry-daemon`
-2. Re-enable DLQ processing on notification-daemon (set `process_dlq=True`)
-3. Restart daemons: `docker compose restart notification-daemon status-transition-daemon`
+2. Re-enable DLQ processing on scheduler (set `process_dlq=True`)
+3. Restart daemons: `docker compose restart scheduler`
 
 ## OpenTelemetry and Observability Configuration
 
@@ -409,8 +416,7 @@ Application Services → Grafana Alloy → Grafana Cloud
 
 - `api` - FastAPI REST API with HTTP, database, Redis spans
 - `bot` - Discord bot with command and event spans
-- `notification-daemon` - Scheduled task spans with RabbitMQ context
-- `status-transition-daemon` - Game status update spans
+- `scheduler` - Scheduled task spans with RabbitMQ context, game status updates
 
 **Infrastructure Metrics:**
 

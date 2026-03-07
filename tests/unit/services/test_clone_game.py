@@ -344,7 +344,7 @@ async def test_apply_deadline_carryover_creates_action_and_notification_schedule
 
 @pytest.mark.asyncio
 async def test_apply_deadline_carryover_sends_pg_notify(game_service, source_game):
-    """_apply_deadline_carryover sends pg_notify to wake the participant_action_daemon."""
+    """_apply_deadline_carryover sends pg_notify to wake the scheduler service."""
     source_player = source_game.participants[0]
 
     new_participant = MagicMock(spec=participant_model.GameParticipant)

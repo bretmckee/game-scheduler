@@ -84,20 +84,20 @@ Consolidate three separate scheduler daemon containers (`notification-daemon`, `
 - [x] Task 4.2: Update `compose.prod.yaml`, `compose.int.yaml`, `compose.e2e.yaml`, `compose.staging.yaml`, `compose.override.yaml`
   - Details: .copilot-tracking/details/20260305-01-scheduler-daemon-consolidation-details.md (Lines 168-186)
 
-### [ ] Phase 5: Delete Old Files
+### [x] Phase 5: Delete Old Files
 
-- [ ] Task 5.1: Delete three old wrapper `.py` files, their unit tests, and three old Dockerfiles atomically
+- [x] Task 5.1: Delete three old wrapper `.py` files, their unit tests, and three old Dockerfiles atomically
   - Details: .copilot-tracking/details/20260305-01-scheduler-daemon-consolidation-details.md (Lines 190-215)
 
-### [ ] Phase 6: Update Documentation
+### [x] Phase 6: Update Documentation
 
-- [ ] Task 6.1: Update CI/CD workflow — replace `notification-daemon` with `scheduler` in the service build matrix
+- [x] Task 6.1: Update CI/CD workflow — replace `notification-daemon` with `scheduler` in the service build matrix
   - Details: .copilot-tracking/details/20260305-01-scheduler-daemon-consolidation-details.md (Lines 216-228)
 
-- [ ] Task 6.2: Update `docs/` and `config/` env var references — replace per-daemon log level vars with `SCHEDULER_LOG_LEVEL`
+- [x] Task 6.2: Update `docs/` and `config/` env var references — replace per-daemon log level vars with `SCHEDULER_LOG_LEVEL`
   - Details: .copilot-tracking/details/20260305-01-scheduler-daemon-consolidation-details.md (Lines 229-243)
 
-- [ ] Task 6.3: Update in-code comments and docstrings across `services/`, `shared/`, and `tests/`
+- [x] Task 6.3: Update in-code comments and docstrings across `services/`, `shared/`, and `tests/`
   - Details: .copilot-tracking/details/20260305-01-scheduler-daemon-consolidation-details.md (Lines 244-277)
 
 ## Dependencies

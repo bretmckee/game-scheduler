@@ -34,3 +34,28 @@ Consolidate three separate scheduler daemon containers (`notification-daemon`, `
 - `compose.e2e.yaml` — Replaced three daemon service stubs with single `scheduler` stub; updated `system-ready.depends_on` to reference `scheduler` (Task 4.2)
 
 ### Removed
+
+- `services/scheduler/notification_daemon_wrapper.py` — deleted; replaced by unified `scheduler_daemon_wrapper.py` (Phase 5)
+- `services/scheduler/status_transition_daemon_wrapper.py` — deleted; replaced by unified `scheduler_daemon_wrapper.py` (Phase 5)
+- `services/scheduler/participant_action_daemon_wrapper.py` — deleted; replaced by unified `scheduler_daemon_wrapper.py` (Phase 5)
+- `tests/unit/services/test_participant_action_daemon_wrapper.py` — deleted alongside the wrapper it tested (Phase 5)
+- `docker/notification-daemon.Dockerfile` — deleted; replaced by `docker/scheduler.Dockerfile` (Phase 5)
+- `docker/status-transition-daemon.Dockerfile` — deleted; replaced by `docker/scheduler.Dockerfile` (Phase 5)
+- `docker/participant-action-daemon.Dockerfile` — deleted; replaced by `docker/scheduler.Dockerfile` (Phase 5)
+
+### Documentation and Configuration (Phase 6)
+
+- `.github/workflows/ci-cd.yml` — removed `notification-daemon` from service build matrix; matrix now lists `[api, bot, scheduler, frontend, init]` (Task 6.1)
+- `config/env.dev`, `config/env.prod`, `config/env.staging`, `config/env.int`, `config/env.e2e`, `config.template/env.template` — replaced `NOTIFICATION_DAEMON_LOG_LEVEL` and `STATUS_TRANSITION_DAEMON_LOG_LEVEL` with unified `SCHEDULER_LOG_LEVEL` (Task 6.2)
+- `docs/deployment/configuration.md` — updated `docker compose restart` commands, rollback procedure, and observability service list to reference `scheduler` (Task 6.2)
+- `docs/deployment/quickstart.md` — updated rollback verification steps to reference `scheduler` (Task 6.2)
+- `shared/schemas/events.py` — updated `GameStatusTransitionDueEvent` and `ParticipantDropDueEvent` docstrings to reference `scheduler service` (Task 6.3)
+- `shared/models/participant_action_schedule.py` — updated model docstring from `participant_action_daemon` to `scheduler service` (Task 6.3)
+- `shared/models/game_status_schedule.py` — updated model docstring from `status_transition_daemon` to `scheduler service` (Task 6.3)
+- `services/api/services/games.py` — updated `_apply_deadline_carryover` docstring from `participant_action_daemon` to `scheduler service` (Task 6.3)
+- `services/retry/__init__.py` — updated module docstring from "notification and status transition daemons" to "scheduler service" (Task 6.3)
+- `services/scheduler/generic_scheduler_daemon.py` — updated module docstring to reflect consolidated `scheduler service` role (Task 6.3)
+- `tests/integration/test_notification_daemon.py`, `test_status_transitions.py`, `test_participant_action_daemon.py`, `test_clone_confirmation_notification.py` — updated module and class docstrings to reference `scheduler container` instead of individual daemon container names (Task 6.3)
+- `tests/conftest.py` — updated `DM_SCHEDULED` timeout comment to reference `scheduler service` (Task 6.3)
+- `tests/e2e/test_join_notification.py`, `test_clone_game_e2e.py` — updated inline comments from old daemon names to `scheduler service` (Task 6.3)
+- `tests/unit/services/test_clone_game.py` — updated test docstring from `participant_action_daemon` to `scheduler service` (Task 6.3)

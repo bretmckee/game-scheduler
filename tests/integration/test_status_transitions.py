@@ -19,7 +19,7 @@
 # SOFTWARE.
 
 
-"""Integration tests for status transition daemon with PostgreSQL LISTEN/NOTIFY.
+"""Integration tests for status transition scheduler service with PostgreSQL LISTEN/NOTIFY.
 
 These tests are designed to run in Docker with docker-compose where all
 services (PostgreSQL, RabbitMQ) are available.
@@ -100,7 +100,7 @@ class TestPostgresListenerIntegration:
 class TestStatusTransitionDaemonIntegration:
     """Integration tests for status transition daemon service.
 
-    These tests run against the actual status-transition-daemon container
+    These tests run against the actual scheduler container
     started by docker-compose, validating that the running service processes
     status transitions correctly.
     """
@@ -112,7 +112,7 @@ class TestStatusTransitionDaemonIntegration:
         test_game_environment,
         rabbitmq_channel,
     ):
-        """Test that running status-transition-daemon processes due transitions."""
+        """Test that the running scheduler service processes due transitions."""
         env = test_game_environment()
         schedule_id = str(uuid4())
         transition_time = datetime.now(UTC).replace(tzinfo=None) - timedelta(minutes=1)

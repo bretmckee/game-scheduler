@@ -159,6 +159,7 @@ Both frontend and bot use the same `BACKEND_URL` value.
 ## Configuration Notes
 
 **Standard deployment (everything on one server):**
+
 ```bash
 # Frontend and API accessed via same domain
 FRONTEND_URL=https://example.com
@@ -166,6 +167,7 @@ BACKEND_URL=https://example.com
 ```
 
 **Split deployment (API on different domain):**
+
 ```bash
 # Frontend at one domain, API at another
 FRONTEND_URL=https://game.example.com
@@ -218,6 +220,7 @@ The new architecture replaces the shared "DLQ" queue with per-queue DLQs:
 - **New:** `bot_events.dlq` and `notification_queue.dlq` processed by dedicated retry-daemon
 
 **Benefits:**
+
 - Fixes DLQ exponential growth bug
 - Clear ownership of retry logic
 - Improved observability per queue type
@@ -226,6 +229,7 @@ The new architecture replaces the shared "DLQ" queue with per-queue DLQs:
 ### Pre-Migration Steps
 
 1. **Check current DLQ depth:**
+
    ```bash
    docker compose --env-file config/env/env.prod.local exec rabbitmq rabbitmqctl list_queues name messages | grep DLQ
    ```
@@ -244,11 +248,13 @@ The new architecture replaces the shared "DLQ" queue with per-queue DLQs:
 ### Migration Procedure
 
 1. **Pull latest code:**
+
    ```bash
    git pull
    ```
 
 2. **Update environment variables in your environment file:**
+
    ```bash
    # Edit your production environment file
    nano config/env/env.prod.local
@@ -258,6 +264,7 @@ The new architecture replaces the shared "DLQ" queue with per-queue DLQs:
    ```
 
 3. **Rebuild services:**
+
    ```bash
    # For production
    docker compose --env-file config/env/env.prod.local build
@@ -267,6 +274,7 @@ The new architecture replaces the shared "DLQ" queue with per-queue DLQs:
    ```
 
 4. **Stop all services:**
+
    ```bash
    # For production
    docker compose --env-file env/env.prod.local down
@@ -276,6 +284,7 @@ The new architecture replaces the shared "DLQ" queue with per-queue DLQs:
    ```
 
 5. **Start services with new architecture:**
+
    ```bash
    # For production
    docker compose --env-file env/env.prod.local up -d
@@ -285,6 +294,7 @@ The new architecture replaces the shared "DLQ" queue with per-queue DLQs:
    ```
 
 6. **Verify new infrastructure created:**
+
    ```bash
    # Should show bot_events.dlq and notification_queue.dlq
    # For production
@@ -300,6 +310,7 @@ The new architecture replaces the shared "DLQ" queue with per-queue DLQs:
 ### Post-Migration Verification
 
 1. **Check service health:**
+
    ```bash
    docker compose --env-file env/env.prod.local ps
    # All services should be "Up" and healthy
@@ -311,6 +322,7 @@ The new architecture replaces the shared "DLQ" queue with per-queue DLQs:
    - Old "DLQ" queue should be gone or empty
 
 3. **Monitor DLQ depth over time:**
+
    ```bash
    # Check periodically (every 15-30 minutes)
    docker compose --env-file env/env.prod.local exec rabbitmq rabbitmqctl list_queues name messages | grep dlq
@@ -323,12 +335,14 @@ The new architecture replaces the shared "DLQ" queue with per-queue DLQs:
 ### Troubleshooting Migration
 
 **Old DLQ queue still exists:**
+
 ```bash
 # Manually delete if empty
 docker compose --env-file env/env.prod.local exec rabbitmq rabbitmqctl delete_queue DLQ
 ```
 
 **Retry-daemon not starting:**
+
 ```bash
 # Check logs for errors
 docker compose --env-file env/env.prod.local logs retry-daemon
@@ -340,6 +354,7 @@ docker compose --env-file env/env.prod.local logs retry-daemon
 ```
 
 **DLQ messages not being processed:**
+
 ```bash
 # Verify retry-daemon is running
 docker compose --env-file env/env.prod.local ps retry-daemon
@@ -356,24 +371,26 @@ docker compose --env-file env/env.prod.local restart retry-daemon
 If you need to rollback to the old architecture:
 
 1. **Stop retry-daemon:**
+
    ```bash
    docker compose --env-file env/env.prod.local stop retry-daemon
    ```
 
 2. **Checkout previous code version:**
+
    ```bash
    git checkout <previous-commit-hash>
    ```
 
 3. **Rebuild and restart:**
+
    ```bash
    docker compose --env-file env/env.prod.local build
    docker compose --env-file env/env.prod.local up -d
    ```
 
 4. **Verify old architecture restored:**
-   - notification-daemon processes DLQ again
-   - status-transition-daemon processes DLQ again
+   - scheduler processes DLQ again
    - Shared "DLQ" queue exists
 
 **Note:** After successful migration and verification, rollback should not be necessary.
@@ -381,5 +398,6 @@ If you need to rollback to the old architecture:
 ### Additional Resources
 
 For detailed information on DLQ monitoring and troubleshooting, see:
+
 - [configuration.md](configuration.md#retry-service-dlq-processing) - Retry service configuration
 - `grafana-alloy/dashboards/README.md` - DLQ monitoring dashboard

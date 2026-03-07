@@ -84,7 +84,7 @@ async def test_clone_game_yes_with_deadline_sends_confirmation_dm_and_auto_drops
     - ParticipantActionSchedule and clone_confirmation NotificationSchedule persist in DB
     - Notification daemon sends clone_confirmation DM to carried-over participant
     - DM contains game title and confirm/decline buttons
-    - After deadline expires, participant_action daemon fires PARTICIPANT_DROP_DUE
+    - After deadline expires, scheduler service fires PARTICIPANT_DROP_DUE
     - Bot removes the participant from the new game
     - Removed participant receives removal DM
     """
@@ -133,7 +133,7 @@ async def test_clone_game_yes_with_deadline_sends_confirmation_dm_and_auto_drops
     )
 
     # Clone the game with YES_WITH_DEADLINE; deadline is ~2 minutes from now so
-    # the participant action daemon will fire before the general DM_SCHEDULED timeout
+    # the scheduler service will fire before the general DM_SCHEDULED timeout
     deadline = datetime.now(UTC) + timedelta(seconds=_DEADLINE_OFFSET_SECONDS)
     clone_at = datetime.now(UTC) + timedelta(days=7)
     clone_title = f"E2E Clone Target {uuid4().hex[:8]}"
@@ -203,7 +203,7 @@ async def test_clone_game_yes_with_deadline_sends_confirmation_dm_and_auto_drops
     )
     assert confirmation_dm is not None, (
         f"Participant should receive clone_confirmation DM for '{clone_title}'. "
-        "Check notification daemon logs."
+        "Check scheduler service logs."
     )
     assert "confirm" in confirmation_dm.content.lower(), (
         f"Clone confirmation DM should contain 'confirm': {confirmation_dm.content}"
@@ -211,7 +211,7 @@ async def test_clone_game_yes_with_deadline_sends_confirmation_dm_and_auto_drops
     print(f"[TEST] ✓ Clone confirmation DM received: {confirmation_dm.content[:80]}...")
 
     # Wait for deadline to trigger auto-drop (participant didn't confirm)
-    # The participant_action_daemon wakes when action_time <= now
+    # The scheduler service wakes when action_time <= now
     drop_timeout = _DEADLINE_OFFSET_SECONDS + test_timeouts[TimeoutType.DM_IMMEDIATE] + 30
     dropped = await wait_for_db_condition(
         admin_db,
