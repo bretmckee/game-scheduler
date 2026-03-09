@@ -22,13 +22,13 @@
 """Unit tests for DiscordAPIClient."""
 
 import json
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from shared.cache.keys import CacheKeys
 from shared.cache.ttl import CacheTTL
-from shared.discord.client import DISCORD_API_BASE, DiscordAPIClient
+from shared.discord.client import DiscordAPIClient
 
 
 @pytest.fixture
@@ -56,7 +56,7 @@ def mock_redis_cache_miss():
 @pytest.mark.asyncio
 async def test_get_application_info_uses_correct_url(discord_client):
     """Test that get_application_info calls the Discord applications/@me endpoint."""
-    expected_url = f"{DISCORD_API_BASE}/oauth2/applications/@me"
+    expected_url = "https://discord.com/api/v10/oauth2/applications/@me"
     mock_request = AsyncMock(return_value={"id": "123", "name": "TestBot"})
 
     with patch.object(discord_client, "_make_api_request", mock_request):
@@ -122,3 +122,106 @@ async def test_get_application_info_returns_cached_data(discord_client, mock_red
 
     assert result == app_data
     mock_request.assert_not_awaited()
+
+
+# ---------------------------------------------------------------------------
+# Task 1.2 (RED): Verify api_base_url controls request URLs
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def discord_client_fake_base():
+    """Return a DiscordAPIClient with a fake api_base_url."""
+    return DiscordAPIClient(
+        client_id="test_client_id",
+        client_secret="test_client_secret",
+        bot_token="Bot.test.bot_token",
+        api_base_url="http://fake:9999",
+    )
+
+
+def _mock_session_returning(response_data: object) -> MagicMock:
+    """Return a mock aiohttp session whose .get() yields a successful response.
+
+    aiohttp's session.get() is called synchronously and used as an async context
+    manager, so the outer mock must be a plain MagicMock, not AsyncMock.
+    """
+    mock_response = MagicMock()
+    mock_response.status = 200
+    mock_response.json = AsyncMock(return_value=response_data)
+    mock_response.headers = MagicMock()
+    mock_response.headers.get = MagicMock(return_value="N/A")
+
+    ctx = MagicMock()
+    ctx.__aenter__ = AsyncMock(return_value=mock_response)
+    ctx.__aexit__ = AsyncMock(return_value=False)
+
+    mock_session = MagicMock()
+    mock_session.get.return_value = ctx
+    return mock_session
+
+
+@pytest.mark.asyncio
+async def test_exchange_code_uses_api_base_url(discord_client_fake_base: DiscordAPIClient) -> None:
+    """exchange_code must POST to api_base_url/oauth2/token, not the hardcoded Discord URL."""
+    fake_token = {
+        "access_token": "tok",
+        "token_type": "Bearer",
+        "expires_in": 604800,
+        "refresh_token": "ref",
+        "scope": "identify",
+    }
+    mock_request = AsyncMock(return_value=fake_token)
+
+    with patch.object(discord_client_fake_base, "_make_api_request", mock_request):
+        await discord_client_fake_base.exchange_code("code123", "http://redirect")
+
+    url_used = mock_request.call_args.kwargs.get("url")
+    assert url_used == "http://fake:9999/oauth2/token"
+
+
+@pytest.mark.asyncio
+async def test_refresh_token_uses_api_base_url(discord_client_fake_base: DiscordAPIClient) -> None:
+    """refresh_token must POST to api_base_url/oauth2/token, not the hardcoded Discord URL."""
+    fake_token = {
+        "access_token": "tok2",
+        "token_type": "Bearer",
+        "expires_in": 604800,
+        "refresh_token": "ref2",
+        "scope": "identify",
+    }
+    mock_request = AsyncMock(return_value=fake_token)
+
+    with patch.object(discord_client_fake_base, "_make_api_request", mock_request):
+        await discord_client_fake_base.refresh_token("old_refresh_token.abc")
+
+    url_used = mock_request.call_args.kwargs.get("url")
+    assert url_used == "http://fake:9999/oauth2/token"
+
+
+@pytest.mark.asyncio
+async def test_get_user_info_uses_api_base_url(discord_client_fake_base: DiscordAPIClient) -> None:
+    """get_user_info must GET api_base_url/users/@me, not the hardcoded Discord URL."""
+    mock_session = _mock_session_returning({"id": "user123", "username": "testuser"})
+    session_patch = patch.object(
+        discord_client_fake_base, "_get_session", AsyncMock(return_value=mock_session)
+    )
+    with session_patch:
+        await discord_client_fake_base.get_user_info("oauth_token.abc")
+
+    actual_url = mock_session.get.call_args[0][0]
+    assert actual_url == "http://fake:9999/users/@me"
+
+
+@pytest.mark.asyncio
+async def test_get_guilds_uses_api_base_url(discord_client_fake_base: DiscordAPIClient) -> None:
+    """get_guilds must GET api_base_url/users/@me/guilds, not the hardcoded Discord URL."""
+    mock_session = _mock_session_returning([{"id": "guild1", "name": "Test Guild"}])
+    session_patch = patch.object(
+        discord_client_fake_base, "_get_session", AsyncMock(return_value=mock_session)
+    )
+    with session_patch:
+        await discord_client_fake_base.get_guilds()
+
+    actual_url = mock_session.get.call_args[0][0]
+    assert actual_url == "http://fake:9999/users/@me/guilds"

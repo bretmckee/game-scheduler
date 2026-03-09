@@ -40,11 +40,6 @@ from shared.utils.discord_tokens import DISCORD_BOT_TOKEN_DOT_COUNT
 
 logger = logging.getLogger(__name__)
 
-DISCORD_API_BASE = "https://discord.com/api/v10"
-DISCORD_TOKEN_URL = f"{DISCORD_API_BASE}/oauth2/token"
-DISCORD_USER_URL = f"{DISCORD_API_BASE}/users/@me"
-DISCORD_GUILDS_URL = f"{DISCORD_API_BASE}/users/@me/guilds"
-
 
 class DiscordAPIError(Exception):
     """Exception raised for Discord API errors."""
@@ -67,7 +62,13 @@ class DiscordAPIError(Exception):
 class DiscordAPIClient:
     """Async client for Discord REST API operations."""
 
-    def __init__(self, client_id: str, client_secret: str, bot_token: str) -> None:
+    def __init__(
+        self,
+        client_id: str,
+        client_secret: str,
+        bot_token: str,
+        api_base_url: str = "https://discord.com/api/v10",
+    ) -> None:
         """
         Initialize Discord API client.
 
@@ -75,10 +76,15 @@ class DiscordAPIClient:
             client_id: Discord application client ID
             client_secret: Discord application client secret
             bot_token: Discord bot token for bot-level operations
+            api_base_url: Base URL for Discord API (overridable for testing)
         """
         self.client_id = client_id
         self.client_secret = client_secret
         self.bot_token = bot_token
+        self._api_base_url = api_base_url
+        self._token_url = f"{api_base_url}/oauth2/token"
+        self._user_url = f"{api_base_url}/users/@me"
+        self._guilds_url = f"{api_base_url}/users/@me/guilds"
         self._session: aiohttp.ClientSession | None = None
         self._guild_locks: dict[str, asyncio.Lock] = {}
         self._locks_lock = asyncio.Lock()
@@ -230,7 +236,7 @@ class DiscordAPIClient:
 
         return await self._make_api_request(
             method="POST",
-            url=DISCORD_TOKEN_URL,
+            url=self._token_url,
             operation_name="exchange_code",
             headers={"Content-Type": "application/x-www-form-urlencoded"},
             data=data,
@@ -258,7 +264,7 @@ class DiscordAPIClient:
 
         return await self._make_api_request(
             method="POST",
-            url=DISCORD_TOKEN_URL,
+            url=self._token_url,
             operation_name="refresh_token",
             headers={"Content-Type": "application/x-www-form-urlencoded"},
             data=data,
@@ -273,7 +279,7 @@ class DiscordAPIClient:
             return json.loads(cached)
         return await self._make_api_request(
             method="GET",
-            url=f"{DISCORD_API_BASE}/oauth2/applications/@me",
+            url=f"{self._api_base_url}/oauth2/applications/@me",
             operation_name="get_application_info",
             headers={"Authorization": self._get_auth_header()},
             cache_key=cache_keys.CacheKeys.app_info(),
@@ -295,10 +301,10 @@ class DiscordAPIClient:
         """
         session = await self._get_session()
 
-        self._log_request("GET", DISCORD_USER_URL, "get_user_info")
+        self._log_request("GET", self._user_url, "get_user_info")
         try:
             async with session.get(
-                DISCORD_USER_URL,
+                self._user_url,
                 headers={"Authorization": f"Bearer {access_token}"},
             ) as response:
                 response_data = await response.json()
@@ -478,7 +484,7 @@ class DiscordAPIClient:
             DiscordAPIError: If fetching guilds fails after retries
         """
         session = await self._get_session()
-        url = f"{DISCORD_API_BASE}/users/@me/guilds"
+        url = self._guilds_url
 
         max_retries = 3
         for attempt in range(max_retries):
@@ -522,7 +528,7 @@ class DiscordAPIClient:
 
         # Fetch from Discord API
         session = await self._get_session()
-        url = f"{DISCORD_API_BASE}/guilds/{guild_id}/channels"
+        url = f"{self._api_base_url}/guilds/{guild_id}/channels"
 
         self._log_request("GET", url, "get_guild_channels")
         try:
@@ -580,7 +586,7 @@ class DiscordAPIClient:
 
         # Fetch from Discord API
         session = await self._get_session()
-        url = f"{DISCORD_API_BASE}/channels/{channel_id}"
+        url = f"{self._api_base_url}/channels/{channel_id}"
 
         self._log_request("GET", url, "fetch_channel")
         try:
@@ -633,7 +639,7 @@ class DiscordAPIClient:
             logger.debug("Cache hit for guild: %s", guild_id)
             return json.loads(cached)
 
-        url = f"{DISCORD_API_BASE}/guilds/{guild_id}"
+        url = f"{self._api_base_url}/guilds/{guild_id}"
         result = await self._make_api_request(
             method="GET",
             url=url,
@@ -669,7 +675,7 @@ class DiscordAPIClient:
 
         # Fetch from Discord API
         session = await self._get_session()
-        url = f"{DISCORD_API_BASE}/guilds/{guild_id}/roles"
+        url = f"{self._api_base_url}/guilds/{guild_id}/roles"
 
         self._log_request("GET", url, "fetch_guild_roles")
         try:
@@ -715,7 +721,7 @@ class DiscordAPIClient:
             logger.debug("Cache hit for user: %s", user_id)
             return json.loads(cached)
 
-        url = f"{DISCORD_API_BASE}/users/{user_id}"
+        url = f"{self._api_base_url}/users/{user_id}"
         result = await self._make_api_request(
             method="GET",
             url=url,
@@ -741,7 +747,7 @@ class DiscordAPIClient:
         Raises:
             DiscordAPIError: If fetching member fails
         """
-        url = f"{DISCORD_API_BASE}/guilds/{guild_id}/members/{user_id}"
+        url = f"{self._api_base_url}/guilds/{guild_id}/members/{user_id}"
         return await self._make_api_request(
             method="GET",
             url=url,

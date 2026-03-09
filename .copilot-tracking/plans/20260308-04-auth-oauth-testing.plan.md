@@ -44,18 +44,18 @@ Enable full integration-test coverage for all 5 auth endpoints by making Discord
 
 ## Implementation Checklist
 
-### [ ] Phase 1: `DiscordAPIClient` URL Refactor (TDD)
+### [x] Phase 1: `DiscordAPIClient` URL Refactor (TDD)
 
-- [ ] Task 1.1: Add `api_base_url` stub parameter to `DiscordAPIClient.__init__` (accepted but URLs still use module constants)
+- [x] Task 1.1: Add `api_base_url` stub parameter to `DiscordAPIClient.__init__` (accepted but URLs still use module constants)
   - Details: .copilot-tracking/details/20260308-04-auth-oauth-testing-details.md (Lines 22-42)
 
-- [ ] Task 1.2: Write unit tests verifying `api_base_url` controls request URLs — mark as `@pytest.mark.xfail` (RED)
+- [x] Task 1.2: Write unit tests verifying `api_base_url` controls request URLs — mark as `@pytest.mark.xfail` (RED)
   - Details: .copilot-tracking/details/20260308-04-auth-oauth-testing-details.md (Lines 43-62)
 
-- [ ] Task 1.3: Implement full URL refactor — move module-level constants to `self._*` instance attributes; update all internal references; remove xfail markers (GREEN)
+- [x] Task 1.3: Implement full URL refactor — move module-level constants to `self._*` instance attributes; update all internal references; remove xfail markers (GREEN)
   - Details: .copilot-tracking/details/20260308-04-auth-oauth-testing-details.md (Lines 63-85)
 
-- [ ] Task 1.4: Refactor — verify default (no arg) still targets real Discord; remove module-level URL constants entirely
+- [x] Task 1.4: Refactor — verify default (no arg) still targets real Discord; remove module-level URL constants entirely
   - Details: .copilot-tracking/details/20260308-04-auth-oauth-testing-details.md (Lines 86-97)
 
 ### [ ] Phase 2: Config + OAuth URL Wiring (TDD)
