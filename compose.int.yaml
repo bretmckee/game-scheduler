@@ -36,6 +36,7 @@ services:
       RATE_LIMIT_1_TIME: ${RATE_LIMIT_1_TIME:-60}
       RATE_LIMIT_2_COUNT: ${RATE_LIMIT_2_COUNT:-100}
       RATE_LIMIT_2_TIME: ${RATE_LIMIT_2_TIME:-300}
+      DISCORD_API_BASE_URL: http://fake-discord:8080
 
   bot:
     volumes:
@@ -96,6 +97,8 @@ services:
         condition: service_started
       scheduler:
         condition: service_started
+      fake-discord:
+        condition: service_healthy
     networks:
       - app-network
     restart: "no"
@@ -145,6 +148,26 @@ services:
       - app-network
     entrypoint: ["pytest", "-m", "integration"]
     command: --cov=shared --cov=services --cov-report= -q --tb=line
+
+  fake-discord:
+    build:
+      context: .
+      dockerfile: docker/test.Dockerfile
+      args:
+        CACHE_SHARING_MODE: ${CACHE_SHARING_MODE:-private}
+    container_name: ${CONTAINER_PREFIX:-gamebot-integration}-fake-discord
+    entrypoint: ["python"]
+    command: ["tests/integration/fixtures/fake_discord_app.py"]
+    environment:
+      PORT: "8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/v10/users/@me"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - app-network
+    restart: "no"
 
 # Use tmpfs for test volumes (in-memory, fast, auto-cleanup)
 volumes:

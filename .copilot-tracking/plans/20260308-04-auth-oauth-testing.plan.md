@@ -72,12 +72,12 @@ Enable full integration-test coverage for all 5 auth endpoints by making Discord
 - [x] Task 2.4: Refactor — confirm no module-level URL constants remain in `oauth2.py`; run existing tests to confirm no regressions
   - Details: .copilot-tracking/details/20260308-04-auth-oauth-testing-details.md (Lines 156-165)
 
-### [ ] Phase 3: Fake Discord Service (Infrastructure)
+### [x] Phase 3: Fake Discord Service (Infrastructure)
 
-- [ ] Task 3.1: Create `tests/integration/fixtures/fake_discord_app.py` — minimal `aiohttp.web` script with configurable token, user, and guilds handlers; HTTP entry point for standalone execution
+- [x] Task 3.1: Create `tests/integration/fixtures/fake_discord_app.py` — minimal `aiohttp.web` script with configurable token, user, and guilds handlers; HTTP entry point for standalone execution
   - Details: .copilot-tracking/details/20260308-04-auth-oauth-testing-details.md (Lines 168-204)
 
-- [ ] Task 3.2: Add `fake-discord` service to `compose.int.yaml` using `fake_discord_app.py`; set `DISCORD_API_BASE_URL=http://fake-discord:8080` on the `api` service in the integration compose file
+- [x] Task 3.2: Add `fake-discord` service to `compose.int.yaml` using `fake_discord_app.py`; set `DISCORD_API_BASE_URL=http://fake-discord:8080` on the `api` service in the integration compose file
   - Details: .copilot-tracking/details/20260308-04-auth-oauth-testing-details.md (Lines 205-222)
 
 ### [ ] Phase 4: Auth Integration Tests (TDD)
