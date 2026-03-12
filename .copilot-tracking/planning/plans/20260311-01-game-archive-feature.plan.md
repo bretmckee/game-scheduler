@@ -50,15 +50,15 @@ Plan and implement archive support for game announcements, including data model 
 - [x] Task 1.3: Extend canonical GameStatus for ARCHIVED and transitions
   - Details: .copilot-tracking/planning/details/20260311-01-game-archive-feature-details.md (Lines 41-54)
 
-### [ ] Phase 2: API + Services
+### [x] Phase 2: API + Services
 
-- [ ] Task 2.1: Extend template schemas with archive fields
+- [x] Task 2.1: Extend template schemas with archive fields
   - Details: .copilot-tracking/planning/details/20260311-01-game-archive-feature-details.md (Lines 58-70)
 
-- [ ] Task 2.2: Update template routes to pass and resolve archive fields
+- [x] Task 2.2: Update template routes to pass and resolve archive fields
   - Details: .copilot-tracking/planning/details/20260311-01-game-archive-feature-details.md (Lines 72-86)
 
-- [ ] Task 2.3: Copy archive fields in game session creation
+- [x] Task 2.3: Copy archive fields in game session creation
   - Details: .copilot-tracking/planning/details/20260311-01-game-archive-feature-details.md (Lines 88-100)
 
 ### [ ] Phase 3: Bot Scheduling + Announcement Archiving (TDD)

@@ -512,6 +512,8 @@ class GameService:
             template_id=template.id,
             guild_id=guild_config.id,
             channel_id=channel_id,
+            archive_delay_seconds=template.archive_delay_seconds,
+            archive_channel_id=template.archive_channel_id,
             host_id=host_user.id,
             max_players=resolved_fields["max_players"],
             reminder_minutes=resolved_fields["reminder_minutes"],

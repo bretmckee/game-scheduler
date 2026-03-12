@@ -14,6 +14,7 @@ Add archive metadata fields to templates and game sessions, including schema and
 ### Added
 
 - alembic/versions/20260311_add_archive_fields.py - add archive delay and archive channel fields to templates and sessions.
+- tests/unit/schemas/test_template_schema.py - cover template schema archive fields.
 
 ### Modified
 
@@ -23,6 +24,11 @@ Add archive metadata fields to templates and game sessions, including schema and
 - shared/utils/status_transitions.py - add ARCHIVED status and allow transitions from COMPLETED.
 - tests/services/scheduler/test_status_transitions.py - cover ARCHIVED transitions and enum values.
 - tests/unit/shared/utils/test_status_transitions.py - assert ARCHIVED display name.
+- shared/schemas/template.py - add archive fields to template schemas and validation.
+- services/api/routes/templates.py - wire archive fields through template routes and responses.
+- services/api/services/games.py - copy archive fields into new game sessions.
+- tests/services/api/routes/test_templates.py - validate archive fields in template route helpers.
+- tests/services/api/services/test_games.py - verify archive fields are copied when building sessions.
 
 ### Removed
 

@@ -35,6 +35,12 @@ class TemplateCreateRequest(BaseModel):
 
     # Locked fields (manager-only, host cannot edit)
     channel_id: str = Field(..., description="Channel UUID where games are posted")
+    archive_delay_seconds: int | None = Field(
+        None, ge=0, description="Seconds after completion to archive announcement"
+    )
+    archive_channel_id: str | None = Field(
+        None, description="Channel UUID where archived announcements are posted"
+    )
     notify_role_ids: list[str] | None = Field(
         None, description="Role IDs to notify when game is created"
     )
@@ -78,6 +84,8 @@ class TemplateUpdateRequest(BaseModel):
 
     # Locked fields
     channel_id: str | None = None
+    archive_delay_seconds: int | None = Field(None, ge=0)
+    archive_channel_id: str | None = None
     notify_role_ids: list[str] | None = None
     allowed_player_role_ids: list[str] | None = None
     allowed_host_role_ids: list[str] | None = None
@@ -107,6 +115,15 @@ class TemplateResponse(BaseModel):
     # Locked fields
     channel_id: str = Field(..., description="Channel UUID")
     channel_name: str = Field(..., description="Channel name (resolved from Discord)")
+    archive_delay_seconds: int | None = Field(
+        None, description="Seconds after completion to archive announcement"
+    )
+    archive_channel_id: str | None = Field(
+        None, description="Channel UUID where archived announcements are posted"
+    )
+    archive_channel_name: str | None = Field(
+        None, description="Archive channel name (resolved from Discord)"
+    )
     notify_role_ids: list[str] | None = Field(
         None, description="Role IDs to notify when game is created"
     )
@@ -150,6 +167,15 @@ class TemplateListItem(BaseModel):
     notify_role_ids: list[str] | None = Field(None, description="Roles to notify")
     allowed_player_role_ids: list[str] | None = Field(None, description="Allowed player roles")
     allowed_host_role_ids: list[str] | None = Field(None, description="Allowed host roles")
+    archive_delay_seconds: int | None = Field(
+        None, description="Seconds after completion to archive announcement"
+    )
+    archive_channel_id: str | None = Field(
+        None, description="Channel UUID where archived announcements are posted"
+    )
+    archive_channel_name: str | None = Field(
+        None, description="Archive channel name (resolved from Discord)"
+    )
 
     # Pre-populated fields for display
     max_players: int | None = Field(None, description="Maximum players")

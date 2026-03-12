@@ -1015,6 +1015,47 @@ async def test_build_game_session_without_media(
 
 
 @pytest.mark.asyncio
+async def test_build_game_session_copies_archive_fields(
+    game_service,
+    sample_template,
+    sample_guild,
+):
+    """Test _build_game_session copies archive fields from the template."""
+    host_user = user_model.User(
+        id=str(uuid.uuid4()),
+        discord_id="123456",
+    )
+
+    game_data = game_schemas.GameCreateRequest(
+        template_id=sample_template.id,
+        title="Test Game",
+        description="Test description",
+        scheduled_at=datetime.datetime(2026, 6, 15, 12, 0, 0, tzinfo=UTC),
+    )
+
+    resolved_fields = {
+        "max_players": 5,
+        "reminder_minutes": [60],
+        "expected_duration_minutes": 120,
+        "where": "Online",
+        "signup_instructions": "Sign up here",
+        "signup_method": SignupMethod.SELF_SIGNUP.value,
+    }
+
+    sample_template.archive_delay_seconds = 120
+    sample_template.archive_channel_id = "archive-channel-id"
+
+    media = GameMediaAttachments()
+
+    game = await game_service._build_game_session(
+        game_data, sample_template, sample_guild, host_user, resolved_fields, media
+    )
+
+    assert game.archive_delay_seconds == 120
+    assert game.archive_channel_id == "archive-channel-id"
+
+
+@pytest.mark.asyncio
 async def test_build_game_session_timezone_normalization_aware(
     game_service,
     sample_template,

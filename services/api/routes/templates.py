@@ -51,6 +51,11 @@ async def build_template_response(
     channel_name = await discord_client_module.fetch_channel_name_safe(
         template.channel_id, discord_client
     )
+    archive_channel_name = None
+    if template.archive_channel_id:
+        archive_channel_name = await discord_client_module.fetch_channel_name_safe(
+            template.archive_channel_id, discord_client
+        )
 
     return template_schemas.TemplateResponse(
         id=template.id,
@@ -61,6 +66,9 @@ async def build_template_response(
         is_default=template.is_default,
         channel_id=template.channel_id,
         channel_name=channel_name,
+        archive_delay_seconds=template.archive_delay_seconds,
+        archive_channel_id=template.archive_channel_id,
+        archive_channel_name=archive_channel_name,
         notify_role_ids=template.notify_role_ids,
         allowed_player_role_ids=template.allowed_player_role_ids,
         allowed_host_role_ids=template.allowed_host_role_ids,
@@ -129,6 +137,11 @@ async def list_templates(
         channel_name = await discord_client_module.fetch_channel_name_safe(
             template.channel.channel_id, discord_client
         )
+        archive_channel_name = None
+        if template.archive_channel_id:
+            archive_channel_name = await discord_client_module.fetch_channel_name_safe(
+                template.archive_channel_id, discord_client
+            )
         result.append(
             template_schemas.TemplateListItem(
                 id=template.id,
@@ -140,6 +153,9 @@ async def list_templates(
                 notify_role_ids=template.notify_role_ids,
                 allowed_player_role_ids=template.allowed_player_role_ids,
                 allowed_host_role_ids=template.allowed_host_role_ids,
+                archive_delay_seconds=template.archive_delay_seconds,
+                archive_channel_id=template.archive_channel_id,
+                archive_channel_name=archive_channel_name,
                 max_players=template.max_players,
                 expected_duration_minutes=template.expected_duration_minutes,
                 reminder_minutes=template.reminder_minutes,
@@ -204,6 +220,8 @@ async def create_template(
         description=request.description,
         order=request.order,
         is_default=request.is_default,
+        archive_delay_seconds=request.archive_delay_seconds,
+        archive_channel_id=request.archive_channel_id,
         notify_role_ids=request.notify_role_ids,
         allowed_player_role_ids=request.allowed_player_role_ids,
         allowed_host_role_ids=request.allowed_host_role_ids,

@@ -23,7 +23,7 @@
 
 import uuid
 from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 from fastapi import HTTPException
@@ -84,6 +84,8 @@ def mock_template():
     template.signup_instructions = "Just join!"
     template.allowed_signup_methods = ["SELF_SIGNUP", "HOST_SELECTED"]
     template.default_signup_method = "SELF_SIGNUP"
+    template.archive_delay_seconds = None
+    template.archive_channel_id = None
     template.created_at = datetime(2024, 1, 1, 12, 0, 0)
     template.updated_at = datetime(2024, 1, 1, 12, 0, 0)
     template.channel = channel_config
@@ -156,6 +158,8 @@ class TestBuildTemplateResponse:
             template.signup_instructions = None
             template.allowed_signup_methods = None
             template.default_signup_method = None
+            template.archive_delay_seconds = None
+            template.archive_channel_id = None
             template.created_at = datetime(2024, 1, 1, 12, 0, 0)
             template.updated_at = datetime(2024, 1, 1, 12, 0, 0)
             template.channel = channel_config
@@ -181,6 +185,26 @@ class TestBuildTemplateResponse:
 
             assert result.channel_name == "resolved-channel"
             mock_fetch.assert_awaited_once_with(mock_template.channel_id, mock_discord_client)
+
+    @pytest.mark.asyncio
+    async def test_build_template_response_includes_archive_fields(self, mock_template):
+        """Test that archive fields and channel name are included in response."""
+        mock_discord_client = AsyncMock()
+        mock_template.archive_delay_seconds = 3600
+        mock_template.archive_channel_id = "archive-channel-id"
+
+        with patch("shared.discord.client.fetch_channel_name_safe") as mock_fetch:
+            mock_fetch.side_effect = ["primary-channel", "archive-channel"]
+
+            result = await templates.build_template_response(mock_template, mock_discord_client)
+
+        assert result.archive_delay_seconds == 3600
+        assert result.archive_channel_id == "archive-channel-id"
+        assert result.archive_channel_name == "archive-channel"
+        mock_fetch.assert_has_awaits([
+            call(mock_template.channel_id, mock_discord_client),
+            call(mock_template.archive_channel_id, mock_discord_client),
+        ])
 
 
 class TestListTemplates:
@@ -226,6 +250,48 @@ class TestListTemplates:
             assert len(result) == 1
             assert result[0].name == "Test Template"
             assert result[0].channel_name == "test-channel"
+
+    @pytest.mark.asyncio
+    async def test_list_templates_includes_archive_fields(
+        self, mock_db, mock_current_user_unit, mock_guild_config, mock_template
+    ):
+        """Test listing templates includes archive fields."""
+        mock_template.archive_delay_seconds = 900
+        mock_template.archive_channel_id = "archive-channel-id"
+
+        with (
+            patch("services.api.database.queries.require_guild_by_id") as mock_get_guild,
+            patch("services.api.auth.roles.get_role_service") as mock_get_role_service,
+            patch("shared.discord.client.fetch_channel_name_safe") as mock_fetch,
+            patch(
+                "services.api.services.template_service.TemplateService"
+            ) as mock_template_service,
+            patch(
+                "services.api.dependencies.permissions.check_bot_manager_permission"
+            ) as mock_check_permission,
+        ):
+            mock_get_guild.return_value = mock_guild_config
+
+            mock_role_service = AsyncMock()
+            mock_get_role_service.return_value = mock_role_service
+            mock_check_permission.return_value = True
+
+            mock_service = AsyncMock()
+            mock_service.get_templates_for_user.return_value = [mock_template]
+            mock_template_service.return_value = mock_service
+
+            mock_fetch.side_effect = ["primary-channel", "archive-channel"]
+
+            result = await templates.list_templates(
+                guild_id=mock_guild_config.id,
+                current_user=mock_current_user_unit,
+                db=mock_db,
+                discord_client=AsyncMock(),
+            )
+
+            assert result[0].archive_delay_seconds == 900
+            assert result[0].archive_channel_id == "archive-channel-id"
+            assert result[0].archive_channel_name == "archive-channel"
 
     @pytest.mark.asyncio
     async def test_list_templates_maintainer_sees_all(
@@ -406,6 +472,81 @@ class TestCreateTemplate:
             )
 
             assert result.name == "Test Template"
+
+    @pytest.mark.asyncio
+    async def test_create_template_passes_archive_fields(
+        self, mock_db, mock_current_user_unit, mock_guild_config, mock_template
+    ):
+        """Test create_template passes archive fields to the service layer."""
+        request = template_schemas.TemplateCreateRequest(
+            guild_id=mock_guild_config.id,
+            name="New Template",
+            description="New description",
+            order=1,
+            is_default=False,
+            channel_id=mock_template.channel_id,
+            notify_role_ids=["role1"],
+            allowed_player_role_ids=None,
+            allowed_host_role_ids=None,
+            max_players=10,
+            expected_duration_minutes=180,
+            reminder_minutes=[60, 15],
+            where="Online",
+            signup_instructions="Join us",
+            archive_delay_seconds=300,
+            archive_channel_id="archive-channel-id",
+        )
+
+        with (
+            patch("services.api.database.queries.require_guild_by_id") as mock_get_guild,
+            patch("services.api.auth.roles.get_role_service") as mock_get_role_service,
+            patch(
+                "services.api.services.template_service.TemplateService"
+            ) as mock_template_service,
+            patch("shared.discord.client.fetch_channel_name_safe") as mock_fetch,
+            patch(
+                "services.api.dependencies.permissions.require_bot_manager"
+            ) as mock_require_manager,
+        ):
+            mock_get_guild.return_value = mock_guild_config
+
+            mock_role_service = AsyncMock()
+            mock_role_service.check_bot_manager_permission.return_value = True
+            mock_get_role_service.return_value = mock_role_service
+            mock_require_manager.return_value = mock_current_user_unit
+
+            mock_service = AsyncMock()
+            mock_service.create_template.return_value = mock_template
+            mock_template_service.return_value = mock_service
+
+            mock_fetch.return_value = "test-channel"
+
+            await templates.create_template(
+                guild_id=mock_guild_config.id,
+                request=request,
+                current_user=mock_current_user_unit,
+                db=mock_db,
+                discord_client=AsyncMock(),
+            )
+
+            mock_service.create_template.assert_awaited_once_with(
+                guild_id=mock_guild_config.id,
+                channel_id=mock_template.channel_id,
+                name="New Template",
+                description="New description",
+                order=1,
+                is_default=False,
+                notify_role_ids=["role1"],
+                allowed_player_role_ids=None,
+                allowed_host_role_ids=None,
+                max_players=10,
+                expected_duration_minutes=180,
+                reminder_minutes=[60, 15],
+                where="Online",
+                signup_instructions="Join us",
+                archive_delay_seconds=300,
+                archive_channel_id="archive-channel-id",
+            )
 
     @pytest.mark.asyncio
     async def test_create_template_unauthorized(
