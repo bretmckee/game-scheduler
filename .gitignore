@@ -81,3 +81,7 @@ alembic/versions/*.pyc
 .env.act
 .artifacts/
 complexipy.json
+
+# Tee'd command output files
+output*.txt
+output*.log
