@@ -263,14 +263,18 @@ Most hooks use **standalone isolated environments** that work immediately withou
 Standalone hooks work right away:
 
 ```bash
-# Install hooks (one-time setup)
-uv tool run pre-commit install
+# Install project-managed dev tools and pre-commit hooks
+make setup-local-python
+
+# Equivalent manual commands:
+# uv sync --group dev
+# uv run --group dev pre-commit install
 
 # Run standalone hooks - no dependencies needed!
-pre-commit run ruff --all-files      # Python linting (isolated)
-pre-commit run prettier --all-files  # Frontend formatting (isolated)
-pre-commit run eslint --all-files    # Frontend linting (isolated)
-pre-commit run typescript --all-files # TypeScript checking (isolated)
+uv run --group dev pre-commit run ruff --all-files       # Python linting (isolated)
+uv run --group dev pre-commit run prettier --all-files   # Frontend formatting (isolated)
+uv run --group dev pre-commit run eslint --all-files     # Frontend linting (isolated)
+uv run --group dev pre-commit run typescript --all-files # TypeScript checking (isolated)
 ```
 
 #### Standalone Hooks
@@ -291,8 +295,8 @@ These hooks work without project dependencies:
 Some hooks require the full project environment:
 
 ```bash
-# Install Python project dependencies (required for Python tests)
-uv sync
+# Install Python project dependencies and dev tools
+make setup-local-python
 
 # Install frontend dependencies (required for frontend tests)
 cd frontend && npm install
@@ -304,10 +308,10 @@ These require project setup:
 
 | Hook                      | Requires                     | Purpose                                        |
 | ------------------------- | ---------------------------- | ---------------------------------------------- |
-| `mypy`                    | `uv sync`                    | Python type checking with project dependencies |
-| `python-compile`          | `uv sync`                    | Python compilation validation                  |
-| `pytest-coverage`         | `uv sync`                    | Python unit tests with coverage                |
-| `diff-coverage`           | `uv sync`                    | Python diff coverage check                     |
+| `mypy`                    | `uv sync --group dev`        | Python type checking with project dependencies |
+| `python-compile`          | `uv sync --group dev`        | Python compilation validation                  |
+| `pytest-coverage`         | `uv sync --group dev`        | Python unit tests with coverage                |
+| `diff-coverage`           | `uv sync --group dev`        | Python diff coverage check                     |
 | `frontend-build`          | `cd frontend && npm install` | Frontend build validation                      |
 | `vitest-coverage`         | `cd frontend && npm install` | Frontend unit tests with coverage              |
 | `diff-coverage-frontend`  | `cd frontend && npm install` | Frontend diff coverage check                   |
@@ -328,16 +332,16 @@ What runs automatically on every commit:
 - All standalone hooks (linting, formatting, type checking, complexity)
 - System-dependent hooks (tests for new/modified files only)
   - **Dev container**: All system hooks work (dependencies pre-installed)
-  - **Local dev**: Only works after `uv sync` and `npm install`
+  - **Local dev**: Only works after `uv sync --group dev` and `npm install`
 
 ### Manual Test Execution
 
 ```bash
 # Run ALL unit tests (comprehensive validation)
-pre-commit run pytest-all --hook-stage manual
+uv run --group dev pre-commit run pytest-all --hook-stage manual
 
 # Run ALL frontend tests
-pre-commit run vitest-all --hook-stage manual
+uv run --group dev pre-commit run vitest-all --hook-stage manual
 
 # Run CI/CD workflow locally (same as GitHub Actions, requires Docker)
 pre-commit run ci-cd-workflow --hook-stage manual
