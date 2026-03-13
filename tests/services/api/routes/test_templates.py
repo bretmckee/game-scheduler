@@ -588,6 +588,78 @@ class TestCreateTemplate:
             assert exc_info.value.status_code == 403
 
 
+class TestUpdateTemplate:
+    """Test update_template endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_update_template_passes_archive_fields(
+        self, mock_db, mock_current_user_unit, mock_template
+    ):
+        """Test update_template forwards archive fields to service layer."""
+        request = template_schemas.TemplateUpdateRequest(
+            archive_delay_seconds=0,
+            archive_channel_id=None,
+        )
+
+        with (
+            patch("services.api.auth.roles.get_role_service") as mock_get_role_service,
+            patch(
+                "services.api.services.template_service.TemplateService"
+            ) as mock_template_service,
+            patch("shared.discord.client.fetch_channel_name_safe") as mock_fetch,
+            patch(
+                "services.api.dependencies.permissions.require_bot_manager"
+            ) as mock_require_manager,
+        ):
+            mock_role_service = AsyncMock()
+            mock_get_role_service.return_value = mock_role_service
+            mock_require_manager.return_value = mock_current_user_unit
+
+            updated_template = MagicMock(spec=GameTemplate)
+            updated_template.id = mock_template.id
+            updated_template.guild_id = mock_template.guild_id
+            updated_template.name = mock_template.name
+            updated_template.description = mock_template.description
+            updated_template.order = mock_template.order
+            updated_template.is_default = mock_template.is_default
+            updated_template.channel_id = mock_template.channel_id
+            updated_template.notify_role_ids = mock_template.notify_role_ids
+            updated_template.allowed_player_role_ids = mock_template.allowed_player_role_ids
+            updated_template.allowed_host_role_ids = mock_template.allowed_host_role_ids
+            updated_template.max_players = mock_template.max_players
+            updated_template.expected_duration_minutes = mock_template.expected_duration_minutes
+            updated_template.reminder_minutes = mock_template.reminder_minutes
+            updated_template.where = mock_template.where
+            updated_template.signup_instructions = mock_template.signup_instructions
+            updated_template.allowed_signup_methods = mock_template.allowed_signup_methods
+            updated_template.default_signup_method = mock_template.default_signup_method
+            updated_template.archive_delay_seconds = 0
+            updated_template.archive_channel_id = None
+            updated_template.created_at = mock_template.created_at
+            updated_template.updated_at = mock_template.updated_at
+
+            mock_service = AsyncMock()
+            mock_service.get_template_by_id.return_value = mock_template
+            mock_service.update_template.return_value = updated_template
+            mock_template_service.return_value = mock_service
+
+            mock_fetch.return_value = "test-channel"
+
+            await templates.update_template(
+                template_id=mock_template.id,
+                request=request,
+                current_user=mock_current_user_unit,
+                db=mock_db,
+                discord_client=AsyncMock(),
+            )
+
+            mock_service.update_template.assert_awaited_once_with(
+                mock_template,
+                archive_delay_seconds=0,
+                archive_channel_id=None,
+            )
+
+
 class TestDeleteTemplate:
     """Test delete_template endpoint."""
 

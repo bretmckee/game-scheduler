@@ -151,10 +151,10 @@ def test_participant_action_schedule_participant_id_unique(db_session):
 
 
 def test_participant_action_schedule_downgrade_removes_table(db_session):
-    """Verify the alembic_version entry reflects the migration was applied."""
+    """Verify the alembic_version entry reflects a migration at or after this one was applied."""
     result = db_session.execute(text("SELECT version_num FROM alembic_version")).fetchone()
 
     assert result is not None, "No alembic version found"
-    assert result[0] == "f3a2c1d8e9b7", (
-        f"Expected migration f3a2c1d8e9b7 to be applied, got: {result[0]}"
+    assert result[0] in {"f3a2c1d8e9b7", "a7c1e3b4f9c2"}, (
+        f"Expected migration f3a2c1d8e9b7 or later to be applied, got: {result[0]}"
     )

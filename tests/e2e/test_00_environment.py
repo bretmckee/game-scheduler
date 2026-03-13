@@ -48,6 +48,7 @@ async def test_environment_variables():
         "DISCORD_BOT_TOKEN",
         "DISCORD_GUILD_A_ID",
         "DISCORD_GUILD_A_CHANNEL_ID",
+        "DISCORD_ARCHIVE_CHANNEL_ID",
         "DISCORD_USER_ID",
         "DATABASE_URL",
         "BACKEND_URL",
@@ -119,6 +120,32 @@ async def test_discord_channel_exists(discord_token, discord_guild_id, discord_c
             pytest.fail(f"Bot does not have access to channel {discord_channel_id}")
         except discord.NotFound:
             pytest.fail(f"Channel {discord_channel_id} does not exist")
+    finally:
+        await client.close()
+
+
+@pytest.mark.asyncio
+async def test_discord_archive_channel_exists(
+    discord_token, discord_guild_id, discord_archive_channel_id
+):
+    """Verify archive test channel exists and bot has access."""
+    client = discord.Client(intents=discord.Intents.default())
+
+    try:
+        await client.login(discord_token)
+
+        try:
+            channel = await client.fetch_channel(int(discord_archive_channel_id))
+            assert isinstance(channel, discord.TextChannel), (
+                f"Archive channel {discord_archive_channel_id} is not a text channel"
+            )
+            assert str(channel.guild.id) == discord_guild_id, (
+                f"Archive channel {discord_archive_channel_id} is not in guild {discord_guild_id}"
+            )
+        except discord.Forbidden:
+            pytest.fail(f"Bot does not have access to archive channel {discord_archive_channel_id}")
+        except discord.NotFound:
+            pytest.fail(f"Archive channel {discord_archive_channel_id} does not exist")
     finally:
         await client.close()
 

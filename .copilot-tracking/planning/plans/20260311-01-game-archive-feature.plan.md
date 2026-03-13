@@ -72,15 +72,15 @@ Plan and implement archive support for game announcements, including data model 
 - [x] Task 3.3: Remove xfail markers and harden edge cases
   - Details: .copilot-tracking/planning/details/20260311-01-game-archive-feature-details.md (Lines 132-145)
 
-### [ ] Phase 4: Integration + E2E + Docs (TDD)
+### [x] Phase 4: Integration + E2E + Docs (TDD)
 
-- [ ] Task 4.1: Add failing integration tests for template and game archive fields
+- [x] Task 4.1: Add failing integration tests for template and game archive fields
   - Details: .copilot-tracking/planning/details/20260311-01-game-archive-feature-details.md (Lines 149-161)
 
-- [ ] Task 4.2: Implement integration behavior and remove xfail markers
+- [x] Task 4.2: Implement integration behavior and remove xfail markers
   - Details: .copilot-tracking/planning/details/20260311-01-game-archive-feature-details.md (Lines 163-179)
 
-- [ ] Task 4.3: Add E2E archive tests and test infrastructure updates
+- [x] Task 4.3: Add E2E archive tests and test infrastructure updates
   - Details: .copilot-tracking/planning/details/20260311-01-game-archive-feature-details.md (Lines 181-197)
 
 ## Dependencies

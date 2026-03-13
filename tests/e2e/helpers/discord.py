@@ -535,6 +535,41 @@ class DiscordTestHelper:
             description=description,
         )
 
+    async def wait_for_message_deleted(
+        self,
+        channel_id: str,
+        message_id: str,
+        timeout: int = 30,
+        interval: float = 1.0,
+    ) -> None:
+        """
+        Wait for Discord message to be deleted.
+
+        Polls channel.fetch_message() until Discord returns NotFound.
+
+        Args:
+            channel_id: Discord channel snowflake
+            message_id: Discord message snowflake
+            timeout: Maximum seconds to wait
+            interval: Seconds between checks
+        """
+
+        async def check_deleted():
+            try:
+                await self.get_message(channel_id, message_id)
+                return (False, None)
+            except discord.NotFound:
+                return (True, True)
+            except discord.HTTPException:
+                return (False, None)
+
+        await wait_for_condition(
+            check_deleted,
+            timeout=timeout,
+            interval=interval,
+            description=f"message {message_id} deletion in channel {channel_id}",
+        )
+
     async def wait_for_dm_matching(
         self,
         user_id: str,

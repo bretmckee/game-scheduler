@@ -70,8 +70,8 @@ if [ -z "$DISCORD_BOT_TOKEN" ]; then
   exit 1
 fi
 
-if [ -z "$DISCORD_GUILD_A_ID" ] || [ -z "$DISCORD_GUILD_A_CHANNEL_ID" ]; then
-  echo "WARNING: DISCORD_GUILD_A_ID and DISCORD_GUILD_A_CHANNEL_ID should be set in $ENV_FILE"
+if [ -z "$DISCORD_GUILD_A_ID" ] || [ -z "$DISCORD_GUILD_A_CHANNEL_ID" ] || [ -z "$DISCORD_ARCHIVE_CHANNEL_ID" ]; then
+  echo "WARNING: DISCORD_GUILD_A_ID, DISCORD_GUILD_A_CHANNEL_ID, and DISCORD_ARCHIVE_CHANNEL_ID should be set in $ENV_FILE"
   echo "Tests may fail without these. See docs/developer/TESTING.md for setup instructions"
 fi
 

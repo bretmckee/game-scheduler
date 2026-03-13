@@ -15,6 +15,9 @@ Add archive metadata fields to templates and game sessions, including schema and
 
 - alembic/versions/20260311_add_archive_fields.py - add archive delay and archive channel fields to templates and sessions.
 - tests/unit/schemas/test_template_schema.py - cover template schema archive fields.
+- tests/integration/test_template_archive_fields.py - add integration coverage for template archive field create/update round-trips.
+- tests/integration/test_games_archive_fields.py - add integration coverage for game archive field copy behavior from templates.
+- tests/e2e/test_game_archive.py - add end-to-end coverage for archive repost and delete-only archive flows.
 
 ### Modified
 
@@ -33,6 +36,14 @@ Add archive metadata fields to templates and game sessions, including schema and
 - tests/services/bot/events/test_handlers.py - add xfail tests for archive scheduling and archiving behavior.
 - services/bot/events/handlers.py - schedule ARCHIVED transitions and archive announcements on status changes.
 - tests/services/bot/events/test_handlers.py - remove xfail markers and add edge case coverage for archive handling.
+- tests/services/api/routes/test_templates.py - add update route coverage for archive field passthrough.
+- tests/e2e/helpers/discord.py - add helper to wait for Discord message deletion in archive tests.
+- tests/e2e/conftest.py - add archive channel environment support and fixture for archive e2e tests.
+- tests/e2e/test_00_environment.py - validate archive channel environment variable and Discord access.
+- services/init/seed_e2e.py - optionally seed archive channel configuration for Guild A in e2e setup.
+- compose.e2e.yaml - pass `DISCORD_ARCHIVE_CHANNEL_ID` into init and e2e test containers.
+- scripts/run-e2e-tests.sh - warn when archive channel environment variable is missing.
+- docs/developer/TESTING.md - document `DISCORD_ARCHIVE_CHANNEL_ID` and aligned e2e environment variable names.
 
 ### Removed
 

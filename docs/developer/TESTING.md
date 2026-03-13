@@ -44,13 +44,14 @@ pre-commit run pytest-all --hook-stage manual
 
 The project uses three complementary testing levels:
 
-| Test Type | Speed | External Deps | Coverage Focus |
-|-----------|-------|---------------|----------------|
-| **Unit** | Fast (seconds) | None | Business logic, edge cases, error handling |
-| **Integration** | Medium (30-60s) | Docker | Database, RabbitMQ, daemon scheduling |
-| **End-to-End** | Slow (8-12 min) | Docker + Discord | Complete flows with Discord API |
+| Test Type       | Speed           | External Deps    | Coverage Focus                             |
+| --------------- | --------------- | ---------------- | ------------------------------------------ |
+| **Unit**        | Fast (seconds)  | None             | Business logic, edge cases, error handling |
+| **Integration** | Medium (30-60s) | Docker           | Database, RabbitMQ, daemon scheduling      |
+| **End-to-End**  | Slow (8-12 min) | Docker + Discord | Complete flows with Discord API            |
 
 **Testing Philosophy:**
+
 - Unit tests verify component behavior in isolation
 - Integration tests verify service interactions
 - E2E tests verify user-visible behavior end-to-end
@@ -114,6 +115,7 @@ Common unit test fixtures are defined in `tests/conftest.py`:
 ### Best Practices
 
 **Do:**
+
 - Test one thing per test function
 - Use descriptive test names (`test_create_game_with_invalid_max_players`)
 - Mock external dependencies (database, Discord API, RabbitMQ)
@@ -121,6 +123,7 @@ Common unit test fixtures are defined in `tests/conftest.py`:
 - Use parametrized tests for similar scenarios
 
 **Don't:**
+
 - Make network calls or database queries
 - Depend on test execution order
 - Use real Discord credentials
@@ -156,6 +159,7 @@ Integration tests use isolated Docker environment:
 ### What Integration Tests Verify
 
 **Notification Daemon**:
+
 - PostgreSQL LISTEN/NOTIFY triggers work correctly
 - Notification schedules populated on game creation
 - MIN() query pattern finds next due notification
@@ -163,12 +167,14 @@ Integration tests use isolated Docker environment:
 - Daemon wakes immediately on database NOTIFY
 
 **Database Operations**:
+
 - Game creation with participants
 - Notification schedule management
 - Status transition scheduling
 - Row-Level Security (RLS) enforcement
 
 **Message Broker**:
+
 - RabbitMQ event publishing
 - Event consumption patterns
 - Queue durability and acknowledgment
@@ -237,12 +243,14 @@ E2E tests require a dedicated Discord test guild to avoid spamming production se
 #### 1. Create Two Test Bots
 
 **Main Bot** (sends messages):
+
 1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
 2. Create "Game Scheduler Test Bot"
 3. Enable **SERVER MEMBERS INTENT** and **MESSAGE CONTENT INTENT**
 4. Copy bot token → `DISCORD_BOT_TOKEN`
 
 **Admin Bot** (test authentication):
+
 1. Create "Game Scheduler Test Admin Bot"
 2. Copy bot token → `DISCORD_ADMIN_BOT_TOKEN`
 3. Copy application ID → `DISCORD_ADMIN_BOT_CLIENT_ID`
@@ -259,6 +267,7 @@ E2E tests require a dedicated Discord test guild to avoid spamming production se
 #### 3. Invite Bots to Test Guild
 
 Generate OAuth2 invite URL with permissions:
+
 - View Channels
 - Send Messages
 - Send Messages in Threads
@@ -396,12 +405,14 @@ async def test_environment_configured(discord_ids):
 ```
 
 Required environment variables:
+
 - `DISCORD_GUILD_A_ID` - Guild A Discord ID (17-19 digit snowflake)
-- `DISCORD_CHANNEL_A_ID` - Guild A channel Discord ID
-- `DISCORD_USER_A_ID` - Admin bot user Discord ID
+- `DISCORD_GUILD_A_CHANNEL_ID` - Guild A active game channel Discord ID
+- `DISCORD_ARCHIVE_CHANNEL_ID` - Guild A archive channel Discord ID
+- `DISCORD_USER_ID` - Admin bot user Discord ID
 - `DISCORD_GUILD_B_ID` - Guild B Discord ID
-- `DISCORD_CHANNEL_B_ID` - Guild B channel Discord ID
-- `DISCORD_USER_B_ID` - Bot B user Discord ID
+- `DISCORD_GUILD_B_CHANNEL_ID` - Guild B channel Discord ID
+- `DISCORD_ADMIN_BOT_B_CLIENT_ID` - Bot B user Discord ID
 
 #### Authentication
 
@@ -493,6 +504,7 @@ The project collects coverage data from all three test types and combines them i
 ### How It Works
 
 Each test type writes to its own coverage file:
+
 - Unit tests → `.coverage`
 - Integration tests → `.coverage.integration`
 - E2E tests → `.coverage.e2e`
@@ -522,6 +534,7 @@ fail_under = 80  # Minimum coverage threshold
 ### Coverage Reports
 
 **Terminal Report:**
+
 ```bash
 ./scripts/coverage-report.sh
 ```
@@ -529,6 +542,7 @@ fail_under = 80  # Minimum coverage threshold
 Shows table with statement and branch coverage per file.
 
 **HTML Report:**
+
 ```bash
 ./scripts/coverage-report.sh
 open htmlcov/index.html  # macOS
@@ -536,6 +550,7 @@ xdg-open htmlcov/index.html  # Linux
 ```
 
 Provides:
+
 - Color-coded source files showing covered/uncovered lines
 - Branch coverage details
 - Sortable tables with search
@@ -547,6 +562,7 @@ Generated as `coverage.xml` in Cobertura format for CI/CD systems.
 ### Docker Integration
 
 Compose files set `COVERAGE_FILE` environment variable:
+
 - `compose.int.yaml`: `COVERAGE_FILE=.coverage.integration`
 - `compose.e2e.yaml`: `COVERAGE_FILE=.coverage.e2e`
 
@@ -633,14 +649,17 @@ GET session:your_session_token
 ### Docker Compose Test Configurations
 
 **Base Configuration (`compose.yaml`):**
+
 - Production-ready base shared by all environments
 
 **Integration Tests (`compose.int.yaml`):**
+
 - Overrides for integration test environment
 - Postgres, RabbitMQ, Redis only (no bot)
 - Separate ports to avoid conflicts
 
 **E2E Tests (`compose.e2e.yaml`):**
+
 - Full stack including bot and daemons
 - Complete test environment with Discord integration
 - Separate network and ports
@@ -653,6 +672,7 @@ Each test environment has dedicated config in `config/env/`:
 - `config/env/env.e2e` - End-to-end tests
 
 The `COMPOSE_FILE` variable specifies which compose files to load:
+
 ```bash
 COMPOSE_FILE=compose.yaml:compose.int.yaml
 ```
@@ -662,15 +682,18 @@ COMPOSE_FILE=compose.yaml:compose.int.yaml
 Common fixtures in `tests/conftest.py`:
 
 **Database:**
+
 - `db_session` - SQLAlchemy session with transaction rollback
 - `clean_test_data` - Cleanup after tests
 
 **Discord:**
+
 - `discord_helper` - Helper for Discord API operations (admin bot)
 - `main_bot_helper` - Helper for verifying main bot messages
 - `authenticated_admin_client` - HTTP client with session auth
 
 **Configuration:**
+
 - `test_guild_id` - Test Discord guild snowflake
 - `test_channel_id` - Test Discord channel snowflake
 - `synced_guild` - Guild configuration pre-seeded in database
@@ -714,15 +737,18 @@ async def clean_test_data(db_session):
 ### Recommended Strategy
 
 **Run in CI:**
+
 - ✅ Unit tests (fast, no external dependencies)
 - ✅ Integration tests (Docker-based, reliable)
 
 **Run manually before releases:**
+
 - ⚠️ E2E tests (require live Discord infrastructure)
 
 ### Why Manual E2E Execution?
 
 E2E tests require external Discord resources:
+
 - Real Discord guilds, bots, channels
 - Tests take 8-12 minutes due to real-time waits
 - Discord API rate limits can cause flakiness
@@ -797,6 +823,7 @@ jobs:
 ```
 
 **Required GitHub Secrets:**
+
 - `DISCORD_BOT_TOKEN`
 - `DISCORD_ADMIN_BOT_TOKEN`
 - `DISCORD_ADMIN_BOT_CLIENT_ID`
@@ -818,6 +845,7 @@ jobs:
 **Solutions:**
 
 1. **Check for orphaned database records:**
+
    ```bash
    # Connect to E2E database
    docker exec -it gamebot-e2e-postgres psql -U gamebot_e2e -d game_scheduler_e2e
@@ -830,6 +858,7 @@ jobs:
    ```
 
 2. **Verify CASCADE DELETE constraints:**
+
    ```sql
    # Check foreign key constraints have CASCADE
    SELECT conname, conrelid::regclass, confrelid::regclass, confdeltype
@@ -840,6 +869,7 @@ jobs:
    All `confdeltype` should be `c` (CASCADE). If not, run Alembic migration `cc016b875896`.
 
 3. **Fresh database state:**
+
    ```bash
    # Nuclear option: completely reset E2E environment
    docker compose --env-file config/env/env.e2e down -v
@@ -858,19 +888,22 @@ jobs:
 **Solutions:**
 
 1. **Verify all Discord IDs configured in `config/env/env.e2e`:**
+
    ```bash
    grep DISCORD_ config/env/env.e2e
    ```
 
    Required variables:
    - `DISCORD_GUILD_A_ID`
-   - `DISCORD_CHANNEL_A_ID`
-   - `DISCORD_USER_A_ID`
+   - `DISCORD_GUILD_A_CHANNEL_ID`
+   - `DISCORD_ARCHIVE_CHANNEL_ID`
+   - `DISCORD_USER_ID`
    - `DISCORD_GUILD_B_ID`
-   - `DISCORD_CHANNEL_B_ID`
-   - `DISCORD_USER_B_ID`
+   - `DISCORD_GUILD_B_CHANNEL_ID`
+   - `DISCORD_ADMIN_BOT_B_CLIENT_ID`
 
 2. **Validate Discord ID format (17-19 digit snowflakes):**
+
    ```python
    # Valid Discord snowflake
    DISCORD_GUILD_A_ID=123456789012345678
@@ -895,6 +928,7 @@ jobs:
 **Solutions:**
 
 1. **Verify user fixtures used correctly:**
+
    ```python
    # Good: Use user fixtures
    async def test_with_user(test_user_a, fresh_guild_a):
@@ -906,6 +940,7 @@ jobs:
    ```
 
 2. **Check user cleanup:**
+
    ```bash
    # Connect to database
    docker exec -it gamebot-e2e-postgres psql -U gamebot_e2e -d game_scheduler_e2e
@@ -922,6 +957,7 @@ jobs:
 **Symptoms:** Tests fail with "Guild not found" or timeout errors
 
 **Solutions:**
+
 - Verify bot token correct in `config/env/env.e2e`
 - Check bot has proper permissions (use generated invite URL)
 - Ensure bot actually invited to test guild
@@ -933,6 +969,7 @@ jobs:
 **Symptoms:** `discord.NotFound: 404 Not Found (error code: 10003): Unknown Channel`
 
 **Solutions:**
+
 - Verify `DISCORD_CHANNEL_ID` matches actual channel
 - Check bot has **View Channels** permission
 - Ensure channel isn't deleted or archived
@@ -943,6 +980,7 @@ jobs:
 **Symptoms:** `AssertionError: Message ID should be populated`
 
 **Solutions:**
+
 - Check RabbitMQ running: `docker ps | grep rabbitmq`
 - Verify bot service started: `docker logs gamebot-e2e-bot`
 - Check bot logs for errors
@@ -954,6 +992,7 @@ jobs:
 **Symptoms:** Tests waiting for reminders timeout after 150 seconds
 
 **Solutions:**
+
 - Check notification daemon running: `docker ps | grep notification-daemon`
 - Verify daemon logs: `docker logs gamebot-e2e-notification-daemon`
 - Check notification_schedule table populated
@@ -966,6 +1005,7 @@ jobs:
 **Symptoms:** `{"type":"missing","field":"cookie.session_token"}`
 
 **Solutions:**
+
 - Verify admin bot token correct in `config/env/env.e2e`
 - Check init service seeded admin bot user
 - Ensure guild sync succeeded
@@ -976,6 +1016,7 @@ jobs:
 **Symptoms:** "Guild configuration not found" or "Template not found"
 
 **Solutions:**
+
 - Ensure init service completed: `docker logs gamebot-e2e-init`
 - Check guild sync ran successfully
 - Verify database seeding
@@ -986,6 +1027,7 @@ jobs:
 **Symptoms:** Tests pass sometimes, fail other times
 
 **Solutions:**
+
 - Increase wait timeouts if system is slow
 - Check for Discord API rate limiting (429 errors)
 - Verify adequate system resources for Docker
@@ -997,6 +1039,7 @@ jobs:
 **Symptoms:** Bot operations fail with 403 Forbidden
 
 **Solutions:**
+
 - Re-generate bot invite URL with correct permissions
 - Remove bot from guild and re-invite
 - Verify permissions in Server Settings → Roles

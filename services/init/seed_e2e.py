@@ -47,6 +47,7 @@ class E2EConfig:
 
     guild_a_id: str
     channel_a_id: str
+    archive_channel_id: str | None
     user_id: str
     bot_token: str
     guild_b_id: str
@@ -62,6 +63,7 @@ class GuildConfig:
     channel_id: str
     user_id: str
     guild_name: str
+    archive_channel_id: str | None = None
 
 
 def _validate_e2e_config() -> E2EConfig | None:
@@ -70,7 +72,7 @@ def _validate_e2e_config() -> E2EConfig | None:
         logger.info("Skipping E2E seed - TEST_ENVIRONMENT not set to 'true'")
         return None
 
-    config_dict = {
+    required = {
         "guild_a_id": os.getenv("DISCORD_GUILD_A_ID"),
         "channel_a_id": os.getenv("DISCORD_GUILD_A_CHANNEL_ID"),
         "user_id": os.getenv("DISCORD_USER_ID"),
@@ -80,11 +82,14 @@ def _validate_e2e_config() -> E2EConfig | None:
         "user_b_id": os.getenv("DISCORD_ADMIN_BOT_B_CLIENT_ID"),
     }
 
-    if not all(config_dict.values()):
+    if not all(required.values()):
         logger.warning("Skipping E2E seed - missing DISCORD_* environment variables")
         return None
 
-    return E2EConfig(**config_dict)
+    return E2EConfig(
+        **required,
+        archive_channel_id=os.getenv("DISCORD_ARCHIVE_CHANNEL_ID"),
+    )
 
 
 def _guild_exists(session: Session, guild_id: str) -> bool:
@@ -132,6 +137,26 @@ def _create_guild_entities(
             "updated_at": now,
         },
     )
+
+    if (
+        guild_config.archive_channel_id is not None
+        and guild_config.archive_channel_id != guild_config.channel_id
+    ):
+        archive_channel_config_id = str(uuid4())
+        session.execute(
+            text(
+                "INSERT INTO channel_configurations "
+                "(id, channel_id, guild_id, created_at, updated_at) "
+                "VALUES (:id, :channel_id, :guild_id, :created_at, :updated_at)"
+            ),
+            {
+                "id": archive_channel_config_id,
+                "channel_id": guild_config.archive_channel_id,
+                "guild_id": guild_id,
+                "created_at": now,
+                "updated_at": now,
+            },
+        )
 
     session.execute(
         text(
@@ -199,6 +224,7 @@ def seed_e2e_data() -> bool:
             guild_a_config = GuildConfig(
                 guild_id=config.guild_a_id,
                 channel_id=config.channel_a_id,
+                archive_channel_id=config.archive_channel_id,
                 user_id=config.user_id,
                 guild_name="Guild A",
             )
@@ -216,6 +242,7 @@ def seed_e2e_data() -> bool:
                 guild_b_config = GuildConfig(
                     guild_id=config.guild_b_id,
                     channel_id=config.channel_b_id,
+                    archive_channel_id=None,
                     user_id=config.user_b_id,
                     guild_name="Guild B",
                 )
