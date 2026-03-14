@@ -42,7 +42,6 @@ E2E data seeded by init service:
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
-import discord
 import pytest
 from sqlalchemy import text
 
@@ -63,14 +62,14 @@ async def test_game_cancellation_updates_message(
     test_timeouts,
 ):
     """
-    E2E: Cancelling game via API updates Discord message to show cancelled status.
+    E2E: Cancelling game via API deletes the Discord message and removes the game row.
 
     Verifies:
     - Game created and message posted to Discord
     - Game cancelled via DELETE /games/{game_id}
     - GAME_CANCELLED event published to RabbitMQ
-    - Discord message updated to reflect cancelled status
-    - Game status changed to CANCELLED in database
+    - Discord announcement message deleted
+    - Game row absent from database
     """
     result = await admin_db.execute(
         text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
@@ -120,34 +119,15 @@ async def test_game_cancellation_updates_message(
     assert delete_response.status_code == 204, f"Failed to cancel game: {delete_response.text}"
 
     result = await admin_db.execute(
-        text("SELECT status FROM game_sessions WHERE id = :id"),
+        text("SELECT id FROM game_sessions WHERE id = :id"),
         {"id": game_id},
     )
-    game_status = result.scalar_one()
-    assert game_status == "CANCELLED", f"Expected CANCELLED status but got {game_status}"
+    assert result.scalar_one_or_none() is None, (
+        "Game row should be absent from DB after cancellation"
+    )
 
-    try:
-        updated_message = await discord_helper.wait_for_message_update(
-            channel_id=discord_channel_id,
-            message_id=original_message_id,
-            check_func=lambda msg: (
-                msg.embeds
-                and msg.embeds[0].footer
-                and (
-                    "cancelled" in msg.embeds[0].footer.text.lower()
-                    or "canceled" in msg.embeds[0].footer.text.lower()
-                )
-            ),
-            timeout=test_timeouts[TimeoutType.MESSAGE_UPDATE],
-            description="cancellation status in footer",
-        )
-
-        if updated_message is not None and len(updated_message.embeds) > 0:
-            embed = updated_message.embeds[0]
-
-            footer_text = embed.footer.text if embed.footer else ""
-            assert "cancelled" in footer_text.lower() or "canceled" in footer_text.lower(), (
-                f"Status footer should show 'Cancelled'. Footer text: {footer_text}"
-            )
-    except discord.NotFound:
-        pass
+    await discord_helper.wait_for_message_deleted(
+        channel_id=discord_channel_id,
+        message_id=original_message_id,
+        timeout=test_timeouts[TimeoutType.MESSAGE_UPDATE],
+    )

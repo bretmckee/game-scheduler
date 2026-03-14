@@ -39,31 +39,31 @@ announcement message instead of editing it.
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Update `delete_game()` in API service
+### [x] Phase 1: Update `delete_game()` in API service
 
-- [ ] Task 1.1: Write integration tests asserting game row absent from DB after cancel (xfail — RED)
+- [x] Task 1.1: Write integration tests asserting game row absent from DB after cancel (xfail — RED)
   - Details: `.copilot-tracking/planning/details/20260314-01-cancelled-game-cleanup-details.md` (Lines 11-26)
 
-- [ ] Task 1.2: Implement `delete_game()` changes and remove xfail markers (GREEN)
+- [x] Task 1.2: Implement `delete_game()` changes and remove xfail markers (GREEN)
   - Details: `.copilot-tracking/planning/details/20260314-01-cancelled-game-cleanup-details.md` (Lines 28-47)
 
-- [ ] Task 1.3: Add edge case tests and verify image reference counts
+- [x] Task 1.3: Add edge case tests and verify image reference counts
   - Details: `.copilot-tracking/planning/details/20260314-01-cancelled-game-cleanup-details.md` (Lines 49-64)
 
-### [ ] Phase 2: Update `_handle_game_cancelled()` in bot
+### [x] Phase 2: Update `_handle_game_cancelled()` in bot
 
-- [ ] Task 2.1: Write unit tests for message deletion behaviour (xfail — RED)
+- [x] Task 2.1: Write unit tests for message deletion behaviour (xfail — RED)
   - Details: `.copilot-tracking/planning/details/20260314-01-cancelled-game-cleanup-details.md` (Lines 68-82)
 
-- [ ] Task 2.2: Implement handler changes and remove xfail markers (GREEN)
+- [x] Task 2.2: Implement handler changes and remove xfail markers (GREEN)
   - Details: `.copilot-tracking/planning/details/20260314-01-cancelled-game-cleanup-details.md` (Lines 84-100)
 
-- [ ] Task 2.3: Add `discord.NotFound` edge case test and verify
+- [x] Task 2.3: Add `discord.NotFound` edge case test and verify
   - Details: `.copilot-tracking/planning/details/20260314-01-cancelled-game-cleanup-details.md` (Lines 102-115)
 
-### [ ] Phase 3: Update E2E test assertions
+### [x] Phase 3: Update E2E test assertions
 
-- [ ] Task 3.1: Update `test_game_cancellation.py` to assert game row absent and Discord message deleted
+- [x] Task 3.1: Update `test_game_cancellation.py` to assert game row absent and Discord message deleted
   - Details: `.copilot-tracking/planning/details/20260314-01-cancelled-game-cleanup-details.md` (Lines 119-132)
 
 ## Dependencies

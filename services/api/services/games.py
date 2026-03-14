@@ -1767,23 +1767,8 @@ class GameService:
         await release_image(self.db, game.thumbnail_id)
         await release_image(self.db, game.banner_image_id)
 
-        # Delete status schedules (CASCADE will handle game deletion)
-        status_schedule_result = await self.db.execute(
-            select(game_status_schedule_model.GameStatusSchedule).where(
-                game_status_schedule_model.GameStatusSchedule.game_id == game.id
-            )
-        )
-        status_schedules = status_schedule_result.scalars().all()
-        for status_schedule in status_schedules:
-            await self.db.delete(status_schedule)
-
-        game.status = game_model.GameStatus.CANCELLED.value
-
-        # Reload game with relationships for event publishing
-        game = await self.get_game(game.id)
-        if game is None:
-            msg = "Failed to reload cancelled game"
-            raise ValueError(msg)
+        # Delete the game row — DB CASCADE removes related schedules and participants
+        await self.db.delete(game)
 
         # Publish game.cancelled event
         await self._publish_game_cancelled(game)

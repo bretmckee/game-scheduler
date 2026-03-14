@@ -36,7 +36,10 @@ from sqlalchemy.future import select
 
 from services.api.schemas.clone_game import CarryoverOption, CloneGameRequest
 from services.api.services.games import GameService
+from shared.models.game import GameSession
 from shared.models.game_image import GameImage
+from shared.models.game_status_schedule import GameStatusSchedule
+from shared.models.participant import GameParticipant
 from shared.models.user import User
 from shared.schemas.auth import CurrentUser
 from shared.schemas.game import GameCreateRequest, GameUpdateRequest
@@ -730,3 +733,383 @@ async def test_clone_game_increments_image_refcounts(
     assert thumb_result.scalar_one_or_none() is None
     banner_result = await admin_db.execute(select(GameImage).where(GameImage.id == banner_id))
     assert banner_result.scalar_one_or_none() is None
+
+
+@pytest.mark.asyncio
+async def test_delete_game_removes_row_from_db(
+    admin_db: AsyncSession,
+    mock_discord_api_client,
+    mock_event_publisher,
+    mock_participant_resolver,
+    mock_role_service,
+    create_guild,
+    create_channel,
+    create_template,
+    create_user,
+    seed_redis_cache,
+) -> None:
+    """GameService.delete_game() removes the game row from the database."""
+    guild = create_guild()
+    channel = create_channel(guild_id=guild["id"])
+    template = create_template(guild_id=guild["id"], channel_id=channel["id"])
+    user = create_user()
+
+    await seed_redis_cache(
+        user_discord_id=user["discord_id"],
+        guild_discord_id=guild["guild_id"],
+        channel_discord_id=channel["channel_id"],
+        user_roles=[],
+        session_token="test-session",
+        session_user_id=user["id"],
+        session_access_token="valid-test-token",
+    )
+
+    service = GameService(
+        db=admin_db,
+        event_publisher=mock_event_publisher,
+        discord_client=mock_discord_api_client,
+        participant_resolver=mock_participant_resolver,
+        channel_resolver=MagicMock(),
+    )
+
+    game_data = GameCreateRequest(
+        title="Deletion Test Game",
+        description="Should be deleted from DB",
+        scheduled_at=datetime.datetime.now(tz=datetime.UTC) + datetime.timedelta(days=1),
+        template_id=template["id"],
+    )
+
+    game = await service.create_game(
+        game_data=game_data,
+        host_user_id=user["id"],
+        access_token="valid-test-token",
+    )
+    await admin_db.commit()
+    game_id = game.id
+
+    user_result = await admin_db.execute(select(User).where(User.id == user["id"]))
+    user_model = user_result.scalar_one()
+    current_user = CurrentUser(
+        user=user_model,
+        access_token="valid-test-token",
+        session_token="test-session",
+    )
+
+    await service.delete_game(
+        game_id=game_id,
+        current_user=current_user,
+        role_service=mock_role_service,
+    )
+    await admin_db.commit()
+
+    result = await admin_db.execute(select(GameSession).where(GameSession.id == game_id))
+    assert result.scalar_one_or_none() is None, "Game row should be absent after delete_game()"
+
+
+@pytest.mark.asyncio
+async def test_delete_game_cascades_participants_gone(
+    admin_db: AsyncSession,
+    mock_discord_api_client,
+    mock_event_publisher,
+    mock_participant_resolver,
+    mock_role_service,
+    create_guild,
+    create_channel,
+    create_template,
+    create_user,
+    seed_redis_cache,
+) -> None:
+    """delete_game() cascade removes related participant rows from the database."""
+    guild = create_guild()
+    channel = create_channel(guild_id=guild["id"])
+    template = create_template(guild_id=guild["id"], channel_id=channel["id"])
+    user = create_user()
+
+    await seed_redis_cache(
+        user_discord_id=user["discord_id"],
+        guild_discord_id=guild["guild_id"],
+        channel_discord_id=channel["channel_id"],
+        user_roles=[],
+        session_token="test-session",
+        session_user_id=user["id"],
+        session_access_token="valid-test-token",
+    )
+
+    service = GameService(
+        db=admin_db,
+        event_publisher=mock_event_publisher,
+        discord_client=mock_discord_api_client,
+        participant_resolver=mock_participant_resolver,
+        channel_resolver=MagicMock(),
+    )
+
+    game_data = GameCreateRequest(
+        title="Cascade Test Game",
+        description="Participants should cascade-delete",
+        scheduled_at=datetime.datetime.now(tz=datetime.UTC) + datetime.timedelta(days=1),
+        template_id=template["id"],
+    )
+
+    game = await service.create_game(
+        game_data=game_data,
+        host_user_id=user["id"],
+        access_token="valid-test-token",
+    )
+    await admin_db.commit()
+    game_id = game.id
+
+    user_result = await admin_db.execute(select(User).where(User.id == user["id"]))
+    user_model = user_result.scalar_one()
+    current_user = CurrentUser(
+        user=user_model,
+        access_token="valid-test-token",
+        session_token="test-session",
+    )
+
+    await service.delete_game(
+        game_id=game_id,
+        current_user=current_user,
+        role_service=mock_role_service,
+    )
+    await admin_db.commit()
+
+    participants = await admin_db.execute(
+        select(GameParticipant).where(GameParticipant.game_session_id == game_id)
+    )
+    assert participants.scalars().all() == [], "Participant rows should be absent after deletion"
+
+
+@pytest.mark.asyncio
+async def test_delete_game_no_images_succeeds(
+    admin_db: AsyncSession,
+    mock_discord_api_client,
+    mock_event_publisher,
+    mock_participant_resolver,
+    mock_role_service,
+    create_guild,
+    create_channel,
+    create_template,
+    create_user,
+    seed_redis_cache,
+) -> None:
+    """delete_game() on a game with no images does not raise."""
+    guild = create_guild()
+    channel = create_channel(guild_id=guild["id"])
+    template = create_template(guild_id=guild["id"], channel_id=channel["id"])
+    user = create_user()
+
+    await seed_redis_cache(
+        user_discord_id=user["discord_id"],
+        guild_discord_id=guild["guild_id"],
+        channel_discord_id=channel["channel_id"],
+        user_roles=[],
+        session_token="test-session",
+        session_user_id=user["id"],
+        session_access_token="valid-test-token",
+    )
+
+    service = GameService(
+        db=admin_db,
+        event_publisher=mock_event_publisher,
+        discord_client=mock_discord_api_client,
+        participant_resolver=mock_participant_resolver,
+        channel_resolver=MagicMock(),
+    )
+
+    game_data = GameCreateRequest(
+        title="No-Image Game",
+        description="No thumbnail or banner",
+        scheduled_at=datetime.datetime.now(tz=datetime.UTC) + datetime.timedelta(days=1),
+        template_id=template["id"],
+    )
+
+    game = await service.create_game(
+        game_data=game_data,
+        host_user_id=user["id"],
+        access_token="valid-test-token",
+    )
+    await admin_db.commit()
+
+    assert game.thumbnail_id is None
+    assert game.banner_image_id is None
+    game_id = game.id
+
+    user_result = await admin_db.execute(select(User).where(User.id == user["id"]))
+    user_model = user_result.scalar_one()
+    current_user = CurrentUser(
+        user=user_model,
+        access_token="valid-test-token",
+        session_token="test-session",
+    )
+
+    await service.delete_game(
+        game_id=game_id,
+        current_user=current_user,
+        role_service=mock_role_service,
+    )
+    await admin_db.commit()
+
+    result = await admin_db.execute(select(GameSession).where(GameSession.id == game_id))
+    assert result.scalar_one_or_none() is None
+
+
+@pytest.mark.asyncio
+async def test_delete_game_shared_image_persists(
+    admin_db: AsyncSession,
+    mock_discord_api_client,
+    mock_event_publisher,
+    mock_participant_resolver,
+    mock_role_service,
+    create_guild,
+    create_channel,
+    create_template,
+    create_user,
+    seed_redis_cache,
+    valid_png_data: bytes,
+) -> None:
+    """Deleting a game with a shared image (reference_count > 1) keeps the image row."""
+    guild = create_guild()
+    channel = create_channel(guild_id=guild["id"])
+    template = create_template(guild_id=guild["id"], channel_id=channel["id"])
+    user = create_user()
+
+    await seed_redis_cache(
+        user_discord_id=user["discord_id"],
+        guild_discord_id=guild["guild_id"],
+        channel_discord_id=channel["channel_id"],
+        user_roles=[],
+        session_token="test-session",
+        session_user_id=user["id"],
+        session_access_token="valid-test-token",
+    )
+
+    service = GameService(
+        db=admin_db,
+        event_publisher=mock_event_publisher,
+        discord_client=mock_discord_api_client,
+        participant_resolver=mock_participant_resolver,
+        channel_resolver=MagicMock(),
+    )
+
+    game1 = await service.create_game(
+        game_data=GameCreateRequest(
+            title="Game A",
+            description="Shares image",
+            scheduled_at=datetime.datetime.now(tz=datetime.UTC) + datetime.timedelta(days=1),
+            template_id=template["id"],
+        ),
+        host_user_id=user["id"],
+        access_token="valid-test-token",
+        thumbnail_data=valid_png_data,
+        thumbnail_mime_type="image/png",
+    )
+    await admin_db.commit()
+    shared_image_id = game1.thumbnail_id
+
+    await service.create_game(
+        game_data=GameCreateRequest(
+            title="Game B",
+            description="Also shares image",
+            scheduled_at=datetime.datetime.now(tz=datetime.UTC) + datetime.timedelta(days=2),
+            template_id=template["id"],
+        ),
+        host_user_id=user["id"],
+        access_token="valid-test-token",
+        thumbnail_data=valid_png_data,
+        thumbnail_mime_type="image/png",
+    )
+    await admin_db.commit()
+
+    user_result = await admin_db.execute(select(User).where(User.id == user["id"]))
+    user_model = user_result.scalar_one()
+    current_user = CurrentUser(
+        user=user_model,
+        access_token="valid-test-token",
+        session_token="test-session",
+    )
+
+    await service.delete_game(
+        game_id=game1.id,
+        current_user=current_user,
+        role_service=mock_role_service,
+    )
+    await admin_db.commit()
+
+    result = await admin_db.execute(select(GameImage).where(GameImage.id == shared_image_id))
+    image = result.scalar_one()
+    assert image.reference_count == 1, (
+        "Shared image should persist with decremented reference count"
+    )
+
+
+@pytest.mark.asyncio
+async def test_delete_game_status_schedules_removed(
+    admin_db: AsyncSession,
+    mock_discord_api_client,
+    mock_event_publisher,
+    mock_participant_resolver,
+    mock_role_service,
+    create_guild,
+    create_channel,
+    create_template,
+    create_user,
+    seed_redis_cache,
+) -> None:
+    """delete_game() cascade removes GameStatusSchedule rows."""
+    guild = create_guild()
+    channel = create_channel(guild_id=guild["id"])
+    template = create_template(guild_id=guild["id"], channel_id=channel["id"])
+    user = create_user()
+
+    await seed_redis_cache(
+        user_discord_id=user["discord_id"],
+        guild_discord_id=guild["guild_id"],
+        channel_discord_id=channel["channel_id"],
+        user_roles=[],
+        session_token="test-session",
+        session_user_id=user["id"],
+        session_access_token="valid-test-token",
+    )
+
+    service = GameService(
+        db=admin_db,
+        event_publisher=mock_event_publisher,
+        discord_client=mock_discord_api_client,
+        participant_resolver=mock_participant_resolver,
+        channel_resolver=MagicMock(),
+    )
+
+    game_data = GameCreateRequest(
+        title="Schedule Cascade Test",
+        description="Status schedules should cascade-delete",
+        scheduled_at=datetime.datetime.now(tz=datetime.UTC) + datetime.timedelta(days=1),
+        template_id=template["id"],
+    )
+
+    game = await service.create_game(
+        game_data=game_data,
+        host_user_id=user["id"],
+        access_token="valid-test-token",
+    )
+    await admin_db.commit()
+    game_id = game.id
+
+    user_result = await admin_db.execute(select(User).where(User.id == user["id"]))
+    user_model = user_result.scalar_one()
+    current_user = CurrentUser(
+        user=user_model,
+        access_token="valid-test-token",
+        session_token="test-session",
+    )
+
+    await service.delete_game(
+        game_id=game_id,
+        current_user=current_user,
+        role_service=mock_role_service,
+    )
+    await admin_db.commit()
+
+    schedules = await admin_db.execute(
+        select(GameStatusSchedule).where(GameStatusSchedule.game_id == game_id)
+    )
+    assert schedules.scalars().all() == [], "Status schedule rows should be absent after deletion"

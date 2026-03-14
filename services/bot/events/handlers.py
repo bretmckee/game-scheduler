@@ -1119,7 +1119,7 @@ class EventHandlers:
 
     async def _handle_game_cancelled(self, data: dict[str, Any]) -> None:
         """
-        Handle game.cancelled event by updating Discord message to show cancellation.
+        Handle game.cancelled event by deleting the Discord announcement message.
 
         Args:
             data: Event payload with game_id, message_id, and channel_id
@@ -1128,29 +1128,22 @@ class EventHandlers:
         if not event_data:
             return
 
-        game_id, message_id, channel_id = event_data
+        _game_id, message_id, channel_id = event_data
 
         try:
-            async with get_db_session() as db:
-                game = await self._get_game_with_participants(db, game_id)
-                if not game:
-                    logger.error("Game not found: %s", game_id)
-                    return
+            result = await self._fetch_channel_and_message(channel_id, message_id)
+            if not result:
+                return
 
-                result = await self._fetch_channel_and_message(channel_id, message_id)
-                if not result:
-                    return
+            _channel, message = result
+            try:
+                await message.delete()
+                logger.info("Deleted cancelled game message: %s", message_id)
 
-                _channel, message = result
-                try:
-                    content, embed, view = await self._create_game_announcement(game)
-                    await message.edit(content=content, embed=embed, view=view)
-                    logger.info("Updated cancelled game message: %s", message_id)
-
-                except discord.NotFound:
-                    logger.warning("Game message not found: %s", message_id)
-                except Exception as e:
-                    logger.exception("Failed to update cancelled game message: %s", e)
+            except discord.NotFound:
+                logger.warning("Game message already deleted: %s", message_id)
+            except Exception as e:
+                logger.exception("Failed to delete cancelled game message: %s", e)
 
         except Exception as e:
             logger.exception("Failed to handle game.cancelled event: %s", e)

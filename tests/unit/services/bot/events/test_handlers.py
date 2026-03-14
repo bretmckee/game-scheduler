@@ -2080,7 +2080,7 @@ class TestHandleGameCancelledHelpers:
 
 @pytest.mark.asyncio
 async def test_handle_game_cancelled_success(event_handlers):
-    """Test successful handling of game.cancelled event."""
+    """Test successful handling of game.cancelled event deletes the Discord message."""
     game_id = str(uuid4())
     message_id = "123456789"
     channel_id = "987654321"
@@ -2091,35 +2091,18 @@ async def test_handle_game_cancelled_success(event_handlers):
         "channel_id": channel_id,
     }
 
-    mock_game = MagicMock(spec=GameSession)
     mock_channel = AsyncMock(spec=discord.TextChannel)
     mock_message = AsyncMock(spec=discord.Message)
-    mock_message.edit = AsyncMock()
+    mock_message.delete = AsyncMock()
 
-    with (
-        patch("services.bot.events.handlers.get_db_session") as mock_db,
-        patch.object(
-            event_handlers,
-            "_get_game_with_participants",
-            new=AsyncMock(return_value=mock_game),
-        ),
-        patch.object(
-            event_handlers,
-            "_fetch_channel_and_message",
-            new=AsyncMock(return_value=(mock_channel, mock_message)),
-        ),
-        patch.object(
-            event_handlers,
-            "_create_game_announcement",
-            new=AsyncMock(return_value=("Content", MagicMock(), MagicMock())),
-        ),
+    with patch.object(
+        event_handlers,
+        "_fetch_channel_and_message",
+        new=AsyncMock(return_value=(mock_channel, mock_message)),
     ):
-        mock_db.return_value.__aenter__ = AsyncMock(return_value=MagicMock())
-        mock_db.return_value.__aexit__ = AsyncMock()
-
         await event_handlers._handle_game_cancelled(data)
 
-        mock_message.edit.assert_awaited_once()
+        mock_message.delete.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -2138,8 +2121,8 @@ async def test_handle_game_cancelled_invalid_data(event_handlers):
 
 
 @pytest.mark.asyncio
-async def test_handle_game_cancelled_game_not_found(event_handlers):
-    """Test handling when game is not found."""
+async def test_handle_game_cancelled_channel_not_found(event_handlers):
+    """Test handling when channel/message cannot be fetched."""
     game_id = str(uuid4())
     data = {
         "game_id": game_id,
@@ -2147,25 +2130,14 @@ async def test_handle_game_cancelled_game_not_found(event_handlers):
         "channel_id": "987654321",
     }
 
-    with (
-        patch("services.bot.events.handlers.get_db_session") as mock_db,
-        patch.object(
-            event_handlers,
-            "_get_game_with_participants",
-            new=AsyncMock(return_value=None),
-        ),
-        patch.object(
-            event_handlers,
-            "_fetch_channel_and_message",
-            new=AsyncMock(),
-        ) as mock_fetch,
-    ):
-        mock_db.return_value.__aenter__ = AsyncMock(return_value=MagicMock())
-        mock_db.return_value.__aexit__ = AsyncMock()
-
+    with patch.object(
+        event_handlers,
+        "_fetch_channel_and_message",
+        new=AsyncMock(return_value=None),
+    ) as mock_fetch:
         await event_handlers._handle_game_cancelled(data)
 
-        mock_fetch.assert_not_awaited()
+        mock_fetch.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -2178,32 +2150,12 @@ async def test_handle_game_cancelled_channel_invalid(event_handlers):
         "channel_id": "987654321",
     }
 
-    mock_game = MagicMock(spec=GameSession)
-
-    with (
-        patch("services.bot.events.handlers.get_db_session") as mock_db,
-        patch.object(
-            event_handlers,
-            "_get_game_with_participants",
-            new=AsyncMock(return_value=mock_game),
-        ),
-        patch.object(
-            event_handlers,
-            "_fetch_channel_and_message",
-            new=AsyncMock(return_value=None),
-        ),
-        patch.object(
-            event_handlers,
-            "_create_game_announcement",
-            new=AsyncMock(),
-        ) as mock_create,
+    with patch.object(
+        event_handlers,
+        "_fetch_channel_and_message",
+        new=AsyncMock(return_value=None),
     ):
-        mock_db.return_value.__aenter__ = AsyncMock(return_value=MagicMock())
-        mock_db.return_value.__aexit__ = AsyncMock()
-
         await event_handlers._handle_game_cancelled(data)
-
-        mock_create.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -2215,17 +2167,11 @@ async def test_handle_game_cancelled_handles_exception(event_handlers):
         "channel_id": "987654321",
     }
 
-    with (
-        patch("services.bot.events.handlers.get_db_session") as mock_db,
-        patch.object(
-            event_handlers,
-            "_get_game_with_participants",
-            new=AsyncMock(side_effect=Exception("Database error")),
-        ),
+    with patch.object(
+        event_handlers,
+        "_fetch_channel_and_message",
+        new=AsyncMock(side_effect=Exception("Network error")),
     ):
-        mock_db.return_value.__aenter__ = AsyncMock(return_value=MagicMock())
-        mock_db.return_value.__aexit__ = AsyncMock()
-
         await event_handlers._handle_game_cancelled(data)
 
 
@@ -2778,3 +2724,96 @@ async def test_handle_clone_confirmation_falls_back_to_join_dm_when_no_schedule(
 
     mock_send_join.assert_awaited_once()
     mock_bot.fetch_user.assert_not_called()
+
+
+# --- New _handle_game_cancelled behaviour tests ---
+
+
+@pytest.mark.asyncio
+async def test_handle_game_cancelled_calls_message_delete(event_handlers):
+    """_handle_game_cancelled() calls message.delete() instead of message.edit()."""
+    game_id = str(uuid4())
+    message_id = "123456789"
+    channel_id = "987654321"
+
+    data = {
+        "game_id": game_id,
+        "message_id": message_id,
+        "channel_id": channel_id,
+    }
+
+    mock_channel = AsyncMock(spec=discord.TextChannel)
+    mock_message = AsyncMock(spec=discord.Message)
+    mock_message.delete = AsyncMock()
+    mock_message.edit = AsyncMock()
+
+    with (
+        patch.object(
+            event_handlers,
+            "_fetch_channel_and_message",
+            new=AsyncMock(return_value=(mock_channel, mock_message)),
+        ),
+    ):
+        await event_handlers._handle_game_cancelled(data)
+
+    mock_message.delete.assert_awaited_once()
+    mock_message.edit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_handle_game_cancelled_does_not_fetch_game_from_db(event_handlers):
+    """_handle_game_cancelled() does not query the database for the game row."""
+    game_id = str(uuid4())
+    data = {
+        "game_id": game_id,
+        "message_id": "123456789",
+        "channel_id": "987654321",
+    }
+
+    mock_channel = AsyncMock(spec=discord.TextChannel)
+    mock_message = AsyncMock(spec=discord.Message)
+    mock_message.delete = AsyncMock()
+
+    with (
+        patch("services.bot.events.handlers.get_db_session") as mock_db_session,
+        patch.object(
+            event_handlers,
+            "_get_game_with_participants",
+            new=AsyncMock(),
+        ) as mock_get_game,
+        patch.object(
+            event_handlers,
+            "_fetch_channel_and_message",
+            new=AsyncMock(return_value=(mock_channel, mock_message)),
+        ),
+    ):
+        mock_db_session.return_value.__aenter__ = AsyncMock(return_value=MagicMock())
+        mock_db_session.return_value.__aexit__ = AsyncMock()
+
+        await event_handlers._handle_game_cancelled(data)
+
+    mock_get_game.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_handle_game_cancelled_not_found_handled_gracefully(event_handlers):
+    """_handle_game_cancelled() handles discord.NotFound without raising."""
+    data = {
+        "game_id": str(uuid4()),
+        "message_id": "123456789",
+        "channel_id": "987654321",
+    }
+
+    mock_channel = AsyncMock(spec=discord.TextChannel)
+    mock_message = AsyncMock(spec=discord.Message)
+    mock_message.delete = AsyncMock(side_effect=discord.NotFound(MagicMock(), MagicMock()))
+
+    with patch.object(
+        event_handlers,
+        "_fetch_channel_and_message",
+        new=AsyncMock(return_value=(mock_channel, mock_message)),
+    ):
+        # Must not raise
+        await event_handlers._handle_game_cancelled(data)
+
+    mock_message.delete.assert_awaited_once()

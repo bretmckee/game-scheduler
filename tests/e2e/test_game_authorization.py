@@ -143,18 +143,22 @@ async def test_delete_game_authorization(
     delete_response = await authenticated_admin_client.delete(f"/api/v1/games/{game_id}")
     assert delete_response.status_code == 204
 
-    # Verify game status is CANCELED (not physically deleted)
+    # Verify game row was physically deleted from database
     result = await admin_db.execute(
-        text("SELECT id, status FROM game_sessions WHERE id = :game_id"),
+        text("SELECT id FROM game_sessions WHERE id = :game_id"),
         {"game_id": game_id},
     )
     row = result.fetchone()
-    assert row is not None, "Game should still exist in database"
-    assert row[1] == "CANCELLED", f"Game status should be CANCELLED, got {row[1]}"
+    assert row is None, (
+        f"Game {game_id} should have been physically deleted from database, but row still exists"
+    )
 
-    # Try to delete the same game again - should still return 204 (idempotent)
+    # Try to delete the same game again - should return 404 (game no longer exists)
     second_delete = await authenticated_admin_client.delete(f"/api/v1/games/{game_id}")
-    assert second_delete.status_code == 204
+    assert second_delete.status_code == 404, (
+        "Second delete of physically-deleted game should return 404, "
+        f"got {second_delete.status_code}"
+    )
 
     # Try to delete a non-existent game ID - should return 404
     fake_game_id = "00000000-0000-0000-0000-000000000000"

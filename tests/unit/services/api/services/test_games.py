@@ -2226,7 +2226,7 @@ async def test_delete_game_success(game_service, mock_db, sample_user, sample_gu
             role_service=mock_role_service,
         )
 
-    assert mock_game.status == "CANCELLED"
+    mock_db.delete.assert_awaited_once_with(mock_game)
 
 
 @pytest.mark.asyncio
