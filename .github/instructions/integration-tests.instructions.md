@@ -3,25 +3,6 @@ description: 'Game Scheduler Integration and E2E tests'
 applyTo: '**/tests/integration**.py, **/tests/e2e**.py, scripts/run-integration-tests.sh, scripts/run-e2e-tests.sh'
 ---
 
-## Test-Driven Development for Integration Tests
-
-**Integration tests follow TDD principles where practical:**
-
-1. **For new API endpoints**: Write integration tests with REAL assertions marked @pytest.mark.xfail before implementing (not just expecting 501)
-2. **For service layer methods**: Write integration tests with database using xfail markers, then implement and remove markers
-3. **For workflows**: Write complete flow tests marked xfail after individual components tested, implement workflow, remove markers
-
-Integration tests verify:
-
-- Cross-service interactions
-- Database transactions and rollback
-- Authentication and authorization
-- Real infrastructure behavior (PostgreSQL, RabbitMQ, Valkey)
-
-**Key TDD principle**: Integration test assertions should describe the ACTUAL desired behavior from day 1, just marked as expected failures until implementation is complete.
-
-See #file:../instructions/test-driven-development.instructions.md for complete TDD methodology.
-
 ## General Instructions
 
 - Integration and e2e tests run inside of docker compose with wrapper scripts:

@@ -258,39 +258,41 @@ Every implementation phase MUST follow this pattern:
 ### Phase 3: Join Handler Integration
 
 - [ ] Task 3.1: Create join_with_capacity_check stub
-- [ ] Task 3.2: Write integration tests with xfail markers
+- [ ] Task 3.2: Write unit tests with xfail markers
 - [ ] Task 3.3: Implement handler and remove xfail markers
-- [ ] Task 3.4: Add e2e tests for full workflow
+- [ ] Task 3.4: Add integration/e2e tests against the completed implementation (no xfail markers)
 ```
 
 ## TDD for Different Test Levels
 
 ### Unit Tests (Always TDD)
 
-**Write unit tests FIRST for every function:**
+**TDD is REQUIRED for unit tests. Write tests BEFORE writing implementation:**
 
 1. Create stub with NotImplementedError
 2. Write tests with REAL assertions marked with @pytest.mark.xfail or test.failing
 3. Implement function and remove xfail markers (DO NOT modify test assertions)
 4. Add edge case tests and refactor
 
-### Integration Tests (TDD When Possible)
+### Integration Tests (TDD NOT Required)
 
-**For service layer and API endpoints:**
+**Integration tests are written AFTER the implementation exists.** The function or endpoint under test already exists by the time integration tests are added, so the Red-Green-Refactor cycle with stubs and xfail markers does not apply.
 
-1. Create endpoint/service stub returning 501 Not Implemented
-2. Write tests for desired integration behavior (they naturally fail)
-3. Implement minimal functionality to make tests pass
-4. Add tests for error paths and edge cases
+**Write integration tests to verify the already-implemented behavior:**
 
-### E2E Tests (Verify Complete Workflows)
+- Write tests against the real running service or database
+- Tests should pass from the start (no xfail markers)
+- Cover happy paths, error paths, and edge cases
+- Do NOT use stubs, NotImplementedError, or xfail markers
 
-**E2E tests can be written after integration tests pass:**
+### E2E Tests (TDD NOT Required)
 
-- E2E tests verify complete user workflows
-- Written after unit + integration tests are green
-- Test cross-service interactions and real environments
-- Still follow red-green-refactor for test reliability
+**E2E tests are written AFTER unit and integration tests are green.** The full workflow already exists, so TDD does not apply.
+
+- E2E tests verify complete user workflows against a real environment
+- Tests should pass from the start (no xfail markers)
+- Test cross-service interactions and realistic user scenarios
+- Do NOT use stubs, NotImplementedError, or xfail markers
 
 ## TDD Quality Checklist
 
