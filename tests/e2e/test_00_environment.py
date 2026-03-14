@@ -501,33 +501,6 @@ async def test_fresh_guild_b_fixture_creates_and_cleans_up(admin_db, fresh_guild
 
 
 @pytest.mark.asyncio
-async def test_guild_fixture_cleanup(admin_db, discord_ids):
-    """Verify guild fixtures clean up after themselves (run after other guild fixture tests)."""
-    # This test intentionally doesn't use fresh_guild_a or fresh_guild_b fixtures
-    # If cleanup worked correctly, no guilds should exist with these Discord IDs
-    result = await admin_db.execute(
-        text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
-        {"guild_id": discord_ids.guild_a_id},
-    )
-    row = result.fetchone()
-    assert row is None, (
-        f"Guild A with guild_id={discord_ids.guild_a_id} should NOT exist after fixture cleanup, "
-        f"but found guild with id={row[0] if row else None}"
-    )
-
-    # Verify Guild B also cleaned up
-    result = await admin_db.execute(
-        text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
-        {"guild_id": discord_ids.guild_b_id},
-    )
-    row = result.fetchone()
-    assert row is None, (
-        f"Guild B with guild_id={discord_ids.guild_b_id} should NOT exist after fixture cleanup, "
-        f"but found guild with id={row[0] if row else None}"
-    )
-
-
-@pytest.mark.asyncio
 async def test_synced_guild_fixture_returns_guild_context(admin_db, synced_guild, discord_ids):
     """Verify synced_guild fixture returns properly populated GuildContext."""
     # synced_guild should return GuildContext (not dict like old implementation)
