@@ -30,6 +30,7 @@ from fastapi import HTTPException
 from starlette import status
 
 from services.api.routes import templates
+from shared.discord.client import DiscordAPIError
 from shared.models.template import GameTemplate
 from shared.schemas import template as template_schemas
 
@@ -218,7 +219,6 @@ class TestListTemplates:
         with (
             patch("services.api.database.queries.require_guild_by_id") as mock_get_guild,
             patch("services.api.auth.roles.get_role_service") as mock_get_role_service,
-            patch("shared.discord.client.fetch_channel_name_safe") as mock_fetch,
             patch(
                 "services.api.services.template_service.TemplateService"
             ) as mock_template_service,
@@ -234,7 +234,9 @@ class TestListTemplates:
             mock_get_role_service.return_value = mock_role_service
 
             mock_discord_client = AsyncMock()
-            mock_fetch.return_value = "test-channel"
+            mock_discord_client.get_guild_channels.return_value = [
+                {"id": mock_template.channel.channel_id, "name": "test-channel", "type": 0}
+            ]
 
             mock_service = AsyncMock()
             mock_service.get_templates_for_user.return_value = [mock_template]
@@ -262,7 +264,6 @@ class TestListTemplates:
         with (
             patch("services.api.database.queries.require_guild_by_id") as mock_get_guild,
             patch("services.api.auth.roles.get_role_service") as mock_get_role_service,
-            patch("shared.discord.client.fetch_channel_name_safe") as mock_fetch,
             patch(
                 "services.api.services.template_service.TemplateService"
             ) as mock_template_service,
@@ -276,17 +277,21 @@ class TestListTemplates:
             mock_get_role_service.return_value = mock_role_service
             mock_check_permission.return_value = True
 
+            mock_discord_client = AsyncMock()
+            mock_discord_client.get_guild_channels.return_value = [
+                {"id": mock_template.channel.channel_id, "name": "primary-channel", "type": 0},
+                {"id": "archive-channel-id", "name": "archive-channel", "type": 0},
+            ]
+
             mock_service = AsyncMock()
             mock_service.get_templates_for_user.return_value = [mock_template]
             mock_template_service.return_value = mock_service
-
-            mock_fetch.side_effect = ["primary-channel", "archive-channel"]
 
             result = await templates.list_templates(
                 guild_id=mock_guild_config.id,
                 current_user=mock_current_user_unit,
                 db=mock_db,
-                discord_client=AsyncMock(),
+                discord_client=mock_discord_client,
             )
 
             assert result[0].archive_delay_seconds == 900
@@ -334,6 +339,46 @@ class TestListTemplates:
             mock_service.get_templates_for_user.assert_awaited_once()
             _, kwargs = mock_service.get_templates_for_user.call_args
             assert kwargs.get("is_manager") is True
+
+    @pytest.mark.asyncio
+    async def test_list_templates_discord_api_error_falls_back_to_unknown(
+        self, mock_db, mock_current_user_unit, mock_guild_config, mock_template
+    ):
+        """Test that a Discord API error falls back to 'Unknown Channel' names."""
+
+        with (
+            patch("services.api.database.queries.require_guild_by_id") as mock_get_guild,
+            patch("services.api.auth.roles.get_role_service") as mock_get_role_service,
+            patch(
+                "services.api.services.template_service.TemplateService"
+            ) as mock_template_service,
+            patch(
+                "services.api.dependencies.permissions.check_bot_manager_permission",
+                new_callable=AsyncMock,
+            ) as mock_check_manager,
+        ):
+            mock_get_guild.return_value = mock_guild_config
+            mock_check_manager.return_value = False
+            mock_get_role_service.return_value = AsyncMock()
+
+            mock_discord_client = AsyncMock()
+            mock_discord_client.get_guild_channels.side_effect = DiscordAPIError(
+                403, "Missing Access"
+            )
+
+            mock_service = AsyncMock()
+            mock_service.get_templates_for_user.return_value = [mock_template]
+            mock_template_service.return_value = mock_service
+
+            result = await templates.list_templates(
+                guild_id=mock_guild_config.id,
+                current_user=mock_current_user_unit,
+                db=mock_db,
+                discord_client=mock_discord_client,
+            )
+
+            assert len(result) == 1
+            assert result[0].channel_name == "Unknown Channel"
 
     @pytest.mark.asyncio
     async def test_list_templates_guild_not_found(self, mock_db, mock_current_user_unit):

@@ -30,6 +30,7 @@ from fastapi import HTTPException
 from starlette.requests import Request
 
 from services.api.routes import guilds
+from shared.discord.client import DiscordAPIError
 from shared.schemas import guild as guild_schemas
 
 
@@ -336,16 +337,19 @@ class TestListGuildChannels:
         self, mock_db, mock_current_user_unit, mock_guild_config, mock_user_guilds
     ):
         """Test listing channels for a guild."""
+        mock_discord_client = AsyncMock()
+        mock_discord_client.get_guild_channels.return_value = [
+            {"id": "channel_123", "name": "Test Channel", "type": 0}
+        ]
+
         with (
             patch("services.api.auth.tokens.get_user_tokens") as mock_get_tokens,
             patch("services.api.auth.oauth2.get_user_guilds") as mock_get_guilds,
             patch("services.api.database.queries.require_guild_by_id") as mock_get_guild,
             patch("services.api.database.queries.get_channels_by_guild") as mock_get_channels,
-            patch("services.api.routes.guilds.fetch_channel_name_safe") as mock_fetch_name,
         ):
             mock_get_tokens.return_value = {"access_token": "test_token"}
             mock_get_guilds.return_value = mock_user_guilds
-            mock_fetch_name.return_value = "Test Channel"
 
             mock_channel = MagicMock()
             mock_channel.id = str(uuid.uuid4())
@@ -362,12 +366,15 @@ class TestListGuildChannels:
                 guild_id=mock_guild_config.id,
                 current_user=mock_current_user_unit,
                 db=mock_db,
+                discord_client=mock_discord_client,
             )
 
             assert len(result) == 1
             assert result[0].channel_id == "channel_123"
             assert result[0].channel_name == "Test Channel"
-            mock_fetch_name.assert_called_once_with("channel_123")
+            mock_discord_client.get_guild_channels.assert_awaited_once_with(
+                mock_guild_config.guild_id
+            )
 
     @pytest.mark.asyncio
     async def test_list_channels_guild_not_found(self, mock_db, mock_current_user_unit):
@@ -382,6 +389,7 @@ class TestListGuildChannels:
                     guild_id=str(uuid.uuid4()),
                     current_user=mock_current_user_unit,
                     db=mock_db,
+                    discord_client=AsyncMock(),
                 )
 
             assert exc_info.value.status_code == 404
@@ -408,12 +416,49 @@ class TestListGuildChannels:
                     guild_id=mock_guild_config.id,
                     current_user=mock_current_user_unit,
                     db=mock_db,
+                    discord_client=AsyncMock(),
                 )
 
             assert exc_info.value.status_code == 404
 
+    @pytest.mark.asyncio
+    async def test_list_channels_discord_api_error_falls_back_to_unknown(
+        self, mock_db, mock_current_user_unit, mock_guild_config, mock_user_guilds
+    ):
+        """Test that a Discord API error falls back to 'Unknown Channel' names."""
 
-class TestBuildGuildConfigResponse:
+        mock_discord_client = AsyncMock()
+        mock_discord_client.get_guild_channels.side_effect = DiscordAPIError(403, "Missing Access")
+
+        with (
+            patch("services.api.auth.tokens.get_user_tokens") as mock_get_tokens,
+            patch("services.api.auth.oauth2.get_user_guilds") as mock_get_guilds,
+            patch("services.api.database.queries.require_guild_by_id") as mock_get_guild,
+            patch("services.api.database.queries.get_channels_by_guild") as mock_get_channels,
+        ):
+            mock_get_tokens.return_value = {"access_token": "test_token"}
+            mock_get_guilds.return_value = mock_user_guilds
+            mock_get_guild.return_value = mock_guild_config
+
+            mock_channel = MagicMock()
+            mock_channel.id = str(uuid.uuid4())
+            mock_channel.guild_id = mock_guild_config.id
+            mock_channel.channel_id = "channel_123"
+            mock_channel.is_active = True
+            mock_channel.created_at = datetime.now(tz=UTC)
+            mock_channel.updated_at = datetime.now(tz=UTC)
+            mock_get_channels.return_value = [mock_channel]
+
+            result = await guilds.list_guild_channels(
+                guild_id=mock_guild_config.id,
+                current_user=mock_current_user_unit,
+                db=mock_db,
+                discord_client=mock_discord_client,
+            )
+
+            assert len(result) == 1
+            assert result[0].channel_name == "Unknown Channel"
+
     """Test _build_guild_config_response helper function."""
 
     @pytest.mark.asyncio

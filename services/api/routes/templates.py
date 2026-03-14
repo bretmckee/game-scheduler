@@ -34,7 +34,7 @@ from services.api.dependencies.discord import get_discord_client
 from services.api.services import template_service as template_service_module
 from shared import database
 from shared.discord import client as discord_client_module
-from shared.discord.client import DiscordAPIClient
+from shared.discord.client import DiscordAPIClient, DiscordAPIError
 from shared.models.template import GameTemplate
 from shared.schemas import auth as auth_schemas
 from shared.schemas import template as template_schemas
@@ -131,16 +131,19 @@ async def list_templates(
             "Contact a server manager if you believe this is incorrect.",
         )
 
-    # Convert to response format with channel names
+    try:
+        discord_channels = await discord_client.get_guild_channels(guild_config.guild_id)
+        channel_name_map = {ch["id"]: ch["name"] for ch in discord_channels}
+    except DiscordAPIError:
+        channel_name_map = {}
+
     result = []
     for template in templates:
-        channel_name = await discord_client_module.fetch_channel_name_safe(
-            template.channel.channel_id, discord_client
-        )
+        channel_name = channel_name_map.get(template.channel.channel_id, "Unknown Channel")
         archive_channel_name = None
         if template.archive_channel_id:
-            archive_channel_name = await discord_client_module.fetch_channel_name_safe(
-                template.archive_channel_id, discord_client
+            archive_channel_name = channel_name_map.get(
+                template.archive_channel_id, "Unknown Channel"
             )
         result.append(
             template_schemas.TemplateListItem(

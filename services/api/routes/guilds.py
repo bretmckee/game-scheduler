@@ -39,7 +39,7 @@ from services.api.dependencies.discord import get_discord_client
 from services.api.services import guild_service
 from services.bot.guild_sync import sync_all_bot_guilds
 from shared import database
-from shared.discord.client import DiscordAPIClient, fetch_channel_name_safe
+from shared.discord.client import DiscordAPIClient, DiscordAPIError
 from shared.models.guild import GuildConfiguration
 from shared.schemas import auth as auth_schemas
 from shared.schemas import channel as channel_schemas
@@ -218,6 +218,7 @@ async def list_guild_channels(
     guild_id: str,
     current_user: Annotated[auth_schemas.CurrentUser, Depends(dependencies.auth.get_current_user)],
     db: Annotated[AsyncSession, Depends(database.get_db)],
+    discord_client: Annotated[DiscordAPIClient, Depends(get_discord_client)],
     refresh: Annotated[bool, Query(description="Refresh channels from Discord API")] = False,
 ) -> list[channel_schemas.ChannelConfigResponse]:
     """
@@ -242,12 +243,18 @@ async def list_guild_channels(
 
     channels = await queries.get_channels_by_guild(db, guild_config.id)
 
+    try:
+        discord_channels = await discord_client.get_guild_channels(guild_config.guild_id)
+        channel_name_map = {ch["id"]: ch["name"] for ch in discord_channels}
+    except DiscordAPIError:
+        channel_name_map = {}
+
     channel_responses = []
     for channel in channels:
         if not channel.is_active:
             continue
 
-        channel_name = await fetch_channel_name_safe(channel.channel_id)
+        channel_name = channel_name_map.get(channel.channel_id, "Unknown Channel")
 
         channel_responses.append(
             channel_schemas.ChannelConfigResponse(
