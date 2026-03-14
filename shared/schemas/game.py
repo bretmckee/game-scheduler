@@ -47,7 +47,7 @@ class GameCreateRequest(BaseModel):
 
     # Optional overrides of template defaults
     description: str | None = Field(
-        None, description="Game description (optional)", max_length=4000
+        None, description="Game description (optional)", max_length=2000
     )
     max_players: int | None = Field(
         None,
@@ -115,7 +115,7 @@ class GameUpdateRequest(BaseModel):
     """Update game session (all fields optional)."""
 
     title: str | None = Field(None, min_length=1, max_length=200)
-    description: str | None = Field(None, max_length=4000)
+    description: str | None = Field(None, max_length=2000)
     signup_instructions: str | None = Field(None, max_length=1000)
     scheduled_at: datetime | None = None
     where: str | None = Field(None, max_length=500)

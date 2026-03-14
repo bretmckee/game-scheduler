@@ -29,7 +29,7 @@ class TemplateCreateRequest(BaseModel):
 
     guild_id: str = Field(..., description="Guild UUID")
     name: str = Field(..., min_length=1, max_length=100, description="Template name")
-    description: str | None = Field(None, max_length=4000, description="Template description")
+    description: str | None = Field(None, max_length=2000, description="Template description")
     order: int = Field(default=0, ge=0, description="Sort order (0-based)")
     is_default: bool = Field(default=False, description="Whether this is the default template")
 
@@ -78,7 +78,7 @@ class TemplateUpdateRequest(BaseModel):
     """Update game template (all fields optional)."""
 
     name: str | None = Field(None, min_length=1, max_length=100)
-    description: str | None = Field(None, max_length=4000)
+    description: str | None = Field(None, max_length=2000)
     order: int | None = Field(None, ge=0)
     is_default: bool | None = None
 

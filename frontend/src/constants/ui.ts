@@ -72,7 +72,7 @@ export const UI = {
   /**
    * Maximum description length (characters).
    */
-  MAX_DESCRIPTION_LENGTH: 4000,
+  MAX_DESCRIPTION_LENGTH: 2000,
 
   /**
    * Maximum location length (characters).

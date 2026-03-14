@@ -106,7 +106,7 @@ describe('TemplateForm Validation', () => {
     await user.tab();
 
     await waitFor(() => {
-      expect(screen.getByText(/16 \/ 4000 characters/i)).toBeInTheDocument();
+      expect(screen.getByText(/16 \/ 2000 characters/i)).toBeInTheDocument();
     });
   });
 

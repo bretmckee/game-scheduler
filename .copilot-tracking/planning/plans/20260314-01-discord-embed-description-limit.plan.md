@@ -41,44 +41,44 @@ Align the description character limit consistently across all layers (API, front
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Update Shared Constants
+### [x] Phase 1: Update Shared Constants
 
-- [ ] Task 1.1: Replace `MAX_STRING_DISPLAY_LENGTH` with four focused constants in `shared/utils/limits.py`
+- [x] Task 1.1: Replace `MAX_STRING_DISPLAY_LENGTH` with four focused constants in `shared/utils/limits.py`
   - Details: .copilot-tracking/planning/details/20260314-01-discord-embed-description-limit-details.md (Lines 11-23)
 
-### [ ] Phase 2: Bot Formatter Dynamic Truncation (TDD)
+### [x] Phase 2: Bot Formatter Dynamic Truncation (TDD)
 
-- [ ] Task 2.1: Create `_trim_embed_if_needed` stub in `services/bot/formatters/game_message.py`
+- [x] Task 2.1: Create `_trim_embed_if_needed` stub in `services/bot/formatters/game_message.py`
   - Details: .copilot-tracking/planning/details/20260314-01-discord-embed-description-limit-details.md (Lines 27-39)
 
-- [ ] Task 2.2: Write xfail tests for dynamic truncation in `tests/services/bot/formatters/test_game_message.py`
+- [x] Task 2.2: Write xfail tests for dynamic truncation in `tests/services/bot/formatters/test_game_message.py`
   - Details: .copilot-tracking/planning/details/20260314-01-discord-embed-description-limit-details.md (Lines 41-56)
 
-- [ ] Task 2.3: Implement `_trim_embed_if_needed` and remove xfail markers
+- [x] Task 2.3: Implement `_trim_embed_if_needed` and remove xfail markers
   - Details: .copilot-tracking/planning/details/20260314-01-discord-embed-description-limit-details.md (Lines 58-71)
 
-- [ ] Task 2.4: Refactor and add edge-case tests
+- [x] Task 2.4: Refactor and add edge-case tests
   - Details: .copilot-tracking/planning/details/20260314-01-discord-embed-description-limit-details.md (Lines 73-84)
 
-### [ ] Phase 3: game_embeds.py Snippet Constant
+### [x] Phase 3: game_embeds.py Snippet Constant
 
-- [ ] Task 3.1: Replace hardcoded `[:100]` with `GAME_LIST_DESCRIPTION_SNIPPET_LENGTH` in `shared/discord/game_embeds.py`
+- [x] Task 3.1: Replace hardcoded `[:100]` with `GAME_LIST_DESCRIPTION_SNIPPET_LENGTH` in `shared/discord/game_embeds.py`
   - Details: .copilot-tracking/planning/details/20260314-01-discord-embed-description-limit-details.md (Lines 88-99)
 
-### [ ] Phase 4: API Schema Limits
+### [x] Phase 4: API Schema Limits
 
-- [ ] Task 4.1: Update description `max_length` to 2,000 in `shared/schemas/game.py` and `shared/schemas/template.py`
+- [x] Task 4.1: Update description `max_length` to 2,000 in `shared/schemas/game.py` and `shared/schemas/template.py`
   - Details: .copilot-tracking/planning/details/20260314-01-discord-embed-description-limit-details.md (Lines 103-115)
 
-- [ ] Task 4.2: Write tests verifying the 2,000-char schema limit
+- [x] Task 4.2: Write tests verifying the 2,000-char schema limit
   - Details: .copilot-tracking/planning/details/20260314-01-discord-embed-description-limit-details.md (Lines 117-128)
 
-### [ ] Phase 5: Frontend Constant Alignment
+### [x] Phase 5: Frontend Constant Alignment
 
-- [ ] Task 5.1: Update `MAX_DESCRIPTION_LENGTH` to `2000` in `frontend/src/constants/ui.ts`
+- [x] Task 5.1: Update `MAX_DESCRIPTION_LENGTH` to `2000` in `frontend/src/constants/ui.ts`
   - Details: .copilot-tracking/planning/details/20260314-01-discord-embed-description-limit-details.md (Lines 132-143)
 
-- [ ] Task 5.2: Replace local constant in `GameForm.tsx` with `UI.MAX_DESCRIPTION_LENGTH`
+- [x] Task 5.2: Replace local constant in `GameForm.tsx` with `UI.MAX_DESCRIPTION_LENGTH`
   - Details: .copilot-tracking/planning/details/20260314-01-discord-embed-description-limit-details.md (Lines 145-157)
 
 ## Dependencies

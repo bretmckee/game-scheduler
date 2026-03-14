@@ -356,10 +356,9 @@ export const GameForm: FC<GameFormProps> = ({
   };
 
   const validateDescriptionField = () => {
-    const MAX_DESCRIPTION_LENGTH = 2000;
     const result = validateCharacterLimit(
       formData.description,
-      MAX_DESCRIPTION_LENGTH,
+      UI.MAX_DESCRIPTION_LENGTH,
       'Description'
     );
     setDescriptionError(result.error || result.warning || null);
@@ -393,10 +392,9 @@ export const GameForm: FC<GameFormProps> = ({
 
   const getDescriptionHelperText = () => {
     if (descriptionError) return descriptionError;
-    const MAX_DESCRIPTION_LENGTH = 2000;
     const count = formData.description.length;
     if (count === 0) return undefined;
-    return `${count}/${MAX_DESCRIPTION_LENGTH} characters`;
+    return `${count}/${UI.MAX_DESCRIPTION_LENGTH} characters`;
   };
 
   const getSignupInstructionsHelperText = () => {

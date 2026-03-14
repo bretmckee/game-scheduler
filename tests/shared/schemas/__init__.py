@@ -1,4 +1,4 @@
-# Copyright 2025-2026 Bret McKee
+# Copyright 2026 Bret McKee
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -19,18 +19,4 @@
 # SOFTWARE.
 
 
-"""
-Limit constants for pagination, descriptions, and Discord embed constraints.
-
-Defines maximum values for pagination page sizes, description fields,
-and Discord embed character budgets.
-"""
-
-DEFAULT_PAGE_SIZE = 10
-
-DISCORD_EMBED_TOTAL_LIMIT = 6000
-DISCORD_EMBED_TOTAL_SAFE_LIMIT = 5900
-
-MAX_DESCRIPTION_LENGTH = 2000
-
-GAME_LIST_DESCRIPTION_SNIPPET_LENGTH = 100
+"""Tests for shared schemas."""

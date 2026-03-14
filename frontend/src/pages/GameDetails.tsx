@@ -246,7 +246,7 @@ export const GameDetails: FC = () => {
           </Alert>
         )}
 
-        <Typography variant="body1" paragraph>
+        <Typography variant="body1" paragraph sx={{ wordBreak: 'break-word' }}>
           {game.description}
         </Typography>
 

@@ -32,6 +32,7 @@ import pytest
 from sqlalchemy import text
 
 from shared.utils.discord_tokens import extract_bot_discord_id
+from shared.utils.limits import MAX_DESCRIPTION_LENGTH
 from tests.shared.auth_helpers import cleanup_test_session, create_test_session
 
 pytestmark = pytest.mark.integration
@@ -644,7 +645,7 @@ async def test_create_template_description_exceeds_max_length(
     seed_redis_cache,
     api_base_url,
 ):
-    """Verify template creation fails when description exceeds 4000 characters (422).
+    """Verify template creation fails when description exceeds MAX_DESCRIPTION_LENGTH (422).
 
     Ensures Pydantic schema validation enforces max_length constraint,
     preventing excessively long descriptions.
@@ -670,20 +671,20 @@ async def test_create_template_description_exceeds_max_length(
             timeout=10.0,
             cookies={"session_token": session_token},
         ) as client:
-            # Create template with description exceeding 4000 characters
+            # Create template with description exceeding MAX_DESCRIPTION_LENGTH
             response = await client.post(
                 f"/api/v1/guilds/{guild['id']}/templates",
                 json={
                     "name": "Long Description Template",
                     "guild_id": guild["id"],
                     "channel_id": channel["id"],
-                    "description": "x" * 4001,  # Exceeds max_length=4000
+                    "description": "x" * (MAX_DESCRIPTION_LENGTH + 1),
                 },
             )
 
         # Verify validation failure
         assert response.status_code == 422, (
-            f"Expected 422 Unprocessable Entity for description > 4000 chars, "
+            f"Expected 422 Unprocessable Entity for description > {MAX_DESCRIPTION_LENGTH} chars, "
             f"got {response.status_code}: {response.text}"
         )
 
@@ -866,7 +867,7 @@ async def test_create_template_fields_at_max_length(
                     "name": "Max Length Template",
                     "guild_id": guild["id"],
                     "channel_id": channel["id"],
-                    "description": "x" * 4000,  # Exactly max_length=4000
+                    "description": "x" * MAX_DESCRIPTION_LENGTH,  # Exactly max_length
                     "where": "y" * 500,  # Exactly max_length=500
                     "signup_instructions": "z" * 1000,  # Exactly max_length=1000
                 },
@@ -881,7 +882,7 @@ async def test_create_template_fields_at_max_length(
         # Verify response data
         template_data = response.json()
         assert template_data["name"] == "Max Length Template"
-        assert len(template_data["description"]) == 4000
+        assert len(template_data["description"]) == MAX_DESCRIPTION_LENGTH
         assert len(template_data["where"]) == 500
         assert len(template_data["signup_instructions"]) == 1000
 

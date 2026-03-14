@@ -41,7 +41,7 @@ from services.bot.utils.discord_format import (
 )
 from services.bot.views.game_view import GameView
 from shared.models import GameStatus
-from shared.utils.limits import MAX_STRING_DISPLAY_LENGTH
+from shared.utils.limits import DISCORD_EMBED_TOTAL_SAFE_LIMIT
 
 logger = logging.getLogger(__name__)
 
@@ -72,8 +72,6 @@ class GameMessageFormatter:
             Tuple of (truncated_description, calendar_url, thumbnail_url, image_url)
         """
         truncated_description = description
-        if description and len(description) > MAX_STRING_DISPLAY_LENGTH:
-            truncated_description = description[: MAX_STRING_DISPLAY_LENGTH - 3] + "..."
 
         calendar_url = None
         if game_id:
@@ -289,6 +287,14 @@ class GameMessageFormatter:
 
         GameMessageFormatter._add_footer_and_links(embed, status, calendar_url)
 
+        return GameMessageFormatter._trim_embed_if_needed(embed)
+
+    @staticmethod
+    def _trim_embed_if_needed(embed: discord.Embed) -> discord.Embed:
+        excess = len(embed) - DISCORD_EMBED_TOTAL_SAFE_LIMIT
+        if excess > 0 and embed.description:
+            trim_to = len(embed.description) - excess - 3
+            embed.description = embed.description[:trim_to] + "..."
         return embed
 
     @staticmethod

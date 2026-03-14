@@ -25,7 +25,7 @@ from datetime import UTC, datetime
 
 import discord
 
-from shared.utils.limits import DEFAULT_PAGE_SIZE
+from shared.utils.limits import DEFAULT_PAGE_SIZE, GAME_LIST_DESCRIPTION_SNIPPET_LENGTH
 
 
 def build_game_list_embed(
@@ -57,7 +57,7 @@ def build_game_list_embed(
         unix_timestamp = int(game.scheduled_at.timestamp())
         value = f"🕒 <t:{unix_timestamp}:F> (<t:{unix_timestamp}:R>)\n"
         if game.description:
-            value += f"{game.description[:100]}\n"
+            value += f"{game.description[:GAME_LIST_DESCRIPTION_SNIPPET_LENGTH]}\n"
         value += f"ID: `{game.id}`"
 
         embed.add_field(

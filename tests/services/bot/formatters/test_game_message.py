@@ -24,10 +24,13 @@
 from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 
+import discord
+
 from services.bot.formatters.game_message import (
     GameMessageFormatter,
     format_game_announcement,
 )
+from shared.utils.limits import DISCORD_EMBED_TOTAL_SAFE_LIMIT, MAX_DESCRIPTION_LENGTH
 
 
 class TestGameMessageFormatter:
@@ -361,8 +364,8 @@ class TestGameMessageFormatter:
 class TestGameMessageFormatterHelpers:
     """Tests for GameMessageFormatter helper methods."""
 
-    def test_prepare_description_and_urls_truncates_long_description(self):
-        """Test that long descriptions are truncated with ellipsis."""
+    def test_prepare_description_and_urls_passes_long_description_unchanged(self):
+        """Test that long descriptions are no longer truncated by _prepare_description_and_urls."""
         long_description = "A" * 1000
         game_id = "test-game-id"
 
@@ -378,8 +381,7 @@ class TestGameMessageFormatterHelpers:
                 long_description, game_id, None, None
             )
 
-        assert len(truncated) == 100
-        assert truncated.endswith("...")
+        assert truncated == long_description
         assert calendar_url == "https://example.com/download-calendar/test-game-id"
 
     def test_prepare_description_and_urls_keeps_short_description(self):
@@ -1346,3 +1348,55 @@ class TestEmbedNewFields:
             waitlist_str = str(waitlist_calls[0])
             assert "4." in waitlist_str
             assert "5." in waitlist_str
+
+
+class TestTrimEmbedIfNeeded:
+    """Tests for _trim_embed_if_needed dynamic embed truncation."""
+
+    def test_short_description_unchanged(self):
+        """Test that short descriptions pass through without modification."""
+        embed = discord.Embed(title="Test Game", description="Short description")
+        result = GameMessageFormatter._trim_embed_if_needed(embed)
+        assert result.description == "Short description"
+
+    def test_long_description_under_limit_preserved(self):
+        """Test that a large description is preserved when total embed is under the safe limit."""
+        description = "A" * 4096
+        embed = discord.Embed(title="T", description=description)
+        result = GameMessageFormatter._trim_embed_if_needed(embed)
+        assert result.description == description
+
+    def test_description_trimmed_when_total_exceeds_limit(self):
+        """Test that description is trimmed when total embed length exceeds the safe limit."""
+        title = "T" * 256
+        description = "A" * 5800
+        embed = discord.Embed(title=title, description=description)
+        result = GameMessageFormatter._trim_embed_if_needed(embed)
+        assert result.description.endswith("...")
+        assert len(result) <= DISCORD_EMBED_TOTAL_SAFE_LIMIT
+
+    def test_none_description_not_touched(self):
+        """Test that an embed with no description is returned unchanged."""
+        embed = discord.Embed(title="T" * 256)
+        result = GameMessageFormatter._trim_embed_if_needed(embed)
+        assert result.description is None
+
+    def test_empty_description_not_touched(self):
+        """Test that an empty description is returned unchanged."""
+        embed = discord.Embed(title="T", description="")
+        result = GameMessageFormatter._trim_embed_if_needed(embed)
+        assert result.description == ""
+
+    def test_max_length_description_preserved_in_normal_game(self):
+        """Test that a MAX_DESCRIPTION_LENGTH description passes through untruncated."""
+        embed = discord.Embed(
+            title="D&D Campaign",
+            description="A" * MAX_DESCRIPTION_LENGTH,
+        )
+        embed.add_field(name="Game Time", value="<t:1234567890:F> (<t:1234567890:R>)", inline=False)
+        embed.add_field(name="Host", value="<@123456789>", inline=True)
+        embed.add_field(name="Participants (0/5)", value="No participants yet", inline=True)
+        embed.set_footer(text="Status: Scheduled")
+        assert len(embed) <= DISCORD_EMBED_TOTAL_SAFE_LIMIT
+        result = GameMessageFormatter._trim_embed_if_needed(embed)
+        assert result.description == "A" * MAX_DESCRIPTION_LENGTH
