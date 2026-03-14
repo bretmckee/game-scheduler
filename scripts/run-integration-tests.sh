@@ -39,6 +39,14 @@
 #   First run:       SKIP_CLEANUP=1 ./scripts/run-integration-tests.sh
 #   Re-run:          SKIP_STARTUP=1 SKIP_CLEANUP=1 ./scripts/run-integration-tests.sh
 #   Final/clean run: SKIP_STARTUP=1 ./scripts/run-integration-tests.sh
+#
+# AGENT NOTE: This script takes MORE THAN 5 MINUTES to run.
+#   - Always use a terminal timeout of at least 600000ms (10 minutes).
+#   - Always capture output with tee BEFORE any filtering:
+#       scripts/run-integration-tests.sh |& tee output-integration.txt
+#   - NEVER pipe directly to grep/tail/head without first saving via tee.
+#     If a test fails and output was filtered, you must rerun the entire suite.
+#   - When reading captured output, use at least 200 lines.
 
 set -e
 

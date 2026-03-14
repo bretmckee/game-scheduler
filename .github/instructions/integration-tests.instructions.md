@@ -12,10 +12,17 @@ applyTo: '**/tests/integration**.py, **/tests/e2e**.py, scripts/run-integration-
 
 ## Output Collection Best Practices
 
-- Integration and e2e tests take a relatively long time to run
-- When collecting output, use a minimum of 75 lines to avoid needing to rerun tests
-- Always send raw results to `tee` so additional output is available without rerunning if needed
-- While reducing output with tools like `tail` is acceptable, removing too much adds significant time if tests must be rerun
+These test suites are expensive to rerun — capture everything before filtering:
+
+- **Integration tests take more than 5 minutes; e2e tests take more than 10 minutes**
+- **Always** pipe through `tee` before any filtering so the full log is preserved:
+  ```bash
+  scripts/run-integration-tests.sh |& tee output-integration.txt
+  scripts/run-e2e-tests.sh |& tee output-e2e.txt
+  ```
+- **Never** pipe directly to `grep`, `tail`, or `head` without first routing through `tee` — if a test fails, all failure details are permanently lost and require a full rerun to recover
+- When reading captured output, use at least **200 lines**; if that is insufficient to see failures, read more rather than rerunning
+- Use a terminal timeout of at least **600000ms** for integration tests and **900000ms** for e2e tests
 
 ## Reducing Test Cycle Time for Debugging
 

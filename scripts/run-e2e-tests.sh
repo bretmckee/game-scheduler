@@ -41,6 +41,14 @@
 #   First run:       SKIP_CLEANUP=1 ./scripts/run-e2e-tests.sh
 #   Re-run:          SKIP_STARTUP=1 SKIP_CLEANUP=1 ./scripts/run-e2e-tests.sh
 #   Final/clean run: SKIP_STARTUP=1 ./scripts/run-e2e-tests.sh
+#
+# AGENT NOTE: This script takes MORE THAN 10 MINUTES to run.
+#   - Always use a terminal timeout of at least 900000ms (15 minutes).
+#   - Always capture output with tee BEFORE any filtering:
+#       scripts/run-e2e-tests.sh |& tee output-e2e.txt
+#   - NEVER pipe directly to grep/tail/head without first saving via tee.
+#     If a test fails and output was filtered, you must rerun the entire suite.
+#   - When reading captured output, use at least 200 lines.
 
 set -e
 
