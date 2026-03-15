@@ -92,9 +92,6 @@ describe('BrowseGames - SSE Integration', () => {
         data: { games: [mockGame], total: 1 },
       })
       .mockResolvedValueOnce({
-        data: [], // channels
-      })
-      .mockResolvedValueOnce({
         data: updatedGame,
       });
 
@@ -136,9 +133,6 @@ describe('BrowseGames - SSE Integration', () => {
         data: { games: [mockGame], total: 1 },
       })
       .mockResolvedValueOnce({
-        data: [], // channels
-      })
-      .mockResolvedValueOnce({
         data: { ...mockGame, id: 'game-2' },
       });
 
@@ -166,5 +160,93 @@ describe('BrowseGames - SSE Integration', () => {
     await waitFor(() => {
       expect(apiClient.get).toHaveBeenCalledWith('/api/v1/games/game-2');
     });
+  });
+});
+
+describe('BrowseGames - Channel Filter', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('channel dropdown options are sorted alphabetically', async () => {
+    const gameWithAlpha = {
+      ...mockGame,
+      id: 'g1',
+      channel_id: 'ch-a',
+      channel_name: 'zebra-games',
+    };
+    const gameWithZebra = {
+      ...mockGame,
+      id: 'g2',
+      channel_id: 'ch-b',
+      channel_name: 'alpha-games',
+    };
+    const gameWithMiddle = {
+      ...mockGame,
+      id: 'g3',
+      channel_id: 'ch-c',
+      channel_name: 'middle-games',
+    };
+
+    vi.mocked(apiClient.get).mockResolvedValueOnce({
+      data: { games: [gameWithAlpha, gameWithZebra, gameWithMiddle], total: 3 },
+    });
+
+    const { useGameUpdates } = await import('../../hooks/useGameUpdates');
+    vi.mocked(useGameUpdates).mockImplementation(() => {});
+
+    render(
+      <AuthContext.Provider value={mockAuthContext}>
+        <MemoryRouter initialEntries={['/browse/guild-1']}>
+          <Routes>
+            <Route path="/browse/:guildId" element={<BrowseGames />} />
+          </Routes>
+        </MemoryRouter>
+      </AuthContext.Provider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText('D&D Adventure')).toHaveLength(3);
+    });
+    const channelSelect = screen.getAllByRole('combobox')[0]!;
+    await import('@testing-library/user-event').then(async ({ default: userEvent }) => {
+      const user = userEvent.setup();
+      await user.click(channelSelect);
+    });
+
+    const options = screen.getAllByRole('option').map((el) => el.textContent);
+    // Skip the first option ('All Channels'), check the rest are sorted
+    const channelOptions = options.slice(1);
+    expect(channelOptions).toEqual([...channelOptions].sort());
+    expect(channelOptions).toEqual(['alpha-games', 'middle-games', 'zebra-games']);
+  });
+
+  it('derives channel list from loaded games without calling channels endpoint', async () => {
+    vi.mocked(apiClient.get).mockResolvedValueOnce({
+      data: { games: [mockGame], total: 1 },
+    });
+
+    const { useGameUpdates } = await import('../../hooks/useGameUpdates');
+    vi.mocked(useGameUpdates).mockImplementation(() => {});
+
+    render(
+      <AuthContext.Provider value={mockAuthContext}>
+        <MemoryRouter initialEntries={['/browse/guild-1']}>
+          <Routes>
+            <Route path="/browse/:guildId" element={<BrowseGames />} />
+          </Routes>
+        </MemoryRouter>
+      </AuthContext.Provider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('D&D Adventure')).toBeInTheDocument();
+    });
+
+    expect(apiClient.get).toHaveBeenCalledTimes(1);
+    expect(apiClient.get).not.toHaveBeenCalledWith(
+      expect.stringContaining('/channels'),
+      expect.anything()
+    );
   });
 });

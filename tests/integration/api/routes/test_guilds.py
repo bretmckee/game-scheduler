@@ -138,3 +138,37 @@ async def test_list_channels_returns_only_active_channels(
     channel_ids = {ch["channel_id"] for ch in data}
     assert "444444" in channel_ids
     assert "555555" not in channel_ids
+
+
+@pytest.mark.asyncio
+async def test_list_channels_returns_channels_sorted_by_name(
+    authenticated_client,
+    create_channel,
+    redis_client_async,
+):
+    """Verify channels are returned sorted alphabetically by name."""
+    client, guild = authenticated_client
+    guild_id = guild["id"]
+    guild_discord_id = guild["guild_id"]
+
+    ch_z = create_channel(guild_id=guild_id, discord_channel_id="777771")
+    ch_a = create_channel(guild_id=guild_id, discord_channel_id="777772")
+    ch_m = create_channel(guild_id=guild_id, discord_channel_id="777773")
+
+    # Seed Discord channel names in reverse alphabetical order to confirm sorting
+    await redis_client_async.set_json(
+        f"discord:guild_channels:{guild_discord_id}",
+        [
+            {"id": ch_z["channel_id"], "name": "zebra-games", "type": 0},
+            {"id": ch_a["channel_id"], "name": "alpha-games", "type": 0},
+            {"id": ch_m["channel_id"], "name": "middle-games", "type": 0},
+        ],
+        ttl=300,
+    )
+
+    response = await client.get(f"/api/v1/guilds/{guild_id}/channels")
+
+    assert response.status_code == 200
+    data = response.json()
+    names = [ch["channel_name"] for ch in data]
+    assert names == sorted(names)

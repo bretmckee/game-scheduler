@@ -33,14 +33,14 @@ import {
 } from '@mui/material';
 import { useParams } from 'react-router';
 import { apiClient } from '../api/client';
-import { GameSession, Channel, GameListResponse } from '../types';
+import { GameSession, GameListResponse } from '../types';
 import { GameCard } from '../components/GameCard';
 import { useGameUpdates } from '../hooks/useGameUpdates';
 
 export const BrowseGames: FC = () => {
   const { guildId } = useParams<{ guildId: string }>();
   const [games, setGames] = useState<GameSession[]>([]);
-  const [channels, setChannels] = useState<Channel[]>([]);
+  const [channels, setChannels] = useState<{ id: string; channel_name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedChannel, setSelectedChannel] = useState<string>('all');
@@ -84,15 +84,26 @@ export const BrowseGames: FC = () => {
         let filteredGames = gamesResponse.data.games;
 
         if (guildId) {
-          const channelsResponse = await apiClient.get<Channel[]>(
-            `/api/v1/guilds/${guildId}/channels`
+          const channelMap = new Map<string, string>();
+          for (const game of filteredGames) {
+            if (game.channel_name && !channelMap.has(game.channel_id)) {
+              channelMap.set(game.channel_id, game.channel_name);
+            }
+          }
+          setChannels(
+            Array.from(channelMap.entries())
+              .map(([id, channel_name]) => ({ id, channel_name }))
+              .sort((a, b) => a.channel_name.localeCompare(b.channel_name))
           );
-          setChannels(channelsResponse.data);
 
           if (selectedChannel !== 'all') {
-            filteredGames = filteredGames.filter(
-              (game: GameSession) => game.channel_id === selectedChannel
-            );
+            if (!channelMap.has(selectedChannel)) {
+              setSelectedChannel('all');
+            } else {
+              filteredGames = filteredGames.filter(
+                (game: GameSession) => game.channel_id === selectedChannel
+              );
+            }
           }
         }
 

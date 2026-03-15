@@ -269,6 +269,7 @@ async def list_guild_channels(
             )
         )
 
+    channel_responses.sort(key=lambda c: c.channel_name)
     return channel_responses
 
 
