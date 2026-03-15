@@ -5,6 +5,8 @@ applyTo: '**/*.py,**/*.ts,**/*.tsx,**/*.js,**/*.jsx'
 
 # Test-Driven Development (TDD) Instructions
 
+TDD applies to writing **new production code and enhancing existing production code**. Writing the failing test first forces a clear definition of the required interface and behavior before any implementation decisions are made. The RED phase — seeing the test fail — proves the test is actually capable of detecting the regression it guards against, preventing false-confidence tests that always pass regardless of implementation. Tests written this way become executable documentation of intended behavior from day one.
+
 ## Applicability
 
 **TDD methodology applies ONLY to languages with mature unit testing frameworks:**
@@ -20,6 +22,7 @@ applyTo: '**/*.py,**/*.ts,**/*.tsx,**/*.js,**/*.jsx'
 - ❌ **YAML/JSON configuration files** (no unit tests)
 - ❌ **SQL migration scripts** (use integration tests instead)
 - ❌ **Infrastructure-as-Code** without test frameworks
+- ❌ **Writing tests for already-implemented code** (any level — unit, integration, or e2e): the implementation already exists, so there is no stub to create and no xfail marker needed; tests should pass immediately
 
 **For non-testable file types:** Create and verify functionality through integration tests, manual testing, or other appropriate validation methods.
 
@@ -91,6 +94,18 @@ describe('calculateGameCapacity', () => {
 - `npm test -- test_game_capacity` (TypeScript - shows test as expected failure)
 
 **Key Point:** Tests contain REAL assertions for the desired behavior, just marked as expected failures. Tests are NOT modified after implementation - only the xfail marker is removed.
+
+**❌ WRONG - Do NOT write tests that assert `NotImplementedError` is raised:**
+
+```python
+# WRONG: This test is useless — it only proves the stub exists, not that the feature works
+@pytest.mark.xfail(reason="Function not yet implemented", strict=True)
+def test_calculate_game_capacity_not_implemented():
+    with pytest.raises(NotImplementedError):
+        calculate_game_capacity(game, participants)
+```
+
+A test expecting `NotImplementedError` tells you nothing about the desired behavior and must be rewritten entirely after implementation — violating the rule that only the xfail marker is removed. Always assert the real expected outcome from day one.
 
 ### Step 2: GREEN - Implement and Remove xfail Markers
 
@@ -265,9 +280,11 @@ Every implementation phase MUST follow this pattern:
 
 ## TDD for Different Test Levels
 
-### Unit Tests (Always TDD)
+### Unit Tests (Always TDD for New or Enhanced Code)
 
-**TDD is REQUIRED for unit tests. Write tests BEFORE writing implementation:**
+**TDD is REQUIRED for unit tests when writing new or enhanced production code. Write tests BEFORE writing implementation:**
+
+**Exception**: When the task is adding unit tests for code that already has an implementation, see [Writing Tests for Already-Implemented Code](#writing-tests-for-already-implemented-code-tdd-not-required) below.
 
 1. Create stub with NotImplementedError
 2. Write tests with REAL assertions marked with @pytest.mark.xfail or test.failing
@@ -293,6 +310,54 @@ Every implementation phase MUST follow this pattern:
 - Tests should pass from the start (no xfail markers)
 - Test cross-service interactions and realistic user scenarios
 - Do NOT use stubs, NotImplementedError, or xfail markers
+
+### Writing Tests for Already-Implemented Code (TDD NOT Required)
+
+When the task is **adding tests for code that already has an implementation** — at any test level — TDD does not apply.
+
+TDD's Red-Green-Refactor cycle works because you can stub the _production code_ and write a failing test against it. But when the task itself is writing tests, there is no production code to stub: you cannot stub the _tests_ and write test-tests. The test you are writing is the artifact, and it should either pass or fail against the existing implementation immediately.
+
+**Absolute rules — no exceptions:**
+
+- **NEVER use `xfail` or `failing` markers** when writing tests for existing code, even if you are uncertain whether the test will pass
+- **NEVER create `NotImplementedError` stubs** for code that already has an implementation
+- **Tests must be written to pass** — run them immediately and deal with failures directly
+
+**When a test for existing code fails, there are exactly two valid responses:**
+
+1. **The implementation has a bug** → fix the implementation
+2. **The assertion is wrong** → fix the assertion
+
+There is no third option. Marking a failing test `xfail` because you are unsure of the outcome hides real bugs rather than surfacing them. "Uncertain outcome" is not the same as "expected failure" — `xfail` means "the implementation does not exist yet," not "I don't know what this code does."
+
+**Write tests that pass from the start:**
+
+- Write assertions directly against the live implementation
+- Run the test immediately — if it fails, fix the code or fix the assertion before moving on
+- Cover happy paths, error paths, and edge cases
+- No RED phase, no stubs, no `xfail` markers
+
+This applies whether you are adding unit tests to an existing module, writing integration tests for a completed endpoint, or adding e2e coverage for a working workflow.
+
+**❌ WRONG - Do NOT use xfail as a "discovery probe" for uncertain test outcomes:**
+
+```python
+# WRONG: xfail used because you're unsure whether the test will pass
+@pytest.mark.xfail(reason="Not sure if this path works", strict=False)
+def test_some_existing_function():
+    assert some_existing_function(edge_case) == expected
+```
+
+**✅ CORRECT - Write the assertion, run it, fix what fails:**
+
+```python
+# RIGHT: write the test, run it immediately
+def test_some_existing_function():
+    assert some_existing_function(edge_case) == expected
+# If this fails: is the expected value wrong? Fix the assertion.
+# Is the function returning the wrong result? Fix the implementation.
+# Either way, fix it — do not add xfail.
+```
 
 ## TDD Quality Checklist
 
@@ -470,4 +535,5 @@ Phase 2: Write tests for features  # ❌ TOO LATE
 - Only xfail/failing markers are removed after implementation
 - Test assertions are NEVER modified between RED and GREEN phases
 - Every task plan MUST integrate tests adjacent to implementation, never as a separate later phase
+- TDD applies to writing **new or enhanced production code** — NOT to tasks whose primary work is adding tests for already-implemented code
 - TDD only applies to languages with unit testing frameworks (not bash, Dockerfiles, YAML, etc.)

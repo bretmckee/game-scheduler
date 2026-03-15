@@ -102,69 +102,9 @@ You WILL use these exact naming patterns:
 
 ## TDD Planning Requirements
 
-**MANDATORY**: All plans for testable languages MUST follow Test-Driven Development (TDD) methodology per #file:../../.github/instructions/test-driven-development.instructions.md and #file:../../.github/instructions/task-implementation.instructions.md
+**MANDATORY**: All plans for new or enhanced production code in testable languages MUST follow Test-Driven Development (TDD) methodology. The full rules, applicability criteria, phase structure, and anti-patterns are defined in #file:../../.github/instructions/test-driven-development.instructions.md — treat that file as the single source of truth.
 
-### Language Applicability Check
-
-**TDD applies ONLY to these languages:**
-
-- ✅ Python (pytest)
-- ✅ TypeScript/JavaScript (Vitest, Jest)
-- ✅ Other languages with unit testing frameworks
-
-**DO NOT use TDD for:**
-
-- ❌ Bash scripts
-- ❌ Dockerfiles
-- ❌ YAML/JSON configuration files
-- ❌ Infrastructure files without test frameworks
-
-**For non-testable file types:** Verify through integration tests, manual testing, or other appropriate methods.
-
-### TDD Phase Structure Rules
-
-**For New Functions/Components (4-task Red-Green-Refactor structure):**
-
-- Task N.1: Create stub with NotImplementedError (Python) or throw Error() (TypeScript/React)
-- Task N.2: Write tests with REAL assertions marked as expected failures using @pytest.mark.xfail (Python) or test.failing (TypeScript) (RED phase)
-- Task N.3: Implement minimal working solution and remove xfail/failing markers - DO NOT modify test assertions (GREEN phase)
-- Task N.4: Refactor and add comprehensive edge case tests while keeping tests green (REFACTOR phase)
-
-**For API Endpoints (4-task structure):**
-
-- Task N.1: Create endpoint stub returning 501 Not Implemented
-- Task N.2: Write integration tests with REAL assertions marked as expected failures (expecting actual behavior, not just 501)
-- Task N.3: Implement service layer and endpoint, remove xfail markers - DO NOT modify test assertions (GREEN phase)
-- Task N.4: Add comprehensive error handling and edge case tests
-
-**ANTI-PATTERN - Never separate testing phases from implementation:**
-
-```markdown
-❌ WRONG - Testing separated:
-Phase 1: Implement All Features
-
-- Create function A, B, C
-  Phase 2: Write Tests (later)
-- Test function A, B, C
-
-❌ WRONG - Modifying test assertions after implementation:
-
-- Task 1.2: Write tests expecting NotImplementedError
-- Task 1.3: Implement code
-- Task 1.4: Modify tests to test actual behavior # WRONG!
-
-✅ CORRECT - TDD integrated with xfail markers:
-Phase 1: Feature A with TDD
-
-- Task 1.1: Create stub for Feature A
-- Task 1.2: Write tests with REAL assertions marked xfail
-- Task 1.3: Implement Feature A and remove xfail markers only
-- Task 1.4: Refactor Feature A
-
-Phase 2: Feature B with TDD
-
-- Task 2.1-2.4: Same TDD cycle
-```
+**When a task involves writing tests for already-implemented code**, do NOT apply the TDD stub-and-xfail cycle. Follow the "Writing Tests for Already-Implemented Code" guidance in that file instead.
 
 ## Planning File Requirements
 
