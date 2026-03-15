@@ -65,7 +65,6 @@ class DiscordTestEnvironment:
     # Guild A (primary test guild)
     guild_a_id: str
     channel_a_id: str
-    archive_channel_id: str | None
     user_a_id: str
 
     # Guild B (for cross-guild isolation tests)
@@ -113,19 +112,10 @@ class DiscordTestEnvironment:
                 raise ValueError(error_msg)
             return value
 
-        def validate_optional_snowflake(value: str | None, name: str) -> str | None:
-            """Validate optional Discord snowflake ID format if present."""
-            if not value:
-                return None
-            return validate_snowflake(value, name)
-
         return cls(
             guild_a_id=validate_snowflake(os.getenv("DISCORD_GUILD_A_ID"), "DISCORD_GUILD_A_ID"),
             channel_a_id=validate_snowflake(
                 os.getenv("DISCORD_GUILD_A_CHANNEL_ID"), "DISCORD_GUILD_A_CHANNEL_ID"
-            ),
-            archive_channel_id=validate_optional_snowflake(
-                os.getenv("DISCORD_ARCHIVE_CHANNEL_ID"), "DISCORD_ARCHIVE_CHANNEL_ID"
             ),
             user_a_id=validate_snowflake(os.getenv("DISCORD_USER_ID"), "DISCORD_USER_ID"),
             guild_b_id=validate_snowflake(os.getenv("DISCORD_GUILD_B_ID"), "DISCORD_GUILD_B_ID"),
@@ -536,17 +526,6 @@ def discord_channel_id(discord_ids: DiscordTestEnvironment):
 
 
 @pytest.fixture(scope="session")
-def discord_archive_channel_id(discord_ids: DiscordTestEnvironment):
-    """Provide test Discord archive channel ID for archive e2e flows."""
-    if discord_ids.archive_channel_id is None:
-        pytest.fail(
-            "DISCORD_ARCHIVE_CHANNEL_ID environment variable not set. "
-            "Set it in config/env.e2e for archive end-to-end tests."
-        )
-    return discord_ids.archive_channel_id
-
-
-@pytest.fixture(scope="session")
 def discord_user_id(discord_ids: DiscordTestEnvironment):
     """Provide test Discord user ID (backward compatibility)."""
     return discord_ids.user_a_id
@@ -568,6 +547,12 @@ def discord_channel_b_id(discord_ids: DiscordTestEnvironment):
 def discord_user_b_id(discord_ids: DiscordTestEnvironment):
     """User B (member of Guild B only, backward compatibility)."""
     return discord_ids.user_b_id
+
+
+@pytest.fixture(scope="session")
+def discord_archive_channel_id():
+    """Provide Discord archive channel ID for E2E tests."""
+    return os.environ["DISCORD_ARCHIVE_CHANNEL_ID"]
 
 
 @pytest.fixture(scope="session")

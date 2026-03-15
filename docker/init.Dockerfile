@@ -23,11 +23,17 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --no-cache-dir uv
 
 # Copy dependency files
-COPY pyproject.toml ./
+COPY pyproject.toml uv.lock ./
 
-# Install dependencies (alembic, database drivers, messaging, observability)
+# Install only third-party dependencies into site-packages; app code lives in
+# /app (via COPY below) and is found via PYTHONPATH. uv export --no-emit-local
+# strips the project and workspace members from the output, leaving only
+# indexed packages — equivalent to the missing uv pip install --no-root flag.
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install --system -e .
+    uv export --frozen --no-dev --no-emit-local --no-hashes -o /tmp/requirements.txt \
+    && pip install --no-cache-dir -r /tmp/requirements.txt
+
+ENV PYTHONPATH=/app
 
 # Install sitecustomize.py so coverage auto-starts when COVERAGE_PROCESS_START is set.
 # This is a no-op in production because that env var is never set there.
@@ -37,6 +43,7 @@ RUN python -c "import site; open(site.getsitepackages()[0] + '/sitecustomize.py'
 COPY shared/ ./shared/
 COPY alembic/ ./alembic/
 COPY alembic.ini ./
+COPY services/__init__.py ./services/
 COPY services/init/ ./services/init/
 
 ENTRYPOINT ["python3", "-u", "-m", "services.init.main"]

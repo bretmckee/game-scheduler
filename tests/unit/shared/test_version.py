@@ -21,74 +21,40 @@
 
 """Tests for version information module."""
 
-from importlib.metadata import PackageNotFoundError
-from unittest.mock import patch
+from unittest.mock import MagicMock
 
+import shared.version as version_module
 from shared.version import API_VERSION, get_api_version, get_git_version
 
 
 class TestGetGitVersion:
     """Tests for get_git_version function."""
 
-    def test_returns_version_from_package_metadata(self):
-        """Should return version from importlib.metadata.version when package is installed."""
-        with patch("shared.version.version") as mock_version:
-            mock_version.return_value = "1.2.3"
+    def test_returns_version_from_build_version_file(self, monkeypatch):
+        """Should read version from .build_version file written at Docker build time."""
+        mock_file = MagicMock()
+        mock_file.exists.return_value = True
+        mock_file.read_text.return_value = "2.0.0.post5+g1234abc"
+        monkeypatch.setattr(version_module, "_BUILD_VERSION_FILE", mock_file)
 
-            result = get_git_version()
+        assert get_git_version() == "2.0.0.post5+g1234abc"
 
-            assert result == "1.2.3"
-            mock_version.assert_called_once_with("Game_Scheduler")
+    def test_returns_dev_unknown_when_file_absent(self, monkeypatch):
+        """Should return 'dev-unknown' when .build_version does not exist."""
+        mock_file = MagicMock()
+        mock_file.exists.return_value = False
+        monkeypatch.setattr(version_module, "_BUILD_VERSION_FILE", mock_file)
 
-    def test_falls_back_to_env_var_when_package_not_found(self, monkeypatch):
-        """Should use GIT_VERSION environment variable when package not installed."""
-        monkeypatch.setenv("GIT_VERSION", "0.0.1.dev478+gd128f6a")
+        assert get_git_version() == "dev-unknown"
 
-        with patch("shared.version.version") as mock_version:
-            mock_version.side_effect = PackageNotFoundError()
+    def test_returns_dev_unknown_when_file_is_blank(self, monkeypatch):
+        """Should return 'dev-unknown' when .build_version exists but contains only whitespace."""
+        mock_file = MagicMock()
+        mock_file.exists.return_value = True
+        mock_file.read_text.return_value = "   "
+        monkeypatch.setattr(version_module, "_BUILD_VERSION_FILE", mock_file)
 
-            result = get_git_version()
-
-            assert result == "0.0.1.dev478+gd128f6a"
-
-    def test_returns_dev_unknown_when_no_version_available(self, monkeypatch):
-        """Should return 'dev-unknown' when neither package nor env var is available."""
-        monkeypatch.delenv("GIT_VERSION", raising=False)
-
-        with patch("shared.version.version") as mock_version:
-            mock_version.side_effect = PackageNotFoundError()
-
-            result = get_git_version()
-
-            assert result == "dev-unknown"
-
-    def test_handles_empty_env_var(self, monkeypatch):
-        """Should fall back to 'dev-unknown' when GIT_VERSION is empty string."""
-        monkeypatch.setenv("GIT_VERSION", "")
-
-        with patch("shared.version.version") as mock_version:
-            mock_version.side_effect = PackageNotFoundError()
-
-            result = get_git_version()
-
-            assert result == "dev-unknown"
-
-    def test_preserves_setuptools_scm_format(self):
-        """Should preserve setuptools-scm version format with dev and commit hash."""
-        test_versions = [
-            "1.0.0",
-            "1.0.1.dev5+gd128f6a",
-            "1.0.1.dev5+gd128f6a.d20251227",
-            "0.0.1.dev478+gd128f6a",
-        ]
-
-        for test_version in test_versions:
-            with patch("shared.version.version") as mock_version:
-                mock_version.return_value = test_version
-
-                result = get_git_version()
-
-                assert result == test_version
+        assert get_git_version() == "dev-unknown"
 
 
 class TestGetApiVersion:
@@ -120,7 +86,6 @@ class TestVersionModuleIntegration:
 
     def test_version_functions_do_not_raise_exceptions(self):
         """Both version functions should never raise exceptions."""
-        # These should not raise even in unusual circumstances
         git_version = get_git_version()
         api_version = get_api_version()
 
@@ -128,23 +93,3 @@ class TestVersionModuleIntegration:
         assert isinstance(api_version, str)
         assert len(git_version) > 0
         assert len(api_version) > 0
-
-    def test_version_priority_order(self, monkeypatch):
-        """Should follow priority: package metadata > env var > fallback."""
-        monkeypatch.setenv("GIT_VERSION", "env-version")
-
-        # Priority 1: Package metadata
-        with patch("shared.version.version") as mock_version:
-            mock_version.return_value = "package-version"
-            assert get_git_version() == "package-version"
-
-        # Priority 2: Environment variable (when package not found)
-        with patch("shared.version.version") as mock_version:
-            mock_version.side_effect = PackageNotFoundError()
-            assert get_git_version() == "env-version"
-
-        # Priority 3: Fallback (when neither available)
-        monkeypatch.delenv("GIT_VERSION", raising=False)
-        with patch("shared.version.version") as mock_version:
-            mock_version.side_effect = PackageNotFoundError()
-            assert get_git_version() == "dev-unknown"

@@ -26,6 +26,7 @@ import signal
 from collections.abc import Callable
 from types import FrameType
 
+import coverage as _coverage
 from shared.telemetry import flush_telemetry
 
 from .generic_scheduler_daemon import SchedulerDaemon
@@ -45,6 +46,11 @@ def register_shutdown_signals() -> Callable[[], bool]:
     def _signal_handler(_signum: int, _frame: FrameType | None) -> None:
         logger.info("Received signal %s, initiating graceful shutdown", _signum)
         flag[0] = True
+        # Flush coverage immediately — atexit may not run if Docker escalates to SIGKILL
+        cov = _coverage.Coverage.current()
+        if cov is not None:
+            cov.stop()
+            cov.save()
 
     signal.signal(signal.SIGTERM, _signal_handler)
     signal.signal(signal.SIGINT, _signal_handler)

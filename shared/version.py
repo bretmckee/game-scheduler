@@ -22,37 +22,29 @@
 """
 Version information for the Game Scheduler application.
 
-This module automatically extracts version from git using setuptools-scm
-when the package is installed, or falls back to environment variables
-in containerized deployments.
+The git version is stamped into .build_version at Docker build time
+(see docker/api.Dockerfile) and read at runtime from that file.
 """
 
-import os
-from importlib.metadata import PackageNotFoundError, version
+from pathlib import Path
 
 API_VERSION = "1.0.0"
+_BUILD_VERSION_FILE = Path("/app/.build_version")
 
 
 def get_git_version() -> str:
     """
-    Get the git version from package metadata or environment.
+    Get the git version from the .build_version file written at Docker build time.
 
-    Tries in order:
-    1. Installed package metadata (from setuptools-scm)
-    2. GIT_VERSION environment variable
-    3. Fallback to "dev-unknown"
+    Returns "dev-unknown" when the file is absent (e.g. local dev without a build).
 
     Returns:
-        Git version string (e.g., "0.0.1.dev478+gd128f6a")
+        Git version string (e.g., "0.0.1.post479+ge95e5f2")
     """
-    try:
-        return version("Game_Scheduler")
-    except PackageNotFoundError:
-        pass
-
-    env_version = os.getenv("GIT_VERSION")
-    if env_version:
-        return env_version
+    if _BUILD_VERSION_FILE.exists():
+        text = _BUILD_VERSION_FILE.read_text(encoding="utf-8").strip()
+        if text:
+            return text
 
     return "dev-unknown"
 

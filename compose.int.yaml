@@ -43,15 +43,6 @@ services:
       RATE_LIMIT_2_TIME: ${RATE_LIMIT_2_TIME:-300}
       DISCORD_API_BASE_URL: http://fake-discord:8080/api/v10
 
-  bot:
-    volumes:
-      - ./coverage:/app/coverage:rw
-    environment:
-      COVERAGE_PROCESS_START: /app/pyproject.toml
-      COVERAGE_FILE: /app/coverage/bot.integration
-      LOG_LEVEL: DEBUG
-      PYTEST_RUNNING: "1"
-
   scheduler:
     volumes:
       - ./coverage:/app/coverage:rw

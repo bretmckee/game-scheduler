@@ -34,6 +34,7 @@ All steps are instrumented with OpenTelemetry for observability.
 """
 
 import logging
+import signal
 import sys
 import tempfile
 import time
@@ -150,5 +151,10 @@ def main() -> int:
             flush_telemetry()
 
 
+def _handle_sigterm(_signum: int, _frame: object) -> None:
+    sys.exit(0)
+
+
 if __name__ == "__main__":
+    signal.signal(signal.SIGTERM, _handle_sigterm)
     sys.exit(main())

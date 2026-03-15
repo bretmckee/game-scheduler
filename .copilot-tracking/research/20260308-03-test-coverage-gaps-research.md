@@ -62,24 +62,24 @@ These numbers were generated before the instrumentation fix. They are retained f
 
 ### Summary at Time of Collection
 
-| Test Type   | Coverage   | Tests  |
-|-------------|------------|--------|
-| Unit        | 84.98%     | 1,623  |
-| Integration | 44.40%     | 200    |
-| E2E         | 36.01%     | 74     |
-| **Combined**| **85.64%** | —      |
+| Test Type    | Coverage   | Tests |
+| ------------ | ---------- | ----- |
+| Unit         | 84.98%     | 1,623 |
+| Integration  | 44.40%     | 200   |
+| E2E          | 36.01%     | 74    |
+| **Combined** | **85.64%** | —     |
 
 ### Modules With Reported Low Coverage
 
-| File | Combined % | Notes |
-|---|---|---|
-| `services/api/routes/auth.py` | 26.37% | Coverage gap analysis deferred — numbers unreliable |
-| `services/bot/handlers/join_game.py` | 30.65% | " |
-| `services/bot/handlers/leave_game.py` | 27.45% | " |
-| `services/bot/handlers/button_handler.py` | 31.03% | " |
-| `services/api/routes/games.py` | 57.32% | " |
-| `services/scheduler/services/notification_service.py` | 0% | " |
-| `services/retry/retry_daemon_wrapper.py` | 0% | " |
+| File                                                  | Combined % | Notes                                               |
+| ----------------------------------------------------- | ---------- | --------------------------------------------------- |
+| `services/api/routes/auth.py`                         | 26.37%     | Coverage gap analysis deferred — numbers unreliable |
+| `services/bot/handlers/join_game.py`                  | 30.65%     | "                                                   |
+| `services/bot/handlers/leave_game.py`                 | 27.45%     | "                                                   |
+| `services/bot/handlers/button_handler.py`             | 31.03%     | "                                                   |
+| `services/api/routes/games.py`                        | 57.32%     | "                                                   |
+| `services/scheduler/services/notification_service.py` | 0%         | "                                                   |
+| `services/retry/retry_daemon_wrapper.py`              | 0%         | "                                                   |
 
 ---
 
@@ -140,3 +140,62 @@ Same pattern as step 3 for `api`, `bot`, and `scheduler` in `compose.e2e.yaml`. 
   - After running `scripts/run-integration-tests.sh`, new files appear in `./coverage/`: `.coverage.api.integration`, `.coverage.bot.integration`, `.coverage.scheduler.integration`, `.coverage.retry.integration`
   - `scripts/coverage-report.sh` produces a combined report where service modules show non-zero integration coverage
   - The combined coverage report can be used as the starting point for a new gap analysis
+
+---
+
+## Validated Coverage Gaps (Post-Fix Measurement)
+
+Infrastructure fix was implemented and verified. All 5 Dockerfiles now use `uv export | pip install` to
+keep app code in `/app` rather than site-packages, ensuring correct path tracking. Results below are
+from combining unit + integration (224 passed) + e2e (73 passed) coverage data.
+
+**Overall combined coverage: 66.13%** (without unit tests), **87.31%** on the key gap files (with unit).
+
+### Notes on scheduler coverage
+
+`services/scheduler` shows 0 `line_bits` in integration because
+`select.select([self.conn], [], [], 900)` blocks daemon threads for up to 15 minutes per cycle.
+Docker SIGKILL arrives after 10 s, before threads unblock and coverage saves. E2E covers the
+scheduler adequately (52 `line_bits`, 7 files) because game traffic wakes it during the e2e run.
+
+### Files with 100% coverage via unit tests (previously appeared as gaps)
+
+| File                                        | Unit % |
+| ------------------------------------------- | ------ |
+| `services/api/middleware/authorization.py`  | 100%   |
+| `services/api/services/calendar_export.py`  | 100%   |
+| `services/api/services/template_service.py` | 100%   |
+| `services/bot/auth/permissions.py`          | 100%   |
+
+### Prioritized gap table (unit + integration + e2e combined)
+
+Priority criteria: security impact > functional correctness > breadth of uncovered paths.
+
+| Priority | File                                      | Combined % | Missed stmts | Test type needed        | Rationale                                                                                            |
+| -------- | ----------------------------------------- | ---------- | ------------ | ----------------------- | ---------------------------------------------------------------------------------------------------- |
+| 1        | `services/bot/handlers/button_handler.py` | 34%        | 19           | e2e / integration       | Routes all join/leave interactions; gateway for handlers below                                       |
+| 2        | `services/bot/handlers/join_game.py`      | 31%        | 42           | e2e / integration       | Core user action: UUID parse → DB write → publish `game_updated` event                               |
+| 3        | `services/bot/handlers/leave_game.py`     | 27%        | 37           | e2e / integration       | Core user action: same pattern as join but delete participant + event                                |
+| 4        | `services/bot/auth/role_checker.py`       | 68%        | 28           | unit (mock Discord API) | Security: controls who can use bot commands; Discord API error paths (NotFound, Forbidden) untested  |
+| 5        | `services/api/routes/channels.py`         | 72%        | 11           | integration             | `create_channel_config` and `update_channel_config` bodies entirely uncovered                        |
+| 6        | `services/api/routes/templates.py`        | 77%        | 24           | integration             | `update_template`, `delete_template`, `set_default_template`, `reorder_templates` entirely uncovered |
+| 7        | `services/bot/handlers/utils.py`          | 69%        | 8            | unit                    | Shared utility used by all handlers; error return paths (lines 78–81, 91–94)                         |
+| 8        | `services/api/routes/guilds.py`           | 84%        | 21           | integration             | Guild setup admin routes (lines 377–415) + scattered error paths                                     |
+| 9        | `services/bot/auth/cache.py`              | 90%        | 6            | unit                    | Redis error/expiry paths (lines 51, 140–142, 158–159)                                                |
+| 10       | `services/api/services/games.py`          | 93%        | 41           | integration / unit      | Largest service file; 41 missed lines scattered across error paths                                   |
+
+### Detailed missing line ranges
+
+| File                                       | Missing lines                   |
+| ------------------------------------------ | ------------------------------- |
+| `services/bot/handlers/button_handler.py`  | 55–78                           |
+| `services/bot/handlers/join_game.py`       | 63–118, 143–162                 |
+| `services/bot/handlers/leave_game.py`      | 59–93, 116–143                  |
+| `services/bot/auth/role_checker.py`        | 85–86, 96–101, 117–206          |
+| `services/api/routes/channels.py`          | 73–84, 104–118, 137             |
+| `services/api/routes/templates.py`         | 123–128, 254, 282, 297, 311–354 |
+| `services/bot/handlers/utils.py`           | 78–81, 91–94                    |
+| `services/api/routes/guilds.py`            | 88, 158, 242, 255, 293, 377–415 |
+| `services/bot/auth/cache.py`               | 51, 140–142, 158–159            |
+| `services/api/dependencies/permissions.py` | 316, 524–525, 564, 627, 719     |
+| `shared/data_access/guild_queries.py`      | 512–513                         |

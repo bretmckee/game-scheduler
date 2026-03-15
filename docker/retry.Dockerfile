@@ -22,11 +22,16 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --no-cache-dir uv
 
 # Copy dependency files
-COPY pyproject.toml ./
+COPY pyproject.toml uv.lock ./
 
-# Install Python dependencies using project configuration
+# Install only third-party dependencies (excluding the project itself and workspace
+# members) so app code is never installed into site-packages. Python finds app code
+# via PYTHONPATH=/app instead, which gives coverage correct relative paths.
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install --system .
+    uv export --frozen --no-dev --no-emit-local --no-hashes -o /tmp/requirements.txt \
+    && pip install --no-cache-dir -r /tmp/requirements.txt
+
+ENV PYTHONPATH=/app
 
 # Install sitecustomize.py so coverage auto-starts when COVERAGE_PROCESS_START is set.
 # This is a no-op in production because that env var is never set there.
@@ -71,6 +76,7 @@ COPY --from=base /usr/local/bin /usr/local/bin
 # Copy application code
 COPY pyproject.toml ./
 COPY shared/ ./shared/
+COPY services/__init__.py ./services/
 COPY services/retry/ ./services/retry/
 
 # Create non-root user

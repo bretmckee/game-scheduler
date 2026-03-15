@@ -24,6 +24,7 @@
 import asyncio
 import contextlib
 import logging
+import signal
 import sys
 
 from services.bot.bot import create_bot
@@ -71,6 +72,12 @@ async def main() -> None:
 
         try:
             bot = await create_bot(config)
+
+            loop = asyncio.get_running_loop()
+            loop.add_signal_handler(
+                signal.SIGTERM,
+                lambda: asyncio.ensure_future(bot.close()),
+            )
 
             async with bot:
                 await bot.start(config.discord_bot_token)

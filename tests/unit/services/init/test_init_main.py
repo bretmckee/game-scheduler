@@ -21,6 +21,7 @@
 
 """Unit tests for init service main module helpers."""
 
+import signal
 from datetime import UTC, datetime
 from unittest.mock import Mock, patch
 
@@ -29,6 +30,7 @@ import pytest
 from services.init.main import (
     SECONDS_PER_DAY,
     _complete_initialization,
+    _handle_sigterm,
     _initialize_telemetry_and_logging,
     _log_phase,
 )
@@ -214,3 +216,13 @@ class TestCompleteInitialization:
 
         log_calls = [call[0][0] for call in mock_logger.info.call_args_list]
         assert "Entering sleep mode. Container will remain healthy." in log_calls
+
+
+class TestHandleSigterm:
+    """Tests for _handle_sigterm signal handler."""
+
+    @patch("services.init.main.sys.exit")
+    def test_calls_sys_exit_zero(self, mock_exit):
+        """Should call sys.exit(0) to trigger atexit handlers for coverage."""
+        _handle_sigterm(signal.SIGTERM, None)
+        mock_exit.assert_called_once_with(0)
