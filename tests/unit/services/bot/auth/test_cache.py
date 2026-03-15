@@ -22,7 +22,7 @@
 """Unit tests for role caching."""
 
 import json
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -161,3 +161,36 @@ async def test_invalidate_redis_error(role_cache, mock_redis):
 
     # Should not raise exception
     await role_cache.invalidate_user_roles("user123", "guild456")
+
+
+@pytest.mark.asyncio
+async def test_get_redis_lazy_initialization():
+    """Test get_redis() creates a client when none is provided at construction."""
+    role_cache = RoleCache()
+
+    mock_client = AsyncMock()
+    with patch(
+        "services.bot.auth.cache.client.get_redis_client", return_value=mock_client
+    ) as mock_get:
+        redis = await role_cache.get_redis()
+        mock_get.assert_called_once()
+        assert redis is mock_client
+
+
+@pytest.mark.asyncio
+async def test_get_guild_roles_redis_error(role_cache, mock_redis):
+    """Test handling Redis error when getting guild roles."""
+    mock_redis.get = AsyncMock(side_effect=Exception("Redis error"))
+
+    result = await role_cache.get_guild_roles("guild456")
+
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_set_guild_roles_redis_error(role_cache, mock_redis):
+    """Test handling Redis error when setting guild roles."""
+    mock_redis.set = AsyncMock(side_effect=Exception("Redis error"))
+
+    # Should not raise exception
+    await role_cache.set_guild_roles("guild456", [{"id": "123"}])

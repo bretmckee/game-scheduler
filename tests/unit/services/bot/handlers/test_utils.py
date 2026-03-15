@@ -27,7 +27,12 @@ from uuid import uuid4
 import discord
 import pytest
 
-from services.bot.handlers.utils import get_participant_count, send_deferred_response
+from services.bot.handlers.utils import (
+    get_participant_count,
+    send_deferred_response,
+    send_error_message,
+    send_success_message,
+)
 from shared.models.participant import GameParticipant
 
 
@@ -149,3 +154,55 @@ class TestSendDeferredResponse:
             mock_logger.warning.assert_called_once()
             args = mock_logger.warning.call_args[0]
             assert "123456789" in str(args)
+
+
+class TestSendErrorMessage:
+    """Tests for send_error_message function."""
+
+    @pytest.mark.asyncio
+    async def test_sends_error_dm(self):
+        """Test that error message is sent as DM to user."""
+        mock_interaction = MagicMock()
+        mock_interaction.user.send = AsyncMock()
+        mock_interaction.user.id = 123456789
+
+        await send_error_message(mock_interaction, "Something went wrong")
+
+        mock_interaction.user.send.assert_called_once_with(content="\u274c Something went wrong")
+
+    @pytest.mark.asyncio
+    async def test_logs_warning_when_dm_raises_forbidden(self):
+        """Test that Forbidden exception from DM is logged as warning."""
+        mock_interaction = MagicMock()
+        mock_interaction.user.id = 123456789
+        mock_interaction.user.send = AsyncMock(side_effect=discord.Forbidden(MagicMock(), ""))
+
+        with patch("services.bot.handlers.utils.logger") as mock_logger:
+            await send_error_message(mock_interaction, "error message")
+            mock_logger.warning.assert_called_once()
+
+
+class TestSendSuccessMessage:
+    """Tests for send_success_message function."""
+
+    @pytest.mark.asyncio
+    async def test_sends_success_dm(self):
+        """Test that success message is sent as DM to user."""
+        mock_interaction = MagicMock()
+        mock_interaction.user.send = AsyncMock()
+        mock_interaction.user.id = 123456789
+
+        await send_success_message(mock_interaction, "Game joined!")
+
+        mock_interaction.user.send.assert_called_once_with(content="Game joined!")
+
+    @pytest.mark.asyncio
+    async def test_logs_warning_when_dm_raises_forbidden(self):
+        """Test that Forbidden exception from success DM is logged as warning."""
+        mock_interaction = MagicMock()
+        mock_interaction.user.id = 123456789
+        mock_interaction.user.send = AsyncMock(side_effect=discord.Forbidden(MagicMock(), ""))
+
+        with patch("services.bot.handlers.utils.logger") as mock_logger:
+            await send_success_message(mock_interaction, "success message")
+            mock_logger.warning.assert_called_once()

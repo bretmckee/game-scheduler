@@ -279,3 +279,159 @@ async def test_get_guild_roles(role_checker, mock_bot):
     assert len(result) == 2
     assert result[0].id == 123
     assert result[1].id == 456
+
+
+@pytest.mark.asyncio
+async def test_get_user_role_ids_member_returns_none(role_checker, mock_bot):
+    """Test handling member fetch returning None."""
+    role_checker.cache.get_user_roles = AsyncMock(return_value=None)
+
+    mock_guild = MagicMock()
+    mock_guild.id = 456
+    mock_guild.fetch_member = AsyncMock(return_value=None)
+    mock_bot.fetch_guild = AsyncMock(return_value=mock_guild)
+
+    result = await role_checker.get_user_role_ids("123", "456")
+
+    assert result == []
+
+
+@pytest.mark.asyncio
+async def test_get_user_role_ids_forbidden(role_checker, mock_bot):
+    """Test handling Forbidden error when fetching member roles."""
+    role_checker.cache.get_user_roles = AsyncMock(return_value=None)
+
+    mock_guild = MagicMock()
+    mock_guild.fetch_member = AsyncMock(side_effect=discord.Forbidden(MagicMock(), ""))
+    mock_bot.fetch_guild = AsyncMock(return_value=mock_guild)
+
+    result = await role_checker.get_user_role_ids("123", "456")
+
+    assert result == []
+
+
+@pytest.mark.asyncio
+async def test_get_user_role_ids_generic_exception(role_checker, mock_bot):
+    """Test handling generic exception when fetching roles."""
+    role_checker.cache.get_user_roles = AsyncMock(return_value=None)
+    mock_bot.fetch_guild = AsyncMock(side_effect=RuntimeError("connection error"))
+
+    result = await role_checker.get_user_role_ids("123", "456")
+
+    assert result == []
+
+
+@pytest.mark.asyncio
+async def test_get_guild_roles_guild_not_found(role_checker, mock_bot):
+    """Test getting guild roles when guild fetch returns None."""
+    mock_bot.fetch_guild = AsyncMock(return_value=None)
+
+    result = await role_checker.get_guild_roles("456")
+
+    assert result == []
+
+
+@pytest.mark.asyncio
+async def test_get_guild_roles_exception(role_checker, mock_bot):
+    """Test handling exception when fetching guild roles."""
+    mock_bot.fetch_guild = AsyncMock(side_effect=RuntimeError("connection error"))
+
+    result = await role_checker.get_guild_roles("456")
+
+    assert result == []
+
+
+@pytest.mark.asyncio
+async def test_check_manage_guild_permission_guild_not_found(role_checker, mock_bot):
+    """Test MANAGE_GUILD check when guild fetch returns None."""
+    mock_bot.fetch_guild = AsyncMock(return_value=None)
+
+    result = await role_checker.check_manage_guild_permission("123", "456")
+
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_check_manage_guild_permission_member_not_found(role_checker, mock_bot):
+    """Test MANAGE_GUILD check when member fetch returns None."""
+    mock_guild = MagicMock()
+    mock_guild.fetch_member = AsyncMock(return_value=None)
+    mock_bot.fetch_guild = AsyncMock(return_value=mock_guild)
+
+    result = await role_checker.check_manage_guild_permission("123", "456")
+
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_check_manage_guild_permission_exception(role_checker, mock_bot):
+    """Test handling exception in MANAGE_GUILD check."""
+    mock_bot.fetch_guild = AsyncMock(side_effect=RuntimeError("connection error"))
+
+    result = await role_checker.check_manage_guild_permission("123", "456")
+
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_check_manage_channels_permission_guild_not_found(role_checker, mock_bot):
+    """Test MANAGE_CHANNELS check when guild fetch returns None."""
+    mock_bot.fetch_guild = AsyncMock(return_value=None)
+
+    result = await role_checker.check_manage_channels_permission("123", "456")
+
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_check_manage_channels_permission_member_not_found(role_checker, mock_bot):
+    """Test MANAGE_CHANNELS check when member fetch returns None."""
+    mock_guild = MagicMock()
+    mock_guild.fetch_member = AsyncMock(return_value=None)
+    mock_bot.fetch_guild = AsyncMock(return_value=mock_guild)
+
+    result = await role_checker.check_manage_channels_permission("123", "456")
+
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_check_manage_channels_permission_exception(role_checker, mock_bot):
+    """Test handling exception in MANAGE_CHANNELS check."""
+    mock_bot.fetch_guild = AsyncMock(side_effect=RuntimeError("connection error"))
+
+    result = await role_checker.check_manage_channels_permission("123", "456")
+
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_check_administrator_permission_guild_not_found(role_checker, mock_bot):
+    """Test ADMINISTRATOR check when guild fetch returns None."""
+    mock_bot.fetch_guild = AsyncMock(return_value=None)
+
+    result = await role_checker.check_administrator_permission("123", "456")
+
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_check_administrator_permission_member_not_found(role_checker, mock_bot):
+    """Test ADMINISTRATOR check when member fetch returns None."""
+    mock_guild = MagicMock()
+    mock_guild.fetch_member = AsyncMock(return_value=None)
+    mock_bot.fetch_guild = AsyncMock(return_value=mock_guild)
+
+    result = await role_checker.check_administrator_permission("123", "456")
+
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_check_administrator_permission_exception(role_checker, mock_bot):
+    """Test handling exception in ADMINISTRATOR check."""
+    mock_bot.fetch_guild = AsyncMock(side_effect=RuntimeError("connection error"))
+
+    result = await role_checker.check_administrator_permission("123", "456")
+
+    assert result is False

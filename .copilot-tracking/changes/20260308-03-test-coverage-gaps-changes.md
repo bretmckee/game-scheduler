@@ -55,7 +55,43 @@ bot handlers, bot auth, API routes, and service layer code.
 
 ## Phase 2: Bot Auth and Utility Unit Tests (Priorities 4, 7, 9)
 
-_(Not yet started)_
+### Task 2.1: `role_checker.py` unit tests
+
+**Status**: Complete
+
+#### Modified
+
+- `tests/unit/services/bot/auth/test_role_checker.py` — Added 14 new tests covering:
+  `member is None` guard in `get_user_role_ids` (lines 85–86); `discord.Forbidden` and
+  generic exception handlers in `get_user_role_ids` (lines 96–101); `guild is None` and
+  exception paths in `get_guild_roles` (lines 117–118, 122–124); and `guild is None`,
+  `member is None`, and exception paths in `check_manage_guild_permission`,
+  `check_manage_channels_permission`, and `check_administrator_permission`
+  (lines 140, 144, 148–150, 166, 170, 174–176, 192, 196, 200–202).
+  Coverage: 68% → 100%.
+
+### Task 2.2: `utils.py` unit tests
+
+**Status**: Complete
+
+#### Modified
+
+- `tests/unit/services/bot/handlers/test_utils.py` — Added `TestSendErrorMessage` and
+  `TestSendSuccessMessage` test classes (4 tests total) covering happy-path DM send and
+  `discord.Forbidden` exception path for both `send_error_message` and
+  `send_success_message` (lines 78–81, 91–94). Updated import to include both new
+  functions. Coverage: 69% → 100%.
+
+### Task 2.3: `cache.py` unit tests
+
+**Status**: Complete
+
+#### Modified
+
+- `tests/unit/services/bot/auth/test_cache.py` — Added 3 new tests: lazy Redis client
+  initialization in `get_redis()` when `_redis` is `None` (line 51); `Exception` handler
+  in `get_guild_roles` (lines 140–142); `Exception` handler in `set_guild_roles`
+  (lines 158–159). Added `patch` to imports. Coverage: 90% → 100%.
 
 ---
 

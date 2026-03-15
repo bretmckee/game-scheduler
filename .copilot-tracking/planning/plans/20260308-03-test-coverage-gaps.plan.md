@@ -65,15 +65,15 @@ routes, and service layer code.
 - [x] Task 1.3: Write e2e/integration tests for `leave_game.py` (lines 59–93, 116–143)
   - Details: .copilot-tracking/planning/details/20260308-03-test-coverage-gaps-details.md (Lines 65-90)
 
-### [ ] Phase 2: Bot Auth and Utility Unit Tests (Priorities 4, 7, 9)
+### [x] Phase 2: Bot Auth and Utility Unit Tests (Priorities 4, 7, 9)
 
-- [ ] Task 2.1: Write unit tests for `role_checker.py` (lines 85–86, 96–101, 117–206)
+- [x] Task 2.1: Write unit tests for `role_checker.py` (lines 85–86, 96–101, 117–206)
   - Details: .copilot-tracking/planning/details/20260308-03-test-coverage-gaps-details.md (Lines 93-115)
 
-- [ ] Task 2.2: Write unit tests for `utils.py` (lines 78–81, 91–94)
+- [x] Task 2.2: Write unit tests for `utils.py` (lines 78–81, 91–94)
   - Details: .copilot-tracking/planning/details/20260308-03-test-coverage-gaps-details.md (Lines 116-135)
 
-- [ ] Task 2.3: Write unit tests for `cache.py` (lines 51, 140–142, 158–159)
+- [x] Task 2.3: Write unit tests for `cache.py` (lines 51, 140–142, 158–159)
   - Details: .copilot-tracking/planning/details/20260308-03-test-coverage-gaps-details.md (Lines 136-158)
 
 ### [ ] Phase 3: API Route Integration Tests (Priorities 5, 6, 8)
