@@ -76,15 +76,15 @@ routes, and service layer code.
 - [x] Task 2.3: Write unit tests for `cache.py` (lines 51, 140–142, 158–159)
   - Details: .copilot-tracking/planning/details/20260308-03-test-coverage-gaps-details.md (Lines 136-158)
 
-### [ ] Phase 3: API Route Integration Tests (Priorities 5, 6, 8)
+### [x] Phase 3: API Route Integration Tests (Priorities 5, 6, 8)
 
-- [ ] Task 3.1: Write integration tests for `channels.py` (lines 73–84, 104–118, 137)
+- [x] Task 3.1: Write integration tests for `channels.py` (lines 73–84, 104–118, 137)
   - Details: .copilot-tracking/planning/details/20260308-03-test-coverage-gaps-details.md (Lines 161-184)
 
-- [ ] Task 3.2: Write integration tests for `templates.py` (lines 123–128, 254, 282, 297, 311–354)
+- [x] Task 3.2: Write integration tests for `templates.py` (lines 123–128, 254, 282, 297, 311–354)
   - Details: .copilot-tracking/planning/details/20260308-03-test-coverage-gaps-details.md (Lines 185-209)
 
-- [ ] Task 3.3: Write integration tests for `guilds.py` (lines 88, 158, 242, 255, 293, 377–415)
+- [x] Task 3.3: Write integration tests for `guilds.py` (lines 88, 158, 242, 255, 293, 377–415)
   - Details: .copilot-tracking/planning/details/20260308-03-test-coverage-gaps-details.md (Lines 210-235)
 
 ### [ ] Phase 4: Service Layer and Permissions Tests (Priority 10 + Extras)

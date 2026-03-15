@@ -25,7 +25,9 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from services.api import dependencies
 from services.api.dependencies import permissions
@@ -70,7 +72,11 @@ async def get_channel(
     Requires user to be member of the parent guild.
     """
 
-    channel_config = await db.get(ChannelConfiguration, channel_id)
+    channel_config = await db.get(
+        ChannelConfiguration,
+        channel_id,
+        options=[selectinload(ChannelConfiguration.guild)],
+    )
 
     if not channel_config:
         raise HTTPException(
@@ -115,6 +121,14 @@ async def create_channel_config(
         is_active=request.is_active,
     )
 
+    # Reload with guild relationship for response building
+    result = await db.execute(
+        select(ChannelConfiguration)
+        .options(selectinload(ChannelConfiguration.guild))
+        .where(ChannelConfiguration.id == channel_config.id)
+    )
+    channel_config = result.scalar_one()
+
     return await _build_channel_config_response(channel_config)
 
 
@@ -132,7 +146,11 @@ async def update_channel_config(
 
     Requires MANAGE_CHANNELS permission in the guild.
     """
-    channel_config = await db.get(ChannelConfiguration, channel_id)
+    channel_config = await db.get(
+        ChannelConfiguration,
+        channel_id,
+        options=[selectinload(ChannelConfiguration.guild)],
+    )
     if not channel_config:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

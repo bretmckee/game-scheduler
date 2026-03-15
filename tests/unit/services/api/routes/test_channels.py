@@ -141,6 +141,85 @@ class TestBuildChannelConfigResponse:
             assert isinstance(result, channel_schemas.ChannelConfigResponse)
 
 
+class TestGetChannel:
+    """Test get_channel endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_get_channel_success(self, mock_db, mock_channel_config):
+        """Test fetching an existing channel configuration."""
+        mock_current_user = MagicMock()
+
+        with (
+            patch("services.api.routes.channels.permissions.verify_guild_membership"),
+            patch(
+                "services.api.routes.channels._build_channel_config_response"
+            ) as mock_build_response,
+        ):
+            mock_db.get.return_value = mock_channel_config
+            mock_build_response.return_value = channel_schemas.ChannelConfigResponse(
+                id=mock_channel_config.id,
+                guild_id=mock_channel_config.guild_id,
+                guild_discord_id=mock_channel_config.guild.guild_id,
+                channel_id=mock_channel_config.channel_id,
+                channel_name="test-channel",
+                is_active=True,
+                created_at="2024-01-01T12:00:00",
+                updated_at="2024-01-01T12:00:00",
+            )
+
+            result = await channels.get_channel(mock_channel_config.id, mock_current_user, mock_db)
+
+            mock_db.get.assert_called_once()
+            assert result.id == mock_channel_config.id
+
+
+class TestCreateChannelConfig:
+    """Test create_channel_config endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_create_channel_config_success(self, mock_db, mock_channel_config):
+        """Test creating a new channel configuration reloads with guild relationship."""
+        mock_current_user = MagicMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one.return_value = mock_channel_config
+
+        with (
+            patch(
+                "services.api.routes.channels.guild_queries.get_channel_by_discord_id"
+            ) as mock_get_existing,
+            patch(
+                "services.api.routes.channels.guild_queries.create_channel_config"
+            ) as mock_create,
+            patch.object(mock_db, "execute", return_value=mock_result) as mock_execute,
+            patch(
+                "services.api.routes.channels._build_channel_config_response"
+            ) as mock_build_response,
+        ):
+            mock_get_existing.return_value = None
+            mock_create.return_value = mock_channel_config
+            mock_build_response.return_value = channel_schemas.ChannelConfigResponse(
+                id=mock_channel_config.id,
+                guild_id=mock_channel_config.guild_id,
+                guild_discord_id=mock_channel_config.guild.guild_id,
+                channel_id=mock_channel_config.channel_id,
+                channel_name="test-channel",
+                is_active=True,
+                created_at="2024-01-01T12:00:00",
+                updated_at="2024-01-01T12:00:00",
+            )
+
+            request = channel_schemas.ChannelConfigCreateRequest(
+                guild_id=mock_channel_config.guild_id,
+                channel_id=mock_channel_config.channel_id,
+                is_active=True,
+            )
+            result = await channels.create_channel_config(request, mock_current_user, mock_db)
+
+            mock_execute.assert_called_once()
+            mock_result.scalar_one.assert_called_once()
+            assert result.channel_id == mock_channel_config.channel_id
+
+
 class TestUpdateChannelConfig:
     """Test update_channel_config endpoint."""
 
