@@ -109,7 +109,7 @@ services:
     volumes:
       - ./coverage:/app/coverage:rw
     environment:
-      COVERAGE_FILE: /app/coverage/.coverage.integration
+      COVERAGE_FILE: /app/coverage/runner.integration
       PYTEST_RUNNING: "1"
       DATABASE_URL: ${DATABASE_URL}
       RABBITMQ_URL: ${RABBITMQ_URL}

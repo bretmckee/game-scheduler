@@ -35,17 +35,18 @@ Fix the hidden coverage file bug that silently excludes test-runner coverage dat
 
 ### [ ] Phase 1: Fix Coverage Infrastructure
 
-- [ ] Task 1.1: Rename test runner COVERAGE_FILE in `compose.int.yaml`
+- [x] Task 1.1: Rename test runner COVERAGE_FILE in `compose.int.yaml`
   - Details: .copilot-tracking/planning/details/20260316-01-coverage-gaps-update-details.md (Lines 11–25)
 
-- [ ] Task 1.2: Rename test runner COVERAGE_FILE in `compose.e2e.yaml`
+- [x] Task 1.2: Rename test runner COVERAGE_FILE in `compose.e2e.yaml`
   - Details: .copilot-tracking/planning/details/20260316-01-coverage-gaps-update-details.md (Lines 26–39)
 
-- [ ] Task 1.3: Remove hidden coverage files from `coverage/` if present
+- [x] Task 1.3: Remove hidden coverage files from `coverage/` if present
   - Details: .copilot-tracking/planning/details/20260316-01-coverage-gaps-update-details.md (Lines 40–53)
 
 - [ ] Task 1.4: Verify combined coverage reaches ≥87.69%
   - Details: .copilot-tracking/planning/details/20260316-01-coverage-gaps-update-details.md (Lines 54–69)
+  - Note: Requires fresh integration + e2e test runs against updated compose files
 
 ### [ ] Phase 2: Unit Test `notification_service.py`
 
