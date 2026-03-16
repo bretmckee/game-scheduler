@@ -120,7 +120,6 @@ repos:
         pass_filenames: false
 
       # MyPy type checking (reads configuration from pyproject.toml)
-      # Requires project dependencies: run 'uv sync' before using this hook
       - id: mypy
         name: mypy type check
         entry: uv run mypy
@@ -129,11 +128,18 @@ repos:
         pass_filenames: false
         args: [shared/, services/]
 
-      # Python unit tests with coverage
-      # Requires project dependencies: run 'uv sync' before using this hook
+      # Python unit tests without coverage (randomized order)
+      - id: pytest-random
+        name: Python unit tests (no coverage)
+        entry: bash -c 'output=$(uv run pytest --timeout=30 -qq 2>&1); if [ $? -ne 0 ]; then echo "$output"; exit 1; fi'
+        language: system
+        pass_filenames: false
+        files: ^(services|shared|tests)/.*\.py$
+        verbose: true
+
       - id: pytest-coverage
         name: Python unit tests with coverage
-        entry: bash -c 'output=$(uv run pytest --timeout=30 --cov --cov-report=xml --cov-report= -qq 2>&1); if [ $? -ne 0 ]; then echo "$output"; exit 1; fi'
+        entry: bash -c 'output=$(uv run pytest --timeout=30 -p no:randomly --cov --cov-report=xml --cov-report= -qq 2>&1); if [ $? -ne 0 ]; then echo "$output"; exit 1; fi'
         language: system
         pass_filenames: false
         files: ^(services|shared|tests)/.*\.py$
