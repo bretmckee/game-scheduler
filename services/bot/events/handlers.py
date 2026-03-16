@@ -152,6 +152,10 @@ class EventHandlers:
     async def stop_consuming(self) -> None:
         """Stop consuming events and close connection."""
         self._pending_refreshes.clear()
+        for task in list(self._background_tasks):
+            task.cancel()
+        if self._background_tasks:
+            await asyncio.gather(*self._background_tasks, return_exceptions=True)
 
         if self.consumer:
             await self.consumer.close()

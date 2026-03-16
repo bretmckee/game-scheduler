@@ -49,9 +49,14 @@ def mock_bot():
 
 
 @pytest.fixture
-def event_handlers(mock_bot):
+async def event_handlers(mock_bot):
     """Create EventHandlers instance."""
-    return EventHandlers(mock_bot)
+    handler = EventHandlers(mock_bot)
+    yield handler
+    for task in list(handler._background_tasks):
+        task.cancel()
+    if handler._background_tasks:
+        await asyncio.gather(*handler._background_tasks, return_exceptions=True)
 
 
 @pytest.fixture
@@ -132,6 +137,24 @@ async def test_stop_consuming(event_handlers):
 async def test_stop_consuming_no_consumer(event_handlers):
     """Test stopping when no consumer exists."""
     await event_handlers.stop_consuming()
+
+
+@pytest.mark.asyncio
+async def test_stop_consuming_cancels_background_tasks(event_handlers):
+    """Test that stop_consuming cancels any pending background tasks."""
+
+    async def long_sleep():
+        await asyncio.sleep(3600)
+
+    task = asyncio.create_task(long_sleep())
+    event_handlers._background_tasks.add(task)
+    task.add_done_callback(event_handlers._background_tasks.discard)
+
+    await event_handlers.stop_consuming()
+    await asyncio.sleep(0)  # let done callbacks flush
+
+    assert task.cancelled()
+    assert len(event_handlers._background_tasks) == 0
 
 
 @pytest.mark.asyncio
