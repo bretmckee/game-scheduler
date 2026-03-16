@@ -39,21 +39,21 @@ chmod 777 .pytest_cache htmlcov coverage 2>/dev/null || true
 
 # Clean up old coverage data
 echo "Cleaning up old coverage data..."
-rm -f .coverage .coverage.* coverage.xml
-rm -f coverage/.coverage.* coverage/*.integration coverage/*.e2e
+rm -f .coverage coverage.xml
+rm -f coverage/unit coverage/*.integration coverage/*.e2e
 rm -rf htmlcov/
 
 # Run unit tests
 echo ""
 echo "Running unit tests with coverage..."
 echo "===================================="
-if ! COVERAGE_FILE=.coverage.unit uv run pytest -q --cov=shared --cov=services --cov-report=; then
+if ! COVERAGE_FILE=coverage/unit uv run pytest -q --cov=shared --cov=services --cov-report=; then
     echo "ERROR: Unit tests failed"
     exit 1
 fi
 
 # Capture unit test coverage immediately
-UNIT_COV=$(uv run coverage report --data-file=.coverage.unit 2>/dev/null | awk '/^TOTAL/ {print $NF}')
+UNIT_COV=$(uv run coverage report --data-file=coverage/unit 2>/dev/null | awk '/^TOTAL/ {print $NF}')
 echo "Unit tests completed with $UNIT_COV coverage"
 
 # Run integration tests
@@ -68,8 +68,7 @@ fi
 # Capture integration coverage if per-service files exist
 INT_COV=""
 if ls coverage/*.integration 1> /dev/null 2>&1; then
-    uv run coverage combine --keep coverage/*.integration 2>/dev/null
-    INT_COV=$(uv run coverage report 2>/dev/null | awk '/^TOTAL/ {print $NF}')
+    INT_COV=$(uv run coverage combine --keep coverage/*.integration 2>/dev/null && uv run coverage report 2>/dev/null | awk '/^TOTAL/ {print $NF}')
     echo "Integration tests completed with $INT_COV coverage"
 fi
 
@@ -91,8 +90,7 @@ if $RUN_E2E; then
         E2E_RAN=true
         # Capture e2e coverage if per-service files exist
         if ls coverage/*.e2e 1> /dev/null 2>&1; then
-            uv run coverage combine --keep coverage/*.e2e 2>/dev/null
-            E2E_COV=$(uv run coverage report 2>/dev/null | awk '/^TOTAL/ {print $NF}')
+            E2E_COV=$(uv run coverage combine --keep coverage/*.e2e 2>/dev/null && uv run coverage report 2>/dev/null | awk '/^TOTAL/ {print $NF}')
             echo "E2E tests completed with $E2E_COV coverage"
         fi
     fi
@@ -105,18 +103,13 @@ fi
 echo ""
 echo "Combining coverage data..."
 echo "========================="
-# Copy per-service coverage files to root with .coverage.* naming for combine
-for f in coverage/*.integration coverage/*.e2e; do
-    [[ -f "$f" ]] && cp "$f" ".coverage.$(basename "$f")"
-done
 
-if ! ls .coverage* 1> /dev/null 2>&1; then
+if ! ls coverage/* 1> /dev/null 2>&1; then
     echo "ERROR: No coverage data files found"
     exit 1
 fi
 
-# Now combine all files (keeping originals for individual reporting)
-uv run coverage combine --keep
+uv run coverage combine --keep coverage/*
 
 # Capture final combined coverage
 FINAL_COV=$(uv run coverage report | awk '/^TOTAL/ {print $NF}')
