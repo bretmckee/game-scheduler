@@ -22,15 +22,22 @@
 """Tests for Discord formatting utilities."""
 
 from datetime import UTC, datetime
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from services.bot.utils.discord_format import (
+    _build_avatar_url,
     format_discord_mention,
     format_discord_timestamp,
     format_duration,
     format_game_status_emoji,
     format_participant_list,
+    format_rules_section,
     format_user_or_placeholder,
+    get_member_display_info,
 )
+from shared.discord.client import DiscordAPIError
 
 
 class TestFormatUserOrPlaceholder:
@@ -225,3 +232,176 @@ class TestFormatDuration:
         """Test formatting large duration."""
         result = format_duration(390)
         assert result == "6h 30m"
+
+
+class TestBuildAvatarUrl:
+    """Tests for _build_avatar_url function."""
+
+    def test_member_avatar_static(self):
+        """Test building URL for static guild-specific member avatar."""
+        result = _build_avatar_url("123", "456", "abc123", None)
+        assert "guilds/456/users/123/avatars/abc123.png" in result
+
+    def test_member_avatar_animated(self):
+        """Test building URL for animated (gif) guild-specific member avatar."""
+        result = _build_avatar_url("123", "456", "a_abc123", None)
+        assert ".gif" in result
+
+    def test_user_avatar_static(self):
+        """Test building URL for static user global avatar."""
+        result = _build_avatar_url("123", "456", None, "def456")
+        assert "avatars/123/def456.png" in result
+
+    def test_user_avatar_animated(self):
+        """Test building URL for animated user global avatar."""
+        result = _build_avatar_url("123", "456", None, "a_def456")
+        assert ".gif" in result
+
+    def test_default_avatar_fallback(self):
+        """Test fallback to default Discord embed avatar when no avatar set."""
+        result = _build_avatar_url("123456789012345678", "456", None, None)
+        assert "embed/avatars/" in result
+        assert result is not None
+
+    def test_invalid_user_id_returns_none(self):
+        """Test that non-numeric user_id returns None when no avatar set."""
+        result = _build_avatar_url("not-a-number", "456", None, None)
+        assert result is None
+
+    def test_member_avatar_takes_priority(self):
+        """Test that member avatar takes priority over user avatar."""
+        result = _build_avatar_url("123", "456", "member_hash", "user_hash")
+        assert "guilds/" in result
+        assert "avatars/123/user_hash" not in result
+
+
+class TestFormatRulesSection:
+    """Tests for format_rules_section function."""
+
+    def test_returns_placeholder_for_none(self):
+        """Test that None rules returns no-rules placeholder."""
+        result = format_rules_section(None)
+        assert result == "No rules specified"
+
+    def test_returns_placeholder_for_empty_string(self):
+        """Test that empty string returns no-rules placeholder."""
+        result = format_rules_section("")
+        assert result == "No rules specified"
+
+    def test_returns_placeholder_for_whitespace(self):
+        """Test that whitespace-only string returns no-rules placeholder."""
+        result = format_rules_section("   ")
+        assert result == "No rules specified"
+
+    def test_returns_short_rules_unchanged(self):
+        """Test that short rules text is returned unchanged."""
+        rules = "No cell phones."
+        result = format_rules_section(rules)
+        assert result == rules
+
+    def test_truncates_long_rules(self):
+        """Test that rules longer than max_length are truncated with ellipsis."""
+        rules = "x" * 600
+        result = format_rules_section(rules)
+        assert len(result) == 500
+        assert result.endswith("...")
+
+    def test_custom_max_length(self):
+        """Test truncation respects custom max_length."""
+        rules = "x" * 200
+        result = format_rules_section(rules, max_length=100)
+        assert len(result) == 100
+        assert result.endswith("...")
+
+
+class TestGetMemberDisplayInfo:
+    """Tests for get_member_display_info async function."""
+
+    @pytest.mark.asyncio
+    async def test_returns_nick_and_avatar_when_found(self):
+        """Test successful member lookup returns nick and avatar URL."""
+        mock_api = AsyncMock()
+        mock_api.get_guild_member.return_value = {
+            "nick": "CoolNick",
+            "avatar": None,
+            "user": {"username": "user123", "global_name": None, "avatar": "abc"},
+        }
+        with patch(
+            "services.bot.utils.discord_format.get_discord_client",
+            return_value=mock_api,
+        ):
+            name, avatar = await get_member_display_info(MagicMock(), "guild1", "user1")
+        assert name == "CoolNick"
+        assert avatar is not None
+
+    @pytest.mark.asyncio
+    async def test_returns_global_name_when_no_nick(self):
+        """Test fallback to global_name when nick is absent."""
+        mock_api = AsyncMock()
+        mock_api.get_guild_member.return_value = {
+            "nick": None,
+            "avatar": None,
+            "user": {
+                "username": "user123",
+                "global_name": "GlobalUser",
+                "avatar": None,
+            },
+        }
+        with patch(
+            "services.bot.utils.discord_format.get_discord_client",
+            return_value=mock_api,
+        ):
+            name, avatar = await get_member_display_info(MagicMock(), "guild1", "user1")
+        assert name == "GlobalUser"
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_member_not_found(self):
+        """Test that None is returned when member lookup returns empty."""
+        mock_api = AsyncMock()
+        mock_api.get_guild_member.return_value = None
+        with patch(
+            "services.bot.utils.discord_format.get_discord_client",
+            return_value=mock_api,
+        ):
+            name, avatar = await get_member_display_info(MagicMock(), "guild1", "user1")
+        assert name is None
+        assert avatar is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_on_api_error(self):
+        """Test that None is returned when Discord API raises DiscordAPIError."""
+        mock_api = AsyncMock()
+        mock_api.get_guild_member.side_effect = DiscordAPIError(403, "Forbidden")
+        with patch(
+            "services.bot.utils.discord_format.get_discord_client",
+            return_value=mock_api,
+        ):
+            name, avatar = await get_member_display_info(MagicMock(), "guild1", "user1")
+        assert name is None
+        assert avatar is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_on_key_error(self):
+        """Test that None is returned when member data is missing expected keys."""
+        mock_api = AsyncMock()
+        mock_api.get_guild_member.return_value = {"unexpected": "data"}
+        with patch(
+            "services.bot.utils.discord_format.get_discord_client",
+            return_value=mock_api,
+        ):
+            name, avatar = await get_member_display_info(MagicMock(), "guild1", "user1")
+        assert name is None
+        assert avatar is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_on_unexpected_exception(self):
+        """Test that None is returned on any unexpected exception."""
+        mock_api = AsyncMock()
+        mock_api.get_guild_member.side_effect = RuntimeError("unexpected")
+        with patch(
+            "services.bot.utils.discord_format.get_discord_client",
+            return_value=mock_api,
+        ):
+            name, avatar = await get_member_display_info(MagicMock(), "guild1", "user1")
+        assert name is None
+        assert avatar is None

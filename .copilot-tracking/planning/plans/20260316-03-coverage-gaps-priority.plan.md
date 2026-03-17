@@ -102,24 +102,24 @@ tests for the correctness-critical and security-critical code paths identified b
     limitation — routes ARE being hit (function signatures covered) but lines immediately after
     `await` calls do not receive coverage LINE events in the uvicorn process context
 
-### [ ] Phase 5: Utility and Minor Gap Fill (P12–P19)
+### [x] Phase 5: Utility and Minor Gap Fill (P12–P19)
 
-- [ ] Task 5.1: Cover `shared/utils/timezone.py` functions (→ 100%)
+- [x] Task 5.1: Cover `shared/utils/timezone.py` functions (→ 100%)
   - Details: .copilot-tracking/planning/details/20260316-03-coverage-gaps-priority-details.md (Lines 261-277)
 
-- [ ] Task 5.2: Cover `shared/utils/discord.py` utility functions (→ ≥95%)
+- [x] Task 5.2: Cover `shared/utils/discord.py` utility functions (→ ≥95%)
   - Details: .copilot-tracking/planning/details/20260316-03-coverage-gaps-priority-details.md (Lines 278-294)
 
-- [ ] Task 5.3: Cover `bot/utils/discord_format.py` error branches (→ ≥92%)
+- [x] Task 5.3: Cover `bot/utils/discord_format.py` error branches (→ ≥92%)
   - Details: .copilot-tracking/planning/details/20260316-03-coverage-gaps-priority-details.md (Lines 295-311)
 
-- [ ] Task 5.4: Cover `sync_publisher.py` and `consumer.py` error paths (→ ≥93% each)
+- [x] Task 5.4: Cover `sync_publisher.py` and `consumer.py` error paths (→ ≥93% each)
   - Details: .copilot-tracking/planning/details/20260316-03-coverage-gaps-priority-details.md (Lines 312-330)
 
-- [ ] Task 5.5: Cover `postgres_listener.py` and `scheduler_daemon_wrapper.py` gaps
+- [x] Task 5.5: Cover `postgres_listener.py` and `scheduler_daemon_wrapper.py` gaps
   - Details: .copilot-tracking/planning/details/20260316-03-coverage-gaps-priority-details.md (Lines 331-349)
 
-- [ ] Task 5.6: Cover `shared/utils/discord_tokens.py` error paths (→ 100%)
+- [x] Task 5.6: Cover `shared/utils/discord_tokens.py` error paths (→ 100%)
   - Details: .copilot-tracking/planning/details/20260316-03-coverage-gaps-priority-details.md (Lines 350-365)
 
 ## Dependencies

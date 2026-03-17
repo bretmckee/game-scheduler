@@ -1574,7 +1574,9 @@ def _mock_session_returning(response_data: object) -> MagicMock:
 
 
 @pytest.mark.asyncio
-async def test_exchange_code_uses_api_base_url(discord_client_fake_base: DiscordAPIClient) -> None:
+async def test_exchange_code_uses_api_base_url(
+    discord_client_fake_base: DiscordAPIClient,
+) -> None:
     """exchange_code must POST to api_base_url/oauth2/token, not the hardcoded Discord URL."""
     fake_token = {
         "access_token": "tok",
@@ -1593,7 +1595,9 @@ async def test_exchange_code_uses_api_base_url(discord_client_fake_base: Discord
 
 
 @pytest.mark.asyncio
-async def test_refresh_token_uses_api_base_url(discord_client_fake_base: DiscordAPIClient) -> None:
+async def test_refresh_token_uses_api_base_url(
+    discord_client_fake_base: DiscordAPIClient,
+) -> None:
     """refresh_token must POST to api_base_url/oauth2/token, not the hardcoded Discord URL."""
     fake_token = {
         "access_token": "tok2",
@@ -1612,7 +1616,9 @@ async def test_refresh_token_uses_api_base_url(discord_client_fake_base: Discord
 
 
 @pytest.mark.asyncio
-async def test_get_user_info_uses_api_base_url(discord_client_fake_base: DiscordAPIClient) -> None:
+async def test_get_user_info_uses_api_base_url(
+    discord_client_fake_base: DiscordAPIClient,
+) -> None:
     """get_user_info must GET api_base_url/users/@me, not the hardcoded Discord URL."""
     mock_session = _mock_session_returning({"id": "user123", "username": "testuser"})
     session_patch = patch.object(
@@ -1626,7 +1632,9 @@ async def test_get_user_info_uses_api_base_url(discord_client_fake_base: Discord
 
 
 @pytest.mark.asyncio
-async def test_get_guilds_uses_api_base_url(discord_client_fake_base: DiscordAPIClient) -> None:
+async def test_get_guilds_uses_api_base_url(
+    discord_client_fake_base: DiscordAPIClient,
+) -> None:
     """get_guilds must GET api_base_url/users/@me/guilds, not the hardcoded Discord URL."""
     mock_session = _mock_session_returning([{"id": "guild1", "name": "Test Guild"}])
     session_patch = patch.object(
@@ -1837,7 +1845,10 @@ class TestFetchChannelAndRolesErrorPaths:
     @pytest.mark.asyncio
     async def test_fetch_guild_roles_cache_hit(self, discord_client, mock_redis):
         """fetch_guild_roles() returns cached data without hitting Discord API."""
-        roles_data = [{"id": "role1", "name": "Admin"}, {"id": "role2", "name": "Member"}]
+        roles_data = [
+            {"id": "role1", "name": "Admin"},
+            {"id": "role2", "name": "Member"},
+        ]
         mock_redis.get = AsyncMock(return_value=json.dumps(roles_data))
 
         with patch("shared.discord.client.cache_client.get_redis_client") as mock_get_redis:

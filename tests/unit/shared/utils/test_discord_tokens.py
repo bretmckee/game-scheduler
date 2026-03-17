@@ -40,9 +40,9 @@ def test_extract_bot_discord_id_valid_token():
 
 def test_extract_bot_discord_id_with_padding():
     """Test extraction handles base64 padding correctly."""
-    bot_id = "123456789"
+    # "1234" encodes to "MTIzNA==" — strip "==" leaves "MTIzNA" (len%4==2, needs padding)
+    bot_id = "1234"
     bot_id_base64 = base64.b64encode(bot_id.encode("utf-8")).decode("utf-8")
-    # Remove padding to test automatic padding addition
     bot_id_base64 = bot_id_base64.rstrip("=")
     token = f"{bot_id_base64}.timestamp.hmac"
 
@@ -84,3 +84,12 @@ def test_extract_bot_discord_id_snowflake_id():
     result = extract_bot_discord_id(token)
     assert result == bot_id
     assert len(result) == 19
+
+
+def test_extract_bot_discord_id_non_utf8_bytes():
+    """Test error handling when base64 decodes to non-UTF-8 bytes."""
+    invalid_utf8_b64 = base64.b64encode(b"\x80\x81\x82").decode("utf-8")
+    token = f"{invalid_utf8_b64}.timestamp.hmac"
+
+    with pytest.raises(ValueError, match="Failed to decode bot ID"):
+        extract_bot_discord_id(token)

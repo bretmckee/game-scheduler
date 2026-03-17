@@ -224,3 +224,101 @@ class TestSyncEventPublisherPublishDict:
             call_args = mock_publish.call_args
             event = call_args[0][0]
             assert event.event_type == EventType.NOTIFICATION_DUE
+
+
+class TestSyncEventPublisherConnect:
+    """Test connection management in connect()."""
+
+    @patch("shared.messaging.sync_publisher.pika.BlockingConnection")
+    def test_connect_closes_existing_open_connection(self, mock_connection_class):
+        """connect() closes and discards an existing open connection before reconnecting."""
+        publisher = SyncEventPublisher()
+        existing_conn = MagicMock()
+        existing_conn.is_open = True
+        publisher._connection = existing_conn
+
+        mock_connection_class.return_value = MagicMock()
+
+        publisher.connect()
+
+        existing_conn.close.assert_called_once()
+
+    @patch("shared.messaging.sync_publisher.pika.BlockingConnection")
+    def test_connect_logs_warning_when_close_raises(self, mock_connection_class):
+        """connect() logs warning and continues when closing existing connection fails."""
+        publisher = SyncEventPublisher()
+        existing_conn = MagicMock()
+        existing_conn.is_open = True
+        existing_conn.close.side_effect = Exception("close failed")
+        publisher._connection = existing_conn
+
+        mock_new_conn = MagicMock()
+        mock_connection_class.return_value = mock_new_conn
+
+        publisher.connect()
+
+        assert publisher._connection is mock_new_conn
+
+    @patch("shared.messaging.sync_publisher.pika.BlockingConnection")
+    def test_publish_reconnects_when_channel_is_none(self, mock_connection_class, sample_event):
+        """publish() reconnects when _channel is None before publishing."""
+        publisher = SyncEventPublisher()
+
+        mock_conn = MagicMock()
+        mock_chan = MagicMock()
+        mock_chan.is_open = True
+        mock_conn.channel.return_value = mock_chan
+        mock_connection_class.return_value = mock_conn
+
+        publisher.publish(sample_event)
+
+        mock_chan.basic_publish.assert_called_once()
+
+    @patch("shared.messaging.sync_publisher.pika.BlockingConnection")
+    def test_publish_reconnects_when_channel_closed(self, mock_connection_class, sample_event):
+        """publish() reconnects when _channel.is_open is False."""
+        publisher = SyncEventPublisher()
+
+        mock_conn = MagicMock()
+        mock_chan = MagicMock()
+        mock_chan.is_open = True
+        mock_conn.channel.return_value = mock_chan
+        mock_connection_class.return_value = mock_conn
+
+        publisher._connection = MagicMock(is_open=False)
+        publisher._channel = MagicMock(is_open=False)
+
+        publisher.publish(sample_event)
+
+        mock_chan.basic_publish.assert_called_once()
+
+
+class TestSyncEventPublisherClose:
+    """Test close() method."""
+
+    @patch("shared.messaging.sync_publisher.pika.BlockingConnection")
+    def test_close_shuts_channel_and_connection(self, mock_connection_class):
+        """close() closes both open channel and connection."""
+        publisher = SyncEventPublisher()
+
+        mock_conn = MagicMock()
+        mock_chan = MagicMock()
+        mock_chan.is_open = True
+        mock_conn.is_open = True
+        mock_conn.channel.return_value = mock_chan
+        mock_connection_class.return_value = mock_conn
+
+        publisher.connect()
+        publisher.close()
+
+        mock_chan.close.assert_called_once()
+        mock_conn.close.assert_called_once()
+        assert publisher._channel is None
+        assert publisher._connection is None
+
+    def test_close_does_nothing_when_not_connected(self):
+        """close() is a no-op when publisher was never connected."""
+        publisher = SyncEventPublisher()
+        publisher.close()
+        assert publisher._channel is None
+        assert publisher._connection is None

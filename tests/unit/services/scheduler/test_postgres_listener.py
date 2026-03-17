@@ -181,3 +181,72 @@ class TestPostgresNotificationListener:
 
         # Should not call close on already closed connection
         mock_conn.close.assert_not_called()
+
+    @patch("services.scheduler.postgres_listener.psycopg2.connect")
+    def test_connect_re_listens_on_registered_channels(self, mock_connect):
+        """connect() re-executes LISTEN for all registered channels on reconnect."""
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_conn.closed = False
+        mock_connect.return_value = mock_conn
+
+        listener = PostgresNotificationListener("postgresql://user:pass@host:5432/db")
+        listener._channels.add("my_channel")
+        listener.connect()
+
+        mock_cursor.execute.assert_called_with("LISTEN my_channel;")
+
+    def test_execute_listen_raises_when_not_connected(self):
+        """_execute_listen raises RuntimeError when conn is None."""
+        listener = PostgresNotificationListener("postgresql://user:pass@host:5432/db")
+
+        with pytest.raises(RuntimeError, match="Not connected to database"):
+            listener._execute_listen("some_channel")
+
+    @patch("services.scheduler.postgres_listener.psycopg2.connect")
+    def test_wait_for_notification_raises_when_disconnected(self, mock_connect):
+        """wait_for_notification raises RuntimeError when conn is None."""
+        listener = PostgresNotificationListener("postgresql://user:pass@host:5432/db")
+
+        with pytest.raises(RuntimeError, match="Not connected to database"):
+            listener.wait_for_notification(1.0)
+
+    @patch("services.scheduler.postgres_listener.select.select")
+    @patch("services.scheduler.postgres_listener.psycopg2.connect")
+    def test_wait_for_notification_invalid_json_payload(self, mock_connect, mock_select):
+        """wait_for_notification handles non-JSON notification payload gracefully."""
+        mock_conn = MagicMock()
+        mock_conn.closed = False
+        mock_connect.return_value = mock_conn
+        mock_select.return_value = ([mock_conn], [], [])
+
+        mock_notify = Mock()
+        mock_notify.payload = "this is not json"
+        mock_conn.notifies = [mock_notify]
+
+        listener = PostgresNotificationListener("postgresql://user:pass@host:5432/db")
+        listener.connect()
+
+        received, payload = listener.wait_for_notification(1.0)
+
+        assert received is True
+        assert payload == {"raw": "this is not json"}
+
+    @patch("services.scheduler.postgres_listener.select.select")
+    @patch("services.scheduler.postgres_listener.psycopg2.connect")
+    def test_wait_returns_false_when_notifies_empty_after_poll(self, mock_connect, mock_select):
+        """wait_for_notification returns False when select triggers but notifies is empty."""
+        mock_conn = MagicMock()
+        mock_conn.closed = False
+        mock_connect.return_value = mock_conn
+        mock_select.return_value = ([mock_conn], [], [])
+        mock_conn.notifies = []
+
+        listener = PostgresNotificationListener("postgresql://user:pass@host:5432/db")
+        listener.connect()
+
+        received, payload = listener.wait_for_notification(1.0)
+
+        assert received is False
+        assert payload is None

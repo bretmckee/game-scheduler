@@ -26,6 +26,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from shared.messaging.consumer import EventConsumer
+from shared.messaging.events import Event, EventType
 
 
 class TestEventConsumerConnectionFailures:
@@ -44,7 +45,8 @@ class TestEventConsumerConnectionFailures:
             consumer._queue = None
 
             with pytest.raises(
-                RuntimeError, match="Queue connection failed: unable to bind routing key"
+                RuntimeError,
+                match="Queue connection failed: unable to bind routing key",
             ):
                 await consumer.bind("test.routing.key")
 
@@ -106,3 +108,196 @@ class TestEventConsumerConnectionFailures:
 
             mock_connect.assert_awaited_once()
             mock_queue.consume.assert_awaited_once()
+
+
+class TestEventConsumerConnect:
+    """Test EventConsumer.connect() establishes channel and queue."""
+
+    @pytest.mark.asyncio
+    async def test_connect_creates_channel_and_queue(self) -> None:
+        """connect() sets up channel, exchange, and queue via provided connection."""
+        mock_connection = AsyncMock()
+        mock_channel = AsyncMock()
+        mock_exchange = AsyncMock()
+        mock_queue = AsyncMock()
+
+        mock_connection.channel.return_value = mock_channel
+        mock_channel.declare_exchange.return_value = mock_exchange
+        mock_channel.declare_queue.return_value = mock_queue
+
+        consumer = EventConsumer(
+            queue_name="test_queue",
+            exchange_name="test_exchange",
+            connection=mock_connection,
+        )
+
+        await consumer.connect()
+
+        assert consumer._channel is mock_channel
+        assert consumer._queue is mock_queue
+
+    @pytest.mark.asyncio
+    async def test_connect_fetches_connection_when_none(self) -> None:
+        """connect() calls get_rabbitmq_connection when no connection provided."""
+        mock_connection = AsyncMock()
+        mock_channel = AsyncMock()
+        mock_exchange = AsyncMock()
+        mock_queue = AsyncMock()
+
+        mock_connection.channel.return_value = mock_channel
+        mock_channel.declare_exchange.return_value = mock_exchange
+        mock_channel.declare_queue.return_value = mock_queue
+
+        consumer = EventConsumer(queue_name="test_queue")
+
+        with patch(
+            "shared.messaging.consumer.get_rabbitmq_connection",
+            new_callable=AsyncMock,
+            return_value=mock_connection,
+        ):
+            await consumer.connect()
+
+        assert consumer._connection is mock_connection
+
+
+class TestEventConsumerRegisterHandler:
+    """Test EventConsumer.register_handler() registers handlers correctly."""
+
+    def test_register_handler_stores_handler(self) -> None:
+        """register_handler stores handler in internal dict keyed by event type."""
+        consumer = EventConsumer(queue_name="test_queue")
+
+        async def my_handler(event):
+            pass
+
+        consumer.register_handler(EventType.NOTIFICATION_DUE, my_handler)
+
+        key = EventType.NOTIFICATION_DUE.value
+        assert key in consumer._handlers
+        assert my_handler in consumer._handlers[key]
+
+    def test_register_multiple_handlers_for_same_type(self) -> None:
+        """Multiple handlers can be registered for the same event type."""
+        consumer = EventConsumer(queue_name="test_queue")
+
+        async def handler_a(event):
+            pass
+
+        async def handler_b(event):
+            pass
+
+        consumer.register_handler(EventType.NOTIFICATION_DUE, handler_a)
+        consumer.register_handler(EventType.NOTIFICATION_DUE, handler_b)
+
+        key = EventType.NOTIFICATION_DUE.value
+        assert len(consumer._handlers[key]) == 2
+
+
+class TestEventConsumerProcessMessage:
+    """Test EventConsumer._process_message() handles messages correctly."""
+
+    @pytest.mark.asyncio
+    async def test_process_message_calls_handler_and_acks(self) -> None:
+        """_process_message calls handler and ACKs on success."""
+        consumer = EventConsumer(queue_name="test_queue")
+
+        handler = AsyncMock()
+        consumer.register_handler(EventType.NOTIFICATION_DUE, handler)
+
+        event = Event(
+            event_type=EventType.NOTIFICATION_DUE,
+            data={"game_id": "abc"},
+        )
+
+        message = AsyncMock()
+        message.body = event.model_dump_json().encode()
+
+        await consumer._process_message(message)
+
+        handler.assert_awaited_once()
+        message.ack.assert_awaited_once()
+        message.nack.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_process_message_acks_when_no_handlers(self) -> None:
+        """_process_message ACKs and logs warning when no handlers registered."""
+        consumer = EventConsumer(queue_name="test_queue")
+
+        event = Event(event_type=EventType.NOTIFICATION_DUE, data={})
+        message = AsyncMock()
+        message.body = event.model_dump_json().encode()
+
+        await consumer._process_message(message)
+
+        message.ack.assert_awaited_once()
+        message.nack.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_process_message_nacks_on_handler_exception(self) -> None:
+        """_process_message NACKs without requeue when handler raises exception."""
+        consumer = EventConsumer(queue_name="test_queue")
+
+        async def bad_handler(event):
+            msg = "handler failed"
+            raise ValueError(msg)
+
+        consumer.register_handler(EventType.NOTIFICATION_DUE, bad_handler)
+
+        event = Event(event_type=EventType.NOTIFICATION_DUE, data={})
+        message = AsyncMock()
+        message.body = event.model_dump_json().encode()
+
+        await consumer._process_message(message)
+
+        message.nack.assert_awaited_once_with(requeue=False)
+        message.ack.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_process_message_nacks_on_invalid_body(self) -> None:
+        """_process_message NACKs when message body cannot be parsed as Event."""
+        consumer = EventConsumer(queue_name="test_queue")
+
+        message = AsyncMock()
+        message.body = b"not valid json"
+
+        await consumer._process_message(message)
+
+        message.nack.assert_awaited_once_with(requeue=False)
+
+
+class TestEventConsumerClose:
+    """Test EventConsumer.close() cleans up channel."""
+
+    @pytest.mark.asyncio
+    async def test_close_closes_open_channel(self) -> None:
+        """close() closes channel when it is open."""
+        consumer = EventConsumer(queue_name="test_queue")
+
+        mock_channel = AsyncMock()
+        mock_channel.is_closed = False
+        consumer._channel = mock_channel
+
+        await consumer.close()
+
+        mock_channel.close.assert_awaited_once()
+        assert consumer._channel is None
+
+    @pytest.mark.asyncio
+    async def test_close_skips_when_channel_already_closed(self) -> None:
+        """close() does nothing when channel is already closed."""
+        consumer = EventConsumer(queue_name="test_queue")
+
+        mock_channel = AsyncMock()
+        mock_channel.is_closed = True
+        consumer._channel = mock_channel
+
+        await consumer.close()
+
+        mock_channel.close.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_close_does_nothing_when_no_channel(self) -> None:
+        """close() is a no-op when never connected."""
+        consumer = EventConsumer(queue_name="test_queue")
+        await consumer.close()
+        assert consumer._channel is None
