@@ -104,6 +104,7 @@ COPY --from=base /usr/local/bin /usr/local/bin
 
 # Copy application code
 COPY pyproject.toml ./
+COPY --from=base /app/.build_version ./
 COPY shared/ ./shared/
 COPY services/__init__.py ./services/
 COPY services/api/ ./services/api/
