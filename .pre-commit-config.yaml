@@ -148,7 +148,7 @@ repos:
       # Diff coverage check for modified Python code
       - id: diff-coverage
         name: Python diff coverage check
-        entry: bash -c 'py_files=$(git diff --cached --name-only --diff-filter=ACM | grep -E "^(services|shared)/.*\.py$" | grep -v "__pycache__"); if [ -n "$py_files" ]; then diff-cover coverage.xml --compare-branch=origin/main --fail-under=80 --ignore-whitespace --quiet || diff-cover coverage.xml --compare-branch=origin/main --fail-under=80 --ignore-whitespace; else exit 0; fi'
+        entry: bash -c 'py_files=$(git diff --cached --name-only --diff-filter=ACM | grep -E "^(services|shared)/.*\.py$" | grep -v "__pycache__"); if [ -n "$py_files" ]; then diff-cover coverage.xml --compare-branch=origin/main --fail-under=90 --ignore-whitespace --quiet || diff-cover coverage.xml --compare-branch=origin/main --fail-under=90 --ignore-whitespace; else exit 0; fi'
         language: python
         pass_filenames: false
         files: ^(services|shared|tests)/.*\.py$
@@ -189,7 +189,7 @@ repos:
       # Diff coverage check for modified TypeScript code
       - id: diff-coverage-frontend
         name: Frontend diff coverage check
-        entry: bash -c 'ts_files=$(git diff --cached --name-only --diff-filter=ACM | grep -E "^frontend/src/.*\.(ts|tsx)$" | grep -v "\.test\."); if [ -n "$ts_files" ]; then diff-cover frontend/coverage/lcov-fixed.info --compare-branch=origin/main --fail-under=80 --ignore-whitespace --quiet || diff-cover frontend/coverage/lcov-fixed.info --compare-branch=origin/main --fail-under=80 --ignore-whitespace; else exit 0; fi'
+        entry: bash -c 'ts_files=$(git diff --cached --name-only --diff-filter=ACM | grep -E "^frontend/src/.*\.(ts|tsx)$" | grep -v "\.test\."); if [ -n "$ts_files" ]; then diff-cover frontend/coverage/lcov-fixed.info --compare-branch=origin/main --fail-under=90 --ignore-whitespace --quiet || diff-cover frontend/coverage/lcov-fixed.info --compare-branch=origin/main --fail-under=90 --ignore-whitespace; else exit 0; fi'
         language: python
         pass_filenames: false
         files: ^frontend/.*\.(ts|tsx|js|jsx)$
