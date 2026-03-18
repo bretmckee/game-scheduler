@@ -330,7 +330,6 @@ When ALL Phases are checked off (`[x]`) and completed you WILL do the following:
    - You MUST wrap any reference to a file in a markdown style link
 
 2. You WILL provide markdown style links to .copilot-tracking/planning/plans/{{date}}-{{sequence}}-{{task_description}}.plan.md, .copilot-tracking/planning/details/{{date}}-{{sequence}}-{{task_description}}-details.md, and .copilot-tracking/research/{{date}}-{{sequence}}-{{task_description}}-research.md documents. You WILL recommend cleaning these files up as well.
-3. **MANDATORY**: You WILL attempt to delete .copilot-tracking/planning/prompts/{{implement_task_description}}.prompt.md
 
 ## Success Criteria
 
