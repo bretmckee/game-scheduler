@@ -27,6 +27,7 @@ from .game import GameSession, GameStatus
 from .game_image import GameImage
 from .game_status_schedule import GameStatusSchedule
 from .guild import GuildConfiguration
+from .message_refresh_queue import MessageRefreshQueue
 from .notification_schedule import NotificationSchedule
 from .participant import GameParticipant
 from .participant_action_schedule import ParticipantActionSchedule
@@ -44,6 +45,7 @@ __all__ = [
     "GameStatusSchedule",
     "GameTemplate",
     "GuildConfiguration",
+    "MessageRefreshQueue",
     "NotificationSchedule",
     "ParticipantActionSchedule",
     "SignupMethod",

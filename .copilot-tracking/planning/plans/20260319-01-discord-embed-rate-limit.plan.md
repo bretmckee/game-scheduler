@@ -45,12 +45,12 @@ accounts for Discord's per-channel 5-edits-per-5s bucket.
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Database Foundation
+### [x] Phase 1: Database Foundation
 
-- [ ] Task 1.1: Alembic migration for `message_refresh_queue` table and `pg_notify` trigger
+- [x] Task 1.1: Alembic migration for `message_refresh_queue` table and `pg_notify` trigger
   - Details: .copilot-tracking/planning/details/20260319-01-discord-embed-rate-limit-details.md (Lines 13-41)
 
-- [ ] Task 1.2: `MessageRefreshQueue` SQLAlchemy ORM model with unit tests
+- [x] Task 1.2: `MessageRefreshQueue` SQLAlchemy ORM model with unit tests
   - Details: .copilot-tracking/planning/details/20260319-01-discord-embed-rate-limit-details.md (Lines 42-67)
 
 ### [ ] Phase 2: Redis Rate Limit Tracking — `claim_channel_rate_limit_slot` (TDD)
