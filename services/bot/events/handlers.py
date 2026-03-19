@@ -24,11 +24,11 @@
 import asyncio
 import logging
 import uuid
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 import discord
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.bot.dependencies.discord_client import get_discord_client
@@ -53,12 +53,15 @@ from shared.models import user as user_model
 from shared.models.base import utc_now
 from shared.models.game import GameSession
 from shared.models.game_status_schedule import GameStatusSchedule
+from shared.models.message_refresh_queue import MessageRefreshQueue
 from shared.models.participant import GameParticipant
 from shared.models.participant_action_schedule import ParticipantActionSchedule
 from shared.schemas.events import GameStatusTransitionDueEvent
 from shared.utils.games import resolve_max_players
 from shared.utils.participant_sorting import partition_participants
 from shared.utils.status_transitions import GameStatus, is_valid_transition
+
+_HTTP_TOO_MANY_REQUESTS = 429
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -97,6 +100,8 @@ class EventHandlers:
         self._pending_refreshes: set[str] = set()
         # Track background tasks to prevent them from being garbage collected
         self._background_tasks: set[asyncio.Task[Any]] = set()
+        # Per-channel workers driven by the DB queue; keyed by discord_channel_id
+        self._channel_workers: dict[str, asyncio.Task[Any]] = {}
 
     async def start_consuming(self, queue_name: str = "bot_events") -> None:
         """
@@ -1402,3 +1407,99 @@ class EventHandlers:
             .where(GameSession.id == str(UUID(game_id)))
         )
         return result.scalar_one_or_none()
+
+    async def _channel_worker(self, discord_channel_id: str) -> None:
+        """
+        Per-channel worker that drains the message_refresh_queue for one channel.
+
+        Loops until no pending rows remain, then deregisters itself from
+        ``_channel_workers``.  Rate limiting is enforced via
+        ``claim_channel_rate_limit_slot`` before each Discord edit.
+
+        Args:
+            discord_channel_id: Discord channel snowflake string.
+        """
+        try:
+            while True:
+                game_id = await self._fetch_next_queued_game(discord_channel_id)
+                if game_id is None:
+                    break
+
+                redis = await get_redis_client()
+                wait_ms = await redis.claim_channel_rate_limit_slot(discord_channel_id)
+                t_cut = await self._edit_with_backoff(discord_channel_id, game_id, wait_ms)
+                if t_cut is None:
+                    continue
+
+                async with get_db_session() as db:
+                    await db.execute(
+                        delete(MessageRefreshQueue).where(
+                            MessageRefreshQueue.channel_id == discord_channel_id,
+                            MessageRefreshQueue.game_id == game_id,
+                            MessageRefreshQueue.enqueued_at <= t_cut,
+                        )
+                    )
+                    await db.commit()
+        finally:
+            self._channel_workers.pop(discord_channel_id, None)
+
+    async def _fetch_next_queued_game(self, discord_channel_id: str) -> str | None:
+        """Return one pending game_id from the queue for this channel, or None if empty."""
+        async with get_db_session() as db:
+            result = await db.execute(
+                select(MessageRefreshQueue.game_id)
+                .where(MessageRefreshQueue.channel_id == discord_channel_id)
+                .limit(1)
+            )
+            return result.scalar_one_or_none()
+
+    async def _try_edit_game_message(self, discord_channel_id: str, game_id: str) -> bool:
+        """Fetch game state and edit its Discord embed. Returns False if the game is gone."""
+        async with get_db_session() as db:
+            game = await self._get_game_with_participants(db, game_id)
+
+        if not game or not game.message_id:
+            logger.warning("Game or message not found for channel worker: %s", game_id)
+            return False
+
+        channel_id_str = str(game.channel.channel_id) if game.channel else discord_channel_id
+        fetched = await self._fetch_channel_and_message(channel_id_str, game.message_id)
+        if fetched is None:
+            logger.warning("Channel or message not found: %s", game_id)
+            return False
+
+        _channel, message = fetched
+        await self._update_game_message_content(message, game)
+        return True
+
+    async def _edit_with_backoff(
+        self, discord_channel_id: str, game_id: str, wait_ms: int
+    ) -> datetime | None:
+        """Attempt to edit a game's Discord embed, retrying on 429.
+
+        Returns the timestamp snapshot taken just before a successful edit,
+        or None if the edit was permanently skipped or failed.
+        """
+        while True:
+            if wait_ms > 0:
+                await asyncio.sleep(wait_ms / 1000)
+            t_cut = datetime.now(tz=UTC)
+            try:
+                if not await self._try_edit_game_message(discord_channel_id, game_id):
+                    return None
+            except discord.HTTPException as exc:
+                if exc.status == _HTTP_TOO_MANY_REQUESTS:
+                    retry_after: float = getattr(exc, "retry_after", 1.0) or 1.0
+                    wait_ms = int(retry_after * 1000)
+                    logger.warning(
+                        "Discord 429 on channel %s, retrying after %.1fs",
+                        discord_channel_id,
+                        retry_after,
+                    )
+                    continue
+                logger.exception("Discord error editing message for game %s: %s", game_id, exc)
+                return None
+            except Exception as exc:
+                logger.exception("Unexpected error in channel worker for game %s: %s", game_id, exc)
+                return None
+            return t_cut

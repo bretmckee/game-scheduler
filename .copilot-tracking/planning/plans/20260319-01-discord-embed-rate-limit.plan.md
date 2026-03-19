@@ -81,18 +81,18 @@ accounts for Discord's per-channel 5-edits-per-5s bucket.
 - [x] Task 3.4: Refactor and add edge case tests for `MessageRefreshListener` (REFACTOR)
   - Details: .copilot-tracking/planning/details/20260319-01-discord-embed-rate-limit-details.md (Lines 205-223)
 
-### [ ] Phase 4: Per-Channel Worker — `_channel_worker` (TDD)
+### [x] Phase 4: Per-Channel Worker — `_channel_worker` (TDD)
 
-- [ ] Task 4.1: Stub `_channel_worker` in `EventHandlers` (NotImplementedError)
+- [x] Task 4.1: Stub `_channel_worker` in `EventHandlers` (NotImplementedError)
   - Details: .copilot-tracking/planning/details/20260319-01-discord-embed-rate-limit-details.md (Lines 224-239)
 
-- [ ] Task 4.2: Write xfail unit tests for `_channel_worker` (RED)
+- [x] Task 4.2: Write xfail unit tests for `_channel_worker` (RED)
   - Details: .copilot-tracking/planning/details/20260319-01-discord-embed-rate-limit-details.md (Lines 240-259)
 
-- [ ] Task 4.3: Implement full `_channel_worker` loop; remove xfail (GREEN)
+- [x] Task 4.3: Implement full `_channel_worker` loop; remove xfail (GREEN)
   - Details: .copilot-tracking/planning/details/20260319-01-discord-embed-rate-limit-details.md (Lines 260-282)
 
-- [ ] Task 4.4: Refactor and add multi-game edge case tests (REFACTOR)
+- [x] Task 4.4: Refactor and add multi-game edge case tests (REFACTOR)
   - Details: .copilot-tracking/planning/details/20260319-01-discord-embed-rate-limit-details.md (Lines 283-303)
 
 ### [ ] Phase 5: Event Handler Replacement and Final Cleanup

@@ -28,7 +28,17 @@
 
 ---
 
-## Phase 3: asyncpg LISTEN Listener — `MessageRefreshListener`
+## Phase 4: Per-Channel Worker — `_channel_worker` (TDD)
+
+### Added
+
+- `tests/unit/services/bot/events/test_channel_worker.py` — 11 unit tests covering: `_channel_workers` dict initialised to `{}`; worker exits and deregisters when queue empty; `claim_channel_rate_limit_slot` called with correct channel_id; worker sleeps `wait_ms/1000` seconds; delete executed after successful edit; 429 causes inner-loop retry with correct sleep and second edit attempt; non-429 error is logged without terminating worker; two games in same channel are edited sequentially with two rate-limit slot claims; burst of 4 queue entries produces sleeps `[1.0, 1.0, 1.5]` matching graduated spacing.
+
+### Modified
+
+- `services/bot/events/handlers.py` — Added `_channel_workers: dict[str, asyncio.Task[Any]] = {}` to `EventHandlers.__init__`; added `delete` to the top-level `sqlalchemy` import; implemented `_channel_worker(discord_channel_id)` with the corrected outer/inner loop: outer loop fetches one `game_id` via `select(MessageRefreshQueue.game_id).limit(1)`, claims a rate-limit slot, then inner loop sleeps `wait_ms/1000`, snapshots `T_cut`, fetches game state, edits the Discord message, handles 429 by setting `wait_ms = retry_after_ms` and continuing, deletes rows for `(channel_id, game_id, enqueued_at <= T_cut)` on success, and breaks; worker deregisters itself from `_channel_workers` in the `finally` block.
+
+**Note (deviation from plan details):** The delete statement is scoped to `(channel_id, game_id, enqueued_at <= T_cut)` rather than `(channel_id, enqueued_at <= T_cut)` as written in the original research pseudocode. This corrects a design bug — channel-wide deletion would silently drop pending refreshes for other games sharing the same channel. The fix was agreed with the user during implementation.
 
 ### Added
 
