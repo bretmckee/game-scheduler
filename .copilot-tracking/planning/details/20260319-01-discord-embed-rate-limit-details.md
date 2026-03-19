@@ -494,3 +494,122 @@ change to that query will also break this test.
 - Bot crash mid-burst: pending queue rows survive; workers restart on `on_ready` / `on_resumed`
 - System idle: no background tasks, no Redis keys, no DB rows remain
 - No 429 responses from Discord under normal operation
+
+---
+
+## Phase 7: UPSERT Redesign for `message_refresh_queue`
+
+### Task 7.1: Update Write-Path Unit Tests to Expect Upsert SQL (RED)
+
+Update unit tests that assert the write path inserts into `message_refresh_queue` so they
+expect the upsert form (`INSERT ... ON CONFLICT (channel_id, game_id) DO UPDATE SET
+enqueued_at = NOW()`) instead of a bare INSERT. Tests will fail (RED) until Task 7.4
+implements the upsert.
+
+- **Files**:
+  - `tests/unit/services/bot/events/test_handlers.py` — update assertions for the write
+    path to expect `pg_insert(...).on_conflict_do_update(...)` instead of
+    `session.add(MessageRefreshQueue(...))`
+- **Success**:
+  - Tests that assert insert behavior now fail because implementation still uses bare INSERT
+  - All other unit tests remain green
+- **Research References**:
+  - #file:../research/20260319-01-discord-embed-rate-limit-research.md (Lines 295-304) —
+    upsert SQL and ON CONFLICT clause
+  - #file:../research/20260319-01-discord-embed-rate-limit-research.md (Lines 330-338) —
+    required code changes including unit test update
+- **Dependencies**:
+  - Phase 5 complete (write path exists and has unit tests)
+
+### Task 7.2: Add Alembic Migration — Composite PK and `AFTER INSERT OR UPDATE` Trigger
+
+Create a new Alembic migration that:
+
+1. Drops the `id` UUID primary key column from `message_refresh_queue`
+2. Adds a composite primary key on `(channel_id, game_id)`
+3. Changes the trigger from `AFTER INSERT FOR EACH ROW` to
+   `AFTER INSERT OR UPDATE FOR EACH ROW`
+
+Use the `PGFunction` + `op.execute` pattern from existing migrations. The downgrade
+re-adds `id` as a nullable UUID, drops the composite PK, and restores the `AFTER INSERT`
+trigger.
+
+- **Files**:
+  - `alembic/versions/<revision_id>_upsert_message_refresh_queue.py` — new migration
+- **Success**:
+  - `alembic upgrade head` completes without error
+  - `message_refresh_queue` has no `id` column; PRIMARY KEY on `(channel_id, game_id)`
+  - Trigger fires on both INSERT and UPDATE events
+  - `alembic downgrade -1` reverses cleanly
+- **Research References**:
+  - #file:../research/20260319-01-discord-embed-rate-limit-research.md (Lines 281-294) —
+    updated schema without `id`, composite PK definition
+  - #file:../research/20260319-01-discord-embed-rate-limit-research.md (Lines 305-317) —
+    trigger change to `AFTER INSERT OR UPDATE`
+  - #file:../research/20260319-01-discord-embed-rate-limit-research.md (Lines 30-38) —
+    `PGFunction` + trigger migration pattern
+- **Dependencies**:
+  - Phase 1 migration applied
+  - Task 7.1 complete (RED tests exist)
+
+### Task 7.3: Update `MessageRefreshQueue` SQLAlchemy Model — Composite PK
+
+Remove the `id` column from `MessageRefreshQueue` in `shared/models/`. Update the primary
+key to a composite of `channel_id` and `game_id`. Update unit tests that verify the model's
+column types to reflect the new schema.
+
+- **Files**:
+  - `shared/models/message_refresh_queue.py` — remove `id`, set composite PK
+  - `tests/unit/shared/models/test_message_refresh_queue.py` — update column/PK assertions
+- **Success**:
+  - `MessageRefreshQueue` defines no `id` column
+  - `__table__.primary_key` columns are `channel_id` and `game_id`
+  - Model unit tests pass
+- **Research References**:
+  - #file:../research/20260319-01-discord-embed-rate-limit-research.md (Lines 281-294) —
+    composite PK schema
+- **Dependencies**:
+  - Task 7.2 complete (migration establishes new schema)
+
+### Task 7.4: Replace Bare `INSERT` with Upsert in Write Path (GREEN)
+
+Update the write path in `services/bot/events/handlers.py` (the `_handle_game_updated`
+DB insert) to use `INSERT ... ON CONFLICT (channel_id, game_id) DO UPDATE SET
+enqueued_at = NOW()` via SQLAlchemy's `postgresql.insert(...).on_conflict_do_update(...)`.
+
+After this change, the unit tests updated in Task 7.1 should turn GREEN.
+
+- **Files**:
+  - `services/bot/events/handlers.py` — replace bare INSERT with upsert execute call
+- **Success**:
+  - All unit tests from Task 7.1 now pass (GREEN)
+  - Full unit test suite is green
+- **Research References**:
+  - #file:../research/20260319-01-discord-embed-rate-limit-research.md (Lines 295-304) —
+    upsert SQL form
+  - #file:../research/20260319-01-discord-embed-rate-limit-research.md (Lines 318-323) —
+    worker behavior is unchanged (no logic change needed)
+- **Dependencies**:
+  - Task 7.1 complete (RED tests exist)
+  - Task 7.3 complete (model has composite PK)
+
+### Task 7.5: Update Integration Test to Use Upsert SQL
+
+Update `TestMessageRefreshQueueTrigger` in
+`tests/integration/test_message_refresh_queue.py` (from Task 6.1) to use the upsert
+statement instead of a bare INSERT. Observable behavior (NOTIFY fires with correct
+`channel_id`) is unchanged; only the SQL statement changes.
+
+- **Files**:
+  - `tests/integration/test_message_refresh_queue.py` — update insert SQL to upsert form
+- **Success**:
+  - Integration test passes using the upsert statement
+  - Trigger fires NOTIFY with correct `channel_id` on both INSERT and UPDATE paths
+- **Research References**:
+  - #file:../research/20260319-01-discord-embed-rate-limit-research.md (Lines 330-338) —
+    integration test 1 update note
+  - #file:../research/20260319-01-discord-embed-rate-limit-research.md (Lines 305-317) —
+    trigger fires on both INSERT and UPDATE
+- **Dependencies**:
+  - Task 7.4 complete
+  - Phase 2 migration applied in integration environment

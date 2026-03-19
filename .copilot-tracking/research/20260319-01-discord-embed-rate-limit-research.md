@@ -254,3 +254,85 @@ Simplest test — pure SQL, no async listener needed.
 - Rate limit boundary behavior at integration level — Redis sorted set behavior is covered by unit
   tests and does not need a full Docker environment
 - A second end-to-end "single join → message updated" test — already covered by `test_game_update.py`
+
+---
+
+## Addendum: UPSERT Redesign for `message_refresh_queue`
+
+### Motivation
+
+The implemented design inserts one row per notification event, accumulating rows during bursts and
+relying on the worker's `DELETE ... WHERE enqueued_at <= T_cut` to collapse them. An alternative is
+to enforce at most one row per `(channel_id, game_id)` pair using an upsert, making deduplication
+explicit at write time.
+
+### Correctness Analysis
+
+The `T_cut` delete is race-safe under the upsert design:
+
+1. Worker sets `T_cut = now()` and fetches rows
+2. A new notification arrives → `enqueued_at` updated to `NOW()` > T_cut
+3. Worker performs Discord edit (reads current game state — reflects all joins as before)
+4. Worker deletes `WHERE enqueued_at <= T_cut` → the updated row survives ✓
+5. Next loop iteration finds the surviving row → fires another edit ✓
+
+No correctness difference from the insert-every-time design.
+
+### Schema Change
+
+Replace the surrogate `id UUID PRIMARY KEY` with a composite primary key:
+
+```sql
+CREATE TABLE message_refresh_queue (
+    game_id     VARCHAR(36) NOT NULL REFERENCES game_sessions(id) ON DELETE CASCADE,
+    channel_id  VARCHAR(20) NOT NULL,
+    enqueued_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (channel_id, game_id)
+);
+CREATE INDEX ON message_refresh_queue (channel_id, enqueued_at);
+```
+
+### Write Path Change
+
+Replace the bare `INSERT` with an upsert:
+
+```sql
+INSERT INTO message_refresh_queue (game_id, channel_id, enqueued_at)
+VALUES (:game_id, :channel_id, NOW())
+ON CONFLICT (channel_id, game_id) DO UPDATE SET enqueued_at = NOW();
+```
+
+### Trigger Change
+
+The trigger must fire on both insert and update paths. Change `AFTER INSERT` to `AFTER INSERT OR UPDATE`:
+
+```sql
+CREATE TRIGGER message_refresh_queue_notify
+AFTER INSERT OR UPDATE ON message_refresh_queue
+FOR EACH ROW EXECUTE FUNCTION notify_message_refresh_queue_changed();
+```
+
+Using `AFTER INSERT` alone would silently drop notifies for the burst case where the row already
+exists and only the `UPDATE` path fires.
+
+### Worker Change
+
+The existing `DELETE ... WHERE enqueued_at <= T_cut` still works correctly — no logic change needed.
+The "fetch one row to confirm work exists" query is unchanged; with bounded row counts it remains
+equally efficient.
+
+### Advantages
+
+- Table size bounded by number of active games — no accumulation during bursts
+- Deduplication explicit at write time rather than implicit at delete time
+- Simpler mental model: each row means "this game needs a refresh", not "this event occurred"
+
+### Required Code Changes
+
+1. New Alembic migration: drop `id` column, add `PRIMARY KEY (channel_id, game_id)`, change trigger
+   definition to `AFTER INSERT OR UPDATE`
+2. SQLAlchemy model: remove `id` column, update primary key definition
+3. Write path (handler or upsert helper): change bare `INSERT` to `INSERT ... ON CONFLICT DO UPDATE`
+4. Integration test 1 (trigger fires notify): update to use upsert — observable behavior is
+   unchanged, only the SQL statement changes
+5. Unit tests for the write path: update expected SQL from `INSERT` to the upsert form
