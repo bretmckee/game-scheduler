@@ -106,6 +106,23 @@ accounts for Discord's per-channel 5-edits-per-5s bucket.
 - [ ] Task 5.3: Delete obsolete methods and verify no regressions
   - Details: .copilot-tracking/planning/details/20260319-01-discord-embed-rate-limit-details.md (Lines 351-385)
 
+### [ ] Phase 6: Integration Tests
+
+- [ ] Task 6.1: Integration test — queue trigger fires correct `pg_notify` payload
+  - Insert a row into `message_refresh_queue`; assert LISTEN connection receives `channel_id` as payload
+  - Model: `tests/integration/test_notification_daemon.py`
+  - Reference: #file:../research/20260319-01-discord-embed-rate-limit-research.md (Addendum section)
+
+- [ ] Task 6.2: Integration test — `MessageRefreshListener` receives `channel_id` via asyncpg
+  - Instantiate listener against real DB; insert row; assert callback fires with correct payload
+  - Model: `test_listener_subscribes_to_channel` in `test_notification_daemon.py`
+  - Reference: #file:../research/20260319-01-discord-embed-rate-limit-research.md (Addendum section)
+
+- [ ] Task 6.3: Integration test — startup recovery query returns all pending channels
+  - Insert rows for two distinct `channel_id`s; run recovery SELECT; assert both returned
+  - Pure SQL, no async listener needed
+  - Reference: #file:../research/20260319-01-discord-embed-rate-limit-research.md (Addendum section)
+
 ## Dependencies
 
 - `asyncpg~=0.30.0` (already in `pyproject.toml`)

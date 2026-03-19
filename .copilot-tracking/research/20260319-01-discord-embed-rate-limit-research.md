@@ -207,3 +207,50 @@ In `on_ready` (and `on_resumed`): query `SELECT DISTINCT channel_id FROM message
   - Bot crash mid-burst: all pending updates survive and are processed after restart
   - System idle: no background tasks, no Redis keys, no DB rows
   - No 429 responses from Discord under normal operation
+
+---
+
+## Addendum: Integration Tests
+
+### Context
+
+The bot container is excluded from the integration environment (it requires a real Discord token), so
+integration tests call handlers and components directly against a real DB + RabbitMQ. See
+`tests/integration/test_participant_drop_event.py` and `test_notification_daemon.py` for the
+established patterns.
+
+### Three Integration Tests Worth Adding
+
+#### 1. Queue trigger fires the correct `pg_notify` payload
+
+Model: `tests/integration/test_notification_daemon.py` — `PostgresNotificationListener` + real DB,
+no Discord.
+
+- Insert a row into `message_refresh_queue` with a known `channel_id`
+- Assert the asyncpg/psycopg2 LISTEN connection receives
+  `pg_notify('message_refresh_queue_changed', '<channel_id>')`
+- Guards correctness of the Alembic migration trigger function
+
+#### 2. asyncpg LISTEN receives the `channel_id` payload
+
+Model: `test_listener_subscribes_to_channel` in `test_notification_daemon.py`.
+
+- Instantiate `MessageRefreshListener` against `BOT_DATABASE_URL`
+- Insert a row via admin connection
+- Assert the listener's callback receives the correct `channel_id` as payload
+- Guards the listener's `add_listener` wiring and callback parsing
+
+#### 3. Startup recovery query returns pending channels
+
+Simplest test — pure SQL, no async listener needed.
+
+- Insert rows for two distinct `channel_id`s into `message_refresh_queue`
+- Run `SELECT DISTINCT channel_id FROM message_refresh_queue`
+- Assert both channel IDs are returned
+- Guards the on_ready recovery query that prevents work loss after crash
+
+### What to Skip
+
+- Rate limit boundary behavior at integration level — Redis sorted set behavior is covered by unit
+  tests and does not need a full Docker environment
+- A second end-to-end "single join → message updated" test — already covered by `test_game_update.py`
