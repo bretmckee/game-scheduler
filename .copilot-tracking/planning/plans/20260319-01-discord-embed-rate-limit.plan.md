@@ -1,5 +1,6 @@
----
+m---
 applyTo: '.copilot-tracking/changes/20260319-01-discord-embed-rate-limit-changes.md'
+
 ---
 
 <!-- markdownlint-disable-file -->
@@ -106,15 +107,15 @@ accounts for Discord's per-channel 5-edits-per-5s bucket.
 - [x] Task 5.3: Delete obsolete methods and verify no regressions
   - Details: .copilot-tracking/planning/details/20260319-01-discord-embed-rate-limit-details.md (Lines 351-385)
 
-### [ ] Phase 6: Integration Tests
+### [x] Phase 6: Integration Tests
 
-- [ ] Task 6.1: Integration test — queue trigger fires correct `pg_notify` payload
+- [x] Task 6.1: Integration test — queue trigger fires correct `pg_notify` payload
   - Details: .copilot-tracking/planning/details/20260319-01-discord-embed-rate-limit-details.md (Lines 379-409)
 
-- [ ] Task 6.2: Integration test — `MessageRefreshListener` receives `channel_id` via asyncpg
+- [x] Task 6.2: Integration test — `MessageRefreshListener` receives `channel_id` via asyncpg
   - Details: .copilot-tracking/planning/details/20260319-01-discord-embed-rate-limit-details.md (Lines 411-445)
 
-- [ ] Task 6.3: Integration test — startup recovery query returns all pending channels
+- [x] Task 6.3: Integration test — startup recovery query returns all pending channels
   - Details: .copilot-tracking/planning/details/20260319-01-discord-embed-rate-limit-details.md (Lines 447-475)
 
 ## Dependencies
