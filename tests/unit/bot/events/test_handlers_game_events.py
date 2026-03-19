@@ -21,8 +21,8 @@
 
 """Unit tests for EventHandlers game event error paths.
 
-Covers _process_event, _handle_game_created, _handle_game_updated,
-and _delayed_refresh error and branch paths.
+Covers _process_event, _handle_game_created, and _handle_game_updated
+error and branch paths.
 """
 
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -123,7 +123,9 @@ async def test_handle_game_created_bot_channel_not_accessible(handlers):
     with (
         patch.object(handlers, "_validate_discord_channel", new=AsyncMock(return_value=True)),
         patch.object(
-            handlers, "_get_game_with_participants", new=AsyncMock(return_value=mock_game)
+            handlers,
+            "_get_game_with_participants",
+            new=AsyncMock(return_value=mock_game),
         ),
         patch.object(
             handlers,
@@ -146,33 +148,21 @@ async def test_handle_game_updated_missing_game_id(handlers):
     await handlers._handle_game_updated({})
 
 
-async def test_handle_game_updated_redis_failure_fails_open(handlers):
-    """Falls back to an immediate message refresh when Redis is unavailable."""
+async def test_handle_game_updated_db_failure_logs_exception(handlers):
+    """Exception from DB session is logged and not re-raised."""
     game_id = str(uuid4())
+    _, ctx = _db_ctx()
+    ctx.__aenter__ = AsyncMock(side_effect=RuntimeError("db down"))
+    with patch("services.bot.events.handlers.get_db_session", return_value=ctx):
+        await handlers._handle_game_updated({"game_id": game_id})
+
+
+async def test_handle_game_updated_game_not_found(handlers):
+    """Returns early with an error log when the game_id has no matching game."""
+    game_id = str(uuid4())
+    mock_db, ctx = _db_ctx()
     with (
-        patch(
-            "services.bot.events.handlers.get_redis_client",
-            new=AsyncMock(side_effect=ConnectionError("redis down")),
-        ),
-        patch.object(handlers, "_refresh_game_message", new=AsyncMock()) as mock_refresh,
+        patch("services.bot.events.handlers.get_db_session", return_value=ctx),
+        patch.object(handlers, "_get_game_with_participants", return_value=None),
     ):
         await handlers._handle_game_updated({"game_id": game_id})
-    mock_refresh.assert_called_once_with(game_id)
-
-
-# ---------------------------------------------------------------------------
-# _delayed_refresh
-# ---------------------------------------------------------------------------
-
-
-async def test_delayed_refresh_refreshes_and_clears_pending(handlers):
-    """Refreshes the game message and removes game_id from pending set."""
-    game_id = str(uuid4())
-    handlers._pending_refreshes.add(game_id)
-    with (
-        patch("asyncio.sleep", new=AsyncMock()),
-        patch.object(handlers, "_refresh_game_message", new=AsyncMock()) as mock_refresh,
-    ):
-        await handlers._delayed_refresh(game_id, 0.0)
-    mock_refresh.assert_called_once_with(game_id)
-    assert game_id not in handlers._pending_refreshes

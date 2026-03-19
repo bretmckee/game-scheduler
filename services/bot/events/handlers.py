@@ -96,10 +96,6 @@ class EventHandlers:
             EventType.PLAYER_REMOVED: self._handle_player_removed,
             EventType.GAME_CANCELLED: self._handle_game_cancelled,
         }
-        # Track pending refreshes to ensure final state is always applied
-        self._pending_refreshes: set[str] = set()
-        # Track background tasks to prevent them from being garbage collected
-        self._background_tasks: set[asyncio.Task[Any]] = set()
         # Per-channel workers driven by the DB queue; keyed by discord_channel_id
         self._channel_workers: dict[str, asyncio.Task[Any]] = {}
 
@@ -154,12 +150,6 @@ class EventHandlers:
 
     async def stop_consuming(self) -> None:
         """Stop consuming events and close connection."""
-        self._pending_refreshes.clear()
-        for task in list(self._background_tasks):
-            task.cancel()
-        if self._background_tasks:
-            await asyncio.gather(*self._background_tasks, return_exceptions=True)
-
         if self.consumer:
             await self.consumer.close()
             logger.info("Stopped consuming events")
@@ -267,11 +257,11 @@ class EventHandlers:
 
     async def _handle_game_updated(self, data: dict[str, Any]) -> None:
         """
-        Handle game.updated event by refreshing Discord message.
+        Handle game.updated event by queuing a Discord message refresh.
 
-        Uses Redis-based rate limiting to prevent hitting Discord's rate limits.
-        Ensures final state is always applied by scheduling a trailing refresh
-        when updates are throttled.
+        Inserts a row into message_refresh_queue; the per-channel worker
+        (driven by the pg_notify listener) will perform the actual Discord edit
+        with correct rate limiting.
 
         Args:
             data: Event payload with game_id and updated fields
@@ -283,52 +273,19 @@ class EventHandlers:
             return
 
         try:
-            redis = await get_redis_client()
-            cache_key = f"message_update:{game_id}"
+            async with get_db_session() as db:
+                game = await self._get_game_with_participants(db, game_id)
+                if not game:
+                    logger.error("Game not found: %s", game_id)
+                    return
 
-            # Check if we can update immediately
-            if not await redis.exists(cache_key):
-                # No recent update, refresh immediately
-                logger.info("Refreshing game %s message (immediate)", game_id)
-                await self._refresh_game_message(game_id)
-                return
-
-            # Throttled - schedule a trailing refresh to ensure final state is applied
-            logger.debug("Game %s updated recently, scheduling trailing refresh", game_id)
-
-            # Skip if refresh already scheduled for this game
-            if game_id in self._pending_refreshes:
-                logger.debug("Trailing refresh already scheduled for game %s", game_id)
-                return
-
-            # Schedule refresh after TTL expires
-            self._pending_refreshes.add(game_id)
-            task = asyncio.create_task(self._delayed_refresh(game_id, 2))
-            self._background_tasks.add(task)
-            task.add_done_callback(self._background_tasks.discard)
+                channel_id = str(game.channel.channel_id)
+                db.add(MessageRefreshQueue(game_id=game_id, channel_id=channel_id))
+                await db.commit()
+                logger.info("Queued message refresh: game=%s, channel=%s", game_id, channel_id)
 
         except Exception as e:
-            # Fail open: if Redis unavailable, allow update to proceed
-            logger.warning("Redis error during throttle check, allowing update: %s", e)
-            await self._refresh_game_message(game_id)
-
-    async def _delayed_refresh(self, game_id: str, delay: float) -> None:
-        """
-        Refresh message after delay to ensure final state is applied.
-
-        This trailing edge refresh ensures that rapid bursts of updates
-        don't prevent the final state from being displayed.
-
-        Args:
-            game_id: Game session UUID
-            delay: Seconds to wait before refreshing
-        """
-        try:
-            await asyncio.sleep(delay)
-            logger.info("Executing trailing refresh for game %s", game_id)
-            await self._refresh_game_message(game_id)
-        finally:
-            self._pending_refreshes.discard(game_id)
+            logger.exception("Failed to queue message refresh for game %s: %s", game_id, e)
 
     async def _fetch_game_for_refresh(
         self, db: AsyncSession, game_id: str
@@ -443,17 +400,6 @@ class EventHandlers:
         await message.edit(content=content, embed=embed, view=view)
         logger.info("Refreshed game message: game=%s, message=%s", game.id, game.message_id)
 
-    async def _set_message_refresh_throttle(self, game_id: str) -> None:
-        """
-        Set Redis throttle key to prevent immediate subsequent updates.
-
-        Args:
-            game_id: Game session UUID
-        """
-        redis = await get_redis_client()
-        cache_key = f"message_update:{game_id}"
-        await redis.set(cache_key, "1", ttl=2)
-
     async def _refresh_game_message(self, game_id: str) -> None:
         """
         Refresh Discord message for a game.
@@ -476,7 +422,6 @@ class EventHandlers:
                     return
 
                 await self._update_game_message_content(message, game)
-                await self._set_message_refresh_throttle(game_id)
 
         except Exception as e:
             logger.exception("Failed to refresh game message: %s", e)

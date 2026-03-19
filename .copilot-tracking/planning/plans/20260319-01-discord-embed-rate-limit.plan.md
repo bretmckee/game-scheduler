@@ -95,15 +95,15 @@ accounts for Discord's per-channel 5-edits-per-5s bucket.
 - [x] Task 4.4: Refactor and add multi-game edge case tests (REFACTOR)
   - Details: .copilot-tracking/planning/details/20260319-01-discord-embed-rate-limit-details.md (Lines 283-303)
 
-### [ ] Phase 5: Event Handler Replacement and Final Cleanup
+### [x] Phase 5: Event Handler Replacement and Final Cleanup
 
-- [ ] Task 5.1: Update `_handle_game_updated` tests to expect DB insert; remove old throttle tests (RED)
+- [x] Task 5.1: Update `_handle_game_updated` tests to expect DB insert; remove old throttle tests (RED)
   - Details: .copilot-tracking/planning/details/20260319-01-discord-embed-rate-limit-details.md (Lines 304-325)
 
-- [ ] Task 5.2: Replace throttle logic with DB insert; add startup recovery (GREEN)
+- [x] Task 5.2: Replace throttle logic with DB insert; add startup recovery (GREEN)
   - Details: .copilot-tracking/planning/details/20260319-01-discord-embed-rate-limit-details.md (Lines 326-350)
 
-- [ ] Task 5.3: Delete obsolete methods and verify no regressions
+- [x] Task 5.3: Delete obsolete methods and verify no regressions
   - Details: .copilot-tracking/planning/details/20260319-01-discord-embed-rate-limit-details.md (Lines 351-385)
 
 ### [ ] Phase 6: Integration Tests

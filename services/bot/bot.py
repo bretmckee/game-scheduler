@@ -21,6 +21,7 @@
 
 """Discord bot implementation with Gateway connection."""
 
+import asyncio
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -28,11 +29,13 @@ from typing import TYPE_CHECKING, Any
 import discord
 from discord.ext import commands
 from opentelemetry import trace
+from sqlalchemy import distinct, select
 
 from services.bot.config import BotConfig
 from services.bot.dependencies.discord_client import get_discord_client
 from services.bot.guild_sync import sync_all_bot_guilds
 from shared.database import get_db_session
+from shared.models.message_refresh_queue import MessageRefreshQueue
 
 if TYPE_CHECKING:
     from services.bot.events.handlers import EventHandlers
@@ -150,6 +153,8 @@ class GameSchedulerBot(commands.Bot):
                 self.loop.create_task(self.event_handlers.start_consuming())
                 logger.info("Started event consumer task")
 
+            await self._recover_pending_workers()
+
     async def on_disconnect(self) -> None:
         """Handle Gateway disconnection."""
         logger.warning("Bot disconnected from Gateway")
@@ -157,6 +162,31 @@ class GameSchedulerBot(commands.Bot):
     async def on_resumed(self) -> None:
         """Handle Gateway reconnection after disconnect."""
         logger.info("Bot reconnected to Gateway")
+        await self._recover_pending_workers()
+
+    async def _recover_pending_workers(self) -> None:
+        """Spawn channel workers for any pending message_refresh_queue rows.
+
+        Queries the DB for channels with un-processed queue rows and spawns a
+        worker for each channel that does not already have an active one.
+        Runs on startup (on_ready) and after reconnect (on_resumed) to recover
+        from crashes or disconnects.
+        """
+        if not self.event_handlers:
+            return
+        try:
+            async with get_db_session() as db:
+                result = await db.execute(select(distinct(MessageRefreshQueue.channel_id)))
+                channel_ids = [row[0] for row in result.fetchall()]
+
+            workers = self.event_handlers._channel_workers
+            for channel_id in channel_ids:
+                if channel_id not in workers or workers[channel_id].done():
+                    task = asyncio.create_task(self.event_handlers._channel_worker(channel_id))
+                    workers[channel_id] = task
+                    logger.info("Recovery: spawned worker for channel %s", channel_id)
+        except Exception as e:
+            logger.exception("Failed to recover pending channel workers: %s", e)
 
     async def on_interaction(self, interaction: discord.Interaction) -> None:
         """

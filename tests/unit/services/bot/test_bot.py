@@ -377,6 +377,76 @@ class TestGameSchedulerBot:
             mock_logger.info.assert_called_once_with("Shutting down bot")
             mock_close.assert_awaited_once()
 
+    @pytest.mark.asyncio
+    async def test_recover_pending_workers_spawns_workers(self, bot_config: BotConfig) -> None:
+        """Workers are spawned for all channels with pending queue rows."""
+        bot = GameSchedulerBot(bot_config)
+        mock_handlers = MagicMock()
+        mock_handlers._channel_workers = {}
+        mock_handlers._channel_worker = MagicMock()
+        bot.event_handlers = mock_handlers
+
+        mock_db = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.fetchall.return_value = [("111222333",), ("444555666",)]
+        mock_db.execute = AsyncMock(return_value=mock_result)
+        mock_db_ctx = MagicMock()
+        mock_db_ctx.__aenter__ = AsyncMock(return_value=mock_db)
+        mock_db_ctx.__aexit__ = AsyncMock(return_value=None)
+
+        with (
+            patch("services.bot.bot.get_db_session", return_value=mock_db_ctx),
+            patch("services.bot.bot.asyncio.create_task") as mock_create_task,
+        ):
+            mock_create_task.return_value = MagicMock()
+            await bot._recover_pending_workers()
+
+        assert mock_create_task.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_recover_pending_workers_skips_active_workers(
+        self, bot_config: BotConfig
+    ) -> None:
+        """Channels with an active (not done) worker are not given a new task."""
+        bot = GameSchedulerBot(bot_config)
+        active_task = MagicMock()
+        active_task.done.return_value = False
+        mock_handlers = MagicMock()
+        mock_handlers._channel_workers = {"111222333": active_task}
+        mock_handlers._channel_worker = MagicMock()
+        bot.event_handlers = mock_handlers
+
+        mock_db = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.fetchall.return_value = [("111222333",)]
+        mock_db.execute = AsyncMock(return_value=mock_result)
+        mock_db_ctx = MagicMock()
+        mock_db_ctx.__aenter__ = AsyncMock(return_value=mock_db)
+        mock_db_ctx.__aexit__ = AsyncMock(return_value=None)
+
+        with (
+            patch("services.bot.bot.get_db_session", return_value=mock_db_ctx),
+            patch("services.bot.bot.asyncio.create_task") as mock_create_task,
+        ):
+            await bot._recover_pending_workers()
+
+        mock_create_task.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_recover_pending_workers_db_exception_logged(self, bot_config: BotConfig) -> None:
+        """A DB error during recovery is caught and logged; the method does not raise."""
+        bot = GameSchedulerBot(bot_config)
+        mock_handlers = MagicMock()
+        mock_handlers._channel_workers = {}
+        bot.event_handlers = mock_handlers
+
+        mock_db_ctx = MagicMock()
+        mock_db_ctx.__aenter__ = AsyncMock(side_effect=RuntimeError("db down"))
+        mock_db_ctx.__aexit__ = AsyncMock(return_value=None)
+
+        with patch("services.bot.bot.get_db_session", return_value=mock_db_ctx):
+            await bot._recover_pending_workers()  # must not raise
+
 
 class TestCreateBot:
     """Test suite for create_bot function."""

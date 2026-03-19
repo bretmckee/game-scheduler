@@ -21,7 +21,6 @@
 
 """Unit tests for bot event handlers."""
 
-import asyncio
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -35,6 +34,7 @@ from shared.models import GameStatus, GameStatusSchedule
 from shared.models import participant as participant_model
 from shared.models.base import utc_now
 from shared.models.game import GameSession
+from shared.models.message_refresh_queue import MessageRefreshQueue
 from shared.models.participant import ParticipantType
 from shared.models.user import User
 
@@ -51,12 +51,7 @@ def mock_bot():
 @pytest.fixture
 async def event_handlers(mock_bot):
     """Create EventHandlers instance."""
-    handler = EventHandlers(mock_bot)
-    yield handler
-    for task in list(handler._background_tasks):
-        task.cancel()
-    if handler._background_tasks:
-        await asyncio.gather(*handler._background_tasks, return_exceptions=True)
+    return EventHandlers(mock_bot)
 
 
 @pytest.fixture
@@ -137,24 +132,6 @@ async def test_stop_consuming(event_handlers):
 async def test_stop_consuming_no_consumer(event_handlers):
     """Test stopping when no consumer exists."""
     await event_handlers.stop_consuming()
-
-
-@pytest.mark.asyncio
-async def test_stop_consuming_cancels_background_tasks(event_handlers):
-    """Test that stop_consuming cancels any pending background tasks."""
-
-    async def long_sleep():
-        await asyncio.sleep(3600)
-
-    task = asyncio.create_task(long_sleep())
-    event_handlers._background_tasks.add(task)
-    task.add_done_callback(event_handlers._background_tasks.discard)
-
-    await event_handlers.stop_consuming()
-    await asyncio.sleep(0)  # let done callbacks flush
-
-    assert task.cancelled()
-    assert len(event_handlers._background_tasks) == 0
 
 
 @pytest.mark.asyncio
@@ -294,104 +271,38 @@ async def test_get_bot_channel_invalid_type(event_handlers, mock_bot):
 
 
 @pytest.mark.asyncio
-async def test_handle_game_updated_success(event_handlers, mock_bot, sample_game, sample_user):
-    """Test game.updated event handler processes without errors."""
-    sample_game.host = sample_user
-    sample_game.participants = []
-
-    mock_guild = MagicMock()
-    mock_guild.guild_id = sample_game.guild_id
-    sample_game.guild = mock_guild
-
-    mock_channel_config = MagicMock()
-    mock_channel_config.channel_id = "123456789"
-    sample_game.channel = mock_channel_config
-
-    with patch("services.bot.events.handlers.get_discord_client"):
-        with patch("services.bot.events.handlers.get_db_session"):
-            with patch(
-                "services.bot.events.handlers.EventHandlers._get_game_with_participants",
-                return_value=sample_game,
-            ):
-                with patch(
-                    "services.bot.events.handlers.get_member_display_info",
-                    return_value=("Test User", "https://example.com/avatar.png"),
-                ):
-                    data = {"game_id": sample_game.id}
-                    # Should complete without raising an exception
-                    await event_handlers._handle_game_updated(data)
-                    await asyncio.sleep(0.01)  # Let event loop process
-
-
-@pytest.mark.asyncio
-async def test_handle_game_updated_message_not_found(
+async def test_handle_game_updated_inserts_queue_row(
     event_handlers, mock_bot, sample_game, sample_user
 ):
-    """Test game.updated event when message not found."""
-    mock_discord_channel = MagicMock(spec=discord.TextChannel)
-    mock_discord_channel.fetch_message = AsyncMock(
-        side_effect=discord.NotFound(MagicMock(), MagicMock())
-    )
-    mock_bot.fetch_channel = AsyncMock(return_value=mock_discord_channel)
-
+    """Test game.updated event inserts a row into message_refresh_queue."""
     sample_game.host = sample_user
     sample_game.participants = []
 
-    # Add mock channel configuration with Discord channel_id
     mock_channel_config = MagicMock()
     mock_channel_config.channel_id = "123456789"
     sample_game.channel = mock_channel_config
 
-    with patch("services.bot.events.handlers.get_db_session") as mock_db_session:
-        mock_db = MagicMock()
-        mock_db.__aenter__ = AsyncMock(return_value=mock_db)
-        mock_db.__aexit__ = AsyncMock()
-        mock_db_session.return_value = mock_db
+    mock_db = AsyncMock()
+    mock_db.add = MagicMock()
+    mock_db.commit = AsyncMock()
 
-        with patch(
+    with (
+        patch("services.bot.events.handlers.get_db_session") as mock_db_session,
+        patch(
             "services.bot.events.handlers.EventHandlers._get_game_with_participants",
             return_value=sample_game,
-        ):
-            data = {"game_id": sample_game.id}
-            await event_handlers._handle_game_updated(data)
+        ),
+    ):
+        mock_db_session.return_value.__aenter__ = AsyncMock(return_value=mock_db)
+        mock_db_session.return_value.__aexit__ = AsyncMock(return_value=None)
 
-            # Wait for debounced refresh to complete
-            await asyncio.sleep(2.1)
+        await event_handlers._handle_game_updated({"game_id": sample_game.id})
 
-
-@pytest.mark.asyncio
-async def test_handle_game_updated_debouncing(event_handlers, mock_bot, sample_game, sample_user):
-    """Test that rapid game updates are debounced and only refreshed once."""
-    sample_game.host = sample_user
-    sample_game.participants = []
-
-    mock_guild = MagicMock()
-    mock_guild.guild_id = sample_game.guild_id
-    sample_game.guild = mock_guild
-
-    mock_channel_config = MagicMock()
-    mock_channel_config.channel_id = "123456789"
-    sample_game.channel = mock_channel_config
-
-    with patch("services.bot.events.handlers.get_discord_client"):
-        with patch("services.bot.events.handlers.get_db_session"):
-            with patch("services.bot.events.handlers.get_redis_client"):
-                with patch(
-                    "services.bot.events.handlers.EventHandlers._get_game_with_participants",
-                    return_value=sample_game,
-                ):
-                    with patch(
-                        "services.bot.events.handlers.get_member_display_info",
-                        return_value=("Test User", "https://example.com/avatar.png"),
-                    ):
-                        data = {"game_id": sample_game.id}
-
-                        # Send 5 rapid updates
-                        for _i in range(5):
-                            await event_handlers._handle_game_updated(data)
-
-                        # Should have a pending refresh
-                        assert sample_game.id in event_handlers._pending_refreshes
+    added_rows = [call.args[0] for call in mock_db.add.call_args_list]
+    queue_rows = [r for r in added_rows if isinstance(r, MessageRefreshQueue)]
+    assert len(queue_rows) == 1
+    assert queue_rows[0].game_id == sample_game.id
+    assert queue_rows[0].channel_id == "123456789"
 
 
 @pytest.mark.asyncio
@@ -2451,22 +2362,6 @@ class TestRefreshGameMessageHelpers:
             content=mock_content, embed=mock_embed, view=mock_view
         )
 
-    @pytest.mark.asyncio
-    async def test_set_message_refresh_throttle(self, event_handlers):
-        """Test setting Redis throttle key."""
-        game_id = str(uuid4())
-        mock_redis = AsyncMock()
-
-        with patch("services.bot.events.handlers.get_redis_client") as mock_get_redis:
-            mock_get_redis.return_value = mock_redis
-
-            await event_handlers._set_message_refresh_throttle(game_id)
-
-        mock_redis.set.assert_called_once()
-        call_args = mock_redis.set.call_args
-        assert game_id in call_args[0][0]
-        assert call_args[0][1] == "1"
-
 
 # --- _refresh_game_message Integration Tests ---
 
@@ -2497,7 +2392,6 @@ async def test_refresh_game_message_success(event_handlers, sample_game, mock_bo
             event_handlers, "_fetch_message_for_refresh", return_value=mock_message
         ) as mock_fetch_msg,
         patch.object(event_handlers, "_update_game_message_content") as mock_update,
-        patch.object(event_handlers, "_set_message_refresh_throttle") as mock_throttle,
     ):
         mock_db.return_value.__aenter__.return_value = mock_db_instance
         mock_db.return_value.__aexit__.return_value = None
@@ -2508,7 +2402,6 @@ async def test_refresh_game_message_success(event_handlers, sample_game, mock_bo
         mock_validate.assert_called_once_with(str(sample_game.channel.channel_id))
         mock_fetch_msg.assert_called_once_with(mock_channel, sample_game.message_id)
         mock_update.assert_called_once_with(mock_message, sample_game)
-        mock_throttle.assert_called_once_with(sample_game.id)
 
 
 @pytest.mark.asyncio
@@ -2592,7 +2485,6 @@ async def test_refresh_game_message_message_not_found(event_handlers, sample_gam
             event_handlers, "_fetch_message_for_refresh", return_value=None
         ) as mock_fetch_msg,
         patch.object(event_handlers, "_update_game_message_content") as mock_update,
-        patch.object(event_handlers, "_set_message_refresh_throttle") as mock_throttle,
     ):
         mock_db.return_value.__aenter__.return_value = mock_db_instance
         mock_db.return_value.__aexit__.return_value = None
@@ -2603,7 +2495,6 @@ async def test_refresh_game_message_message_not_found(event_handlers, sample_gam
         mock_validate.assert_called_once()
         mock_fetch_msg.assert_called_once()
         mock_update.assert_not_called()
-        mock_throttle.assert_not_called()
 
 
 @pytest.mark.asyncio
