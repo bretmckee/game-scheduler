@@ -30,6 +30,14 @@ templates, with Discord spoiler display, a host DM reminder on completion, and a
 - `tests/unit/shared/test_message_formats.py` — unit tests for `DMFormats.rewards_reminder` and `DMPredicates.rewards_reminder`
 - `tests/unit/bot/test_game_message_formatter.py` — unit tests for `GameMessageFormatter.create_game_embed` rewards field
 
+## Phase 5 Modified
+
+- `frontend/src/types/index.ts` — added `rewards?: string | null`, `remind_host_rewards?: boolean`, `archive_channel_id?: string | null` to `GameSession`; added `remind_host_rewards?: boolean` to `GameTemplate`
+- `frontend/src/components/GameForm.tsx` — added `rewards: string` and `remindHostRewards: boolean` to `GameFormData`; added optional `onSaveAndArchive` prop; added rewards textarea (edit mode, non-SCHEDULED status only), `remindHostRewards` checkbox (always visible), and "Save and Archive" button (shown when `onSaveAndArchive` prop present, rewards non-empty, and `archive_channel_id` non-empty); added `Checkbox` and `FormControlLabel` MUI imports
+- `frontend/src/pages/EditGame.tsx` — added `rewards` and `remind_host_rewards` to PUT payload in `handleSubmit`; added `handleSaveAndArchive` function (same fields plus `archive_delay_seconds: 1`); passes `onSaveAndArchive={handleSaveAndArchive}` to `GameForm`
+- `frontend/src/pages/GameDetails.tsx` — added `rewardsRevealed` state; added click-to-reveal blur spoiler box for rewards when `game.rewards` is set
+- `frontend/src/components/GameCard.tsx` — added "🏆 Rewards available" indicator when `game.rewards` is set
+
 ---
 
 ## Phase Progress
@@ -38,5 +46,5 @@ templates, with Discord spoiler display, a host DM reminder on completion, and a
 - [x] Phase 2: Backend Models & Schemas
 - [x] Phase 3: API Service & Routes
 - [x] Phase 4: Bot Formatters & Handlers
-- [ ] Phase 5: Frontend
+- [x] Phase 5: Frontend
 - [ ] Phase 6: Tests (TDD)

@@ -104,6 +104,9 @@ export interface GameSession {
   thumbnail_id?: string | null;
   banner_image_id?: string | null;
   can_manage?: boolean;
+  rewards?: string | null;
+  remind_host_rewards?: boolean;
+  archive_channel_id?: string | null;
 }
 
 export interface Participant {
@@ -167,6 +170,7 @@ export interface GameTemplate {
   channel_id: string;
   channel_name: string;
   archive_channel_id: string | null;
+  remind_host_rewards?: boolean;
   archive_channel_name: string | null;
   archive_delay_seconds: number | null;
   notify_role_ids: string[] | null;

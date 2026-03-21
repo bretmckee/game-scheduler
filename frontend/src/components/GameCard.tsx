@@ -196,6 +196,12 @@ export const GameCard: FC<GameCardProps> = ({ game, showActions = true, onGameUp
           )}
         </Box>
 
+        {game.rewards && (
+          <Typography variant="body2" sx={{ mb: 1 }}>
+            🏆 Rewards available
+          </Typography>
+        )}
+
         {error && (
           <Alert severity="error" sx={{ mt: 2 }}>
             {error}

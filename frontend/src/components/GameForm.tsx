@@ -33,6 +33,8 @@ import {
   Paper,
   SelectChangeEvent,
   Grid,
+  Checkbox,
+  FormControlLabel,
 } from '@mui/material';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -102,6 +104,8 @@ export interface GameFormData {
   imageFile: File | null;
   removeThumbnail: boolean;
   removeImage: boolean;
+  rewards: string;
+  remindHostRewards: boolean;
 }
 
 interface GameFormProps {
@@ -115,6 +119,7 @@ interface GameFormProps {
   allowedSignupMethods?: string[] | null;
   defaultSignupMethod?: string | null;
   onSubmit: (formData: GameFormData) => Promise<void>;
+  onSaveAndArchive?: (formData: GameFormData) => Promise<void>;
   onCancel: () => void;
   validationErrors?: Array<{
     input: string;
@@ -150,6 +155,7 @@ export const GameForm: FC<GameFormProps> = ({
   allowedSignupMethods = null,
   defaultSignupMethod = null,
   onSubmit,
+  onSaveAndArchive,
   onCancel,
   validationErrors,
   validParticipants,
@@ -223,6 +229,8 @@ export const GameForm: FC<GameFormProps> = ({
     imageFile: null,
     removeThumbnail: false,
     removeImage: false,
+    rewards: initialData?.rewards || '',
+    remindHostRewards: initialData?.remind_host_rewards ?? false,
   });
 
   // Update form when initialData changes (e.g., after async fetch in edit mode)
@@ -273,6 +281,8 @@ export const GameForm: FC<GameFormProps> = ({
         imageFile: null,
         removeThumbnail: false,
         removeImage: false,
+        rewards: initialData.rewards || '',
+        remindHostRewards: initialData.remind_host_rewards ?? false,
       });
     }
   }, [initialData, resolvedDefaultSignupMethod]);
@@ -619,6 +629,25 @@ export const GameForm: FC<GameFormProps> = ({
             />
           )}
 
+          {mode === 'edit' && initialData?.status !== 'SCHEDULED' && (
+            <TextField
+              fullWidth
+              multiline
+              rows={3}
+              label="Rewards"
+              name="rewards"
+              value={formData.rewards}
+              onChange={handleChange}
+              margin="normal"
+              disabled={loading}
+              helperText="Describe rewards or prizes for participants (displayed as a spoiler)"
+              InputLabelProps={{
+                sx: { fontSize: '1.1rem' },
+              }}
+              sx={{ mb: 1 }}
+            />
+          )}
+
           <TextField
             fullWidth
             label="Location"
@@ -760,6 +789,20 @@ export const GameForm: FC<GameFormProps> = ({
             sx={{ mb: 1 }}
           />
 
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={formData.remindHostRewards}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, remindHostRewards: e.target.checked }))
+                }
+                disabled={loading}
+              />
+            }
+            label="Remind me to add rewards when the game completes"
+            sx={{ mt: 1, mb: 1 }}
+          />
+
           <Grid container spacing={2} sx={{ mt: 1, mb: 2 }}>
             <Grid size={{ xs: 12, md: 6 }}>
               <TextField
@@ -867,6 +910,35 @@ export const GameForm: FC<GameFormProps> = ({
                 'Save Changes'
               )}
             </Button>
+            {onSaveAndArchive &&
+              formData.rewards.trim() !== '' &&
+              initialData?.archive_channel_id && (
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  disabled={loading}
+                  fullWidth
+                  onClick={async () => {
+                    try {
+                      setLoading(true);
+                      setError(null);
+                      await onSaveAndArchive(formData);
+                    } catch (err: unknown) {
+                      console.error('Failed to save and archive:', err);
+                      const errorDetail = (err as any).response?.data?.detail;
+                      const errorMessage =
+                        typeof errorDetail === 'string'
+                          ? errorDetail
+                          : errorDetail?.message || 'Failed to save and archive. Please try again.';
+                      setError(errorMessage);
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                >
+                  {loading ? <CircularProgress size={24} /> : 'Save and Archive'}
+                </Button>
+              )}
             <Button variant="outlined" onClick={onCancel} disabled={loading} fullWidth>
               Cancel
             </Button>

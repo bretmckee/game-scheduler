@@ -20,6 +20,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router';
 import { GameDetails } from '../GameDetails';
 import { AuthContext } from '../../contexts/AuthContext';
@@ -129,5 +130,53 @@ describe('GameDetails - Edit Game button visibility', () => {
     });
     expect(screen.queryByText('Edit Game')).not.toBeInTheDocument();
     expect(screen.queryByText('Clone Game')).not.toBeInTheDocument();
+  });
+});
+
+describe('GameDetails - Rewards spoiler', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('hides rewards section when game has no rewards', async () => {
+    vi.mocked(apiClient.get).mockResolvedValue({ data: { ...baseGame, rewards: null } });
+
+    renderGameDetails();
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Game')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('🏆 Rewards')).not.toBeInTheDocument();
+  });
+
+  it('shows blurred rewards with click-to-reveal when rewards are set', async () => {
+    vi.mocked(apiClient.get).mockResolvedValue({
+      data: { ...baseGame, rewards: 'Gold and glory' },
+    });
+
+    renderGameDetails();
+
+    await waitFor(() => {
+      expect(screen.getByText('🏆 Rewards')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Click to reveal rewards')).toBeInTheDocument();
+  });
+
+  it('reveals rewards text after click', async () => {
+    vi.mocked(apiClient.get).mockResolvedValue({
+      data: { ...baseGame, rewards: 'Gold and glory' },
+    });
+
+    const user = userEvent.setup();
+    renderGameDetails();
+
+    await waitFor(() => {
+      expect(screen.getByText('Click to reveal rewards')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Click to reveal rewards'));
+
+    expect(screen.getByText('Gold and glory')).toBeInTheDocument();
+    expect(screen.queryByText('Click to reveal rewards')).not.toBeInTheDocument();
   });
 });

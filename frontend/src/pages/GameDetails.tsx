@@ -58,6 +58,7 @@ export const GameDetails: FC = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [calendarLoading, setCalendarLoading] = useState(false);
+  const [rewardsRevealed, setRewardsRevealed] = useState(false);
 
   const formatDuration = (minutes: number | null): string => {
     if (!minutes) return '';
@@ -333,6 +334,32 @@ export const GameDetails: FC = () => {
               ℹ️ Signup Instructions
             </Typography>
             <Typography variant="body2">{game.signup_instructions}</Typography>
+          </Box>
+        )}
+
+        {game.rewards && (
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
+              🏆 Rewards
+            </Typography>
+            <Box
+              onClick={() => setRewardsRevealed(true)}
+              sx={{
+                p: 1.5,
+                borderRadius: 1,
+                border: '1px solid',
+                borderColor: 'divider',
+                filter: rewardsRevealed ? 'none' : 'blur(6px)',
+                cursor: rewardsRevealed ? 'default' : 'pointer',
+                userSelect: rewardsRevealed ? 'text' : 'none',
+                transition: 'filter 0.2s',
+              }}
+              title={rewardsRevealed ? undefined : 'Click to reveal rewards'}
+            >
+              <Typography variant="body2">
+                {rewardsRevealed ? game.rewards : 'Click to reveal rewards'}
+              </Typography>
+            </Box>
           </Box>
         )}
 

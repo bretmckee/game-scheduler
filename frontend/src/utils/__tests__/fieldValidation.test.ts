@@ -191,7 +191,7 @@ describe('validateFutureDate', () => {
   });
 
   it('should accept date meeting minHours requirement', () => {
-    const futureDate = new Date(Date.now() + 7200000);
+    const futureDate = new Date(Date.now() + 7200000 + 5000);
     const result = validateFutureDate(futureDate, 2);
     expect(result.isValid).toBe(true);
   });

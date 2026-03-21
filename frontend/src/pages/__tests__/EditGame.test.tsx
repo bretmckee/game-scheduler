@@ -318,4 +318,79 @@ describe('EditGame', () => {
       expect(screen.getByText('Update failed')).toBeInTheDocument();
     });
   });
+
+  it('shows Save and Archive button when rewards, archive_channel_id, and IN_PROGRESS', async () => {
+    const gameWithRewards: GameSession = {
+      ...mockGame,
+      status: 'IN_PROGRESS',
+      rewards: 'A treasure chest',
+      archive_channel_id: 'archive-ch-1',
+    };
+
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url.includes('/games/')) return Promise.resolve({ data: gameWithRewards });
+      if (url.includes('/channels')) return Promise.resolve({ data: mockChannels });
+      if (url.includes('/roles')) return Promise.resolve({ data: [] });
+      return Promise.reject(new Error('Unknown URL'));
+    });
+
+    render(
+      <AuthContext.Provider value={mockAuthContextValue}>
+        <BrowserRouter>
+          <EditGame />
+        </BrowserRouter>
+      </AuthContext.Provider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Save and Archive')).toBeInTheDocument();
+    });
+  });
+
+  it('calls PUT with archive_delay_seconds: 1 when Save and Archive is clicked', async () => {
+    const gameWithRewards: GameSession = {
+      ...mockGame,
+      status: 'IN_PROGRESS',
+      rewards: 'A treasure chest',
+      archive_channel_id: 'archive-ch-1',
+    };
+
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url.includes('/games/')) return Promise.resolve({ data: gameWithRewards });
+      if (url.includes('/channels')) return Promise.resolve({ data: mockChannels });
+      if (url.includes('/roles')) return Promise.resolve({ data: [] });
+      return Promise.reject(new Error('Unknown URL'));
+    });
+
+    vi.mocked(apiClient.put).mockResolvedValueOnce({ data: gameWithRewards });
+
+    const user = userEvent.setup();
+
+    render(
+      <AuthContext.Provider value={mockAuthContextValue}>
+        <BrowserRouter>
+          <EditGame />
+        </BrowserRouter>
+      </AuthContext.Provider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Save and Archive')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Save and Archive'));
+
+    await waitFor(() => {
+      expect(apiClient.put).toHaveBeenCalledWith(
+        '/api/v1/games/game123',
+        expect.any(FormData),
+        expect.objectContaining({ headers: { 'Content-Type': 'multipart/form-data' } })
+      );
+      const calls = vi.mocked(apiClient.put).mock.calls;
+      expect(calls.length).toBeGreaterThan(0);
+      const formData = calls[0]?.[1] as FormData;
+      expect(formData.get('archive_delay_seconds')).toBe('1');
+      expect(mockNavigate).toHaveBeenCalledWith('/games/game123');
+    });
+  });
 });

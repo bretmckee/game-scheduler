@@ -82,18 +82,18 @@ Add a `rewards` field with spoiler display to games, a `remind_host_rewards` fla
 - [x] Task 4.2: Add DMFormats.rewards_reminder and COMPLETED handler DM
   - Details: .copilot-tracking/planning/details/20260321-02-rewards-feature-details.md (Lines 122-141)
 
-### [ ] Phase 5: Frontend
+### [x] Phase 5: Frontend
 
-- [ ] Task 5.1: Update TypeScript type definitions
+- [x] Task 5.1: Update TypeScript type definitions
   - Details: .copilot-tracking/planning/details/20260321-02-rewards-feature-details.md (Lines 144-157)
 
-- [ ] Task 5.2: Update GameForm with rewards textarea, checkbox, and Save and Archive button
+- [x] Task 5.2: Update GameForm with rewards textarea, checkbox, and Save and Archive button
   - Details: .copilot-tracking/planning/details/20260321-02-rewards-feature-details.md (Lines 158-173)
 
-- [ ] Task 5.3: Update EditGame page with new fields and Save and Archive handler
+- [x] Task 5.3: Update EditGame page with new fields and Save and Archive handler
   - Details: .copilot-tracking/planning/details/20260321-02-rewards-feature-details.md (Lines 174-189)
 
-- [ ] Task 5.4: Add spoiler display to GameDetails and GameCard
+- [x] Task 5.4: Add spoiler display to GameDetails and GameCard
   - Details: .copilot-tracking/planning/details/20260321-02-rewards-feature-details.md (Lines 190-207)
 
 ### [ ] Phase 6: Tests (TDD)

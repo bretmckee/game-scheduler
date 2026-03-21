@@ -197,6 +197,10 @@ export const EditGame: FC = () => {
         payload.append('remove_image', 'true');
       }
 
+      // Add rewards fields
+      payload.append('rewards', formData.rewards || '');
+      payload.append('remind_host_rewards', formData.remindHostRewards ? 'true' : 'false');
+
       await apiClient.put(`/api/v1/games/${gameId}`, payload, {
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -227,6 +231,78 @@ export const EditGame: FC = () => {
     setValidParticipants(null);
   };
 
+  const handleSaveAndArchive = async (formData: GameFormData) => {
+    if (!gameId) {
+      throw new Error('Game ID is required');
+    }
+
+    const maxPlayers = formData.maxPlayers ? parseInt(formData.maxPlayers) : null;
+
+    const currentParticipantIds = new Set(
+      formData.participants.map((p) => (p.id.startsWith('temp-') ? null : p.id)).filter(Boolean)
+    );
+
+    const removedParticipantIds = state.initialParticipants
+      .filter((initial) => !currentParticipantIds.has(initial.id))
+      .map((p) => p.id);
+
+    const payload = new FormData();
+    payload.append('title', formData.title);
+    payload.append('description', formData.description);
+    payload.append('scheduled_at', formData.scheduledAt!.toISOString());
+    payload.append('channel_id', formData.channelId);
+    payload.append('signup_instructions', formData.signupInstructions || '');
+    payload.append('where', formData.where || '');
+    if (maxPlayers !== null) {
+      payload.append('max_players', maxPlayers.toString());
+    }
+    const reminderMinutesArray = formData.reminderMinutes
+      ? formData.reminderMinutes
+          .split(',')
+          .map((m) => parseInt(m.trim()))
+          .filter((m) => !isNaN(m))
+      : [];
+    payload.append('reminder_minutes', JSON.stringify(reminderMinutesArray));
+    if (formData.expectedDurationMinutes !== null) {
+      payload.append('expected_duration_minutes', formData.expectedDurationMinutes.toString());
+    }
+    payload.append('signup_method', formData.signupMethod);
+    const participantsList = formData.participants
+      .filter((p) => p.mention.trim() && p.isExplicitlyPositioned)
+      .map((p) => {
+        if (!p.id.startsWith('temp-')) {
+          return { participant_id: p.id, position: p.preFillPosition };
+        }
+        return { mention: p.mention.trim(), position: p.preFillPosition };
+      });
+    if (participantsList.length > 0) {
+      payload.append('participants', JSON.stringify(participantsList));
+    }
+    if (removedParticipantIds.length > 0) {
+      payload.append('removed_participant_ids', JSON.stringify(removedParticipantIds));
+    }
+    if (formData.thumbnailFile) {
+      payload.append('thumbnail', formData.thumbnailFile);
+    }
+    if (formData.imageFile) {
+      payload.append('image', formData.imageFile);
+    }
+    if (formData.removeThumbnail) {
+      payload.append('remove_thumbnail', 'true');
+    }
+    if (formData.removeImage) {
+      payload.append('remove_image', 'true');
+    }
+    payload.append('rewards', formData.rewards || '');
+    payload.append('remind_host_rewards', formData.remindHostRewards ? 'true' : 'false');
+    payload.append('archive_delay_seconds', '1');
+
+    await apiClient.put(`/api/v1/games/${gameId}`, payload, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    navigate(`/games/${gameId}`);
+  };
+
   if (loading) {
     return (
       <Container maxWidth="md" sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
@@ -252,6 +328,7 @@ export const EditGame: FC = () => {
         guildName={state.game.guild_name || undefined}
         channels={state.channels}
         onSubmit={handleSubmit}
+        onSaveAndArchive={handleSaveAndArchive}
         onCancel={() => navigate(`/games/${gameId}`)}
         validationErrors={validationErrors}
         validParticipants={validParticipants}
