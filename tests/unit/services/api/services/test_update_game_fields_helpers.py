@@ -214,7 +214,7 @@ def test_update_remaining_fields_updates_all_fields(game_service):
 
     result = game_service._update_remaining_fields(game, update_data)
 
-    assert result is False  # status not updated
+    assert result is True  # expected_duration_minutes change triggers status schedule update
     assert game.max_players == 6
     assert game.expected_duration_minutes == 120
     assert game.notify_role_ids == ["234567890123456789", "345678901234567890"]

@@ -2602,6 +2602,105 @@ async def test_ensure_completed_schedule_updates_existing(game_service, mock_db)
 
 
 @pytest.mark.asyncio
+async def test_ensure_archived_schedule_if_configured_skips_when_no_delay(game_service, mock_db):
+    """Test _ensure_archived_schedule_if_configured is a no-op when archive_delay_seconds is
+    None."""
+
+    game = game_model.GameSession(
+        id=str(uuid.uuid4()),
+        title="Test Game",
+        scheduled_at=datetime.datetime.now(datetime.UTC),
+        archive_delay_seconds=None,
+        status="COMPLETED",
+    )
+    mock_db.add = MagicMock()
+
+    await game_service._ensure_archived_schedule_if_configured(game, [])
+
+    mock_db.add.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_ensure_archived_schedule_if_configured_creates_new(game_service, mock_db):
+    """Test _ensure_archived_schedule_if_configured creates a new ARCHIVED schedule."""
+
+    game = game_model.GameSession(
+        id=str(uuid.uuid4()),
+        title="Test Game",
+        scheduled_at=datetime.datetime.now(datetime.UTC),
+        archive_delay_seconds=3600,
+        status="COMPLETED",
+    )
+    mock_db.add = MagicMock()
+
+    await game_service._ensure_archived_schedule_if_configured(game, [])
+
+    mock_db.add.assert_called_once()
+    added = mock_db.add.call_args[0][0]
+    assert isinstance(added, game_status_schedule_model.GameStatusSchedule)
+    assert added.game_id == game.id
+    assert added.target_status == game_model.GameStatus.ARCHIVED.value
+    assert added.executed is False
+
+
+@pytest.mark.asyncio
+async def test_ensure_archived_schedule_if_configured_updates_existing(game_service, mock_db):
+    """Test _ensure_archived_schedule_if_configured updates an existing ARCHIVED schedule."""
+
+    game = game_model.GameSession(
+        id=str(uuid.uuid4()),
+        title="Test Game",
+        scheduled_at=datetime.datetime.now(datetime.UTC),
+        archive_delay_seconds=7200,
+        status="COMPLETED",
+    )
+    existing_schedule = game_status_schedule_model.GameStatusSchedule(
+        id=str(uuid.uuid4()),
+        game_id=game.id,
+        target_status=game_model.GameStatus.ARCHIVED.value,
+        transition_time=datetime.datetime.now(datetime.UTC),
+        executed=True,
+    )
+    mock_db.add = MagicMock()
+
+    await game_service._ensure_archived_schedule_if_configured(game, [existing_schedule])
+
+    mock_db.add.assert_not_called()
+    assert existing_schedule.executed is False
+
+
+@pytest.mark.asyncio
+async def test_update_status_schedules_for_completed_game(game_service, mock_db):
+    """Test _update_status_schedules for a COMPLETED game deletes only the COMPLETED schedule."""
+
+    game = game_model.GameSession(
+        id=str(uuid.uuid4()),
+        title="Test Game",
+        scheduled_at=datetime.datetime.now(datetime.UTC),
+        expected_duration_minutes=60,
+        archive_delay_seconds=None,
+        status="COMPLETED",
+    )
+    completed_schedule = game_status_schedule_model.GameStatusSchedule(
+        id=str(uuid.uuid4()),
+        game_id=game.id,
+        target_status=game_model.GameStatus.COMPLETED.value,
+        transition_time=datetime.datetime.now(datetime.UTC),
+        executed=False,
+    )
+    schedules_result = MagicMock()
+    schedules_result.scalars.return_value.all.return_value = [completed_schedule]
+    mock_db.execute = AsyncMock(return_value=schedules_result)
+    mock_db.delete = AsyncMock()
+
+    await game_service._update_status_schedules(game)
+
+    assert mock_db.delete.call_count == 1
+    deleted = mock_db.delete.call_args[0][0]
+    assert deleted is completed_schedule
+
+
+@pytest.mark.asyncio
 async def test_update_status_schedules_for_scheduled_game(game_service, mock_db):
     """Test _update_status_schedules ensures both schedules exist for SCHEDULED game."""
 
@@ -2638,7 +2737,11 @@ async def test_update_status_schedules_for_scheduled_game(game_service, mock_db)
 
 @pytest.mark.asyncio
 async def test_update_status_schedules_deletes_for_non_scheduled_game(game_service, mock_db):
-    """Test _update_status_schedules deletes all schedules for non-SCHEDULED game."""
+    """Test _update_status_schedules for an IN_PROGRESS game preserves COMPLETED schedule.
+
+    For IN_PROGRESS games the COMPLETED schedule must be preserved (and updated);
+    only the stale IN_PROGRESS schedule row is deleted.
+    """
 
     game = game_model.GameSession(
         id=str(uuid.uuid4()),
@@ -2670,11 +2773,11 @@ async def test_update_status_schedules_deletes_for_non_scheduled_game(game_servi
 
     await game_service._update_status_schedules(game)
 
-    # Should delete both schedules
-    assert mock_db.delete.call_count == 2
+    # Only the stale IN_PROGRESS schedule is deleted; COMPLETED is preserved
+    assert mock_db.delete.call_count == 1
     deleted_schedules = [call[0][0] for call in mock_db.delete.call_args_list]
     assert schedule1 in deleted_schedules
-    assert schedule2 in deleted_schedules
+    assert schedule2 not in deleted_schedules
 
 
 @pytest.mark.asyncio

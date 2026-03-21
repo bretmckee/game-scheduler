@@ -38,25 +38,25 @@ schedule rows, and where changing `expected_duration_minutes` never triggers a s
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Write Failing Integration Tests (TDD Red Phase)
+### [x] Phase 1: Write Failing Integration Tests (TDD Red Phase)
 
-- [ ] Task 1.1: Create `tests/integration/test_status_schedule_updates.py` with five xfail tests
+- [x] Task 1.1: Create `tests/integration/test_status_schedule_updates.py` with five xfail tests
   - Details: .copilot-tracking/planning/details/20260321-01-status-schedule-bug-fix-details.md (Lines 11-43)
 
-### [ ] Phase 2: Fix the Bug (TDD Green Phase)
+### [x] Phase 2: Fix the Bug (TDD Green Phase)
 
-- [ ] Task 2.1: Set `status_schedule_needs_update = True` when `expected_duration_minutes` changes in `_update_remaining_fields()`
+- [x] Task 2.1: Set `status_schedule_needs_update = True` when `expected_duration_minutes` changes in `_update_remaining_fields()`
   - Details: .copilot-tracking/planning/details/20260321-01-status-schedule-bug-fix-details.md (Lines 48-65)
 
-- [ ] Task 2.2: Expand `_update_status_schedules()` with `elif` branches for IN_PROGRESS and COMPLETED
+- [x] Task 2.2: Expand `_update_status_schedules()` with `elif` branches for IN_PROGRESS and COMPLETED
   - Details: .copilot-tracking/planning/details/20260321-01-status-schedule-bug-fix-details.md (Lines 66-86)
 
-- [ ] Task 2.3: Add `_ensure_archived_schedule_if_configured()` helper method
+- [x] Task 2.3: Add `_ensure_archived_schedule_if_configured()` helper method
   - Details: .copilot-tracking/planning/details/20260321-01-status-schedule-bug-fix-details.md (Lines 87-106)
 
-### [ ] Phase 3: Verify and Promote (TDD Green → Passing)
+### [x] Phase 3: Verify and Promote (TDD Green → Passing)
 
-- [ ] Task 3.1: Remove xfail markers and confirm all five integration tests pass
+- [x] Task 3.1: Remove xfail markers and confirm all five integration tests pass
   - Details: .copilot-tracking/planning/details/20260321-01-status-schedule-bug-fix-details.md (Lines 107-120)
 
 ## Dependencies

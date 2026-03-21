@@ -1135,6 +1135,7 @@ class GameService:
             game.max_players = update_data.max_players
         if update_data.expected_duration_minutes is not None:
             game.expected_duration_minutes = update_data.expected_duration_minutes
+            status_schedule_needs_update = True
         if update_data.notify_role_ids is not None:
             game.notify_role_ids = update_data.notify_role_ids
         if update_data.status is not None:
@@ -1418,11 +1419,20 @@ class GameService:
         status_schedules = status_schedule_result.scalars().all()
 
         if game.status == game_model.GameStatus.SCHEDULED.value:
-            # Ensure both IN_PROGRESS and COMPLETED schedules exist
             await self._ensure_in_progress_schedule(game, status_schedules)
             await self._ensure_completed_schedule(game, status_schedules)
+        elif game.status == game_model.GameStatus.IN_PROGRESS.value:
+            await self._ensure_completed_schedule(game, status_schedules)
+            for schedule in status_schedules:
+                if schedule.target_status == game_model.GameStatus.IN_PROGRESS.value:
+                    await self.db.delete(schedule)
+        elif game.status == game_model.GameStatus.COMPLETED.value:
+            await self._ensure_archived_schedule_if_configured(game, status_schedules)
+            for schedule in status_schedules:
+                if schedule.target_status == game_model.GameStatus.COMPLETED.value:
+                    await self.db.delete(schedule)
         else:
-            # Delete all schedules if game is not SCHEDULED
+            # ARCHIVED, CANCELLED — no future transitions
             for schedule in status_schedules:
                 await self.db.delete(schedule)
 
@@ -1494,6 +1504,45 @@ class GameService:
                 executed=False,
             )
             self.db.add(completed_schedule)
+
+    async def _ensure_archived_schedule_if_configured(
+        self,
+        game: game_model.GameSession,
+        status_schedules: Sequence[game_status_schedule_model.GameStatusSchedule],
+    ) -> None:
+        """
+        Upsert an ARCHIVED status schedule if the game has archive_delay_seconds configured.
+
+        Args:
+            game: Game session
+            status_schedules: Existing status schedules
+        """
+        if game.archive_delay_seconds is None:
+            return
+
+        archived_schedule = next(
+            (
+                s
+                for s in status_schedules
+                if s.target_status == game_model.GameStatus.ARCHIVED.value
+            ),
+            None,
+        )
+        archive_time = utc_now() + datetime.timedelta(seconds=game.archive_delay_seconds)
+
+        if archived_schedule:
+            archived_schedule.transition_time = archive_time
+            archived_schedule.executed = False
+        else:
+            self.db.add(
+                game_status_schedule_model.GameStatusSchedule(
+                    id=str(uuid.uuid4()),
+                    game_id=game.id,
+                    target_status=game_model.GameStatus.ARCHIVED.value,
+                    transition_time=archive_time,
+                    executed=False,
+                )
+            )
 
     def _capture_old_state(
         self, game: game_model.GameSession
