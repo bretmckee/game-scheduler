@@ -80,6 +80,9 @@ class GameTemplate(Base):
     allowed_host_role_ids: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
 
     # Pre-populated Fields (host-editable defaults)
+    remind_host_rewards: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
     max_players: Mapped[int | None] = mapped_column(Integer, nullable=True)
     expected_duration_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     reminder_minutes: Mapped[list[int] | None] = mapped_column(JSON, nullable=True)

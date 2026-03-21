@@ -278,6 +278,7 @@ async def create_game(
     signup_method: Annotated[str | None, Form()] = None,
     initial_participants: Annotated[str | None, Form()] = None,
     host: Annotated[str | None, Form()] = None,
+    remind_host_rewards: Annotated[bool | None, Form()] = None,
     thumbnail: Annotated[UploadFile | None, File()] = None,
     image: Annotated[UploadFile | None, File()] = None,
     *,  # Force remaining parameters to be keyword-only
@@ -317,6 +318,7 @@ async def create_game(
             signup_method=signup_method,
             initial_participants=initial_participants_list,
             host=host,
+            remind_host_rewards=remind_host_rewards,
         )
 
         # Validate and read thumbnail
@@ -482,6 +484,9 @@ async def update_game(
     image: Annotated[UploadFile | None, File()] = None,
     remove_thumbnail: Annotated[bool, Form()] = False,
     remove_image: Annotated[bool, Form()] = False,
+    rewards: Annotated[str | None, Form()] = None,
+    remind_host_rewards: Annotated[bool | None, Form()] = None,
+    archive_delay_seconds: Annotated[int | None, Form()] = None,
     *,  # Force remaining parameters to be keyword-only
     current_user: Annotated[auth_schemas.CurrentUser, Depends(auth_deps.get_current_user)],
     game_service: Annotated[games_service.GameService, Depends(_get_game_service)],
@@ -529,6 +534,9 @@ async def update_game(
             participants=participants_list,
             signup_method=signup_method,
             removed_participant_ids=removed_participant_ids_list,
+            rewards=rewards,
+            remind_host_rewards=remind_host_rewards,
+            archive_delay_seconds=archive_delay_seconds,
         )
 
         # Process file uploads
@@ -892,4 +900,7 @@ async def _build_game_response(
         thumbnail_id=str(game.thumbnail_id) if game.thumbnail_id else None,
         banner_image_id=str(game.banner_image_id) if game.banner_image_id else None,
         can_manage=can_manage,
+        rewards=game.rewards,
+        remind_host_rewards=bool(game.remind_host_rewards),
+        archive_channel_id=game.archive_channel_id,
     )

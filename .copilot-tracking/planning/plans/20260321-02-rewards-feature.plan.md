@@ -58,12 +58,12 @@ Add a `rewards` field with spoiler display to games, a `remind_host_rewards` fla
 - [x] Task 1.1: Create Alembic migration adding rewards and remind_host_rewards columns
   - Details: .copilot-tracking/planning/details/20260321-02-rewards-feature-details.md (Lines 13-30)
 
-### [ ] Phase 2: Backend Models & Schemas
+### [x] Phase 2: Backend Models & Schemas
 
-- [ ] Task 2.1: Update GameSession and GameTemplate models
+- [x] Task 2.1: Update GameSession and GameTemplate models
   - Details: .copilot-tracking/planning/details/20260321-02-rewards-feature-details.md (Lines 33-49)
 
-- [ ] Task 2.2: Update game and template schemas
+- [x] Task 2.2: Update game and template schemas
   - Details: .copilot-tracking/planning/details/20260321-02-rewards-feature-details.md (Lines 50-68)
 
 ### [ ] Phase 3: API Service & Routes

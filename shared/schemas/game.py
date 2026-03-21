@@ -95,6 +95,10 @@ class GameCreateRequest(BaseModel):
         ),
         max_length=50,
     )
+    remind_host_rewards: bool | None = Field(
+        None,
+        description="Send host a DM reminder when game completes with no rewards set",
+    )
 
     @field_validator("signup_method")
     @classmethod
@@ -147,6 +151,9 @@ class GameUpdateRequest(BaseModel):
         None,
         description="Signup method (SELF_SIGNUP or HOST_SELECTED)",
     )
+    rewards: str | None = Field(None, max_length=2000)
+    remind_host_rewards: bool | None = None
+    archive_delay_seconds: int | None = Field(None, ge=0)
 
     @field_validator("notify_role_ids")
     @classmethod
@@ -209,6 +216,12 @@ class GameResponse(BaseModel):
         default=False,
         description="True if the requesting user can edit or manage this game",
     )
+    rewards: str | None = Field(None, description="Rewards text (spoiler)")
+    remind_host_rewards: bool = Field(
+        default=False,
+        description="Send host a DM reminder when completed with no rewards",
+    )
+    archive_channel_id: str | None = Field(None, description="Archive channel ID (UUID)")
 
     model_config = {"from_attributes": True}
 

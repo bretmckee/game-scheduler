@@ -63,6 +63,10 @@ class TemplateCreateRequest(BaseModel):
     signup_instructions: str | None = Field(
         None, max_length=1000, description="Default signup instructions"
     )
+    remind_host_rewards: bool = Field(
+        default=False,
+        description="Send host a DM reminder when game completes with no rewards set",
+    )
 
     # Signup method configuration
     allowed_signup_methods: list[str] | None = Field(
@@ -96,6 +100,7 @@ class TemplateUpdateRequest(BaseModel):
     reminder_minutes: list[int] | None = None
     where: str | None = Field(None, max_length=500)
     signup_instructions: str | None = Field(None, max_length=1000)
+    remind_host_rewards: bool | None = None
 
     # Signup method configuration
     allowed_signup_methods: list[str] | None = None
@@ -140,6 +145,10 @@ class TemplateResponse(BaseModel):
     reminder_minutes: list[int] | None = Field(None, description="Default reminder times")
     where: str | None = Field(None, description="Default location")
     signup_instructions: str | None = Field(None, description="Default signup instructions")
+    remind_host_rewards: bool = Field(
+        default=False,
+        description="Send host a DM reminder when game completes with no rewards set",
+    )
 
     # Signup method configuration
     allowed_signup_methods: list[str] | None = Field(
@@ -183,6 +192,10 @@ class TemplateListItem(BaseModel):
     reminder_minutes: list[int] | None = Field(None, description="Reminder minutes")
     where: str | None = Field(None, description="Location")
     signup_instructions: str | None = Field(None, description="Signup instructions")
+    remind_host_rewards: bool = Field(
+        default=False,
+        description="Send host a DM reminder when game completes with no rewards set",
+    )
 
     # Signup method configuration
     allowed_signup_methods: list[str] | None = Field(None, description="Allowed signup methods")

@@ -25,7 +25,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import JSON, ForeignKey, Integer, String, Text, func, text
+from sqlalchemy import JSON, Boolean, ForeignKey, Integer, String, Text, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from shared.utils.status_transitions import GameStatus
@@ -66,6 +66,10 @@ class GameSession(Base):
     archive_delay_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
     archive_channel_id: Mapped[str | None] = mapped_column(
         ForeignKey("channel_configurations.id", ondelete="SET NULL"), nullable=True
+    )
+    rewards: Mapped[str | None] = mapped_column(Text, nullable=True)
+    remind_host_rewards: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
     )
     message_id: Mapped[str | None] = mapped_column(String(20), nullable=True)
     host_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
