@@ -99,6 +99,12 @@ else
     echo "Skipping e2e tests (--skip-e2e specified)"
 fi
 
+# Compute combined integration + e2e coverage before the full combine overwrites .coverage
+INT_E2E_COV=""
+if [[ -n "$INT_COV" && -n "$E2E_COV" ]]; then
+    INT_E2E_COV=$(uv run coverage combine --keep coverage/*.integration coverage/*.e2e > /dev/null 2>&1; uv run coverage report 2>/dev/null | awk '/^TOTAL/ {print $NF}')
+fi
+
 # Combine all coverage data
 echo ""
 echo "Combining coverage data..."
@@ -137,6 +143,9 @@ if [[ -n "$INT_COV" ]]; then
 fi
 if [[ -n "$E2E_COV" ]]; then
     echo "  E2E tests:          $E2E_COV"
+fi
+if [[ -n "$INT_E2E_COV" ]]; then
+    echo "  Int + E2E combined: $INT_E2E_COV"
 fi
 echo "  ────────────────────────────────────────────────"
 echo "  Combined total:     $FINAL_COV"
