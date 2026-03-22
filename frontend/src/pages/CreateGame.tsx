@@ -223,6 +223,8 @@ export const CreateGame: FC = () => {
         payload.append('image', formData.imageFile);
       }
 
+      payload.append('remind_host_rewards', formData.remindHostRewards ? 'true' : 'false');
+
       const response = await apiClient.post('/api/v1/games', payload, {
         headers: {
           'Content-Type': 'multipart/form-data',

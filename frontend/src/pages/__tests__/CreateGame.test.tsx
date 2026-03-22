@@ -459,4 +459,71 @@ describe('CreateGame', () => {
     expect(screen.getByText('#general')).toBeInTheDocument();
     expect(screen.getByText('#announcements')).toBeInTheDocument();
   });
+
+  describe('remind_host_rewards in form submission', () => {
+    const setupMocksAndRender = () => {
+      vi.mocked(apiClient.get).mockImplementation((url: string) => {
+        if (url === '/api/v1/guilds') {
+          return Promise.resolve({ data: { guilds: [mockGuild] } });
+        }
+        if (url === '/api/v1/guilds/1/templates') {
+          return Promise.resolve({ data: [mockTemplate] });
+        }
+        if (url.includes('/config')) {
+          return Promise.resolve({ status: StatusCodes.FORBIDDEN });
+        }
+        return Promise.resolve({ data: [] });
+      });
+
+      vi.mocked(apiClient.post).mockResolvedValue({ data: { id: 'new-game-id' } });
+
+      renderWithAuth();
+    };
+
+    const fillRequiredFields = async (user: ReturnType<typeof userEvent.setup>) => {
+      await waitFor(() => {
+        expect(screen.getByRole('textbox', { name: /game title/i })).toBeInTheDocument();
+      });
+
+      const titleInput = screen.getByRole('textbox', { name: /game title/i });
+      await user.clear(titleInput);
+      await user.paste('Test Game');
+
+      const descriptionInput = screen.getByRole('textbox', { name: /description/i });
+      await user.clear(descriptionInput);
+      await user.paste('Test Description');
+    };
+
+    it('sends remind_host_rewards=false when checkbox is unchecked', async () => {
+      const user = userEvent.setup();
+      setupMocksAndRender();
+      await fillRequiredFields(user);
+
+      await user.click(screen.getByRole('button', { name: /create game/i }));
+
+      await waitFor(() => {
+        expect(apiClient.post).toHaveBeenCalled();
+      });
+
+      const formData = vi.mocked(apiClient.post).mock.calls[0]![1] as FormData;
+      expect(formData.get('remind_host_rewards')).toBe('false');
+    });
+
+    it('sends remind_host_rewards=true when checkbox is checked', async () => {
+      const user = userEvent.setup();
+      setupMocksAndRender();
+      await fillRequiredFields(user);
+
+      await user.click(screen.getByLabelText('Remind me to add rewards when the game completes'));
+
+      await user.click(screen.getByRole('button', { name: /create game/i }));
+
+      await waitFor(() => {
+        expect(apiClient.post).toHaveBeenCalled();
+      });
+
+      const formData = vi.mocked(apiClient.post).mock.calls[0]![1] as FormData;
+      expect(formData.get('remind_host_rewards')).toBe('true');
+    });
+  });
 });
