@@ -648,9 +648,6 @@ async def test_archive_game_announcement_deletes_original(event_handlers, sample
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(
-    reason="content assertion will break when role mentions removed from archive post"
-)
 async def test_archive_game_announcement_posts_to_archive_channel(event_handlers, sample_game):
     """Test archive handler reposts announcement when archive channel configured."""
     sample_game.message_id = "999888777"
@@ -684,7 +681,7 @@ async def test_archive_game_announcement_posts_to_archive_channel(event_handlers
     ):
         await event_handlers._archive_game_announcement(sample_game)
 
-        mock_archive_channel.send.assert_awaited_once_with(content="content", embed="embed")
+        mock_archive_channel.send.assert_awaited_once_with(content=None, embed="embed")
         mock_active_channel.fetch_message.assert_awaited_once_with(int(sample_game.message_id))
         mock_message.delete.assert_awaited_once()
 

@@ -105,7 +105,6 @@ async def _ensure_archive_channel(
 
 @pytest.mark.timeout(180)
 @pytest.mark.asyncio
-@pytest.mark.xfail(strict=True)
 async def test_save_and_archive_archives_game_within_seconds(
     authenticated_admin_client,
     admin_db,

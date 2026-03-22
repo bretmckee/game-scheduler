@@ -1253,6 +1253,18 @@ class EventHandlers:
 
         await self._archive_game_announcement(game)
 
+    def _build_archive_content(self, game: GameSession) -> str | None:
+        """Return space-separated player @mentions for archive post, or None."""
+        if not game.rewards:
+            return None
+        mentions = " ".join(
+            f"<@{uid}>"
+            for uid in sorted(
+                partition_participants(game.participants, game.max_players).confirmed_real_user_ids
+            )
+        )
+        return mentions or None
+
     async def _archive_game_announcement(self, game: GameSession) -> None:
         """
         Archive game announcement by deleting original and optionally reposting.
@@ -1270,8 +1282,8 @@ class EventHandlers:
         if game.archive_channel_id and game.archive_channel:
             archive_channel = await self._get_bot_channel(game.archive_channel.channel_id)
             if archive_channel:
-                content, embed, _view = await self._create_game_announcement(game)
-                await archive_channel.send(content=content, embed=embed)
+                _content, embed, _view = await self._create_game_announcement(game)
+                await archive_channel.send(content=self._build_archive_content(game), embed=embed)
 
         try:
             message = await channel.fetch_message(int(game.message_id))

@@ -54,17 +54,17 @@ When a game with rewards is archived to an archive channel, @mention the confirm
 - [x] Task 1.4: Run unit tests to confirm RED / xfail state
   - Details: .copilot-tracking/planning/details/20260322-01-archive-reward-player-mentions-details.md (Lines 88–100)
 
-### [ ] Phase 2: Implement Production Code (TDD GREEN Phase)
+### [x] Phase 2: Implement Production Code (TDD GREEN Phase)
 
-- [ ] Task 2.1: Implement player @mention logic in `_archive_game_announcement`
+- [x] Task 2.1: Implement player @mention logic in `_archive_game_announcement`
   - Details: .copilot-tracking/planning/details/20260322-01-archive-reward-player-mentions-details.md (Lines 104–142)
 
-### [ ] Phase 3: Clean Up and Verify (TDD REFACTOR Phase)
+### [x] Phase 3: Clean Up and Verify (TDD REFACTOR Phase)
 
-- [ ] Task 3.1: Remove xfail markers and fix existing test assertion
+- [x] Task 3.1: Remove xfail markers and fix existing test assertion
   - Details: .copilot-tracking/planning/details/20260322-01-archive-reward-player-mentions-details.md (Lines 146–172)
 
-- [ ] Task 3.2: Run full unit test suite and confirm all pass
+- [x] Task 3.2: Run full unit test suite and confirm all pass
   - Details: .copilot-tracking/planning/details/20260322-01-archive-reward-player-mentions-details.md (Lines 173–182)
 
 ## Dependencies

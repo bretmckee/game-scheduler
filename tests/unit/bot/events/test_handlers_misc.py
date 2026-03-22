@@ -459,7 +459,6 @@ async def test_archive_announcement_delete_exception_is_handled(handlers):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(strict=True)
 async def test_archive_announcement_with_rewards_mentions_confirmed_players(handlers):
     """Archive post content contains <@uid> for each confirmed real player when rewards are set."""
     player_id = "111222333444555666"
@@ -503,7 +502,6 @@ async def test_archive_announcement_with_rewards_mentions_confirmed_players(hand
     assert f"<@{player_id}>" in call_kwargs["content"]
 
 
-@pytest.mark.xfail(strict=True)
 async def test_archive_announcement_with_rewards_ignores_role_mention_content(handlers):
     """Archive post ignores role-mention content from _create_game_announcement when rewards set."""
     player_id = "777888999000111222"
@@ -548,7 +546,6 @@ async def test_archive_announcement_with_rewards_ignores_role_mention_content(ha
     assert f"<@{player_id}>" in call_kwargs["content"]
 
 
-@pytest.mark.xfail(strict=True)
 async def test_archive_announcement_without_rewards_sends_no_content(handlers):
     """Archive post content is None when game.rewards is not set."""
     game = MagicMock()
@@ -583,7 +580,6 @@ async def test_archive_announcement_without_rewards_sends_no_content(handlers):
     mock_archive_channel.send.assert_awaited_once_with(content=None, embed="embed")
 
 
-@pytest.mark.xfail(strict=True)
 async def test_archive_announcement_with_rewards_no_confirmed_players(handlers):
     """Archive post content is None when rewards are set but no confirmed real players exist."""
     game = MagicMock()
