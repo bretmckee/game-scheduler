@@ -263,9 +263,11 @@ export const EditGame: FC = () => {
           .filter((m) => !isNaN(m))
       : [];
     payload.append('reminder_minutes', JSON.stringify(reminderMinutesArray));
-    if (formData.expectedDurationMinutes !== null) {
-      payload.append('expected_duration_minutes', formData.expectedDurationMinutes.toString());
-    }
+    const MS_PER_MINUTE = 60_000;
+    const elapsedMinutes = Math.ceil(
+      (Date.now() - new Date(state.game!.scheduled_at).getTime()) / MS_PER_MINUTE
+    );
+    payload.append('expected_duration_minutes', Math.max(elapsedMinutes, 1).toString());
     payload.append('signup_method', formData.signupMethod);
     const participantsList = formData.participants
       .filter((p) => p.mention.trim() && p.isExplicitlyPositioned)

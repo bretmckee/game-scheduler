@@ -18,7 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router';
 import { EditGame } from '../EditGame';
@@ -164,17 +164,25 @@ describe('EditGame - handleSaveAndArchive optional field branches', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(GameForm).mockReturnValue(null as any);
+    // Fix Date.now() so elapsed time = 90 min after scheduled_at (2025-12-01T18:00:00Z)
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2025-12-01T19:30:00Z'));
   });
 
-  it('appends expected_duration_minutes when non-null', async () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('appends expected_duration_minutes as elapsed time since scheduled_at', async () => {
     setupMocks();
     renderEditGame();
     const onSaveAndArchive = await getOnSaveAndArchive();
 
-    await onSaveAndArchive({ ...baseFormData, expectedDurationMinutes: 90 });
+    await onSaveAndArchive({ ...baseFormData });
 
     await waitFor(() => {
       const putFormData = vi.mocked(apiClient.put).mock.calls[0]?.[1] as FormData;
+      // scheduled_at = 2025-12-01T18:00:00Z, Date.now() fixed to 2025-12-01T19:30:00Z → 90 min
       expect(putFormData.get('expected_duration_minutes')).toBe('90');
     });
   });

@@ -1504,7 +1504,11 @@ class GameService:
             ),
             None,
         )
-        duration_minutes = game.expected_duration_minutes or DEFAULT_GAME_DURATION_MINUTES
+        duration_minutes = (
+            game.expected_duration_minutes
+            if game.expected_duration_minutes is not None
+            else DEFAULT_GAME_DURATION_MINUTES
+        )
         completion_time = game.scheduled_at + datetime.timedelta(minutes=duration_minutes)
 
         if completed_schedule:
