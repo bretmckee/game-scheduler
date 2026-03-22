@@ -384,11 +384,6 @@ export const GameForm: FC<GameFormProps> = ({
     setSignupInstructionsError(result.error || result.warning || null);
   };
 
-  const validateScheduledAtField = () => {
-    const result = validateFutureDate(formData.scheduledAt);
-    setScheduledAtError(result.error || null);
-  };
-
   // Helper text generators with character counts
   const getLocationHelperText = () => {
     if (locationError) return locationError;
@@ -427,7 +422,8 @@ export const GameForm: FC<GameFormProps> = ({
 
   const handleDateChange = (date: Date | null) => {
     setFormData((prev) => ({ ...prev, scheduledAt: date }));
-    validateScheduledAtField();
+    const result = validateFutureDate(date);
+    setScheduledAtError(result.error || null);
   };
 
   const handleDurationChange = (minutes: number | null) => {

@@ -19,11 +19,49 @@
 // SOFTWARE.
 
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { GameForm } from '../GameForm';
 import { Channel, CurrentUser } from '../../types';
 import { AuthContext, type AuthContextType } from '../../contexts/AuthContext';
+import React from 'react';
+
+let capturedDatePickerOnChange: (date: Date | null) => void = () => {};
+
+vi.mock('@mui/x-date-pickers/DateTimePicker', () => ({
+  DateTimePicker: ({
+    onChange,
+    label,
+    slotProps,
+  }: {
+    onChange: (date: Date | null) => void;
+    label: string;
+    slotProps?: { textField?: { helperText?: string } };
+    [key: string]: unknown;
+  }) => {
+    capturedDatePickerOnChange = onChange;
+    const helperText = slotProps?.textField?.helperText;
+    return React.createElement(
+      'div',
+      null,
+      React.createElement('input', {
+        'aria-label': label,
+        'data-testid': 'mock-date-picker',
+        readOnly: true,
+      }),
+      helperText ? React.createElement('span', null, helperText) : null
+    );
+  },
+}));
+
+vi.mock('@mui/x-date-pickers/LocalizationProvider', () => ({
+  LocalizationProvider: ({ children }: { children: React.ReactNode }) =>
+    React.createElement(React.Fragment, null, children),
+}));
+
+vi.mock('@mui/x-date-pickers/AdapterDateFns', () => ({
+  AdapterDateFns: class {},
+}));
 
 const mockAuthContextValue: AuthContextType = {
   user: {
@@ -206,6 +244,30 @@ describe('GameForm Validation', () => {
 
       // Skip this test for now - DateTimePicker interaction is complex in tests
       // This functionality is tested through integration tests
+    });
+
+    it('clears date error when typing transitions through a past intermediate value to a valid future date', async () => {
+      renderGameForm();
+
+      const pastDate = new Date(Date.now() - 60 * 60 * 1000);
+      const futureDate = new Date(Date.now() + 60 * 60 * 1000);
+
+      // Simulate the picker firing with a past intermediate value (e.g. user typed "21:05")
+      await act(async () => {
+        capturedDatePickerOnChange(pastDate);
+      });
+
+      // Then the picker fires with the final valid future value (e.g. user finished typing "21:58")
+      await act(async () => {
+        capturedDatePickerOnChange(futureDate);
+      });
+
+      // The error should be cleared now that a valid future date is selected.
+      // With the stale-closure bug, validateScheduledAtField reads the previous
+      // formData.scheduledAt (pastDate) and incorrectly keeps the error.
+      await waitFor(() => {
+        expect(screen.queryByText(/in the future/i)).not.toBeInTheDocument();
+      });
     });
   });
 
