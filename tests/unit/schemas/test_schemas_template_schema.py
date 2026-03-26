@@ -19,6 +19,11 @@
 # SOFTWARE.
 
 
+"""Tests for shared template schemas."""
+
+import pytest
+from pydantic import ValidationError
+
 from shared.schemas import template as template_schemas
 
 
@@ -96,3 +101,64 @@ def test_template_list_item_includes_archive_fields():
     assert item.archive_delay_seconds is None
     assert item.archive_channel_id is None
     assert item.archive_channel_name is None
+
+
+def test_signup_priority_role_ids_accepted_on_create():
+    """signup_priority_role_ids up to 8 entries is accepted on create."""
+    request = template_schemas.TemplateCreateRequest(
+        guild_id="guild-id",
+        name="Template",
+        channel_id="channel-id",
+        signup_priority_role_ids=["r1", "r2", "r3"],
+    )
+    assert request.signup_priority_role_ids == ["r1", "r2", "r3"]
+
+
+def test_signup_priority_role_ids_max_8_enforced():
+    """More than 8 signup_priority_role_ids raises a validation error."""
+    with pytest.raises(ValidationError):
+        template_schemas.TemplateCreateRequest(
+            guild_id="guild-id",
+            name="Template",
+            channel_id="channel-id",
+            signup_priority_role_ids=["r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9"],
+        )
+
+
+def test_signup_priority_role_ids_max_8_enforced_on_update():
+    """More than 8 signup_priority_role_ids raises a validation error on update too."""
+    with pytest.raises(ValidationError):
+        template_schemas.TemplateUpdateRequest(
+            signup_priority_role_ids=["r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9"],
+        )
+
+
+def test_template_response_includes_signup_priority_role_ids():
+    """TemplateResponse exposes signup_priority_role_ids."""
+    response = template_schemas.TemplateResponse(
+        id="template-id",
+        guild_id="guild-id",
+        name="Template",
+        description=None,
+        order=0,
+        is_default=False,
+        channel_id="channel-id",
+        channel_name="channel-name",
+        notify_role_ids=None,
+        allowed_player_role_ids=None,
+        allowed_host_role_ids=None,
+        signup_priority_role_ids=["role1"],
+        max_players=None,
+        expected_duration_minutes=None,
+        reminder_minutes=None,
+        where=None,
+        signup_instructions=None,
+        allowed_signup_methods=None,
+        default_signup_method=None,
+        archive_delay_seconds=None,
+        archive_channel_id=None,
+        archive_channel_name=None,
+        created_at="2026-03-26T00:00:00",
+        updated_at="2026-03-26T00:00:00",
+    )
+    assert response.signup_priority_role_ids == ["role1"]

@@ -52,26 +52,26 @@ and partition logic completely unchanged.
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Enum Updates (Python + TypeScript)
+### [x] Phase 1: Enum Updates (Python + TypeScript)
 
-- [ ] Task 1.1: Add `ROLE_MATCHED = 16000` to Python `ParticipantType`
+- [x] Task 1.1: Add `ROLE_MATCHED = 16000` to Python `ParticipantType`
   - Details: .copilot-tracking/planning/details/20260324-01-role-based-scheduling-details.md (Lines 11-28)
 
-- [ ] Task 1.2: Add `ROLE_BASED` to Python `SignupMethod`
+- [x] Task 1.2: Add `ROLE_BASED` to Python `SignupMethod`
   - Details: .copilot-tracking/planning/details/20260324-01-role-based-scheduling-details.md (Lines 29-42)
 
-- [ ] Task 1.3: Sync TypeScript enums and `SIGNUP_METHOD_INFO`; add `signup_priority_role_ids` to template interfaces
+- [x] Task 1.3: Sync TypeScript enums and `SIGNUP_METHOD_INFO`; add `signup_priority_role_ids` to template interfaces
   - Details: .copilot-tracking/planning/details/20260324-01-role-based-scheduling-details.md (Lines 43-63)
 
-### [ ] Phase 2: Database Migration and Model/Schema Updates
+### [x] Phase 2: Database Migration and Model/Schema Updates
 
-- [ ] Task 2.1: Alembic migration — add nullable JSON `signup_priority_role_ids` to `game_templates`
+- [x] Task 2.1: Alembic migration — add nullable JSON `signup_priority_role_ids` to `game_templates`
   - Details: .copilot-tracking/planning/details/20260324-01-role-based-scheduling-details.md (Lines 66-86)
 
-- [ ] Task 2.2: Update `GameTemplate` SQLAlchemy model with new column mapping
+- [x] Task 2.2: Update `GameTemplate` SQLAlchemy model with new column mapping
   - Details: .copilot-tracking/planning/details/20260324-01-role-based-scheduling-details.md (Lines 87-102)
 
-- [ ] Task 2.3: Update Pydantic schemas (max-8 validator) and `TemplateResponse`
+- [x] Task 2.3: Update Pydantic schemas (max-8 validator) and `TemplateResponse`
   - Details: .copilot-tracking/planning/details/20260324-01-role-based-scheduling-details.md (Lines 103-120)
 
 ### [ ] Phase 3: Core Logic (TDD)

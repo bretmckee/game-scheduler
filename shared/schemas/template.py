@@ -21,7 +21,18 @@
 
 """Pydantic schemas for game templates."""
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+_MAX_PRIORITY_ROLES = 8
+_MAX_PRIORITY_ROLES_MSG = (
+    f"signup_priority_role_ids may contain at most {_MAX_PRIORITY_ROLES} role IDs"
+)
+
+
+def _validate_priority_role_ids(v: list[str] | None) -> list[str] | None:
+    if v is not None and len(v) > _MAX_PRIORITY_ROLES:
+        raise ValueError(_MAX_PRIORITY_ROLES_MSG)
+    return v
 
 
 class TemplateCreateRequest(BaseModel):
@@ -76,6 +87,14 @@ class TemplateCreateRequest(BaseModel):
         None,
         description="Default signup method (must be in allowed list if both specified)",
     )
+    signup_priority_role_ids: list[str] | None = Field(
+        None, description="Ordered role IDs for role-based signup priority (max 8)"
+    )
+
+    @field_validator("signup_priority_role_ids")
+    @classmethod
+    def max_eight_priority_roles(cls, v: list[str] | None) -> list[str] | None:
+        return _validate_priority_role_ids(v)
 
 
 class TemplateUpdateRequest(BaseModel):
@@ -105,6 +124,12 @@ class TemplateUpdateRequest(BaseModel):
     # Signup method configuration
     allowed_signup_methods: list[str] | None = None
     default_signup_method: str | None = None
+    signup_priority_role_ids: list[str] | None = None
+
+    @field_validator("signup_priority_role_ids")
+    @classmethod
+    def max_eight_priority_roles(cls, v: list[str] | None) -> list[str] | None:
+        return _validate_priority_role_ids(v)
 
 
 class TemplateResponse(BaseModel):
@@ -155,6 +180,9 @@ class TemplateResponse(BaseModel):
         None, description="Allowed signup methods (empty/null = all methods allowed)"
     )
     default_signup_method: str | None = Field(None, description="Default signup method")
+    signup_priority_role_ids: list[str] | None = Field(
+        None, description="Ordered role IDs for role-based signup priority (max 8)"
+    )
 
     created_at: str = Field(..., description="Creation timestamp (ISO format)")
     updated_at: str = Field(..., description="Last update timestamp (ISO format)")
@@ -200,6 +228,9 @@ class TemplateListItem(BaseModel):
     # Signup method configuration
     allowed_signup_methods: list[str] | None = Field(None, description="Allowed signup methods")
     default_signup_method: str | None = Field(None, description="Default signup method")
+    signup_priority_role_ids: list[str] | None = Field(
+        None, description="Ordered role IDs for role-based signup priority (max 8)"
+    )
 
     model_config = {"from_attributes": True}
 

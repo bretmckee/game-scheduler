@@ -1,4 +1,4 @@
-# Copyright 2025-2026 Bret McKee
+# Copyright 2026 Bret McKee
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -19,34 +19,35 @@
 # SOFTWARE.
 
 
-"""Signup method types for game sessions."""
+"""add_signup_priority_role_ids
 
-from enum import StrEnum
+Revision ID: b7c8d9e0f1a2
+Revises: f3a2c1d8e9b7
+Create Date: 2026-03-26 00:00:00.000000
+
+"""
+
+from collections.abc import Sequence
+
+import sqlalchemy as sa
+
+from alembic import op
+
+# revision identifiers, used by Alembic.
+revision: str = "b7c8d9e0f1a2"
+down_revision: str | None = "f3a2c1d8e9b7"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
-class SignupMethod(StrEnum):
-    """Game signup method controlling participant addition."""
+def upgrade() -> None:
+    """Add signup_priority_role_ids JSON column to game_templates."""
+    op.add_column(
+        "game_templates",
+        sa.Column("signup_priority_role_ids", sa.JSON(), nullable=True),
+    )
 
-    SELF_SIGNUP = "SELF_SIGNUP"
-    HOST_SELECTED = "HOST_SELECTED"
-    ROLE_BASED = "ROLE_BASED"
 
-    @property
-    def display_name(self) -> str:
-        """User-friendly display name."""
-        display_map = {
-            "SELF_SIGNUP": "Self Signup",
-            "HOST_SELECTED": "Host Selected",
-            "ROLE_BASED": "Role Based",
-        }
-        return display_map[self.value]
-
-    @property
-    def description(self) -> str:
-        """Description for UI tooltip/helper text."""
-        description_map = {
-            "SELF_SIGNUP": "Players can join the game by clicking the Discord button",
-            "HOST_SELECTED": "Only the host can add players (Discord button disabled)",
-            "ROLE_BASED": "Players are prioritised by Discord role when the game fills up",
-        }
-        return description_map[self.value]
+def downgrade() -> None:
+    """Remove signup_priority_role_ids column from game_templates."""
+    op.drop_column("game_templates", "signup_priority_role_ids")

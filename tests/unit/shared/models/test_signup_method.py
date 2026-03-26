@@ -31,11 +31,12 @@ def test_signup_method_values():
 
 
 def test_signup_method_members():
-    """Verify SignupMethod enum has exactly two members."""
+    """Verify SignupMethod enum has the expected members."""
     members = list(SignupMethod)
-    assert len(members) == 2
+    assert len(members) == 3
     assert SignupMethod.SELF_SIGNUP in members
     assert SignupMethod.HOST_SELECTED in members
+    assert SignupMethod.ROLE_BASED in members
 
 
 def test_signup_method_display_name():
@@ -85,3 +86,10 @@ def test_signup_method_can_be_stored_as_string():
 
     assert methods_dict["SELF_SIGNUP"] == "Players can join"
     assert methods_dict["HOST_SELECTED"] == "Host adds players"
+
+
+def test_role_based_signup_method():
+    """ROLE_BASED is a valid SignupMethod with display name and description."""
+    assert SignupMethod.ROLE_BASED == "ROLE_BASED"
+    assert "role" in SignupMethod.ROLE_BASED.display_name.lower()
+    assert len(SignupMethod.ROLE_BASED.description) > 0

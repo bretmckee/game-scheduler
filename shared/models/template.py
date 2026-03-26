@@ -78,6 +78,7 @@ class GameTemplate(Base):
     notify_role_ids: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     allowed_player_role_ids: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     allowed_host_role_ids: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    signup_priority_role_ids: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
 
     # Pre-populated Fields (host-editable defaults)
     remind_host_rewards: Mapped[bool] = mapped_column(

@@ -51,6 +51,7 @@ class ParticipantType(IntEnum):
     """
 
     HOST_ADDED = 8000  # High priority (sorts first)
+    ROLE_MATCHED = 16000  # Mid priority (role-based signup, sorts by role index then joined_at)
     SELF_ADDED = 24000  # Low priority (sorts last)
 
 

@@ -79,6 +79,7 @@ async def build_template_response(
         signup_instructions=template.signup_instructions,
         allowed_signup_methods=template.allowed_signup_methods,
         default_signup_method=template.default_signup_method,
+        signup_priority_role_ids=template.signup_priority_role_ids,
         created_at=template.created_at.isoformat(),
         updated_at=template.updated_at.isoformat(),
     )
@@ -166,6 +167,7 @@ async def list_templates(
                 signup_instructions=template.signup_instructions,
                 allowed_signup_methods=template.allowed_signup_methods,
                 default_signup_method=template.default_signup_method,
+                signup_priority_role_ids=template.signup_priority_role_ids,
             )
         )
 

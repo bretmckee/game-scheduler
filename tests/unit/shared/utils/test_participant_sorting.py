@@ -645,3 +645,9 @@ class TestPartitionParticipants:
         # Only user2 should be detected (not placeholder1)
         cleared = new_partitioned.cleared_waitlist(old_partitioned)
         assert cleared == {"discord_2"}
+
+
+def test_role_matched_participant_type_value():
+    """ROLE_MATCHED must sit between HOST_ADDED and SELF_ADDED."""
+    assert ParticipantType.ROLE_MATCHED == 16000
+    assert ParticipantType.HOST_ADDED < ParticipantType.ROLE_MATCHED < ParticipantType.SELF_ADDED

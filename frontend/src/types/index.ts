@@ -21,6 +21,7 @@
 export enum SignupMethod {
   SELF_SIGNUP = 'SELF_SIGNUP',
   HOST_SELECTED = 'HOST_SELECTED',
+  ROLE_BASED = 'ROLE_BASED',
 }
 
 export interface SignupMethodInfo {
@@ -40,12 +41,18 @@ export const SIGNUP_METHOD_INFO: Record<SignupMethod, SignupMethodInfo> = {
     displayName: 'Host Selected',
     description: 'Only the host can add players (Discord button disabled)',
   },
+  [SignupMethod.ROLE_BASED]: {
+    value: SignupMethod.ROLE_BASED,
+    displayName: 'Role Based',
+    description: 'Players are prioritised by Discord role when the game fills up',
+  },
 };
 
 // NOTE: Changes to these values must be mirrored in the Python enum
 // located at shared/models/participant.py
 export enum ParticipantType {
   HOST_ADDED = 8000,
+  ROLE_MATCHED = 16000,
   SELF_ADDED = 24000,
 }
 
@@ -176,6 +183,7 @@ export interface GameTemplate {
   notify_role_ids: string[] | null;
   allowed_player_role_ids: string[] | null;
   allowed_host_role_ids: string[] | null;
+  signup_priority_role_ids?: string[] | null;
   max_players: number | null;
   expected_duration_minutes: number | null;
   reminder_minutes: number[] | null;
@@ -204,6 +212,7 @@ export interface TemplateCreateRequest {
   notify_role_ids?: string[] | null;
   allowed_player_role_ids?: string[] | null;
   allowed_host_role_ids?: string[] | null;
+  signup_priority_role_ids?: string[] | null;
   max_players?: number | null;
   expected_duration_minutes?: number | null;
   reminder_minutes?: number[] | null;
