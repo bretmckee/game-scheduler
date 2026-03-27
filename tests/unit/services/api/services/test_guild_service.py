@@ -21,42 +21,10 @@
 
 """Tests for guild configuration service."""
 
-from unittest.mock import AsyncMock, Mock
-
 import pytest
 
 from services.api.services import guild_service
 from shared.models.guild import GuildConfiguration
-
-
-@pytest.mark.asyncio
-@pytest.mark.xfail(
-    reason="create_guild_config moved to bot service, will migrate to RabbitMQ pattern (Phase 6)"
-)
-@pytest.mark.xfail(
-    reason="create_guild_config stubbed - will be replaced with RabbitMQ in Phase 6",
-    raises=NotImplementedError,
-)
-async def test_create_guild_config():
-    """Test creating a new guild configuration."""
-    mock_db = AsyncMock()
-    mock_db.add = Mock()
-    mock_db.flush = AsyncMock()
-
-    guild_discord_id = "123456789012345678"
-    settings = {
-        "bot_manager_role_ids": ["role1", "role2"],
-    }
-
-    await guild_service.create_guild_config(mock_db, guild_discord_id, **settings)
-
-    mock_db.add.assert_called_once()
-    mock_db.flush.assert_awaited_once()
-
-    added_guild = mock_db.add.call_args[0][0]
-    assert isinstance(added_guild, GuildConfiguration)
-    assert added_guild.guild_id == guild_discord_id
-    assert added_guild.bot_manager_role_ids == ["role1", "role2"]
 
 
 @pytest.mark.asyncio
