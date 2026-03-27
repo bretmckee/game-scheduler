@@ -18,7 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import { FC, useState, useEffect } from 'react';
+import { FC, useState, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -37,8 +37,13 @@ import {
   Chip,
   OutlinedInput,
   SelectChangeEvent,
+  IconButton,
+  List,
+  ListItem,
+  ListItemText,
 } from '@mui/material';
 import LockIcon from '@mui/icons-material/Lock';
+import DragHandleIcon from '@mui/icons-material/DragHandle';
 import {
   GameTemplate,
   Channel,
@@ -86,8 +91,12 @@ export const TemplateForm: FC<TemplateFormProps> = ({
   const [notifyRoleIds, setNotifyRoleIds] = useState<string[]>([]);
   const [allowedPlayerRoleIds, setAllowedPlayerRoleIds] = useState<string[]>([]);
   const [allowedHostRoleIds, setAllowedHostRoleIds] = useState<string[]>([]);
+  const [signupPriorityRoleIds, setSignupPriorityRoleIds] = useState<string[]>([]);
+  const [priorityRoleSelectorValue, setPriorityRoleSelectorValue] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+
+  const dragItemIndex = useRef<number | null>(null);
 
   // Validation error state
   const [maxPlayersError, setMaxPlayersError] = useState('');
@@ -110,6 +119,7 @@ export const TemplateForm: FC<TemplateFormProps> = ({
       setNotifyRoleIds(template.notify_role_ids || []);
       setAllowedPlayerRoleIds(template.allowed_player_role_ids || []);
       setAllowedHostRoleIds(template.allowed_host_role_ids || []);
+      setSignupPriorityRoleIds(template.signup_priority_role_ids || []);
       if (template.archive_delay_seconds !== null && template.archive_delay_seconds !== undefined) {
         const totalSeconds = template.archive_delay_seconds;
         const days = Math.floor(totalSeconds / Time.SECONDS_PER_DAY);
@@ -143,6 +153,7 @@ export const TemplateForm: FC<TemplateFormProps> = ({
       setNotifyRoleIds([]);
       setAllowedPlayerRoleIds([]);
       setAllowedHostRoleIds([]);
+      setSignupPriorityRoleIds([]);
     }
     setErrors({});
   }, [template, channels, open]);
@@ -212,6 +223,7 @@ export const TemplateForm: FC<TemplateFormProps> = ({
         notify_role_ids: notifyRoleIds.length > 0 ? notifyRoleIds : null,
         allowed_player_role_ids: allowedPlayerRoleIds.length > 0 ? allowedPlayerRoleIds : null,
         allowed_host_role_ids: allowedHostRoleIds.length > 0 ? allowedHostRoleIds : null,
+        signup_priority_role_ids: signupPriorityRoleIds.length > 0 ? signupPriorityRoleIds : null,
         max_players: maxPlayers ? parseInt(maxPlayers) : null,
         expected_duration_minutes: expectedDuration,
         reminder_minutes: reminderMinutesArray.length > 0 ? reminderMinutesArray : null,
@@ -243,6 +255,42 @@ export const TemplateForm: FC<TemplateFormProps> = ({
   ) => {
     const value = event.target.value;
     setter(typeof value === 'string' ? value.split(',') : value);
+  };
+
+  const handleAddPriorityRole = () => {
+    if (
+      priorityRoleSelectorValue &&
+      !signupPriorityRoleIds.includes(priorityRoleSelectorValue) &&
+      signupPriorityRoleIds.length < UI.MAX_SIGNUP_PRIORITY_ROLES
+    ) {
+      setSignupPriorityRoleIds([...signupPriorityRoleIds, priorityRoleSelectorValue]);
+      setPriorityRoleSelectorValue('');
+    }
+  };
+
+  const handleRemovePriorityRole = (id: string) => {
+    setSignupPriorityRoleIds(signupPriorityRoleIds.filter((r) => r !== id));
+  };
+
+  const handlePriorityDragStart = (index: number) => {
+    dragItemIndex.current = index;
+  };
+
+  const handlePriorityDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handlePriorityDrop = (targetIndex: number) => {
+    if (dragItemIndex.current === null || dragItemIndex.current === targetIndex) return;
+    const reordered = [...signupPriorityRoleIds];
+    const [moved] = reordered.splice(dragItemIndex.current, 1);
+    reordered.splice(targetIndex, 0, moved!);
+    setSignupPriorityRoleIds(reordered);
+    dragItemIndex.current = null;
+  };
+
+  const handlePriorityDragEnd = () => {
+    dragItemIndex.current = null;
   };
 
   const handleMaxPlayersBlur = () => {
@@ -474,6 +522,87 @@ export const TemplateForm: FC<TemplateFormProps> = ({
             </Select>
             <FormHelperText>Roles allowed to use this template (empty = all)</FormHelperText>
           </FormControl>
+
+          <Box>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              Role Priority
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+              <FormControl sx={{ flex: 1 }}>
+                <InputLabel id="priority-role-select-label">Add Priority Role</InputLabel>
+                <Select
+                  labelId="priority-role-select-label"
+                  inputProps={{ 'aria-label': 'Add Priority Role' }}
+                  value={priorityRoleSelectorValue}
+                  onChange={(e) => setPriorityRoleSelectorValue(e.target.value)}
+                  input={<OutlinedInput label="Add Priority Role" />}
+                  disabled={signupPriorityRoleIds.length >= UI.MAX_SIGNUP_PRIORITY_ROLES}
+                >
+                  {roles
+                    .filter((r) => !signupPriorityRoleIds.includes(r.id))
+                    .map((role) => (
+                      <MenuItem key={role.id} value={role.id}>
+                        {role.name.startsWith('@') ? role.name : `@${role.name}`}
+                      </MenuItem>
+                    ))}
+                </Select>
+              </FormControl>
+              <Button
+                variant="outlined"
+                aria-label="Add Role"
+                onClick={handleAddPriorityRole}
+                disabled={
+                  !priorityRoleSelectorValue ||
+                  signupPriorityRoleIds.length >= UI.MAX_SIGNUP_PRIORITY_ROLES
+                }
+              >
+                Add
+              </Button>
+            </Box>
+            <List dense disablePadding>
+              {signupPriorityRoleIds.map((id, index) => {
+                const role = roles.find((r) => r.id === id);
+                const displayName = role
+                  ? role.name.startsWith('@')
+                    ? role.name
+                    : `@${role.name}`
+                  : id;
+                return (
+                  <ListItem
+                    key={id}
+                    draggable
+                    onDragStart={() => handlePriorityDragStart(index)}
+                    onDragOver={handlePriorityDragOver}
+                    onDrop={() => handlePriorityDrop(index)}
+                    onDragEnd={handlePriorityDragEnd}
+                    sx={{
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      borderRadius: 1,
+                      mb: 0.5,
+                      cursor: 'grab',
+                    }}
+                    secondaryAction={
+                      <IconButton
+                        edge="end"
+                        aria-label={`Remove ${displayName}`}
+                        size="small"
+                        onClick={() => handleRemovePriorityRole(id)}
+                      >
+                        <Typography variant="caption">✕</Typography>
+                      </IconButton>
+                    }
+                  >
+                    <DragHandleIcon sx={{ mr: 1, color: 'text.secondary', fontSize: 20 }} />
+                    <ListItemText primary={displayName} />
+                  </ListItem>
+                );
+              })}
+            </List>
+            <FormHelperText>
+              Role join priority order for Role-Based signup (max 8, drag to reorder)
+            </FormHelperText>
+          </Box>
 
           <Divider>
             <Chip label="Pre-populated Settings" size="small" />

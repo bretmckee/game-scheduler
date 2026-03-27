@@ -94,4 +94,9 @@ export const UI = {
    */
   GRID_SPACING_LARGE: 16,
   GRID_SPACING_SMALL: 6,
+
+  /**
+   * Maximum number of role IDs in the signup priority list.
+   */
+  MAX_SIGNUP_PRIORITY_ROLES: 8,
 } as const;

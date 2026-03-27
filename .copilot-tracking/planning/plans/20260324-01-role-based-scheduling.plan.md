@@ -93,9 +93,9 @@ and partition logic completely unchanged.
 - [x] Task 4.3: Update bot `handle_join_game` to resolve role priority from interaction payload
   - Details: .copilot-tracking/planning/details/20260324-01-role-based-scheduling-details.md (Lines 222-248)
 
-### [ ] Phase 5: Frontend Updates
+### [x] Phase 5: Frontend Updates
 
-- [ ] Task 5.2: Add draggable role-priority list to `TemplateForm.tsx` (locked settings section)
+- [x] Task 5.2: Add draggable role-priority list to `TemplateForm.tsx` (locked settings section)
   - Details: .copilot-tracking/planning/details/20260324-01-role-based-scheduling-details.md (Lines 251-275)
 
 ### [ ] Phase 6: E2E Test

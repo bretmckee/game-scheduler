@@ -482,7 +482,7 @@ describe('TemplateForm - ReminderSelector Integration', () => {
     const input = screen.getByLabelText(/custom minutes/i);
     await user.type(input, '45');
 
-    const addButton = screen.getByRole('button', { name: /add/i });
+    const addButton = screen.getByRole('button', { name: /^add$/i });
     await user.click(addButton);
 
     await waitFor(() => {
@@ -680,5 +680,281 @@ describe('TemplateForm - Archive Fields', () => {
     expect((screen.getByLabelText(/^Days$/i) as HTMLInputElement).value).toBe('1');
     expect((screen.getByLabelText(/^Hours$/i) as HTMLInputElement).value).toBe('1');
     expect((screen.getByLabelText(/^Minutes$/i) as HTMLInputElement).value).toBe('');
+  });
+});
+
+describe('TemplateForm - Role Priority Section', () => {
+  const mockOnClose = vi.fn();
+  const mockOnSubmit = vi.fn();
+
+  const mockChannels: Channel[] = [
+    {
+      id: 'channel-1',
+      guild_id: 'guild-1',
+      channel_id: '123456',
+      channel_name: 'general',
+      is_active: true,
+      created_at: '2024-01-01T00:00:00Z',
+      updated_at: '2024-01-01T00:00:00Z',
+    },
+  ];
+
+  const mockRoles: DiscordRole[] = [
+    { id: 'role-1', name: 'Mage', color: 0, position: 1, managed: false },
+    { id: 'role-2', name: 'Warrior', color: 0, position: 2, managed: false },
+    { id: 'role-3', name: 'Rogue', color: 0, position: 3, managed: false },
+  ];
+
+  const baseTemplate: GameTemplate = {
+    id: 'template-1',
+    guild_id: 'guild-1',
+    name: 'Role Game',
+    description: null,
+    channel_id: 'channel-1',
+    channel_name: 'general',
+    order: 1,
+    is_default: false,
+    archive_channel_id: null,
+    archive_channel_name: null,
+    archive_delay_seconds: null,
+    where: null,
+    signup_instructions: null,
+    max_players: null,
+    expected_duration_minutes: null,
+    reminder_minutes: null,
+    notify_role_ids: null,
+    allowed_player_role_ids: null,
+    allowed_host_role_ids: null,
+    allowed_signup_methods: null,
+    default_signup_method: null,
+    signup_priority_role_ids: null,
+    created_at: '2024-01-01T00:00:00Z',
+    updated_at: '2024-01-01T00:00:00Z',
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockOnSubmit.mockResolvedValue(undefined);
+  });
+
+  it('renders the Role Priority section', () => {
+    render(
+      <TemplateForm
+        open={true}
+        template={null}
+        guildId="guild-1"
+        channels={mockChannels}
+        roles={mockRoles}
+        onClose={mockOnClose}
+        onSubmit={mockOnSubmit}
+      />
+    );
+
+    expect(screen.getByText(/role priority/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/add priority role/i)).toBeInTheDocument();
+  });
+
+  it('adds a role to the priority list', async () => {
+    const user = userEvent.setup();
+    render(
+      <TemplateForm
+        open={true}
+        template={null}
+        guildId="guild-1"
+        channels={mockChannels}
+        roles={mockRoles}
+        onClose={mockOnClose}
+        onSubmit={mockOnSubmit}
+      />
+    );
+
+    const select = screen.getByLabelText(/add priority role/i);
+    await user.click(select);
+    await user.click(screen.getByRole('option', { name: /@Mage/i }));
+    await user.click(screen.getByRole('button', { name: /add role/i }));
+
+    expect(screen.getByText('@Mage')).toBeInTheDocument();
+  });
+
+  it('removes a role from the priority list', async () => {
+    const user = userEvent.setup();
+    render(
+      <TemplateForm
+        open={true}
+        template={{ ...baseTemplate, signup_priority_role_ids: ['role-1', 'role-2'] }}
+        guildId="guild-1"
+        channels={mockChannels}
+        roles={mockRoles}
+        onClose={mockOnClose}
+        onSubmit={mockOnSubmit}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('@Mage')).toBeInTheDocument();
+      expect(screen.getByText('@Warrior')).toBeInTheDocument();
+    });
+
+    const removeButtons = screen.getAllByRole('button', { name: /remove @Mage/i });
+    await user.click(removeButtons[0]!);
+
+    await waitFor(() => {
+      expect(screen.queryByText('@Mage')).not.toBeInTheDocument();
+      expect(screen.getByText('@Warrior')).toBeInTheDocument();
+    });
+  });
+
+  it('disables Add Role button when 8 roles are already selected', async () => {
+    const eightRoles = Array.from({ length: 8 }, (_, i) => `role-extra-${i}`);
+    const templateWith8 = {
+      ...baseTemplate,
+      signup_priority_role_ids: eightRoles,
+    };
+    const rolesWithExtras: DiscordRole[] = [
+      ...mockRoles,
+      ...eightRoles.map((id, i) => ({
+        id,
+        name: `Extra${i}`,
+        color: 0,
+        position: i + 10,
+        managed: false,
+      })),
+    ];
+
+    render(
+      <TemplateForm
+        open={true}
+        template={templateWith8}
+        guildId="guild-1"
+        channels={mockChannels}
+        roles={rolesWithExtras}
+        onClose={mockOnClose}
+        onSubmit={mockOnSubmit}
+      />
+    );
+
+    const addButton = screen.getByRole('button', { name: /add role/i });
+    expect(addButton).toBeDisabled();
+  });
+
+  it('initializes priority role list from existing template', () => {
+    render(
+      <TemplateForm
+        open={true}
+        template={{ ...baseTemplate, signup_priority_role_ids: ['role-2', 'role-1'] }}
+        guildId="guild-1"
+        channels={mockChannels}
+        roles={mockRoles}
+        onClose={mockOnClose}
+        onSubmit={mockOnSubmit}
+      />
+    );
+
+    const items = screen.getAllByRole('listitem');
+    expect(items[0]).toHaveTextContent('@Warrior');
+    expect(items[1]).toHaveTextContent('@Mage');
+  });
+
+  it('submits signup_priority_role_ids in priority order', async () => {
+    const user = userEvent.setup();
+    render(
+      <TemplateForm
+        open={true}
+        template={{ ...baseTemplate, signup_priority_role_ids: ['role-1', 'role-2'] }}
+        guildId="guild-1"
+        channels={mockChannels}
+        roles={mockRoles}
+        onClose={mockOnClose}
+        onSubmit={mockOnSubmit}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: /update/i }));
+
+    await waitFor(() => {
+      expect(mockOnSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          signup_priority_role_ids: ['role-1', 'role-2'],
+        })
+      );
+    });
+  });
+
+  it('reorders roles by dragging', async () => {
+    const user = userEvent.setup();
+    render(
+      <TemplateForm
+        open={true}
+        template={{ ...baseTemplate, signup_priority_role_ids: ['role-1', 'role-2', 'role-3'] }}
+        guildId="guild-1"
+        channels={mockChannels}
+        roles={mockRoles}
+        onClose={mockOnClose}
+        onSubmit={mockOnSubmit}
+      />
+    );
+
+    await waitFor(() => {
+      const items = screen.getAllByRole('listitem');
+      expect(items[0]).toHaveTextContent('@Mage');
+      expect(items[1]).toHaveTextContent('@Warrior');
+      expect(items[2]).toHaveTextContent('@Rogue');
+    });
+
+    const items = screen.getAllByRole('listitem');
+
+    // Drag first item over the last item to reorder
+    await user.pointer([
+      { keys: '[MouseLeft>]', target: items[0]! },
+      { target: items[2]! },
+      { keys: '[/MouseLeft]' },
+    ]);
+
+    // Trigger dragstart, dragover, drop, dragend manually via fireEvent
+    const { fireEvent } = await import('@testing-library/react');
+    fireEvent.dragStart(items[0]!);
+    fireEvent.dragOver(items[2]!, { preventDefault: vi.fn() });
+    fireEvent.drop(items[2]!);
+    fireEvent.dragEnd(items[0]!);
+
+    await waitFor(() => {
+      const submitButton = screen.getByRole('button', { name: /update/i });
+      return submitButton;
+    });
+
+    await user.click(screen.getByRole('button', { name: /update/i }));
+
+    await waitFor(() => {
+      expect(mockOnSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          signup_priority_role_ids: ['role-2', 'role-3', 'role-1'],
+        })
+      );
+    });
+  });
+
+  it('submits signup_priority_role_ids as null when list is empty', async () => {
+    const user = userEvent.setup();
+    render(
+      <TemplateForm
+        open={true}
+        template={baseTemplate}
+        guildId="guild-1"
+        channels={mockChannels}
+        roles={mockRoles}
+        onClose={mockOnClose}
+        onSubmit={mockOnSubmit}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: /update/i }));
+
+    await waitFor(() => {
+      expect(mockOnSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          signup_priority_role_ids: null,
+        })
+      );
+    });
   });
 });
