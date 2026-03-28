@@ -283,7 +283,8 @@ async def list_guild_roles(
     """
     List all roles for a guild, excluding @everyone and managed roles.
 
-    Returns roles suitable for notification mentions.
+    Returns roles suitable for notification mentions, sorted alphabetically
+    (case-insensitive) by name.
     """
     guild_config = await queries.require_guild_by_id(
         db, guild_id, current_user.access_token, current_user.user.discord_id
@@ -309,8 +310,8 @@ async def list_guild_roles(
         if not role.get("managed", False)
     ]
 
-    # Sort by position (highest first)
-    filtered_roles.sort(key=lambda r: r["position"], reverse=True)
+    # Sort alphabetically, case-insensitive
+    filtered_roles.sort(key=lambda r: r["name"].lower())
     logger.info(
         "Returning %s filtered roles for guild %s",
         len(filtered_roles),

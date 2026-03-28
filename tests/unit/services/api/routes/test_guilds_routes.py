@@ -742,3 +742,65 @@ class TestSyncGuilds:
                 )
 
             assert str(exc_info.value) == "Database commit failed"
+
+
+class TestListGuildRoles:
+    """Test list_guild_roles endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_roles_sorted_case_insensitive(
+        self, mock_db, mock_current_user_unit, mock_guild_config
+    ):
+        """Roles are returned sorted alphabetically, case-insensitive."""
+        mock_discord_client = AsyncMock()
+        mock_discord_client.fetch_guild_roles.return_value = [
+            {"id": "1", "name": "Zebra Team", "color": 0, "position": 3, "managed": False},
+            {"id": "2", "name": "alpha Squad", "color": 0, "position": 1, "managed": False},
+            {"id": "3", "name": "Beta Group", "color": 0, "position": 2, "managed": False},
+        ]
+
+        with (
+            patch("services.api.database.queries.require_guild_by_id") as mock_get_guild,
+            patch(
+                "services.api.dependencies.permissions.verify_guild_membership",
+                new_callable=AsyncMock,
+            ),
+        ):
+            mock_get_guild.return_value = mock_guild_config
+
+            result = await guilds.list_guild_roles(
+                guild_id=mock_guild_config.id,
+                current_user=mock_current_user_unit,
+                db=mock_db,
+                discord_client=mock_discord_client,
+            )
+
+        assert [r["name"] for r in result] == ["@alpha Squad", "@Beta Group", "@Zebra Team"]
+
+    @pytest.mark.asyncio
+    async def test_managed_roles_excluded(self, mock_db, mock_current_user_unit, mock_guild_config):
+        """Managed roles are not included in the response."""
+        mock_discord_client = AsyncMock()
+        mock_discord_client.fetch_guild_roles.return_value = [
+            {"id": "1", "name": "Player", "color": 0, "position": 2, "managed": False},
+            {"id": "2", "name": "BotRole", "color": 0, "position": 1, "managed": True},
+        ]
+
+        with (
+            patch("services.api.database.queries.require_guild_by_id") as mock_get_guild,
+            patch(
+                "services.api.dependencies.permissions.verify_guild_membership",
+                new_callable=AsyncMock,
+            ),
+        ):
+            mock_get_guild.return_value = mock_guild_config
+
+            result = await guilds.list_guild_roles(
+                guild_id=mock_guild_config.id,
+                current_user=mock_current_user_unit,
+                db=mock_db,
+                discord_client=mock_discord_client,
+            )
+
+        assert len(result) == 1
+        assert result[0]["name"] == "@Player"
