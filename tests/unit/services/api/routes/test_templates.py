@@ -591,7 +591,53 @@ class TestCreateTemplate:
                 signup_instructions="Join us",
                 archive_delay_seconds=300,
                 archive_channel_id="archive-channel-id",
+                allowed_signup_methods=None,
+                default_signup_method=None,
+                signup_priority_role_ids=None,
             )
+
+    @pytest.mark.asyncio
+    async def test_create_template_passes_signup_priority_fields(
+        self, mock_db, mock_current_user_unit, mock_guild_config, mock_template
+    ):
+        """Test create_template forwards signup_priority_role_ids and signup method fields."""
+        request = template_schemas.TemplateCreateRequest(
+            guild_id=mock_guild_config.id,
+            name="Priority Template",
+            channel_id=mock_template.channel_id,
+            signup_priority_role_ids=["111", "222"],
+            allowed_signup_methods=["SELF_SIGNUP"],
+            default_signup_method="SELF_SIGNUP",
+        )
+
+        with (
+            patch("services.api.database.queries.require_guild_by_id") as mock_get_guild,
+            patch("services.api.auth.roles.get_role_service") as mock_get_role_service,
+            patch(
+                "services.api.services.template_service.TemplateService"
+            ) as mock_template_service,
+            patch("shared.discord.client.fetch_channel_name_safe", return_value="test-channel"),
+            patch("services.api.dependencies.permissions.require_bot_manager"),
+        ):
+            mock_get_guild.return_value = mock_guild_config
+            mock_role_service = AsyncMock()
+            mock_get_role_service.return_value = mock_role_service
+            mock_service = AsyncMock()
+            mock_service.create_template.return_value = mock_template
+            mock_template_service.return_value = mock_service
+
+            await templates.create_template(
+                guild_id=mock_guild_config.id,
+                request=request,
+                current_user=mock_current_user_unit,
+                db=mock_db,
+                discord_client=AsyncMock(),
+            )
+
+            call_kwargs = mock_service.create_template.call_args.kwargs
+            assert call_kwargs["signup_priority_role_ids"] == ["111", "222"]
+            assert call_kwargs["allowed_signup_methods"] == ["SELF_SIGNUP"]
+            assert call_kwargs["default_signup_method"] == "SELF_SIGNUP"
 
     @pytest.mark.asyncio
     async def test_create_template_unauthorized(

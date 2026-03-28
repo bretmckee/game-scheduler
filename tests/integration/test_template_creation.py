@@ -91,6 +91,7 @@ async def test_create_template_via_api_success(
                     "signup_instructions": "Be on time",
                     "order": 1,
                     "is_default": False,
+                    "signup_priority_role_ids": ["111222333444555666", "999888777666555444"],
                 },
             )
 
@@ -111,6 +112,10 @@ async def test_create_template_via_api_success(
         assert template_data["signup_instructions"] == "Be on time"
         assert template_data["order"] == 1
         assert template_data["is_default"] is False
+        assert template_data["signup_priority_role_ids"] == [
+            "111222333444555666",
+            "999888777666555444",
+        ]
 
         template_id = template_data["id"]
 
@@ -120,7 +125,8 @@ async def test_create_template_via_api_success(
                 """
                 SELECT name, description, max_players, guild_id, channel_id,
                        expected_duration_minutes, reminder_minutes, "where",
-                       signup_instructions, "order", is_default
+                       signup_instructions, "order", is_default,
+                       signup_priority_role_ids
                 FROM game_templates
                 WHERE id = :id
             """
@@ -141,6 +147,7 @@ async def test_create_template_via_api_success(
         assert row.signup_instructions == "Be on time"
         assert row.order == 1
         assert row.is_default is False
+        assert row.signup_priority_role_ids == ["111222333444555666", "999888777666555444"]
 
     finally:
         await cleanup_test_session(session_token)

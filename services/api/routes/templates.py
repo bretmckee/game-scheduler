@@ -235,6 +235,9 @@ async def create_template(
         reminder_minutes=request.reminder_minutes,
         where=request.where,
         signup_instructions=request.signup_instructions,
+        allowed_signup_methods=request.allowed_signup_methods,
+        default_signup_method=request.default_signup_method,
+        signup_priority_role_ids=request.signup_priority_role_ids,
     )
 
     return await build_template_response(template, discord_client)
