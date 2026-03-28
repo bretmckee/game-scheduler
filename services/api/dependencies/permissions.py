@@ -215,8 +215,10 @@ async def verify_game_access(
         )
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Game not found")
 
-    # Check player role restrictions from template (if configured)
-    if game.allowed_player_role_ids:
+    # Check player role restrictions from template (if configured).
+    # Hosts are always exempt — they can always see and access their own games.
+    is_host = game.host is not None and user_discord_id == game.host.discord_id
+    if game.allowed_player_role_ids and not is_host:
         has_role = await role_service.has_any_role(
             user_discord_id,
             guild_config.guild_id,

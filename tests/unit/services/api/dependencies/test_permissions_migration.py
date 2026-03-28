@@ -37,6 +37,7 @@ from shared.data_access.guild_isolation import set_current_guild_ids
 from shared.models.game import GameSession
 from shared.models.guild import GuildConfiguration
 from shared.models.template import GameTemplate
+from shared.models.user import User
 
 
 @pytest.fixture
@@ -308,6 +309,37 @@ class TestVerifyGameAccess:
             )
 
             assert result == game_no_roles
+            mock_role_service.has_any_role.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_verify_game_access_host_exempt_from_player_role(
+        self, mock_db, game_session, guild_config, mock_role_service
+    ):
+        """Test that the game host bypasses allowed_player_role_ids restriction."""
+        host_discord_id = "host_discord_999"
+        host_user = User(id=str(uuid4()), discord_id=host_discord_id)
+        game_session.host = host_user
+        set_current_guild_ids([guild_config.guild_id])
+
+        with (
+            patch(
+                "services.api.dependencies.permissions.queries.require_guild_by_id",
+                new_callable=AsyncMock,
+            ) as mock_require,
+            patch(
+                "services.api.dependencies.permissions._check_guild_membership",
+                new_callable=AsyncMock,
+            ) as mock_check,
+        ):
+            mock_require.return_value = guild_config
+            mock_check.return_value = True
+            mock_role_service.has_any_role.return_value = False
+
+            result = await permissions.verify_game_access(
+                game_session, host_discord_id, "token123", mock_db, mock_role_service
+            )
+
+            assert result == game_session
             mock_role_service.has_any_role.assert_not_called()
 
 
