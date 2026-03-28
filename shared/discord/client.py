@@ -150,6 +150,36 @@ class DiscordAPIClient:
 
         logger.info("Discord API Response: %s - %s", response.status, rate_limit_info)
 
+    async def _parse_response_json(self, response: aiohttp.ClientResponse) -> Any:  # noqa: ANN401
+        """Parse response body as JSON, raising DiscordAPIError on non-JSON payloads."""
+        try:
+            return await response.json(content_type=None)
+        except (json.JSONDecodeError, ValueError) as exc:
+            raise DiscordAPIError(
+                response.status,
+                f"Non-JSON response (HTTP {response.status}): {exc}",
+                dict(response.headers),
+            ) from exc
+
+    async def _raise_for_error_status(
+        self,
+        response: aiohttp.ClientResponse,
+        response_data: Any,  # noqa: ANN401
+        cache_key: str | None,
+    ) -> None:
+        """Raise DiscordAPIError for non-200 responses, caching 404s."""
+        if response.status == status.HTTP_200_OK:
+            return
+        error_msg = (
+            response_data.get("message", response_data.get("error_description", "Unknown error"))
+            if isinstance(response_data, dict)
+            else "Unknown error"
+        )
+        redis = await cache_client.get_redis_client()
+        if response.status == status.HTTP_404_NOT_FOUND and cache_key:
+            await redis.set(cache_key, json.dumps({"error": "not_found"}), ttl=60)
+        raise DiscordAPIError(response.status, error_msg, dict(response.headers))
+
     async def _make_api_request(
         self,
         method: str,
@@ -191,17 +221,10 @@ class DiscordAPIClient:
                 headers=headers,
                 **request_kwargs,
             ) as response:
-                response_data = await response.json()
+                response_data = await self._parse_response_json(response)
                 self._log_response(response)
 
-                if response.status != status.HTTP_200_OK:
-                    error_msg = response_data.get(
-                        "message",
-                        response_data.get("error_description", "Unknown error"),
-                    )
-                    if response.status == status.HTTP_404_NOT_FOUND and cache_key:
-                        await redis.set(cache_key, json.dumps({"error": "not_found"}), ttl=60)
-                    raise DiscordAPIError(response.status, error_msg, dict(response.headers))
+                await self._raise_for_error_status(response, response_data, cache_key)
 
                 if cache_key and cache_ttl:
                     await redis.set(cache_key, json.dumps(response_data), ttl=cache_ttl)
@@ -452,7 +475,7 @@ class DiscordAPIClient:
         Raises:
             DiscordAPIError: If response indicates non-retryable error
         """
-        response_data = await response.json()
+        response_data = await self._parse_response_json(response)
         guild_count = len(response_data) if isinstance(response_data, list) else "N/A"
         self._log_response(response, f"Returned {guild_count} guilds")
 
@@ -540,7 +563,7 @@ class DiscordAPIClient:
                 url,
                 headers={"Authorization": f"Bot {self.bot_token}"},
             ) as response:
-                response_data = await response.json()
+                response_data = await self._parse_response_json(response)
                 channel_count = len(response_data) if isinstance(response_data, list) else "N/A"
                 self._log_response(response, f"Returned {channel_count} channels")
 

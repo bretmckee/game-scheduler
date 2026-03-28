@@ -415,6 +415,35 @@ class TestMakeAPIRequest:
         assert "Network error" in exc_info.value.message
         assert "Connection timeout" in exc_info.value.message
 
+    @pytest.mark.asyncio
+    @patch("shared.cache.client.get_redis_client")
+    async def test_non_json_response_raises_error(self, mock_get_redis, discord_client, mock_redis):
+        """Non-JSON response body raises DiscordAPIError with HTTP status."""
+        mock_get_redis.return_value = mock_redis
+
+        mock_response = AsyncMock()
+        mock_response.status = 503
+        mock_response.headers = {"content-type": "text/plain"}
+        mock_response.json = AsyncMock(side_effect=json.JSONDecodeError("Expecting value", "", 0))
+        mock_context_manager = MagicMock()
+        mock_context_manager.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_context_manager.__aexit__ = AsyncMock(return_value=None)
+        mock_session = MagicMock()
+        mock_session.closed = False
+        mock_session.request = MagicMock(return_value=mock_context_manager)
+        discord_client._session = mock_session
+
+        with pytest.raises(DiscordAPIError) as exc_info:
+            await discord_client._make_api_request(
+                method="GET",
+                url="https://discord.com/api/v10/guilds/123",
+                operation_name="fetch_guild",
+                headers={"Authorization": "Bot token"},
+            )
+
+        assert exc_info.value.status == 503
+        assert "Non-JSON response" in exc_info.value.message
+
 
 class TestOAuth2Methods:
     """Test OAuth2 authentication methods."""
@@ -1771,6 +1800,28 @@ class TestProcessGuildsResponseHttpError:
         assert exc_info.value.status == 503
         assert exc_info.value.message == "Unknown error"
 
+    @pytest.mark.asyncio
+    async def test_get_guilds_non_json_response(self, discord_client):
+        """_process_guilds_response() raises DiscordAPIError when body is not JSON."""
+        mock_response = AsyncMock()
+        mock_response.status = 503
+        mock_response.headers = {"content-type": "text/plain"}
+        mock_response.json = AsyncMock(side_effect=json.JSONDecodeError("Expecting value", "", 0))
+
+        mock_session = MagicMock()
+        mock_session.closed = False
+        mock_cm = MagicMock()
+        mock_cm.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_cm.__aexit__ = AsyncMock(return_value=None)
+        mock_session.get = MagicMock(return_value=mock_cm)
+        discord_client._session = mock_session
+
+        with pytest.raises(DiscordAPIError) as exc_info:
+            await discord_client.get_guilds()
+
+        assert exc_info.value.status == 503
+        assert "Non-JSON response" in exc_info.value.message
+
 
 class TestFetchGuildsUncachedSafetyRaise:
     """Test the safety raise at the end of _fetch_guilds_uncached."""
@@ -1851,6 +1902,31 @@ class TestGuildChannelsErrorPaths:
 
         assert exc_info.value.status == 500
         assert "network error" in exc_info.value.message.lower()
+
+    @pytest.mark.asyncio
+    async def test_get_guild_channels_non_json_response(self, discord_client, mock_redis):
+        """get_guild_channels() raises DiscordAPIError when body is not JSON."""
+        mock_response = AsyncMock()
+        mock_response.status = 503
+        mock_response.headers = {"content-type": "text/plain"}
+        mock_response.json = AsyncMock(side_effect=json.JSONDecodeError("Expecting value", "", 0))
+
+        mock_session = MagicMock()
+        mock_session.closed = False
+        mock_cm = MagicMock()
+        mock_cm.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_cm.__aexit__ = AsyncMock(return_value=None)
+        mock_session.get = MagicMock(return_value=mock_cm)
+        discord_client._session = mock_session
+
+        with patch("shared.discord.client.cache_client.get_redis_client") as mock_get_redis:
+            mock_get_redis.return_value = mock_redis
+
+            with pytest.raises(DiscordAPIError) as exc_info:
+                await discord_client.get_guild_channels("guild123")
+
+        assert exc_info.value.status == 503
+        assert "Non-JSON response" in exc_info.value.message
 
 
 class TestFetchChannelAndRolesErrorPaths:
