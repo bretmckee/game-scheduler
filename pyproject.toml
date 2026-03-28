@@ -229,6 +229,8 @@ omit = [
 [tool.coverage.report]
 precision = 2
 skip_empty = true
+skip_covered = true
+sort = "Miss"
 
 [tool.duplicate-check]
 min-lines = 0
