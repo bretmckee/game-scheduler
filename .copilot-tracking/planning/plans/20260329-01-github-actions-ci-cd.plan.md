@@ -41,10 +41,10 @@ Replace the existing `ci-cd.yml` workflow with a complete, pre-commit-parity pip
 
 ### [ ] Phase 1: Extend Scripts for CI Compatibility (TDD)
 
-- [ ] Task 1.1: Write failing tests for `check_commit_duplicates.py --compare-branch`
+- [x] Task 1.1: Write failing tests for `check_commit_duplicates.py --compare-branch`
   - Details: .copilot-tracking/planning/details/20260329-01-github-actions-ci-cd-details.md (Lines 13-52)
 
-- [ ] Task 1.2: Implement `--compare-branch` in `check_commit_duplicates.py`
+- [x] Task 1.2: Implement `--compare-branch` in `check_commit_duplicates.py`
   - Details: .copilot-tracking/planning/details/20260329-01-github-actions-ci-cd-details.md (Lines 53-74)
 
 - [ ] Task 1.3: Write failing tests for `check_lint_suppressions.py --compare-branch` and `--ci`
