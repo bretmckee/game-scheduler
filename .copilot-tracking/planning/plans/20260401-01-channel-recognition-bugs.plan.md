@@ -75,12 +75,12 @@ the web UI renders human-readable channel names instead of raw `<#id>` tokens.
 - [x] Task 2.3: Populate `where_display` in `_build_game_response` (GREEN)
   - Details: .copilot-tracking/planning/details/20260401-01-channel-recognition-bugs-details.md (Lines 120-142)
 
-### [ ] Phase 3: Backend — Edit Path (TDD)
+### [x] Phase 3: Backend — Edit Path (TDD)
 
-- [ ] Task 3.1: Write xfail test for `update_game` channel resolution
+- [x] Task 3.1: Write xfail test for `update_game` channel resolution
   - Details: .copilot-tracking/planning/details/20260401-01-channel-recognition-bugs-details.md (Lines 145-161)
 
-- [ ] Task 3.2: Add resolver to `update_game` (GREEN)
+- [x] Task 3.2: Add resolver to `update_game` (GREEN)
   - Details: .copilot-tracking/planning/details/20260401-01-channel-recognition-bugs-details.md (Lines 162-179)
 
 ### [ ] Phase 4: Frontend — Types and Display

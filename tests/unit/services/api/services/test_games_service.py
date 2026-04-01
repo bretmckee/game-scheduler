@@ -2164,7 +2164,9 @@ async def test_update_game_success(game_service, mock_db, sample_user, sample_gu
 
 
 @pytest.mark.asyncio
-async def test_update_game_where_field(game_service, mock_db, sample_user, sample_guild):
+async def test_update_game_where_field(
+    game_service, mock_db, mock_channel_resolver, sample_user, sample_guild
+):
     """Test updating game where field."""
 
     game_id = str(uuid.uuid4())
@@ -2185,6 +2187,8 @@ async def test_update_game_where_field(game_service, mock_db, sample_user, sampl
     mock_game.host = sample_user
     mock_game.guild = sample_guild
     mock_game.channel = mock_channel
+
+    mock_channel_resolver.resolve_channel_mentions = AsyncMock(return_value=("New Location", []))
 
     game_result = MagicMock()
     game_result.scalar_one_or_none.return_value = mock_game
@@ -4349,3 +4353,55 @@ async def test_get_or_create_user_by_discord_id_new(
     assert result.id is not None
     mock_db.add.assert_called_once()
     mock_db.flush.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_update_game_resolves_channel_mention_in_where(
+    game_service,
+    mock_db,
+    mock_channel_resolver,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """Regression test: update_game must call resolve_channel_mentions for the where field."""
+    game_id = str(uuid.uuid4())
+    game = game_model.GameSession(
+        id=game_id,
+        title="Test Game",
+        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        guild_id=sample_guild.id,
+        channel_id=sample_channel.id,
+        host_id=sample_user.id,
+        max_players=5,
+        status="SCHEDULED",
+        participants=[],
+    )
+    game.host = sample_user
+    game.guild = sample_guild
+    game.channel = sample_channel
+
+    mock_channel_resolver.resolve_channel_mentions = AsyncMock(return_value=("<#987654321>", []))
+
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = game
+    mock_db.execute.return_value = mock_result
+    mock_db.refresh = AsyncMock()
+
+    update_data = game_schemas.GameUpdateRequest(where="#channel-name")
+
+    mock_current_user = MagicMock()
+    mock_current_user.user.discord_id = sample_user.discord_id
+    mock_role_service = AsyncMock()
+
+    with patch("services.api.dependencies.permissions.can_manage_game", return_value=True):
+        await game_service.update_game(
+            game_id=game_id,
+            update_data=update_data,
+            current_user=mock_current_user,
+            role_service=mock_role_service,
+        )
+
+    mock_channel_resolver.resolve_channel_mentions.assert_called_once_with(
+        "#channel-name", sample_guild.guild_id
+    )

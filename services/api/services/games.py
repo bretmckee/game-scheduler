@@ -1753,6 +1753,24 @@ class GameService:
             game, update_data
         )
 
+        # Resolve channel mentions in location field
+        if update_data.where is not None:
+            (
+                resolved_location,
+                channel_errors,
+            ) = await self.channel_resolver.resolve_channel_mentions(
+                game.where,
+                game.guild.guild_id,
+            )
+
+            if channel_errors:
+                raise resolver_module.ValidationError(
+                    invalid_mentions=channel_errors,
+                    valid_participants=[],
+                )
+
+            game.where = resolved_location
+
         # Update images if provided
         await self._update_image_fields(
             game, thumbnail_data, thumbnail_mime_type, image_data, image_mime_type

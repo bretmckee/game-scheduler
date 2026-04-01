@@ -2,7 +2,7 @@
 
 ## Status
 
-Phase 2 complete.
+Phase 3 complete.
 
 ## Added
 
@@ -17,10 +17,12 @@ Phase 2 complete.
 - `services/api/services/channel_resolver.py` — Added `_snowflake_token_pattern` and snowflake detection to `resolve_channel_mentions`; valid `<#id>` tokens pass through silently, invalid ones produce a `not_found` error (Bug 2 fix)
 - `shared/schemas/game.py` — Added `where_display: str | None` field to `GameResponse` with default `None`
 - `services/api/routes/games.py` — Updated `_build_game_response` to call `get_guild_channels_safe` and `render_where_display`, populating `where_display` in `GameResponse`; also imported `get_guild_channels_safe`
+- `services/api/services/games.py` — Added channel resolver call in `update_game` after `_update_game_fields`: resolves `game.where` through `channel_resolver.resolve_channel_mentions` when `update_data.where is not None`, raising `ValidationError` on invalid mentions (mirrors `create_game` pattern)
 - `tests/unit/services/api/routes/test_channel_resolver.py` — Added 5 regression tests: emoji channel name resolution, valid `<#id>` token accepted, unknown `<#id>` token error, `render_where_display` with `None`, and `render_where_display` token substitution; all written as `xfail` first then made passing
 - `tests/unit/services/api/routes/test_games_helpers.py` — Added `_build_game_response` and `ParticipantResponse` to imports
 - `tests/unit/services/api/routes/test_games_participant_count.py` — Added `get_guild_channels_safe` patch to all 4 tests that call `_build_game_response`
 - `tests/unit/services/api/routes/test_games_timezone.py` — Added `get_guild_channels_safe` patch to all 4 tests that call `_build_game_response`
+- `tests/unit/services/api/services/test_games_service.py` — Added `test_update_game_resolves_channel_mention_in_where` regression test (written as `xfail`, made passing); updated `test_update_game_where_field` to mock `resolve_channel_mentions` return value after resolver was added to `update_game`
 
 ## Removed
 
