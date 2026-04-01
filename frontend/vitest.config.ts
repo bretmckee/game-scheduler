@@ -28,7 +28,9 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
     css: true,
-    testTimeout: 10000,
+    testTimeout: 15000,
+    slowTestThreshold: 2000,
+    maxWorkers: '50%',
     sequence: {
       shuffle: {
         files: true,

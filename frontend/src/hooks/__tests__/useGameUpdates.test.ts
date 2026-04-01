@@ -58,9 +58,11 @@ describe('useGameUpdates', () => {
   beforeEach(() => {
     mockEventSourceInstances = [];
     globalThis.EventSource = MockEventSource as any;
+    vi.useFakeTimers();
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -194,7 +196,6 @@ describe('useGameUpdates', () => {
   });
 
   it('triggers reconnection on timeout', () => {
-    vi.useFakeTimers();
     const onUpdate = vi.fn();
 
     const { rerender } = renderHook(() => useGameUpdates('guild-123', onUpdate));
@@ -215,8 +216,6 @@ describe('useGameUpdates', () => {
     // Should have triggered reconnection (new EventSource created)
     expect(mockEventSourceInstances.length).toBeGreaterThan(1);
     expect(firstInstance.close).toHaveBeenCalled();
-
-    vi.useRealTimers();
   });
 
   it('updates lastMessageTime on onopen', () => {

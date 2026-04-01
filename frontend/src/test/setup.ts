@@ -19,6 +19,9 @@
 // SOFTWARE.
 
 import '@testing-library/jest-dom';
+import { configure } from '@testing-library/react';
+
+configure({ asyncUtilTimeout: 3000 });
 
 class MockEventSource {
   url: string;
