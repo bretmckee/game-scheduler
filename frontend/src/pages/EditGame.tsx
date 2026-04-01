@@ -43,6 +43,16 @@ interface ValidationError {
   }>;
 }
 
+interface ChannelValidationError {
+  type: string;
+  input: string;
+  reason: string;
+  suggestions: Array<{
+    id: string;
+    name: string;
+  }>;
+}
+
 interface ValidationErrorResponse {
   error: string;
   message: string;
@@ -62,6 +72,9 @@ export const EditGame: FC = () => {
   const [loading, setLoading] = useState(true);
   const [validationErrors, setValidationErrors] = useState<ValidationError[] | null>(null);
   const [validParticipants, setValidParticipants] = useState<string[] | null>(null);
+  const [channelValidationErrors, setChannelValidationErrors] = useState<
+    ChannelValidationError[] | null
+  >(null);
 
   useEffect(() => {
     const fetchGameAndChannels = async () => {
@@ -120,6 +133,7 @@ export const EditGame: FC = () => {
 
     try {
       setValidationErrors(null);
+      setChannelValidationErrors(null);
 
       const payload = new FormData();
 
@@ -215,7 +229,20 @@ export const EditGame: FC = () => {
         (err as any).response.data?.detail?.error === 'invalid_mentions'
       ) {
         const errorData = (err as any).response.data.detail as ValidationErrorResponse;
-        setValidationErrors(errorData.invalid_mentions);
+
+        const participantErrors: ValidationError[] = [];
+        const channelErrors: ChannelValidationError[] = [];
+
+        errorData.invalid_mentions.forEach((mention: any) => {
+          if (mention.type) {
+            channelErrors.push(mention as ChannelValidationError);
+          } else {
+            participantErrors.push(mention as ValidationError);
+          }
+        });
+
+        setValidationErrors(participantErrors.length > 0 ? participantErrors : null);
+        setChannelValidationErrors(channelErrors.length > 0 ? channelErrors : null);
         setValidParticipants(errorData.valid_participants);
         // Don't throw - let form stay open for corrections
         return;
@@ -229,6 +256,10 @@ export const EditGame: FC = () => {
   const handleSuggestionClick = (_originalInput: string, _newUsername: string) => {
     setValidationErrors(null);
     setValidParticipants(null);
+  };
+
+  const handleChannelSuggestionClick = (_originalInput: string, _newChannelName: string) => {
+    setChannelValidationErrors(null);
   };
 
   const handleSaveAndArchive = async (formData: GameFormData) => {
@@ -335,6 +366,8 @@ export const EditGame: FC = () => {
         validationErrors={validationErrors}
         validParticipants={validParticipants}
         onValidationErrorClick={handleSuggestionClick}
+        channelValidationErrors={channelValidationErrors}
+        onChannelValidationErrorClick={handleChannelSuggestionClick}
       />
     </Container>
   );

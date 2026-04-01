@@ -19,6 +19,7 @@
 // SOFTWARE.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { StatusCodes } from 'http-status-codes';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router';
@@ -344,6 +345,125 @@ describe('EditGame', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Save and Archive')).toBeInTheDocument();
+    });
+  });
+
+  it('shows channel validation errors when PUT returns 422 with channel invalid_mentions', async () => {
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url.includes('/games/')) return Promise.resolve({ data: mockGame });
+      if (url.includes('/channels')) return Promise.resolve({ data: mockChannels });
+      if (url.includes('/roles')) return Promise.resolve({ data: [] });
+      return Promise.reject(new Error('Unknown URL'));
+    });
+
+    vi.mocked(apiClient.put).mockRejectedValueOnce({
+      response: {
+        status: StatusCodes.UNPROCESSABLE_ENTITY,
+        data: {
+          detail: {
+            error: 'invalid_mentions',
+            message: 'Some channel mentions could not be resolved',
+            invalid_mentions: [
+              {
+                type: 'not_found',
+                input: '#nonexistent',
+                reason: "Channel '#nonexistent' not found",
+                suggestions: [
+                  { id: '789', name: 'general' },
+                  { id: '012', name: 'announcements' },
+                ],
+              },
+            ],
+            valid_participants: [],
+          },
+        },
+      },
+    });
+
+    const user = userEvent.setup();
+
+    render(
+      <AuthContext.Provider value={mockAuthContextValue}>
+        <BrowserRouter>
+          <EditGame />
+        </BrowserRouter>
+      </AuthContext.Provider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('Test Game')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Save Changes'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Location contains an invalid channel reference')
+      ).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('#nonexistent')).toBeInTheDocument();
+    expect(screen.getByText(/Channel '#nonexistent' not found/)).toBeInTheDocument();
+    expect(screen.getByText('#general')).toBeInTheDocument();
+  });
+
+  it('channel suggestion click clears channel validation errors in EditGame', async () => {
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url.includes('/games/')) return Promise.resolve({ data: mockGame });
+      if (url.includes('/channels')) return Promise.resolve({ data: mockChannels });
+      if (url.includes('/roles')) return Promise.resolve({ data: [] });
+      return Promise.reject(new Error('Unknown URL'));
+    });
+
+    vi.mocked(apiClient.put).mockRejectedValueOnce({
+      response: {
+        status: StatusCodes.UNPROCESSABLE_ENTITY,
+        data: {
+          detail: {
+            error: 'invalid_mentions',
+            message: 'Some channel mentions could not be resolved',
+            invalid_mentions: [
+              {
+                type: 'not_found',
+                input: '#nonexistent',
+                reason: "Channel '#nonexistent' not found",
+                suggestions: [{ id: '789', name: 'general' }],
+              },
+            ],
+            valid_participants: [],
+          },
+        },
+      },
+    });
+
+    const user = userEvent.setup();
+
+    render(
+      <AuthContext.Provider value={mockAuthContextValue}>
+        <BrowserRouter>
+          <EditGame />
+        </BrowserRouter>
+      </AuthContext.Provider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('Test Game')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Save Changes'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Location contains an invalid channel reference')
+      ).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('#general'));
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText('Location contains an invalid channel reference')
+      ).not.toBeInTheDocument();
     });
   });
 

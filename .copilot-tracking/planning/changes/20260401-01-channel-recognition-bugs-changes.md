@@ -2,7 +2,7 @@
 
 ## Status
 
-Phase 3 complete.
+All phases complete.
 
 ## Added
 
@@ -23,6 +23,8 @@ Phase 3 complete.
 - `tests/unit/services/api/routes/test_games_participant_count.py` — Added `get_guild_channels_safe` patch to all 4 tests that call `_build_game_response`
 - `tests/unit/services/api/routes/test_games_timezone.py` — Added `get_guild_channels_safe` patch to all 4 tests that call `_build_game_response`
 - `tests/unit/services/api/services/test_games_service.py` — Added `test_update_game_resolves_channel_mention_in_where` regression test (written as `xfail`, made passing); updated `test_update_game_where_field` to mock `resolve_channel_mentions` return value after resolver was added to `update_game`
+- `frontend/src/pages/EditGame.tsx` — Added `ChannelValidationError` interface, `channelValidationErrors` state, updated `handleSubmit` 422 handler to split `invalid_mentions` by `type` into participant vs. channel errors calling `setChannelValidationErrors`, added `handleChannelSuggestionClick` callback that clears `channelValidationErrors`, and passed `channelValidationErrors` and `onChannelValidationErrorClick` props to `<GameForm>` (mirrors `CreateGame.tsx` pattern)
+- `frontend/src/pages/__tests__/EditGame.test.tsx` — Added `StatusCodes` import and two regression tests: channel 422 response renders `ChannelValidationErrors` UI, and clicking a suggestion chip clears the errors (written as `it.fails`, made passing)
 
 ## Removed
 

@@ -94,15 +94,15 @@ the web UI renders human-readable channel names instead of raw `<#id>` tokens.
 - [x] Task 4.3: Update `GameForm` pre-populate and suggestion click handler (Bug 3 GREEN)
   - Details: .copilot-tracking/planning/details/20260401-01-channel-recognition-bugs-details.md (Lines 214-237)
 
-### [ ] Phase 5: Frontend — EditGame 422 Handling
+### [x] Phase 5: Frontend — EditGame 422 Handling
 
-- [ ] Task 5.1: Add `channelValidationErrors` state to `EditGame`
+- [x] Task 5.1: Add `channelValidationErrors` state to `EditGame`
   - Details: .copilot-tracking/planning/details/20260401-01-channel-recognition-bugs-details.md (Lines 240-255)
 
-- [ ] Task 5.2: Parse channel errors from 422 response in `EditGame`
+- [x] Task 5.2: Parse channel errors from 422 response in `EditGame`
   - Details: .copilot-tracking/planning/details/20260401-01-channel-recognition-bugs-details.md (Lines 256-272)
 
-- [ ] Task 5.3: Pass channel validation props to `GameForm` in `EditGame`
+- [x] Task 5.3: Pass channel validation props to `GameForm` in `EditGame`
   - Details: .copilot-tracking/planning/details/20260401-01-channel-recognition-bugs-details.md (Lines 273-303)
 
 ## Dependencies
