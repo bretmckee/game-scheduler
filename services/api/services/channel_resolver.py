@@ -42,8 +42,9 @@ class ChannelResolver:
             discord_client: Discord API client for channel lookup
         """
         self.discord_client = discord_client
-        self._channel_mention_pattern = re.compile(r"#([\w-]+)")
+        self._channel_mention_pattern = re.compile(r"(?<!<)#([^\s<>]+)")
         self._discord_channel_url_pattern = re.compile(r"https://discord\.com/channels/(\d+)/(\d+)")
+        self._snowflake_token_pattern = re.compile(r"<#(\d+)>")
 
     async def resolve_channel_mentions(
         self,
@@ -67,8 +68,9 @@ class ChannelResolver:
 
         url_matches = list(self._discord_channel_url_pattern.finditer(location_text))
         hash_matches = list(self._channel_mention_pattern.finditer(location_text))
+        snowflake_matches = list(self._snowflake_token_pattern.finditer(location_text))
 
-        if not url_matches and not hash_matches:
+        if not url_matches and not hash_matches and not snowflake_matches:
             return location_text, []
 
         channels = await self.discord_client.get_guild_channels(guild_discord_id)
@@ -95,6 +97,8 @@ class ChannelResolver:
                 })
             else:
                 resolved = resolved.replace(full_url, f"<#{url_channel_id}>", 1)
+
+        errors.extend(self._check_snowflake_tokens(snowflake_matches, text_channel_ids))
 
         for match in hash_matches:
             channel_name = match.group(1)
@@ -131,3 +135,39 @@ class ChannelResolver:
                 })
 
         return resolved, errors
+
+    def _check_snowflake_tokens(
+        self,
+        snowflake_matches: list[re.Match],
+        text_channel_ids: set[str],
+    ) -> list[dict]:
+        """Validate <#id> tokens against the guild's text channel list."""
+        errors: list[dict] = []
+        for m in snowflake_matches:
+            channel_id = m.group(1)
+            if channel_id not in text_channel_ids:
+                errors.append({
+                    "type": "not_found",
+                    "input": f"<#{channel_id}>",
+                    "reason": f"Channel <#{channel_id}> is not a valid text channel in this server",
+                    "suggestions": [],
+                })
+        return errors
+
+
+def render_where_display(where: str | None, channels: list[dict]) -> str | None:
+    """
+    Replace `<#id>` tokens in a stored location string with `#name`.
+
+    Returns None if `where` is None. Leaves tokens with unknown IDs unchanged.
+    """
+    if where is None:
+        return None
+    id_to_name = {ch["id"]: ch["name"] for ch in channels}
+    pattern = re.compile(r"<#(\d+)>")
+
+    def _replace(m: re.Match) -> str:
+        name = id_to_name.get(m.group(1))
+        return f"#{name}" if name is not None else m.group(0)
+
+    return pattern.sub(_replace, where)

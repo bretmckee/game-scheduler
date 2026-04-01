@@ -436,3 +436,80 @@ async def test_resolve_mixed_valid_and_invalid_channels(resolver, mock_discord_c
     assert len(errors) == 1
     assert errors[0]["type"] == "not_found"
     assert errors[0]["input"] == "#nonexistent"
+
+
+# ---------------------------------------------------------------------------
+# Bug fix regression tests (xfail until fixed)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_resolve_emoji_unicode_channel_name(resolver, mock_discord_client):
+    """Emoji-prefixed channel name like #🍻tavern-generalchat should resolve correctly."""
+    mock_discord_client.get_guild_channels = AsyncMock(
+        return_value=[
+            {"id": "406497579061215235", "name": "🍻tavern-generalchat", "type": 0},
+        ]
+    )
+
+    resolved_text, errors = await resolver.resolve_channel_mentions(
+        location_text="Meet in #🍻tavern-generalchat",
+        guild_discord_id="guild123",
+    )
+
+    assert resolved_text == "Meet in <#406497579061215235>"
+    assert len(errors) == 0
+
+
+@pytest.mark.asyncio
+async def test_resolve_snowflake_token_valid_id(resolver, mock_discord_client):
+    """<#id> token with a valid guild channel ID should pass through silently with no errors."""
+    mock_discord_client.get_guild_channels = AsyncMock(
+        return_value=[
+            {"id": "406497579061215235", "name": "🍻tavern-generalchat", "type": 0},
+        ]
+    )
+
+    resolved_text, errors = await resolver.resolve_channel_mentions(
+        location_text="Meet in <#406497579061215235>",
+        guild_discord_id="guild123",
+    )
+
+    assert resolved_text == "Meet in <#406497579061215235>"
+    assert len(errors) == 0
+
+
+@pytest.mark.asyncio
+async def test_resolve_snowflake_token_unknown_id(resolver, mock_discord_client):
+    """<#id> token with an ID not in the guild should produce a not_found error."""
+    mock_discord_client.get_guild_channels = AsyncMock(
+        return_value=[
+            {"id": "406497579061215235", "name": "general", "type": 0},
+        ]
+    )
+
+    resolved_text, errors = await resolver.resolve_channel_mentions(
+        location_text="Meet in <#999999999999999999>",
+        guild_discord_id="guild123",
+    )
+
+    assert resolved_text == "Meet in <#999999999999999999>"
+    assert len(errors) == 1
+    assert errors[0]["type"] == "not_found"
+    assert errors[0]["input"] == "<#999999999999999999>"
+
+
+def test_render_where_display_none_input():
+    """render_where_display returns None when where is None."""
+    result = resolver_module.render_where_display(None, [{"id": "123", "name": "general"}])
+    assert result is None
+
+
+def test_render_where_display_replaces_tokens():
+    """render_where_display replaces <#id> tokens with #name using provided channel list."""
+    channels = [
+        {"id": "123", "name": "foo", "type": 0},
+        {"id": "456", "name": "bar", "type": 0},
+    ]
+    result = resolver_module.render_where_display("<#123> and <#456>", channels)
+    assert result == "#foo and #bar"

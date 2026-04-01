@@ -50,18 +50,18 @@ the web UI renders human-readable channel names instead of raw `<#id>` tokens.
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Channel Resolver Unit Tests and Fixes (TDD)
+### [x] Phase 1: Channel Resolver Unit Tests and Fixes (TDD)
 
-- [ ] Task 1.1: Write xfail regression tests for all resolver changes
+- [x] Task 1.1: Write xfail regression tests for all resolver changes
   - Details: .copilot-tracking/planning/details/20260401-01-channel-recognition-bugs-details.md (Lines 11-30)
 
-- [ ] Task 1.2: Fix hashtag regex to accept emoji/Unicode (Bug 1 GREEN)
+- [x] Task 1.2: Fix hashtag regex to accept emoji/Unicode (Bug 1 GREEN)
   - Details: .copilot-tracking/planning/details/20260401-01-channel-recognition-bugs-details.md (Lines 31-46)
 
-- [ ] Task 1.3: Add `<#snowflake>` input handling (Bug 2 GREEN)
+- [x] Task 1.3: Add `<#snowflake>` input handling (Bug 2 GREEN)
   - Details: .copilot-tracking/planning/details/20260401-01-channel-recognition-bugs-details.md (Lines 47-62)
 
-- [ ] Task 1.4: Add `render_where_display` function (GREEN)
+- [x] Task 1.4: Add `render_where_display` function (GREEN)
   - Details: .copilot-tracking/planning/details/20260401-01-channel-recognition-bugs-details.md (Lines 63-85)
 
 ### [ ] Phase 2: Backend Schema and API Response (TDD)
