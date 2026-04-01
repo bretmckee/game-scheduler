@@ -236,7 +236,7 @@ describe('TemplateForm', () => {
           description: null,
           where: null,
           signup_instructions: null,
-          max_players: null,
+          max_players: 10,
           expected_duration_minutes: null,
           reminder_minutes: null,
           notify_role_ids: null,

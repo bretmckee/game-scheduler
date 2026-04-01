@@ -39,11 +39,12 @@ export interface ReminderSelectorProps {
 }
 
 const PRESET_OPTIONS = [
-  { label: '5 minutes', value: 5 },
   { label: '30 minutes', value: 30 },
   { label: '1 hour', value: 60 },
   { label: '2 hours', value: 120 },
-  { label: '1 day', value: 1440 },
+  { label: '12 hours', value: 720 },
+  { label: '1 day / 24 hours', value: 1440 },
+  { label: '2 days / 48 hours', value: 2880 },
 ];
 
 const MIN_MINUTES = 1;

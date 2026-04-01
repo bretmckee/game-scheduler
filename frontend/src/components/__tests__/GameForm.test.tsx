@@ -296,7 +296,7 @@ describe('GameForm - Host Field Conditional Rendering', () => {
     );
 
     expect(
-      getByText(/game host \(@mention or username\)\. leave empty to host yourself\./i)
+      getByText(/@mention or enter username if game host is someone other than yourself/i)
     ).toBeInTheDocument();
   });
 

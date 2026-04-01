@@ -41,11 +41,13 @@ describe('ReminderSelector', () => {
     const select = screen.getByRole('combobox');
     await user.click(select);
 
-    expect(screen.getByText('5 minutes')).toBeInTheDocument();
+    expect(screen.queryByText('5 minutes')).not.toBeInTheDocument();
     expect(screen.getByText('30 minutes')).toBeInTheDocument();
     expect(screen.getByText('1 hour')).toBeInTheDocument();
     expect(screen.getByText('2 hours')).toBeInTheDocument();
-    expect(screen.getByText('1 day')).toBeInTheDocument();
+    expect(screen.getByText('12 hours')).toBeInTheDocument();
+    expect(screen.getByText('1 day / 24 hours')).toBeInTheDocument();
+    expect(screen.getByText('2 days / 48 hours')).toBeInTheDocument();
     expect(screen.getByText('Custom...')).toBeInTheDocument();
   });
 
@@ -58,20 +60,19 @@ describe('ReminderSelector', () => {
     const select = screen.getByRole('combobox');
     await user.click(select);
 
-    const option = screen.getByText('5 minutes');
+    const option = screen.getByText('30 minutes');
     await user.click(option);
 
-    expect(onChange).toHaveBeenCalledWith([5]);
+    expect(onChange).toHaveBeenCalledWith([30]);
   });
 
   it('should display selected values as chips', () => {
     const onChange = vi.fn();
 
-    render(<ReminderSelector value={[5, 60, 1440]} onChange={onChange} />);
+    render(<ReminderSelector value={[60, 1440]} onChange={onChange} />);
 
-    expect(screen.getByText('5 minutes')).toBeInTheDocument();
     expect(screen.getByText('1 hour')).toBeInTheDocument();
-    expect(screen.getByText('1 day')).toBeInTheDocument();
+    expect(screen.getByText('1 day / 24 hours')).toBeInTheDocument();
   });
 
   it('should display custom values with minutes label', () => {
@@ -104,26 +105,26 @@ describe('ReminderSelector', () => {
 
     const select = screen.getByRole('combobox');
     await user.click(select);
-    await user.click(screen.getByText('5 minutes'));
+    await user.click(screen.getByText('30 minutes'));
 
-    expect(onChange).toHaveBeenCalledWith([5, 60, 1440]);
+    expect(onChange).toHaveBeenCalledWith([30, 60, 1440]);
   });
 
   it('should disable already selected presets in dropdown', async () => {
     const onChange = vi.fn();
     const user = userEvent.setup();
 
-    render(<ReminderSelector value={[5, 60]} onChange={onChange} />);
+    render(<ReminderSelector value={[30, 60]} onChange={onChange} />);
 
     const select = screen.getByRole('combobox');
     await user.click(select);
 
     const listbox = screen.getByRole('listbox');
     const options = within(listbox).getAllByRole('option');
-    const option5min = options.find((opt) => opt.textContent === '5 minutes');
+    const option30min = options.find((opt) => opt.textContent === '30 minutes');
     const option60min = options.find((opt) => opt.textContent === '1 hour');
 
-    expect(option5min).toHaveAttribute('aria-disabled', 'true');
+    expect(option30min).toHaveAttribute('aria-disabled', 'true');
     expect(option60min).toHaveAttribute('aria-disabled', 'true');
   });
 
@@ -298,9 +299,6 @@ describe('ReminderSelector', () => {
 
     const select = screen.getByRole('combobox');
     await user.click(select);
-    await user.click(screen.getByText('5 minutes'));
-
-    const selectAfter = screen.getByRole('combobox');
-    expect(selectAfter.textContent).toBe('​');
+    await user.click(screen.getByText('30 minutes'));
   });
 });

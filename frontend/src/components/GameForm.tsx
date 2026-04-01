@@ -197,7 +197,7 @@ export const GameForm: FC<GameFormProps> = ({
     scheduledAt: initialData?.scheduled_at ? new Date(initialData.scheduled_at) : getNextHalfHour(),
     where: initialData?.where || '',
     channelId: initialData?.channel_id || '',
-    maxPlayers: initialData?.max_players?.toString() || '8',
+    maxPlayers: initialData?.max_players?.toString() || '10',
     reminderMinutes: initialData?.reminder_minutes?.join(', ') || '',
     reminderMinutesArray:
       initialData?.reminder_minutes && Array.isArray(initialData.reminder_minutes)
@@ -246,7 +246,7 @@ export const GameForm: FC<GameFormProps> = ({
           : getNextHalfHour(),
         where: initialData.where || '',
         channelId: initialData.channel_id || '',
-        maxPlayers: initialData.max_players?.toString() || '8',
+        maxPlayers: initialData.max_players?.toString() || '10',
         reminderMinutes: initialData.reminder_minutes?.join(', ') || '',
         reminderMinutesArray:
           initialData.reminder_minutes && Array.isArray(initialData.reminder_minutes)
@@ -390,7 +390,7 @@ export const GameForm: FC<GameFormProps> = ({
     const MAX_LOCATION_LENGTH = 500;
     const count = formData.where.length;
     if (count === 0) {
-      return 'Location of the game. Type #channel-name to link to a Discord channel';
+      return 'Where players should go for information or mustering (#channel-name, Roll20 link, etc.)';
     }
     return `${count}/${MAX_LOCATION_LENGTH} characters`;
   };
@@ -406,8 +406,7 @@ export const GameForm: FC<GameFormProps> = ({
     if (signupInstructionsError) return signupInstructionsError;
     const MAX_SIGNUP_INSTRUCTIONS_LENGTH = 1000;
     const count = formData.signupInstructions.length;
-    if (count === 0)
-      return 'Special requirements or instructions (visible to host only after creation)';
+    if (count === 0) return 'Sent to each player via DM when they join the game';
     return `${count}/${MAX_SIGNUP_INSTRUCTIONS_LENGTH} characters`;
   };
 
@@ -615,7 +614,8 @@ export const GameForm: FC<GameFormProps> = ({
               disabled={loading}
               placeholder={user?.username || 'Your username'}
               helperText={
-                hostError || 'Game host (@mention or username). Leave empty to host yourself.'
+                hostError ||
+                '@mention or enter username if Game Host is someone other than yourself (you are automatically registered as Game Host if left blank)'
               }
               error={!!hostError}
               InputLabelProps={{
@@ -665,7 +665,7 @@ export const GameForm: FC<GameFormProps> = ({
           />
 
           <DateTimePicker
-            label="Scheduled Time *"
+            label="Scheduled Time (Your Local Time Zone) *"
             value={formData.scheduledAt}
             onChange={handleDateChange}
             disablePast
@@ -809,7 +809,7 @@ export const GameForm: FC<GameFormProps> = ({
                 value={formData.maxPlayers}
                 onChange={handleChange}
                 onBlur={validateMaxPlayersField}
-                helperText={maxPlayersError || 'Leave empty to use channel/server default'}
+                helperText={maxPlayersError || undefined}
                 error={!!maxPlayersError}
                 disabled={loading}
                 inputProps={{ min: 1, max: 100 }}

@@ -79,7 +79,7 @@ export const TemplateForm: FC<TemplateFormProps> = ({
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [channelId, setChannelId] = useState('');
-  const [maxPlayers, setMaxPlayers] = useState('');
+  const [maxPlayers, setMaxPlayers] = useState(String(UI.DEFAULT_MAX_PLAYERS));
   const [expectedDuration, setExpectedDuration] = useState<number | null>(null);
   const [reminderMinutesArray, setReminderMinutesArray] = useState<number[]>([]);
   const [where, setWhere] = useState('');
@@ -109,7 +109,7 @@ export const TemplateForm: FC<TemplateFormProps> = ({
       setName(template.name);
       setDescription(template.description || '');
       setChannelId(template.channel_id);
-      setMaxPlayers(template.max_players !== null ? String(template.max_players) : '');
+      setMaxPlayers(String(template.max_players ?? UI.DEFAULT_MAX_PLAYERS));
       setExpectedDuration(template.expected_duration_minutes);
 
       setReminderMinutesArray(template.reminder_minutes || []);
@@ -140,7 +140,7 @@ export const TemplateForm: FC<TemplateFormProps> = ({
       setName('');
       setDescription('');
       setChannelId(channels.length > 0 ? channels[0]!.id : '');
-      setMaxPlayers('');
+      setMaxPlayers(String(UI.DEFAULT_MAX_PLAYERS));
       setExpectedDuration(null);
 
       setReminderMinutesArray([]);
@@ -169,7 +169,7 @@ export const TemplateForm: FC<TemplateFormProps> = ({
       newErrors.channelId = 'Channel is required';
     }
 
-    if (maxPlayers && (parseInt(maxPlayers) < 1 || parseInt(maxPlayers) > UI.MAX_PLAYERS_LIMIT)) {
+    if (!maxPlayers || parseInt(maxPlayers) < 1 || parseInt(maxPlayers) > UI.MAX_PLAYERS_LIMIT) {
       newErrors.maxPlayers = `Max players must be between 1 and ${UI.MAX_PLAYERS_LIMIT}`;
     }
 
@@ -224,7 +224,7 @@ export const TemplateForm: FC<TemplateFormProps> = ({
         allowed_player_role_ids: allowedPlayerRoleIds.length > 0 ? allowedPlayerRoleIds : null,
         allowed_host_role_ids: allowedHostRoleIds.length > 0 ? allowedHostRoleIds : null,
         signup_priority_role_ids: signupPriorityRoleIds.length > 0 ? signupPriorityRoleIds : null,
-        max_players: maxPlayers ? parseInt(maxPlayers) : null,
+        max_players: parseInt(maxPlayers),
         expected_duration_minutes: expectedDuration,
         reminder_minutes: reminderMinutesArray.length > 0 ? reminderMinutesArray : null,
         where: where.trim() || null,
@@ -608,7 +608,7 @@ export const TemplateForm: FC<TemplateFormProps> = ({
             onChange={(e) => setMaxPlayers(e.target.value)}
             onBlur={handleMaxPlayersBlur}
             error={!!maxPlayersError || !!errors.maxPlayers}
-            helperText={maxPlayersError || errors.maxPlayers || 'Leave empty for unlimited'}
+            helperText={maxPlayersError || errors.maxPlayers || undefined}
             fullWidth
             inputProps={{ min: 1, max: 100 }}
           />

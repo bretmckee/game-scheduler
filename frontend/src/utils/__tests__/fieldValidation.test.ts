@@ -71,10 +71,10 @@ describe('validateDuration', () => {
 });
 
 describe('validateMaxPlayers', () => {
-  it('should accept empty string as valid (optional field)', () => {
+  it('should reject empty string (required field)', () => {
     const result = validateMaxPlayers('');
-    expect(result.isValid).toBe(true);
-    expect(result.value).toBeUndefined();
+    expect(result.isValid).toBe(false);
+    expect(result.error).toBeDefined();
   });
 
   it('should accept 1 as minimum valid value', () => {

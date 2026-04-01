@@ -49,7 +49,7 @@ export function validateDuration(minutes: number | null | undefined): Validation
 
 export function validateMaxPlayers(value: string): ValidationResult {
   if (!value || value.trim() === '') {
-    return { isValid: true };
+    return { isValid: false, error: 'Max players is required' };
   }
 
   const num = Number(value);
