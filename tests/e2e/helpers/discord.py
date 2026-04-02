@@ -239,7 +239,12 @@ class DiscordTestHelper:
         dms = await self.get_user_recent_dms(user_id, limit=10)
         for dm in dms:
             # Check content for game title (reminders are plain text, not embeds)
-            if dm.content and game_title in dm.content and "starts <t:" in dm.content:
+            if (
+                dm.content
+                and game_title in dm.content
+                and "starts <t:" in dm.content
+                and ":F>" in dm.content
+            ):
                 return dm
         return None
 
@@ -600,7 +605,11 @@ class DiscordTestHelper:
             # Wait for game reminder DM
             reminder_dm = await helper.wait_for_dm_matching(
                 user_id,
-                lambda dm: "Test Game" in dm.content and "starts <t:" in dm.content,
+                lambda dm: (
+                    "Test Game" in dm.content
+                    and "starts <t:" in dm.content
+                    and ":F>" in dm.content
+                ),
                 description="game reminder DM"
             )
         """

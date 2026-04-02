@@ -523,6 +523,7 @@ class EventHandlers:
         game_title: str,
         game_time_unix: int,
         is_waitlist: bool,
+        jump_url: str | None,
     ) -> None:
         """Send reminder DMs to a list of participants."""
         participant_type = "waitlist" if is_waitlist else "confirmed"
@@ -535,6 +536,7 @@ class EventHandlers:
                     game_time_unix=game_time_unix,
                     _reminder_minutes=0,
                     is_waitlist=is_waitlist,
+                    jump_url=jump_url,
                 )
             except Exception as e:
                 logger.exception(
@@ -549,6 +551,7 @@ class EventHandlers:
         host: user_model.User | None,
         game_title: str,
         game_time_unix: int,
+        jump_url: str | None,
     ) -> None:
         """Send reminder DM to game host if present."""
         if not host or not host.discord_id:
@@ -561,6 +564,7 @@ class EventHandlers:
                 game_time_unix=game_time_unix,
                 _reminder_minutes=0,
                 is_waitlist=False,
+                jump_url=jump_url,
                 is_host=True,
             )
             logger.info("Sent reminder to host %s", host.discord_id)
@@ -600,22 +604,37 @@ class EventHandlers:
 
                 game_time_unix = int(game.scheduled_at.timestamp())
 
+                jump_url = None
+                if game.message_id and game.guild and game.channel:
+                    jump_url = (
+                        f"https://discord.com/channels/"
+                        f"{game.guild.guild_id}/{game.channel.channel_id}/{game.message_id}"
+                    )
+                else:
+                    logger.warning(
+                        "Cannot build jump URL for game %s: missing message_id, guild, or channel",
+                        reminder_event.game_id,
+                    )
+
                 await self._send_participant_reminders(
                     confirmed,
                     game.title,
                     game_time_unix,
                     is_waitlist=False,
+                    jump_url=jump_url,
                 )
                 await self._send_participant_reminders(
                     overflow,
                     game.title,
                     game_time_unix,
                     is_waitlist=True,
+                    jump_url=jump_url,
                 )
                 await self._send_host_reminder(
                     game.host,
                     game.title,
                     game_time_unix,
+                    jump_url=jump_url,
                 )
 
                 logger.info(
@@ -898,6 +917,7 @@ class EventHandlers:
         game_time_unix: int,
         _reminder_minutes: int,
         is_waitlist: bool,
+        jump_url: str | None,
         is_host: bool = False,
     ) -> None:
         """
@@ -909,12 +929,15 @@ class EventHandlers:
             game_time_unix: Unix timestamp of game start time
             reminder_minutes: Minutes before game
             is_waitlist: Whether participant is on waitlist
+            jump_url: Discord jump URL to game posting, or None if unavailable
             is_host: Whether recipient is the game host
         """
         if is_host:
-            message = DMFormats.reminder_host(game_title, game_time_unix)
+            message = DMFormats.reminder_host(game_title, game_time_unix, jump_url)
         else:
-            message = DMFormats.reminder_participant(game_title, game_time_unix, is_waitlist)
+            message = DMFormats.reminder_participant(
+                game_title, game_time_unix, is_waitlist, jump_url
+            )
         await self._send_dm(user_discord_id, message)
 
     async def _handle_send_notification(self, data: dict[str, Any]) -> None:

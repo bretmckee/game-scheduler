@@ -107,21 +107,30 @@ class DMFormats:
         return f"✅ You've joined **{game_title}**!"
 
     @staticmethod
-    def reminder_host(game_title: str, game_time_unix: int) -> str:
+    def reminder_host(game_title: str, game_time_unix: int, jump_url: str | None) -> str:
         """
         Format reminder DM for game host.
 
         Args:
             game_title: Title of the game
             game_time_unix: Unix timestamp of game start time
+            jump_url: Discord jump URL to game posting, or None if unavailable
 
         Returns:
             Formatted host reminder message
         """
-        return f"🎮 **[Host]** Your game '{game_title}' starts <t:{game_time_unix}:R>"
+        base = (
+            f"🎮 **[Host]** Your game '{game_title}' is scheduled for "
+            f"<t:{game_time_unix}:F>, which starts <t:{game_time_unix}:R>"
+        )
+        if jump_url:
+            return f"{base}\n{jump_url}"
+        return base
 
     @staticmethod
-    def reminder_participant(game_title: str, game_time_unix: int, is_waitlist: bool) -> str:
+    def reminder_participant(
+        game_title: str, game_time_unix: int, is_waitlist: bool, jump_url: str | None
+    ) -> str:
         """
         Format reminder DM for participant (confirmed or waitlist).
 
@@ -129,12 +138,19 @@ class DMFormats:
             game_title: Title of the game
             game_time_unix: Unix timestamp of game start time
             is_waitlist: Whether participant is on waitlist
+            jump_url: Discord jump URL to game posting, or None if unavailable
 
         Returns:
             Formatted participant reminder message
         """
         waitlist_prefix = "🎫 **[Waitlist]** " if is_waitlist else ""
-        return f"{waitlist_prefix}Your game '{game_title}' starts <t:{game_time_unix}:R>"
+        base = (
+            f"{waitlist_prefix}Your game '{game_title}' is scheduled for "
+            f"<t:{game_time_unix}:F>, which starts <t:{game_time_unix}:R>"
+        )
+        if jump_url:
+            return f"{base}\n{jump_url}"
+        return base
 
     @staticmethod
     def clone_confirmation(game_title: str, deadline_unix: int) -> str:
@@ -246,7 +262,12 @@ class DMPredicates:
         """
 
         def predicate(dm: DiscordMessage) -> bool:
-            return bool(dm.content and game_title in dm.content and "starts <t:" in dm.content)
+            return bool(
+                dm.content
+                and game_title in dm.content
+                and "starts <t:" in dm.content
+                and ":F>" in dm.content
+            )
 
         return predicate
 

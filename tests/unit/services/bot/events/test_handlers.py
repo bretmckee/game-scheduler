@@ -57,7 +57,7 @@ async def event_handlers(mock_bot):
 @pytest.fixture
 def sample_game():
     """Create sample game session."""
-    return GameSession(
+    game = GameSession(
         id=str(uuid4()),
         title="Test Game",
         description="Test Description",
@@ -69,6 +69,11 @@ def sample_game():
         max_players=10,
         message_id="999888777",
     )
+    game.guild = MagicMock()
+    game.guild.guild_id = "disc_guild_123"
+    game.channel = MagicMock()
+    game.channel.channel_id = "disc_channel_456"
+    return game
 
 
 @pytest.fixture
@@ -756,6 +761,7 @@ async def test_archive_game_announcement_no_message_id_is_noop(event_handlers, s
 @pytest.mark.asyncio
 async def test_send_reminder_dm_participant(event_handlers):
     """Test sending reminder DM to a regular participant."""
+    jump_url = "https://discord.com/channels/111/222/333"
     with patch.object(event_handlers, "_send_dm", new_callable=AsyncMock) as mock_send_dm:
         await event_handlers._send_reminder_dm(
             user_discord_id="123456789",
@@ -763,6 +769,7 @@ async def test_send_reminder_dm_participant(event_handlers):
             game_time_unix=1700000000,
             _reminder_minutes=60,
             is_waitlist=False,
+            jump_url=jump_url,
             is_host=False,
         )
 
@@ -771,14 +778,37 @@ async def test_send_reminder_dm_participant(event_handlers):
         assert call_args[0][0] == "123456789"
         message = call_args[0][1]
         assert "Test Game" in message
+        assert "<t:1700000000:F>" in message
         assert "<t:1700000000:R>" in message
+        assert jump_url in message
         assert "Waitlist" not in message
         assert "Host" not in message
 
 
 @pytest.mark.asyncio
+async def test_send_reminder_dm_participant_no_jump_url(event_handlers):
+    """Test sending reminder DM to a participant when game has no jump URL."""
+    with patch.object(event_handlers, "_send_dm", new_callable=AsyncMock) as mock_send_dm:
+        await event_handlers._send_reminder_dm(
+            user_discord_id="123456789",
+            game_title="Test Game",
+            game_time_unix=1700000000,
+            _reminder_minutes=60,
+            is_waitlist=False,
+            jump_url=None,
+        )
+
+        message = mock_send_dm.call_args[0][1]
+        assert "Test Game" in message
+        assert "<t:1700000000:F>" in message
+        assert "<t:1700000000:R>" in message
+        assert "discord.com" not in message
+
+
+@pytest.mark.asyncio
 async def test_send_reminder_dm_waitlist(event_handlers):
     """Test sending reminder DM to a waitlist participant."""
+    jump_url = "https://discord.com/channels/111/222/333"
     with patch.object(event_handlers, "_send_dm", new_callable=AsyncMock) as mock_send_dm:
         await event_handlers._send_reminder_dm(
             user_discord_id="123456789",
@@ -786,6 +816,7 @@ async def test_send_reminder_dm_waitlist(event_handlers):
             game_time_unix=1700000000,
             _reminder_minutes=60,
             is_waitlist=True,
+            jump_url=jump_url,
             is_host=False,
         )
 
@@ -794,12 +825,16 @@ async def test_send_reminder_dm_waitlist(event_handlers):
         message = call_args[0][1]
         assert "🎫 **[Waitlist]**" in message
         assert "Test Game" in message
+        assert "<t:1700000000:F>" in message
+        assert "<t:1700000000:R>" in message
+        assert jump_url in message
         assert "Host" not in message
 
 
 @pytest.mark.asyncio
 async def test_send_reminder_dm_host(event_handlers):
     """Test sending reminder DM to game host."""
+    jump_url = "https://discord.com/channels/111/222/333"
     with patch.object(event_handlers, "_send_dm", new_callable=AsyncMock) as mock_send_dm:
         await event_handlers._send_reminder_dm(
             user_discord_id="987654321",
@@ -807,6 +842,7 @@ async def test_send_reminder_dm_host(event_handlers):
             game_time_unix=1700000000,
             _reminder_minutes=60,
             is_waitlist=False,
+            jump_url=jump_url,
             is_host=True,
         )
 
@@ -816,6 +852,9 @@ async def test_send_reminder_dm_host(event_handlers):
         message = call_args[0][1]
         assert "🎮 **[Host]**" in message
         assert "Test Game" in message
+        assert "<t:1700000000:F>" in message
+        assert "<t:1700000000:R>" in message
+        assert jump_url in message
         assert "Waitlist" not in message
 
 
@@ -872,6 +911,10 @@ async def test_handle_game_reminder_due_success(event_handlers, sample_game, sam
                     # Should send 3 reminders: 2 participants + 1 host
                     assert mock_send_reminder.await_count == 3
 
+                    expected_jump_url = (
+                        "https://discord.com/channels/disc_guild_123/disc_channel_456/999888777"
+                    )
+
                     # Check participant reminders
                     participant_calls = [
                         call
@@ -879,6 +922,8 @@ async def test_handle_game_reminder_due_success(event_handlers, sample_game, sam
                         if not call.kwargs.get("is_host", False)
                     ]
                     assert len(participant_calls) == 2
+                    for call in participant_calls:
+                        assert call.kwargs["jump_url"] == expected_jump_url
 
                     # Check host reminder
                     host_calls = [
@@ -889,6 +934,7 @@ async def test_handle_game_reminder_due_success(event_handlers, sample_game, sam
                     assert len(host_calls) == 1
                     assert host_calls[0].kwargs["user_discord_id"] == "host123"
                     assert host_calls[0].kwargs["is_host"] is True
+                    assert host_calls[0].kwargs["jump_url"] == expected_jump_url
 
 
 @pytest.mark.asyncio
@@ -1833,6 +1879,7 @@ async def test_send_participant_reminders_success(event_handlers):
             "Test Game",
             1234567890,
             is_waitlist=False,
+            jump_url=None,
         )
 
         assert mock_send.call_count == 2
@@ -1842,6 +1889,7 @@ async def test_send_participant_reminders_success(event_handlers):
             game_time_unix=1234567890,
             _reminder_minutes=0,
             is_waitlist=False,
+            jump_url=None,
         )
         mock_send.assert_any_await(
             user_discord_id="user2",
@@ -1849,6 +1897,7 @@ async def test_send_participant_reminders_success(event_handlers):
             game_time_unix=1234567890,
             _reminder_minutes=0,
             is_waitlist=False,
+            jump_url=None,
         )
 
 
@@ -1878,6 +1927,7 @@ async def test_send_participant_reminders_handles_errors(event_handlers):
             "Test Game",
             1234567890,
             is_waitlist=False,
+            jump_url=None,
         )
 
 
@@ -1891,6 +1941,7 @@ async def test_send_host_reminder_success(event_handlers):
             host,
             "Test Game",
             1234567890,
+            jump_url=None,
         )
 
         mock_send.assert_awaited_once_with(
@@ -1899,6 +1950,7 @@ async def test_send_host_reminder_success(event_handlers):
             game_time_unix=1234567890,
             _reminder_minutes=0,
             is_waitlist=False,
+            jump_url=None,
             is_host=True,
         )
 
@@ -1911,6 +1963,7 @@ async def test_send_host_reminder_no_host(event_handlers):
             None,
             "Test Game",
             1234567890,
+            jump_url=None,
         )
 
         mock_send.assert_not_awaited()
@@ -1926,6 +1979,7 @@ async def test_send_host_reminder_no_discord_id(event_handlers):
             host,
             "Test Game",
             1234567890,
+            jump_url=None,
         )
 
         mock_send.assert_not_awaited()
@@ -1945,6 +1999,7 @@ async def test_send_host_reminder_handles_error(event_handlers):
             host,
             "Test Game",
             1234567890,
+            jump_url=None,
         )
 
 
