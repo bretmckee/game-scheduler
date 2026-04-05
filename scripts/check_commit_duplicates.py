@@ -107,7 +107,7 @@ def _process_diff_line(
     return current_file
 
 
-def get_changed_line_ranges() -> dict[str, set[int]]:
+def get_changed_line_ranges(compare_branch: str | None = None) -> dict[str, set[int]]:
     """
     Get the specific line numbers changed in each staged file.
     Returns: Dict mapping file paths to sets of changed line numbers.
@@ -117,14 +117,14 @@ def get_changed_line_ranges() -> dict[str, set[int]]:
         msg = "git executable not found in PATH"
         raise RuntimeError(msg)
 
+    if compare_branch is not None:
+        diff_args = [git_path, "diff", f"{compare_branch}...HEAD", "--unified=0"]
+    else:
+        diff_args = [git_path, "diff", "--cached", "--unified=0"]
+
     # S603: Safe - using absolute path from shutil.which() validation
     result = subprocess.run(  # noqa: S603
-        [
-            git_path,
-            "diff",
-            "--cached",
-            "--unified=0",
-        ],  # unified=0 shows only changed lines
+        diff_args,
         capture_output=True,
         text=True,
         check=True,
@@ -241,9 +241,9 @@ def _print_duplicate_report(commit_related_duplicates: list[dict]) -> None:
     print("💡 Or if this is a false positive, bypass with: SKIP=jscpd-diff git commit")
 
 
-def main(report_file: str) -> int:
+def main(report_file: str, compare_branch: str | None = None) -> int:
     config = _load_config()
-    changed_line_ranges = get_changed_line_ranges()
+    changed_line_ranges = get_changed_line_ranges(compare_branch=compare_branch)
 
     if not changed_line_ranges:
         return 0
@@ -272,4 +272,17 @@ def main(report_file: str) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1]))
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Check commit for duplicates overlapping changed lines."
+    )
+    parser.add_argument("report_file", help="Path to jscpd JSON report file")
+    parser.add_argument(
+        "--compare-branch",
+        dest="compare_branch",
+        default=None,
+        help="Compare against this branch (e.g. origin/main) instead of staged changes",
+    )
+    args = parser.parse_args()
+    sys.exit(main(args.report_file, compare_branch=args.compare_branch))
