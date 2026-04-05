@@ -59,6 +59,34 @@ _SCANNED_EXTENSIONS = frozenset({".py", ".ts", ".tsx", ".js", ".jsx"})
 _EXCLUDED_PATH_PREFIXES = ("tests/",)
 
 
+def _is_scannable_file(filename: str) -> bool:
+    return Path(filename).suffix in _SCANNED_EXTENSIONS and not any(
+        filename.startswith(prefix) for prefix in _EXCLUDED_PATH_PREFIXES
+    )
+
+
+def _parse_diff_lines(stdout: str) -> list[tuple[str, int, str]]:
+    added: list[tuple[str, int, str]] = []
+    current_file = ""
+    current_line = 0
+
+    for raw in stdout.splitlines():
+        if raw.startswith("+++ b/"):
+            current_file = raw[6:]
+            current_line = 0
+        elif raw.startswith("@@"):
+            m = re.search(r"\+(\d+)", raw)
+            current_line = int(m.group(1)) if m else 0
+        elif raw.startswith("+++"):
+            pass
+        elif raw.startswith("+"):
+            if _is_scannable_file(current_file):
+                added.append((current_file, current_line, raw[1:]))
+            current_line += 1
+
+    return added
+
+
 def _get_added_lines(compare_branch: str | None = None) -> list[tuple[str, int, str]]:
     """Return (filename, lineno, text) for every added line in the staged diff."""
     git = shutil.which("git")
@@ -74,28 +102,7 @@ def _get_added_lines(compare_branch: str | None = None) -> list[tuple[str, int, 
         text=True,
         check=False,
     )
-
-    added: list[tuple[str, int, str]] = []
-    current_file = ""
-    current_line = 0
-
-    for raw in result.stdout.splitlines():
-        if raw.startswith("+++ b/"):
-            current_file = raw[6:]
-            current_line = 0
-        elif raw.startswith("@@"):
-            m = re.search(r"\+(\d+)", raw)
-            current_line = int(m.group(1)) if m else 0
-        elif raw.startswith("+++"):
-            pass
-        elif raw.startswith("+"):
-            if Path(current_file).suffix in _SCANNED_EXTENSIONS and not any(
-                current_file.startswith(prefix) for prefix in _EXCLUDED_PATH_PREFIXES
-            ):
-                added.append((current_file, current_line, raw[1:]))
-            current_line += 1
-
-    return added
+    return _parse_diff_lines(result.stdout)
 
 
 def main() -> None:
