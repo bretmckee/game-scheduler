@@ -126,6 +126,40 @@ That's it! The development environment will:
 - Expose all service ports including management UIs
 - Use development stages from Dockerfiles
 
+## Running Published Images Locally
+
+Use this when you want to test published container images without affecting the shared staging environment.
+This runs the production images (Caddy serving built assets) using your local dev credentials.
+
+```bash
+IMAGE_TAG=1.0.0-RC.2 make run-local-staging
+```
+
+Or directly:
+
+```bash
+IMAGE_REGISTRY=ghcr.io/game-scheduler/ IMAGE_TAG=1.0.0-RC.2 \
+  docker compose -f compose.yaml -f compose.staging.yaml --env-file config/env.dev up -d
+```
+
+**Why `-f compose.yaml -f compose.staging.yaml` instead of the default?**
+The default `docker compose up` auto-loads `compose.override.yaml`, which overrides the frontend
+CMD to run the Vite dev server (`npm run dev`). The production image is Caddy-based and has no
+`npm`, so it crashes. Explicitly specifying compose files bypasses the override.
+
+**What you get:**
+
+- All services running from `ghcr.io/game-scheduler/...:IMAGE_TAG`
+- Frontend served by Caddy (same as staging/production)
+- Dev credentials and URLs from `config/env.dev`
+- Debug logging (from `compose.staging.yaml`)
+
+To stop:
+
+```bash
+docker compose -f compose.yaml -f compose.staging.yaml --env-file config/env.dev down
+```
+
 ## Development Environment
 
 ### How It Works
