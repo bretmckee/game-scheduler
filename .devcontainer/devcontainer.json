@@ -11,6 +11,8 @@
   },
   "mounts": [
     "source=${localWorkspaceFolderBasename}-vscode-extensions,target=/home/vscode/.vscode-server/extensions,type=volume",
+    "source=${localEnv:HOME}/.cache/uv,target=/home/vscode/.cache/uv,type=bind",
+    "source=${localEnv:HOME}/.npm,target=/home/vscode/.npm,type=bind",
     "source=${localEnv:HOME}/.profile,target=/home/vscode/.profile,type=bind,readonly",
     "source=${localEnv:HOME}/.bashrc,target=/home/vscode/.bashrc,type=bind,readonly",
     "source=${localEnv:HOME}/.bash_aliases,target=/home/vscode/.bash_aliases,type=bind,readonly",
@@ -65,7 +67,7 @@
     }
   },
   "forwardPorts": [8000, 8001, 5432, 5672, 6379, 12345],
-  "initializeCommand": "docker network create gamebot-dev-network 2>/dev/null || true",
+  "initializeCommand": "docker network create gamebot-dev-network 2>/dev/null || true && mkdir -p ~/.cache/uv ~/.npm",
   "runArgs": ["--network=gamebot-dev-network"],
   "postCreateCommand": "python --version && uv --version && node --version && npm --version && npm install -g prettier && cd frontend && npm install && cd .. && pre-commit install && echo 'Dev container ready! Pre-commit hooks installed. Start infrastructure with: docker compose up postgres redis rabbitmq -d'",
   "postStartCommand": "sudo chown -R vscode:vscode /home/vscode/.vscode-server 2>/dev/null || true",
