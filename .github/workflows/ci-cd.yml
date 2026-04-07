@@ -320,7 +320,7 @@ jobs:
             "scheduler:game-scheduler-scheduler"
             "frontend:game-scheduler-frontend"
             "init:game-scheduler-init"
-            "retry:game-scheduler-retry-daemon"
+            "retry-daemon:game-scheduler-retry-daemon"
           )
 
           for pair in "${PAIRS[@]}"; do
