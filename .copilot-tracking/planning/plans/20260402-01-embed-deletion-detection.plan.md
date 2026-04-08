@@ -74,9 +74,9 @@ and recover from missed deletions that occurred while services were offline.
 - [x] Task 3.3: Implement startup sweep from `on_ready` and `on_resumed`
   - Details: .copilot-tracking/planning/details/20260402-01-embed-deletion-detection-details.md (Lines 192-228)
 
-### [ ] Phase 4: Optional — DB Index
+### [x] Phase 4: Optional — DB Index
 
-- [ ] Task 4.1: Add Alembic migration for `CREATE INDEX CONCURRENTLY` on `game_sessions.message_id`
+- [x] Task 4.1: Add Alembic migration for `CREATE INDEX CONCURRENTLY` on `game_sessions.message_id`
   - Details: .copilot-tracking/planning/details/20260402-01-embed-deletion-detection-details.md (Lines 232-252)
 
 ## Dependencies
