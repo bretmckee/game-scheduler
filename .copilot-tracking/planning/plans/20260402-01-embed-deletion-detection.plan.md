@@ -55,12 +55,12 @@ and recover from missed deletions that occurred while services were offline.
 - [x] Task 1.3: Add global rate limiting call in `DiscordAPIClient._make_api_request`
   - Details: .copilot-tracking/planning/details/20260402-01-embed-deletion-detection-details.md (Lines 59-83)
 
-### [ ] Phase 2: API Service Changes
+### [x] Phase 2: API Service Changes
 
-- [ ] Task 2.1: Refactor `delete_game` to extract `_delete_game_internal`
+- [x] Task 2.1: Refactor `delete_game` to extract `_delete_game_internal`
   - Details: .copilot-tracking/planning/details/20260402-01-embed-deletion-detection-details.md (Lines 87-116)
 
-- [ ] Task 2.2: Add RabbitMQ consumer for `EMBED_DELETED` in API service
+- [x] Task 2.2: Add RabbitMQ consumer for `EMBED_DELETED` in API service
   - Details: .copilot-tracking/planning/details/20260402-01-embed-deletion-detection-details.md (Lines 117-143)
 
 ### [ ] Phase 3: Bot Service Changes

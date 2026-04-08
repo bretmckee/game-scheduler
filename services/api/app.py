@@ -53,6 +53,7 @@ from services.api.routes import (
     sse,
     templates,
 )
+from services.api.services.embed_deletion_consumer import EmbedDeletionConsumer
 from services.api.services.sse_bridge import get_sse_bridge
 from shared.cache import client as redis_client
 from shared.telemetry import init_telemetry
@@ -109,6 +110,10 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     bridge_task = asyncio.create_task(bridge.start_consuming())
     logger.info("SSE bridge started consuming game events")
 
+    embed_consumer = EmbedDeletionConsumer()
+    embed_consumer_task = asyncio.create_task(embed_consumer.start_consuming())
+    logger.info("Embed deletion consumer started")
+
     yield
 
     logger.info("Shutting down API service...")
@@ -118,6 +123,12 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         await bridge_task
     await bridge.stop_consuming()
     logger.info("SSE bridge stopped")
+
+    embed_consumer_task.cancel()
+    with suppress(asyncio.CancelledError):
+        await embed_consumer_task
+    await embed_consumer.stop_consuming()
+    logger.info("Embed deletion consumer stopped")
 
     await redis_instance.disconnect()
     logger.info("Redis connection closed")

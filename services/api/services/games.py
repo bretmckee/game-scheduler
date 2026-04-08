@@ -94,9 +94,9 @@ class GameService:
         self,
         db: AsyncSession,
         event_publisher: messaging_deferred_publisher.DeferredEventPublisher,
-        discord_client: discord_client_module.DiscordAPIClient,
-        participant_resolver: resolver_module.ParticipantResolver,
-        channel_resolver: channel_resolver_module.ChannelResolver,
+        discord_client: discord_client_module.DiscordAPIClient | None = None,
+        participant_resolver: resolver_module.ParticipantResolver | None = None,
+        channel_resolver: channel_resolver_module.ChannelResolver | None = None,
     ) -> None:
         """
         Initialize game service.
@@ -1859,6 +1859,21 @@ class GameService:
             )
             raise ValueError(msg)
 
+        await self._delete_game_internal(game)
+
+    async def _delete_game_internal(self, game: game_model.GameSession) -> None:
+        """
+        Delete a game without auth checks.
+
+        Releases image references, deletes the game row, and publishes the
+        cancellation event. Used by both ``delete_game`` (after auth) and the
+        RabbitMQ ``EMBED_DELETED`` consumer which bypasses HTTP auth.
+
+        Does not commit. Caller must commit transaction.
+
+        Args:
+            game: Game session model instance to delete
+        """
         # Release image references (decrements count, deletes if zero)
         await release_image(self.db, game.thumbnail_id)
         await release_image(self.db, game.banner_image_id)

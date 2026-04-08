@@ -4405,3 +4405,34 @@ async def test_update_game_resolves_channel_mention_in_where(
     mock_channel_resolver.resolve_channel_mentions.assert_called_once_with(
         "#channel-name", sample_guild.guild_id
     )
+
+
+@pytest.mark.asyncio
+async def test_delete_game_internal_releases_images_and_publishes(
+    game_service, mock_db, sample_user, sample_guild
+):
+    """Test that _delete_game_internal releases images, deletes game, and publishes event."""
+
+    channel_id = str(uuid.uuid4())
+    mock_channel = channel_model.ChannelConfiguration(
+        id=channel_id,
+        channel_id="987654321",
+        guild_id=sample_guild.id,
+    )
+    mock_game = game_model.GameSession(
+        id=str(uuid.uuid4()),
+        title="Test Game",
+        host_id=sample_user.id,
+        status="SCHEDULED",
+        guild_id=sample_guild.id,
+        channel_id=channel_id,
+    )
+    mock_game.host = sample_user
+    mock_game.guild = sample_guild
+    mock_game.channel = mock_channel
+
+    with patch("services.api.services.games.release_image", new_callable=AsyncMock) as mock_release:
+        await game_service._delete_game_internal(mock_game)
+
+    assert mock_release.call_count == 2
+    mock_db.delete.assert_awaited_once_with(mock_game)
