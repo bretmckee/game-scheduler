@@ -144,6 +144,29 @@ async def test_publish_game_updated(bot_publisher, mock_publisher):
 
 
 @pytest.mark.asyncio
+async def test_publish_embed_deleted(bot_publisher, mock_publisher):
+    """Publishing embed_deleted emits an EMBED_DELETED event with game/channel/message IDs."""
+    game_id = "550e8400-e29b-41d4-a716-446655440000"
+    channel_id = "123456789"
+    message_id = "987654321"
+
+    await bot_publisher.publish_embed_deleted(
+        game_id=game_id, channel_id=channel_id, message_id=message_id
+    )
+
+    mock_publisher.publish.assert_awaited_once()
+    call_args = mock_publisher.publish.call_args
+
+    event = call_args.kwargs["event"]
+    assert isinstance(event, Event)
+    assert event.event_type == EventType.EMBED_DELETED
+    assert event.data["game_id"] == game_id
+    assert event.data["channel_id"] == channel_id
+    assert event.data["message_id"] == message_id
+    assert call_args.kwargs["routing_key"] == "game.embed_deleted"
+
+
+@pytest.mark.asyncio
 async def test_get_bot_publisher_singleton():
     """Test get_bot_publisher returns singleton instance."""
 

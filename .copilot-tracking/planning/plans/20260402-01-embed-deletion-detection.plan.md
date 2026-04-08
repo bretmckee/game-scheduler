@@ -63,15 +63,15 @@ and recover from missed deletions that occurred while services were offline.
 - [x] Task 2.2: Add RabbitMQ consumer for `EMBED_DELETED` in API service
   - Details: .copilot-tracking/planning/details/20260402-01-embed-deletion-detection-details.md (Lines 117-143)
 
-### [ ] Phase 3: Bot Service Changes
+### [x] Phase 3: Bot Service Changes
 
-- [ ] Task 3.1: Add `guild_messages=True` to `discord.Intents(...)` in `services/bot/bot.py`
+- [x] Task 3.1: Add `guild_messages=True` to `discord.Intents(...)` in `services/bot/bot.py`
   - Details: .copilot-tracking/planning/details/20260402-01-embed-deletion-detection-details.md (Lines 147-163)
 
-- [ ] Task 3.2: Implement `on_raw_message_delete` handler in bot
+- [x] Task 3.2: Implement `on_raw_message_delete` handler in bot
   - Details: .copilot-tracking/planning/details/20260402-01-embed-deletion-detection-details.md (Lines 165-190)
 
-- [ ] Task 3.3: Implement startup sweep from `on_ready` and `on_resumed`
+- [x] Task 3.3: Implement startup sweep from `on_ready` and `on_resumed`
   - Details: .copilot-tracking/planning/details/20260402-01-embed-deletion-detection-details.md (Lines 192-228)
 
 ### [ ] Phase 4: Optional — DB Index

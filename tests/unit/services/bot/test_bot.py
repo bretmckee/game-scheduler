@@ -21,6 +21,8 @@
 
 """Tests for Discord bot implementation."""
 
+import asyncio
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import discord
@@ -68,7 +70,7 @@ class TestGameSchedulerBot:
 
         # Bot uses guilds intent to receive guild join/remove events
         assert bot.intents.guilds is True
-        assert bot.intents.guild_messages is False
+        assert bot.intents.guild_messages is True
         assert bot.intents.message_content is False
 
     @pytest.mark.asyncio
@@ -493,6 +495,304 @@ class TestGameSchedulerBot:
         mock_ct.assert_called_once()
         assert result is new_task
         assert mock_handlers._channel_workers["channel-1"] is new_task
+
+    @pytest.mark.asyncio
+    async def test_on_raw_message_delete_game_found_publishes(self, bot_config: BotConfig) -> None:
+        """When deleted message matches a game embed, EMBED_DELETED is published."""
+        bot = GameSchedulerBot(bot_config)
+
+        mock_publisher = AsyncMock()
+        mock_publisher.publish_embed_deleted = AsyncMock()
+        bot.event_publisher = mock_publisher
+
+        mock_game = MagicMock()
+        mock_game.id = "550e8400-e29b-41d4-a716-446655440000"
+
+        mock_db = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = mock_game
+        mock_db.execute = AsyncMock(return_value=mock_result)
+        mock_db_ctx = MagicMock()
+        mock_db_ctx.__aenter__ = AsyncMock(return_value=mock_db)
+        mock_db_ctx.__aexit__ = AsyncMock(return_value=None)
+
+        payload = MagicMock(spec=discord.RawMessageDeleteEvent)
+        payload.message_id = 123456789
+        payload.channel_id = 987654321
+        payload.guild_id = 111222333
+
+        with patch("services.bot.bot.get_bypass_db_session", return_value=mock_db_ctx):
+            await bot.on_raw_message_delete(payload)
+
+        mock_publisher.publish_embed_deleted.assert_awaited_once_with(
+            game_id=str(mock_game.id),
+            channel_id="987654321",
+            message_id="123456789",
+        )
+
+    @pytest.mark.asyncio
+    async def test_on_raw_message_delete_no_game_no_publish(self, bot_config: BotConfig) -> None:
+        """When deleted message matches no game embed, no event is published."""
+        bot = GameSchedulerBot(bot_config)
+
+        mock_publisher = AsyncMock()
+        mock_publisher.publish_embed_deleted = AsyncMock()
+        bot.event_publisher = mock_publisher
+
+        mock_db = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_db.execute = AsyncMock(return_value=mock_result)
+        mock_db_ctx = MagicMock()
+        mock_db_ctx.__aenter__ = AsyncMock(return_value=mock_db)
+        mock_db_ctx.__aexit__ = AsyncMock(return_value=None)
+
+        payload = MagicMock(spec=discord.RawMessageDeleteEvent)
+        payload.message_id = 123456789
+        payload.channel_id = 987654321
+        payload.guild_id = 111222333
+
+        with patch("services.bot.bot.get_bypass_db_session", return_value=mock_db_ctx):
+            await bot.on_raw_message_delete(payload)
+
+        mock_publisher.publish_embed_deleted.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_sweep_deleted_embeds_publishes_for_missing_messages(
+        self, bot_config: BotConfig
+    ) -> None:
+        """Games whose embed posts return 404 generate an EMBED_DELETED event."""
+        bot = GameSchedulerBot(bot_config)
+
+        mock_publisher = AsyncMock()
+        mock_publisher.publish_embed_deleted = AsyncMock()
+        bot.event_publisher = mock_publisher
+
+        mock_game = MagicMock()
+        mock_game.id = "550e8400-e29b-41d4-a716-446655440001"
+        mock_game.channel_id = "111"
+        mock_game.message_id = "999"
+        mock_game.scheduled_at = datetime(2026, 1, 1, tzinfo=UTC)
+
+        mock_db = AsyncMock()
+        mock_scalars = MagicMock()
+        mock_scalars.all.return_value = [mock_game]
+        mock_result = MagicMock()
+        mock_result.scalars.return_value = mock_scalars
+        mock_db.execute = AsyncMock(return_value=mock_result)
+        mock_db_ctx = MagicMock()
+        mock_db_ctx.__aenter__ = AsyncMock(return_value=mock_db)
+        mock_db_ctx.__aexit__ = AsyncMock(return_value=None)
+
+        mock_redis = AsyncMock()
+        mock_redis.claim_global_and_channel_slot = AsyncMock(return_value=0)
+
+        mock_channel = AsyncMock()
+        mock_channel.__class__ = discord.TextChannel
+        mock_channel.fetch_message = AsyncMock(side_effect=discord.NotFound(MagicMock(), ""))
+
+        with (
+            patch("services.bot.bot.get_bypass_db_session", return_value=mock_db_ctx),
+            patch(
+                "services.bot.bot.get_redis_client", new_callable=AsyncMock, return_value=mock_redis
+            ),
+        ):
+            bot.get_channel = MagicMock(return_value=mock_channel)
+            await bot._sweep_deleted_embeds()
+
+        mock_publisher.publish_embed_deleted.assert_awaited_once_with(
+            game_id=str(mock_game.id),
+            channel_id=mock_game.channel_id,
+            message_id=mock_game.message_id,
+        )
+
+    @pytest.mark.asyncio
+    async def test_sweep_deleted_embeds_skips_existing_messages(
+        self, bot_config: BotConfig
+    ) -> None:
+        """Games whose embed posts still exist do not generate an EMBED_DELETED event."""
+        bot = GameSchedulerBot(bot_config)
+
+        mock_publisher = AsyncMock()
+        mock_publisher.publish_embed_deleted = AsyncMock()
+        bot.event_publisher = mock_publisher
+
+        mock_game = MagicMock()
+        mock_game.id = "550e8400-e29b-41d4-a716-446655440002"
+        mock_game.channel_id = "222"
+        mock_game.message_id = "888"
+        mock_game.scheduled_at = datetime(2026, 1, 2, tzinfo=UTC)
+
+        mock_db = AsyncMock()
+        mock_scalars = MagicMock()
+        mock_scalars.all.return_value = [mock_game]
+        mock_result = MagicMock()
+        mock_result.scalars.return_value = mock_scalars
+        mock_db.execute = AsyncMock(return_value=mock_result)
+        mock_db_ctx = MagicMock()
+        mock_db_ctx.__aenter__ = AsyncMock(return_value=mock_db)
+        mock_db_ctx.__aexit__ = AsyncMock(return_value=None)
+
+        mock_redis = AsyncMock()
+        mock_redis.claim_global_and_channel_slot = AsyncMock(return_value=0)
+
+        mock_message = MagicMock()
+        mock_channel = AsyncMock()
+        mock_channel.__class__ = discord.TextChannel
+        mock_channel.fetch_message = AsyncMock(return_value=mock_message)
+
+        with (
+            patch("services.bot.bot.get_bypass_db_session", return_value=mock_db_ctx),
+            patch(
+                "services.bot.bot.get_redis_client", new_callable=AsyncMock, return_value=mock_redis
+            ),
+        ):
+            bot.get_channel = MagicMock(return_value=mock_channel)
+            await bot._sweep_deleted_embeds()
+
+        mock_publisher.publish_embed_deleted.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_sweep_deleted_embeds_no_games(self, bot_config: BotConfig) -> None:
+        """When no games have a message_id, the sweep completes without Discord calls."""
+        bot = GameSchedulerBot(bot_config)
+
+        mock_publisher = AsyncMock()
+        mock_publisher.publish_embed_deleted = AsyncMock()
+        bot.event_publisher = mock_publisher
+
+        mock_db = AsyncMock()
+        mock_scalars = MagicMock()
+        mock_scalars.all.return_value = []
+        mock_result = MagicMock()
+        mock_result.scalars.return_value = mock_scalars
+        mock_db.execute = AsyncMock(return_value=mock_result)
+        mock_db_ctx = MagicMock()
+        mock_db_ctx.__aenter__ = AsyncMock(return_value=mock_db)
+        mock_db_ctx.__aexit__ = AsyncMock(return_value=None)
+
+        with patch("services.bot.bot.get_bypass_db_session", return_value=mock_db_ctx):
+            await bot._sweep_deleted_embeds()
+
+        mock_publisher.publish_embed_deleted.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_sweep_deleted_embeds_no_publisher_skips(self, bot_config: BotConfig) -> None:
+        """Sweep exits early when no event publisher is configured."""
+        bot = GameSchedulerBot(bot_config)
+        bot.event_publisher = None
+
+        with patch("services.bot.bot.get_bypass_db_session") as mock_db:
+            await bot._sweep_deleted_embeds()
+
+        mock_db.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_on_raw_message_delete_exception_is_caught(self, bot_config: BotConfig) -> None:
+        """Exceptions inside on_raw_message_delete are caught and not propagated."""
+        bot = GameSchedulerBot(bot_config)
+
+        mock_db_ctx = MagicMock()
+        mock_db_ctx.__aenter__ = AsyncMock(side_effect=RuntimeError("db error"))
+        mock_db_ctx.__aexit__ = AsyncMock(return_value=None)
+
+        payload = MagicMock(spec=discord.RawMessageDeleteEvent)
+        payload.message_id = 999
+        payload.channel_id = 111
+        payload.guild_id = 222
+
+        with patch("services.bot.bot.get_bypass_db_session", return_value=mock_db_ctx):
+            await bot.on_raw_message_delete(payload)  # must not raise
+
+    @pytest.mark.asyncio
+    async def test_sweep_deleted_embeds_db_exception_is_caught(self, bot_config: BotConfig) -> None:
+        """A DB error during the sweep query is caught; the sweep exits without raising."""
+        bot = GameSchedulerBot(bot_config)
+        mock_publisher = AsyncMock()
+        bot.event_publisher = mock_publisher
+
+        mock_db_ctx = MagicMock()
+        mock_db_ctx.__aenter__ = AsyncMock(side_effect=RuntimeError("db down"))
+        mock_db_ctx.__aexit__ = AsyncMock(return_value=None)
+
+        with patch("services.bot.bot.get_bypass_db_session", return_value=mock_db_ctx):
+            await bot._sweep_deleted_embeds()  # must not raise
+
+    @pytest.mark.asyncio
+    async def test_run_sweep_worker_calls_fetch_channel_when_get_channel_none(
+        self, bot_config: BotConfig
+    ) -> None:
+        """Worker calls fetch_channel when get_channel returns None."""
+        bot = GameSchedulerBot(bot_config)
+
+        mock_publisher = AsyncMock()
+        mock_publisher.publish_embed_deleted = AsyncMock()
+
+        mock_redis = AsyncMock()
+        mock_redis.claim_global_and_channel_slot = AsyncMock(return_value=0)
+
+        mock_channel = AsyncMock()
+        mock_channel.__class__ = discord.TextChannel
+        mock_channel.fetch_message = AsyncMock(side_effect=discord.NotFound(MagicMock(), ""))
+
+        queue: asyncio.PriorityQueue = asyncio.PriorityQueue()
+        await queue.put((datetime(2026, 1, 1, tzinfo=UTC), "game-1", "111222333", "999888777"))
+
+        bot.get_channel = MagicMock(return_value=None)
+        bot.fetch_channel = AsyncMock(return_value=mock_channel)
+
+        await bot._run_sweep_worker(queue, mock_redis, mock_publisher)
+
+        bot.fetch_channel.assert_awaited_once_with(int("111222333"))
+        mock_publisher.publish_embed_deleted.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_run_sweep_worker_non_text_channel_skips(self, bot_config: BotConfig) -> None:
+        """Worker skips and does not publish when the channel is not a TextChannel."""
+        bot = GameSchedulerBot(bot_config)
+
+        mock_publisher = AsyncMock()
+        mock_publisher.publish_embed_deleted = AsyncMock()
+
+        mock_redis = AsyncMock()
+        mock_redis.claim_global_and_channel_slot = AsyncMock(return_value=0)
+
+        non_text_channel = MagicMock(spec=discord.CategoryChannel)
+
+        queue: asyncio.PriorityQueue = asyncio.PriorityQueue()
+        await queue.put((datetime(2026, 1, 1, tzinfo=UTC), "game-2", "111222444", "999888666"))
+
+        bot.get_channel = MagicMock(return_value=non_text_channel)
+
+        await bot._run_sweep_worker(queue, mock_redis, mock_publisher)
+
+        mock_publisher.publish_embed_deleted.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_run_sweep_worker_general_exception_is_caught(
+        self, bot_config: BotConfig
+    ) -> None:
+        """A non-NotFound exception from fetch_message is caught and logged."""
+        bot = GameSchedulerBot(bot_config)
+
+        mock_publisher = AsyncMock()
+        mock_publisher.publish_embed_deleted = AsyncMock()
+
+        mock_redis = AsyncMock()
+        mock_redis.claim_global_and_channel_slot = AsyncMock(return_value=0)
+
+        mock_channel = AsyncMock()
+        mock_channel.__class__ = discord.TextChannel
+        mock_channel.fetch_message = AsyncMock(side_effect=RuntimeError("network error"))
+
+        queue: asyncio.PriorityQueue = asyncio.PriorityQueue()
+        await queue.put((datetime(2026, 1, 1, tzinfo=UTC), "game-3", "111222555", "999888555"))
+
+        bot.get_channel = MagicMock(return_value=mock_channel)
+
+        await bot._run_sweep_worker(queue, mock_redis, mock_publisher)  # must not raise
+
+        mock_publisher.publish_embed_deleted.assert_not_awaited()
 
 
 class TestCreateBot:

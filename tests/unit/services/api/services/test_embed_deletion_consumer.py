@@ -108,3 +108,39 @@ async def test_handle_embed_deleted_unknown_game_id_is_silently_dropped(embed_de
 
     mock_game_service._delete_game_internal.assert_not_awaited()
     mock_db.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_handle_embed_deleted_missing_game_id_is_dropped():
+    """Event with no game_id is logged and dropped without touching the DB."""
+    consumer = EmbedDeletionConsumer()
+    event = Event(event_type=EventType.EMBED_DELETED, data={})
+
+    with patch("services.api.services.embed_deletion_consumer.get_bypass_db_session") as mock_db:
+        await consumer._handle_embed_deleted(event)
+
+    mock_db.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_start_consuming_connects_binds_and_starts():
+    """start_consuming wires up EventConsumer with bind, handler, and start."""
+    consumer = EmbedDeletionConsumer()
+
+    mock_event_consumer = MagicMock()
+    mock_event_consumer.connect = AsyncMock()
+    mock_event_consumer.bind = AsyncMock()
+    mock_event_consumer.start_consuming = AsyncMock()
+
+    with patch(
+        "services.api.services.embed_deletion_consumer.EventConsumer",
+        return_value=mock_event_consumer,
+    ):
+        await consumer.start_consuming()
+
+    mock_event_consumer.connect.assert_awaited_once()
+    mock_event_consumer.bind.assert_awaited_once_with(EventType.EMBED_DELETED)
+    mock_event_consumer.register_handler.assert_called_once_with(
+        EventType.EMBED_DELETED, consumer._handle_embed_deleted
+    )
+    mock_event_consumer.start_consuming.assert_awaited_once()

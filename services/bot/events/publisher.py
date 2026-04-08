@@ -135,6 +135,28 @@ class BotEventPublisher:
         fields_list = list(updated_fields.keys())
         logger.info("Published game_updated event: game=%s, fields=%s", game_id, fields_list)
 
+    async def publish_embed_deleted(self, game_id: str, channel_id: str, message_id: str) -> None:
+        """
+        Publish embed deleted event.
+
+        Args:
+            game_id: UUID of the game session
+            channel_id: Discord channel ID where the message was deleted
+            message_id: Discord message snowflake ID that was deleted
+        """
+        event = Event(
+            event_type=EventType.EMBED_DELETED,
+            data={
+                "game_id": game_id,
+                "channel_id": channel_id,
+                "message_id": message_id,
+            },
+        )
+
+        await self.publisher.publish(event=event, routing_key=EventType.EMBED_DELETED)
+
+        logger.info("Published embed_deleted event: game=%s, message=%s", game_id, message_id)
+
 
 # Global publisher instance
 _publisher_instance: BotEventPublisher | None = None
