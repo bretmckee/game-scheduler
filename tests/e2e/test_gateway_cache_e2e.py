@@ -31,21 +31,31 @@ completed before any test container starts.
 """
 
 import os
+from collections.abc import AsyncGenerator
 
 import pytest
 
-from shared.cache import client as cache_client
 from shared.cache import keys as cache_keys
+from shared.cache.client import RedisClient
 from tests.e2e.conftest import DiscordTestEnvironment
 
 pytestmark = [pytest.mark.e2e, pytest.mark.order(1)]
 
 
+@pytest.fixture
+async def redis() -> AsyncGenerator[RedisClient]:
+    """Fresh Redis client per test, avoiding the module-level singleton."""
+    client = RedisClient()
+    await client.connect()
+    yield client
+    await client.disconnect()
+
+
 async def test_startup_cache_guild_key_written(
+    redis: RedisClient,
     discord_ids: DiscordTestEnvironment,
 ) -> None:
     """Verify discord:guild:{guild_a_id} is a dict with id and name after startup."""
-    redis = await cache_client.get_redis_client()
     key = cache_keys.CacheKeys.discord_guild(discord_ids.guild_a_id)
     data = await redis.get_json(key)
 
@@ -55,13 +65,13 @@ async def test_startup_cache_guild_key_written(
 
 
 async def test_startup_cache_guild_channels_key_written(
+    redis: RedisClient,
     discord_ids: DiscordTestEnvironment,
 ) -> None:
     """Verify discord:guild_channels:{guild_a_id} is a non-empty list after startup.
 
     Each item must contain id, name, and type fields.
     """
-    redis = await cache_client.get_redis_client()
     key = cache_keys.CacheKeys.discord_guild_channels(discord_ids.guild_a_id)
     data = await redis.get_json(key)
 
@@ -76,10 +86,10 @@ async def test_startup_cache_guild_channels_key_written(
 
 
 async def test_startup_cache_channel_key_written(
+    redis: RedisClient,
     discord_ids: DiscordTestEnvironment,
 ) -> None:
     """Verify discord:channel:{channel_a_id} is a dict with a name field after startup."""
-    redis = await cache_client.get_redis_client()
     key = cache_keys.CacheKeys.discord_channel(discord_ids.channel_a_id)
     data = await redis.get_json(key)
 
@@ -88,13 +98,13 @@ async def test_startup_cache_channel_key_written(
 
 
 async def test_startup_cache_guild_roles_key_written(
+    redis: RedisClient,
     discord_ids: DiscordTestEnvironment,
 ) -> None:
     """Verify discord:guild_roles:{guild_a_id} is a non-empty list after startup.
 
     Each item must contain id, name, color, position, and managed fields.
     """
-    redis = await cache_client.get_redis_client()
     key = cache_keys.CacheKeys.discord_guild_roles(discord_ids.guild_a_id)
     data = await redis.get_json(key)
 
@@ -111,6 +121,7 @@ async def test_startup_cache_guild_roles_key_written(
 
 
 async def test_startup_cache_known_role_id_in_guild_roles(
+    redis: RedisClient,
     discord_ids: DiscordTestEnvironment,
 ) -> None:
     """Verify DISCORD_TEST_ROLE_A_ID appears in the cached guild roles list.
@@ -122,7 +133,6 @@ async def test_startup_cache_known_role_id_in_guild_roles(
     if not role_id:
         pytest.skip("DISCORD_TEST_ROLE_A_ID not set — skipping known-role assertion")
 
-    redis = await cache_client.get_redis_client()
     key = cache_keys.CacheKeys.discord_guild_roles(discord_ids.guild_a_id)
     data = await redis.get_json(key)
 

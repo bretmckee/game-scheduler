@@ -216,6 +216,8 @@ class GameSchedulerBot(commands.Bot):
         is consistent immediately after on_ready fires.
         """
         redis = await get_redis_client()
+        total_channels = 0
+        total_roles = 0
         for guild in self.guilds:
             guild_id = str(guild.id)
 
@@ -257,7 +259,22 @@ class GameSchedulerBot(commands.Bot):
                 CacheTTL.DISCORD_GUILD_ROLES,
             )
 
-        logger.info("Redis cache rebuilt from gateway data for %d guilds", len(self.guilds))
+            logger.info(
+                "Redis cache rebuilt for guild %r (%s): %d channels, %d roles",
+                guild.name,
+                guild_id,
+                len(channels),
+                len(roles),
+            )
+            total_channels += len(channels)
+            total_roles += len(roles)
+
+        logger.info(
+            "Redis cache rebuild complete: %d guilds, %d channels, %d roles",
+            len(self.guilds),
+            total_channels,
+            total_roles,
+        )
 
     async def on_guild_channel_create(self, channel: discord.abc.GuildChannel) -> None:
         """Write the new channel to Redis and invalidate the guild channel list."""
