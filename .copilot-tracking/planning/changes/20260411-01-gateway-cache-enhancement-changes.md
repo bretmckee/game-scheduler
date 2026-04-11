@@ -155,3 +155,23 @@
   `except discord.Forbidden` with a single `except DiscordAPIError as e` handler that
   checks `e.status`. Eliminates one uncached `fetch_member` REST call per role-check cache
   miss, replacing it with a cacheable `get_guild_member` call.
+
+---
+
+## Phase 7: E2E Gateway Cache Population Tests — COMPLETE
+
+### Added
+
+- `tests/e2e/test_gateway_cache_e2e.py` — Five e2e tests with `pytestmark = [pytest.mark.e2e, pytest.mark.order(1)]`:
+  - `test_startup_cache_guild_key_written`: reads `discord:guild:{guild_a_id}` from Redis;
+    asserts the value is a non-None dict containing `id` and `name` fields.
+  - `test_startup_cache_guild_channels_key_written`: reads `discord:guild_channels:{guild_a_id}`;
+    asserts non-empty list where each item contains `id`, `name`, and `type` fields.
+  - `test_startup_cache_channel_key_written`: reads `discord:channel:{channel_a_id}`;
+    asserts the value is a dict containing a `name` field.
+  - `test_startup_cache_guild_roles_key_written`: reads `discord:guild_roles:{guild_a_id}`;
+    asserts non-empty list where each item contains `id`, `name`, `color`, `position`, and
+    `managed` fields.
+  - `test_startup_cache_known_role_id_in_guild_roles`: reads `DISCORD_TEST_ROLE_A_ID` from
+    env (skips gracefully if absent); reads `discord:guild_roles:{guild_a_id}` from Redis;
+    asserts `role_id` appears in the list of `id` values from the cached role dicts.
