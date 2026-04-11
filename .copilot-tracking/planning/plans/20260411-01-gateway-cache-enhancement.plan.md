@@ -76,15 +76,15 @@ Replace REST-based Discord cache population with gateway-driven Redis writes and
 - [x] Task 4.3: Implement role event handlers in bot.py
   - Details: .copilot-tracking/planning/details/20260411-01-gateway-cache-enhancement-details.md (Lines 186-204)
 
-### [ ] Phase 5: Fix \_make_api_request Guard + Remove TTLs
+### [x] Phase 5: Fix \_make_api_request Guard + Remove TTLs
 
-- [ ] Task 5.1: Write failing unit test for \_make_api_request with cache_ttl=None
+- [x] Task 5.1: Write failing unit test for \_make_api_request with cache_ttl=None
   - Details: .copilot-tracking/planning/details/20260411-01-gateway-cache-enhancement-details.md (Lines 208-225)
 
-- [ ] Task 5.2: Fix \_make_api_request guard in shared/discord/client.py
+- [x] Task 5.2: Fix \_make_api_request guard in shared/discord/client.py
   - Details: .copilot-tracking/planning/details/20260411-01-gateway-cache-enhancement-details.md (Lines 226-241)
 
-- [ ] Task 5.3: Set TTLs to None for gateway-maintained cache keys
+- [x] Task 5.3: Set TTLs to None for gateway-maintained cache keys
   - Details: .copilot-tracking/planning/details/20260411-01-gateway-cache-enhancement-details.md (Lines 242-258)
 
 ### [ ] Phase 6: get_guild_member Redis Caching

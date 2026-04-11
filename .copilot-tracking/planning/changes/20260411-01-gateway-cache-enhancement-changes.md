@@ -79,3 +79,26 @@
   `redis.set_json(..., None)` (no TTL) for individual channel keys and `redis.delete` for
   the guild channel list. Role handlers use invalidation-only (`redis.delete`) so the next
   `fetch_guild_roles` call rebuilds from Discord rather than storing stale role data.
+
+---
+
+## Phase 5: Fix \_make_api_request Guard + Remove TTLs — COMPLETE
+
+### Modified
+
+- `tests/unit/shared/discord/test_discord_api_client.py` — Added two tests to
+  `TestMakeAPIRequest`:
+  - `test_cache_key_with_ttl_none_writes_to_redis`: verifies `_make_api_request` calls
+    `redis.set` with `ttl=None` when `cache_key` is set and `cache_ttl=None`.
+  - `test_cache_key_with_ttl_int_writes_to_redis`: regression guard verifying the
+    `cache_ttl=300` path still writes to Redis unchanged.
+
+- `shared/discord/client.py` — Changed `if cache_key and cache_ttl:` to `if cache_key:`
+  on the Redis write guard. `cache.client.set()` already handles `ttl=None` via a plain
+  `SET` (no `SETEX`), so the guard was incorrectly suppressing writes for gateway-maintained
+  keys whose TTL is `None`.
+
+- `shared/cache/ttl.py` — Set `DISCORD_CHANNEL`, `DISCORD_GUILD`, `DISCORD_GUILD_CHANNELS`,
+  and `DISCORD_GUILD_ROLES` to `None` (type annotated as `int | None`). These keys are now
+  maintained by gateway events and must never expire. `DISCORD_USER` and `APP_INFO` retain
+  their TTLs since they are not gateway-maintained.

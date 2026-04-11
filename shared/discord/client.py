@@ -237,7 +237,7 @@ class DiscordAPIClient:
 
                 await self._raise_for_error_status(response, response_data, cache_key)
 
-                if cache_key and cache_ttl:
+                if cache_key:
                     await redis.set(cache_key, json.dumps(response_data), ttl=cache_ttl)
 
                 return response_data

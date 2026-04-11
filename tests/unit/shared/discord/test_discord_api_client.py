@@ -266,6 +266,74 @@ class TestMakeAPIRequest:
 
     @pytest.mark.asyncio
     @patch("shared.cache.client.get_redis_client")
+    async def test_cache_key_with_ttl_none_writes_to_redis(
+        self, mock_get_redis, discord_client, mock_redis
+    ):
+        """_make_api_request writes to Redis when cache_key is set and cache_ttl=None."""
+        mock_get_redis.return_value = mock_redis
+
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.headers = {"x-ratelimit-remaining": "50"}
+        mock_response.json = AsyncMock(return_value={"id": "42", "name": "general"})
+
+        mock_session = MagicMock()
+        mock_session.closed = False
+        mock_context_manager = MagicMock()
+        mock_context_manager.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_context_manager.__aexit__ = AsyncMock(return_value=None)
+        mock_session.request = MagicMock(return_value=mock_context_manager)
+        discord_client._session = mock_session
+
+        await discord_client._make_api_request(
+            method="GET",
+            url="https://discord.com/api/v10/channels/42",
+            operation_name="get_channel",
+            headers={"Authorization": "Bot token"},
+            cache_key="discord:channel:42",
+            cache_ttl=None,
+        )
+
+        mock_redis.set.assert_called_once_with(
+            "discord:channel:42", json.dumps({"id": "42", "name": "general"}), ttl=None
+        )
+
+    @pytest.mark.asyncio
+    @patch("shared.cache.client.get_redis_client")
+    async def test_cache_key_with_ttl_int_writes_to_redis(
+        self, mock_get_redis, discord_client, mock_redis
+    ):
+        """Regression guard: _make_api_request still writes to Redis when cache_ttl is an int."""
+        mock_get_redis.return_value = mock_redis
+
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.headers = {"x-ratelimit-remaining": "50"}
+        mock_response.json = AsyncMock(return_value={"id": "99", "name": "TestRole"})
+
+        mock_session = MagicMock()
+        mock_session.closed = False
+        mock_context_manager = MagicMock()
+        mock_context_manager.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_context_manager.__aexit__ = AsyncMock(return_value=None)
+        mock_session.request = MagicMock(return_value=mock_context_manager)
+        discord_client._session = mock_session
+
+        await discord_client._make_api_request(
+            method="GET",
+            url="https://discord.com/api/v10/guilds/1/roles",
+            operation_name="get_roles",
+            headers={"Authorization": "Bot token"},
+            cache_key="discord:guild_roles:1",
+            cache_ttl=300,
+        )
+
+        mock_redis.set.assert_called_once_with(
+            "discord:guild_roles:1", json.dumps({"id": "99", "name": "TestRole"}), ttl=300
+        )
+
+    @pytest.mark.asyncio
+    @patch("shared.cache.client.get_redis_client")
     async def test_successful_post_request_without_caching(
         self, mock_get_redis, discord_client, mock_redis
     ):
