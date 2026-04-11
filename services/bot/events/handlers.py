@@ -187,10 +187,9 @@ class EventHandlers:
         return (game_id, channel_id)
 
     async def _validate_discord_channel(self, channel_id: str) -> bool:
-        """Validate channel exists and is accessible via Discord API."""
-        discord_api = get_discord_client()
-        channel_data = await discord_api.fetch_channel(channel_id)
-        if not channel_data:
+        """Validate channel exists and is accessible via the in-memory gateway cache."""
+        channel = self.bot.get_channel(int(channel_id))
+        if not channel:
             logger.error("Invalid or inaccessible channel: %s", channel_id)
             return False
         return True

@@ -221,27 +221,21 @@ async def test_validate_game_created_event_missing_channel_id(event_handlers):
 
 
 @pytest.mark.asyncio
-async def test_validate_discord_channel_success(event_handlers):
+async def test_validate_discord_channel_success(event_handlers, mock_bot):
     """Test successful Discord channel validation."""
-    with patch("services.bot.events.handlers.get_discord_client") as mock_client:
-        mock_api = AsyncMock()
-        mock_api.fetch_channel.return_value = {"id": "123"}
-        mock_client.return_value = mock_api
+    mock_bot.get_channel.return_value = MagicMock(spec=discord.TextChannel)
 
-        result = await event_handlers._validate_discord_channel("123")
-        assert result is True
+    result = await event_handlers._validate_discord_channel("123")
+    assert result is True
 
 
 @pytest.mark.asyncio
-async def test_validate_discord_channel_invalid(event_handlers):
-    """Test Discord channel validation with invalid channel."""
-    with patch("services.bot.events.handlers.get_discord_client") as mock_client:
-        mock_api = AsyncMock()
-        mock_api.fetch_channel.return_value = None
-        mock_client.return_value = mock_api
+async def test_validate_discord_channel_invalid(event_handlers, mock_bot):
+    """Test Discord channel validation when channel is not in cache."""
+    mock_bot.get_channel.return_value = None
 
-        result = await event_handlers._validate_discord_channel("invalid")
-        assert result is False
+    result = await event_handlers._validate_discord_channel("999")
+    assert result is False
 
 
 @pytest.mark.asyncio

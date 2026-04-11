@@ -42,3 +42,19 @@
   `check_manage_guild_permission` (line 151), `check_manage_channels_permission` (line 177),
   `check_administrator_permission` (line 203). Eliminates at least one REST call per role
   check that misses the `user_roles` Redis cache.
+
+---
+
+## Phase 3: Remove Redundant fetch_channel in handlers.py — COMPLETE
+
+### Modified
+
+- `tests/unit/bot/events/test_handlers_lifecycle_events.py` — Added three tests verifying
+  `_validate_discord_channel` does not call `discord_api.fetch_channel`, returns `False`
+  when `get_channel()` returns `None`, and returns `True` when `get_channel()` returns a
+  valid channel.
+
+- `services/bot/events/handlers.py` — Replaced `_validate_discord_channel` body: removed
+  `get_discord_client()` / `await discord_api.fetch_channel(channel_id)` pre-check and
+  replaced with `self.bot.get_channel(int(channel_id))`. This eliminates one REST call per
+  `game.created` event that previously validated the channel before processing.
