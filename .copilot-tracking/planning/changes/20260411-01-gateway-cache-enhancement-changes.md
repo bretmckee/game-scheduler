@@ -102,3 +102,56 @@
   and `DISCORD_GUILD_ROLES` to `None` (type annotated as `int | None`). These keys are now
   maintained by gateway events and must never expire. `DISCORD_USER` and `APP_INFO` retain
   their TTLs since they are not gateway-maintained.
+
+---
+
+## Phase 6: get_guild_member Redis Caching — COMPLETE
+
+### Added
+
+- `tests/unit/shared/discord/test_discord_api_client.py` — Two new tests in
+  `TestGuildMemberMethods`:
+  - `test_get_guild_member_cache_miss`: verifies that a cache miss fetches from the
+    Discord REST API, calls `redis.get` with the key `discord:member:{guild_id}:{user_id}`,
+    and stores the result with `ttl=CacheTTL.DISCORD_MEMBER`.
+  - `test_get_guild_member_cache_hit`: verifies that a cache hit returns the stored data
+    without making any REST call (`redis.set` not called).
+
+### Modified
+
+- `shared/cache/keys.py` — Added `CacheKeys.discord_member(guild_id, user_id)` returning
+  `f"discord:member:{guild_id}:{user_id}"`.
+
+- `shared/cache/ttl.py` — Added `DISCORD_MEMBER: int = 300` (5-minute TTL for
+  guild member objects; shorter than guild/channel data since membership can change).
+
+- `shared/discord/client.py` — Rewrote `get_guild_member` to follow the same read-through
+  caching pattern as `fetch_guild`: checks Redis first via `redis.get(cache_key)`; on a
+  miss, delegates to `_make_api_request` with `cache_key` and
+  `cache_ttl=CacheTTL.DISCORD_MEMBER` so the result is stored on success.
+
+- `tests/unit/services/bot/auth/test_role_checker.py` — Updated seven tests and added two
+  new tests for `get_user_role_ids`:
+  - `test_get_user_role_ids_does_not_call_fetch_member`: verifies `guild.fetch_member` is
+    never called; uses `patch("services.bot.auth.role_checker.get_discord_client")`.
+  - `test_get_user_role_ids_uses_get_guild_member`: verifies `discord_api.get_guild_member`
+    is called with the correct `(guild_id, user_id)` string arguments and that role IDs
+    come directly from `member_data["roles"]`.
+  - Updated `test_get_user_role_ids_from_discord`, `test_get_user_role_ids_force_refresh`,
+    `test_get_user_role_ids_does_not_call_fetch_guild` to patch `get_discord_client` and
+    mock `get_guild_member` returning `{"roles": [...]}`.
+  - Updated `test_get_user_role_ids_member_not_found`, `test_get_user_role_ids_member_returns_none`
+    to raise `DiscordAPIError(404, "Unknown Member")` instead of `discord.NotFound`.
+  - Updated `test_get_user_role_ids_forbidden` to raise `DiscordAPIError(403, "Missing Permissions")`
+    instead of `discord.Forbidden`.
+  - Added `from shared.discord.client import DiscordAPIError` and `from unittest.mock import patch`
+    imports to the test file.
+
+- `services/bot/auth/role_checker.py` — Added imports `get_discord_client` and
+  `DiscordAPIError`; replaced the `guild.fetch_member(int(user_id))` call in
+  `get_user_role_ids` with `discord_api = get_discord_client()` followed by
+  `member_data = await discord_api.get_guild_member(guild_id, user_id)`; extracts
+  `role_ids = member_data.get("roles", [])`; replaces `except discord.NotFound` and
+  `except discord.Forbidden` with a single `except DiscordAPIError as e` handler that
+  checks `e.status`. Eliminates one uncached `fetch_member` REST call per role-check cache
+  miss, replacing it with a cacheable `get_guild_member` call.

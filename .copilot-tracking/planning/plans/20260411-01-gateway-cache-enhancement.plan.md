@@ -87,18 +87,18 @@ Replace REST-based Discord cache population with gateway-driven Redis writes and
 - [x] Task 5.3: Set TTLs to None for gateway-maintained cache keys
   - Details: .copilot-tracking/planning/details/20260411-01-gateway-cache-enhancement-details.md (Lines 242-258)
 
-### [ ] Phase 6: get_guild_member Redis Caching
+### [x] Phase 6: get_guild_member Redis Caching
 
-- [ ] Task 6.1: Write failing unit tests for get_guild_member caching
+- [x] Task 6.1: Write failing unit tests for get_guild_member caching
   - Details: .copilot-tracking/planning/details/20260411-01-gateway-cache-enhancement-details.md (Lines 262-280)
 
-- [ ] Task 6.2: Add discord_member cache key and TTL constant
+- [x] Task 6.2: Add discord_member cache key and TTL constant
   - Details: .copilot-tracking/planning/details/20260411-01-gateway-cache-enhancement-details.md (Lines 281-295)
 
-- [ ] Task 6.3: Add caching to get_guild_member in shared/discord/client.py
+- [x] Task 6.3: Add caching to get_guild_member in shared/discord/client.py
   - Details: .copilot-tracking/planning/details/20260411-01-gateway-cache-enhancement-details.md (Lines 296-312)
 
-- [ ] Task 6.4: Wire role_checker.get_user_role_ids to use get_guild_member
+- [x] Task 6.4: Wire role_checker.get_user_role_ids to use get_guild_member
   - Details: .copilot-tracking/planning/details/20260411-01-gateway-cache-enhancement-details.md (Lines 313-340)
 
 ## Dependencies

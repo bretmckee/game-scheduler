@@ -773,7 +773,7 @@ class DiscordAPIClient:
 
     async def get_guild_member(self, guild_id: str, user_id: str) -> dict[str, Any]:
         """
-        Fetch guild member information using bot token.
+        Fetch guild member information using bot token with Redis caching.
 
         Args:
             guild_id: Discord guild (server) ID
@@ -785,13 +785,25 @@ class DiscordAPIClient:
         Raises:
             DiscordAPIError: If fetching member fails
         """
+        cache_key = cache_keys.CacheKeys.discord_member(guild_id, user_id)
+        redis = await cache_client.get_redis_client()
+
+        cached = await redis.get(cache_key)
+        if cached:
+            logger.debug("Cache hit for member: %s in guild %s", user_id, guild_id)
+            return json.loads(cached)
+
         url = f"{self._api_base_url}/guilds/{guild_id}/members/{user_id}"
-        return await self._make_api_request(
+        result = await self._make_api_request(
             method="GET",
             url=url,
             operation_name="get_guild_member",
             headers={"Authorization": f"Bot {self.bot_token}"},
+            cache_key=cache_key,
+            cache_ttl=ttl.CacheTTL.DISCORD_MEMBER,
         )
+        logger.debug("Cached member: %s in guild %s", user_id, guild_id)
+        return result
 
     async def get_guild_members_batch(
         self, guild_id: str, user_ids: list[str]

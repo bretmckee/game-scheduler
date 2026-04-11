@@ -21,13 +21,14 @@
 
 """Unit tests for role checker service."""
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import discord
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.bot.auth.role_checker import RoleChecker
+from shared.discord.client import DiscordAPIError
 
 
 @pytest.fixture
@@ -61,28 +62,18 @@ async def test_get_user_role_ids_from_cache(role_checker):
 
 @pytest.mark.asyncio
 async def test_get_user_role_ids_from_discord(role_checker, mock_bot):
-    """Test getting user role IDs from Discord API."""
+    """Test getting user role IDs from Discord API via get_guild_member."""
     role_checker.cache.get_user_roles = AsyncMock(return_value=None)
 
-    # Mock guild and member
     mock_guild = MagicMock()
-    mock_guild.id = 456
-
-    mock_role1 = MagicMock()
-    mock_role1.id = 123
-
-    mock_role2 = MagicMock()
-    mock_role2.id = 789
-
-    mock_member = AsyncMock()
-    mock_member.roles = [mock_role1, mock_role2]
-
-    mock_guild.fetch_member = AsyncMock(return_value=mock_member)
     mock_bot.get_guild = MagicMock(return_value=mock_guild)
-
     role_checker.cache.set_user_roles = AsyncMock()
 
-    result = await role_checker.get_user_role_ids("123", "456")
+    mock_discord_api = AsyncMock()
+    mock_discord_api.get_guild_member = AsyncMock(return_value={"roles": ["123", "789"]})
+
+    with patch("services.bot.auth.role_checker.get_discord_client", return_value=mock_discord_api):
+        result = await role_checker.get_user_role_ids("123", "456")
 
     assert result == ["123", "789"]
     role_checker.cache.set_user_roles.assert_called_once_with("123", "456", ["123", "789"])
@@ -101,14 +92,19 @@ async def test_get_user_role_ids_guild_not_found(role_checker, mock_bot):
 
 @pytest.mark.asyncio
 async def test_get_user_role_ids_member_not_found(role_checker, mock_bot):
-    """Test handling member not found."""
+    """Test handling member not found (DiscordAPIError 404)."""
     role_checker.cache.get_user_roles = AsyncMock(return_value=None)
 
     mock_guild = MagicMock()
-    mock_guild.fetch_member = AsyncMock(side_effect=discord.NotFound(MagicMock(), ""))
     mock_bot.get_guild = MagicMock(return_value=mock_guild)
 
-    result = await role_checker.get_user_role_ids("123", "456")
+    mock_discord_api = AsyncMock()
+    mock_discord_api.get_guild_member = AsyncMock(
+        side_effect=DiscordAPIError(404, "Unknown Member")
+    )
+
+    with patch("services.bot.auth.role_checker.get_discord_client", return_value=mock_discord_api):
+        result = await role_checker.get_user_role_ids("123", "456")
 
     assert result == []
 
@@ -119,20 +115,14 @@ async def test_get_user_role_ids_force_refresh(role_checker, mock_bot):
     role_checker.cache.get_user_roles = AsyncMock(return_value=["cached"])
 
     mock_guild = MagicMock()
-    mock_guild.id = 456
-
-    mock_role1 = MagicMock()
-    mock_role1.id = 123
-
-    mock_member = AsyncMock()
-    mock_member.roles = [mock_role1]
-
-    mock_guild.fetch_member = AsyncMock(return_value=mock_member)
     mock_bot.get_guild = MagicMock(return_value=mock_guild)
-
     role_checker.cache.set_user_roles = AsyncMock()
 
-    result = await role_checker.get_user_role_ids("123", "456", force_refresh=True)
+    mock_discord_api = AsyncMock()
+    mock_discord_api.get_guild_member = AsyncMock(return_value={"roles": ["123"]})
+
+    with patch("services.bot.auth.role_checker.get_discord_client", return_value=mock_discord_api):
+        result = await role_checker.get_user_role_ids("123", "456", force_refresh=True)
 
     assert result == ["123"]
     role_checker.cache.get_user_roles.assert_not_called()
@@ -283,29 +273,38 @@ async def test_get_guild_roles(role_checker, mock_bot):
 
 @pytest.mark.asyncio
 async def test_get_user_role_ids_member_returns_none(role_checker, mock_bot):
-    """Test handling member fetch returning None."""
+    """Test handling 404 from get_guild_member returns empty list."""
     role_checker.cache.get_user_roles = AsyncMock(return_value=None)
 
     mock_guild = MagicMock()
-    mock_guild.id = 456
-    mock_guild.fetch_member = AsyncMock(return_value=None)
     mock_bot.get_guild = MagicMock(return_value=mock_guild)
 
-    result = await role_checker.get_user_role_ids("123", "456")
+    mock_discord_api = AsyncMock()
+    mock_discord_api.get_guild_member = AsyncMock(
+        side_effect=DiscordAPIError(404, "Unknown Member")
+    )
+
+    with patch("services.bot.auth.role_checker.get_discord_client", return_value=mock_discord_api):
+        result = await role_checker.get_user_role_ids("123", "456")
 
     assert result == []
 
 
 @pytest.mark.asyncio
 async def test_get_user_role_ids_forbidden(role_checker, mock_bot):
-    """Test handling Forbidden error when fetching member roles."""
+    """Test handling Forbidden error (DiscordAPIError 403) when fetching member roles."""
     role_checker.cache.get_user_roles = AsyncMock(return_value=None)
 
     mock_guild = MagicMock()
-    mock_guild.fetch_member = AsyncMock(side_effect=discord.Forbidden(MagicMock(), ""))
     mock_bot.get_guild = MagicMock(return_value=mock_guild)
 
-    result = await role_checker.get_user_role_ids("123", "456")
+    mock_discord_api = AsyncMock()
+    mock_discord_api.get_guild_member = AsyncMock(
+        side_effect=DiscordAPIError(403, "Missing Permissions")
+    )
+
+    with patch("services.bot.auth.role_checker.get_discord_client", return_value=mock_discord_api):
+        result = await role_checker.get_user_role_ids("123", "456")
 
     assert result == []
 
@@ -449,21 +448,57 @@ async def test_seed_user_roles_writes_to_cache(role_checker):
 
 
 @pytest.mark.asyncio
-async def test_get_user_role_ids_does_not_call_fetch_guild(role_checker, mock_bot):
-    """get_user_role_ids must use get_guild() (in-memory) not fetch_guild() (REST)."""
+async def test_get_user_role_ids_does_not_call_fetch_member(role_checker, mock_bot):
+    """get_user_role_ids must use get_guild_member() not fetch_member()."""
     role_checker.cache.get_user_roles = AsyncMock(return_value=None)
-    mock_role = MagicMock()
-    mock_role.id = 123
-    mock_member = MagicMock()
-    mock_member.roles = [mock_role]
     mock_guild = MagicMock()
     mock_guild.id = 456
-    mock_guild.fetch_member = AsyncMock(return_value=mock_member)
+    mock_guild.fetch_member = AsyncMock()
+    mock_bot.get_guild = MagicMock(return_value=mock_guild)
+    role_checker.cache.set_user_roles = AsyncMock()
+
+    mock_discord_api = AsyncMock()
+    mock_discord_api.get_guild_member = AsyncMock(return_value={"roles": ["123", "789"]})
+
+    with patch("services.bot.auth.role_checker.get_discord_client", return_value=mock_discord_api):
+        await role_checker.get_user_role_ids("user123", "456")
+
+    mock_guild.fetch_member.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_get_user_role_ids_uses_get_guild_member(role_checker, mock_bot):
+    """get_user_role_ids must call discord_api.get_guild_member and use roles from the response."""
+    role_checker.cache.get_user_roles = AsyncMock(return_value=None)
+    mock_guild = MagicMock()
+    mock_guild.id = 456
+    mock_bot.get_guild = MagicMock(return_value=mock_guild)
+    role_checker.cache.set_user_roles = AsyncMock()
+
+    mock_discord_api = AsyncMock()
+    mock_discord_api.get_guild_member = AsyncMock(return_value={"roles": ["111", "222"]})
+
+    with patch("services.bot.auth.role_checker.get_discord_client", return_value=mock_discord_api):
+        result = await role_checker.get_user_role_ids("user123", "456")
+
+    assert result == ["111", "222"]
+    mock_discord_api.get_guild_member.assert_called_once_with("456", "user123")
+
+
+@pytest.mark.asyncio
+async def test_get_user_role_ids_does_not_call_fetch_guild(role_checker, mock_bot):
+    """get_user_role_ids must use get_guild() (in-memory) not fetch_guild() (REST)."""
+    mock_guild = MagicMock()
+    mock_guild.id = 456
     mock_bot.fetch_guild = AsyncMock(return_value=mock_guild)
     mock_bot.get_guild = MagicMock(return_value=mock_guild)
     role_checker.cache.set_user_roles = AsyncMock()
 
-    await role_checker.get_user_role_ids("123", "456")
+    mock_discord_api = AsyncMock()
+    mock_discord_api.get_guild_member = AsyncMock(return_value={"roles": ["123"]})
+
+    with patch("services.bot.auth.role_checker.get_discord_client", return_value=mock_discord_api):
+        await role_checker.get_user_role_ids("123", "456")
 
     mock_bot.fetch_guild.assert_not_called()
 

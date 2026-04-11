@@ -1483,6 +1483,56 @@ class TestGuildMemberMethods:
         assert exc_info.value.status == 404
 
     @pytest.mark.asyncio
+    async def test_get_guild_member_cache_miss(self, discord_client, mock_redis):
+        """Test that a cache miss fetches from Discord and stores the result in Redis."""
+        member_data = {
+            "user": {"id": "123456789", "username": "testuser"},
+            "roles": ["role1", "role2"],
+        }
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.headers = {"x-ratelimit-remaining": "50"}
+        mock_response.json = AsyncMock(return_value=member_data)
+
+        mock_session = MagicMock()
+        mock_session.closed = False
+        mock_context_manager = MagicMock()
+        mock_context_manager.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_context_manager.__aexit__ = AsyncMock(return_value=None)
+        mock_session.request = MagicMock(return_value=mock_context_manager)
+        discord_client._session = mock_session
+
+        with patch("shared.discord.client.cache_client.get_redis_client") as mock_get_redis:
+            mock_get_redis.return_value = mock_redis
+
+            result = await discord_client.get_guild_member(guild_id="guild123", user_id="123456789")
+
+            assert result["user"]["id"] == "123456789"
+            mock_redis.get.assert_called_once_with("discord:member:guild123:123456789")
+            mock_redis.set.assert_called_once()
+            set_args = mock_redis.set.call_args
+            assert set_args[0][0] == "discord:member:guild123:123456789"
+            assert set_args[1]["ttl"] == CacheTTL.DISCORD_MEMBER
+
+    @pytest.mark.asyncio
+    async def test_get_guild_member_cache_hit(self, discord_client, mock_redis):
+        """Test that a cache hit returns stored data without a REST call."""
+        cached_member = {
+            "user": {"id": "123456789", "username": "cacheduser"},
+            "roles": ["role1"],
+        }
+        mock_redis.get = AsyncMock(return_value=json.dumps(cached_member))
+
+        with patch("shared.discord.client.cache_client.get_redis_client") as mock_get_redis:
+            mock_get_redis.return_value = mock_redis
+
+            result = await discord_client.get_guild_member(guild_id="guild123", user_id="123456789")
+
+            assert result["user"]["username"] == "cacheduser"
+            mock_redis.get.assert_called_once_with("discord:member:guild123:123456789")
+            mock_redis.set.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_get_guild_members_batch_success(self, discord_client):
         """Test successful batch guild members fetch."""
         with patch.object(

@@ -36,5 +36,6 @@ class CacheTTL:
     DISCORD_GUILD: int | None = None  # no expiry - maintained by gateway events
     DISCORD_GUILD_CHANNELS: int | None = None  # no expiry - maintained by gateway events
     DISCORD_GUILD_ROLES: int | None = None  # no expiry - maintained by gateway events
+    DISCORD_MEMBER: int = 300  # 5 minutes - Discord guild member objects
     DISCORD_USER: int = 300  # 5 minutes - Discord user objects
     APP_INFO: int = 3600  # 1 hour - Discord application info

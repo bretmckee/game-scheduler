@@ -30,8 +30,11 @@ from typing import TYPE_CHECKING
 
 import discord
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette import status
 
 from services.bot.auth import cache
+from services.bot.dependencies.discord_client import get_discord_client
+from shared.discord.client import DiscordAPIError
 
 if TYPE_CHECKING:
     from discord import Client
@@ -80,21 +83,23 @@ class RoleChecker:
                 logger.warning("Guild %s not found", guild_id)
                 return []
 
-            member = await guild.fetch_member(int(user_id))
-            if member is None:
-                logger.warning("Member %s not found in guild %s", user_id, guild_id)
-                return []
-
-            role_ids = [str(role.id) for role in member.roles if role.id != guild.id]
+            discord_api = get_discord_client()
+            member_data = await discord_api.get_guild_member(guild_id, user_id)
+            role_ids = member_data.get("roles", [])
 
             await self.cache.set_user_roles(user_id, guild_id, role_ids)
             return role_ids
 
-        except discord.NotFound:
-            logger.warning("Member %s not found in guild %s", user_id, guild_id)
-            return []
-        except discord.Forbidden:
-            logger.error("Bot lacks permission to fetch member %s in guild %s", user_id, guild_id)
+        except DiscordAPIError as e:
+            if e.status == status.HTTP_404_NOT_FOUND:
+                logger.warning("Member %s not found in guild %s", user_id, guild_id)
+            else:
+                logger.error(
+                    "Discord API error fetching member %s in guild %s: %s",
+                    user_id,
+                    guild_id,
+                    e.status,
+                )
             return []
         except Exception as e:
             logger.error("Error fetching user roles: %s", e)
