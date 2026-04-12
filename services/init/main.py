@@ -34,6 +34,7 @@ All steps are instrumented with OpenTelemetry for observability.
 """
 
 import logging
+import os
 import signal
 import sys
 import tempfile
@@ -120,6 +121,11 @@ def main() -> int:
             _log_phase(2, 5, "Creating database users for RLS enforcement...")
             create_database_users()
             _log_phase(2, 5, "Database users configured", completed=True)
+
+            if os.getenv("INIT_ROLES_ONLY"):
+                logger.info("INIT_ROLES_ONLY set — skipping migrations, schema check, and RabbitMQ")
+                span.set_status(trace.Status(trace.StatusCode.OK))
+                return 0
 
             _log_phase(3, 5, "Running database migrations...")
             run_migrations()

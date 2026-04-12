@@ -34,12 +34,12 @@ Implement automated 12-hour Postgres backups to S3-compatible storage and a scri
 
 ## Implementation Checklist
 
-### [ ] Phase 1: INIT_ROLES_ONLY Flag
+### [x] Phase 1: INIT_ROLES_ONLY Flag
 
-- [ ] Task 1.1 (Tests): Write tests for INIT_ROLES_ONLY behavior
+- [x] Task 1.1 (Tests): Write tests for INIT_ROLES_ONLY behavior
   - Details: .copilot-tracking/planning/details/20260408-01-backup-restore-details.md (Lines 13-26)
 
-- [ ] Task 1.2 (Implement): Add INIT_ROLES_ONLY to services/init/main.py
+- [x] Task 1.2 (Implement): Add INIT_ROLES_ONLY to services/init/main.py
   - Details: .copilot-tracking/planning/details/20260408-01-backup-restore-details.md (Lines 27-43)
 
 ### [ ] Phase 2: backup_metadata Model and Migration
