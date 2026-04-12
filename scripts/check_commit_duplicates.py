@@ -200,6 +200,14 @@ def _format_duplicate_for_output(
     return result
 
 
+def _is_import_only_fragment(fragment: str) -> bool:
+    """Return True if every non-empty line in the fragment is a Python import statement."""
+    lines = [line for line in fragment.splitlines() if line.strip()]
+    return bool(lines) and all(
+        line.startswith("import ") or line.startswith("from ") or line == "from" for line in lines
+    )
+
+
 def _find_commit_related_duplicates(
     duplicates: list[dict], changed_line_ranges: dict[str, set[int]], config: dict
 ) -> list[dict]:
@@ -211,6 +219,8 @@ def _find_commit_related_duplicates(
         first_overlaps, second_overlaps = _check_duplicate_overlap(dup_info, changed_line_ranges)
 
         if first_overlaps or second_overlaps:
+            if _is_import_only_fragment(dup_info["fragment"]):
+                continue
             min_lines = _get_min_lines_threshold(
                 dup_info["first_file"], dup_info["second_file"], config
             )
