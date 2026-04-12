@@ -26,6 +26,7 @@ import contextlib
 import logging
 import os
 import time
+from collections.abc import Iterable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -209,6 +210,23 @@ class GameSchedulerBot(commands.Bot):
             if os.getenv("PYTEST_RUNNING"):
                 self._test_server_task = asyncio.create_task(self._start_test_server())
 
+    @staticmethod
+    def _channel_list(channels: Iterable[discord.abc.GuildChannel]) -> list[dict]:
+        return [{"id": str(c.id), "name": c.name, "type": c.type.value} for c in channels]
+
+    @staticmethod
+    def _role_list(roles: Iterable[discord.Role]) -> list[dict]:
+        return [
+            {
+                "id": str(r.id),
+                "name": r.name,
+                "color": r.color.value,
+                "position": r.position,
+                "managed": r.managed,
+            }
+            for r in roles
+        ]
+
     async def _rebuild_redis_from_gateway(self) -> None:
         """Populate Redis from the in-memory gateway cache after a full reconnect.
 
@@ -227,9 +245,7 @@ class GameSchedulerBot(commands.Bot):
                 CacheTTL.DISCORD_GUILD,
             )
 
-            channels = [
-                {"id": str(c.id), "name": c.name, "type": c.type.value} for c in guild.channels
-            ]
+            channels = self._channel_list(guild.channels)
             await redis.set_json(
                 CacheKeys.discord_guild_channels(guild_id),
                 channels,
@@ -243,16 +259,7 @@ class GameSchedulerBot(commands.Bot):
                     CacheTTL.DISCORD_CHANNEL,
                 )
 
-            roles = [
-                {
-                    "id": str(r.id),
-                    "name": r.name,
-                    "color": r.color.value,
-                    "position": r.position,
-                    "managed": r.managed,
-                }
-                for r in guild.roles
-            ]
+            roles = self._role_list(guild.roles)
             await redis.set_json(
                 CacheKeys.discord_guild_roles(guild_id),
                 roles,
@@ -277,49 +284,66 @@ class GameSchedulerBot(commands.Bot):
         )
 
     async def on_guild_channel_create(self, channel: discord.abc.GuildChannel) -> None:
-        """Write the new channel to Redis and invalidate the guild channel list."""
+        """Write the new channel to Redis and rewrite the guild channel list."""
         redis = await get_redis_client()
         await redis.set_json(
             CacheKeys.discord_channel(str(channel.id)),
             {"name": channel.name},
-            None,
+            CacheTTL.DISCORD_CHANNEL,
         )
-        await redis.delete(CacheKeys.discord_guild_channels(str(channel.guild.id)))
+        await redis.set_json(
+            CacheKeys.discord_guild_channels(str(channel.guild.id)),
+            self._channel_list(channel.guild.channels),
+            CacheTTL.DISCORD_GUILD_CHANNELS,
+        )
 
     async def on_guild_channel_update(
         self,
         _before: discord.abc.GuildChannel,
         after: discord.abc.GuildChannel,
     ) -> None:
-        """Update the channel entry in Redis and invalidate the guild channel list."""
+        """Update the channel entry in Redis and rewrite the guild channel list."""
         redis = await get_redis_client()
         await redis.set_json(
             CacheKeys.discord_channel(str(after.id)),
             {"name": after.name},
-            None,
+            CacheTTL.DISCORD_CHANNEL,
         )
-        await redis.delete(CacheKeys.discord_guild_channels(str(after.guild.id)))
+        await redis.set_json(
+            CacheKeys.discord_guild_channels(str(after.guild.id)),
+            self._channel_list(after.guild.channels),
+            CacheTTL.DISCORD_GUILD_CHANNELS,
+        )
+
+    async def _rewrite_guild_roles_cache(self, guild: discord.Guild) -> None:
+        redis = await get_redis_client()
+        await redis.set_json(
+            CacheKeys.discord_guild_roles(str(guild.id)),
+            self._role_list(guild.roles),
+            CacheTTL.DISCORD_GUILD_ROLES,
+        )
 
     async def on_guild_channel_delete(self, channel: discord.abc.GuildChannel) -> None:
-        """Remove the deleted channel from Redis and invalidate the guild channel list."""
+        """Remove the deleted channel from Redis and rewrite the guild channel list."""
         redis = await get_redis_client()
         await redis.delete(CacheKeys.discord_channel(str(channel.id)))
-        await redis.delete(CacheKeys.discord_guild_channels(str(channel.guild.id)))
+        await redis.set_json(
+            CacheKeys.discord_guild_channels(str(channel.guild.id)),
+            self._channel_list(channel.guild.channels),
+            CacheTTL.DISCORD_GUILD_CHANNELS,
+        )
 
     async def on_guild_role_create(self, role: discord.Role) -> None:
-        """Invalidate the guild roles cache so the next read fetches fresh data."""
-        redis = await get_redis_client()
-        await redis.delete(CacheKeys.discord_guild_roles(str(role.guild.id)))
+        """Rewrite the guild roles cache from current gateway state."""
+        await self._rewrite_guild_roles_cache(role.guild)
 
     async def on_guild_role_update(self, _before: discord.Role, after: discord.Role) -> None:
-        """Invalidate the guild roles cache so the next read fetches fresh data."""
-        redis = await get_redis_client()
-        await redis.delete(CacheKeys.discord_guild_roles(str(after.guild.id)))
+        """Rewrite the guild roles cache from current gateway state."""
+        await self._rewrite_guild_roles_cache(after.guild)
 
     async def on_guild_role_delete(self, role: discord.Role) -> None:
-        """Invalidate the guild roles cache so the next read fetches fresh data."""
-        redis = await get_redis_client()
-        await redis.delete(CacheKeys.discord_guild_roles(str(role.guild.id)))
+        """Rewrite the guild roles cache from current gateway state."""
+        await self._rewrite_guild_roles_cache(role.guild)
 
     async def on_disconnect(self) -> None:
         """Handle Gateway disconnection."""

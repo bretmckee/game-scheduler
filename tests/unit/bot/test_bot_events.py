@@ -27,6 +27,7 @@ import pytest
 
 from services.bot.bot import GameSchedulerBot
 from shared.cache.keys import CacheKeys
+from shared.cache.ttl import CacheTTL
 
 
 def _make_bot() -> GameSchedulerBot:
@@ -43,22 +44,34 @@ def _make_bot() -> GameSchedulerBot:
     return instance
 
 
-def _make_channel(channel_id: int, guild_id: int, name: str = "general") -> MagicMock:
+def _make_channel(
+    channel_id: int, guild_id: int, name: str = "general", guild_channels: list | None = None
+) -> MagicMock:
     ch = MagicMock()
     ch.id = channel_id
     ch.name = name
+    ch.type = MagicMock()
+    ch.type.value = 0
     guild = MagicMock()
     guild.id = guild_id
+    guild.channels = guild_channels if guild_channels is not None else [ch]
     ch.guild = guild
     return ch
 
 
-def _make_role(role_id: int, guild_id: int, name: str = "Member") -> MagicMock:
+def _make_role(
+    role_id: int, guild_id: int, name: str = "Member", guild_roles: list | None = None
+) -> MagicMock:
     role = MagicMock()
     role.id = role_id
     role.name = name
+    role.color = MagicMock()
+    role.color.value = 0
+    role.position = 1
+    role.managed = False
     guild = MagicMock()
     guild.id = guild_id
+    guild.roles = guild_roles if guild_roles is not None else [role]
     role.guild = guild
     return role
 
@@ -81,94 +94,75 @@ def mock_redis() -> AsyncMock:
 # ---------------------------------------------------------------------------
 
 
-async def test_on_guild_channel_create_writes_channel_key(
+async def test_on_guild_channel_create_writes_channel_and_list(
     bot: GameSchedulerBot, mock_redis: AsyncMock
 ) -> None:
-    """on_guild_channel_create writes discord:channel:{id} with channel name."""
+    """on_guild_channel_create writes discord:channel:{id} and rewrites the full channel list."""
     channel = _make_channel(1001, 111)
+    expected_channels = [{"id": str(channel.id), "name": channel.name, "type": channel.type.value}]
     with patch(
         "services.bot.bot.get_redis_client", new_callable=AsyncMock, return_value=mock_redis
     ):
         await bot.on_guild_channel_create(channel)
 
-    mock_redis.set_json.assert_called_once_with(
+    mock_redis.set_json.assert_any_call(
         CacheKeys.discord_channel(str(channel.id)),
         {"name": channel.name},
-        None,
+        CacheTTL.DISCORD_CHANNEL,
     )
+    mock_redis.set_json.assert_any_call(
+        CacheKeys.discord_guild_channels(str(channel.guild.id)),
+        expected_channels,
+        CacheTTL.DISCORD_GUILD_CHANNELS,
+    )
+    mock_redis.delete.assert_not_called()
 
 
-async def test_on_guild_channel_create_invalidates_guild_channels_key(
+async def test_on_guild_channel_update_writes_channel_and_list(
     bot: GameSchedulerBot, mock_redis: AsyncMock
 ) -> None:
-    """on_guild_channel_create deletes discord:guild_channels:{guild_id}."""
-    channel = _make_channel(1001, 111)
-    with patch(
-        "services.bot.bot.get_redis_client", new_callable=AsyncMock, return_value=mock_redis
-    ):
-        await bot.on_guild_channel_create(channel)
-
-    mock_redis.delete.assert_called_once_with(
-        CacheKeys.discord_guild_channels(str(channel.guild.id))
-    )
-
-
-async def test_on_guild_channel_update_writes_channel_key(
-    bot: GameSchedulerBot, mock_redis: AsyncMock
-) -> None:
-    """on_guild_channel_update writes discord:channel:{id} with the updated channel name."""
+    """on_guild_channel_update writes discord:channel:{id} and rewrites the full channel list."""
     before = _make_channel(1001, 111, "old-name")
     after = _make_channel(1001, 111, "new-name")
+    expected_channels = [{"id": str(after.id), "name": after.name, "type": after.type.value}]
     with patch(
         "services.bot.bot.get_redis_client", new_callable=AsyncMock, return_value=mock_redis
     ):
         await bot.on_guild_channel_update(before, after)
 
-    mock_redis.set_json.assert_called_once_with(
+    mock_redis.set_json.assert_any_call(
         CacheKeys.discord_channel(str(after.id)),
         {"name": after.name},
-        None,
+        CacheTTL.DISCORD_CHANNEL,
     )
+    mock_redis.set_json.assert_any_call(
+        CacheKeys.discord_guild_channels(str(after.guild.id)),
+        expected_channels,
+        CacheTTL.DISCORD_GUILD_CHANNELS,
+    )
+    mock_redis.delete.assert_not_called()
 
 
-async def test_on_guild_channel_update_invalidates_guild_channels_key(
+async def test_on_guild_channel_delete_removes_channel_and_rewrites_list(
     bot: GameSchedulerBot, mock_redis: AsyncMock
 ) -> None:
-    """on_guild_channel_update deletes discord:guild_channels:{guild_id}."""
-    before = _make_channel(1001, 111, "old-name")
-    after = _make_channel(1001, 111, "new-name")
-    with patch(
-        "services.bot.bot.get_redis_client", new_callable=AsyncMock, return_value=mock_redis
-    ):
-        await bot.on_guild_channel_update(before, after)
-
-    mock_redis.delete.assert_called_once_with(CacheKeys.discord_guild_channels(str(after.guild.id)))
-
-
-async def test_on_guild_channel_delete_removes_channel_key(
-    bot: GameSchedulerBot, mock_redis: AsyncMock
-) -> None:
-    """on_guild_channel_delete deletes discord:channel:{id}."""
-    channel = _make_channel(1001, 111)
+    """on_guild_channel_delete deletes discord:channel:{id} and rewrites the channel list."""
+    remaining = _make_channel(1002, 111, "other")
+    channel = _make_channel(1001, 111, "deleted", guild_channels=[remaining])
+    expected_channels = [
+        {"id": str(remaining.id), "name": remaining.name, "type": remaining.type.value}
+    ]
     with patch(
         "services.bot.bot.get_redis_client", new_callable=AsyncMock, return_value=mock_redis
     ):
         await bot.on_guild_channel_delete(channel)
 
-    mock_redis.delete.assert_any_call(CacheKeys.discord_channel(str(channel.id)))
-
-
-async def test_on_guild_channel_delete_invalidates_guild_channels_key(
-    bot: GameSchedulerBot, mock_redis: AsyncMock
-) -> None:
-    """on_guild_channel_delete deletes discord:guild_channels:{guild_id}."""
-    channel = _make_channel(1001, 111)
-    with patch(
-        "services.bot.bot.get_redis_client", new_callable=AsyncMock, return_value=mock_redis
-    ):
-        await bot.on_guild_channel_delete(channel)
-
-    mock_redis.delete.assert_any_call(CacheKeys.discord_guild_channels(str(channel.guild.id)))
+    mock_redis.delete.assert_called_once_with(CacheKeys.discord_channel(str(channel.id)))
+    mock_redis.set_json.assert_called_once_with(
+        CacheKeys.discord_guild_channels(str(channel.guild.id)),
+        expected_channels,
+        CacheTTL.DISCORD_GUILD_CHANNELS,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -176,41 +170,84 @@ async def test_on_guild_channel_delete_invalidates_guild_channels_key(
 # ---------------------------------------------------------------------------
 
 
-async def test_on_guild_role_create_invalidates_guild_roles_key(
+async def test_on_guild_role_create_writes_roles_list(
     bot: GameSchedulerBot, mock_redis: AsyncMock
 ) -> None:
-    """on_guild_role_create deletes discord:guild_roles:{guild_id}."""
+    """on_guild_role_create rewrites discord:guild_roles:{guild_id} from gateway state."""
     role = _make_role(2001, 111)
+    expected_roles = [
+        {
+            "id": str(role.id),
+            "name": role.name,
+            "color": role.color.value,
+            "position": role.position,
+            "managed": role.managed,
+        }
+    ]
     with patch(
         "services.bot.bot.get_redis_client", new_callable=AsyncMock, return_value=mock_redis
     ):
         await bot.on_guild_role_create(role)
 
-    mock_redis.delete.assert_called_once_with(CacheKeys.discord_guild_roles(str(role.guild.id)))
+    mock_redis.set_json.assert_called_once_with(
+        CacheKeys.discord_guild_roles(str(role.guild.id)),
+        expected_roles,
+        CacheTTL.DISCORD_GUILD_ROLES,
+    )
+    mock_redis.delete.assert_not_called()
 
 
-async def test_on_guild_role_update_invalidates_guild_roles_key(
+async def test_on_guild_role_update_writes_roles_list(
     bot: GameSchedulerBot, mock_redis: AsyncMock
 ) -> None:
-    """on_guild_role_update deletes discord:guild_roles:{guild_id}."""
+    """on_guild_role_update rewrites discord:guild_roles:{guild_id} from gateway state."""
     before = _make_role(2001, 111, "old-role")
     after = _make_role(2001, 111, "new-role")
+    expected_roles = [
+        {
+            "id": str(after.id),
+            "name": after.name,
+            "color": after.color.value,
+            "position": after.position,
+            "managed": after.managed,
+        }
+    ]
     with patch(
         "services.bot.bot.get_redis_client", new_callable=AsyncMock, return_value=mock_redis
     ):
         await bot.on_guild_role_update(before, after)
 
-    mock_redis.delete.assert_called_once_with(CacheKeys.discord_guild_roles(str(after.guild.id)))
+    mock_redis.set_json.assert_called_once_with(
+        CacheKeys.discord_guild_roles(str(after.guild.id)),
+        expected_roles,
+        CacheTTL.DISCORD_GUILD_ROLES,
+    )
+    mock_redis.delete.assert_not_called()
 
 
-async def test_on_guild_role_delete_invalidates_guild_roles_key(
+async def test_on_guild_role_delete_writes_roles_list(
     bot: GameSchedulerBot, mock_redis: AsyncMock
 ) -> None:
-    """on_guild_role_delete deletes discord:guild_roles:{guild_id}."""
-    role = _make_role(2001, 111)
+    """on_guild_role_delete rewrites discord:guild_roles:{guild_id} with the role removed."""
+    remaining = _make_role(2002, 111, "remaining")
+    role = _make_role(2001, 111, "deleted", guild_roles=[remaining])
+    expected_roles = [
+        {
+            "id": str(remaining.id),
+            "name": remaining.name,
+            "color": remaining.color.value,
+            "position": remaining.position,
+            "managed": remaining.managed,
+        }
+    ]
     with patch(
         "services.bot.bot.get_redis_client", new_callable=AsyncMock, return_value=mock_redis
     ):
         await bot.on_guild_role_delete(role)
 
-    mock_redis.delete.assert_called_once_with(CacheKeys.discord_guild_roles(str(role.guild.id)))
+    mock_redis.set_json.assert_called_once_with(
+        CacheKeys.discord_guild_roles(str(role.guild.id)),
+        expected_roles,
+        CacheTTL.DISCORD_GUILD_ROLES,
+    )
+    mock_redis.delete.assert_not_called()
