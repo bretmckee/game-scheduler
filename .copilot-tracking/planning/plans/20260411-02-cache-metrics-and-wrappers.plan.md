@@ -42,12 +42,12 @@ Eliminate copy-pasted read-through cache patterns in `shared/discord/client.py` 
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Create `shared/cache/operations.py`
+### [x] Phase 1: Create `shared/cache/operations.py`
 
-- [ ] Task 1.1: Write failing unit tests for `CacheOperation` and `cache_get`
+- [x] Task 1.1: Write failing unit tests for `CacheOperation` and `cache_get`
   - Details: .copilot-tracking/planning/details/20260411-02-cache-metrics-and-wrappers-details.md (Lines 13-33)
 
-- [ ] Task 1.2: Implement `shared/cache/operations.py`
+- [x] Task 1.2: Implement `shared/cache/operations.py`
   - Details: .copilot-tracking/planning/details/20260411-02-cache-metrics-and-wrappers-details.md (Lines 34-60)
 
 ### [ ] Phase 2: Add `_get_or_fetch` to `DiscordAPIClient`

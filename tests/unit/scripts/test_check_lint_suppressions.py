@@ -233,12 +233,14 @@ def _run_main_with_args(diff: str, argv: list[str]) -> tuple[int, str]:
     with mock.patch.object(check_lint_suppressions.subprocess, "run", return_value=mock_result):
         with mock.patch.object(sys, "argv", ["check_lint_suppressions.py", *argv]):
             with mock.patch("sys.stdout", captured):
-                try:
-                    check_lint_suppressions.main()
-                    return 0, captured.getvalue()
-                except SystemExit as exc:
-                    code = exc.code if isinstance(exc.code, int) else 1
-                    return code, captured.getvalue()
+                with mock.patch.dict("os.environ", {}, clear=False):
+                    os.environ.pop("APPROVED_OVERRIDES", None)
+                    try:
+                        check_lint_suppressions.main()
+                        return 0, captured.getvalue()
+                    except SystemExit as exc:
+                        code = exc.code if isinstance(exc.code, int) else 1
+                        return code, captured.getvalue()
 
 
 def test_get_added_lines_with_compare_branch_uses_three_dot_diff():
