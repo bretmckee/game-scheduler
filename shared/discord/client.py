@@ -205,6 +205,7 @@ class DiscordAPIClient:
         cache_ttl: int | None = None,
         session: aiohttp.ClientSession | None = None,
         channel_id: str | None = None,
+        global_max: int = 25,
         **request_kwargs: Any,  # noqa: ANN401
     ) -> dict[str, Any]:
         """
@@ -219,6 +220,7 @@ class DiscordAPIClient:
             cache_ttl: Optional cache TTL in seconds
             session: Optional existing session
             channel_id: Discord channel ID for per-channel rate limiting (global-only if None)
+            global_max: Global rate-limit budget (requests per 1000ms window, default 25)
             **request_kwargs: Additional arguments for aiohttp request
 
         Returns:
@@ -232,9 +234,11 @@ class DiscordAPIClient:
 
         while True:
             if channel_id is not None:
-                wait_ms = await redis.claim_global_and_channel_slot(channel_id)
+                wait_ms = await redis.claim_global_and_channel_slot(
+                    channel_id, global_max=global_max
+                )
             else:
-                wait_ms = await redis.claim_global_slot()
+                wait_ms = await redis.claim_global_slot(global_max=global_max)
             if wait_ms == 0:
                 break
             await asyncio.sleep(wait_ms / 1000)

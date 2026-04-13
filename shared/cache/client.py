@@ -111,7 +111,7 @@ local ch_max        = tonumber(ARGV[2] or '5')
 
 -- Global: 25 req per 1000ms sliding window
 local global_window = 1000
-local global_max    = 25
+local global_max    = tonumber(ARGV[3] or '25')
 redis.call('zremrangebyscore', global_key, 0, now_ms - global_window)
 local global_n      = redis.call('zcard', global_key)
 local global_wait   = 0
@@ -411,12 +411,12 @@ class RedisClient:
                 _REDIS_ERROR_BACKOFF_JITTER_MS + 1
             )
 
-    async def claim_global_and_channel_slot(self, channel_id: str) -> int:
+    async def claim_global_and_channel_slot(self, channel_id: str, global_max: int = 25) -> int:
         """
         Atomically claim one global token and one per-channel slot.
 
         Uses a single Lua round-trip to enforce:
-        - Global budget: 25 requests per 1000ms sliding window
+        - Global budget: global_max requests per 1000ms sliding window
         - Per-channel budget: 5 per 5000ms with inter-edit spacing
 
         Returns 0 and records both timestamps when both budgets have capacity.
@@ -425,6 +425,7 @@ class RedisClient:
 
         Args:
             channel_id: Discord channel snowflake string.
+            global_max: Maximum global requests per 1000ms window (default 25).
 
         Returns:
             Milliseconds to wait (0 = proceed immediately).
@@ -444,6 +445,7 @@ class RedisClient:
                 channel_key,
                 str(now_ms),
                 "5",
+                str(global_max),
             )
             result = await cast("Awaitable[Any]", raw)
             return int(result)
@@ -457,14 +459,17 @@ class RedisClient:
                 _REDIS_ERROR_BACKOFF_JITTER_MS + 1
             )
 
-    async def claim_global_slot(self) -> int:
+    async def claim_global_slot(self, global_max: int = 25) -> int:
         """
         Claim one global Discord rate-limit token without per-channel constraint.
 
         Uses the same combined Lua script as claim_global_and_channel_slot with
         a sentinel channel key and an impossibly high per-channel limit so only
-        the 25 req/s global bucket is enforced.  Intended for API calls that
-        have no meaningful Discord channel context (OAuth, guild/user fetches).
+        the global_max req/s global bucket is enforced.  Intended for API calls
+        that have no meaningful Discord channel context (OAuth, guild/user fetches).
+
+        Args:
+            global_max: Maximum global requests per 1000ms window (default 25).
 
         Returns:
             Milliseconds to wait (0 = proceed immediately).
@@ -484,6 +489,7 @@ class RedisClient:
                 sentinel_key,
                 str(now_ms),
                 "999999",
+                str(global_max),
             )
             result = await cast("Awaitable[Any]", raw)
             return int(result)

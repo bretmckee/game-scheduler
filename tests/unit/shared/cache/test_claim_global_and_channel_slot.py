@@ -160,6 +160,28 @@ class TestClaimGlobalAndChannelSlot:
             assert client._client is not None
             assert result == 0
 
+    async def test_global_max_override_passed_as_argv3(self, client_and_mock: tuple) -> None:
+        """When global_max=45 is supplied, ARGV[3] of the Lua eval receives '45'."""
+        client, mock_redis = client_and_mock
+        mock_redis.eval.return_value = 0
+
+        await client.claim_global_and_channel_slot("111", global_max=45)
+
+        call_args = mock_redis.eval.call_args.args
+        global_max_arg = call_args[6]  # ARGV[3] = global_max
+        assert global_max_arg == "45"
+
+    async def test_default_global_max_is_25(self, client_and_mock: tuple) -> None:
+        """Default global_max (no argument) sends '25' as ARGV[3]."""
+        client, mock_redis = client_and_mock
+        mock_redis.eval.return_value = 0
+
+        await client.claim_global_and_channel_slot("222")
+
+        call_args = mock_redis.eval.call_args.args
+        global_max_arg = call_args[6]  # ARGV[3] = global_max
+        assert global_max_arg == "25"
+
 
 class TestClaimGlobalSlot:
     """Verify global-only rate-limit slot claim (no per-channel constraint)."""
@@ -263,3 +285,25 @@ class TestClaimGlobalSlot:
 
             assert client._client is not None
             assert result == 0
+
+    async def test_global_max_override_passed_as_argv3(self, client_and_mock: tuple) -> None:
+        """When global_max=45 is supplied, ARGV[3] of the Lua eval receives '45'."""
+        client, mock_redis = client_and_mock
+        mock_redis.eval.return_value = 0
+
+        await client.claim_global_slot(global_max=45)
+
+        call_args = mock_redis.eval.call_args.args
+        global_max_arg = call_args[6]  # ARGV[3] = global_max
+        assert global_max_arg == "45"
+
+    async def test_default_global_max_is_25(self, client_and_mock: tuple) -> None:
+        """Default global_max (no argument) sends '25' as ARGV[3]."""
+        client, mock_redis = client_and_mock
+        mock_redis.eval.return_value = 0
+
+        await client.claim_global_slot()
+
+        call_args = mock_redis.eval.call_args.args
+        global_max_arg = call_args[6]  # ARGV[3] = global_max
+        assert global_max_arg == "25"

@@ -41,12 +41,12 @@ Eliminate ~27s cold-cache load on the game list by skipping participant Discord 
 - [x] Task 1.2 (Implement): Add constants to shared/cache/ttl.py
   - Details: .copilot-tracking/planning/details/20260413-01-discord-member-fetch-performance-details.md (Lines 24-37)
 
-### [ ] Phase 2: Parameterize global_max in Rate Limit Infrastructure
+### [x] Phase 2: Parameterize global_max in Rate Limit Infrastructure
 
-- [ ] Task 2.1 (Tests): Write failing tests for global_max parameter in claim functions
+- [x] Task 2.1 (Tests): Write failing tests for global_max parameter in claim functions
   - Details: .copilot-tracking/planning/details/20260413-01-discord-member-fetch-performance-details.md (Lines 40-54)
 
-- [ ] Task 2.2 (Implement): Parameterize Lua script and cache client functions
+- [x] Task 2.2 (Implement): Parameterize Lua script and cache client functions
   - Details: .copilot-tracking/planning/details/20260413-01-discord-member-fetch-performance-details.md (Lines 55-73)
 
 ### [ ] Phase 3: Thread global_max and Parallelize Discord Client

@@ -570,7 +570,9 @@ class TestMakeAPIRequestRateLimit:
             channel_id="123456789",
         )
 
-        mock_redis.claim_global_and_channel_slot.assert_awaited_once_with("123456789")
+        mock_redis.claim_global_and_channel_slot.assert_awaited_once_with(
+            "123456789", global_max=25
+        )
 
     @pytest.mark.asyncio
     @patch("asyncio.sleep", new_callable=AsyncMock)
@@ -592,6 +594,24 @@ class TestMakeAPIRequestRateLimit:
 
         mock_sleep.assert_awaited_once_with(pytest.approx(0.04, rel=1e-3))
         assert discord_client._session.request.call_count == 1
+
+    @pytest.mark.asyncio
+    @patch("shared.cache.client.get_redis_client")
+    async def test_accepts_global_max_kwarg(self, mock_get_redis, discord_client, mock_redis):
+        """_make_api_request accepts global_max and forwards it to the rate-limit claim call."""
+        mock_get_redis.return_value = mock_redis
+        mock_redis.claim_global_slot = AsyncMock(return_value=0)
+        discord_client._session = self._make_mock_session({"id": "1"})
+
+        await discord_client._make_api_request(
+            method="GET",
+            url="https://discord.com/api/v10/users/1",
+            operation_name="test_op",
+            headers={"Authorization": "Bot token"},
+            global_max=45,
+        )
+
+        mock_redis.claim_global_slot.assert_awaited_once_with(global_max=45)
 
 
 class TestOAuth2Methods:
