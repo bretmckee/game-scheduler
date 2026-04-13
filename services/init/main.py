@@ -125,6 +125,7 @@ def main() -> int:
             if os.getenv("INIT_ROLES_ONLY"):
                 logger.info("INIT_ROLES_ONLY set — skipping migrations, schema check, and RabbitMQ")
                 span.set_status(trace.Status(trace.StatusCode.OK))
+                _complete_initialization(start_time)
                 return 0
 
             _log_phase(3, 5, "Running database migrations...")

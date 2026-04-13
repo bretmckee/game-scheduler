@@ -27,11 +27,17 @@
 #   2. pg_dump to custom format, gzip, upload to S3 using slot-based rotation
 #
 # Slot key format: backup/slot-<N>.dump.gz  where N cycles 0..(RETENTION_COUNT-1)
-set -e
+set -ex
 
 RETENTION_COUNT="${BACKUP_RETENTION_COUNT:-14}"
 BUCKET="${BACKUP_S3_BUCKET}"
 REGION="${BACKUP_S3_REGION:-us-east-1}"
+
+# Build the database URL when running directly (e.g. docker compose run backup
+# /usr/local/bin/backup-script.sh) rather than via the cron entrypoint.
+if [ -z "${BACKUP_DATABASE_URL}" ]; then
+    BACKUP_DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/${POSTGRES_DB}"
+fi
 
 # Build aws s3 command, adding --endpoint-url only when BACKUP_S3_ENDPOINT is set
 aws_s3() {
@@ -60,13 +66,18 @@ BACKUP_KEY="backup/slot-${SLOT}.dump.gz"
 echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] Starting backup to s3://${BUCKET}/${BACKUP_KEY}"
 
 # Insert backup_metadata row before dumping so the timestamp is in the dump
-psql "${ADMIN_DATABASE_URL}" -c "INSERT INTO backup_metadata (backed_up_at) VALUES (now());"
+psql "${BACKUP_DATABASE_URL}" -c "INSERT INTO backup_metadata (backed_up_at) VALUES (now());"
+
+# Diagnostic: show row counts before dump to confirm data is visible
+COUNT_SQL="SELECT 'game_sessions' AS tbl, count(*) FROM game_sessions UNION ALL SELECT 'game_participants', count(*) FROM game_participants UNION ALL SELECT 'guild_configurations', count(*) FROM guild_configurations;"
+echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] DEBUG: row counts before backup:"
+psql "${BACKUP_DATABASE_URL}" -c "${COUNT_SQL}" 2>&1 || true
 
 # Dump, compress, and upload in one pipeline to avoid writing a temp file
 pg_dump \
     --format=custom \
     --no-password \
-    "${ADMIN_DATABASE_URL}" \
+    "${BACKUP_DATABASE_URL}" \
   | gzip \
   | aws_s3 cp - "s3://${BUCKET}/${BACKUP_KEY}"
 

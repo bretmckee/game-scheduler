@@ -32,6 +32,7 @@ class TestMainWithInitRolesOnly:
 
     @patch("services.init.main.flush_telemetry")
     @patch("services.init.main.trace")
+    @patch("services.init.main._complete_initialization")
     @patch("services.init.main.initialize_rabbitmq")
     @patch("services.init.main.verify_schema")
     @patch("services.init.main.run_migrations")
@@ -47,6 +48,7 @@ class TestMainWithInitRolesOnly:
         mock_migrations,
         mock_verify,
         mock_rabbitmq,
+        mock_complete,
         mock_trace,
         mock_flush,
     ):
@@ -65,12 +67,14 @@ class TestMainWithInitRolesOnly:
         assert result == 0
         mock_wait.assert_called_once()
         mock_create_users.assert_called_once()
+        mock_complete.assert_called_once()
         mock_migrations.assert_not_called()
         mock_verify.assert_not_called()
         mock_rabbitmq.assert_not_called()
 
     @patch("services.init.main.flush_telemetry")
     @patch("services.init.main.trace")
+    @patch("services.init.main._complete_initialization")
     @patch("services.init.main.initialize_rabbitmq")
     @patch("services.init.main.verify_schema")
     @patch("services.init.main.run_migrations")
@@ -88,6 +92,7 @@ class TestMainWithInitRolesOnly:
         mock_migrations,
         mock_verify,
         mock_rabbitmq,
+        mock_complete,
         mock_trace,
         mock_flush,
     ):

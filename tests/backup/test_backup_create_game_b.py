@@ -19,17 +19,11 @@
 # SOFTWARE.
 
 
-"""Backup test: create one game and record its IDs.
+"""Backup test Phase 2: create gameB using the guild/user left by Phase 1.
 
-run-backup-tests.sh invokes this test file twice:
-  Phase 1 — with GAME_RECORD_FILE=$GAME_A_FILE  (before the backup)
-  Phase 2 — with GAME_RECORD_FILE=$GAME_B_FILE  (after the backup)
-
-Each run creates one game with a unique title, waits for the Discord embed, and
-writes "<game_id>:<channel_id>:<message_id>" to GAME_RECORD_FILE.
-
-test_backup_post_restore.py reads both files to assert DB presence/absence and
-Discord embed deletion.
+run-backup-tests.sh invokes this file after the backup has been taken.  The
+guild and user already exist in the database from Phase 1; this test only
+creates a new game so that it can later be verified absent in the restored DB.
 """
 
 import os
@@ -50,43 +44,34 @@ def _write_record(path: str, game_id: str, channel_id: str, message_id: str) -> 
 
 
 @pytest.mark.asyncio
-async def test_create_game_and_record(
+async def test_create_game_b_and_record(
     authenticated_admin_client,
     admin_db,
     discord_helper,
-    synced_guild_created,
+    synced_guild_existing,
     discord_channel_id,
 ):
-    """
-    Create one game, wait for its Discord embed, and persist the IDs.
+    """Create gameB using the existing guild, then write IDs to GAME_RECORD_FILE.
 
-    GAME_RECORD_FILE must be set by the caller (run-backup-tests.sh).
-    The file receives "<game_id>:<channel_id>:<message_id>" for later assertions.
+    GAME_RECORD_FILE must be set by run-backup-tests.sh.  The file receives
+    "<game_id>:<channel_id>:<message_id>" for use by test_backup_post_restore.py.
     """
     record_file = os.environ.get("GAME_RECORD_FILE")
     assert record_file, "GAME_RECORD_FILE env var must be set by run-backup-tests.sh"
 
     result = await admin_db.execute(
-        text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
-        {"guild_id": synced_guild_created.discord_id},
-    )
-    row = result.fetchone()
-    assert row, f"Guild {synced_guild_created.discord_id} not found in DB"
-    guild_db_id = row[0]
-
-    result = await admin_db.execute(
         text("SELECT id FROM game_templates WHERE guild_id = :guild_id AND is_default = true"),
-        {"guild_id": guild_db_id},
+        {"guild_id": synced_guild_existing.db_id},
     )
     row = result.fetchone()
-    assert row, f"Default template not found for guild {guild_db_id}"
+    assert row, f"Default template not found for guild {synced_guild_existing.db_id}"
     template_id = row[0]
 
     game_title = f"BackupGame-{uuid4().hex[:8]}"
     game_data = {
         "template_id": template_id,
         "title": game_title,
-        "description": "Backup test game",
+        "description": "Backup test game B",
         "scheduled_at": (datetime.now(UTC) + timedelta(hours=2)).isoformat(),
         "max_players": "4",
         "where": "Test Location",
@@ -103,4 +88,4 @@ async def test_create_game_and_record(
     assert message is not None, "Discord embed should be visible"
 
     _write_record(record_file, game_id, discord_channel_id, message_id)
-    print(f"\n[backup] game created: id={game_id}, message_id={message_id}, record={record_file}")
+    print(f"\n[backup] gameB created: id={game_id}, message_id={message_id}, record={record_file}")

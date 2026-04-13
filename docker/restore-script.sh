@@ -59,11 +59,17 @@ if [ -z "${RESTORE_BACKUP_KEY}" ]; then
     exit 1
 fi
 
-TMPFILE=$(mktemp /tmp/restore-XXXXXX.dump)
+TMPFILE=$(mktemp /tmp/restore-XXXXXX)
 trap 'rm -f "${TMPFILE}"' EXIT
 
 echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] Downloading s3://${BUCKET}/${RESTORE_BACKUP_KEY}..."
 aws_s3 cp "s3://${BUCKET}/${RESTORE_BACKUP_KEY}" - | gunzip > "${TMPFILE}"
+
+DUMP_SIZE=$(wc -c < "${TMPFILE}")
+echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] DEBUG: dump file size: ${DUMP_SIZE} bytes"
+
+echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] DEBUG: game_sessions data in dump:"
+pg_restore --data-only --table=game_sessions -f - "${TMPFILE}" 2>&1 | grep -A 3 "^COPY"
 
 echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] Restoring to ${POSTGRES_HOST}/${POSTGRES_DB}..."
 PGPASSWORD="${POSTGRES_PASSWORD}" pg_restore \
@@ -74,6 +80,14 @@ PGPASSWORD="${POSTGRES_PASSWORD}" pg_restore \
     --no-owner \
     --no-privileges \
     --exit-on-error \
-    "${TMPFILE}"
+    --verbose \
+    "${TMPFILE}" 2>&1
 
 echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] Restore complete."
+
+echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] DEBUG: game_sessions rows after restore:"
+PGPASSWORD="${POSTGRES_PASSWORD}" psql \
+    --host="${POSTGRES_HOST}" \
+    --username="${POSTGRES_USER}" \
+    --dbname="${POSTGRES_DB}" \
+    -c "SELECT id, title FROM game_sessions ORDER BY created_at;"
