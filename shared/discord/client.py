@@ -40,6 +40,7 @@ from shared.cache import client as cache_client
 from shared.cache import keys as cache_keys
 from shared.cache import ttl
 from shared.cache.operations import CacheOperation
+from shared.cache.ttl import DISCORD_GLOBAL_RATE_LIMIT_BACKGROUND
 from shared.utils.discord_tokens import DISCORD_BOT_TOKEN_DOT_COUNT
 
 _T = TypeVar("_T")
@@ -765,13 +766,16 @@ class DiscordAPIClient:
             operation=CacheOperation.FETCH_USER,
         )
 
-    async def get_guild_member(self, guild_id: str, user_id: str) -> dict[str, Any]:
+    async def get_guild_member(
+        self, guild_id: str, user_id: str, global_max: int = DISCORD_GLOBAL_RATE_LIMIT_BACKGROUND
+    ) -> dict[str, Any]:
         """
         Fetch guild member information using bot token with Redis caching.
 
         Args:
             guild_id: Discord guild (server) ID
             user_id: Discord user ID
+            global_max: Global rate-limit budget to use for this request (default 25).
 
         Returns:
             Guild member object with user, roles, nick, etc.
@@ -787,41 +791,48 @@ class DiscordAPIClient:
                 url=f"{self._api_base_url}/guilds/{guild_id}/members/{user_id}",
                 operation_name="get_guild_member",
                 headers={"Authorization": f"Bot {self.bot_token}"},
+                global_max=global_max,
             ),
             operation=CacheOperation.GET_GUILD_MEMBER,
         )
 
     async def get_guild_members_batch(
-        self, guild_id: str, user_ids: list[str]
+        self,
+        guild_id: str,
+        user_ids: list[str],
+        global_max: int = DISCORD_GLOBAL_RATE_LIMIT_BACKGROUND,
     ) -> list[dict[str, Any]]:
         """
-        Fetch multiple guild members using bot token.
+        Fetch multiple guild members using bot token, concurrently.
 
         Args:
             guild_id: Discord guild (server) ID
             user_ids: List of Discord user IDs to fetch
+            global_max: Global rate-limit budget per 1000ms window (default 25).
 
         Returns:
             List of guild member objects (may be fewer than requested if users left)
 
         Raises:
-            DiscordAPIError: If fetching members fails
+            DiscordAPIError: If a non-404 error occurs for any user
         """
         logger.info(
             "Discord API: Batch fetching %s members from guild %s",
             len(user_ids),
             guild_id,
         )
-        members = []
-        for user_id in user_ids:
+
+        async def _fetch_one(user_id: str) -> dict[str, Any] | None:
             try:
-                member = await self.get_guild_member(guild_id, user_id)
-                members.append(member)
+                return await self.get_guild_member(guild_id, user_id, global_max=global_max)
             except DiscordAPIError as e:
                 if e.status == status.HTTP_404_NOT_FOUND:
                     logger.debug("User %s not found in guild %s", user_id, guild_id)
-                    continue
+                    return None
                 raise
+
+        results = await asyncio.gather(*[_fetch_one(uid) for uid in user_ids])
+        members = [r for r in results if r is not None]
         logger.info(
             "Discord API: Batch completed - fetched %s/%s members",
             len(members),

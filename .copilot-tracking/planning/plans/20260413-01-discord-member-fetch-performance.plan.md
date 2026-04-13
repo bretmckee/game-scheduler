@@ -49,12 +49,12 @@ Eliminate ~27s cold-cache load on the game list by skipping participant Discord 
 - [x] Task 2.2 (Implement): Parameterize Lua script and cache client functions
   - Details: .copilot-tracking/planning/details/20260413-01-discord-member-fetch-performance-details.md (Lines 55-73)
 
-### [ ] Phase 3: Thread global_max and Parallelize Discord Client
+### [x] Phase 3: Thread global_max and Parallelize Discord Client
 
-- [ ] Task 3.1 (Tests): Write failing tests for global_max threading and asyncio.gather in Discord client
+- [x] Task 3.1 (Tests): Write failing tests for global_max threading and asyncio.gather in Discord client
   - Details: .copilot-tracking/planning/details/20260413-01-discord-member-fetch-performance-details.md (Lines 76-95)
 
-- [ ] Task 3.2 (Implement): Thread global_max and replace serial loop with asyncio.gather
+- [x] Task 3.2 (Implement): Thread global_max and replace serial loop with asyncio.gather
   - Details: .copilot-tracking/planning/details/20260413-01-discord-member-fetch-performance-details.md (Lines 96-112)
 
 ### [ ] Phase 4: Skip Participant Resolution in list_games and Use Interactive Budget in get_game

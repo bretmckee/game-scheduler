@@ -1620,6 +1620,56 @@ class TestGuildMemberMethods:
 
         assert len(result) == 0
 
+    @pytest.mark.asyncio
+    async def test_get_guild_member_accepts_global_max(self, discord_client, mock_redis):
+        """get_guild_member accepts global_max and passes it to _make_api_request."""
+        mock_redis.get = AsyncMock(return_value=None)
+        mock_redis.set = AsyncMock()
+        member_data = {"user": {"id": "u1"}, "roles": []}
+
+        with patch("shared.discord.client.cache_client.get_redis_client") as mock_get_redis:
+            mock_get_redis.return_value = mock_redis
+            with patch.object(
+                discord_client, "_make_api_request", new_callable=AsyncMock
+            ) as mock_api:
+                mock_api.return_value = member_data
+                await discord_client.get_guild_member("guild1", "u1", global_max=45)
+                call_kwargs = mock_api.call_args.kwargs
+                assert call_kwargs.get("global_max") == 45
+
+    @pytest.mark.asyncio
+    async def test_get_guild_members_batch_forwards_global_max(self, discord_client):
+        """get_guild_members_batch forwards global_max to each get_guild_member call."""
+        with patch.object(
+            discord_client, "get_guild_member", new_callable=AsyncMock
+        ) as mock_get_member:
+            mock_get_member.side_effect = [
+                {"user": {"id": "u1"}},
+                {"user": {"id": "u2"}},
+            ]
+            await discord_client.get_guild_members_batch(
+                guild_id="guild1", user_ids=["u1", "u2"], global_max=45
+            )
+            for call in mock_get_member.call_args_list:
+                assert call.kwargs.get("global_max") == 45
+
+    @pytest.mark.asyncio
+    async def test_get_guild_members_batch_concurrent(self, discord_client):
+        """get_guild_members_batch uses asyncio.gather for concurrent dispatch."""
+        with patch("asyncio.gather", wraps=asyncio.gather) as mock_gather:
+            with patch.object(
+                discord_client, "get_guild_member", new_callable=AsyncMock
+            ) as mock_get_member:
+                mock_get_member.side_effect = [
+                    {"user": {"id": "u1"}},
+                    {"user": {"id": "u2"}},
+                    {"user": {"id": "u3"}},
+                ]
+                await discord_client.get_guild_members_batch(
+                    guild_id="guild1", user_ids=["u1", "u2", "u3"]
+                )
+            mock_gather.assert_called_once()
+
 
 class TestConcurrencyAndLocking:
     """Test concurrency control and locking mechanisms."""
