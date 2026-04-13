@@ -300,7 +300,7 @@ jobs:
 
       - name: Build remaining images for publish
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && github.repository == 'game-scheduler/game-scheduler'
-        run: docker compose --env-file tests/integration/env.int build bot frontend
+        run: docker compose --env-file tests/integration/env.int build bot frontend backup
 
       - name: Log in to Container Registry
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && github.repository == 'game-scheduler/game-scheduler'
@@ -332,6 +332,7 @@ jobs:
             "frontend:game-scheduler-frontend"
             "init:game-scheduler-init"
             "retry-daemon:game-scheduler-retry-daemon"
+            "backup:game-scheduler-backup"
           )
 
           for pair in "${PAIRS[@]}"; do
