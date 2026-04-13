@@ -53,6 +53,19 @@ _cache_miss_counter = _cache_meter.create_counter(
     "discord.cache.misses", description="Discord cache misses", unit="1"
 )
 _cache_duration_histogram = _cache_meter.create_histogram("discord.cache.duration", unit="s")
+_batch_size_histogram = _cache_meter.create_histogram(
+    "discord.member_batch.size", description="Members requested per batch fetch", unit="1"
+)
+_batch_not_found_counter = _cache_meter.create_counter(
+    "discord.member_batch.not_found",
+    description="Members not found (404) during batch fetch",
+    unit="1",
+)
+_batch_duration_histogram = _cache_meter.create_histogram(
+    "discord.member_batch.duration",
+    description="Wall-clock duration of concurrent batch member fetch",
+    unit="s",
+)
 
 logger = logging.getLogger(__name__)
 
@@ -821,6 +834,8 @@ class DiscordAPIClient:
             len(user_ids),
             guild_id,
         )
+        _batch_size_histogram.record(len(user_ids))
+        t0 = time.monotonic()
 
         async def _fetch_one(user_id: str) -> dict[str, Any] | None:
             try:
@@ -833,6 +848,10 @@ class DiscordAPIClient:
 
         results = await asyncio.gather(*[_fetch_one(uid) for uid in user_ids])
         members = [r for r in results if r is not None]
+        not_found = len(user_ids) - len(members)
+        _batch_duration_histogram.record(time.monotonic() - t0)
+        if not_found:
+            _batch_not_found_counter.add(not_found)
         logger.info(
             "Discord API: Batch completed - fetched %s/%s members",
             len(members),
