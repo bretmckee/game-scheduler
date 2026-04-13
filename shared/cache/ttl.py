@@ -21,6 +21,9 @@
 
 """Cache TTL configuration constants."""
 
+DISCORD_GLOBAL_RATE_LIMIT_BACKGROUND: int = 25
+DISCORD_GLOBAL_RATE_LIMIT_INTERACTIVE: int = 45
+
 
 class CacheTTL:
     """Time-to-live (TTL) constants for cache entries in seconds."""

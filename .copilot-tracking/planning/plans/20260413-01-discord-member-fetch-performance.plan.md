@@ -33,12 +33,12 @@ Eliminate ~27s cold-cache load on the game list by skipping participant Discord 
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Add Rate Limit Constants
+### [x] Phase 1: Add Rate Limit Constants
 
-- [ ] Task 1.1 (Tests): Write tests for rate limit constants
+- [x] Task 1.1 (Tests): Write tests for rate limit constants
   - Details: .copilot-tracking/planning/details/20260413-01-discord-member-fetch-performance-details.md (Lines 11-23)
 
-- [ ] Task 1.2 (Implement): Add constants to shared/cache/ttl.py
+- [x] Task 1.2 (Implement): Add constants to shared/cache/ttl.py
   - Details: .copilot-tracking/planning/details/20260413-01-discord-member-fetch-performance-details.md (Lines 24-37)
 
 ### [ ] Phase 2: Parameterize global_max in Rate Limit Infrastructure
