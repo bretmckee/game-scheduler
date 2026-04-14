@@ -26,7 +26,6 @@ Resolves Discord user IDs to guild-specific display names and avatar URLs
 with Redis caching.
 """
 
-import json
 import logging
 
 from services.api.dependencies.discord import get_discord_client
@@ -196,33 +195,6 @@ class DisplayNameResolver:
 
         return result
 
-    async def _check_cache_for_users(
-        self, guild_id: str, user_ids: list[str]
-    ) -> tuple[dict[str, dict[str, str | None]], list[str]]:
-        """
-        Check cache for user display names and avatars.
-
-        Args:
-            guild_id: Discord guild ID
-            user_ids: List of user IDs to check
-
-        Returns:
-            Tuple of (cached_results, uncached_ids)
-        """
-        cached_results = {}
-        uncached_ids = []
-
-        for user_id in user_ids:
-            cache_key = cache_keys.CacheKeys.display_name_avatar(user_id, guild_id)
-            if self.cache:
-                cached = await cache_get(cache_key, CacheOperation.DISPLAY_NAME_AVATAR)
-                if cached:
-                    cached_results[user_id] = cached
-                    continue
-            uncached_ids.append(user_id)
-
-        return cached_results, uncached_ids
-
     async def _fetch_and_cache_display_names_avatars(
         self,
         guild_id: str,
@@ -254,14 +226,6 @@ class DisplayNameResolver:
 
             user_data = {"display_name": display_name, "avatar_url": avatar_url}
             result[user_id] = user_data
-
-            if self.cache:
-                cache_key = cache_keys.CacheKeys.display_name_avatar(user_id, guild_id)
-                await self.cache.set(
-                    cache_key,
-                    json.dumps(user_data),
-                    ttl=cache_ttl.CacheTTL.DISPLAY_NAME,
-                )
 
         found_ids = {m["user"]["id"] for m in members}
         for user_id in uncached_ids:
@@ -308,18 +272,13 @@ class DisplayNameResolver:
         Returns:
             Dictionary mapping user IDs to dicts with display_name and avatar_url
         """
-        result, uncached_ids = await self._check_cache_for_users(guild_id, user_ids)
-
-        if uncached_ids:
-            try:
-                fetched_data = await self._fetch_and_cache_display_names_avatars(
-                    guild_id, uncached_ids, global_max=global_max
-                )
-                result.update(fetched_data)
-            except discord_client.DiscordAPIError as e:
-                logger.error("Failed to fetch display names and avatars: %s", e)
-                fallback_data = self._create_fallback_user_data(uncached_ids)
-                result.update(fallback_data)
+        try:
+            result = await self._fetch_and_cache_display_names_avatars(
+                guild_id, user_ids, global_max=global_max
+            )
+        except discord_client.DiscordAPIError as e:
+            logger.error("Failed to fetch display names and avatars: %s", e)
+            result = self._create_fallback_user_data(user_ids)
 
         return result
 

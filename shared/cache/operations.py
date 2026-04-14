@@ -48,7 +48,6 @@ class CacheOperation(StrEnum):
     GET_USER_GUILDS = "get_user_guilds"
     USER_ROLES_API = "user_roles_api"
     DISPLAY_NAME = "display_name"
-    DISPLAY_NAME_AVATAR = "display_name_avatar"
     SESSION_LOOKUP = "session_lookup"
     SESSION_REFRESH = "session_refresh"
     OAUTH_STATE = "oauth_state"

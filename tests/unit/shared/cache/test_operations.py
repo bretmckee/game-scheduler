@@ -37,7 +37,6 @@ _EXPECTED_OPERATIONS = {
     "get_user_guilds",
     "user_roles_api",
     "display_name",
-    "display_name_avatar",
     "session_lookup",
     "session_refresh",
     "oauth_state",

@@ -28,19 +28,11 @@ Tests verify avatar URL construction and resolution logic with mocked dependenci
 4. Avatar URL priority (guild > user > null) logic
 """
 
-import json
-from unittest.mock import ANY, AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
 from services.api.services.display_names import DisplayNameResolver
-from shared.cache.keys import CacheKeys
-
-
-@pytest.fixture
-def cache_keys():
-    """Get cache keys instance."""
-    return CacheKeys()
 
 
 @pytest.fixture
@@ -162,9 +154,9 @@ class TestAvatarDataFlow:
 
     @pytest.mark.asyncio
     async def test_cache_stores_avatar_data(
-        self, mock_discord_client, mock_cache_client, cache_keys, guild_id, user_id
+        self, mock_discord_client, mock_cache_client, guild_id, user_id
     ):
-        """Test cache stores avatar URLs alongside display names."""
+        """Test resolve_display_names_and_avatars returns correct data without Redis writes."""
         mock_discord_client.get_guild_members_batch.return_value = [
             {
                 "user": {
@@ -177,45 +169,37 @@ class TestAvatarDataFlow:
             }
         ]
 
-        with patch(
-            "services.api.services.display_names.cache_get",
-            new=AsyncMock(return_value=None),
-        ):
-            resolver = DisplayNameResolver(mock_discord_client, mock_cache_client)
-            await resolver.resolve_display_names_and_avatars(guild_id, [user_id])
+        resolver = DisplayNameResolver(mock_discord_client, mock_cache_client)
+        result = await resolver.resolve_display_names_and_avatars(guild_id, [user_id])
 
-        cache_key = cache_keys.display_name_avatar(user_id, guild_id)
-        mock_cache_client.set.assert_called_once()
-        call_args = mock_cache_client.set.call_args
-
-        assert call_args[0][0] == cache_key
-        cached_data = json.loads(call_args[0][1])
-        assert call_args[1]["ttl"] == 300
-        assert cached_data["display_name"] == "TestNick"
-        assert "guild_avatar_hash" in cached_data["avatar_url"]
+        assert result[user_id]["display_name"] == "TestNick"
+        assert "guild_avatar_hash" in result[user_id]["avatar_url"]
+        mock_cache_client.set.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_cache_retrieves_avatar_data(
-        self, mock_discord_client, mock_cache_client, cache_keys, guild_id, user_id
+        self, mock_discord_client, mock_cache_client, guild_id, user_id
     ):
-        """Test cache retrieval returns avatar URLs."""
-        cache_key = cache_keys.display_name_avatar(user_id, guild_id)
-        cached_data = {
-            "display_name": "CachedNick",
-            "avatar_url": f"https://cdn.discordapp.com/avatars/{user_id}/cached_hash.png?size=64",
-        }
+        """Test resolve_display_names_and_avatars always fetches from Discord API."""
+        mock_discord_client.get_guild_members_batch.return_value = [
+            {
+                "user": {
+                    "id": user_id,
+                    "username": "TestUser",
+                    "avatar": "cached_hash",
+                },
+                "nick": "CachedNick",
+                "avatar": None,
+            }
+        ]
 
-        with patch(
-            "services.api.services.display_names.cache_get",
-            new=AsyncMock(return_value=cached_data),
-        ) as mock_cg:
-            resolver = DisplayNameResolver(mock_discord_client, mock_cache_client)
-            result = await resolver.resolve_display_names_and_avatars(guild_id, [user_id])
+        resolver = DisplayNameResolver(mock_discord_client, mock_cache_client)
+        result = await resolver.resolve_display_names_and_avatars(guild_id, [user_id])
 
-        mock_cg.assert_called_once_with(cache_key, ANY)
-        mock_discord_client.get_guild_member.assert_not_called()
+        mock_discord_client.get_guild_members_batch.assert_called_once()
+        expected_url = f"https://cdn.discordapp.com/avatars/{user_id}/cached_hash.png?size=64"
         assert result[user_id]["display_name"] == "CachedNick"
-        assert result[user_id]["avatar_url"] == cached_data["avatar_url"]
+        assert result[user_id]["avatar_url"] == expected_url
 
     @pytest.mark.asyncio
     async def test_avatar_priority_guild_over_user(self, mock_discord_client, guild_id, user_id):

@@ -288,34 +288,6 @@ async def test_resolve_single_user_not_found(resolver, mock_discord_api, mock_ca
 
 
 @pytest.mark.asyncio
-async def test_resolve_display_names_and_avatars_from_cache(resolver, mock_cache):
-    """Test resolving display names and avatars from cache."""
-    guild_id = "123456789"
-    user_ids = ["user1", "user2"]
-
-    cached_user1 = {
-        "display_name": "CachedName1",
-        "avatar_url": "https://cdn.example.com/avatar1.png",
-    }
-    cached_user2 = {"display_name": "CachedName2", "avatar_url": None}
-
-    with patch(
-        "services.api.services.display_names.cache_get",
-        new_callable=AsyncMock,
-        side_effect=[cached_user1, cached_user2],
-    ):
-        result = await resolver.resolve_display_names_and_avatars(guild_id, user_ids)
-
-    assert result == {
-        "user1": {
-            "display_name": "CachedName1",
-            "avatar_url": "https://cdn.example.com/avatar1.png",
-        },
-        "user2": {"display_name": "CachedName2", "avatar_url": None},
-    }
-
-
-@pytest.mark.asyncio
 async def test_resolve_display_names_and_avatars_from_api_with_guild_avatar(
     resolver, mock_discord_api, mock_cache
 ):
@@ -338,17 +310,11 @@ async def test_resolve_display_names_and_avatars_from_api_with_guild_avatar(
         ]
     )
 
-    with patch(
-        "services.api.services.display_names.cache_get",
-        new_callable=AsyncMock,
-        return_value=None,
-    ):
-        result = await resolver.resolve_display_names_and_avatars(guild_id, user_ids)
+    result = await resolver.resolve_display_names_and_avatars(guild_id, user_ids)
 
     # Guild avatar should take priority
     expected_url = "https://cdn.discordapp.com/guilds/123456789/users/user1/avatars/guild_avatar_hash.png?size=64"
     assert result == {"user1": {"display_name": "GuildNick1", "avatar_url": expected_url}}
-    assert mock_cache.set.call_count == 1
 
 
 @pytest.mark.asyncio
@@ -480,102 +446,6 @@ async def test_build_avatar_url_no_avatar(resolver):
 
 
 @pytest.mark.asyncio
-async def test_check_cache_for_users_all_cached(resolver, mock_cache):
-    """Test checking cache when all users are cached."""
-    guild_id = "guild123"
-    user_ids = ["user1", "user2"]
-
-    with patch(
-        "services.api.services.display_names.cache_get",
-        new_callable=AsyncMock,
-        side_effect=[
-            {"display_name": "Name1", "avatar_url": "url1"},
-            {"display_name": "Name2", "avatar_url": "url2"},
-        ],
-    ):
-        cached_results, uncached_ids = await resolver._check_cache_for_users(guild_id, user_ids)
-
-    assert cached_results == {
-        "user1": {"display_name": "Name1", "avatar_url": "url1"},
-        "user2": {"display_name": "Name2", "avatar_url": "url2"},
-    }
-    assert uncached_ids == []
-
-
-@pytest.mark.asyncio
-async def test_check_cache_for_users_partial_cached(resolver, mock_cache):
-    """Test checking cache with some users cached and some not."""
-    guild_id = "guild123"
-    user_ids = ["user1", "user2", "user3"]
-
-    with patch(
-        "services.api.services.display_names.cache_get",
-        new_callable=AsyncMock,
-        side_effect=[
-            {"display_name": "Name1", "avatar_url": "url1"},
-            None,
-            {"display_name": "Name3", "avatar_url": "url3"},
-        ],
-    ):
-        cached_results, uncached_ids = await resolver._check_cache_for_users(guild_id, user_ids)
-
-    assert cached_results == {
-        "user1": {"display_name": "Name1", "avatar_url": "url1"},
-        "user3": {"display_name": "Name3", "avatar_url": "url3"},
-    }
-    assert uncached_ids == ["user2"]
-
-
-@pytest.mark.asyncio
-async def test_check_cache_for_users_none_cached(resolver, mock_cache):
-    """Test checking cache when no users are cached."""
-    guild_id = "guild123"
-    user_ids = ["user1", "user2"]
-
-    with patch(
-        "services.api.services.display_names.cache_get",
-        new_callable=AsyncMock,
-        return_value=None,
-    ):
-        cached_results, uncached_ids = await resolver._check_cache_for_users(guild_id, user_ids)
-
-    assert cached_results == {}
-    assert uncached_ids == ["user1", "user2"]
-
-
-@pytest.mark.asyncio
-async def test_check_cache_for_users_invalid_json(resolver, mock_cache):
-    """Test checking cache handles missing value gracefully."""
-    guild_id = "guild123"
-    user_ids = ["user1"]
-
-    with patch(
-        "services.api.services.display_names.cache_get",
-        new_callable=AsyncMock,
-        return_value=None,
-    ):
-        cached_results, uncached_ids = await resolver._check_cache_for_users(guild_id, user_ids)
-
-    assert cached_results == {}
-    assert uncached_ids == ["user1"]
-
-
-@pytest.mark.asyncio
-async def test_check_cache_for_users_no_cache_client(mock_discord_api):
-    """Test checking cache when cache client is None."""
-    resolver_no_cache = display_names.DisplayNameResolver(mock_discord_api, None)
-    guild_id = "guild123"
-    user_ids = ["user1", "user2"]
-
-    cached_results, uncached_ids = await resolver_no_cache._check_cache_for_users(
-        guild_id, user_ids
-    )
-
-    assert cached_results == {}
-    assert uncached_ids == ["user1", "user2"]
-
-
-@pytest.mark.asyncio
 async def test_fetch_and_cache_display_names_avatars_success(
     resolver, mock_discord_api, mock_cache
 ):
@@ -618,7 +488,7 @@ async def test_fetch_and_cache_display_names_avatars_success(
     assert result["user2"]["display_name"] == "username2"
     assert result["user2"]["avatar_url"] is None
 
-    assert mock_cache.set.call_count == 2
+    mock_cache.set.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -966,3 +836,37 @@ async def test_resolve_display_names_and_avatars_accepts_global_max(
     mock_discord_api.get_guild_members_batch.assert_called_once()
     call_kwargs = mock_discord_api.get_guild_members_batch.call_args.kwargs
     assert call_kwargs.get("global_max") == DISCORD_GLOBAL_RATE_LIMIT_INTERACTIVE
+
+
+@pytest.mark.asyncio
+async def test_fetch_and_cache_does_not_write_display_avatar_keys(
+    resolver, mock_discord_api, mock_cache
+):
+    """_fetch_and_cache_display_names_avatars must not write display_avatar:* Redis keys."""
+    guild_id = "guild123"
+    uncached_ids = ["user1"]
+
+    mock_discord_api.get_guild_members_batch = AsyncMock(
+        return_value=[
+            {
+                "user": {
+                    "id": "user1",
+                    "username": "username1",
+                    "global_name": "Global1",
+                    "avatar": "user_avatar1",
+                },
+                "nick": "Nick1",
+                "avatar": "member_avatar1",
+            }
+        ]
+    )
+
+    result = await resolver._fetch_and_cache_display_names_avatars(guild_id, uncached_ids)
+
+    assert result["user1"]["display_name"] == "Nick1"
+    mock_cache.set.assert_not_called()
+
+
+def test_check_cache_for_users_removed(resolver):
+    """_check_cache_for_users must be removed from DisplayNameResolver."""
+    assert not hasattr(resolver, "_check_cache_for_users")
