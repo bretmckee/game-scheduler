@@ -25,8 +25,10 @@ Game management REST API endpoints.
 Provides CRUD operations for game sessions with validation and authorization.
 """
 
+import asyncio
 import json
 import logging
+from collections import defaultdict
 from datetime import UTC, datetime
 from typing import Annotated, NoReturn
 
@@ -449,12 +451,39 @@ async def list_games(
             # User not authorized to see this game - skip it
             continue
 
-    game_responses = [
-        await _build_game_response(game, resolve_participants=False) for game in authorized_games
-    ]
+    # Batch-fetch host display names grouped by guild — one API call per guild, hosts deduplicated.
+    hosts_by_guild: defaultdict[str, list[str]] = defaultdict(list)
+    for game in authorized_games:
+        guild_discord_id = game.guild.guild_id if game.guild else None
+        host_discord_id = game.host.discord_id if game.host else None
+        if (
+            guild_discord_id
+            and host_discord_id
+            and host_discord_id not in hosts_by_guild[guild_discord_id]
+        ):
+            hosts_by_guild[guild_discord_id].append(host_discord_id)
+
+    prefetched_display_data: dict[str, dict[str, str | None]] = {}
+    if hosts_by_guild:
+        display_name_resolver = await display_names_module.get_display_name_resolver()
+        results = await asyncio.gather(*[
+            display_name_resolver.resolve_display_names_and_avatars(guild_discord_id, host_ids)
+            for guild_discord_id, host_ids in hosts_by_guild.items()
+        ])
+        for result in results:
+            prefetched_display_data.update(result)
+
+    game_responses = await asyncio.gather(*[
+        _build_game_response(
+            game,
+            resolve_participants=False,
+            prefetched_display_data=prefetched_display_data,
+        )
+        for game in authorized_games
+    ])
 
     return game_schemas.GameListResponse(
-        games=game_responses,
+        games=list(game_responses),
         total=len(authorized_games),
     )
 
@@ -914,12 +943,15 @@ async def _build_game_response(
     can_manage: bool = False,
     resolve_participants: bool = True,
     global_max: int = DISCORD_GLOBAL_RATE_LIMIT_BACKGROUND,
+    prefetched_display_data: dict[str, dict[str, str | None]] | None = None,
 ) -> game_schemas.GameResponse:
     """
     Build GameResponse from GameSession model with resolved display names.
 
     Args:
         game: Game session model with participants and guild loaded
+        prefetched_display_data: Pre-resolved display map keyed by Discord ID. When provided
+            _resolve_display_data is skipped entirely and this map is used as-is.
 
     Returns:
         Game response schema with resolved display names and sorted participants
@@ -927,9 +959,13 @@ async def _build_game_response(
     participant_count = min(len(game.participants), resolve_max_players(game.max_players))
     partitioned = participant_sorting.partition_participants(game.participants, game.max_players)
 
-    display_data_map, host_discord_id = await _resolve_display_data(
-        game, partitioned, resolve_participants=resolve_participants, global_max=global_max
-    )
+    if prefetched_display_data is not None:
+        display_data_map = prefetched_display_data
+        host_discord_id = game.host.discord_id if game.host else None
+    else:
+        display_data_map, host_discord_id = await _resolve_display_data(
+            game, partitioned, resolve_participants=resolve_participants, global_max=global_max
+        )
     channel_name, guild_name = await _fetch_discord_names(game)
     participant_responses = _build_participant_responses(partitioned, display_data_map)
     host_response = _build_host_response(game, host_discord_id, display_data_map)

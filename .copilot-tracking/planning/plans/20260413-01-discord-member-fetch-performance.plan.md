@@ -57,20 +57,20 @@ Eliminate ~27s cold-cache load on the game list by skipping participant Discord 
 - [x] Task 3.2 (Implement): Thread global_max and replace serial loop with asyncio.gather
   - Details: .copilot-tracking/planning/details/20260413-01-discord-member-fetch-performance-details.md (Lines 96-112)
 
-### [ ] Phase 4: Skip Participant Resolution in list_games and Use Interactive Budget in get_game
+### [x] Phase 4: Skip Participant Resolution in list_games and Use Interactive Budget in get_game
 
-- [ ] Task 4.1 (Tests): Write failing tests for resolve_participants flag and interactive budget
+- [x] Task 4.1 (Tests): Write failing tests for resolve_participants flag and interactive budget
   - Details: .copilot-tracking/planning/details/20260413-01-discord-member-fetch-performance-details.md (Lines 115-141)
 
-- [ ] Task 4.2 (Implement): Add resolve_participants flag and wire interactive budget
+- [x] Task 4.2 (Implement): Add resolve_participants flag and wire interactive budget
   - Details: .copilot-tracking/planning/details/20260413-01-discord-member-fetch-performance-details.md (Lines 142-164)
 
-### [ ] Phase 5: Parallel Host Fetch in list_games
+### [x] Phase 5: Parallel Host Fetch in list_games
 
-- [ ] Task 5.1 (Tests): Write failing tests for prefetched_display_data and parallel host gathering
+- [x] Task 5.1 (Tests): Write failing tests for prefetched_display_data and parallel host gathering
   - Details: .copilot-tracking/planning/details/20260413-01-discord-member-fetch-performance-details.md (Lines 179-202)
 
-- [ ] Task 5.2 (Implement): Pre-batch host IDs and gather responses in list_games
+- [x] Task 5.2 (Implement): Pre-batch host IDs and gather responses in list_games
   - Details: .copilot-tracking/planning/details/20260413-01-discord-member-fetch-performance-details.md (Lines 204-232)
 
 ## Dependencies

@@ -599,3 +599,193 @@ class TestResolveParcticipantsFlag:
         mock_resolve.assert_called_once()
         call_kwargs = mock_resolve.call_args.kwargs
         assert call_kwargs.get("resolve_participants") is False
+
+
+class TestPrefetchedDisplayData:
+    """Tests for prefetched_display_data parameter on _build_game_response."""
+
+    @pytest.mark.asyncio
+    @patch("services.api.routes.games.game_schemas.GameResponse")
+    @patch("services.api.routes.games.get_guild_channels_safe", new_callable=AsyncMock)
+    @patch("services.api.routes.games.channel_resolver_module.render_where_display")
+    @patch("services.api.routes.games._build_host_response")
+    @patch("services.api.routes.games._build_participant_responses")
+    @patch("services.api.routes.games.participant_sorting.partition_participants")
+    @patch("services.api.routes.games._fetch_discord_names", new_callable=AsyncMock)
+    @patch("services.api.routes.games._resolve_display_data", new_callable=AsyncMock)
+    @patch("services.api.routes.games.datetime_utils.format_datetime_as_utc")
+    async def test_build_game_response_skips_resolve_when_prefetched(
+        self,
+        mock_format_dt,
+        mock_resolve,
+        mock_fetch_discord,
+        mock_partition,
+        mock_build_participants,
+        mock_build_host,
+        mock_render,
+        mock_get_channels,
+        mock_game_response,
+    ):
+        """When prefetched_display_data is provided, _resolve_display_data is not called."""
+        game = MagicMock()
+        game.id = "game1"
+        game.participants = []
+        game.max_players = 4
+        game.where = None
+        game.title = "Game"
+        game.description = None
+        game.signup_instructions = None
+        game.guild_id = "guild1"
+        game.channel_id = "ch1"
+        game.message_id = None
+        game.reminder_minutes = None
+        game.expected_duration_minutes = None
+        game.notify_role_ids = None
+        game.status = "SCHEDULED"
+        game.signup_method = "SELF_SIGNUP"
+        game.thumbnail_id = None
+        game.banner_image_id = None
+        game.rewards = None
+        game.remind_host_rewards = False
+        game.archive_channel_id = None
+        game.guild = None
+        game.host = MagicMock()
+        game.host.discord_id = "host_discord"
+
+        mock_format_dt.return_value = "2026-01-01T00:00:00Z"
+        mock_fetch_discord.return_value = (None, None)
+        mock_partition.return_value = MagicMock(all_sorted=[])
+        mock_build_participants.return_value = []
+        mock_build_host.return_value = MagicMock()
+        mock_get_channels.return_value = []
+        mock_render.return_value = None
+
+        prefetched = {"host_discord": {"display_name": "Host", "avatar_url": None}}
+        await _build_game_response(game, prefetched_display_data=prefetched)
+
+        mock_resolve.assert_not_called()
+
+    @pytest.mark.asyncio
+    @patch("services.api.routes.games.game_schemas.GameResponse")
+    @patch("services.api.routes.games.get_guild_channels_safe", new_callable=AsyncMock)
+    @patch("services.api.routes.games.channel_resolver_module.render_where_display")
+    @patch("services.api.routes.games._build_host_response")
+    @patch("services.api.routes.games._build_participant_responses")
+    @patch("services.api.routes.games.participant_sorting.partition_participants")
+    @patch("services.api.routes.games._fetch_discord_names", new_callable=AsyncMock)
+    @patch("services.api.routes.games._resolve_display_data", new_callable=AsyncMock)
+    @patch("services.api.routes.games.datetime_utils.format_datetime_as_utc")
+    async def test_build_game_response_uses_prefetched_map(
+        self,
+        mock_format_dt,
+        mock_resolve,
+        mock_fetch_discord,
+        mock_partition,
+        mock_build_participants,
+        mock_build_host,
+        mock_render,
+        mock_get_channels,
+        mock_game_response,
+    ):
+        """When prefetched_display_data is provided, it is passed as display_data_map."""
+        game = MagicMock()
+        game.id = "game1"
+        game.participants = []
+        game.max_players = 4
+        game.where = None
+        game.title = "Game"
+        game.description = None
+        game.signup_instructions = None
+        game.guild_id = "guild1"
+        game.channel_id = "ch1"
+        game.message_id = None
+        game.reminder_minutes = None
+        game.expected_duration_minutes = None
+        game.notify_role_ids = None
+        game.status = "SCHEDULED"
+        game.signup_method = "SELF_SIGNUP"
+        game.thumbnail_id = None
+        game.banner_image_id = None
+        game.rewards = None
+        game.remind_host_rewards = False
+        game.archive_channel_id = None
+        game.guild = None
+        game.host = MagicMock()
+        game.host.discord_id = "host_discord"
+
+        mock_format_dt.return_value = "2026-01-01T00:00:00Z"
+        mock_fetch_discord.return_value = (None, None)
+        partitioned = MagicMock(all_sorted=[])
+        mock_partition.return_value = partitioned
+        mock_build_participants.return_value = []
+        mock_build_host.return_value = MagicMock()
+        mock_get_channels.return_value = []
+        mock_render.return_value = None
+
+        prefetched = {"host_discord": {"display_name": "Host", "avatar_url": None}}
+        await _build_game_response(game, prefetched_display_data=prefetched)
+
+        call_args = mock_build_participants.call_args
+        passed_map = (
+            call_args.args[1] if call_args.args else call_args.kwargs.get("display_data_map")
+        )
+        assert passed_map == prefetched
+
+    @pytest.mark.asyncio
+    @patch("services.api.routes.games.game_schemas.GameResponse")
+    @patch("services.api.routes.games.get_guild_channels_safe", new_callable=AsyncMock)
+    @patch("services.api.routes.games.channel_resolver_module.render_where_display")
+    @patch("services.api.routes.games._build_host_response")
+    @patch("services.api.routes.games._build_participant_responses")
+    @patch("services.api.routes.games.participant_sorting.partition_participants")
+    @patch("services.api.routes.games._fetch_discord_names", new_callable=AsyncMock)
+    @patch("services.api.routes.games._resolve_display_data", new_callable=AsyncMock)
+    @patch("services.api.routes.games.datetime_utils.format_datetime_as_utc")
+    async def test_build_game_response_calls_resolve_when_no_prefetch(
+        self,
+        mock_format_dt,
+        mock_resolve,
+        mock_fetch_discord,
+        mock_partition,
+        mock_build_participants,
+        mock_build_host,
+        mock_render,
+        mock_get_channels,
+        mock_game_response,
+    ):
+        """When no prefetched_display_data, _resolve_display_data is still called as before."""
+        game = MagicMock()
+        game.id = "game1"
+        game.participants = []
+        game.max_players = 4
+        game.where = None
+        game.title = "Game"
+        game.description = None
+        game.signup_instructions = None
+        game.guild_id = "guild1"
+        game.channel_id = "ch1"
+        game.message_id = None
+        game.reminder_minutes = None
+        game.expected_duration_minutes = None
+        game.notify_role_ids = None
+        game.status = "SCHEDULED"
+        game.signup_method = "SELF_SIGNUP"
+        game.thumbnail_id = None
+        game.banner_image_id = None
+        game.rewards = None
+        game.remind_host_rewards = False
+        game.archive_channel_id = None
+        game.guild = None
+
+        mock_format_dt.return_value = "2026-01-01T00:00:00Z"
+        mock_resolve.return_value = ({}, None)
+        mock_fetch_discord.return_value = (None, None)
+        mock_partition.return_value = MagicMock(all_sorted=[])
+        mock_build_participants.return_value = []
+        mock_build_host.return_value = MagicMock()
+        mock_get_channels.return_value = []
+        mock_render.return_value = None
+
+        await _build_game_response(game)
+
+        mock_resolve.assert_called_once()

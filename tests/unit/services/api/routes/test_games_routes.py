@@ -282,6 +282,10 @@ class TestListGamesResolvesParticipants:
                 new_callable=AsyncMock,
             ),
             patch(
+                "services.api.routes.games.display_names_module.get_display_name_resolver",
+                new_callable=AsyncMock,
+            ) as mock_get_resolver,
+            patch(
                 "services.api.routes.games._build_game_response",
                 new_callable=AsyncMock,
                 return_value=expected_response,
@@ -291,6 +295,10 @@ class TestListGamesResolvesParticipants:
                 return_value=MagicMock(),
             ),
         ):
+            mock_resolver = AsyncMock()
+            mock_resolver.resolve_display_names_and_avatars = AsyncMock(return_value={})
+            mock_get_resolver.return_value = mock_resolver
+
             await games_routes.list_games(
                 guild_id=None,
                 channel_id=None,
@@ -302,7 +310,9 @@ class TestListGamesResolvesParticipants:
                 role_service=role_service,
             )
 
-        mock_build.assert_called_once_with(game, resolve_participants=False)
+        mock_build.assert_called_once()
+        call_kwargs = mock_build.call_args.kwargs
+        assert call_kwargs.get("resolve_participants") is False
 
 
 class TestGetGameInteractiveBudget:
@@ -358,3 +368,169 @@ class TestGetGameInteractiveBudget:
 
         call_kwargs = mock_build.call_args.kwargs
         assert call_kwargs.get("global_max") == DISCORD_GLOBAL_RATE_LIMIT_INTERACTIVE
+
+
+class TestListGamesPrefetchedDisplayData:
+    """Tests for prefetched host display data batch fetch in list_games."""
+
+    def _make_game(self, host_discord_id: str, guild_discord_id: str) -> MagicMock:
+        game = MagicMock()
+        game.host = MagicMock()
+        game.host.discord_id = host_discord_id
+        game.guild = MagicMock()
+        game.guild.guild_id = guild_discord_id
+        game.guild_id = "guild-db-id"
+        return game
+
+    @pytest.mark.asyncio
+    async def test_list_games_passes_prefetched_display_data_to_build(self):
+        """list_games passes prefetched_display_data into each _build_game_response call."""
+        game = self._make_game("host1", "guild_discord_1")
+        current_user = MagicMock()
+        current_user.user.discord_id = "user123"
+        current_user.access_token = "token"
+        game_service = MagicMock()
+        game_service.list_games = AsyncMock(return_value=([game], 1))
+        game_service.db = MagicMock()
+        role_service = MagicMock()
+
+        prefetched = {"host1": {"display_name": "Host One", "avatar_url": None}}
+
+        with (
+            patch(
+                "services.api.routes.games.permissions_deps.verify_game_access",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "services.api.routes.games.display_names_module.get_display_name_resolver",
+                new_callable=AsyncMock,
+            ) as mock_get_resolver,
+            patch(
+                "services.api.routes.games._build_game_response",
+                new_callable=AsyncMock,
+                return_value=MagicMock(),
+            ) as mock_build,
+            patch(
+                "services.api.routes.games.game_schemas.GameListResponse",
+                return_value=MagicMock(),
+            ),
+        ):
+            mock_resolver = AsyncMock()
+            mock_resolver.resolve_display_names_and_avatars = AsyncMock(return_value=prefetched)
+            mock_get_resolver.return_value = mock_resolver
+
+            await games_routes.list_games(
+                guild_id=None,
+                channel_id=None,
+                status=None,
+                limit=50,
+                offset=0,
+                current_user=current_user,
+                game_service=game_service,
+                role_service=role_service,
+            )
+
+        call_kwargs = mock_build.call_args.kwargs
+        assert call_kwargs.get("prefetched_display_data") == prefetched
+
+    @pytest.mark.asyncio
+    async def test_list_games_fetches_host_once_across_multiple_games(self):
+        """A host appearing in multiple games triggers exactly one Discord member fetch."""
+        game1 = self._make_game("host1", "guild_discord_1")
+        game2 = self._make_game("host1", "guild_discord_1")
+        current_user = MagicMock()
+        current_user.user.discord_id = "user123"
+        current_user.access_token = "token"
+        game_service = MagicMock()
+        game_service.list_games = AsyncMock(return_value=([game1, game2], 2))
+        game_service.db = MagicMock()
+        role_service = MagicMock()
+
+        with (
+            patch(
+                "services.api.routes.games.permissions_deps.verify_game_access",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "services.api.routes.games.display_names_module.get_display_name_resolver",
+                new_callable=AsyncMock,
+            ) as mock_get_resolver,
+            patch(
+                "services.api.routes.games._build_game_response",
+                new_callable=AsyncMock,
+                return_value=MagicMock(),
+            ),
+            patch(
+                "services.api.routes.games.game_schemas.GameListResponse",
+                return_value=MagicMock(),
+            ),
+        ):
+            mock_resolver = AsyncMock()
+            mock_resolver.resolve_display_names_and_avatars = AsyncMock(return_value={})
+            mock_get_resolver.return_value = mock_resolver
+
+            await games_routes.list_games(
+                guild_id=None,
+                channel_id=None,
+                status=None,
+                limit=50,
+                offset=0,
+                current_user=current_user,
+                game_service=game_service,
+                role_service=role_service,
+            )
+
+        # resolve_display_names_and_avatars called once for the guild (not once per game)
+        assert mock_resolver.resolve_display_names_and_avatars.call_count == 1
+        call_args = mock_resolver.resolve_display_names_and_avatars.call_args
+        resolved_ids = call_args.args[1] if call_args.args else call_args.kwargs.get("user_ids", [])
+        assert resolved_ids.count("host1") == 1
+
+    @pytest.mark.asyncio
+    async def test_list_games_one_fetch_per_guild(self):
+        """list_games issues one resolve_display_names_and_avatars call per guild, not per game."""
+        game_g1 = self._make_game("host_a", "guild_1")
+        game_g2 = self._make_game("host_b", "guild_2")
+        current_user = MagicMock()
+        current_user.user.discord_id = "user123"
+        current_user.access_token = "token"
+        game_service = MagicMock()
+        game_service.list_games = AsyncMock(return_value=([game_g1, game_g2], 2))
+        game_service.db = MagicMock()
+        role_service = MagicMock()
+
+        with (
+            patch(
+                "services.api.routes.games.permissions_deps.verify_game_access",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "services.api.routes.games.display_names_module.get_display_name_resolver",
+                new_callable=AsyncMock,
+            ) as mock_get_resolver,
+            patch(
+                "services.api.routes.games._build_game_response",
+                new_callable=AsyncMock,
+                return_value=MagicMock(),
+            ),
+            patch(
+                "services.api.routes.games.game_schemas.GameListResponse",
+                return_value=MagicMock(),
+            ),
+        ):
+            mock_resolver = AsyncMock()
+            mock_resolver.resolve_display_names_and_avatars = AsyncMock(return_value={})
+            mock_get_resolver.return_value = mock_resolver
+
+            await games_routes.list_games(
+                guild_id=None,
+                channel_id=None,
+                status=None,
+                limit=50,
+                offset=0,
+                current_user=current_user,
+                game_service=game_service,
+                role_service=role_service,
+            )
+
+        assert mock_resolver.resolve_display_names_and_avatars.call_count == 2
