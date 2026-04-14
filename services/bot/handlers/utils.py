@@ -28,8 +28,8 @@ import discord
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.api.services.user_display_names import UserDisplayNameService
 from shared.models.participant import GameParticipant
+from shared.services.user_display_names import UserDisplayNameService
 
 logger = logging.getLogger(__name__)
 
