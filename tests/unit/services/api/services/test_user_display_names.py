@@ -135,3 +135,25 @@ async def test_upsert_batch_empty_list_does_not_error(service, mock_db):
     await service.upsert_batch([])
 
     mock_db.execute.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_resolve_empty_user_ids_returns_empty_dict(service, mock_db):
+    """resolve with empty user_discord_ids returns {} without hitting the DB."""
+    result = await service.resolve("guild1", [])
+
+    assert result == {}
+    mock_db.execute.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_resolve_raises_without_resolver_on_db_miss(mock_db):
+    """resolve raises RuntimeError when resolver is None and IDs are not in DB."""
+    svc = UserDisplayNameService(db=mock_db, resolver=None)
+
+    result_mock = MagicMock()
+    result_mock.scalars.return_value.all.return_value = []
+    mock_db.execute = AsyncMock(return_value=result_mock)
+
+    with pytest.raises(RuntimeError, match="DisplayNameResolver required"):
+        await svc.resolve("guild1", ["user1"])

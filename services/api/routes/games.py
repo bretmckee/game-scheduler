@@ -45,6 +45,7 @@ from services.api.services import channel_resolver as channel_resolver_module
 from services.api.services import display_names as display_names_module
 from services.api.services import games as games_service
 from services.api.services import participant_resolver as resolver_module
+from services.api.services.user_display_names import UserDisplayNameService
 from shared import database
 from shared.cache.ttl import (
     DISCORD_GLOBAL_RATE_LIMIT_BACKGROUND,
@@ -130,6 +131,16 @@ _GameServiceDep = Annotated[games_service.GameService, Depends(_get_game_service
 _RoleServiceDep = Annotated[
     roles_module.RoleVerificationService, Depends(permissions_deps.get_role_service)
 ]
+
+
+async def _get_display_name_service(
+    game_service: _GameServiceDep,
+) -> UserDisplayNameService:
+    resolver = await display_names_module.get_display_name_resolver()
+    return UserDisplayNameService(db=game_service.db, resolver=resolver)
+
+
+_DisplayNameServiceDep = Annotated[UserDisplayNameService, Depends(_get_display_name_service)]
 
 
 def _parse_update_form_data(
@@ -419,6 +430,7 @@ async def list_games(
     role_service: Annotated[
         roles_module.RoleVerificationService, Depends(permissions_deps.get_role_service)
     ],
+    display_name_service: _DisplayNameServiceDep,
 ) -> game_schemas.GameListResponse:
     """
     List games with optional filters.
@@ -465,9 +477,8 @@ async def list_games(
 
     prefetched_display_data: dict[str, dict[str, str | None]] = {}
     if hosts_by_guild:
-        display_name_resolver = await display_names_module.get_display_name_resolver()
         results = await asyncio.gather(*[
-            display_name_resolver.resolve_display_names_and_avatars(guild_discord_id, host_ids)
+            display_name_service.resolve(guild_discord_id, host_ids)
             for guild_discord_id, host_ids in hosts_by_guild.items()
         ])
         for result in results:
@@ -496,6 +507,7 @@ async def get_game(
     role_service: Annotated[
         roles_module.RoleVerificationService, Depends(permissions_deps.get_role_service)
     ],
+    display_name_service: _DisplayNameServiceDep,
 ) -> game_schemas.GameResponse:
     """Get game session by ID with guild membership and role verification."""
     game = await game_service.get_game(game_id)
@@ -526,7 +538,10 @@ async def get_game(
         can_manage = False
 
     return await _build_game_response(
-        game, can_manage=can_manage, global_max=DISCORD_GLOBAL_RATE_LIMIT_INTERACTIVE
+        game,
+        can_manage=can_manage,
+        global_max=DISCORD_GLOBAL_RATE_LIMIT_INTERACTIVE,
+        display_name_service=display_name_service,
     )
 
 
@@ -698,6 +713,7 @@ async def join_game(
     role_service: Annotated[
         roles_module.RoleVerificationService, Depends(permissions_deps.get_role_service)
     ],
+    display_name_service: _DisplayNameServiceDep,
 ) -> participant_schemas.ParticipantResponse:
     """
     Join game as participant.
@@ -742,9 +758,8 @@ async def join_game(
         # Resolve display name and avatar for the participant
         display_data_map = {}
         if participant.user and participant.user.discord_id and game.guild_id:
-            display_name_resolver = await display_names_module.get_display_name_resolver()
             guild_discord_id = game.guild.guild_id
-            display_data_map = await display_name_resolver.resolve_display_names_and_avatars(
+            display_data_map = await display_name_service.resolve(
                 guild_discord_id, [participant.user.discord_id]
             )
 
@@ -806,6 +821,7 @@ async def _resolve_display_data(
     partitioned: participant_sorting.PartitionedParticipants,
     resolve_participants: bool = True,
     global_max: int = DISCORD_GLOBAL_RATE_LIMIT_BACKGROUND,
+    display_name_service: UserDisplayNameService | None = None,
 ) -> tuple[dict[str, dict[str, str | None]], str | None]:
     """
     Resolve display names and avatars for participants and host.
@@ -830,11 +846,16 @@ async def _resolve_display_data(
 
     display_data_map = {}
     if discord_user_ids and game.guild_id:
-        display_name_resolver = await display_names_module.get_display_name_resolver()
         guild_discord_id = game.guild.guild_id
-        display_data_map = await display_name_resolver.resolve_display_names_and_avatars(
-            guild_discord_id, discord_user_ids, global_max=global_max
-        )
+        if display_name_service is not None:
+            display_data_map = await display_name_service.resolve(
+                guild_discord_id, discord_user_ids
+            )
+        else:
+            resolver = await display_names_module.get_display_name_resolver()
+            display_data_map = await resolver.resolve_display_names_and_avatars(
+                guild_discord_id, discord_user_ids, global_max=global_max
+            )
 
     return display_data_map, host_discord_id
 
@@ -944,6 +965,7 @@ async def _build_game_response(
     resolve_participants: bool = True,
     global_max: int = DISCORD_GLOBAL_RATE_LIMIT_BACKGROUND,
     prefetched_display_data: dict[str, dict[str, str | None]] | None = None,
+    display_name_service: UserDisplayNameService | None = None,
 ) -> game_schemas.GameResponse:
     """
     Build GameResponse from GameSession model with resolved display names.
@@ -964,7 +986,11 @@ async def _build_game_response(
         host_discord_id = game.host.discord_id if game.host else None
     else:
         display_data_map, host_discord_id = await _resolve_display_data(
-            game, partitioned, resolve_participants=resolve_participants, global_max=global_max
+            game,
+            partitioned,
+            resolve_participants=resolve_participants,
+            global_max=global_max,
+            display_name_service=display_name_service,
         )
     channel_name, guild_name = await _fetch_discord_names(game)
     participant_responses = _build_participant_responses(partitioned, display_data_map)
