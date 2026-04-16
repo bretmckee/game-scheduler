@@ -273,6 +273,8 @@ class TestRefreshDisplayNameOnLogin:
             },
         }
 
+        mock_cache = AsyncMock()
+
         with (
             patch(
                 "services.api.services.login_refresh.get_user_guilds",
@@ -285,6 +287,10 @@ class TestRefreshDisplayNameOnLogin:
             patch("services.api.services.login_refresh.clear_current_guild_ids"),
             patch("services.api.services.login_refresh.AsyncSessionLocal") as mock_session_local,
             patch("services.api.services.login_refresh.get_discord_client") as mock_get_client,
+            patch(
+                "services.api.services.login_refresh.cache_client.get_redis_client",
+                return_value=mock_cache,
+            ),
         ):
             mock_session = AsyncMock()
             mock_session.__aenter__ = AsyncMock(return_value=mock_session)
@@ -312,6 +318,11 @@ class TestRefreshDisplayNameOnLogin:
         assert entries[0]["user_discord_id"] == "usr123"
         assert entries[0]["guild_discord_id"] == "guild123"
         assert entries[0]["display_name"] == "TestNick"
+        mock_cache.set_json.assert_called_once_with(
+            "user_roles:usr123:guild123",
+            ["guild123"],
+            ttl=300,
+        )
 
     @pytest.mark.asyncio
     async def test_skips_guild_when_discord_returns_error(self):

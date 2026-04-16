@@ -29,6 +29,9 @@ from services.api.auth.oauth2 import get_user_guilds
 from services.api.database.queries import setup_rls_and_convert_guild_ids
 from services.api.dependencies.discord import get_discord_client
 from services.api.services.user_display_names import UserDisplayNameService
+from shared.cache import client as cache_client
+from shared.cache import keys as cache_keys
+from shared.cache import ttl as cache_ttl
 from shared.data_access.guild_isolation import clear_current_guild_ids
 from shared.database import AsyncSessionLocal
 from shared.discord.client import DiscordAPIError
@@ -112,6 +115,16 @@ async def refresh_display_name_on_login(
                         user_discord_id, guild_config.guild_id, member
                     ),
                 })
+
+                role_ids = list(member.get("roles", []))
+                if guild_config.guild_id not in role_ids:
+                    role_ids.append(guild_config.guild_id)
+                cache = await cache_client.get_redis_client()
+                await cache.set_json(
+                    cache_keys.CacheKeys.user_roles(user_discord_id, guild_config.guild_id),
+                    role_ids,
+                    ttl=cache_ttl.CacheTTL.USER_ROLES,
+                )
 
             logger.info(
                 "refresh_display_name_on_login: upserting %d entries for user %s",
