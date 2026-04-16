@@ -235,15 +235,15 @@ class TestClaimGlobalSlot:
         _script, _numkeys, global_key_arg = mock_redis.eval.call_args.args[:3]
         assert global_key_arg == "discord:global_rate_limit"
 
-    async def test_sentinel_channel_key(self, client_and_mock: tuple) -> None:
-        """Sentinel channel key is discord:_no_channel."""
+    async def test_no_sentinel_channel_key(self, client_and_mock: tuple) -> None:
+        """No sentinel channel key — eval receives exactly 3 positional args after the script."""
         client, mock_redis = client_and_mock
         mock_redis.eval.return_value = 0
 
         await client.claim_global_slot()
 
-        _script, _numkeys, _global_key, sentinel_key = mock_redis.eval.call_args.args[:4]
-        assert sentinel_key == "discord:_no_channel"
+        _script, numkeys, _global_key, _now_ms, _global_max = mock_redis.eval.call_args.args
+        assert numkeys == 1
 
     async def test_returns_int(self, client_and_mock: tuple) -> None:
         """Return value is always an int."""
@@ -286,24 +286,50 @@ class TestClaimGlobalSlot:
             assert client._client is not None
             assert result == 0
 
-    async def test_global_max_override_passed_as_argv3(self, client_and_mock: tuple) -> None:
-        """When global_max=45 is supplied, ARGV[3] of the Lua eval receives '45'."""
+    async def test_global_max_override_passed_as_argv2(self, client_and_mock: tuple) -> None:
+        """When global_max=45 is supplied, ARGV[2] of the Lua eval receives '45'."""
         client, mock_redis = client_and_mock
         mock_redis.eval.return_value = 0
 
         await client.claim_global_slot(global_max=45)
 
         call_args = mock_redis.eval.call_args.args
-        global_max_arg = call_args[6]  # ARGV[3] = global_max
+        global_max_arg = call_args[4]  # ARGV[2] = global_max
         assert global_max_arg == "45"
 
     async def test_default_global_max_is_25(self, client_and_mock: tuple) -> None:
-        """Default global_max (no argument) sends '25' as ARGV[3]."""
+        """Default global_max (no argument) sends '25' as ARGV[2]."""
         client, mock_redis = client_and_mock
         mock_redis.eval.return_value = 0
 
         await client.claim_global_slot()
 
         call_args = mock_redis.eval.call_args.args
-        global_max_arg = call_args[6]  # ARGV[3] = global_max
+        global_max_arg = call_args[4]  # ARGV[2] = global_max
         assert global_max_arg == "25"
+
+    async def test_uses_one_key_not_two(self, client_and_mock: tuple) -> None:
+        """claim_global_slot must pass numkeys=1, not 2.
+
+        The sentinel channel key (discord:_no_channel) accumulates entries from
+        every claim_global_slot call and triggers the 1000-1500ms inter-edit
+        spacing check, serializing concurrent API requests with ~1.5s gaps.
+        """
+        client, mock_redis = client_and_mock
+        mock_redis.eval.return_value = 0
+
+        await client.claim_global_slot()
+
+        _script, numkeys = mock_redis.eval.call_args.args[:2]
+        assert numkeys == 1, "must use only 1 Redis key (global only, no sentinel channel key)"
+
+    async def test_global_max_is_argv2(self, client_and_mock: tuple) -> None:
+        """global_max must be ARGV[2] (index 4) once the sentinel key is removed."""
+        client, mock_redis = client_and_mock
+        mock_redis.eval.return_value = 0
+
+        await client.claim_global_slot(global_max=45)
+
+        call_args = mock_redis.eval.call_args.args
+        global_max_arg = call_args[4]  # ARGV[2] = global_max after sentinel removal
+        assert global_max_arg == "45"
