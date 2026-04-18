@@ -61,3 +61,23 @@ class TestCacheKeys:
         """Test OAuth state cache key generation."""
         key = CacheKeys.oauth_state("state_random123")
         assert key == "oauth_state:state_random123"
+
+    def test_proj_gen_key(self):
+        """Test projection generation pointer key."""
+        key = CacheKeys.proj_gen()
+        assert key == "proj:gen"
+
+    def test_proj_member_key(self):
+        """Test projection member key generation."""
+        key = CacheKeys.proj_member("gen123", "guild456", "user789")
+        assert key == "proj:member:gen123:guild456:user789"
+
+    def test_proj_user_guilds_key(self):
+        """Test projection user guilds key generation."""
+        key = CacheKeys.proj_user_guilds("gen123", "user789")
+        assert key == "proj:user_guilds:gen123:user789"
+
+    def test_bot_last_seen_key(self):
+        """Test bot last seen key."""
+        key = CacheKeys.bot_last_seen()
+        assert key == "bot:last_seen"

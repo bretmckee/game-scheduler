@@ -118,12 +118,13 @@ class GameSchedulerBot(commands.Bot):
         self.api_cache = None
         self._sweep_task: asyncio.Task[None] | None = None
 
-        intents = discord.Intents(guilds=True, guild_messages=True)
+        intents = discord.Intents(guilds=True, guild_messages=True, members=True)
 
         super().__init__(
             command_prefix="!",
             intents=intents,
             application_id=int(config.discord_bot_client_id),
+            chunk_guilds_at_startup=True,
         )
 
     async def setup_hook(self) -> None:

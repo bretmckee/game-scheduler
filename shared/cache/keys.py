@@ -99,3 +99,23 @@ class CacheKeys:
     def app_info() -> str:
         """Return cache key for Discord application info."""
         return "discord:app_info"
+
+    @staticmethod
+    def proj_gen() -> str:
+        """Return cache key for projection generation pointer."""
+        return "proj:gen"
+
+    @staticmethod
+    def proj_member(gen: str, guild_id: str, uid: str) -> str:
+        """Return cache key for projection member data."""
+        return f"proj:member:{gen}:{guild_id}:{uid}"
+
+    @staticmethod
+    def proj_user_guilds(gen: str, uid: str) -> str:
+        """Return cache key for projection user guilds list."""
+        return f"proj:user_guilds:{gen}:{uid}"
+
+    @staticmethod
+    def bot_last_seen() -> str:
+        """Return cache key for bot last seen timestamp."""
+        return "bot:last_seen"

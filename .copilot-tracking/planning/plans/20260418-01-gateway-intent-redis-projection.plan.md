@@ -43,12 +43,12 @@ Eliminate all Discord REST API calls from the per-request API path by pre-popula
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Foundation — Enable Intent and Add Key Constants
+### [x] Phase 1: Foundation — Enable Intent and Add Key Constants
 
-- [ ] Task 1.1: Enable `GUILD_MEMBERS` privileged intent in `services/bot/bot.py`
+- [x] Task 1.1: Enable `GUILD_MEMBERS` privileged intent in `services/bot/bot.py`
   - Details: .copilot-tracking/planning/details/20260418-01-gateway-intent-redis-projection-details.md (Lines 13–28)
 
-- [ ] Task 1.2: Add `proj_gen`, `proj_member`, `proj_user_guilds`, `bot_last_seen` key functions to `shared/cache/keys.py`
+- [x] Task 1.2: Add `proj_gen`, `proj_member`, `proj_user_guilds`, `bot_last_seen` key functions to `shared/cache/keys.py`
   - Details: .copilot-tracking/planning/details/20260418-01-gateway-intent-redis-projection-details.md (Lines 29–52)
 
 ### [ ] Phase 2: Bot-side Writer
