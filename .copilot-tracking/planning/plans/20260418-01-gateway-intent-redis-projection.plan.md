@@ -59,9 +59,9 @@ Eliminate all Discord REST API calls from the per-request API path by pre-popula
 - [x] Task 2.2: Wire `on_ready`, `on_member_add`, `on_member_update`, `on_member_remove`, and heartbeat task in `services/bot/bot.py`
   - Details: .copilot-tracking/planning/details/20260418-01-gateway-intent-redis-projection-details.md (Lines 107–142)
 
-### [ ] Phase 3: API-side Reader
+### [x] Phase 3: API-side Reader
 
-- [ ] Task 3.1: Create `services/api/services/member_projection.py` with gen-rotation retry and all reader functions
+- [x] Task 3.1: Create `services/api/services/member_projection.py` with gen-rotation retry and all reader functions
   - Details: .copilot-tracking/planning/details/20260418-01-gateway-intent-redis-projection-details.md (Lines 145–198)
 
 ### [ ] Phase 4: Call Site Migration
