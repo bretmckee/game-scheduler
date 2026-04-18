@@ -38,6 +38,7 @@ from opentelemetry import metrics, trace
 from sqlalchemy import distinct, select
 from sqlalchemy.orm import joinedload
 
+from services.bot import guild_projection
 from services.bot.config import BotConfig
 from services.bot.dependencies.discord_client import get_discord_client
 from services.bot.guild_sync import sync_all_bot_guilds
@@ -178,6 +179,11 @@ class GameSchedulerBot(commands.Bot):
             logger.info("Syncing commands in development mode")
             await self.tree.sync()
 
+        # Start heartbeat task for bot projection
+        if not hasattr(self, "_projection_heartbeat_task"):
+            self._projection_heartbeat_task = asyncio.create_task(self._projection_heartbeat())
+            logger.info("Started projection heartbeat task")
+
     async def on_ready(self) -> None:
         """Handle bot ready event after successful Gateway connection."""
         with tracer.start_as_current_span(
@@ -211,6 +217,15 @@ class GameSchedulerBot(commands.Bot):
                     ).start()
                 )
                 logger.info("Started message refresh listener task")
+
+            # Populate member projection from gateway
+
+            redis = await get_redis_client()
+            await guild_projection.repopulate_all(
+                bot=self,
+                redis=redis,
+                reason="on_ready",
+            )
 
             if os.getenv("PYTEST_RUNNING"):
                 self._test_server_task = asyncio.create_task(self._start_test_server())
@@ -360,6 +375,33 @@ class GameSchedulerBot(commands.Bot):
         await self._recover_pending_workers()
         await self._trigger_sweep()
         await self._sweep_orphaned_embeds()
+
+    async def on_member_add(self, _member: discord.Member) -> None:
+        """Handle member added to guild event."""
+        redis = await get_redis_client()
+        await guild_projection.repopulate_all(
+            bot=self,
+            redis=redis,
+            reason="member_add",
+        )
+
+    async def on_member_update(self, _before: discord.Member, _after: discord.Member) -> None:
+        """Handle member profile update event."""
+        redis = await get_redis_client()
+        await guild_projection.repopulate_all(
+            bot=self,
+            redis=redis,
+            reason="member_update",
+        )
+
+    async def on_member_remove(self, _member: discord.Member) -> None:
+        """Handle member removed from guild event."""
+        redis = await get_redis_client()
+        await guild_projection.repopulate_all(
+            bot=self,
+            redis=redis,
+            reason="member_remove",
+        )
 
     async def on_raw_message_delete(self, payload: discord.RawMessageDeleteEvent) -> None:
         """Handle raw message delete event to detect embed deletions.
@@ -725,6 +767,24 @@ class GameSchedulerBot(commands.Bot):
             },
         ):
             logger.info("Bot removed from guild: %s (ID: %s)", guild.name, guild.id)
+
+    async def _projection_heartbeat(self) -> None:
+        """Periodic task to write bot heartbeat to projection."""
+
+        heartbeat_interval = 30
+        while True:
+            try:
+                await asyncio.sleep(heartbeat_interval)
+                redis = await get_redis_client()
+                await guild_projection.write_bot_last_seen(
+                    redis=redis,
+                    heartbeat_interval=heartbeat_interval,
+                )
+            except asyncio.CancelledError:
+                logger.info("Projection heartbeat task cancelled")
+                break
+            except Exception as e:
+                logger.error("Error writing projection heartbeat: %s", e)
 
     async def close(self) -> None:
         """Cleanup resources before bot shutdown."""

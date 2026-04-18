@@ -51,12 +51,12 @@ Eliminate all Discord REST API calls from the per-request API path by pre-popula
 - [x] Task 1.2: Add `proj_gen`, `proj_member`, `proj_user_guilds`, `bot_last_seen` key functions to `shared/cache/keys.py`
   - Details: .copilot-tracking/planning/details/20260418-01-gateway-intent-redis-projection-details.md (Lines 29–52)
 
-### [ ] Phase 2: Bot-side Writer
+### [x] Phase 2: Bot-side Writer
 
-- [ ] Task 2.1: Create `services/bot/guild_projection.py` with OTel instruments and `repopulate_all` writer
+- [x] Task 2.1: Create `services/bot/guild_projection.py` with OTel instruments and `repopulate_all` writer
   - Details: .copilot-tracking/planning/details/20260418-01-gateway-intent-redis-projection-details.md (Lines 55–106)
 
-- [ ] Task 2.2: Wire `on_ready`, `on_member_add`, `on_member_update`, `on_member_remove`, and heartbeat task in `services/bot/bot.py`
+- [x] Task 2.2: Wire `on_ready`, `on_member_add`, `on_member_update`, `on_member_remove`, and heartbeat task in `services/bot/bot.py`
   - Details: .copilot-tracking/planning/details/20260418-01-gateway-intent-redis-projection-details.md (Lines 107–142)
 
 ### [ ] Phase 3: API-side Reader

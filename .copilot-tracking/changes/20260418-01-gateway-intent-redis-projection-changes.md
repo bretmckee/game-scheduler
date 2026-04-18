@@ -15,10 +15,15 @@ Eliminate Discord REST API calls from the per-request API path by enabling GUILD
 
 - `shared/cache/keys.py` - Added four projection key factory functions: `proj_gen()`, `proj_member()`, `proj_user_guilds()`, `bot_last_seen()`
 - `tests/unit/shared/cache/test_keys.py` - Added unit tests for all four new projection key functions
+- `services/bot/guild_projection.py` - Created bot-side writer module with OTel instruments and projection repopulation logic
+- `tests/unit/bot/test_guild_projection.py` - Created comprehensive unit tests for guild_projection (12 tests covering all functions with TDD xfail→green workflow)
 
 ### Modified
 
 - `services/bot/bot.py` - Enabled `GUILD_MEMBERS` intent and set `chunk_guilds_at_startup=True` in bot initialization
+- `services/bot/bot.py` - Added call to `repopulate_all` in `on_ready()` to populate projection on bot startup
+- `services/bot/bot.py` - Added event handlers: `on_member_add()`, `on_member_update()`, `on_member_remove()` to update projection on member changes
+- `services/bot/bot.py` - Added `_projection_heartbeat()` background task started in `setup_hook()` to write bot heartbeat to Redis every 30 seconds
 
 ### Removed
 

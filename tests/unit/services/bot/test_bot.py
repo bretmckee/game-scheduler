@@ -142,6 +142,10 @@ class TestGameSchedulerBot:
         mock_user.id = 123456789
         mock_guilds = [MagicMock(), MagicMock()]
 
+        mock_redis = AsyncMock()
+        mock_redis._client = AsyncMock()
+        mock_redis._client.scan = AsyncMock(return_value=(0, []))
+
         with patch("services.bot.bot.logger") as mock_logger:
             with patch.object(type(bot), "user", new_callable=lambda: mock_user):
                 with patch.object(type(bot), "guilds", new_callable=lambda: mock_guilds):
@@ -150,6 +154,11 @@ class TestGameSchedulerBot:
                         patch.object(bot, "_rebuild_redis_from_gateway", new_callable=AsyncMock),
                         patch.object(bot, "_recover_pending_workers", new_callable=AsyncMock),
                         patch.object(bot, "_trigger_sweep", new_callable=AsyncMock),
+                        patch(
+                            "services.bot.bot.get_redis_client",
+                            new_callable=AsyncMock,
+                            return_value=mock_redis,
+                        ),
                     ):
                         await bot.on_ready()
 

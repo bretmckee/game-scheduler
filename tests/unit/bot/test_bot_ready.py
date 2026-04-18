@@ -83,6 +83,10 @@ def bot() -> GameSchedulerBot:
 def mock_redis() -> AsyncMock:
     redis = AsyncMock()
     redis.set_json = AsyncMock(return_value=True)
+    mock_client = AsyncMock()
+    mock_client.scan = AsyncMock(return_value=(0, []))
+    mock_client.delete = AsyncMock()
+    redis._client = mock_client
     return redis
 
 
