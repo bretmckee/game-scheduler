@@ -112,6 +112,12 @@ async def repopulate_all(
     for uid, guild_ids in user_guild_map.items():
         await write_user_guilds(redis=redis, gen=new_gen, uid=uid, guild_ids=guild_ids)
 
+    # Write guild names for all guilds
+    for guild in bot.guilds:
+        await write_guild_name(
+            redis=redis, gen=new_gen, guild_id=str(guild.id), guild_name=guild.name
+        )
+
     # CRITICAL: Flip generation pointer AFTER all writes are complete.
     # Readers observing the new gen value are guaranteed to find all data present.
     await redis.set(CacheKeys.proj_gen(), new_gen)
@@ -185,6 +191,26 @@ async def write_user_guilds(
     """
     key = CacheKeys.proj_user_guilds(gen, uid)
     await redis.set_json(key, guild_ids, ttl=None)
+
+
+async def write_guild_name(
+    *,
+    redis: RedisClient,
+    gen: str,
+    guild_id: str,
+    guild_name: str,
+) -> None:
+    """
+    Write a guild name to the projection.
+
+    Args:
+        redis: Redis async client
+        gen: Generation pointer value
+        guild_id: Discord guild ID
+        guild_name: Guild name to store
+    """
+    key = CacheKeys.proj_guild_name(gen, guild_id)
+    await redis.set(key, guild_name, ttl=None)
 
 
 async def write_bot_last_seen(

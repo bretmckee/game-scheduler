@@ -135,6 +135,20 @@ async def get_user_roles(guild_id: str, uid: str, *, redis: RedisClient) -> list
     return member.get("roles", [])
 
 
+async def get_guild_name(guild_id: str, *, redis: RedisClient) -> str | None:
+    """
+    Get the guild name from the projection.
+
+    Args:
+        guild_id: Discord guild ID
+        redis: Redis async client wrapper
+
+    Returns:
+        Guild name string, or None if absent
+    """
+    return await _read_with_gen_retry(redis, CacheKeys.proj_guild_name, guild_id)
+
+
 async def is_bot_fresh(*, redis: RedisClient) -> bool:
     """
     Check whether the bot projection is fresh (bot heartbeat recently seen).

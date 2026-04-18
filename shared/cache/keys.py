@@ -119,3 +119,8 @@ class CacheKeys:
     def bot_last_seen() -> str:
         """Return cache key for bot last seen timestamp."""
         return "bot:last_seen"
+
+    @staticmethod
+    def proj_guild_name(gen: str, guild_id: str) -> str:
+        """Return cache key for projection guild name."""
+        return f"proj:guild_name:{gen}:{guild_id}"

@@ -311,18 +311,24 @@ async def test_verify_guild_membership_success():
     mock_current_user.session_token = "session123"
 
     mock_db = AsyncMock()
-    user_guilds = [{"id": "guild123"}, {"id": "guild456"}]
+    mock_redis = AsyncMock()
+    user_guild_ids = ["guild123", "guild456"]
 
     with (
         patch(
-            "services.api.auth.tokens.get_user_tokens",
-            return_value={"access_token": "token"},
+            "services.api.dependencies.permissions.member_projection.is_bot_fresh",
+            return_value=True,
         ),
-        patch("services.api.auth.oauth2.get_user_guilds", return_value=user_guilds),
+        patch(
+            "services.api.dependencies.permissions.member_projection.get_user_guilds",
+            return_value=user_guild_ids,
+        ),
     ):
-        result = await permissions.verify_guild_membership("guild123", mock_current_user, mock_db)
+        result = await permissions.verify_guild_membership(
+            "guild123", mock_current_user, mock_db, redis=mock_redis
+        )
 
-    assert result == user_guilds
+    assert result == user_guild_ids
 
 
 @pytest.mark.asyncio
@@ -338,17 +344,23 @@ async def test_verify_guild_membership_not_member():
     mock_current_user.session_token = "session123"
 
     mock_db = AsyncMock()
-    user_guilds = [{"id": "guild456"}, {"id": "guild789"}]
+    mock_redis = AsyncMock()
+    user_guild_ids = ["guild456", "guild789"]
 
     with (
         patch(
-            "services.api.auth.tokens.get_user_tokens",
-            return_value={"access_token": "token"},
+            "services.api.dependencies.permissions.member_projection.is_bot_fresh",
+            return_value=True,
         ),
-        patch("services.api.auth.oauth2.get_user_guilds", return_value=user_guilds),
+        patch(
+            "services.api.dependencies.permissions.member_projection.get_user_guilds",
+            return_value=user_guild_ids,
+        ),
         pytest.raises(HTTPException) as exc_info,
     ):
-        await permissions.verify_guild_membership("guild123", mock_current_user, mock_db)
+        await permissions.verify_guild_membership(
+            "guild123", mock_current_user, mock_db, redis=mock_redis
+        )
 
     assert exc_info.value.status_code == 404
     assert "Guild not found" in exc_info.value.detail
@@ -356,7 +368,7 @@ async def test_verify_guild_membership_not_member():
 
 @pytest.mark.asyncio
 async def test_verify_guild_membership_no_session():
-    """Test verify_guild_membership with no session raises 401."""
+    """Test verify_guild_membership with bot not fresh raises 503."""
 
     mock_user = MagicMock()
     mock_user.discord_id = "user123"
@@ -367,15 +379,21 @@ async def test_verify_guild_membership_no_session():
     mock_current_user.session_token = "session123"
 
     mock_db = AsyncMock()
+    mock_redis = AsyncMock()
 
     with (
-        patch("services.api.auth.tokens.get_user_tokens", return_value=None),
+        patch(
+            "services.api.dependencies.permissions.member_projection.is_bot_fresh",
+            return_value=False,
+        ),
         pytest.raises(HTTPException) as exc_info,
     ):
-        await permissions.verify_guild_membership("guild123", mock_current_user, mock_db)
+        await permissions.verify_guild_membership(
+            "guild123", mock_current_user, mock_db, redis=mock_redis
+        )
 
-    assert exc_info.value.status_code == 401
-    assert "No session found" in exc_info.value.detail
+    assert exc_info.value.status_code == 503
+    assert "temporarily unavailable" in exc_info.value.detail
 
 
 @pytest.mark.asyncio
@@ -390,6 +408,7 @@ async def test_verify_template_access_success():
     mock_guild_config.guild_id = "guild123"
 
     mock_db = AsyncMock()
+    mock_redis = AsyncMock()
 
     with (
         patch(
@@ -402,7 +421,7 @@ async def test_verify_template_access_success():
         ),
     ):
         result = await permissions.verify_template_access(
-            mock_template, "user123", "test_token", mock_db
+            mock_template, "user123", "test_token", mock_db, redis=mock_redis
         )
 
     assert result == mock_template
@@ -418,6 +437,27 @@ async def test_verify_template_access_not_member():
 
     mock_guild_config = MagicMock()
     mock_guild_config.guild_id = "guild123"
+
+    mock_db = AsyncMock()
+    mock_redis = AsyncMock()
+
+    with (
+        patch(
+            "services.api.database.queries.require_guild_by_id",
+            return_value=mock_guild_config,
+        ),
+        patch(
+            "services.api.dependencies.permissions._check_guild_membership",
+            return_value=False,
+        ),
+        pytest.raises(HTTPException) as exc_info,
+    ):
+        await permissions.verify_template_access(
+            mock_template, "user123", "test_token", mock_db, redis=mock_redis
+        )
+
+    assert exc_info.value.status_code == 404
+    assert "Template not found" in exc_info.value.detail
 
     mock_db = AsyncMock()
 
@@ -472,6 +512,7 @@ async def test_verify_game_access_success():
 
     mock_db = AsyncMock()
     mock_role_service = AsyncMock()
+    mock_redis = AsyncMock()
 
     with (
         patch(
@@ -484,7 +525,7 @@ async def test_verify_game_access_success():
         ),
     ):
         result = await permissions.verify_game_access(
-            mock_game, "user123", "test_token", mock_db, mock_role_service
+            mock_game, "user123", "test_token", mock_db, mock_role_service, redis=mock_redis
         )
 
     assert result == mock_game
@@ -503,10 +544,11 @@ async def test_verify_game_access_not_member():
 
     mock_db = AsyncMock()
     mock_role_service = AsyncMock()
+    mock_redis = AsyncMock()
 
     with (
         patch(
-            "services.api.database.queries.get_guild_by_id",
+            "services.api.database.queries.require_guild_by_id",
             return_value=mock_guild_config,
         ),
         patch(
@@ -516,7 +558,7 @@ async def test_verify_game_access_not_member():
         pytest.raises(HTTPException) as exc_info,
     ):
         await permissions.verify_game_access(
-            mock_game, "user123", "test_token", mock_db, mock_role_service
+            mock_game, "user123", "test_token", mock_db, mock_role_service, redis=mock_redis
         )
 
     assert exc_info.value.status_code == 404
@@ -538,6 +580,7 @@ async def test_verify_game_access_role_check_success():
     mock_db = AsyncMock()
     mock_role_service = AsyncMock()
     mock_role_service.has_any_role.return_value = True
+    mock_redis = AsyncMock()
 
     with (
         patch(
@@ -550,7 +593,7 @@ async def test_verify_game_access_role_check_success():
         ),
     ):
         result = await permissions.verify_game_access(
-            mock_game, "user123", "test_token", mock_db, mock_role_service
+            mock_game, "user123", "test_token", mock_db, mock_role_service, redis=mock_redis
         )
 
     assert result == mock_game
@@ -574,6 +617,7 @@ async def test_verify_game_access_role_check_fails():
     mock_db = AsyncMock()
     mock_role_service = AsyncMock()
     mock_role_service.has_any_role.return_value = False
+    mock_redis = AsyncMock()
 
     with (
         patch(
@@ -587,7 +631,7 @@ async def test_verify_game_access_role_check_fails():
         pytest.raises(HTTPException) as exc_info,
     ):
         await permissions.verify_game_access(
-            mock_game, "user123", "test_token", mock_db, mock_role_service
+            mock_game, "user123", "test_token", mock_db, mock_role_service, redis=mock_redis
         )
 
     assert exc_info.value.status_code == 403
@@ -595,68 +639,77 @@ async def test_verify_game_access_role_check_fails():
 
 
 @pytest.mark.asyncio
-async def test_check_guild_membership_exception_handling(caplog):
-    """Test _check_guild_membership returns False on exception."""
+async def test_check_guild_membership_bot_not_fresh():
+    """Test _check_guild_membership returns False when bot is not fresh."""
 
-    caplog.set_level(logging.ERROR)
+    mock_redis = AsyncMock()
 
     with patch(
-        "services.api.auth.oauth2.get_user_guilds",
-        side_effect=Exception("Discord API error"),
+        "services.api.dependencies.permissions.member_projection.is_bot_fresh",
+        return_value=False,
     ):
-        result = await permissions._check_guild_membership("user123", "guild123", "test_token")
+        result = await permissions._check_guild_membership("user123", "guild123", mock_redis)
 
     assert result is False
-    assert "Failed to check guild membership" in caplog.text
-    assert "user123" in caplog.text
 
 
 @pytest.mark.asyncio
-async def test_get_guild_name_success(mock_current_user, mock_tokens):
-    """Test get_guild_name returns guild name."""
+async def test_get_guild_name_success(mock_current_user):
+    """Test get_guild_name returns guild name from projection."""
     mock_db = AsyncMock()
-    user_guilds = [
-        {"id": "guild123", "name": "Test Guild"},
-        {"id": "guild456", "name": "Other Guild"},
-    ]
+    mock_redis = AsyncMock()
 
     with (
-        patch("services.api.auth.tokens.get_user_tokens", return_value=mock_tokens),
-        patch("services.api.auth.oauth2.get_user_guilds", return_value=user_guilds),
+        patch(
+            "services.api.dependencies.permissions.member_projection.is_bot_fresh",
+            return_value=True,
+        ),
+        patch(
+            "services.api.dependencies.permissions.member_projection.get_guild_name",
+            return_value="Test Guild",
+        ),
     ):
-        result = await permissions.get_guild_name("guild123", mock_current_user, mock_db)
+        result = await permissions.get_guild_name("guild123", mock_db, redis=mock_redis)
 
     assert result == "Test Guild"
 
 
 @pytest.mark.asyncio
-async def test_get_guild_name_not_found(mock_current_user, mock_tokens):
-    """Test get_guild_name returns Unknown Guild for missing guild."""
+async def test_get_guild_name_not_found(mock_current_user):
+    """Test get_guild_name raises 500 when guild name missing from projection."""
     mock_db = AsyncMock()
-    user_guilds = [{"id": "guild456", "name": "Other Guild"}]
+    mock_redis = AsyncMock()
 
     with (
-        patch("services.api.auth.tokens.get_user_tokens", return_value=mock_tokens),
-        patch("services.api.auth.oauth2.get_user_guilds", return_value=user_guilds),
+        patch(
+            "services.api.dependencies.permissions.member_projection.is_bot_fresh",
+            return_value=True,
+        ),
+        patch(
+            "services.api.dependencies.permissions.member_projection.get_guild_name",
+            return_value=None,
+        ),
     ):
-        result = await permissions.get_guild_name("guild123", mock_current_user, mock_db)
+        with pytest.raises(HTTPException) as exc_info:
+            await permissions.get_guild_name("guild123", mock_db, redis=mock_redis)
 
-    assert result == "Unknown Guild"
+    assert exc_info.value.status_code == 500
 
 
 @pytest.mark.asyncio
-async def test_get_guild_name_no_session(mock_current_user):
-    """Test get_guild_name raises 401 when no session."""
+async def test_get_guild_name_bot_not_fresh(mock_current_user):
+    """Test get_guild_name raises 503 when bot projection is not fresh."""
     mock_db = AsyncMock()
+    mock_redis = AsyncMock()
 
-    with (
-        patch("services.api.auth.tokens.get_user_tokens", return_value=None),
-        pytest.raises(HTTPException) as exc_info,
+    with patch(
+        "services.api.dependencies.permissions.member_projection.is_bot_fresh",
+        return_value=False,
     ):
-        await permissions.get_guild_name("guild123", mock_current_user, mock_db)
+        with pytest.raises(HTTPException) as exc_info:
+            await permissions.get_guild_name("guild123", mock_db, redis=mock_redis)
 
-    assert exc_info.value.status_code == 401
-    assert "No session found" in exc_info.value.detail
+    assert exc_info.value.status_code == 503
 
 
 @pytest.mark.asyncio
@@ -1280,18 +1333,36 @@ async def test_require_permission_checker_exception(
 @pytest.mark.asyncio
 async def test_check_guild_membership_success():
     """Test _check_guild_membership returns True when user is in the guild list."""
-    user_guilds = [{"id": "guild123"}, {"id": "guild456"}]
-    with patch("services.api.auth.oauth2.get_user_guilds", return_value=user_guilds):
-        result = await permissions._check_guild_membership("user123", "guild123", "test_token")
+    mock_redis = AsyncMock()
+    with (
+        patch(
+            "services.api.dependencies.permissions.member_projection.is_bot_fresh",
+            return_value=True,
+        ),
+        patch(
+            "services.api.dependencies.permissions.member_projection.get_user_guilds",
+            return_value=["guild123", "guild456"],
+        ),
+    ):
+        result = await permissions._check_guild_membership("user123", "guild123", mock_redis)
     assert result is True
 
 
 @pytest.mark.asyncio
 async def test_check_guild_membership_not_member():
     """Test _check_guild_membership returns False when guild is not in user's list."""
-    user_guilds = [{"id": "guild456"}]
-    with patch("services.api.auth.oauth2.get_user_guilds", return_value=user_guilds):
-        result = await permissions._check_guild_membership("user123", "guild123", "test_token")
+    mock_redis = AsyncMock()
+    with (
+        patch(
+            "services.api.dependencies.permissions.member_projection.is_bot_fresh",
+            return_value=True,
+        ),
+        patch(
+            "services.api.dependencies.permissions.member_projection.get_user_guilds",
+            return_value=["guild456"],
+        ),
+    ):
+        result = await permissions._check_guild_membership("user123", "guild123", mock_redis)
     assert result is False
 
 

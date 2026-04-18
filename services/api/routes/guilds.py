@@ -59,11 +59,11 @@ SYNC_RATE_LIMIT = (
 
 async def _build_guild_config_response(
     guild_config: GuildConfiguration,
-    current_user: auth_schemas.CurrentUser,
+    _current_user: auth_schemas.CurrentUser,
     db: AsyncSession,
 ) -> guild_schemas.GuildConfigResponse:
     """Build guild configuration response with guild name."""
-    guild_name = await permissions.get_guild_name(guild_config.guild_id, current_user, db)
+    guild_name = await permissions.get_guild_name(guild_config.guild_id, db)
     return guild_schemas.GuildConfigResponse(
         id=guild_config.id,
         guild_name=guild_name,
@@ -126,11 +126,11 @@ async def get_guild(
         db, guild_id, current_user.access_token, current_user.user.discord_id
     )
 
-    # Verify guild membership, returns 404 if not member to prevent information disclosure
-    user_guilds = await permissions.verify_guild_membership(guild_config.guild_id, current_user, db)
-    user_guilds_dict = {g["id"]: g for g in user_guilds}
+    # Verify guild membership - returns 404 if not member to prevent information disclosure
+    await permissions.verify_guild_membership(guild_config.guild_id, current_user, db)
 
-    guild_name = user_guilds_dict[guild_config.guild_id].get("name", "Unknown Guild")
+    # Get guild name for display
+    guild_name = await permissions.get_guild_name(guild_config.guild_id, db)
 
     return guild_schemas.GuildBasicInfoResponse(
         id=guild_config.id,

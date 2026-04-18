@@ -33,11 +33,13 @@ from fastapi import Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
 
-from services.api.auth import oauth2, tokens
 from services.api.auth import roles as roles_module
+from services.api.auth import tokens
 from services.api.database import queries
 from services.api.dependencies import auth
+from services.api.services import member_projection
 from shared import database
+from shared.cache.client import RedisClient, get_redis_client
 from shared.models.game import GameSession
 from shared.models.template import GameTemplate
 from shared.schemas import auth as auth_schemas
@@ -50,18 +52,34 @@ from shared.utils.security_constants import (
 logger = logging.getLogger(__name__)
 
 
-async def _get_user_guilds(current_user: auth_schemas.CurrentUser) -> list[dict]:
-    """Fetch the guild list for the current user, using the bot token for maintainers."""
-    token_data = await tokens.get_user_tokens(current_user.session_token)
-    if not token_data:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No session found")
-    access_token = tokens.get_guild_token(token_data)
-    return await oauth2.get_user_guilds(access_token, current_user.user.discord_id)
+async def _get_user_guilds(
+    current_user: auth_schemas.CurrentUser,
+    redis: RedisClient | None = None,
+) -> list[str] | None:
+    """Fetch the guild list for the current user from the Redis projection.
 
-
-async def _check_guild_membership(user_discord_id: str, guild_id: str, access_token: str) -> bool:
+    Returns None if bot projection is not fresh or guilds not found.
     """
-    Check if user is a member of a Discord guild (low-level helper).
+    if redis is None:
+        redis = await get_redis_client()
+
+    if not await member_projection.is_bot_fresh(redis=redis):
+        logger.warning(
+            "Bot projection not fresh for user %s - returning None",
+            current_user.user.discord_id,
+        )
+        return None
+
+    return await member_projection.get_user_guilds(current_user.user.discord_id, redis=redis)
+
+
+async def _check_guild_membership(
+    user_discord_id: str,
+    guild_id: str,
+    redis: RedisClient,
+) -> bool:
+    """
+    Check if user is a member of a Discord guild using projection.
 
     This is an internal helper that returns a boolean without raising exceptions.
     Use verify_guild_membership for route-level authorization that raises 404.
@@ -69,46 +87,77 @@ async def _check_guild_membership(user_discord_id: str, guild_id: str, access_to
     Args:
         user_discord_id: Discord ID of the user
         guild_id: Discord guild ID (snowflake)
-        access_token: User's OAuth2 access token
+        redis: Redis client for projection reads
 
     Returns:
         True if user is a member of the guild, False otherwise
     """
-    try:
-        user_guilds = await oauth2.get_user_guilds(access_token, user_discord_id)
-        return any(guild["id"] == guild_id for guild in user_guilds)
-    except Exception as e:
-        logger.error("Failed to check guild membership for user %s: %s", user_discord_id, e)
+    if not await member_projection.is_bot_fresh(redis=redis):
+        logger.debug(
+            "Bot projection not fresh for guild membership check (user=%s, guild=%s)",
+            user_discord_id,
+            guild_id,
+        )
         return False
+
+    guild_ids = await member_projection.get_user_guilds(user_discord_id, redis=redis)
+    if guild_ids is None:
+        return False
+    return guild_id in guild_ids
 
 
 async def verify_guild_membership(
     guild_id: str,
     current_user: auth_schemas.CurrentUser,
     _db: AsyncSession,
-) -> list[dict]:
+    redis: RedisClient | None = None,
+) -> list[str] | None:
     """
     Verify user is a member of the specified Discord guild.
 
-    Returns the list of user's guilds if member, raises 404 if not member.
-    This prevents information disclosure about guilds the user doesn't belong to.
+    Returns the list of user's guild IDs if member, or raises 503 if bot projection is
+    not fresh, or raises 404 if not member.
 
     Args:
         guild_id: Discord guild ID (snowflake)
         _db: Database session (unused, reserved for future authorization checks)
         current_user: Current authenticated user
-        db: Database session
+        redis: Redis client for projection reads (optional, will get singleton if not provided)
 
     Returns:
-        List of user's guilds if member
+        List of user's guild IDs if member, or None if bot not fresh
 
     Raises:
+        HTTPException(503): If bot projection is not fresh
         HTTPException(404): If user is not a member of the guild
         HTTPException(401): If session token is invalid
     """
-    user_guilds = await _get_user_guilds(current_user)
+    if redis is None:
+        redis = await get_redis_client()
 
-    is_member = any(g["id"] == guild_id for g in user_guilds)
+    if not await member_projection.is_bot_fresh(redis=redis):
+        logger.warning(
+            "Bot projection not fresh when verifying guild membership for user %s in guild %s",
+            current_user.user.discord_id,
+            guild_id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Bot is temporarily unavailable; please try again",
+        )
+
+    user_guilds = await member_projection.get_user_guilds(current_user.user.discord_id, redis=redis)
+
+    if user_guilds is None:
+        logger.warning(
+            "User guilds not found in projection for user %s",
+            current_user.user.discord_id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Service unavailable"
+        )
+
+    is_member = guild_id in user_guilds
 
     if not is_member:
         logger.warning(
@@ -122,7 +171,11 @@ async def verify_guild_membership(
 
 
 async def verify_template_access(
-    template: GameTemplate, user_discord_id: str, access_token: str, db: AsyncSession
+    template: GameTemplate,
+    user_discord_id: str,
+    access_token: str,
+    db: AsyncSession,
+    redis: RedisClient | None = None,
 ) -> GameTemplate:
     """
     Verify user can access a template based on guild membership.
@@ -133,14 +186,16 @@ async def verify_template_access(
     Args:
         template: Template to check access for
         user_discord_id: Discord ID of the user
-        access_token: User's OAuth2 access token
+        access_token: User's OAuth2 access token (deprecated, no longer used)
         db: Database session
+        redis: Redis client for projection checks (optional, will get singleton if not provided)
 
     Returns:
         Template if user is authorized
 
     Raises:
         HTTPException(404): If user is not a member of template's guild
+        HTTPException(503): If bot projection is not fresh
     """
     # Get guild configuration to resolve Discord guild ID
     guild_config = await queries.require_guild_by_id(
@@ -151,8 +206,10 @@ async def verify_template_access(
         not_found_detail="Template not found",
     )
 
-    # Check guild membership
-    is_member = await _check_guild_membership(user_discord_id, guild_config.guild_id, access_token)
+    # Check guild membership using projection
+    if redis is None:
+        redis = await get_redis_client()
+    is_member = await _check_guild_membership(user_discord_id, guild_config.guild_id, redis)
 
     if not is_member:
         logger.warning(
@@ -172,6 +229,7 @@ async def verify_game_access(
     access_token: str,
     db: AsyncSession,
     role_service: roles_module.RoleVerificationService,
+    redis: RedisClient | None = None,
 ) -> GameSession:
     """
     Verify user can access a game based on guild membership and template player roles.
@@ -183,9 +241,10 @@ async def verify_game_access(
     Args:
         game: Game to check access for
         user_discord_id: Discord ID of the user
-        access_token: User's OAuth2 access token
+        access_token: User's OAuth2 access token (deprecated, no longer used for guild checks)
         db: Database session
         role_service: Role verification service
+        redis: Redis client for projection checks (optional, will get singleton if not provided)
 
     Returns:
         Game if user is authorized
@@ -193,6 +252,7 @@ async def verify_game_access(
     Raises:
         HTTPException(404): If user is not a member of game's guild
         HTTPException(403): If user lacks required player roles
+        HTTPException(503): If bot projection is not fresh
     """
     # Get guild configuration to resolve Discord guild ID
     guild_config = await queries.require_guild_by_id(
@@ -204,7 +264,9 @@ async def verify_game_access(
     )
 
     # Check guild membership first - return 404 if not member to prevent info disclosure
-    is_member = await _check_guild_membership(user_discord_id, guild_config.guild_id, access_token)
+    if redis is None:
+        redis = await get_redis_client()
+    is_member = await _check_guild_membership(user_discord_id, guild_config.guild_id, redis)
 
     if not is_member:
         logger.warning(
@@ -428,31 +490,52 @@ async def require_manage_channels(
 
 async def get_guild_name(
     guild_discord_id: str,
-    current_user: auth_schemas.CurrentUser,
     _db: AsyncSession,
+    *,
+    redis: RedisClient | None = None,
 ) -> str:
     """
-    Get display name for a Discord guild.
-
-    Fetches guild name from user's guild list. This function should only be
-    called after guild membership has been verified (e.g., via verify_guild_membership
-    or an authorization dependency).
+    Get display name for a Discord guild from the projection.
 
     Args:
         guild_discord_id: Discord guild ID (snowflake)
-        current_user: Current authenticated user
-        db: Database session
+        _db: Database session (reserved for future use)
+        redis: Redis client for projection checks (optional)
 
     Returns:
-        Guild display name, or "Unknown Guild" if not found
+        Guild display name
 
     Raises:
-        HTTPException(401): If session token is invalid
+        HTTPException(503): If bot projection is not fresh
+        HTTPException(500): If guild name not found in projection (data integrity issue)
     """
-    user_guilds = await _get_user_guilds(current_user)
-    user_guilds_dict = {g["id"]: g for g in user_guilds}
+    if redis is None:
+        redis = await get_redis_client()
 
-    return user_guilds_dict.get(guild_discord_id, {}).get("name", "Unknown Guild")
+    if not await member_projection.is_bot_fresh(redis=redis):
+        logger.warning(
+            "Bot projection not fresh when getting guild name for guild %s",
+            guild_discord_id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Bot is temporarily unavailable; please try again",
+        )
+
+    # Get guild name from projection - must be present if bot is fresh
+    guild_name = await member_projection.get_guild_name(guild_discord_id, redis=redis)
+
+    if guild_name is None:
+        logger.error(
+            "Guild name missing from projection for guild %s (data integrity issue)",
+            guild_discord_id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Guild data incomplete in projection",
+        )
+
+    return guild_name
 
 
 async def require_bot_manager(

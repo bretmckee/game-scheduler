@@ -64,10 +64,11 @@ Eliminate all Discord REST API calls from the per-request API path by pre-popula
 - [x] Task 3.1: Create `services/api/services/member_projection.py` with gen-rotation retry and all reader functions
   - Details: .copilot-tracking/planning/details/20260418-01-gateway-intent-redis-projection-details.md (Lines 145–198)
 
-### [ ] Phase 4: Call Site Migration
+### [x] Phase 4: Call Site Migration
 
-- [ ] Task 4.1: Migrate `permissions.py` `verify_guild_membership` → `get_user_guilds()` (highest frequency)
+- [x] Task 4.1: Migrate `permissions.py` `verify_guild_membership` → `get_user_guilds()` (highest frequency)
   - Details: .copilot-tracking/planning/details/20260418-01-gateway-intent-redis-projection-details.md (Lines 204–222)
+  - **Completed**: Also migrated `get_guild_name()` from OAuth to projection read
 
 - [ ] Task 4.2: Migrate `login_refresh.py` display name reads → `get_member()`
   - Details: .copilot-tracking/planning/details/20260418-01-gateway-intent-redis-projection-details.md (Lines 223–237)

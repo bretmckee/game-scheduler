@@ -112,7 +112,12 @@ class TestVerifyTemplateAccess:
                 "user123",
                 not_found_detail="Template not found",
             )
-            mock_check.assert_called_once_with("user123", guild_config.guild_id, "token123")
+            # Check that _check_guild_membership was called with correct user and guild
+            # (redis parameter is a mock and will vary)
+            mock_check.assert_called_once()
+            call_args = mock_check.call_args
+            assert call_args[0][0] == "user123"
+            assert call_args[0][1] == guild_config.guild_id
 
     @pytest.mark.asyncio
     async def test_verify_template_access_guild_not_found(self, mock_db, game_template):
@@ -196,7 +201,12 @@ class TestVerifyGameAccess:
                 "user123",
                 not_found_detail="Game not found",
             )
-            mock_check.assert_called_once_with("user123", guild_config.guild_id, "token123")
+            # Verify _check_guild_membership was called with correct user and guild
+            # (redis parameter is a mock and will vary)
+            mock_check.assert_called_once()
+            call_args = mock_check.call_args
+            assert call_args[0][0] == "user123"
+            assert call_args[0][1] == guild_config.guild_id
             mock_role_service.has_any_role.assert_called_once_with(
                 "user123", guild_config.guild_id, game_session.allowed_player_role_ids
             )

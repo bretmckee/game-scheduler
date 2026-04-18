@@ -107,14 +107,22 @@ class TestGuildMembershipAuthorization:
         """Non-member receives 404 to prevent information disclosure."""
         guild_id = "123456789012345678"
         mock_db = AsyncMock()
+        mock_redis = AsyncMock()
 
-        with patch("services.api.auth.tokens.get_user_tokens", return_value=mock_tokens):
-            with patch(
-                "services.api.auth.oauth2.get_user_guilds",
-                return_value=[{"id": "different_guild"}],
-            ):
-                with pytest.raises(HTTPException) as exc_info:
-                    await permissions.verify_guild_membership(guild_id, mock_current_user, mock_db)
+        with (
+            patch(
+                "services.api.dependencies.permissions.member_projection.is_bot_fresh",
+                return_value=True,
+            ),
+            patch(
+                "services.api.dependencies.permissions.member_projection.get_user_guilds",
+                return_value=["different_guild"],
+            ),
+        ):
+            with pytest.raises(HTTPException) as exc_info:
+                await permissions.verify_guild_membership(
+                    guild_id, mock_current_user, mock_db, redis=mock_redis
+                )
 
         assert exc_info.value.status_code == 404
         assert "Guild not found" in exc_info.value.detail
@@ -126,28 +134,43 @@ class TestGuildMembershipAuthorization:
         """Member receives guild list."""
         guild_id = "123456789012345678"
         mock_db = AsyncMock()
-        user_guilds = [{"id": guild_id, "name": "Test Guild"}]
+        mock_redis = AsyncMock()
+        user_guild_ids = [guild_id, "other_guild_id"]
 
-        with patch("services.api.auth.tokens.get_user_tokens", return_value=mock_tokens):
-            with patch("services.api.auth.oauth2.get_user_guilds", return_value=user_guilds):
-                result = await permissions.verify_guild_membership(
-                    guild_id, mock_current_user, mock_db
-                )
+        with (
+            patch(
+                "services.api.dependencies.permissions.member_projection.is_bot_fresh",
+                return_value=True,
+            ),
+            patch(
+                "services.api.dependencies.permissions.member_projection.get_user_guilds",
+                return_value=user_guild_ids,
+            ),
+        ):
+            result = await permissions.verify_guild_membership(
+                guild_id, mock_current_user, mock_db, redis=mock_redis
+            )
 
-        assert result == user_guilds
+        assert result == user_guild_ids
 
     @pytest.mark.asyncio
     async def test_verify_guild_membership_returns_401_no_session(self, mock_current_user):
-        """No session returns 401."""
+        """Bot not fresh returns 503."""
         guild_id = "123456789012345678"
         mock_db = AsyncMock()
+        mock_redis = AsyncMock()
 
-        with patch("services.api.auth.tokens.get_user_tokens", return_value=None):
+        with patch(
+            "services.api.dependencies.permissions.member_projection.is_bot_fresh",
+            return_value=False,
+        ):
             with pytest.raises(HTTPException) as exc_info:
-                await permissions.verify_guild_membership(guild_id, mock_current_user, mock_db)
+                await permissions.verify_guild_membership(
+                    guild_id, mock_current_user, mock_db, redis=mock_redis
+                )
 
-        assert exc_info.value.status_code == 401
-        assert "No session found" in exc_info.value.detail
+        assert exc_info.value.status_code == 503
+        assert "temporarily unavailable" in exc_info.value.detail
 
 
 class TestTemplateAccessAuthorization:
@@ -355,19 +378,24 @@ class TestGameManagementAuthorization:
         mock_role_service = AsyncMock()
         guild_id = "123456789012345678"
 
-        with patch("services.api.auth.tokens.get_user_tokens", return_value=mock_tokens):
-            with patch(
-                "services.api.auth.oauth2.get_user_guilds",
-                return_value=[{"id": "different_guild"}],
-            ):
-                with pytest.raises(HTTPException) as exc_info:
-                    await permissions.can_manage_game(
-                        "host123",
-                        guild_id,
-                        mock_current_user,
-                        mock_role_service,
-                        mock_db,
-                    )
+        with (
+            patch(
+                "services.api.dependencies.permissions.member_projection.is_bot_fresh",
+                return_value=True,
+            ),
+            patch(
+                "services.api.dependencies.permissions.member_projection.get_user_guilds",
+                return_value=["different_guild"],
+            ),
+        ):
+            with pytest.raises(HTTPException) as exc_info:
+                await permissions.can_manage_game(
+                    "host123",
+                    guild_id,
+                    mock_current_user,
+                    mock_role_service,
+                    mock_db,
+                )
 
         assert exc_info.value.status_code == 404
         assert "Guild not found" in exc_info.value.detail
@@ -453,23 +481,28 @@ class TestGameExportAuthorization:
         mock_role_service = AsyncMock()
         guild_id = "123456789012345678"
 
-        with patch("services.api.auth.tokens.get_user_tokens", return_value=mock_tokens):
-            with patch(
-                "services.api.auth.oauth2.get_user_guilds",
-                return_value=[{"id": "different_guild"}],
-            ):
-                with pytest.raises(HTTPException) as exc_info:
-                    await permissions.can_export_game(
-                        "host_uuid",
-                        [],
-                        guild_id,
-                        mock_current_user.user.id,
-                        mock_current_user.user.discord_id,
-                        mock_role_service,
-                        mock_db,
-                        mock_tokens["access_token"],
-                        mock_current_user,
-                    )
+        with (
+            patch(
+                "services.api.dependencies.permissions.member_projection.is_bot_fresh",
+                return_value=True,
+            ),
+            patch(
+                "services.api.dependencies.permissions.member_projection.get_user_guilds",
+                return_value=["different_guild"],
+            ),
+        ):
+            with pytest.raises(HTTPException) as exc_info:
+                await permissions.can_export_game(
+                    "host_uuid",
+                    [],
+                    guild_id,
+                    mock_current_user.user.id,
+                    mock_current_user.user.discord_id,
+                    mock_role_service,
+                    mock_db,
+                    mock_tokens["access_token"],
+                    mock_current_user,
+                )
 
         assert exc_info.value.status_code == 404
         assert "Guild not found" in exc_info.value.detail
@@ -604,22 +637,29 @@ class TestInformationDisclosurePrevention:
         This prevents attackers from discovering which guild IDs exist.
         """
         mock_db = AsyncMock()
+        mock_redis = AsyncMock()
 
-        with patch("services.api.auth.tokens.get_user_tokens", return_value=mock_tokens):
-            with patch(
-                "services.api.auth.oauth2.get_user_guilds",
-                return_value=[{"id": "user_guild"}],
-            ):
-                # Test both non-existent and unauthorized guild
-                for guild_id in ["123456789012345678", "999999999999999999"]:
-                    with pytest.raises(HTTPException) as exc_info:
-                        await permissions.verify_guild_membership(
-                            guild_id, mock_current_user, mock_db
-                        )
+        # User only has access to "user_guild", not the test guild IDs
+        with (
+            patch(
+                "services.api.dependencies.permissions.member_projection.is_bot_fresh",
+                return_value=True,
+            ),
+            patch(
+                "services.api.dependencies.permissions.member_projection.get_user_guilds",
+                return_value=["user_guild"],
+            ),
+        ):
+            # Test both non-existent and unauthorized guild
+            for guild_id in ["123456789012345678", "999999999999999999"]:
+                with pytest.raises(HTTPException) as exc_info:
+                    await permissions.verify_guild_membership(
+                        guild_id, mock_current_user, mock_db, redis=mock_redis
+                    )
 
-                    # Both should return same 404 error
-                    assert exc_info.value.status_code == 404
-                    assert "Guild not found" in exc_info.value.detail
+                # Both should return same 404 error
+                assert exc_info.value.status_code == 404
+                assert "Guild not found" in exc_info.value.detail
 
     @pytest.mark.asyncio
     async def test_template_access_prevents_guild_enumeration(
