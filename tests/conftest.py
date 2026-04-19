@@ -550,6 +550,19 @@ def seed_redis_cache():
                     "expires_at": (datetime.now(UTC) + timedelta(hours=1)).isoformat(),
                 }
                 await redis_client.set_json(session_key, session_data, ttl=3600)
+
+            # Projection keys for verify_guild_membership and _check_guild_membership.
+            # These replaced oauth2.get_user_guilds in Phase 7. gen "1" is fixed for tests.
+            gen = "1"
+            await redis_client.set(CacheKeys.proj_gen(), gen)
+            await redis_client.set(
+                CacheKeys.proj_user_guilds(gen, user_discord_id),
+                json.dumps([guild_discord_id]),
+            )
+            await redis_client.set(
+                CacheKeys.proj_guild_name(gen, guild_discord_id),
+                f"Test Guild {guild_discord_id[:8]}",
+            )
         finally:
             await redis_client.disconnect()
 
@@ -1002,7 +1015,7 @@ def mock_get_user_tokens():
         "user_id": "123456789",
         "access_token": "test_access_token",
         "refresh_token": "test_refresh_token",
-        "expires_at": datetime(2099, 1, 1),
+        "expires_at": datetime(2099, 1, 1, tzinfo=UTC),
         "can_be_maintainer": False,
         "is_maintainer": False,
     }

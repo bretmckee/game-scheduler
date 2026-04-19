@@ -23,12 +23,14 @@
 
 import contextlib
 import os
+from datetime import UTC, datetime
 
 import httpx
 import pika
 import pytest
 
 from shared.cache import client as cache_module
+from shared.cache.keys import CacheKeys
 from shared.data_access.guild_isolation import clear_current_guild_ids
 from shared.database import engine
 
@@ -125,6 +127,26 @@ async def reset_redis_singleton():
     await temp_client.connect()
     await temp_client._client.flushdb()
     await temp_client.disconnect()
+
+
+@pytest.fixture(autouse=True)
+async def seed_bot_freshness(reset_redis_singleton):
+    """
+    Seed bot:last_seen and proj:gen in Redis before each integration test.
+
+    verify_guild_membership and _check_guild_membership both call is_bot_fresh(),
+    which reads bot:last_seen. Without this key present, all guild-gated
+    endpoints return 503. proj:gen is needed for all projection key reads.
+    """
+    redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    client = cache_module.RedisClient(redis_url=redis_url)
+    await client.connect()
+    try:
+        await client.set(CacheKeys.bot_last_seen(), datetime.now(UTC).isoformat())
+        await client.set(CacheKeys.proj_gen(), "1")
+    finally:
+        await client.disconnect()
+    return
 
 
 @pytest.fixture(autouse=True)
