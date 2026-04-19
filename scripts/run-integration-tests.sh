@@ -73,8 +73,19 @@ else
 fi
 
 # Build if needed, then run tests without restarting dependencies.
-# docker compose run does not forward container stdout in non-TTY environments;
-# we keep the container, print its logs, then clean up manually.
+#
+# Why this pattern exists:
+#   `docker compose run` in non-TTY environments (e.g. CI, agent shells without a
+#   controlling terminal) does not stream the container's stdout/stderr to the
+#   calling process — the output is silently swallowed. Simply running:
+#       docker compose run -T integration-tests
+#   produces no test output whatsoever when there is no TTY.
+#
+# Solution: name the container, let it run to completion (|| true so we don't exit
+# early on test failure), then retrieve all output via `docker logs` after the fact,
+# and finally inspect the exit code with `docker inspect`. This guarantees the full
+# pytest output is printed to stdout regardless of TTY state, which is why piping
+# this script through `tee` captures everything.
 RUNNER_NAME="gamebot-int-tests-runner-$$"
 docker rm "$RUNNER_NAME" 2>/dev/null || true
 docker compose --progress quiet --env-file "$ENV_FILE" run -T --build --no-deps --name "$RUNNER_NAME" integration-tests "$@" || true
