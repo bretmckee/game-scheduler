@@ -152,7 +152,6 @@ class TestGetGame:
         mock_build.assert_called_once_with(
             mock_game,
             can_manage=False,
-            global_max=45,
             display_name_service=mock_build.call_args.kwargs["display_name_service"],
         )
 

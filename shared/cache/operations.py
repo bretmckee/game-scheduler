@@ -19,20 +19,35 @@
 # SOFTWARE.
 
 
-"""Cache operation names, generic hit/miss counters, and latency histogram."""
+"""Cache operation names, generic hit/miss counters, latency histogram, and projection reads."""
 
 import time
+from collections.abc import Callable
 from enum import StrEnum
 from typing import Any
 
 from opentelemetry import metrics
 
-from shared.cache.client import get_redis_client
+from shared.cache.client import RedisClient, get_redis_client
+from shared.cache.keys import CacheKeys
 
 _meter = metrics.get_meter(__name__)
 _hit_counter = _meter.create_counter("cache.hits", description="Cache hits", unit="1")
 _miss_counter = _meter.create_counter("cache.misses", description="Cache misses", unit="1")
 _duration_histogram = _meter.create_histogram("cache.duration", unit="s")
+
+_proj_read_retry_counter = _meter.create_counter(
+    name="cache.projection.read.retries",
+    description="Number of gen-rotation retries during projection reads",
+    unit="1",
+)
+_proj_read_not_found_counter = _meter.create_counter(
+    name="cache.projection.read.not_found",
+    description="Number of stable-gen misses during projection reads",
+    unit="1",
+)
+
+_MAX_GEN_RETRIES = 3
 
 
 class CacheOperation(StrEnum):
@@ -76,3 +91,35 @@ async def cache_get(key: str, operation: CacheOperation) -> Any | None:  # noqa:
         {"operation": operation, "result": "hit" if hit else "miss"},
     )
     return result
+
+
+async def read_projection_key(
+    redis: RedisClient, key_fn: Callable[..., str], *key_args: str
+) -> str | None:
+    """
+    Read a projection key with generation-rotation retry.
+
+    Handles the window where the gen pointer has flipped to a new value but
+    the caller's key was constructed with the old value. Retries up to
+    _MAX_GEN_RETRIES times before giving up.
+
+    Args:
+        redis: Redis async client wrapper
+        key_fn: Key factory function (e.g., CacheKeys.proj_member)
+        *key_args: Arguments to pass to key_fn after the gen argument
+
+    Returns:
+        Cached value string, or None if absent
+    """
+    gen = await redis.get(CacheKeys.proj_gen())
+    for _ in range(_MAX_GEN_RETRIES):
+        value = await redis.get(key_fn(gen, *key_args))
+        if value is not None:
+            return value
+        gen2 = await redis.get(CacheKeys.proj_gen())
+        if gen == gen2:
+            _proj_read_not_found_counter.add(1)
+            return None
+        _proj_read_retry_counter.add(1)
+        gen = gen2
+    return None

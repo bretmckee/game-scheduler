@@ -37,8 +37,8 @@ from services.api.auth import roles as roles_module
 from services.api.auth import tokens
 from services.api.database import queries
 from services.api.dependencies import auth
-from services.api.services import member_projection
 from shared import database
+from shared.cache import projection as member_projection
 from shared.cache.client import RedisClient, get_redis_client
 from shared.models.game import GameSession
 from shared.models.template import GameTemplate

@@ -47,10 +47,6 @@ from services.api.services import games as games_service
 from services.api.services import participant_resolver as resolver_module
 from services.api.services.user_display_names import UserDisplayNameService
 from shared import database
-from shared.cache.ttl import (
-    DISCORD_GLOBAL_RATE_LIMIT_BACKGROUND,
-    DISCORD_GLOBAL_RATE_LIMIT_INTERACTIVE,
-)
 from shared.discord.client import (
     fetch_channel_name_safe,
     fetch_guild_name_safe,
@@ -540,7 +536,6 @@ async def get_game(
     return await _build_game_response(
         game,
         can_manage=can_manage,
-        global_max=DISCORD_GLOBAL_RATE_LIMIT_INTERACTIVE,
         display_name_service=display_name_service,
     )
 
@@ -820,7 +815,6 @@ async def _resolve_display_data(
     game: game_model.GameSession,
     partitioned: participant_sorting.PartitionedParticipants,
     resolve_participants: bool = True,
-    global_max: int = DISCORD_GLOBAL_RATE_LIMIT_BACKGROUND,
     display_name_service: UserDisplayNameService | None = None,
 ) -> tuple[dict[str, dict[str, str | None]], str | None]:
     """
@@ -830,7 +824,6 @@ async def _resolve_display_data(
         game: Game session model with guild loaded
         partitioned: Partitioned participant data
         resolve_participants: When False, only the host is resolved (skips all participant IDs)
-        global_max: Discord global rate limit budget for concurrent requests
 
     Returns:
         Tuple of (display_data_map, host_discord_id)
@@ -854,7 +847,7 @@ async def _resolve_display_data(
         else:
             resolver = await display_names_module.get_display_name_resolver()
             display_data_map = await resolver.resolve_display_names_and_avatars(
-                guild_discord_id, discord_user_ids, global_max=global_max
+                guild_discord_id, discord_user_ids
             )
 
     return display_data_map, host_discord_id
@@ -963,7 +956,6 @@ async def _build_game_response(
     game: game_model.GameSession,
     can_manage: bool = False,
     resolve_participants: bool = True,
-    global_max: int = DISCORD_GLOBAL_RATE_LIMIT_BACKGROUND,
     prefetched_display_data: dict[str, dict[str, str | None]] | None = None,
     display_name_service: UserDisplayNameService | None = None,
 ) -> game_schemas.GameResponse:
@@ -989,7 +981,6 @@ async def _build_game_response(
             game,
             partitioned,
             resolve_participants=resolve_participants,
-            global_max=global_max,
             display_name_service=display_name_service,
         )
     channel_name, guild_name = await _fetch_discord_names(game)

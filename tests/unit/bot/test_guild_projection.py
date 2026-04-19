@@ -21,6 +21,7 @@
 
 """Unit tests for bot guild projection writer."""
 
+import json
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock
 
@@ -28,12 +29,14 @@ import discord
 import pytest
 
 from services.bot.guild_projection import (
+    get_user_roles,
     repopulate_all,
     write_bot_last_seen,
     write_member,
     write_user_guilds,
 )
 from shared.cache.keys import CacheKeys
+from shared.cache.operations import read_projection_key
 
 
 class TestWriteMember:
@@ -336,3 +339,64 @@ class TestRepopulateAll:
         # Verify function completes without error
         # (OTel metrics are recorded implicitly via decorators)
         assert True
+
+
+class TestReadProjectionKey:
+    """Tests for read_projection_key gen-rotation retry logic."""
+
+    @pytest.mark.asyncio
+    async def test_returns_value_on_first_read(self):
+        """Returns value immediately when found on first attempt."""
+        redis = AsyncMock()
+        redis.get = AsyncMock(side_effect=["gen1", json.dumps({"roles": ["r1"]})])
+
+        result = await read_projection_key(redis, CacheKeys.proj_member, "guild1", "user1")
+
+        assert result == json.dumps({"roles": ["r1"]})
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_key_missing_and_gen_stable(self):
+        """Returns None when key is not found and generation pointer is stable."""
+        redis = AsyncMock()
+        # gen read, key miss, gen re-read (same gen → stop)
+        redis.get = AsyncMock(side_effect=["gen1", None, "gen1"])
+
+        result = await read_projection_key(redis, CacheKeys.proj_member, "guild1", "user1")
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_retries_on_gen_rotation_and_finds_value(self):
+        """Retries read after gen rotation and returns value found in new generation."""
+        redis = AsyncMock()
+        # gen1 read, key miss in gen1, gen rotated to gen2, key found in gen2
+        redis.get = AsyncMock(side_effect=["gen1", None, "gen2", json.dumps({"roles": ["r2"]})])
+
+        result = await read_projection_key(redis, CacheKeys.proj_member, "guild1", "user1")
+
+        assert result == json.dumps({"roles": ["r2"]})
+
+
+class TestGetUserRoles:
+    """Tests for get_user_roles reader."""
+
+    @pytest.mark.asyncio
+    async def test_returns_roles_from_projection(self):
+        """Returns role list from projection member record."""
+        redis = AsyncMock()
+        member_data = {"roles": ["role1", "role2"], "nick": "Nick"}
+        redis.get = AsyncMock(side_effect=["gen1", json.dumps(member_data)])
+
+        result = await get_user_roles("guild1", "user1", redis=redis)
+
+        assert result == ["role1", "role2"]
+
+    @pytest.mark.asyncio
+    async def test_returns_empty_list_when_member_absent(self):
+        """Returns empty list when member is absent from projection."""
+        redis = AsyncMock()
+        redis.get = AsyncMock(side_effect=["gen1", None, "gen1"])
+
+        result = await get_user_roles("guild1", "absent_user", redis=redis)
+
+        assert result == []

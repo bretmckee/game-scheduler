@@ -29,7 +29,6 @@ from starlette import status
 
 from services.api.routes import auth as auth_routes
 from services.api.services.login_refresh import refresh_display_name_on_login
-from shared.discord.client import DiscordAPIError
 
 
 class TestLogin:
@@ -253,7 +252,7 @@ class TestCallbackEnqueuesDisplayNameRefresh:
             )
 
         mock_bg_tasks.add_task.assert_called_once_with(
-            refresh_display_name_on_login, "usr-discord-123", "access-tok"
+            refresh_display_name_on_login, "usr-discord-123"
         )
 
 
@@ -263,30 +262,30 @@ class TestRefreshDisplayNameOnLogin:
         mock_guild = MagicMock()
         mock_guild.guild_id = "guild123"
         member_data = {
+            "roles": [],
             "nick": "TestNick",
-            "avatar": None,
-            "user": {
-                "id": "usr123",
-                "global_name": "TestGlobal",
-                "username": "testuser",
-                "avatar": "user_avatar_hash",
-            },
+            "global_name": "TestGlobal",
+            "username": "testuser",
+            "avatar_url": "https://cdn.discordapp.com/avatars/usr123/hash.png?size=64",
         }
 
         mock_cache = AsyncMock()
 
         with (
             patch(
-                "services.api.services.login_refresh.get_user_guilds",
-                return_value=[{"id": "guild123"}],
-            ) as _,
+                "services.api.services.login_refresh.member_projection.get_user_guilds",
+                new=AsyncMock(return_value=["guild123"]),
+            ),
+            patch(
+                "services.api.services.login_refresh.member_projection.get_member",
+                new=AsyncMock(return_value=member_data),
+            ),
             patch(
                 "services.api.services.login_refresh.setup_rls_and_convert_guild_ids",
                 new=AsyncMock(),
             ),
             patch("services.api.services.login_refresh.clear_current_guild_ids"),
             patch("services.api.services.login_refresh.AsyncSessionLocal") as mock_session_local,
-            patch("services.api.services.login_refresh.get_discord_client") as mock_get_client,
             patch(
                 "services.api.services.login_refresh.cache_client.get_redis_client",
                 return_value=mock_cache,
@@ -300,17 +299,13 @@ class TestRefreshDisplayNameOnLogin:
             mock_execute_result.scalars.return_value.all.return_value = [mock_guild]
             mock_session.execute = AsyncMock(return_value=mock_execute_result)
 
-            mock_client = MagicMock()
-            mock_client.get_current_user_guild_member = AsyncMock(return_value=member_data)
-            mock_get_client.return_value = mock_client
-
             with patch(
                 "services.api.services.login_refresh.UserDisplayNameService"
             ) as mock_svc_cls:
                 mock_svc = AsyncMock()
                 mock_svc_cls.return_value = mock_svc
 
-                await refresh_display_name_on_login("usr123", "oauth-token")
+                await refresh_display_name_on_login("usr123")
 
         mock_svc.upsert_batch.assert_called_once()
         entries = mock_svc.upsert_batch.call_args[0][0]
@@ -325,22 +320,31 @@ class TestRefreshDisplayNameOnLogin:
         )
 
     @pytest.mark.asyncio
-    async def test_skips_guild_when_discord_returns_error(self):
+    async def test_skips_guild_when_member_absent_from_projection(self):
         mock_guild = MagicMock()
         mock_guild.guild_id = "guild123"
 
+        mock_cache = AsyncMock()
+
         with (
             patch(
-                "services.api.services.login_refresh.get_user_guilds",
-                return_value=[{"id": "guild123"}],
-            ) as _,
+                "services.api.services.login_refresh.member_projection.get_user_guilds",
+                new=AsyncMock(return_value=["guild123"]),
+            ),
+            patch(
+                "services.api.services.login_refresh.member_projection.get_member",
+                new=AsyncMock(return_value=None),
+            ),
             patch(
                 "services.api.services.login_refresh.setup_rls_and_convert_guild_ids",
                 new=AsyncMock(),
             ),
             patch("services.api.services.login_refresh.clear_current_guild_ids"),
             patch("services.api.services.login_refresh.AsyncSessionLocal") as mock_session_local,
-            patch("services.api.services.login_refresh.get_discord_client") as mock_get_client,
+            patch(
+                "services.api.services.login_refresh.cache_client.get_redis_client",
+                return_value=mock_cache,
+            ),
         ):
             mock_session = AsyncMock()
             mock_session.__aenter__ = AsyncMock(return_value=mock_session)
@@ -350,33 +354,35 @@ class TestRefreshDisplayNameOnLogin:
             mock_execute_result.scalars.return_value.all.return_value = [mock_guild]
             mock_session.execute = AsyncMock(return_value=mock_execute_result)
 
-            mock_client = MagicMock()
-            mock_client.get_current_user_guild_member = AsyncMock(
-                side_effect=DiscordAPIError(403, "Not in guild")
-            )
-            mock_get_client.return_value = mock_client
-
             with patch(
                 "services.api.services.login_refresh.UserDisplayNameService"
             ) as mock_svc_cls:
                 mock_svc = AsyncMock()
                 mock_svc_cls.return_value = mock_svc
 
-                await refresh_display_name_on_login("usr123", "oauth-token")
+                await refresh_display_name_on_login("usr123")
 
         mock_svc.upsert_batch.assert_called_once_with([])
 
     @pytest.mark.asyncio
     async def test_no_guilds_skips_upsert(self):
+        mock_cache = AsyncMock()
+
         with (
-            patch("services.api.services.login_refresh.get_user_guilds", return_value=[]),
+            patch(
+                "services.api.services.login_refresh.member_projection.get_user_guilds",
+                new=AsyncMock(return_value=[]),
+            ),
             patch(
                 "services.api.services.login_refresh.setup_rls_and_convert_guild_ids",
                 new=AsyncMock(),
             ),
             patch("services.api.services.login_refresh.clear_current_guild_ids"),
             patch("services.api.services.login_refresh.AsyncSessionLocal") as mock_session_local,
-            patch("services.api.services.login_refresh.get_discord_client"),
+            patch(
+                "services.api.services.login_refresh.cache_client.get_redis_client",
+                return_value=mock_cache,
+            ),
         ):
             mock_session = AsyncMock()
             mock_session.__aenter__ = AsyncMock(return_value=mock_session)
@@ -389,6 +395,6 @@ class TestRefreshDisplayNameOnLogin:
             with patch(
                 "services.api.services.login_refresh.UserDisplayNameService"
             ) as mock_svc_cls:
-                await refresh_display_name_on_login("usr123", "oauth-token")
+                await refresh_display_name_on_login("usr123")
 
         mock_svc_cls.assert_not_called()

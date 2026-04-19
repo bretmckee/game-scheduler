@@ -19,7 +19,7 @@
 # SOFTWARE.
 
 
-"""Unit tests for API-side member projection reader."""
+"""Unit tests for shared member projection reader."""
 
 import json
 from datetime import UTC, datetime, timedelta
@@ -27,15 +27,14 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from services.api.services.member_projection import (
-    _MAX_GEN_RETRIES,
-    _read_with_gen_retry,
+from shared.cache.keys import CacheKeys
+from shared.cache.operations import _MAX_GEN_RETRIES, read_projection_key
+from shared.cache.projection import (
     get_member,
     get_user_guilds,
     get_user_roles,
     is_bot_fresh,
 )
-from shared.cache.keys import CacheKeys
 
 
 def _make_redis(get_return: str | None = None) -> AsyncMock:
@@ -44,8 +43,8 @@ def _make_redis(get_return: str | None = None) -> AsyncMock:
     return redis
 
 
-class TestReadWithGenRetry:
-    """Test suite for _read_with_gen_retry internal function."""
+class TestReadProjectionKey:
+    """Test suite for read_projection_key shared function."""
 
     @pytest.mark.asyncio
     async def test_cache_hit_returns_value(self):
@@ -53,7 +52,7 @@ class TestReadWithGenRetry:
         redis = _make_redis(get_return="gen123")
         redis.get = AsyncMock(side_effect=["gen123", "value_data", "gen123"])
 
-        result = await _read_with_gen_retry(redis, CacheKeys.proj_member, "guild1", "user1")
+        result = await read_projection_key(redis, CacheKeys.proj_member, "guild1", "user1")
 
         assert result == "value_data"
 
@@ -64,7 +63,7 @@ class TestReadWithGenRetry:
         # gen read, key miss, gen re-read (same gen = stable miss)
         redis.get = AsyncMock(side_effect=["gen123", None, "gen123"])
 
-        result = await _read_with_gen_retry(redis, CacheKeys.proj_member, "guild1", "user1")
+        result = await read_projection_key(redis, CacheKeys.proj_member, "guild1", "user1")
 
         assert result is None
 
@@ -76,7 +75,7 @@ class TestReadWithGenRetry:
         # Second attempt: get gen2, key hit → return value
         redis.get = AsyncMock(side_effect=["gen1", None, "gen2", "value_data", "gen2"])
 
-        result = await _read_with_gen_retry(redis, CacheKeys.proj_member, "guild1", "user1")
+        result = await read_projection_key(redis, CacheKeys.proj_member, "guild1", "user1")
 
         assert result == "value_data"
 
@@ -91,7 +90,7 @@ class TestReadWithGenRetry:
             side_effects.extend([None, f"gen{i + 1}"])
         redis.get = AsyncMock(side_effect=side_effects)
 
-        result = await _read_with_gen_retry(redis, CacheKeys.proj_member, "guild1", "user1")
+        result = await read_projection_key(redis, CacheKeys.proj_member, "guild1", "user1")
 
         assert result is None
 

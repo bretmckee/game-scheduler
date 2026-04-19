@@ -19,8 +19,9 @@
 # SOFTWARE.
 
 
-"""Bot-side projection writer for Discord member data from gateway events."""
+"""Bot-side projection writer and reader for Discord member data from gateway events."""
 
+import json
 import logging
 from datetime import UTC, datetime
 
@@ -29,6 +30,26 @@ from opentelemetry import metrics
 
 from shared.cache.client import RedisClient
 from shared.cache.keys import CacheKeys
+from shared.cache.operations import read_projection_key
+
+
+async def get_user_roles(guild_id: str, uid: str, *, redis: RedisClient) -> list[str]:
+    """
+    Get the role IDs for a user in a guild from the projection.
+
+    Args:
+        guild_id: Discord guild ID
+        uid: Discord user ID
+        redis: Redis async client wrapper
+
+    Returns:
+        List of role ID strings, empty list if member absent
+    """
+    raw = await read_projection_key(redis, CacheKeys.proj_member, guild_id, uid)
+    if raw is None:
+        return []
+    return json.loads(raw).get("roles", [])
+
 
 logger = logging.getLogger(__name__)
 meter = metrics.get_meter(__name__)

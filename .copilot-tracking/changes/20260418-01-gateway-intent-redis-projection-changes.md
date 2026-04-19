@@ -87,6 +87,104 @@ Eliminate Discord REST API calls from the per-request API path by enabling GUILD
 
 ### Removed
 
+### Task 4.2: Migrate login_refresh.py Display Name Reads
+
+**Files Modified**:
+
+- `services/api/services/login_refresh.py` — replaced REST calls with projection reads; removed `access_token` parameter
+- `services/api/routes/auth.py` — removed `access_token` argument from `refresh_display_name_on_login` background task call
+- `tests/unit/services/api/routes/test_auth_routes.py` — updated `TestRefreshDisplayNameOnLogin` and `TestCallbackEnqueuesDisplayNameRefresh` to use projection mocks
+
+**Files Added**:
+
+- `tests/unit/api/services/test_login_refresh.py` — 5 new unit tests for projection-based behavior (TDD xfail→green workflow)
+
+**Changes Detail**:
+
+- Removed `get_user_guilds` (OAuth REST) — replaced with `member_projection.get_user_guilds(uid, redis=redis)`
+- Removed `client.get_current_user_guild_member` (REST) — replaced with `member_projection.get_member(guild_id, uid, redis=redis)`
+- `_resolve_member_display_name` updated for flat projection dict (`nick`/`global_name`/`username` instead of nested `user` sub-dict)
+- `_resolve_member_avatar_url` removed — projection provides `avatar_url` directly
+- Redis client fetched once per call and passed to all projection reads
+- `None` return from `get_user_guilds` → early return (previously would have returned empty list from OAuth)
+- `None` return from `get_member` → guild skipped (replaces `DiscordAPIError` catch)
+- Removed imports: `get_user_guilds` from oauth2, `get_discord_client`, `DiscordAPIError`
+- `access_token` parameter removed from `refresh_display_name_on_login` signature (no longer needed)
+
+**Performance Impact**:
+
+- `refresh_display_name_on_login` fires **zero Discord REST calls** (down from 1 OAuth + 1 REST per guild)
+
+**Success Criteria Achieved**:
+
+- ✓ `refresh_display_name_on_login` reads exclusively from Redis projection
+- ✓ Zero Discord REST calls from this background task
+- ✓ All 2207 unit tests passing
+
+### Task 4.2 Completion Summary
+
+**Status**: ✅ COMPLETE
+
+### Task 4.3: Migrate RoleChecker.get_user_role_ids REST Fallback
+
+**Files Modified**:
+
+- `services/bot/guild_projection.py` — Added bot-accessible reader functions: `_read_with_gen_retry()`, `get_user_roles()`; updated module docstring; added imports `json`, `Callable`; added constant `_MAX_GEN_RETRIES = 3`
+- `services/bot/auth/role_checker.py` — Replaced REST fallback with projection read; removed discord client imports; added `guild_projection` import
+- `tests/unit/services/bot/auth/test_role_checker.py` — Deleted 10 REST-based tests; added 3 projection-based tests
+
+**Changes Detail**:
+
+- Added `_read_with_gen_retry()` to `guild_projection.py` (bot-side) — mirrors the API-side retry logic since bot Docker container cannot import `services/api/`; reads gen pointer, fetches key, retries up to `_MAX_GEN_RETRIES` if gen rotated mid-read
+- Added `get_user_roles()` to `guild_projection.py` — reads member projection key and returns `roles` field as list of strings; returns `[]` for absent members
+- `RoleChecker.get_user_role_ids()` — now fetches `redis` client via `self.cache.get_redis()` and calls `guild_projection.get_user_roles()`; cache-first behavior retained; `force_refresh=True` bypasses cache and reads projection directly
+- Removed: `DiscordAPIError` exception handler, `bot.get_guild()` check, REST `get_guild_member` call
+
+**Success Criteria Achieved**:
+
+- ✓ `get_user_role_ids` reads exclusively from Redis projection
+- ✓ Zero Discord REST calls from role checking
+- ✓ All 30 role_checker unit tests passing
+- ✓ All 2175 unit tests passing
+
+### Task 4.3 Completion Summary
+
+**Status**: ✅ COMPLETE
+
+### Task 4.4: Migrate DisplayNameResolver REST Fallback
+
+**Files Modified**:
+
+- `services/api/services/display_names.py` — Replaced Discord REST calls with projection reads; removed discord client constructor parameter; updated all fetch methods to use `member_projection.get_member()`; updated `_resolve_display_name()` for flat projection dict format
+- `tests/unit/services/api/services/test_display_names.py` — Deleted 19 REST-based tests; removed `mock_discord_api` fixture; updated 6 tests to use flat dict format and new 1-arg constructor; added 4 projection-based tests
+- `tests/unit/services/api/services/test_avatar_resolver.py` — Deleted (all tests tested REST-based behavior via 2-arg constructor; `_build_avatar_url` coverage retained in `test_display_names.py`)
+
+**Changes Detail**:
+
+- `DisplayNameResolver.__init__()` — removed `discord_api` parameter; now accepts only `cache: RedisClient`
+- `_resolve_display_name()` — updated for flat projection dict: `member.get("nick") or member.get("global_name") or member["username"]` (previously nested: `member["user"]["username"]`)
+- `_fetch_and_cache_display_names()` — now calls `member_projection.get_member()` per user; returns `"Unknown User"` for absent members; caches result; removed `get_guild_members_batch` batch REST call
+- `_fetch_and_cache_display_names_avatars()` — now calls `member_projection.get_member()` per user; reads `avatar_url` directly from projection flat dict (pre-computed by bot writer); no `_build_avatar_url` call needed
+- `resolve_display_names_and_avatars()` — removed `global_max` parameter
+- `get_display_name_resolver()` — removed discord client dependency; now only fetches Redis client
+- Exception handlers changed from `except discord_client.DiscordAPIError` to `except Exception`
+
+**Performance Impact**:
+
+- `DisplayNameResolver` fires **zero Discord REST calls** per resolution (down from 1 per uncached user)
+- Each projection read makes up to 6 Redis GET calls (including gen-rotation retry)
+
+**Success Criteria Achieved**:
+
+- ✓ `DisplayNameResolver` reads exclusively from Redis projection
+- ✓ Zero Discord REST calls from display name resolution
+- ✓ All 21 display_names unit tests passing
+- ✓ All 2175 unit tests passing
+
+### Task 4.4 Completion Summary
+
+**Status**: ✅ COMPLETE
+
 ## Release Summary
 
 _To be completed after all phases are implemented._

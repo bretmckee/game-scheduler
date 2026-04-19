@@ -70,13 +70,13 @@ Eliminate all Discord REST API calls from the per-request API path by pre-popula
   - Details: .copilot-tracking/planning/details/20260418-01-gateway-intent-redis-projection-details.md (Lines 204–222)
   - **Completed**: Also migrated `get_guild_name()` from OAuth to projection read
 
-- [ ] Task 4.2: Migrate `login_refresh.py` display name reads → `get_member()`
+- [x] Task 4.2: Migrate `login_refresh.py` display name reads → `get_member()`
   - Details: .copilot-tracking/planning/details/20260418-01-gateway-intent-redis-projection-details.md (Lines 223–237)
 
-- [ ] Task 4.3: Migrate `RoleChecker.get_user_role_ids` REST fallback → `get_user_roles()`
+- [x] Task 4.3: Migrate `RoleChecker.get_user_role_ids` REST fallback → `get_user_roles()`
   - Details: .copilot-tracking/planning/details/20260418-01-gateway-intent-redis-projection-details.md (Lines 238–251)
 
-- [ ] Task 4.4: Migrate `DisplayNameResolver` REST fallback → `get_member()`
+- [x] Task 4.4: Migrate `DisplayNameResolver` REST fallback → `get_member()`
   - Details: .copilot-tracking/planning/details/20260418-01-gateway-intent-redis-projection-details.md (Lines 252–268)
 
 ### [ ] Phase 5: Cleanup

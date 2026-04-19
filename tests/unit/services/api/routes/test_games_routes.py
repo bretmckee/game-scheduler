@@ -32,7 +32,6 @@ from services.api.routes import games as games_routes
 from services.api.services import participant_resolver as resolver_module
 from services.api.services.display_names import DisplayNameResolver
 from services.api.services.user_display_names import UserDisplayNameService
-from shared.cache.ttl import DISCORD_GLOBAL_RATE_LIMIT_INTERACTIVE
 from shared.schemas import game as game_schemas
 
 
@@ -189,7 +188,6 @@ class TestGetGameCanManage:
         mock_build.assert_called_once_with(
             game,
             can_manage=True,
-            global_max=45,
             display_name_service=mock_build.call_args.kwargs["display_name_service"],
         )
         assert result is expected_response
@@ -232,7 +230,6 @@ class TestGetGameCanManage:
         mock_build.assert_called_once_with(
             game,
             can_manage=False,
-            global_max=45,
             display_name_service=mock_build.call_args.kwargs["display_name_service"],
         )
         assert result is expected_response
@@ -274,7 +271,6 @@ class TestGetGameCanManage:
         mock_build.assert_called_once_with(
             game,
             can_manage=False,
-            global_max=45,
             display_name_service=mock_build.call_args.kwargs["display_name_service"],
         )
         assert result is expected_response
@@ -329,62 +325,6 @@ class TestListGamesResolvesParticipants:
         mock_build.assert_called_once()
         call_kwargs = mock_build.call_args.kwargs
         assert call_kwargs.get("resolve_participants") is False
-
-
-class TestGetGameInteractiveBudget:
-    """Tests for DISCORD_GLOBAL_RATE_LIMIT_INTERACTIVE budget in get_game route."""
-
-    def _make_game(self) -> MagicMock:
-        game = MagicMock()
-        game.host = MagicMock()
-        game.host.discord_id = "host_discord_id"
-        game.guild = MagicMock()
-        game.guild.guild_id = "guild_discord_id"
-        return game
-
-    def _make_current_user(self) -> MagicMock:
-        user = MagicMock()
-        user.user.discord_id = "user_discord_id"
-        user.access_token = "token"
-        return user
-
-    @pytest.mark.asyncio
-    async def test_get_game_calls_build_with_interactive_global_max(self):
-        """get_game passes the interactive budget as global_max to _build_game_response."""
-        game = self._make_game()
-        current_user = self._make_current_user()
-        game_service = MagicMock()
-        game_service.get_game = AsyncMock(return_value=game)
-        game_service.db = MagicMock()
-        role_service = MagicMock()
-        expected_response = MagicMock()
-
-        with (
-            patch(
-                "services.api.routes.games.permissions_deps.verify_game_access",
-                new_callable=AsyncMock,
-            ),
-            patch(
-                "services.api.routes.games.permissions_deps.can_manage_game",
-                new_callable=AsyncMock,
-                return_value=True,
-            ),
-            patch(
-                "services.api.routes.games._build_game_response",
-                new_callable=AsyncMock,
-                return_value=expected_response,
-            ) as mock_build,
-        ):  # add display_name_service
-            await games_routes.get_game(
-                game_id="game-123",
-                current_user=current_user,
-                game_service=game_service,
-                role_service=role_service,
-                display_name_service=MagicMock(),
-            )
-
-        call_kwargs = mock_build.call_args.kwargs
-        assert call_kwargs.get("global_max") == DISCORD_GLOBAL_RATE_LIMIT_INTERACTIVE
 
 
 class TestListGamesPrefetchedDisplayData:

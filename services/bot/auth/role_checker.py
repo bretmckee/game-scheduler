@@ -30,11 +30,9 @@ from typing import TYPE_CHECKING
 
 import discord
 from sqlalchemy.ext.asyncio import AsyncSession
-from starlette import status
 
+from services.bot import guild_projection
 from services.bot.auth import cache
-from services.bot.dependencies.discord_client import get_discord_client
-from shared.discord.client import DiscordAPIError
 
 if TYPE_CHECKING:
     from discord import Client
@@ -78,29 +76,11 @@ class RoleChecker:
                 return cached_roles
 
         try:
-            guild = self.bot.get_guild(int(guild_id))
-            if guild is None:
-                logger.warning("Guild %s not found", guild_id)
-                return []
-
-            discord_api = get_discord_client()
-            member_data = await discord_api.get_guild_member(guild_id, user_id)
-            role_ids = member_data.get("roles", [])
-
+            redis = await self.cache.get_redis()
+            role_ids = await guild_projection.get_user_roles(guild_id, user_id, redis=redis)
             await self.cache.set_user_roles(user_id, guild_id, role_ids)
             return role_ids
 
-        except DiscordAPIError as e:
-            if e.status == status.HTTP_404_NOT_FOUND:
-                logger.warning("Member %s not found in guild %s", user_id, guild_id)
-            else:
-                logger.error(
-                    "Discord API error fetching member %s in guild %s: %s",
-                    user_id,
-                    guild_id,
-                    e.status,
-                )
-            return []
         except Exception as e:
             logger.error("Error fetching user roles: %s", e)
             return []

@@ -19,66 +19,19 @@
 # SOFTWARE.
 
 
-"""API-side reader for the Discord member projection stored in Redis."""
+"""Reader for the Discord member projection stored in Redis."""
 
 import json
 import logging
-from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
-
-from opentelemetry import metrics
 
 from shared.cache.client import RedisClient
 from shared.cache.keys import CacheKeys
+from shared.cache.operations import read_projection_key
 
 logger = logging.getLogger(__name__)
-meter = metrics.get_meter(__name__)
 
-_read_retry_counter = meter.create_counter(
-    name="api.projection.read.retries",
-    description="Number of gen-rotation retries during projection reads",
-    unit="1",
-)
-_read_not_found_counter = meter.create_counter(
-    name="api.projection.read.not_found",
-    description="Number of stable-gen misses during projection reads",
-    unit="1",
-)
-
-_MAX_GEN_RETRIES = 3
 _BOT_FRESHNESS_SECONDS = 120
-
-
-async def _read_with_gen_retry(
-    redis: RedisClient, key_fn: Callable[..., str], *key_args: str
-) -> str | None:
-    """
-    Read a projection key with generation-rotation retry.
-
-    Handles the window where the gen pointer has flipped to a new value but
-    the caller's key was constructed with the old value. Retries up to
-    _MAX_GEN_RETRIES times before giving up.
-
-    Args:
-        redis: Redis async client wrapper
-        key_fn: Key factory function (e.g., CacheKeys.proj_member)
-        *key_args: Arguments to pass to key_fn after the gen argument
-
-    Returns:
-        Cached value string, or None if absent
-    """
-    gen = await redis.get(CacheKeys.proj_gen())
-    for _ in range(_MAX_GEN_RETRIES):
-        value = await redis.get(key_fn(gen, *key_args))
-        if value is not None:
-            return value
-        gen2 = await redis.get(CacheKeys.proj_gen())
-        if gen == gen2:
-            _read_not_found_counter.add(1)
-            return None
-        _read_retry_counter.add(1)
-        gen = gen2
-    return None
 
 
 async def get_user_guilds(uid: str, *, redis: RedisClient) -> list[str] | None:
@@ -92,7 +45,7 @@ async def get_user_guilds(uid: str, *, redis: RedisClient) -> list[str] | None:
     Returns:
         List of guild ID strings, or None if absent
     """
-    raw = await _read_with_gen_retry(redis, CacheKeys.proj_user_guilds, uid)
+    raw = await read_projection_key(redis, CacheKeys.proj_user_guilds, uid)
     if raw is None:
         return None
     return json.loads(raw)
@@ -111,7 +64,7 @@ async def get_member(guild_id: str, uid: str, *, redis: RedisClient) -> dict | N
         Member dict with keys: roles, nick, global_name, username, avatar_url;
         or None if absent
     """
-    raw = await _read_with_gen_retry(redis, CacheKeys.proj_member, guild_id, uid)
+    raw = await read_projection_key(redis, CacheKeys.proj_member, guild_id, uid)
     if raw is None:
         return None
     return json.loads(raw)
@@ -146,7 +99,7 @@ async def get_guild_name(guild_id: str, *, redis: RedisClient) -> str | None:
     Returns:
         Guild name string, or None if absent
     """
-    return await _read_with_gen_retry(redis, CacheKeys.proj_guild_name, guild_id)
+    return await read_projection_key(redis, CacheKeys.proj_guild_name, guild_id)
 
 
 async def is_bot_fresh(*, redis: RedisClient) -> bool:

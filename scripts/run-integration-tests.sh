@@ -72,8 +72,19 @@ else
   docker compose --progress quiet --env-file "$ENV_FILE" up -d --build system-ready
 fi
 
-# Build if needed, then run tests without restarting dependencies
-# When $@ is empty, compose uses command field; when present, it overrides
-docker compose --progress quiet --env-file "$ENV_FILE" run --build --no-deps --rm integration-tests "$@"
+# Build if needed, then run tests without restarting dependencies.
+# docker compose run does not forward container stdout in non-TTY environments;
+# we keep the container, print its logs, then clean up manually.
+RUNNER_NAME="gamebot-int-tests-runner-$$"
+docker rm "$RUNNER_NAME" 2>/dev/null || true
+docker compose --progress quiet --env-file "$ENV_FILE" run -T --build --no-deps --name "$RUNNER_NAME" integration-tests "$@" || true
+docker logs "$RUNNER_NAME" 2>&1
+TEST_EXIT=$(docker inspect "$RUNNER_NAME" --format='{{.State.ExitCode}}' 2>/dev/null || echo 1)
+docker rm "$RUNNER_NAME" 2>/dev/null || true
+
+if [ "$TEST_EXIT" -ne 0 ]; then
+  echo "Integration tests FAILED (exit $TEST_EXIT)"
+  exit "$TEST_EXIT"
+fi
 
 echo "Integration tests passed!"

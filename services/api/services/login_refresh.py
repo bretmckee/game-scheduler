@@ -25,52 +25,81 @@ import logging
 
 from sqlalchemy import select
 
-from services.api.auth.oauth2 import get_user_guilds
 from services.api.database.queries import setup_rls_and_convert_guild_ids
-from services.api.dependencies.discord import get_discord_client
 from services.api.services.user_display_names import UserDisplayNameService
 from shared.cache import client as cache_client
 from shared.cache import keys as cache_keys
+from shared.cache import projection as member_projection
 from shared.cache import ttl as cache_ttl
 from shared.data_access.guild_isolation import clear_current_guild_ids
 from shared.database import AsyncSessionLocal
-from shared.discord.client import DiscordAPIError
 from shared.models.guild import GuildConfiguration
 
 logger = logging.getLogger(__name__)
 
 
 def _resolve_member_display_name(member: dict) -> str:
-    return member.get("nick") or member["user"].get("global_name") or member["user"]["username"]
+    return member.get("nick") or member.get("global_name") or member["username"]
 
 
-def _resolve_member_avatar_url(
-    user_discord_id: str, guild_discord_id: str, member: dict
-) -> str | None:
-    member_avatar = member.get("avatar")
-    user_avatar = member["user"].get("avatar")
-    if member_avatar:
-        return f"https://cdn.discordapp.com/guilds/{guild_discord_id}/users/{user_discord_id}/avatars/{member_avatar}.png?size=64"
-    if user_avatar:
-        return f"https://cdn.discordapp.com/avatars/{user_discord_id}/{user_avatar}.png?size=64"
-    return None
+async def _build_guild_entry(
+    user_discord_id: str,
+    guild_config: GuildConfiguration,
+    redis: cache_client.RedisClient,
+) -> dict | None:
+    """
+    Read projection for one guild and build a display-name entry dict.
+
+    Also caches the user's role IDs for the guild. Returns None if the
+    member is absent from the projection.
+    """
+    member = await member_projection.get_member(guild_config.guild_id, user_discord_id, redis=redis)
+    if member is None:
+        logger.info(
+            "refresh_display_name_on_login: guild %s user %s absent from projection",
+            guild_config.guild_id,
+            user_discord_id,
+        )
+        return None
+
+    role_ids = list(member.get("roles", []))
+    if guild_config.guild_id not in role_ids:
+        role_ids.append(guild_config.guild_id)
+    await redis.set_json(
+        cache_keys.CacheKeys.user_roles(user_discord_id, guild_config.guild_id),
+        role_ids,
+        ttl=cache_ttl.CacheTTL.USER_ROLES,
+    )
+
+    return {
+        "user_discord_id": user_discord_id,
+        "guild_discord_id": guild_config.guild_id,
+        "display_name": _resolve_member_display_name(member),
+        "avatar_url": member.get("avatar_url"),
+    }
 
 
 async def refresh_display_name_on_login(
     user_discord_id: str,
-    access_token: str,
 ) -> None:
     """
     Refresh the logged-in user's display name across all bot-registered guilds.
 
     Runs as a FastAPI background task after the OAuth callback so it does not
-    block the login response. Uses the user's own OAuth token, leaving the bot
-    token rate limit budget untouched.
+    block the login response. Reads member data from the Redis projection written
+    by the Discord bot, making zero Discord REST calls.
     """
     logger.info("refresh_display_name_on_login: started for user %s", user_discord_id)
     try:
-        user_guilds = await get_user_guilds(access_token, user_discord_id)
-        discord_guild_ids = [g["id"] for g in user_guilds]
+        redis = await cache_client.get_redis_client()
+        discord_guild_ids = await member_projection.get_user_guilds(user_discord_id, redis=redis)
+        if discord_guild_ids is None:
+            logger.info(
+                "refresh_display_name_on_login: user %s absent from projection, skipping",
+                user_discord_id,
+            )
+            return
+
         async with AsyncSessionLocal() as db:
             await setup_rls_and_convert_guild_ids(db, discord_guild_ids)
             result = await db.execute(select(GuildConfiguration))
@@ -85,46 +114,17 @@ async def refresh_display_name_on_login(
             if not guilds:
                 return
 
-            client = get_discord_client()
             entries = []
 
             for guild_config in guilds:
                 logger.info(
-                    "refresh_display_name_on_login: fetching member data from guild %s for user %s",
+                    "refresh_display_name_on_login: reading projection for guild %s user %s",
                     guild_config.guild_id,
                     user_discord_id,
                 )
-                try:
-                    member = await client.get_current_user_guild_member(
-                        guild_config.guild_id, access_token
-                    )
-                except DiscordAPIError as e:
-                    logger.info(
-                        "refresh_display_name_on_login: skipping guild %s for user %s (%s)",
-                        guild_config.guild_id,
-                        user_discord_id,
-                        e,
-                    )
-                    continue
-
-                entries.append({
-                    "user_discord_id": user_discord_id,
-                    "guild_discord_id": guild_config.guild_id,
-                    "display_name": _resolve_member_display_name(member),
-                    "avatar_url": _resolve_member_avatar_url(
-                        user_discord_id, guild_config.guild_id, member
-                    ),
-                })
-
-                role_ids = list(member.get("roles", []))
-                if guild_config.guild_id not in role_ids:
-                    role_ids.append(guild_config.guild_id)
-                cache = await cache_client.get_redis_client()
-                await cache.set_json(
-                    cache_keys.CacheKeys.user_roles(user_discord_id, guild_config.guild_id),
-                    role_ids,
-                    ttl=cache_ttl.CacheTTL.USER_ROLES,
-                )
+                entry = await _build_guild_entry(user_discord_id, guild_config, redis)
+                if entry is not None:
+                    entries.append(entry)
 
             logger.info(
                 "refresh_display_name_on_login: upserting %d entries for user %s",

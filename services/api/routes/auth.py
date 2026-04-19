@@ -136,7 +136,7 @@ async def callback(
         can_be_maintainer=can_be_maintainer,
     )
 
-    background_tasks.add_task(refresh_display_name_on_login, discord_id, token_data["access_token"])
+    background_tasks.add_task(refresh_display_name_on_login, discord_id)
 
     config = get_api_config()
     is_production = config.environment == "production"

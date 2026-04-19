@@ -28,13 +28,11 @@ with Redis caching.
 
 import logging
 
-from services.api.dependencies.discord import get_discord_client
 from shared.cache import client as cache_client
 from shared.cache import keys as cache_keys
+from shared.cache import projection as member_projection
 from shared.cache import ttl as cache_ttl
 from shared.cache.operations import CacheOperation, cache_get
-from shared.cache.ttl import DISCORD_GLOBAL_RATE_LIMIT_BACKGROUND
-from shared.discord import client as discord_client
 
 logger = logging.getLogger(__name__)
 
@@ -44,31 +42,28 @@ class DisplayNameResolver:
 
     def __init__(
         self,
-        discord_api: discord_client.DiscordAPIClient,
         cache: cache_client.RedisClient,
     ) -> None:
         """
         Initialize display name resolver.
 
         Args:
-            discord_api: Discord API client for fetching member data
-            cache: Redis cache client for caching display names and avatars
+            cache: Redis cache client for caching display names and reading the projection
         """
-        self.discord_api = discord_api
         self.cache = cache
 
     @staticmethod
     def _resolve_display_name(member: dict) -> str:
         """
-        Resolve display name from Discord member data.
+        Resolve display name from projection member data.
 
         Args:
-            member: Discord member dictionary with 'user' and optional 'nick'
+            member: Flat projection member dict with keys: nick, global_name, username
 
         Returns:
             Display name using fallback: nick -> global_name -> username
         """
-        return member.get("nick") or member["user"].get("global_name") or member["user"]["username"]
+        return member.get("nick") or member.get("global_name") or member["username"]
 
     @staticmethod
     def _build_avatar_url(
@@ -103,7 +98,7 @@ class DisplayNameResolver:
         self, guild_id: str, uncached_ids: list[str]
     ) -> dict[str, str]:
         """
-        Fetch display names from Discord API and cache them.
+        Fetch display names from Redis projection and cache them.
 
         Args:
             guild_id: Discord guild ID
@@ -113,21 +108,15 @@ class DisplayNameResolver:
             Dictionary mapping user IDs to display names
         """
         result = {}
-        members = await self.discord_api.get_guild_members_batch(guild_id, uncached_ids)
-
-        for member in members:
-            user_id = member["user"]["id"]
+        for user_id in uncached_ids:
+            member = await member_projection.get_member(guild_id, user_id, redis=self.cache)
+            if member is None:
+                result[user_id] = "Unknown User"
+                continue
             display_name = self._resolve_display_name(member)
             result[user_id] = display_name
-
             cache_key = cache_keys.CacheKeys.display_name(user_id, guild_id)
             await self.cache.set_json(cache_key, display_name, ttl=cache_ttl.CacheTTL.DISPLAY_NAME)
-
-        found_ids = {m["user"]["id"] for m in members}
-        for user_id in uncached_ids:
-            if user_id not in found_ids:
-                result[user_id] = "Unknown User"
-
         return result
 
     async def _check_cache_for_display_names(
@@ -158,7 +147,7 @@ class DisplayNameResolver:
 
     def _create_fallback_display_names(self, uncached_ids: list[str]) -> dict[str, str]:
         """
-        Create fallback display names for failed API calls.
+        Create fallback display names for error cases.
 
         Args:
             uncached_ids: List of user IDs that failed to fetch
@@ -172,7 +161,7 @@ class DisplayNameResolver:
         """
         Resolve Discord user IDs to display names for a guild.
 
-        Checks cache first, then fetches uncached IDs from Discord API.
+        Checks cache first, then fetches uncached IDs from the Redis projection.
         Names are resolved using priority: nick > global_name > username.
 
         Args:
@@ -188,7 +177,7 @@ class DisplayNameResolver:
             try:
                 fetched_data = await self._fetch_and_cache_display_names(guild_id, uncached_ids)
                 result.update(fetched_data)
-            except discord_client.DiscordAPIError as e:
+            except Exception as e:
                 logger.error("Failed to fetch display names: %s", e)
                 fallback_data = self._create_fallback_display_names(uncached_ids)
                 result.update(fallback_data)
@@ -199,10 +188,9 @@ class DisplayNameResolver:
         self,
         guild_id: str,
         uncached_ids: list[str],
-        global_max: int = DISCORD_GLOBAL_RATE_LIMIT_BACKGROUND,
     ) -> dict[str, dict[str, str | None]]:
         """
-        Fetch display names and avatars from Discord API and cache them.
+        Fetch display names and avatars from Redis projection and cache them.
 
         Args:
             guild_id: Discord guild ID
@@ -212,26 +200,14 @@ class DisplayNameResolver:
             Dictionary mapping user IDs to display_name and avatar_url
         """
         result = {}
-        members = await self.discord_api.get_guild_members_batch(
-            guild_id, uncached_ids, global_max=global_max
-        )
-
-        for member in members:
-            user_id = member["user"]["id"]
-            display_name = self._resolve_display_name(member)
-
-            member_avatar = member.get("avatar")
-            user_avatar = member["user"].get("avatar")
-            avatar_url = self._build_avatar_url(user_id, guild_id, member_avatar, user_avatar)
-
-            user_data = {"display_name": display_name, "avatar_url": avatar_url}
-            result[user_id] = user_data
-
-        found_ids = {m["user"]["id"] for m in members}
         for user_id in uncached_ids:
-            if user_id not in found_ids:
+            member = await member_projection.get_member(guild_id, user_id, redis=self.cache)
+            if member is None:
                 result[user_id] = {"display_name": "Unknown User", "avatar_url": None}
-
+                continue
+            display_name = self._resolve_display_name(member)
+            avatar_url = member.get("avatar_url")
+            result[user_id] = {"display_name": display_name, "avatar_url": avatar_url}
         return result
 
     @staticmethod
@@ -256,14 +232,13 @@ class DisplayNameResolver:
         self,
         guild_id: str,
         user_ids: list[str],
-        global_max: int = DISCORD_GLOBAL_RATE_LIMIT_BACKGROUND,
     ) -> dict[str, dict[str, str | None]]:
         """
         Resolve Discord user IDs to display names and avatar URLs.
 
-        Checks cache first, then fetches uncached IDs from Discord API.
-        Names are resolved using priority: nick > global_name > username.
-        Avatar URLs use priority: guild member avatar > user avatar > None.
+        Checks projection for each user. Names are resolved using priority:
+        nick > global_name > username. Avatar URLs come from the projection's
+        pre-computed avatar_url field.
 
         Args:
             guild_id: Discord guild (server) ID
@@ -273,10 +248,8 @@ class DisplayNameResolver:
             Dictionary mapping user IDs to dicts with display_name and avatar_url
         """
         try:
-            result = await self._fetch_and_cache_display_names_avatars(
-                guild_id, user_ids, global_max=global_max
-            )
-        except discord_client.DiscordAPIError as e:
+            result = await self._fetch_and_cache_display_names_avatars(guild_id, user_ids)
+        except Exception as e:
             logger.error("Failed to fetch display names and avatars: %s", e)
             result = self._create_fallback_user_data(user_ids)
 
@@ -299,6 +272,5 @@ class DisplayNameResolver:
 
 async def get_display_name_resolver() -> DisplayNameResolver:
     """Get display name resolver instance with initialized dependencies."""
-    discord_api = get_discord_client()
     cache = await cache_client.get_redis_client()
-    return DisplayNameResolver(discord_api, cache)
+    return DisplayNameResolver(cache)

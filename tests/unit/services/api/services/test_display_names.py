@@ -27,14 +27,6 @@ import pytest
 
 from services.api.services import display_names
 from shared.cache import client as cache_client
-from shared.cache.ttl import DISCORD_GLOBAL_RATE_LIMIT_INTERACTIVE
-from shared.discord import client as discord_client
-
-
-@pytest.fixture
-def mock_discord_api():
-    """Mock Discord API client."""
-    return AsyncMock(spec=discord_client.DiscordAPIClient)
 
 
 @pytest.fixture
@@ -44,9 +36,9 @@ def mock_cache():
 
 
 @pytest.fixture
-def resolver(mock_discord_api, mock_cache):
+def resolver(mock_cache):
     """Display name resolver with mocked dependencies."""
-    return display_names.DisplayNameResolver(mock_discord_api, mock_cache)
+    return display_names.DisplayNameResolver(mock_cache)
 
 
 @pytest.mark.asyncio
@@ -66,194 +58,6 @@ async def test_resolve_display_names_from_cache(resolver, mock_cache):
 
 
 @pytest.mark.asyncio
-async def test_resolve_display_names_from_api(resolver, mock_discord_api, mock_cache):
-    """Test resolving display names from Discord API when not cached."""
-    guild_id = "123456789"
-    user_ids = ["user1", "user2"]
-
-    # Mock Discord API response
-    mock_discord_api.get_guild_members_batch = AsyncMock(
-        return_value=[
-            {
-                "user": {
-                    "id": "user1",
-                    "username": "username1",
-                    "global_name": "GlobalName1",
-                },
-                "nick": "GuildNick1",
-            },
-            {
-                "user": {
-                    "id": "user2",
-                    "username": "username2",
-                    "global_name": "GlobalName2",
-                },
-                "nick": None,
-            },
-        ]
-    )
-
-    with patch(
-        "services.api.services.display_names.cache_get",
-        new_callable=AsyncMock,
-        return_value=None,
-    ):
-        result = await resolver.resolve_display_names(guild_id, user_ids)
-
-    assert result == {"user1": "GuildNick1", "user2": "GlobalName2"}
-    assert mock_cache.set_json.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_resolve_display_names_fallback_to_global_name(
-    resolver, mock_discord_api, mock_cache
-):
-    """Test fallback to global_name when nick is not set."""
-    guild_id = "123456789"
-    user_ids = ["user1"]
-
-    mock_discord_api.get_guild_members_batch = AsyncMock(
-        return_value=[
-            {
-                "user": {
-                    "id": "user1",
-                    "username": "username1",
-                    "global_name": "GlobalName1",
-                },
-                "nick": None,
-            }
-        ]
-    )
-
-    with patch(
-        "services.api.services.display_names.cache_get",
-        new_callable=AsyncMock,
-        return_value=None,
-    ):
-        result = await resolver.resolve_display_names(guild_id, user_ids)
-
-    assert result == {"user1": "GlobalName1"}
-
-
-@pytest.mark.asyncio
-async def test_resolve_display_names_fallback_to_username(resolver, mock_discord_api, mock_cache):
-    """Test fallback to username when nick and global_name are not set."""
-    guild_id = "123456789"
-    user_ids = ["user1"]
-
-    mock_discord_api.get_guild_members_batch = AsyncMock(
-        return_value=[
-            {
-                "user": {"id": "user1", "username": "username1", "global_name": None},
-                "nick": None,
-            }
-        ]
-    )
-
-    with patch(
-        "services.api.services.display_names.cache_get",
-        new_callable=AsyncMock,
-        return_value=None,
-    ):
-        result = await resolver.resolve_display_names(guild_id, user_ids)
-
-    assert result == {"user1": "username1"}
-
-
-@pytest.mark.asyncio
-async def test_resolve_display_names_user_not_found(resolver, mock_discord_api, mock_cache):
-    """Test handling of users who left the guild."""
-    guild_id = "123456789"
-    user_ids = ["user1", "user2"]
-
-    # Only user1 is returned (user2 left guild)
-    mock_discord_api.get_guild_members_batch = AsyncMock(
-        return_value=[
-            {
-                "user": {
-                    "id": "user1",
-                    "username": "username1",
-                    "global_name": "GlobalName1",
-                },
-                "nick": "GuildNick1",
-            }
-        ]
-    )
-
-    with patch(
-        "services.api.services.display_names.cache_get",
-        new_callable=AsyncMock,
-        return_value=None,
-    ):
-        result = await resolver.resolve_display_names(guild_id, user_ids)
-
-    assert result == {"user1": "GuildNick1", "user2": "Unknown User"}
-
-
-@pytest.mark.asyncio
-async def test_resolve_display_names_api_error(resolver, mock_discord_api, mock_cache):
-    """Test fallback on Discord API error."""
-    guild_id = "123456789"
-    user_ids = ["user1234"]
-
-    mock_discord_api.get_guild_members_batch = AsyncMock(
-        side_effect=discord_client.DiscordAPIError(500, "API Error")
-    )
-
-    with patch(
-        "services.api.services.display_names.cache_get",
-        new_callable=AsyncMock,
-        return_value=None,
-    ):
-        result = await resolver.resolve_display_names(guild_id, user_ids)
-
-    # Should return fallback format: User#1234
-    assert result == {"user1234": "User#1234"}
-
-
-@pytest.mark.asyncio
-async def test_resolve_display_names_mixed_cache_and_api(resolver, mock_discord_api, mock_cache):
-    """Test resolving with some cached and some uncached names."""
-    guild_id = "123456789"
-    user_ids = ["user1", "user2", "user3"]
-
-    async def mock_cache_get(key, operation):
-        if "user1" in key:
-            return "CachedName1"
-        return None
-
-    # Mock API response for uncached users
-    mock_discord_api.get_guild_members_batch = AsyncMock(
-        return_value=[
-            {
-                "user": {
-                    "id": "user2",
-                    "username": "username2",
-                    "global_name": "GlobalName2",
-                },
-                "nick": None,
-            },
-            {
-                "user": {"id": "user3", "username": "username3", "global_name": None},
-                "nick": None,
-            },
-        ]
-    )
-
-    with patch(
-        "services.api.services.display_names.cache_get",
-        side_effect=mock_cache_get,
-    ):
-        result = await resolver.resolve_display_names(guild_id, user_ids)
-
-    assert result == {
-        "user1": "CachedName1",
-        "user2": "GlobalName2",
-        "user3": "username3",
-    }
-
-
-@pytest.mark.asyncio
 async def test_resolve_single(resolver, mock_cache):
     """Test resolving single user display name."""
     guild_id = "123456789"
@@ -267,140 +71,6 @@ async def test_resolve_single(resolver, mock_cache):
         result = await resolver.resolve_single(guild_id, user_id)
 
     assert result == "CachedName1"
-
-
-@pytest.mark.asyncio
-async def test_resolve_single_user_not_found(resolver, mock_discord_api, mock_cache):
-    """Test resolving single user that doesn't exist."""
-    guild_id = "123456789"
-    user_id = "user1"
-
-    mock_discord_api.get_guild_members_batch = AsyncMock(return_value=[])
-
-    with patch(
-        "services.api.services.display_names.cache_get",
-        new_callable=AsyncMock,
-        return_value=None,
-    ):
-        result = await resolver.resolve_single(guild_id, user_id)
-
-    assert result == "Unknown User"
-
-
-@pytest.mark.asyncio
-async def test_resolve_display_names_and_avatars_from_api_with_guild_avatar(
-    resolver, mock_discord_api, mock_cache
-):
-    """Test resolving display names and avatars from Discord API with guild-specific avatar."""
-    guild_id = "123456789"
-    user_ids = ["user1"]
-
-    mock_discord_api.get_guild_members_batch = AsyncMock(
-        return_value=[
-            {
-                "user": {
-                    "id": "user1",
-                    "username": "username1",
-                    "global_name": "GlobalName1",
-                    "avatar": "user_avatar_hash",
-                },
-                "nick": "GuildNick1",
-                "avatar": "guild_avatar_hash",
-            }
-        ]
-    )
-
-    result = await resolver.resolve_display_names_and_avatars(guild_id, user_ids)
-
-    # Guild avatar should take priority
-    expected_url = "https://cdn.discordapp.com/guilds/123456789/users/user1/avatars/guild_avatar_hash.png?size=64"
-    assert result == {"user1": {"display_name": "GuildNick1", "avatar_url": expected_url}}
-
-
-@pytest.mark.asyncio
-async def test_resolve_display_names_and_avatars_from_api_with_user_avatar(
-    resolver, mock_discord_api, mock_cache
-):
-    """Test resolving display names and avatars from Discord API with user avatar only."""
-    guild_id = "123456789"
-    user_ids = ["user1"]
-
-    mock_discord_api.get_guild_members_batch = AsyncMock(
-        return_value=[
-            {
-                "user": {
-                    "id": "user1",
-                    "username": "username1",
-                    "global_name": "GlobalName1",
-                    "avatar": "user_avatar_hash",
-                },
-                "nick": None,
-                "avatar": None,
-            }
-        ]
-    )
-
-    with patch(
-        "services.api.services.display_names.cache_get",
-        new_callable=AsyncMock,
-        return_value=None,
-    ):
-        result = await resolver.resolve_display_names_and_avatars(guild_id, user_ids)
-
-    # User avatar should be used when no guild avatar
-    expected_url = "https://cdn.discordapp.com/avatars/user1/user_avatar_hash.png?size=64"
-    assert result == {"user1": {"display_name": "GlobalName1", "avatar_url": expected_url}}
-
-
-@pytest.mark.asyncio
-async def test_resolve_display_names_and_avatars_no_avatar(resolver, mock_discord_api, mock_cache):
-    """Test resolving display names and avatars when user has no avatar."""
-    guild_id = "123456789"
-    user_ids = ["user1"]
-
-    mock_discord_api.get_guild_members_batch = AsyncMock(
-        return_value=[
-            {
-                "user": {
-                    "id": "user1",
-                    "username": "username1",
-                    "global_name": None,
-                    "avatar": None,
-                },
-                "nick": None,
-                "avatar": None,
-            }
-        ]
-    )
-
-    with patch(
-        "services.api.services.display_names.cache_get",
-        new_callable=AsyncMock,
-        return_value=None,
-    ):
-        result = await resolver.resolve_display_names_and_avatars(guild_id, user_ids)
-
-    assert result == {"user1": {"display_name": "username1", "avatar_url": None}}
-
-
-@pytest.mark.asyncio
-async def test_resolve_display_names_and_avatars_api_error(resolver, mock_discord_api, mock_cache):
-    """Test fallback on Discord API error for avatar resolution."""
-    guild_id = "123456789"
-    user_ids = ["user1234"]
-
-    mock_discord_api.get_guild_members_batch = AsyncMock(
-        side_effect=discord_client.DiscordAPIError(500, "API Error")
-    )
-
-    with patch(
-        "services.api.services.display_names.cache_get",
-        new_callable=AsyncMock,
-        return_value=None,
-    ):
-        result = await resolver.resolve_display_names_and_avatars(guild_id, user_ids)
-
-    assert result == {"user1234": {"display_name": "User#1234", "avatar_url": None}}
 
 
 @pytest.mark.asyncio
@@ -443,109 +113,6 @@ async def test_build_avatar_url_no_avatar(resolver):
     )
 
     assert url is None
-
-
-@pytest.mark.asyncio
-async def test_fetch_and_cache_display_names_avatars_success(
-    resolver, mock_discord_api, mock_cache
-):
-    """Test fetching and caching display names and avatars from Discord API."""
-    guild_id = "guild123"
-    uncached_ids = ["user1", "user2"]
-
-    mock_discord_api.get_guild_members_batch = AsyncMock(
-        return_value=[
-            {
-                "user": {
-                    "id": "user1",
-                    "username": "username1",
-                    "global_name": "Global1",
-                    "avatar": "user_avatar1",
-                },
-                "nick": "Nick1",
-                "avatar": "member_avatar1",
-            },
-            {
-                "user": {
-                    "id": "user2",
-                    "username": "username2",
-                    "global_name": None,
-                    "avatar": None,
-                },
-                "nick": None,
-                "avatar": None,
-            },
-        ]
-    )
-
-    result = await resolver._fetch_and_cache_display_names_avatars(guild_id, uncached_ids)
-
-    assert "user1" in result
-    assert result["user1"]["display_name"] == "Nick1"
-    assert "member_avatar1" in result["user1"]["avatar_url"]
-
-    assert "user2" in result
-    assert result["user2"]["display_name"] == "username2"
-    assert result["user2"]["avatar_url"] is None
-
-    mock_cache.set.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_fetch_and_cache_display_names_avatars_member_not_found(
-    resolver, mock_discord_api, mock_cache
-):
-    """Test handling when some users are not found in guild."""
-    guild_id = "guild123"
-    uncached_ids = ["user1", "user2"]
-
-    mock_discord_api.get_guild_members_batch = AsyncMock(
-        return_value=[
-            {
-                "user": {
-                    "id": "user1",
-                    "username": "username1",
-                    "global_name": "Global1",
-                    "avatar": None,
-                },
-                "nick": None,
-                "avatar": None,
-            }
-        ]
-    )
-
-    result = await resolver._fetch_and_cache_display_names_avatars(guild_id, uncached_ids)
-
-    assert result["user1"]["display_name"] == "Global1"
-    assert result["user2"]["display_name"] == "Unknown User"
-    assert result["user2"]["avatar_url"] is None
-
-
-@pytest.mark.asyncio
-async def test_fetch_and_cache_display_names_avatars_no_cache_client(mock_discord_api):
-    """Test fetching without cache client."""
-    resolver_no_cache = display_names.DisplayNameResolver(mock_discord_api, None)
-    guild_id = "guild123"
-    uncached_ids = ["user1"]
-
-    mock_discord_api.get_guild_members_batch = AsyncMock(
-        return_value=[
-            {
-                "user": {
-                    "id": "user1",
-                    "username": "username1",
-                    "global_name": None,
-                    "avatar": None,
-                },
-                "nick": None,
-                "avatar": None,
-            }
-        ]
-    )
-
-    result = await resolver_no_cache._fetch_and_cache_display_names_avatars(guild_id, uncached_ids)
-
-    assert result["user1"]["display_name"] == "username1"
 
 
 def test_create_fallback_user_data():
@@ -624,116 +191,12 @@ async def test_check_cache_for_display_names_partially_cached(resolver, mock_cac
     assert uncached_ids == ["user2"]
 
 
-@pytest.mark.asyncio
-async def test_fetch_and_cache_display_names_all_found(resolver, mock_discord_api, mock_cache):
-    """Test fetching and caching when all users are found."""
-    guild_id = "guild123"
-    uncached_ids = ["user1", "user2"]
-
-    mock_discord_api.get_guild_members_batch = AsyncMock(
-        return_value=[
-            {
-                "user": {
-                    "id": "user1",
-                    "username": "username1",
-                    "global_name": "GlobalName1",
-                },
-                "nick": "GuildNick1",
-            },
-            {
-                "user": {
-                    "id": "user2",
-                    "username": "username2",
-                    "global_name": None,
-                },
-                "nick": None,
-            },
-        ]
-    )
-
-    result = await resolver._fetch_and_cache_display_names(guild_id, uncached_ids)
-
-    assert result == {"user1": "GuildNick1", "user2": "username2"}
-    assert mock_cache.set_json.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_fetch_and_cache_display_names_some_not_found(resolver, mock_discord_api, mock_cache):
-    """Test fetching when some users are not found in guild."""
-    guild_id = "guild123"
-    uncached_ids = ["user1", "user2"]
-
-    mock_discord_api.get_guild_members_batch = AsyncMock(
-        return_value=[
-            {
-                "user": {
-                    "id": "user1",
-                    "username": "username1",
-                    "global_name": "GlobalName1",
-                },
-                "nick": "GuildNick1",
-            }
-        ]
-    )
-
-    result = await resolver._fetch_and_cache_display_names(guild_id, uncached_ids)
-
-    assert result == {"user1": "GuildNick1", "user2": "Unknown User"}
-    assert mock_cache.set_json.call_count == 1
-
-
-@pytest.mark.asyncio
-async def test_fetch_and_cache_display_names_username_priority(
-    resolver, mock_discord_api, mock_cache
-):
-    """Test display name resolution priority: nick > global_name > username."""
-    guild_id = "guild123"
-    uncached_ids = ["user1", "user2", "user3"]
-
-    mock_discord_api.get_guild_members_batch = AsyncMock(
-        return_value=[
-            {
-                "user": {
-                    "id": "user1",
-                    "username": "username1",
-                    "global_name": "GlobalName1",
-                },
-                "nick": "GuildNick1",
-            },
-            {
-                "user": {
-                    "id": "user2",
-                    "username": "username2",
-                    "global_name": "GlobalName2",
-                },
-                "nick": None,
-            },
-            {
-                "user": {
-                    "id": "user3",
-                    "username": "username3",
-                    "global_name": None,
-                },
-                "nick": None,
-            },
-        ]
-    )
-
-    result = await resolver._fetch_and_cache_display_names(guild_id, uncached_ids)
-
-    assert result == {
-        "user1": "GuildNick1",
-        "user2": "GlobalName2",
-        "user3": "username3",
-    }
-
-
 def test_create_fallback_display_names():
     """Test creating fallback display names."""
     uncached_ids = ["user1234", "user5678"]
 
     result = display_names.DisplayNameResolver._create_fallback_display_names(
-        display_names.DisplayNameResolver(None, None), uncached_ids
+        display_names.DisplayNameResolver(None), uncached_ids
     )
 
     assert result == {
@@ -745,7 +208,7 @@ def test_create_fallback_display_names():
 def test_create_fallback_display_names_empty_list():
     """Test creating fallback display names with empty list."""
     result = display_names.DisplayNameResolver._create_fallback_display_names(
-        display_names.DisplayNameResolver(None, None), []
+        display_names.DisplayNameResolver(None), []
     )
 
     assert result == {}
@@ -754,12 +217,9 @@ def test_create_fallback_display_names_empty_list():
 def test_resolve_display_name_with_nickname():
     """Test resolving display name when nickname is present."""
     member = {
-        "user": {
-            "id": "user123",
-            "username": "username",
-            "global_name": "GlobalName",
-        },
         "nick": "GuildNickname",
+        "global_name": "GlobalName",
+        "username": "username",
     }
 
     result = display_names.DisplayNameResolver._resolve_display_name(member)
@@ -770,12 +230,9 @@ def test_resolve_display_name_with_nickname():
 def test_resolve_display_name_with_global_name():
     """Test resolving display name fallback to global_name."""
     member = {
-        "user": {
-            "id": "user123",
-            "username": "username",
-            "global_name": "GlobalName",
-        },
         "nick": None,
+        "global_name": "GlobalName",
+        "username": "username",
     }
 
     result = display_names.DisplayNameResolver._resolve_display_name(member)
@@ -786,12 +243,9 @@ def test_resolve_display_name_with_global_name():
 def test_resolve_display_name_with_username_only():
     """Test resolving display name fallback to username."""
     member = {
-        "user": {
-            "id": "user123",
-            "username": "username",
-            "global_name": None,
-        },
         "nick": None,
+        "global_name": None,
+        "username": "username",
     }
 
     result = display_names.DisplayNameResolver._resolve_display_name(member)
@@ -802,11 +256,8 @@ def test_resolve_display_name_with_username_only():
 def test_resolve_display_name_missing_nick_field():
     """Test resolving display name when nick field is absent."""
     member = {
-        "user": {
-            "id": "user123",
-            "username": "username",
-            "global_name": "GlobalName",
-        }
+        "global_name": "GlobalName",
+        "username": "username",
     }
 
     result = display_names.DisplayNameResolver._resolve_display_name(member)
@@ -814,59 +265,145 @@ def test_resolve_display_name_missing_nick_field():
     assert result == "GlobalName"
 
 
-@pytest.mark.asyncio
-async def test_resolve_display_names_and_avatars_accepts_global_max(
-    resolver, mock_discord_api, mock_cache
-):
-    """Threads global_max through resolve_display_names_and_avatars to get_guild_members_batch."""
-    guild_id = "123456789"
-    user_ids = ["user1"]
-
-    mock_discord_api.get_guild_members_batch = AsyncMock(return_value=[])
-
-    with patch(
-        "services.api.services.display_names.cache_get",
-        new_callable=AsyncMock,
-        return_value=None,
-    ):
-        await resolver.resolve_display_names_and_avatars(
-            guild_id, user_ids, global_max=DISCORD_GLOBAL_RATE_LIMIT_INTERACTIVE
-        )
-
-    mock_discord_api.get_guild_members_batch.assert_called_once()
-    call_kwargs = mock_discord_api.get_guild_members_batch.call_args.kwargs
-    assert call_kwargs.get("global_max") == DISCORD_GLOBAL_RATE_LIMIT_INTERACTIVE
-
-
-@pytest.mark.asyncio
-async def test_fetch_and_cache_does_not_write_display_avatar_keys(
-    resolver, mock_discord_api, mock_cache
-):
-    """_fetch_and_cache_display_names_avatars must not write display_avatar:* Redis keys."""
-    guild_id = "guild123"
-    uncached_ids = ["user1"]
-
-    mock_discord_api.get_guild_members_batch = AsyncMock(
-        return_value=[
-            {
-                "user": {
-                    "id": "user1",
-                    "username": "username1",
-                    "global_name": "Global1",
-                    "avatar": "user_avatar1",
-                },
-                "nick": "Nick1",
-                "avatar": "member_avatar1",
-            }
-        ]
-    )
-
-    result = await resolver._fetch_and_cache_display_names_avatars(guild_id, uncached_ids)
-
-    assert result["user1"]["display_name"] == "Nick1"
-    mock_cache.set.assert_not_called()
-
-
 def test_check_cache_for_users_removed(resolver):
     """_check_cache_for_users must be removed from DisplayNameResolver."""
     assert not hasattr(resolver, "_check_cache_for_users")
+
+
+# Task 4.4: Projection-based display name resolution tests
+
+
+@pytest.mark.asyncio
+async def test_fetch_display_names_from_projection(mock_cache):
+    """_fetch_and_cache_display_names reads from projection, not Discord REST."""
+    resolver = display_names.DisplayNameResolver(mock_cache)
+    guild_id = "guild123"
+    uncached_ids = ["user1", "user2"]
+
+    def fake_get_member(gid, uid, *, redis):
+        if uid == "user1":
+            return {"nick": "ProjNick1", "global_name": "Global1", "username": "user1base"}
+        return {"nick": None, "global_name": "Global2", "username": "user2base"}
+
+    with patch(
+        "services.api.services.display_names.member_projection.get_member",
+        side_effect=fake_get_member,
+    ):
+        result = await resolver._fetch_and_cache_display_names(guild_id, uncached_ids)
+
+    assert result == {"user1": "ProjNick1", "user2": "Global2"}
+
+
+@pytest.mark.asyncio
+async def test_fetch_display_names_absent_member_from_projection(mock_cache):
+    """_fetch_and_cache_display_names returns 'Unknown User' for absent projection member."""
+    resolver = display_names.DisplayNameResolver(mock_cache)
+    guild_id = "guild123"
+    uncached_ids = ["user1", "user2"]
+
+    with patch(
+        "services.api.services.display_names.member_projection.get_member",
+        new=AsyncMock(return_value=None),
+    ):
+        result = await resolver._fetch_and_cache_display_names(guild_id, uncached_ids)
+
+    assert result == {"user1": "Unknown User", "user2": "Unknown User"}
+
+
+@pytest.mark.asyncio
+async def test_fetch_display_names_avatars_from_projection(mock_cache):
+    """_fetch_and_cache_display_names_avatars reads avatar_url from projection."""
+    resolver = display_names.DisplayNameResolver(mock_cache)
+    guild_id = "guild123"
+    uncached_ids = ["user1"]
+
+    member = {
+        "nick": "Nick1",
+        "global_name": "Global1",
+        "username": "base1",
+        "avatar_url": "https://cdn.discordapp.com/avatars/user1/hash.png?size=64",
+    }
+
+    with patch(
+        "services.api.services.display_names.member_projection.get_member",
+        new=AsyncMock(return_value=member),
+    ):
+        result = await resolver._fetch_and_cache_display_names_avatars(guild_id, uncached_ids)
+
+    assert result["user1"]["display_name"] == "Nick1"
+    assert (
+        result["user1"]["avatar_url"] == "https://cdn.discordapp.com/avatars/user1/hash.png?size=64"
+    )
+
+
+def test_resolve_display_name_flat_dict():
+    """_resolve_display_name uses flat projection dict (no nested 'user' key)."""
+    flat_member = {"nick": None, "global_name": "Global", "username": "base"}
+    result = display_names.DisplayNameResolver._resolve_display_name(flat_member)
+    assert result == "Global"
+
+
+@pytest.mark.asyncio
+async def test_fetch_display_names_avatars_absent_member_from_projection(mock_cache):
+    """_fetch_and_cache_display_names_avatars returns Unknown User for absent member."""
+    resolver = display_names.DisplayNameResolver(mock_cache)
+    guild_id = "guild123"
+    uncached_ids = ["user1"]
+
+    with patch(
+        "services.api.services.display_names.member_projection.get_member",
+        new=AsyncMock(return_value=None),
+    ):
+        result = await resolver._fetch_and_cache_display_names_avatars(guild_id, uncached_ids)
+
+    assert result["user1"]["display_name"] == "Unknown User"
+    assert result["user1"]["avatar_url"] is None
+
+
+@pytest.mark.asyncio
+async def test_resolve_display_names_exception_returns_fallback(mock_cache):
+    """resolve_display_names falls back to User#<suffix> on fetch exception."""
+    resolver = display_names.DisplayNameResolver(mock_cache)
+
+    with (
+        patch(
+            "services.api.services.display_names.cache_get",
+            new=AsyncMock(return_value=None),
+        ),
+        patch(
+            "services.api.services.display_names.member_projection.get_member",
+            side_effect=RuntimeError("redis down"),
+        ),
+    ):
+        result = await resolver.resolve_display_names("guild1", ["user1234"])
+
+    assert result == {"user1234": "User#1234"}
+
+
+@pytest.mark.asyncio
+async def test_resolve_display_names_and_avatars_exception_returns_fallback(mock_cache):
+    """resolve_display_names_and_avatars falls back to User#<suffix> on fetch exception."""
+    resolver = display_names.DisplayNameResolver(mock_cache)
+
+    with patch(
+        "services.api.services.display_names.member_projection.get_member",
+        side_effect=RuntimeError("redis down"),
+    ):
+        result = await resolver.resolve_display_names_and_avatars("guild1", ["user1234"])
+
+    assert result == {"user1234": {"display_name": "User#1234", "avatar_url": None}}
+
+
+@pytest.mark.asyncio
+async def test_get_display_name_resolver_returns_instance():
+    """get_display_name_resolver returns a DisplayNameResolver with a cache client."""
+    mock_redis = AsyncMock()
+
+    with patch(
+        "services.api.services.display_names.cache_client.get_redis_client",
+        new=AsyncMock(return_value=mock_redis),
+    ):
+        resolver = await display_names.get_display_name_resolver()
+
+    assert isinstance(resolver, display_names.DisplayNameResolver)
+    assert resolver.cache is mock_redis
