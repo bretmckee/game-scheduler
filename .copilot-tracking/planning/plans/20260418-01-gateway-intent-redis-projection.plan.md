@@ -87,6 +87,50 @@ Eliminate all Discord REST API calls from the per-request API path by pre-popula
 - [x] Task 5.2: Drop `user_display_names` DB table via Alembic migration; delete `UserDisplayNameService`
   - Details: .copilot-tracking/planning/details/20260418-01-gateway-intent-redis-projection-details.md (Lines 297–315)
 
+### [ ] Phase 6: Drop REST Fallbacks in DiscordAPIClient (Work Type A)
+
+- [ ] Task 6.1: Remove `GET /guilds/{id}/channels` REST fallback; update `channel_resolver.py` and `games.py` to return 503 on cache miss
+  - Details: .copilot-tracking/planning/details/20260418-01-gateway-intent-redis-projection-details.md (Lines 339–357)
+
+- [ ] Task 6.2: Remove `GET /channels/{id}` REST fallback; update `games.py`, `templates.py`, `calendar_export.py` to return 503 on cache miss
+  - Details: .copilot-tracking/planning/details/20260418-01-gateway-intent-redis-projection-details.md (Lines 358–377)
+
+- [ ] Task 6.3: Remove `GET /guilds/{id}` REST fallback; update `games.py` and `calendar_export.py` to return 503 on cache miss
+  - Details: .copilot-tracking/planning/details/20260418-01-gateway-intent-redis-projection-details.md (Lines 378–395)
+
+- [ ] Task 6.4: Remove `GET /guilds/{id}/roles` REST fallback; update call sites to handle cache miss without REST
+  - Details: .copilot-tracking/planning/details/20260418-01-gateway-intent-redis-projection-details.md (Lines 396–411)
+
+- [ ] Task 6.5: Replace `GET /users/{user_id}` in `calendar_export.py` with `member_projection.get_member()` read
+  - Details: .copilot-tracking/planning/details/20260418-01-gateway-intent-redis-projection-details.md (Lines 412–428)
+
+### [ ] Phase 7: Add Permissions Bitfield and Replace has_permissions() (Work Type B)
+
+- [ ] Task 7.1: Add `"permissions": r.permissions.value` to `_role_list()` in `bot.py` so the `discord_guild_roles` cache carries permission data
+  - Details: .copilot-tracking/planning/details/20260418-01-gateway-intent-redis-projection-details.md (Lines 433–448)
+
+- [ ] Task 7.2: Replace `RoleVerificationService.has_permissions()` OAuth REST call with local bitfield computation from `discord_guild_roles` cache and `member_projection.get_user_roles()`
+  - Details: .copilot-tracking/planning/details/20260418-01-gateway-intent-redis-projection-details.md (Lines 449–473)
+
+### [ ] Phase 8: Username Sorted Set Index for Member Search (Work Type C)
+
+- [ ] Task 8.1: Add `proj_usernames(gen, guild_id)` key constant to `shared/cache/keys.py`
+  - Details: .copilot-tracking/planning/details/20260418-01-gateway-intent-redis-projection-details.md (Lines 478–492)
+
+- [ ] Task 8.2: Update `write_member()` in `guild_projection.py` to `ZADD` lowercased name entries (`{name}\x00{uid}`) to the `proj:usernames` sorted set; deduplicate when `global_name == username`
+  - Details: .copilot-tracking/planning/details/20260418-01-gateway-intent-redis-projection-details.md (Lines 493–509)
+
+- [ ] Task 8.3: Add `search_members_by_prefix()` to `member_projection.py`; replace `_search_guild_members()` in `participant_resolver.py` with `ZRANGEBYLEX` read on `proj:usernames`
+  - Details: .copilot-tracking/planning/details/20260418-01-gateway-intent-redis-projection-details.md (Lines 510–530)
+
+### [ ] Phase 9: Final Verification and Test Updates
+
+- [ ] Task 9.1: Run grep verification; confirm all revised checklist items (A1–A5, B, C) are satisfied; zero `discord.com/api` hits in `services/api/` outside `shared/discord/client.py`
+  - Details: .copilot-tracking/planning/details/20260418-01-gateway-intent-redis-projection-details.md (Lines 533–546)
+
+- [ ] Task 9.2: Update integration and e2e tests to seed Redis projection data in place of Discord REST mocks for all migrated endpoints
+  - Details: .copilot-tracking/planning/details/20260418-01-gateway-intent-redis-projection-details.md (Lines 547–565)
+
 ## Dependencies
 
 - `GUILD_MEMBERS` privileged intent toggle in Discord Developer Portal (manual step before deployment)
@@ -96,6 +140,10 @@ Eliminate all Discord REST API calls from the per-request API path by pre-popula
 - Phases 1–2 (bot side) must complete and deploy before any Phase 4 call site migration
 - Phase 3 (API reader) can be developed in parallel with Phase 2
 - Phase 5 is safe only after all Phase 4 tasks are complete
+- Phase 6 is safe only after Phase 5 is complete
+- Phase 7 requires Phase 3 (member_projection.py) and Phase 6 complete
+- Phase 8 requires Phase 3 (member_projection.py) and Phase 2 (`write_member()` in guild_projection.py) complete
+- Phase 9 is the final verification step; requires Phases 6, 7, and 8 complete
 
 ## Success Criteria
 
@@ -103,5 +151,8 @@ Eliminate all Discord REST API calls from the per-request API path by pre-popula
 - `list_games` display name resolution reads only Redis; no Discord API calls in the hot path
 - `api.projection.read.retries` OTel counter is zero under normal (non-reconnect) operation
 - `bot:last_seen` absence causes a clear degraded response, not a silent error or hang
-- Zero Discord REST calls from the API server — confirmed by grep before closing Phase 5
+- All Phase 6 REST fallbacks removed; cache miss returns 503 or graceful degradation — never triggers Discord REST
+- `has_permissions()` computes permission flags from local Redis data; zero OAuth REST calls per check
+- Member search uses `ZRANGEBYLEX` on `proj:usernames` sorted set; zero REST calls
+- Zero Discord REST calls from the API server — confirmed by grep before closing Phase 9
 - All unit tests pass at each phase boundary before merging

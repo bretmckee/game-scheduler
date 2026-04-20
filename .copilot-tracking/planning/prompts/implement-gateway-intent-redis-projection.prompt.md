@@ -30,6 +30,10 @@ You WILL follow ALL project standards and conventions:
 - Phases 1–2 (bot side) must be complete before any Phase 4 call site migration
 - Phase 3 (API reader) may be developed in parallel with Phase 2
 - Phase 5 is safe only after all Phase 4 tasks are fully complete and verified
+- Phase 6 is safe only after Phase 5 is complete
+- Phase 7 requires Phase 3 (member_projection.py) and Phase 6 complete
+- Phase 8 requires Phase 3 (member_projection.py) and Phase 2 (`write_member()` in guild_projection.py) complete
+- Phase 9 is the final verification step; requires Phases 6, 7, and 8 complete
 
 **Discord Developer Portal prerequisite:** Before deploying Phase 1, confirm with the user that the "Server Members Intent" toggle has been enabled in the Discord Developer Portal for the bot application. Do NOT skip this step.
 
@@ -58,5 +62,10 @@ When ALL Phases are checked off (`[x]`) and completed you WILL do the following:
 - [ ] `member_projection.py` reader: gen-rotation retry handles up to 3 iterations (max 6 GETs); OTel counters fire correctly
 - [ ] All four call sites in Phase 4 migrated; zero Discord REST calls from API after Phase 4
 - [ ] Dead code removed; `user_display_names` table dropped via Alembic migration
+- [ ] Phase 6 REST fallbacks removed; all 5 endpoints return 503/absence on cache miss — no Discord REST
+- [ ] `has_permissions()` replaced with local bitfield computation; zero OAuth REST calls per permissions check
+- [ ] Member search uses `ZRANGEBYLEX` on `proj:usernames` sorted set; zero REST calls to `/guilds/{id}/members/search`
+- [ ] Grep verification passes: zero `discord.com/api` hits in `services/api/` outside `shared/discord/client.py`
+- [ ] Integration and e2e tests updated; all pass with Redis projection seeding in place of Discord REST mocks
 - [ ] All new and modified code passes lint and has unit tests
 - [ ] Changes file updated continuously

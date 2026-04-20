@@ -311,3 +311,109 @@ Update `on_ready` to call `repopulate_all(reason="on_ready")` and add bot heartb
   - `bot:last_seen` absence causes a clear degraded response, not a silent error or hang
   - Zero Discord REST calls from the API server — verified before closing step 7
   - All steps pass the full unit + integration test suite before merging
+
+---
+
+## Appendix: Remaining REST Calls Not Covered by Steps 1–8
+
+Step 7 requires verifying zero Discord REST calls from the API server. The following 7 endpoints are still present in the codebase after steps 1–8 complete and must be addressed before that criterion can be met. They fall into three work types.
+
+### Work Type A — Drop REST fallback (5 endpoints)
+
+These all go through `_get_or_fetch()` in `DiscordAPIClient`, which hits Discord REST on a Redis cache miss. The Redis cache is now pre-populated and kept current by gateway events (`_rebuild_redis_from_gateway` on `on_ready`, individual event handlers for creates/updates/deletes). The REST fallback is no longer needed. Replace it with a 503 response if the key is absent.
+
+| Endpoint                    | Call sites                                                                                                                                                                                         |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /guilds/{id}/channels` | `channel_resolver.py` → `get_guild_channels()`; `games.py` → `get_guild_channels_safe()`                                                                                                           |
+| `GET /channels/{id}`        | `games.py` → `fetch_channel_name_safe()`; `templates.py` → `fetch_channel_name_safe()`; `calendar_export.py` → `fetch_channel_name_safe()`                                                         |
+| `GET /guilds/{id}`          | `games.py` → `fetch_guild_name_safe()`; `calendar_export.py` → `fetch_guild_name_safe()`                                                                                                           |
+| `GET /guilds/{id}/roles`    | Role list display — already Redis-cached by `_rebuild_redis_from_gateway`; drop REST fallback path                                                                                                 |
+| `GET /users/{user_id}`      | `calendar_export.py` → `fetch_user_display_name_safe()` — fetches host username for calendar export; replace with `projection.get_member()` read which already stores `username` and `global_name` |
+
+For A, the change to `DiscordAPIClient` itself is: remove or guard the `_fetch()` inner function from each affected method so a cache miss raises rather than calling REST. Call sites that use the `_safe` wrappers need to handle the absence as a 503 or graceful degradation rather than a silent REST fallback.
+
+### Work Type B — Add permissions bitfield to role cache (1 endpoint)
+
+| Endpoint                        | What's needed                                                                                                                                                                                                   |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /users/@me/guilds` (OAuth) | Called by `RoleVerificationService.has_permissions()` in `roles.py` to get the pre-computed `permissions` integer per guild, which is checked for `MANAGE_GUILD`, `MANAGE_CHANNELS`, and `ADMINISTRATOR` flags. |
+
+**Root cause:** `_role_list()` in `bot.py` (line 238) omits the permissions bitfield from each role. `discord.Role.permissions.value` is available from the gateway — it is simply not being stored.
+
+**Fix (two parts):**
+
+1. Add `"permissions": r.permissions.value` to `_role_list()` in `bot.py`. This populates the existing `discord_guild_roles` Redis cache with permission data on every `_rebuild_redis_from_gateway` call and every `on_guild_role_create`/`on_guild_role_update` event.
+
+2. Replace `has_permissions()` in `roles.py` with local computation:
+   - Get user's role IDs from `projection.get_user_roles()`
+   - Fetch guild roles list from `CacheKeys.discord_guild_roles(guild_id)` (already in Redis)
+   - OR together the `permissions` field of each role the user holds (plus `@everyone` role, whose ID equals the guild ID)
+   - Check the resulting integer for the requested permission flag
+
+No new Redis keys required. No new projection fields required. The existing `discord_guild_roles` key already has the right lifetime (no TTL, maintained by gateway events).
+
+The cached `user_roles:{user_id}:{guild_id}` key in `get_user_role_ids()` can continue to cache the role ID list; the permission computation is cheap enough to do inline on each check or can be cached separately if profiling shows it matters.
+
+### Work Type C — Username sorted set index for member search (1 endpoint)
+
+| Endpoint                          | What's needed                                                                                                                                                                          |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /guilds/{id}/members/search` | Called by `_search_guild_members()` in `participant_resolver.py` when a user types `@name` in the participant field. Performs a prefix match on `username`, `global_name`, and `nick`. |
+
+**Discord's search semantics:** starts-with prefix match across those three name fields. Not fuzzy, not substring. Fully replicable from projection data.
+
+**Fix:** Redis sorted set with `ZRANGEBYLEX` for O(log N + M) prefix queries.
+
+**New Redis key:** `proj:usernames:{gen}:{guild_id}` — one sorted set per guild, all entries at score 0 (forcing lexicographic order).
+
+**Entry format:** `{name_lowercase}\x00{uid}` — the null byte separator ensures the uid travels with the name in a single entry, avoiding a second lookup. The `\x00` byte is below all printable ASCII so it cannot appear in a Discord username.
+
+**Write:** In `write_member()` in `guild_projection.py`, after writing the member blob, `ZADD` entries for each non-null name field (lowercased). Up to 3 ZADD calls per member: `username` (always present), `global_name` (optional), `nick` (optional). If `global_name == username`, deduplicate — only one entry needed.
+
+**Read:** Replace `_search_guild_members()` with:
+
+```python
+async def search_members_by_prefix(guild_id: str, query: str, *, redis: RedisClient) -> list[dict]:
+    gen = await redis.get(CacheKeys.proj_gen())
+    if not gen:
+        return []
+    key = CacheKeys.proj_usernames(gen, guild_id)
+    q = query.lower()
+    # ZRANGEBYLEX returns all entries in range ["q", "q\xff"]
+    entries = await redis._client.zrangebylex(key, f"[{q}", f"[{q}\xff")
+    results = []
+    seen_uids = set()
+    for entry in entries:
+        name, uid = entry.rsplit("\x00", 1)
+        if uid not in seen_uids:
+            seen_uids.add(uid)
+            member = await get_member(guild_id, uid, redis=redis)
+            if member:
+                results.append({"uid": uid, **member})
+    return results
+```
+
+The `seen_uids` deduplication handles the case where a user matches on both `username` and `nick` (both entries appear in the range result but should resolve to one participant suggestion).
+
+**Cleanup:** `proj:usernames:{gen}:{guild_id}` matches the existing `_delete_old_generation` pattern `proj:*:{gen}:*` — no additional cleanup code needed.
+
+**New key constant** to add to `shared/cache/keys.py`:
+
+```python
+@staticmethod
+def proj_usernames(gen: str, guild_id: str) -> str:
+    return f"proj:usernames:{gen}:{guild_id}"
+```
+
+### Step 7 Revised Checklist
+
+Before declaring "zero Discord REST calls from the API server":
+
+- [ ] A1: `GET /guilds/{id}/channels` fallback removed; `get_guild_channels` / `get_guild_channels_safe` raise/return 503 on miss
+- [ ] A2: `GET /channels/{id}` fallback removed; `fetch_channel_name_safe` returns 503 on miss
+- [ ] A3: `GET /guilds/{id}` fallback removed; `fetch_guild_name_safe` returns 503 on miss
+- [ ] A4: `GET /guilds/{id}/roles` fallback removed
+- [ ] A5: `GET /users/{user_id}` in `calendar_export.py` replaced with `projection.get_member()` read
+- [ ] B: `has_permissions()` replaced with local bitfield computation from role cache; `_role_list()` updated to include `permissions` field
+- [ ] C: `_search_guild_members()` replaced with `ZRANGEBYLEX` on `proj:usernames` sorted set; `write_member()` updated to populate sorted set
+- [ ] Verify: grep for `discord.com/api` and `aiohttp.*session.get` in `services/api/` returns zero matches outside of `shared/discord/client.py`
