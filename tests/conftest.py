@@ -77,6 +77,8 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.orm import sessionmaker
 
+import services.api.auth.roles as _roles_module
+import shared.cache.client as _cache_module
 from services.api.auth.tokens import encrypt_token
 from shared.cache.client import RedisClient
 from shared.cache.keys import CacheKeys
@@ -488,6 +490,14 @@ def seed_redis_cache():
             session_user_id: User database UUID for session (optional)
             session_access_token: Discord access token for session (optional)
         """
+        # Reset module-level singletons before seeding. Each async test runs in
+        # a fresh event loop; a singleton connection from a prior loop fails
+        # with "Event loop is closed". Resetting here forces reconnection in
+        # the current loop the next time production code calls
+        # get_redis_client() or get_role_service().
+        _cache_module._redis_client = None
+        _roles_module._role_service_instance = None
+
         # Create fresh Redis connection in current event loop
         redis_client = RedisClient()
         await redis_client.connect()
