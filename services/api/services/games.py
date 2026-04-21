@@ -593,22 +593,28 @@ class GameService:
         )
 
         # Resolve host (handles bot manager override)
+        host_override = bool(game_data.host and game_data.host.strip())
         _actual_host_user_id, host_user = await self._resolve_game_host(
             game_data, guild_config, host_user_id, access_token
         )
 
-        # Check if user can host games with this template
-        role_service = roles_module.get_role_service()
-        can_host = await role_service.check_game_host_permission(
-            host_user.discord_id,
-            guild_config.guild_id,
-            self.db,
-            template.allowed_host_role_ids,
-            access_token,
-        )
-        if not can_host:
-            msg = "User does not have permission to create games with this template"
-            raise ValueError(msg)
+        # Check if user can host games with this template.
+        # When a bot manager assigns a different host and the template has no
+        # role restrictions, any guild member may be designated as host — the
+        # manager permission was already verified inside _resolve_game_host.
+        # If the template specifies allowed_host_role_ids, those still apply.
+        if not host_override or template.allowed_host_role_ids:
+            role_service = roles_module.get_role_service()
+            can_host = await role_service.check_game_host_permission(
+                host_user.discord_id,
+                guild_config.guild_id,
+                self.db,
+                template.allowed_host_role_ids,
+                access_token,
+            )
+            if not can_host:
+                msg = "User does not have permission to create games with this template"
+                raise ValueError(msg)
 
         # Resolve field values from request and template
         resolved_fields = self._resolve_template_fields(game_data, template)

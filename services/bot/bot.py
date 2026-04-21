@@ -152,22 +152,6 @@ class GameSchedulerBot(commands.Bot):
         self.button_handler = ButtonHandler(self.event_publisher)
         logger.info("Button handler initialized")
 
-        # Sync all bot guilds on startup (automatic guild sync)
-        try:
-            discord_client = get_discord_client()
-            async with get_db_session() as db:
-                sync_results = await sync_all_bot_guilds(
-                    discord_client, db, self.config.discord_bot_token
-                )
-                await db.commit()
-                logger.info(
-                    "Guild sync on startup: %d new guilds, %d new channels",
-                    sync_results["new_guilds"],
-                    sync_results["new_channels"],
-                )
-        except Exception as e:
-            logger.exception("Failed to sync guilds on startup: %s", e)
-
         # Initialize event handlers for consuming messages
         self.event_handlers = EventHandlers(self)
         logger.info("Event handlers initialized")
@@ -201,6 +185,23 @@ class GameSchedulerBot(commands.Bot):
                 logger.info("Started event consumer task")
 
             await self._rebuild_redis_from_gateway()
+
+            # Sync guilds now that Redis channel cache is populated from gateway
+            try:
+                discord_client = get_discord_client()
+                async with get_db_session() as db:
+                    sync_results = await sync_all_bot_guilds(
+                        discord_client, db, self.config.discord_bot_token
+                    )
+                    await db.commit()
+                    logger.info(
+                        "Guild sync on ready: %d new guilds, %d new channels",
+                        sync_results["new_guilds"],
+                        sync_results["new_channels"],
+                    )
+            except Exception as e:
+                logger.exception("Failed to sync guilds on ready: %s", e)
+
             await self._recover_pending_workers()
             await self._trigger_sweep()
             await self._sweep_orphaned_embeds()

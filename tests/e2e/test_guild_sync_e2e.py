@@ -40,9 +40,6 @@ from httpx import AsyncClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.cache import client as cache_client
-from shared.cache import keys as cache_keys
-
 pytestmark = pytest.mark.e2e
 
 
@@ -58,11 +55,6 @@ async def fresh_guild_sync(
     Deletes guilds after test to ensure test independence.
     Uses discord_ids fixture for environment variable management.
     """
-    # Clear cache for both guilds
-    redis = await cache_client.get_redis_client()
-    await redis.delete(cache_keys.CacheKeys.discord_guild_channels(discord_ids.guild_a_id))
-    await redis.delete(cache_keys.CacheKeys.discord_guild_channels(discord_ids.guild_b_id))
-
     # Clean up before test
     await admin_db.execute(text("DELETE FROM game_sessions"))
     await admin_db.execute(text("DELETE FROM game_templates"))
@@ -74,10 +66,6 @@ async def fresh_guild_sync(
     await admin_db.commit()
 
     yield
-
-    # Clear cache again after test
-    await redis.delete(cache_keys.CacheKeys.discord_guild_channels(discord_ids.guild_a_id))
-    await redis.delete(cache_keys.CacheKeys.discord_guild_channels(discord_ids.guild_b_id))
 
     # Clean up after test for hermeticity
     await admin_db.execute(text("DELETE FROM game_sessions"))
