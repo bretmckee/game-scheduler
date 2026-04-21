@@ -90,3 +90,6 @@ output*.log
 
 # Git worktrees
 trees/
+
+# mutmut mutation testing sandbox
+mutants/
