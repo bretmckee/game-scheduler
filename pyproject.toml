@@ -249,3 +249,8 @@ fallback_version = "0.0.0+unknown"
 
 [tool.uv]
 required-version = "==0.11.3"
+
+[tool.mutmut]
+paths_to_mutate = ["services/retry/retry_daemon.py"]
+tests_dir = ["tests/unit/services/retry/test_retry_daemon_unit.py"]
+also_copy = ["services", "shared"]
