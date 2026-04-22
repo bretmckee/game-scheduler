@@ -819,3 +819,184 @@ async def test_refresh_guild_channels_deactivates_missing_channel():
 
     assert result == 1
     assert mock_db.execute.await_count == 3
+
+
+# ---------------------------------------------------------------------------
+# sync_guilds_from_gateway — xfail stubs (Task 4.1)
+# ---------------------------------------------------------------------------
+
+
+def _make_gateway_guild(discord_id: str, channels: list) -> MagicMock:
+    """Build a minimal mock of discord.Guild as returned by the gateway."""
+    guild = MagicMock()
+    guild.id = int(discord_id)
+    guild.name = f"Guild {discord_id}"
+    guild.channels = channels
+    return guild
+
+
+def _make_gateway_channel(discord_id: str, channel_type: int) -> MagicMock:
+    """Build a minimal mock of discord.abc.GuildChannel as returned by the gateway."""
+    channel = MagicMock()
+    channel.id = int(discord_id)
+    channel.name = f"channel-{discord_id}"
+    channel.type = MagicMock()
+    channel.type.value = channel_type
+    return channel
+
+
+@pytest.mark.asyncio
+async def test_sync_guilds_from_gateway_creates_new_guilds():
+    """sync_guilds_from_gateway creates configs for guilds absent from the DB."""
+    mock_db = create_mock_db_with_id_generation()
+
+    text_ch = _make_gateway_channel("111", 0)
+    voice_ch = _make_gateway_channel("112", 2)
+    guild = _make_gateway_guild("9001", [text_ch, voice_ch])
+
+    mock_bot = MagicMock()
+    mock_bot.guilds = [guild]
+
+    mock_execute_result = MagicMock()
+    mock_execute_result.scalars.return_value.all.return_value = []
+    mock_db.execute = AsyncMock(return_value=mock_execute_result)
+
+    result = await guild_sync.sync_guilds_from_gateway(mock_bot, mock_db)
+
+    assert result["new_guilds"] == 1
+    assert result["new_channels"] == 2
+
+
+@pytest.mark.asyncio
+async def test_sync_guilds_from_gateway_skips_existing_guilds():
+    """sync_guilds_from_gateway does not recreate guilds already in the DB."""
+    mock_db = create_mock_db_with_id_generation()
+
+    text_ch = _make_gateway_channel("221", 0)
+    guild = _make_gateway_guild("9002", [text_ch])
+
+    mock_bot = MagicMock()
+    mock_bot.guilds = [guild]
+
+    existing = MagicMock(spec=GuildConfiguration)
+    existing.guild_id = "9002"
+    mock_execute_result = MagicMock()
+    mock_execute_result.scalars.return_value.all.return_value = [existing]
+    mock_db.execute = AsyncMock(return_value=mock_execute_result)
+    mock_db.add = Mock()
+
+    result = await guild_sync.sync_guilds_from_gateway(mock_bot, mock_db)
+
+    assert result["new_guilds"] == 0
+    assert result["new_channels"] == 0
+    mock_db.add.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_sync_guilds_from_gateway_does_not_call_rest():
+    """sync_guilds_from_gateway must not call any REST API methods."""
+    mock_db = create_mock_db_with_id_generation()
+
+    text_ch = _make_gateway_channel("331", 0)
+    guild = _make_gateway_guild("9003", [text_ch])
+
+    mock_bot = MagicMock()
+    mock_bot.guilds = [guild]
+
+    mock_execute_result = MagicMock()
+    mock_execute_result.scalars.return_value.all.return_value = []
+    mock_db.execute = AsyncMock(return_value=mock_execute_result)
+
+    with patch("services.bot.guild_sync.DiscordAPIClient") as mock_client_cls:
+        await guild_sync.sync_guilds_from_gateway(mock_bot, mock_db)
+
+    mock_client_cls.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_sync_guilds_from_gateway_filters_channel_types():
+    """sync_guilds_from_gateway only creates configs for text/voice/announcement channels."""
+    mock_db = create_mock_db_with_id_generation()
+
+    channels = [
+        _make_gateway_channel("401", 0),  # text — include
+        _make_gateway_channel("402", 2),  # voice — include
+        _make_gateway_channel("403", 5),  # announcement — include
+        _make_gateway_channel("404", 4),  # category — skip
+        _make_gateway_channel("405", 13),  # stage — skip
+    ]
+    guild = _make_gateway_guild("9004", channels)
+
+    mock_bot = MagicMock()
+    mock_bot.guilds = [guild]
+
+    mock_execute_result = MagicMock()
+    mock_execute_result.scalars.return_value.all.return_value = []
+    mock_db.execute = AsyncMock(return_value=mock_execute_result)
+
+    result = await guild_sync.sync_guilds_from_gateway(mock_bot, mock_db)
+
+    assert result["new_channels"] == 3
+
+
+# ---------------------------------------------------------------------------
+# sync_single_guild_from_gateway — xfail stubs (Task 4.1)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_sync_single_guild_from_gateway_creates_guild():
+    """sync_single_guild_from_gateway creates config for the provided guild."""
+    mock_db = create_mock_db_with_id_generation()
+
+    text_ch = _make_gateway_channel("501", 0)
+    voice_ch = _make_gateway_channel("502", 2)
+    guild = _make_gateway_guild("8001", [text_ch, voice_ch])
+
+    mock_execute_result = MagicMock()
+    mock_execute_result.scalars.return_value.all.return_value = []
+    mock_db.execute = AsyncMock(return_value=mock_execute_result)
+
+    result = await guild_sync.sync_single_guild_from_gateway(guild, mock_db)
+
+    assert result["new_guilds"] == 1
+    assert result["new_channels"] == 2
+
+
+@pytest.mark.asyncio
+async def test_sync_single_guild_from_gateway_skips_existing_guild():
+    """sync_single_guild_from_gateway is a no-op when the guild already exists."""
+    mock_db = create_mock_db_with_id_generation()
+
+    guild = _make_gateway_guild("8002", [])
+
+    existing = MagicMock(spec=GuildConfiguration)
+    existing.guild_id = "8002"
+    mock_execute_result = MagicMock()
+    mock_execute_result.scalars.return_value.all.return_value = [existing]
+    mock_db.execute = AsyncMock(return_value=mock_execute_result)
+    mock_db.add = Mock()
+
+    result = await guild_sync.sync_single_guild_from_gateway(guild, mock_db)
+
+    assert result["new_guilds"] == 0
+    assert result["new_channels"] == 0
+    mock_db.add.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_sync_single_guild_from_gateway_does_not_call_rest():
+    """sync_single_guild_from_gateway must not call any REST API methods."""
+    mock_db = create_mock_db_with_id_generation()
+
+    text_ch = _make_gateway_channel("601", 0)
+    guild = _make_gateway_guild("8003", [text_ch])
+
+    mock_execute_result = MagicMock()
+    mock_execute_result.scalars.return_value.all.return_value = []
+    mock_db.execute = AsyncMock(return_value=mock_execute_result)
+
+    with patch("services.bot.guild_sync.DiscordAPIClient") as mock_client_cls:
+        await guild_sync.sync_single_guild_from_gateway(guild, mock_db)
+
+    mock_client_cls.assert_not_called()

@@ -23,6 +23,7 @@
 
 from typing import Any
 
+import discord
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -301,4 +302,135 @@ async def sync_all_bot_guilds(
     return {
         "new_guilds": new_guilds_count,
         "new_channels": new_channels_count,
+    }
+
+
+async def _create_guild_with_gateway_channels(
+    db: AsyncSession,
+    guild: discord.Guild,
+) -> tuple[int, int]:
+    """
+    Create guild configuration and channel configs using gateway-supplied channel data.
+
+    Uses guild.channels directly from the in-memory cache — no REST calls.
+    Does not commit. Caller must commit transaction.
+
+    Args:
+        db: Database session
+        guild: discord.Guild object from the gateway
+
+    Returns:
+        Tuple of (guilds_created, channels_created) counts
+    """
+    guild_discord_id = str(guild.id)
+
+    current_guild_ids = get_current_guild_ids() or []
+    initial_guild_ids = list(set(current_guild_ids) | {guild_discord_id})
+    initial_ids_csv = ",".join(initial_guild_ids)
+    await db.execute(text(f"SET LOCAL app.current_guild_ids = '{initial_ids_csv}'"))
+    set_current_guild_ids(initial_guild_ids)
+
+    guild_config = await create_guild_config(db, guild_discord_id)
+
+    current_guild_ids = get_current_guild_ids() or []
+    updated_guild_ids = list(set(current_guild_ids) | {str(guild_config.id)})
+    updated_ids_csv = ",".join(updated_guild_ids)
+    await db.execute(text(f"SET LOCAL app.current_guild_ids = '{updated_ids_csv}'"))
+    set_current_guild_ids(updated_guild_ids)
+
+    supported_channel_types = {0, 2, 5}
+    channels_created = 0
+    first_text_channel_discord_id: str | None = None
+
+    for channel in guild.channels:
+        channel_type = channel.type.value
+        if channel_type in supported_channel_types:
+            await guild_queries.create_channel_config(
+                db, guild_config.id, str(channel.id), is_active=True
+            )
+            channels_created += 1
+            if channel_type == 0 and first_text_channel_discord_id is None:
+                first_text_channel_discord_id = str(channel.id)
+
+    if first_text_channel_discord_id:
+        channel_config = await guild_queries.get_channel_by_discord_id(
+            db, first_text_channel_discord_id
+        )
+        if channel_config:
+            await guild_queries.create_default_template(db, guild_config.id, channel_config.id)
+
+    return (1, channels_created)
+
+
+async def sync_guilds_from_gateway(bot: discord.Client, db: AsyncSession) -> dict[str, int]:
+    """
+    Sync all bot guilds using gateway-supplied data without REST calls.
+
+    Iterates bot.guilds (populated by the gateway) and creates configurations
+    for any guild not already in the database. Uses guild.channels directly
+    from the in-memory cache — no REST calls.
+
+    Does not commit. Caller must commit transaction.
+
+    Args:
+        bot: Discord bot client with populated guild cache
+        db: Database session
+
+    Returns:
+        Dictionary with counts: {"new_guilds": ..., "new_channels": ...}
+    """
+    bot_guild_ids = {str(guild.id) for guild in bot.guilds}
+
+    await _expand_rls_context_for_guilds(db, bot_guild_ids)
+
+    existing_guild_ids = await _get_existing_guild_ids(db)
+
+    new_guild_ids = bot_guild_ids - existing_guild_ids
+
+    new_guilds_count = 0
+    new_channels_count = 0
+
+    for guild in bot.guilds:
+        if str(guild.id) in new_guild_ids:
+            guilds_created, channels_created = await _create_guild_with_gateway_channels(db, guild)
+            new_guilds_count += guilds_created
+            new_channels_count += channels_created
+
+    return {
+        "new_guilds": new_guilds_count,
+        "new_channels": new_channels_count,
+    }
+
+
+async def sync_single_guild_from_gateway(guild: discord.Guild, db: AsyncSession) -> dict[str, int]:
+    """
+    Sync a single guild using the gateway-supplied guild object.
+
+    Used by on_guild_join where the guild object is already available from
+    the event. Creates guild config and channels using guild.channels from
+    the gateway — no REST calls.
+
+    Does not commit. Caller must commit transaction.
+
+    Args:
+        guild: Discord Guild object from a gateway event
+        db: Database session
+
+    Returns:
+        Dictionary with counts: {"new_guilds": ..., "new_channels": ...}
+    """
+    guild_discord_id = str(guild.id)
+
+    await _expand_rls_context_for_guilds(db, {guild_discord_id})
+
+    existing_guild_ids = await _get_existing_guild_ids(db)
+
+    if guild_discord_id in existing_guild_ids:
+        return {"new_guilds": 0, "new_channels": 0}
+
+    guilds_created, channels_created = await _create_guild_with_gateway_channels(db, guild)
+
+    return {
+        "new_guilds": guilds_created,
+        "new_channels": channels_created,
     }

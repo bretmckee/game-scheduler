@@ -64,12 +64,12 @@ Eliminate all non-message REST calls from the Discord bot by replacing `fetch_me
 - [x] Task 3.2: Replace `bot.fetch_user()` / `discord_api.fetch_user()` with `bot.get_user()` in both DM helpers
   - Details: .copilot-tracking/planning/details/20260421-02-bot-rest-api-elimination-details.md (Lines 114–130)
 
-### [ ] Phase 4: guild_sync.py — Add Gateway-Aware Sync Functions
+### [x] Phase 4: guild_sync.py — Add Gateway-Aware Sync Functions
 
-- [ ] Task 4.1: Create stubs for `sync_guilds_from_gateway` and `sync_single_guild_from_gateway`; write xfail tests
+- [x] Task 4.1: Create stubs for `sync_guilds_from_gateway` and `sync_single_guild_from_gateway`; write xfail tests
   - Details: .copilot-tracking/planning/details/20260421-02-bot-rest-api-elimination-details.md (Lines 133–153)
 
-- [ ] Task 4.2: Implement both functions using `guild.channels` from gateway data; remove xfail markers
+- [x] Task 4.2: Implement both functions using `guild.channels` from gateway data; remove xfail markers
   - Details: .copilot-tracking/planning/details/20260421-02-bot-rest-api-elimination-details.md (Lines 154–182)
 
 ### [ ] Phase 5: bot.py — Fix Startup Sync and Remove Remaining REST Fallbacks
