@@ -32,7 +32,9 @@ import logging
 
 from sqlalchemy import select
 
-from services.api.auth import oauth2, tokens
+from services.api.auth import tokens
+from shared.cache import client as cache_client
+from shared.cache import projection as member_projection
 from shared.database import get_bypass_db_session
 from shared.messaging.consumer import EventConsumer
 from shared.messaging.events import Event, EventType
@@ -90,6 +92,50 @@ class SSEGameUpdateBridge:
             self.consumer = None
             logger.info("SSE bridge stopped consuming")
 
+    async def _send_to_connection(
+        self,
+        client_id: str,
+        queue: asyncio.Queue,
+        session_token: str,
+        discord_id: str,
+        discord_guild_id: str,
+        message: str,
+    ) -> bool:
+        """
+        Evaluate guild membership and enqueue event for one SSE connection.
+
+        Returns True if the client's session is invalid and should be removed.
+        """
+        try:
+            token_data = await tokens.get_user_tokens(session_token)
+            if not token_data:
+                return True
+            redis = await cache_client.get_redis_client()
+            guild_ids = await member_projection.get_user_guilds(discord_id, redis=redis)
+            user_guild_ids = set(guild_ids) if guild_ids else set()
+
+            logger.info(
+                "Guild check: discord_guild_id=%s (type=%s), user has %d guilds, match=%s",
+                discord_guild_id,
+                type(discord_guild_id).__name__,
+                len(user_guild_ids),
+                discord_guild_id in user_guild_ids,
+            )
+
+            if discord_guild_id in user_guild_ids:
+                try:
+                    queue.put_nowait(message)
+                    logger.info("Sent game update to client %s", client_id)
+                except asyncio.QueueFull:
+                    logger.warning("Queue full for client %s, dropping event", client_id)
+            else:
+                logger.debug("Client %s not in guild %s, skipping", client_id, discord_guild_id)
+
+        except Exception as e:
+            logger.warning("Failed to check guild membership for client %s: %s", client_id, e)
+
+        return False
+
     async def _broadcast_to_clients(self, event: Event) -> None:
         """
         Broadcast game update event to authorized SSE connections.
@@ -139,45 +185,10 @@ class SSEGameUpdateBridge:
         disconnected_clients: list[str] = []
 
         for client_id, (queue, session_token, discord_id) in list(self.connections.items()):
-            try:
-                token_data = await tokens.get_user_tokens(session_token)
-                if not token_data:
-                    disconnected_clients.append(client_id)
-                    continue
-                guild_token = tokens.get_guild_token(token_data)
-                user_guilds = await oauth2.get_user_guilds(guild_token, discord_id)
-                user_guild_ids = {g["id"] for g in user_guilds}
-
-                logger.info(
-                    "Guild check: discord_guild_id=%s (type=%s), user has %d guilds, match=%s",
-                    discord_guild_id,
-                    type(discord_guild_id).__name__,
-                    len(user_guild_ids),
-                    discord_guild_id in user_guild_ids,
-                )
-
-                if discord_guild_id in user_guild_ids:
-                    try:
-                        queue.put_nowait(message)
-                        logger.info("Sent game update to client %s", client_id)
-                    except asyncio.QueueFull:
-                        logger.warning(
-                            "Queue full for client %s, dropping event",
-                            client_id,
-                        )
-                else:
-                    logger.debug(
-                        "Client %s not in guild %s, skipping",
-                        client_id,
-                        discord_guild_id,
-                    )
-
-            except Exception as e:
-                logger.warning(
-                    "Failed to check guild membership for client %s: %s",
-                    client_id,
-                    e,
-                )
+            if await self._send_to_connection(
+                client_id, queue, session_token, discord_id, discord_guild_id, message
+            ):
+                disconnected_clients.append(client_id)
 
         for client_id in disconnected_clients:
             self.connections.pop(client_id, None)

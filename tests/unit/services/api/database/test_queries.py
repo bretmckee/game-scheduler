@@ -64,8 +64,7 @@ async def test_require_guild_by_id_success_context_already_set():
 
 @pytest.mark.asyncio
 async def test_require_guild_by_id_success_context_not_set():
-    """Guild exists, NO RLS context → fetches guilds, sets context, returns guild."""
-    # Arrange
+    """Guild exists, NO RLS context → fetches guilds via projection, sets context, returns guild."""
     guild_uuid = str(uuid4())
     guild_discord_id = "123456789"
     user_discord_id = "987654321"
@@ -73,30 +72,33 @@ async def test_require_guild_by_id_success_context_not_set():
 
     mock_guild = GuildConfiguration(id=guild_uuid, guild_id=guild_discord_id)
     mock_db = AsyncMock(spec=AsyncSession)
-    mock_user_guilds = [{"id": guild_discord_id, "name": "Test Guild"}]
+    mock_redis = AsyncMock()
 
     with (
         patch(
             "services.api.database.queries.get_current_guild_ids",
-            side_effect=[None, [guild_uuid]],  # Second call returns UUID
+            side_effect=[None, [guild_uuid]],
         ),
         patch("services.api.database.queries.get_guild_by_id", return_value=mock_guild),
         patch(
-            "services.api.auth.oauth2.get_user_guilds", return_value=mock_user_guilds
+            "services.api.database.queries.cache_client.get_redis_client",
+            return_value=mock_redis,
+        ),
+        patch(
+            "services.api.database.queries.member_projection.get_user_guilds",
+            new=AsyncMock(return_value=[guild_discord_id]),
         ) as mock_get_guilds,
         patch(
             "services.api.database.queries.setup_rls_and_convert_guild_ids",
             return_value=[guild_uuid],
         ) as mock_setup_rls,
     ):
-        # Act
         result = await queries.require_guild_by_id(
             mock_db, guild_uuid, access_token, user_discord_id
         )
 
-        # Assert
         assert result == mock_guild
-        mock_get_guilds.assert_called_once_with(access_token, user_discord_id)
+        mock_get_guilds.assert_called_once_with(user_discord_id, redis=mock_redis)
         mock_setup_rls.assert_called_once_with(mock_db, [guild_discord_id])
 
 
@@ -155,8 +157,7 @@ async def test_require_guild_by_id_user_not_authorized():
 
 @pytest.mark.asyncio
 async def test_require_guild_by_id_context_none_after_query():
-    """RLS context is None even after query → HTTPException(404) for safety."""
-    # Arrange
+    """RLS context is None even after projection fetch → HTTPException(404) for safety."""
     guild_uuid = str(uuid4())
     guild_discord_id = "123456789"
     user_discord_id = "987654321"
@@ -164,6 +165,7 @@ async def test_require_guild_by_id_context_none_after_query():
 
     mock_guild = GuildConfiguration(id=guild_uuid, guild_id=guild_discord_id)
     mock_db = AsyncMock(spec=AsyncSession)
+    mock_redis = AsyncMock()
 
     with (
         patch(
@@ -173,15 +175,18 @@ async def test_require_guild_by_id_context_none_after_query():
         patch("services.api.database.queries.set_current_guild_ids"),
         patch("services.api.database.queries.get_guild_by_id", return_value=mock_guild),
         patch(
-            "services.api.auth.oauth2.get_user_guilds",
-            return_value=[{"id": guild_discord_id}],
+            "services.api.database.queries.cache_client.get_redis_client",
+            return_value=mock_redis,
+        ),
+        patch(
+            "services.api.database.queries.member_projection.get_user_guilds",
+            new=AsyncMock(return_value=[guild_discord_id]),
         ),
         patch(
             "services.api.database.queries.convert_discord_guild_ids_to_uuids",
-            return_value=[],  # Conversion returns empty list
+            return_value=[],
         ),
     ):
-        # Act & Assert
         with pytest.raises(HTTPException) as exc_info:
             await queries.require_guild_by_id(mock_db, guild_uuid, access_token, user_discord_id)
 
@@ -280,8 +285,7 @@ async def test_require_guild_by_id_idempotent_context_set():
 
 @pytest.mark.asyncio
 async def test_require_guild_by_id_oauth2_get_user_guilds_called_only_when_needed():
-    """OAuth2 guild fetch only called when context is None."""
-    # Arrange
+    """Projection guild fetch only called when context is None."""
     guild_uuid = str(uuid4())
     guild_discord_id = "123456789"
     user_discord_id = "987654321"
@@ -289,30 +293,72 @@ async def test_require_guild_by_id_oauth2_get_user_guilds_called_only_when_neede
 
     mock_guild = GuildConfiguration(id=guild_uuid, guild_id=guild_discord_id)
     mock_db = AsyncMock(spec=AsyncSession)
-    mock_user_guilds = [{"id": guild_discord_id}]
+    mock_redis = AsyncMock()
 
     call_count = 0
 
-    async def get_guilds_mock(*args, **kwargs):
+    async def projection_guilds_mock(*args, **kwargs):
         nonlocal call_count
         call_count += 1
-        return mock_user_guilds
+        return [guild_discord_id]
 
     with (
         patch(
             "services.api.database.queries.get_current_guild_ids",
-            side_effect=[None, [guild_uuid]],  # Second call returns UUID
+            side_effect=[None, [guild_uuid]],
         ),
         patch("services.api.database.queries.set_current_guild_ids"),
         patch("services.api.database.queries.get_guild_by_id", return_value=mock_guild),
-        patch("services.api.auth.oauth2.get_user_guilds", side_effect=get_guilds_mock),
+        patch(
+            "services.api.database.queries.cache_client.get_redis_client",
+            return_value=mock_redis,
+        ),
+        patch(
+            "services.api.database.queries.member_projection.get_user_guilds",
+            side_effect=projection_guilds_mock,
+        ),
         patch(
             "services.api.database.queries.convert_discord_guild_ids_to_uuids",
-            return_value=[guild_uuid],  # Mock conversion
+            return_value=[guild_uuid],
         ),
     ):
-        # Act
         await queries.require_guild_by_id(mock_db, guild_uuid, access_token, user_discord_id)
 
-        # Assert
         assert call_count == 1  # Called exactly once when context was None
+
+
+@pytest.mark.asyncio
+async def test_require_guild_by_id_uses_projection_not_oauth_for_guild_list():
+    """RLS setup must use member_projection.get_user_guilds, not oauth2.get_user_guilds."""
+    guild_uuid = str(uuid4())
+    guild_discord_id = "123456789"
+    user_discord_id = "987654321"
+
+    mock_guild = GuildConfiguration(id=guild_uuid, guild_id=guild_discord_id)
+    mock_db = AsyncMock(spec=AsyncSession)
+    mock_redis = AsyncMock()
+
+    with (
+        patch(
+            "services.api.database.queries.get_current_guild_ids",
+            side_effect=[None, [guild_uuid]],
+        ),
+        patch("services.api.database.queries.get_guild_by_id", return_value=mock_guild),
+        patch(
+            "services.api.database.queries.cache_client.get_redis_client",
+            return_value=mock_redis,
+        ),
+        patch(
+            "services.api.database.queries.member_projection.get_user_guilds",
+            new=AsyncMock(return_value=[guild_discord_id]),
+        ),
+        patch(
+            "services.api.database.queries.setup_rls_and_convert_guild_ids",
+            return_value=[guild_uuid],
+        ),
+    ):
+        result = await queries.require_guild_by_id(
+            mock_db, guild_uuid, "unused_token", user_discord_id
+        )
+
+        assert result == mock_guild

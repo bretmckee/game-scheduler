@@ -27,7 +27,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
-from starlette.requests import Request
 
 from services.api.routes import guilds
 from shared.discord.client import DiscordAPIError
@@ -77,40 +76,105 @@ class TestListGuilds:
     """Test list_guilds endpoint."""
 
     @pytest.mark.asyncio
+    async def test_list_guilds_uses_projection_not_oauth(
+        self,
+        mock_db,
+        mock_current_user_unit,
+        mock_guild_config,
+    ):
+        """list_guilds must read guild IDs from projection, not oauth2.get_user_guilds."""
+        mock_redis = AsyncMock()
+        with (
+            patch(
+                "services.api.routes.guilds.cache_client.get_redis_client",
+                return_value=mock_redis,
+            ),
+            patch(
+                "services.api.routes.guilds.member_projection.get_user_guilds",
+                new_callable=AsyncMock,
+                return_value=["987654321"],
+            ) as mock_proj_guilds,
+            patch(
+                "services.api.routes.guilds.member_projection.get_guild_name",
+                new_callable=AsyncMock,
+                return_value="Test Guild",
+            ),
+            patch(
+                "services.api.database.queries.get_guild_by_discord_id",
+                new_callable=AsyncMock,
+                return_value=mock_guild_config,
+            ),
+            patch("services.api.auth.oauth2.get_user_guilds", new_callable=AsyncMock) as mock_oauth,
+        ):
+            result = await guilds.list_guilds(current_user=mock_current_user_unit, db=mock_db)
+
+            mock_proj_guilds.assert_awaited_once_with(
+                mock_current_user_unit.user.discord_id, redis=mock_redis
+            )
+            mock_oauth.assert_not_awaited()
+            assert len(result.guilds) == 1
+
+    @pytest.mark.asyncio
     async def test_list_guilds_success(
         self,
         mock_db,
         mock_current_user_unit,
         mock_guild_config,
-        mock_user_guilds,
-        mock_get_user_tokens,
     ):
         """Test listing guilds with configurations."""
+        mock_redis = AsyncMock()
         with (
-            patch("services.api.auth.oauth2.get_user_guilds") as mock_get_guilds,
-            patch("services.api.database.queries.get_guild_by_discord_id") as mock_get_guild,
+            patch(
+                "services.api.routes.guilds.cache_client.get_redis_client",
+                return_value=mock_redis,
+            ),
+            patch(
+                "services.api.routes.guilds.member_projection.get_user_guilds",
+                new_callable=AsyncMock,
+                return_value=["987654321"],
+            ),
+            patch(
+                "services.api.routes.guilds.member_projection.get_guild_name",
+                new_callable=AsyncMock,
+                return_value="Test Guild",
+            ),
+            patch(
+                "services.api.database.queries.get_guild_by_discord_id",
+                new_callable=AsyncMock,
+                return_value=mock_guild_config,
+            ),
         ):
-            mock_get_guilds.return_value = mock_user_guilds
-            mock_get_guild.return_value = mock_guild_config
-
             result = await guilds.list_guilds(current_user=mock_current_user_unit, db=mock_db)
 
-            assert len(result.guilds) == 2
+            assert len(result.guilds) == 1
             assert result.guilds[0].id == mock_guild_config.id
             assert result.guilds[0].guild_name == "Test Guild"
 
     @pytest.mark.asyncio
-    async def test_list_guilds_no_configs(
-        self, mock_db, mock_current_user_unit, mock_user_guilds, mock_get_user_tokens
-    ):
+    async def test_list_guilds_no_configs(self, mock_db, mock_current_user_unit):
         """Test listing guilds when no configurations exist."""
+        mock_redis = AsyncMock()
         with (
-            patch("services.api.auth.oauth2.get_user_guilds") as mock_get_guilds,
-            patch("services.api.database.queries.get_guild_by_discord_id") as mock_get_guild,
+            patch(
+                "services.api.routes.guilds.cache_client.get_redis_client",
+                return_value=mock_redis,
+            ),
+            patch(
+                "services.api.routes.guilds.member_projection.get_user_guilds",
+                new_callable=AsyncMock,
+                return_value=["987654321"],
+            ),
+            patch(
+                "services.api.routes.guilds.member_projection.get_guild_name",
+                new_callable=AsyncMock,
+                return_value="Test Guild",
+            ),
+            patch(
+                "services.api.database.queries.get_guild_by_discord_id",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
         ):
-            mock_get_guilds.return_value = mock_user_guilds
-            mock_get_guild.return_value = None
-
             result = await guilds.list_guilds(current_user=mock_current_user_unit, db=mock_db)
 
             assert len(result.guilds) == 0
@@ -552,195 +616,14 @@ class TestListGuildChannels:
             assert isinstance(result, guild_schemas.GuildConfigResponse)
 
 
-class TestSyncGuilds:
-    """Test sync_guilds endpoint."""
+class TestSyncEndpointRemoved:
+    """Verify that the /sync endpoint has been removed from the router."""
 
-    @pytest.mark.asyncio
-    async def test_sync_guilds_success(self, mock_db, mock_current_user_unit):
-        """Test successful guild sync using sync_all_bot_guilds."""
-        # Create a real Request object for slowapi
-        scope = {
-            "type": "http",
-            "method": "POST",
-            "path": "/api/v1/guilds/sync",
-            "headers": [(b"host", b"testserver")],
-            "query_string": b"",
-            "client": ("127.0.0.1", 8000),
-        }
-        mock_request = Request(scope)
-
-        mock_discord_client = AsyncMock()
-
-        # Mock database execute to return empty result (no existing guilds)
-        mock_result = MagicMock()
-        mock_scalars = MagicMock()
-        mock_scalars.all.return_value = []
-        mock_result.scalars.return_value = mock_scalars
-        mock_db.execute = AsyncMock(return_value=mock_result)
-
-        with (
-            patch("services.api.routes.guilds.get_discord_client") as mock_get_client,
-            patch("services.api.routes.guilds.get_api_config") as mock_get_config,
-            patch("services.api.routes.guilds.sync_all_bot_guilds") as mock_sync,
-        ):
-            mock_get_client.return_value = mock_discord_client
-            mock_config = MagicMock()
-            mock_config.discord_bot_token = "test_bot_token"
-            mock_get_config.return_value = mock_config
-
-            mock_sync.return_value = {
-                "new_guilds": 2,
-                "new_channels": 10,
-            }
-
-            result = await guilds.sync_guilds(
-                request=mock_request,
-                _current_user=mock_current_user_unit,
-                db=mock_db,
-            )
-
-            mock_sync.assert_called_once_with(mock_discord_client, mock_db, "test_bot_token")
-            mock_db.commit.assert_called_once()
-            assert result.new_guilds == 2
-            assert result.new_channels == 10
-
-    @pytest.mark.asyncio
-    async def test_sync_guilds_limiter_configured(self):
-        """Test that rate limiter decorator is configured on sync endpoint."""
-        from inspect import getsource  # noqa: PLC0415
-
-        from services.api.routes.guilds import sync_guilds  # noqa: PLC0415
-
-        # Verify that the function has been wrapped by slowapi limiter
-        # The limiter decorator should be present in the function's closure or wrapper
-        source = getsource(sync_guilds)
-        assert "@limiter.limit" in source or "limiter" in str(sync_guilds)
-
-    @pytest.mark.asyncio
-    async def test_sync_guilds_empty_results(self, mock_db, mock_current_user_unit):
-        """Test sync endpoint when no new guilds or channels are found."""
-        scope = {
-            "type": "http",
-            "method": "POST",
-            "path": "/api/v1/guilds/sync",
-            "headers": [(b"host", b"testserver")],
-            "query_string": b"",
-            "client": ("127.0.0.2", 8000),
-        }
-        mock_request = Request(scope)
-        mock_discord_client = AsyncMock()
-
-        mock_result = MagicMock()
-        mock_scalars = MagicMock()
-        mock_scalars.all.return_value = []
-        mock_result.scalars.return_value = mock_scalars
-        mock_db.execute = AsyncMock(return_value=mock_result)
-
-        with (
-            patch("services.api.routes.guilds.get_discord_client") as mock_get_client,
-            patch("services.api.routes.guilds.get_api_config") as mock_get_config,
-            patch("services.api.routes.guilds.sync_all_bot_guilds") as mock_sync,
-        ):
-            mock_get_client.return_value = mock_discord_client
-            mock_config = MagicMock()
-            mock_config.discord_bot_token = "test_bot_token"
-            mock_get_config.return_value = mock_config
-
-            mock_sync.return_value = {
-                "new_guilds": 0,
-                "new_channels": 0,
-            }
-
-            result = await guilds.sync_guilds(
-                request=mock_request,
-                _current_user=mock_current_user_unit,
-                db=mock_db,
-            )
-
-            assert result.new_guilds == 0
-            assert result.new_channels == 0
-            mock_db.commit.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_sync_guilds_sync_failure(self, mock_db, mock_current_user_unit):
-        """Test sync endpoint when sync_all_bot_guilds raises an exception."""
-        scope = {
-            "type": "http",
-            "method": "POST",
-            "path": "/api/v1/guilds/sync",
-            "headers": [(b"host", b"testserver")],
-            "query_string": b"",
-            "client": ("127.0.0.3", 8000),
-        }
-        mock_request = Request(scope)
-        mock_discord_client = AsyncMock()
-
-        with (
-            patch("services.api.routes.guilds.get_discord_client") as mock_get_client,
-            patch("services.api.routes.guilds.get_api_config") as mock_get_config,
-            patch("services.api.routes.guilds.sync_all_bot_guilds") as mock_sync,
-        ):
-            mock_get_client.return_value = mock_discord_client
-            mock_config = MagicMock()
-            mock_config.discord_bot_token = "test_bot_token"
-            mock_get_config.return_value = mock_config
-
-            mock_sync.side_effect = Exception("Discord API error")
-
-            with pytest.raises(Exception) as exc_info:
-                await guilds.sync_guilds(
-                    request=mock_request,
-                    _current_user=mock_current_user_unit,
-                    db=mock_db,
-                )
-
-            assert str(exc_info.value) == "Discord API error"
-            mock_db.commit.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_sync_guilds_commit_failure(self, mock_db, mock_current_user_unit):
-        """Test sync endpoint when database commit fails."""
-        scope = {
-            "type": "http",
-            "method": "POST",
-            "path": "/api/v1/guilds/sync",
-            "headers": [(b"host", b"testserver")],
-            "query_string": b"",
-            "client": ("127.0.0.4", 8000),
-        }
-        mock_request = Request(scope)
-        mock_discord_client = AsyncMock()
-
-        mock_result = MagicMock()
-        mock_scalars = MagicMock()
-        mock_scalars.all.return_value = []
-        mock_result.scalars.return_value = mock_scalars
-        mock_db.execute = AsyncMock(return_value=mock_result)
-        mock_db.commit = AsyncMock(side_effect=Exception("Database commit failed"))
-
-        with (
-            patch("services.api.routes.guilds.get_discord_client") as mock_get_client,
-            patch("services.api.routes.guilds.get_api_config") as mock_get_config,
-            patch("services.api.routes.guilds.sync_all_bot_guilds") as mock_sync,
-        ):
-            mock_get_client.return_value = mock_discord_client
-            mock_config = MagicMock()
-            mock_config.discord_bot_token = "test_bot_token"
-            mock_get_config.return_value = mock_config
-
-            mock_sync.return_value = {
-                "new_guilds": 1,
-                "new_channels": 5,
-            }
-
-            with pytest.raises(Exception) as exc_info:
-                await guilds.sync_guilds(
-                    request=mock_request,
-                    _current_user=mock_current_user_unit,
-                    db=mock_db,
-                )
-
-            assert str(exc_info.value) == "Database commit failed"
+    def test_sync_guilds_handler_not_registered(self):
+        """POST /api/v1/guilds/sync must not exist on the guilds router."""
+        assert not hasattr(guilds, "sync_guilds"), (
+            "sync_guilds handler should have been removed from guilds.py"
+        )
 
 
 class TestListGuildRoles:

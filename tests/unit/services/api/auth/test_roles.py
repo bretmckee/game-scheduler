@@ -389,7 +389,9 @@ class TestHasPermissionsLocalBitfield:
     @pytest.mark.asyncio
     async def test_has_permissions_user_holds_flag(self, role_service, mock_cache):
         """User with MANAGE_GUILD role gets True for MANAGE_GUILD check."""
-        mock_cache.get_json = AsyncMock(return_value=self._GUILD_ROLES)
+        mock_cache.get_json = AsyncMock(
+            side_effect=lambda key: self._GUILD_ROLES if "guild_roles" in key else None
+        )
         with (
             patch.object(role_service, "_get_cache", return_value=mock_cache),
             patch(
@@ -407,7 +409,9 @@ class TestHasPermissionsLocalBitfield:
     @pytest.mark.asyncio
     async def test_has_permissions_user_lacks_flag(self, role_service, mock_cache):
         """User without MANAGE_GUILD role gets False."""
-        mock_cache.get_json = AsyncMock(return_value=self._GUILD_ROLES)
+        mock_cache.get_json = AsyncMock(
+            side_effect=lambda key: self._GUILD_ROLES if "guild_roles" in key else None
+        )
         with (
             patch.object(role_service, "_get_cache", return_value=mock_cache),
             patch(
@@ -425,7 +429,9 @@ class TestHasPermissionsLocalBitfield:
     @pytest.mark.asyncio
     async def test_has_permissions_administrator_grants_all(self, role_service, mock_cache):
         """User with ADMINISTRATOR role gets True regardless of requested permission."""
-        mock_cache.get_json = AsyncMock(return_value=self._GUILD_ROLES)
+        mock_cache.get_json = AsyncMock(
+            side_effect=lambda key: self._GUILD_ROLES if "guild_roles" in key else None
+        )
         with (
             patch.object(role_service, "_get_cache", return_value=mock_cache),
             patch(
@@ -446,7 +452,9 @@ class TestHasPermissionsLocalBitfield:
         guild_roles = [
             {"id": "guild456", "name": "@everyone", "permissions": 0x20},  # MANAGE_GUILD
         ]
-        mock_cache.get_json = AsyncMock(return_value=guild_roles)
+        mock_cache.get_json = AsyncMock(
+            side_effect=lambda key: guild_roles if "guild_roles" in key else None
+        )
         with (
             patch.object(role_service, "_get_cache", return_value=mock_cache),
             patch(
@@ -478,3 +486,32 @@ class TestHasPermissionsLocalBitfield:
             )
 
         assert result is False
+
+    @pytest.mark.asyncio
+    async def test_has_permissions_guild_owner_granted_all(
+        self, role_service: roles.RoleVerificationService, mock_cache: AsyncMock
+    ) -> None:
+        """Guild owner gets True for any permission check regardless of role bitfields."""
+        guild_data = {"id": "guild456", "name": "Test Guild", "owner_id": "user123"}
+
+        def _get_json_side_effect(key: str) -> list | dict | None:
+            if "guild_roles" in key:
+                return self._GUILD_ROLES
+            if "discord:guild:" in key:
+                return guild_data
+            return None
+
+        mock_cache.get_json = AsyncMock(side_effect=_get_json_side_effect)
+        with (
+            patch.object(role_service, "_get_cache", return_value=mock_cache),
+            patch(
+                "services.api.auth.roles.member_projection.get_user_roles",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
+        ):
+            result = await role_service.has_permissions(
+                "user123", "guild456", DiscordPermissions.MANAGE_GUILD
+            )
+
+        assert result is True

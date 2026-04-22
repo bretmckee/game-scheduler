@@ -22,23 +22,19 @@
 """Guild configuration endpoints."""
 
 import logging
-import os
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from slowapi import Limiter
-from slowapi.util import get_remote_address
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.api import dependencies
-from services.api.auth import oauth2, tokens
-from services.api.config import get_api_config
 from services.api.database import queries
 from services.api.dependencies import permissions
 from services.api.dependencies.discord import get_discord_client
 from services.api.services import guild_service
-from services.bot.guild_sync import sync_all_bot_guilds
 from shared import database
+from shared.cache import client as cache_client
+from shared.cache import projection as member_projection
 from shared.discord.client import DiscordAPIClient, DiscordAPIError
 from shared.models.guild import GuildConfiguration
 from shared.schemas import auth as auth_schemas
@@ -47,14 +43,6 @@ from shared.schemas import guild as guild_schemas
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/guilds", tags=["guilds"])
-
-# Rate limiter for sync endpoint
-limiter = Limiter(key_func=get_remote_address)
-
-# Rate limit for sync endpoint (effectively unlimited in test environments)
-SYNC_RATE_LIMIT = (
-    "999999/second" if os.getenv("TEST_ENVIRONMENT", "").lower() == "true" else "1/minute"
-)
 
 
 async def _build_guild_config_response(
@@ -83,21 +71,18 @@ async def list_guilds(
 
     Returns guild configurations with current settings.
     """
-    token_data = await tokens.get_user_tokens(current_user.session_token)
-    if not token_data:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No session found")
-    # Get guilds with automatic caching from discord client
-    user_guilds = await oauth2.get_user_guilds(
-        tokens.get_guild_token(token_data), current_user.user.discord_id
+    redis = await cache_client.get_redis_client()
+    guild_ids = (
+        await member_projection.get_user_guilds(current_user.user.discord_id, redis=redis) or []
     )
-    user_guilds_dict = {g["id"]: g for g in user_guilds}
 
     guild_configs = []
-    for guild_id, discord_guild_data in user_guilds_dict.items():
+    for guild_id in guild_ids:
         guild_config = await queries.get_guild_by_discord_id(db, guild_id)
         if guild_config:
-            guild_name = discord_guild_data.get("name", "Unknown Guild")
-
+            guild_name = (
+                await member_projection.get_guild_name(guild_id, redis=redis) or "Unknown Guild"
+            )
             guild_configs.append(
                 guild_schemas.GuildBasicInfoResponse(
                     id=guild_config.id,
@@ -319,42 +304,6 @@ async def list_guild_roles(
     )
 
     return filtered_roles
-
-
-@router.post("/sync", response_model=guild_schemas.GuildSyncResponse)
-@limiter.limit(SYNC_RATE_LIMIT)
-async def sync_guilds(
-    request: Request,  # noqa: ARG001
-    _current_user: Annotated[auth_schemas.CurrentUser, Depends(dependencies.auth.get_current_user)],
-    db: Annotated[AsyncSession, Depends(database.get_db)],
-) -> guild_schemas.GuildSyncResponse:
-    """
-    Sync bot's Discord guilds and channels with database.
-
-    Uses sync_all_bot_guilds to sync ALL guilds the bot is in (not just
-    user's guilds). Creates new guilds and refreshes channels for existing
-    guilds. Rate limited to 1 request per minute per IP address (effectively
-    unlimited in test environments).
-
-    Returns count of new guilds, new channels, and updated channels.
-    """
-    config = get_api_config()
-    discord_client = get_discord_client()
-
-    result = await sync_all_bot_guilds(discord_client, db, config.discord_bot_token)
-
-    await db.commit()
-
-    logger.info(
-        "Guild sync completed: %d new guilds, %d new channels",
-        result["new_guilds"],
-        result["new_channels"],
-    )
-
-    return guild_schemas.GuildSyncResponse(
-        new_guilds=result["new_guilds"],
-        new_channels=result["new_channels"],
-    )
 
 
 @router.post("/{guild_id}/validate-mention")

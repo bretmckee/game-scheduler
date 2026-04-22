@@ -30,8 +30,8 @@ from datetime import datetime
 
 import discord
 
-from services.bot.dependencies.discord_client import get_discord_client
-from shared.discord import client as discord_client
+from shared.cache import client as cache_client
+from shared.cache import projection as member_projection
 
 logger = logging.getLogger(__name__)
 
@@ -39,13 +39,10 @@ logger = logging.getLogger(__name__)
 async def get_member_display_info(
     _bot: discord.Client, guild_id: str, user_id: str
 ) -> tuple[str | None, str | None]:
-    """Get member display name and avatar URL from Discord with caching.
-
-    Uses DiscordAPIClient for caching to reduce Discord API calls across services.
-    Falls back to discord.py in-memory cache if member not in API cache.
+    """Get member display name and avatar URL from the Redis projection.
 
     Args:
-        bot: Discord bot client (kept for compatibility, used as fallback)
+        _bot: Discord bot client (unused, kept for call-site compatibility)
         guild_id: Discord guild ID
         user_id: Discord user ID
 
@@ -53,33 +50,20 @@ async def get_member_display_info(
         Tuple of (display_name, avatar_url) or (None, None) if member not found
     """
     try:
-        discord_api = get_discord_client()
-        member_data = await discord_api.get_guild_member(guild_id, user_id)
+        redis = await cache_client.get_redis_client()
+        member_data = await member_projection.get_member(guild_id, user_id, redis=redis)
 
         if not member_data:
             logger.warning("Member %s not found in guild %s", user_id, guild_id)
             return None, None
 
         display_name = (
-            member_data.get("nick")
-            or member_data["user"].get("global_name")
-            or member_data["user"].get("username")
+            member_data.get("nick") or member_data.get("global_name") or member_data.get("username")
         )
-
-        member_avatar = member_data.get("avatar")
-        user_avatar = member_data["user"].get("avatar")
-        avatar_url = _build_avatar_url(user_id, guild_id, member_avatar, user_avatar)
+        avatar_url = member_data.get("avatar_url")
 
         return display_name, avatar_url
 
-    except discord_client.DiscordAPIError as e:
-        logger.warning(
-            "API error fetching member info for %s in guild %s: %s",
-            user_id,
-            guild_id,
-            e,
-        )
-        return None, None
     except (ValueError, KeyError) as e:
         logger.warning("Failed to parse member info for %s in guild %s: %s", user_id, guild_id, e)
         return None, None

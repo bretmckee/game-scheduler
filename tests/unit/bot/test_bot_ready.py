@@ -72,6 +72,7 @@ def _make_guild(guild_id: int, name: str) -> MagicMock:
     guild = MagicMock()
     guild.id = guild_id
     guild.name = name
+    guild.owner_id = 9999
     guild.channels = [_make_channel(1001, "general")]
     guild.roles = [_make_role(2001, "Member")]
     return guild
@@ -258,7 +259,20 @@ async def test_on_ready_writes_guild_key(bot, mock_redis, on_ready_env) -> None:
 
     mock_redis.set_json.assert_any_call(
         CacheKeys.discord_guild(str(guild.id)),
-        {"id": str(guild.id), "name": guild.name},
+        {"id": str(guild.id), "name": guild.name, "owner_id": str(guild.owner_id)},
+        CacheTTL.DISCORD_GUILD,
+    )
+
+
+async def test_on_ready_writes_guild_key_with_owner_id(bot, mock_redis, on_ready_env) -> None:
+    """on_ready writes owner_id to discord:guild:{id} for each connected guild."""
+    guild = on_ready_env
+    with patch("services.bot.bot.guild_projection.repopulate_all", new_callable=AsyncMock):
+        await bot.on_ready()
+
+    mock_redis.set_json.assert_any_call(
+        CacheKeys.discord_guild(str(guild.id)),
+        {"id": str(guild.id), "name": guild.name, "owner_id": str(guild.owner_id)},
         CacheTTL.DISCORD_GUILD,
     )
 

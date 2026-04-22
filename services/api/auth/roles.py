@@ -149,6 +149,13 @@ class RoleVerificationService:
         """
         try:
             cache = await self._get_cache()
+
+            guild_data: dict | None = await cache.get_json(
+                cache_keys.CacheKeys.discord_guild(guild_id)
+            )
+            if guild_data and guild_data.get("owner_id") == user_id:
+                return True
+
             guild_roles: list[dict] | None = await cache.get_json(
                 cache_keys.CacheKeys.discord_guild_roles(guild_id)
             )

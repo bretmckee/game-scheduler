@@ -62,29 +62,6 @@ describe('GuildListPage', () => {
     user_uuid: 'uuid-123',
     username: 'testuser',
     discordId: '123',
-    guilds: [
-      {
-        id: 'guild1',
-        name: 'Test Guild 1',
-        icon: 'icon1',
-        owner: true,
-        permissions: '0',
-      },
-      {
-        id: 'guild2',
-        name: 'Test Guild 2',
-        icon: null,
-        owner: false,
-        permissions: '32',
-      },
-      {
-        id: 'guild3',
-        name: 'Test Guild 3 (No Permissions)',
-        icon: null,
-        owner: false,
-        permissions: '0',
-      },
-    ],
   };
 
   const mockRefreshUser = vi.fn();
@@ -137,7 +114,6 @@ describe('GuildListPage', () => {
   it('renders empty state when API returns no guilds', async () => {
     const userWithNoGuilds: CurrentUser = {
       ...mockUser,
-      guilds: [],
     };
     vi.mocked(apiClient.get).mockResolvedValue({ data: { guilds: [] } });
     renderWithAuth(userWithNoGuilds);
@@ -155,76 +131,12 @@ describe('GuildListPage', () => {
     expect(avatars.length).toBeGreaterThan(0);
   });
 
-  it('displays success message with new guilds and channels on sync', async () => {
+  it('no Sync Guilds button rendered after Phase 7 removal', async () => {
     renderWithAuth();
     await waitFor(() => {
       expect(screen.getByText('Your Servers')).toBeInTheDocument();
     });
-
-    vi.mocked(apiClient.post).mockResolvedValue({
-      data: { new_guilds: 1, new_channels: 2 },
-    });
-
-    const syncButton = screen.getByRole('button', { name: /Sync Guilds/i });
-    await userEvent.click(syncButton);
-
-    await waitFor(() => {
-      expect(screen.getByText(/Synced 1 new server, 2 new channels/)).toBeInTheDocument();
-    });
-  });
-
-  it('displays success message with updated channels on sync', async () => {
-    renderWithAuth();
-    await waitFor(() => {
-      expect(screen.getByText('Your Servers')).toBeInTheDocument();
-    });
-
-    vi.mocked(apiClient.post).mockResolvedValue({
-      data: { new_guilds: 0, new_channels: 1 },
-    });
-
-    const syncButton = screen.getByRole('button', { name: /Sync Guilds/i });
-    await userEvent.click(syncButton);
-
-    await waitFor(() => {
-      expect(screen.getByText(/Synced 1 new channel/)).toBeInTheDocument();
-    });
-  });
-
-  it('displays success message when all synced', async () => {
-    renderWithAuth();
-    await waitFor(() => {
-      expect(screen.getByText('Your Servers')).toBeInTheDocument();
-    });
-
-    vi.mocked(apiClient.post).mockResolvedValue({
-      data: { new_guilds: 0, new_channels: 0 },
-    });
-
-    const syncButton = screen.getByRole('button', { name: /Sync Guilds/i });
-    await userEvent.click(syncButton);
-
-    await waitFor(() => {
-      expect(screen.getByText(/All servers and channels are already synced/)).toBeInTheDocument();
-    });
-  });
-
-  it('handles proper pluralization in sync messages', async () => {
-    renderWithAuth();
-    await waitFor(() => {
-      expect(screen.getByText('Your Servers')).toBeInTheDocument();
-    });
-
-    vi.mocked(apiClient.post).mockResolvedValue({
-      data: { new_guilds: 2, new_channels: 1 },
-    });
-
-    const syncButton = screen.getByRole('button', { name: /Sync Guilds/i });
-    await userEvent.click(syncButton);
-
-    await waitFor(() => {
-      expect(screen.getByText(/Synced 2 new servers, 1 new channel/)).toBeInTheDocument();
-    });
+    expect(screen.queryByRole('button', { name: /Sync Guilds/i })).not.toBeInTheDocument();
   });
 
   it('shows maintainer toggle for can_be_maintainer user', async () => {

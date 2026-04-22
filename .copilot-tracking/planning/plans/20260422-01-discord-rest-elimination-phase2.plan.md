@@ -38,63 +38,63 @@ Replace all remaining `oauth2.get_user_guilds()` REST calls (4 sites), the last 
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Fix sse_bridge.py guild membership check (Group 2a)
+### [x] Phase 1: Fix sse_bridge.py guild membership check (Group 2a)
 
-- [ ] Task 1.1: Write failing test for projection-based guild lookup in sse_bridge.py
+- [x] Task 1.1: Write failing test for projection-based guild lookup in sse_bridge.py
   - Details: .copilot-tracking/planning/details/20260422-01-discord-rest-elimination-phase2-details.md (Lines 13-26)
 
-- [ ] Task 1.2: Replace `oauth2.get_user_guilds()` with `member_projection.get_user_guilds()` in sse_bridge.py
+- [x] Task 1.2: Replace `oauth2.get_user_guilds()` with `member_projection.get_user_guilds()` in sse_bridge.py
   - Details: .copilot-tracking/planning/details/20260422-01-discord-rest-elimination-phase2-details.md (Lines 27-58)
 
-### [ ] Phase 2: Fix queries.py RLS setup (Group 2b)
+### [x] Phase 2: Fix queries.py RLS setup (Group 2b)
 
-- [ ] Task 2.1: Write failing test for projection-based RLS guild list in queries.py
+- [x] Task 2.1: Write failing test for projection-based RLS guild list in queries.py
   - Details: .copilot-tracking/planning/details/20260422-01-discord-rest-elimination-phase2-details.md (Lines 61-73)
 
-- [ ] Task 2.2: Replace `oauth2.get_user_guilds()` with `member_projection.get_user_guilds()` in queries.py
+- [x] Task 2.2: Replace `oauth2.get_user_guilds()` with `member_projection.get_user_guilds()` in queries.py
   - Details: .copilot-tracking/planning/details/20260422-01-discord-rest-elimination-phase2-details.md (Lines 74-102)
 
-### [ ] Phase 3: Fix guilds.py list_guilds route (Group 2c)
+### [x] Phase 3: Fix guilds.py list_guilds route (Group 2c)
 
-- [ ] Task 3.1: Write failing test for projection-based guild list in list_guilds
-  - Details: .copilot-tracking/planning/details/20260422-01-discord-rest-elimination-phase2-details.md (Lines 105-117)
+- [x] Task 3.1: Write failing test for projection-based guild list in list_guilds
+  - Details: .copilot-tracking/planning/details/20260422-01-discord-rest-elimination-phase2-details.md (Lines 105-113)
 
-- [ ] Task 3.2: Replace `oauth2.get_user_guilds()` with projection in guilds.py list_guilds
+- [x] Task 3.2: Replace oauth2.get_user_guilds() with projection in list_guilds
   - Details: .copilot-tracking/planning/details/20260422-01-discord-rest-elimination-phase2-details.md (Lines 118-140)
 
-### [ ] Phase 4: Remove guilds field from auth response (Group 2d)
+### [x] Phase 4: Remove guilds field from auth response (Group 2d)
 
-- [ ] Task 4.1: Write failing test confirming guilds field absent from /auth/user response
+- [x] Task 4.1: Write failing test confirming guilds field absent from /auth/user response
   - Details: .copilot-tracking/planning/details/20260422-01-discord-rest-elimination-phase2-details.md (Lines 142-154)
 
-- [ ] Task 4.2: Remove guilds from auth.py, UserInfoResponse schema, and frontend CurrentUser
+- [x] Task 4.2: Remove guilds from auth.py, UserInfoResponse schema, and frontend CurrentUser
   - Details: .copilot-tracking/planning/details/20260422-01-discord-rest-elimination-phase2-details.md (Lines 155-181)
 
-### [ ] Phase 5: Fix discord_format.py member lookup (Group 3)
+### [x] Phase 5: Fix discord_format.py member lookup (Group 3)
 
-- [ ] Task 5.1: Write failing test for projection-based member display info
+- [x] Task 5.1: Write failing test for projection-based member display info
   - Details: .copilot-tracking/planning/details/20260422-01-discord-rest-elimination-phase2-details.md (Lines 183-195)
 
-- [ ] Task 5.2: Replace `discord_api.get_guild_member()` with `member_projection.get_member()` in discord_format.py
+- [x] Task 5.2: Replace `discord_api.get_guild_member()` with `member_projection.get_member()` in discord_format.py
   - Details: .copilot-tracking/planning/details/20260422-01-discord-rest-elimination-phase2-details.md (Lines 196-215)
 
-### [ ] Phase 6: Fix participant_drop.py user fetch (Group 4)
+### [x] Phase 6: Fix participant_drop.py user fetch (Group 4)
 
-- [ ] Task 6.1: Write failing test for sync user fetch in participant_drop.py
+- [x] Task 6.1: Write failing test for sync user fetch in participant_drop.py
   - Details: .copilot-tracking/planning/details/20260422-01-discord-rest-elimination-phase2-details.md (Lines 217-229)
 
-- [ ] Task 6.2: Replace `bot.fetch_user()` with `bot.get_user()` in participant_drop.py
+- [x] Task 6.2: Replace `bot.fetch_user()` with `bot.get_user()` in participant_drop.py
   - Details: .copilot-tracking/planning/details/20260422-01-discord-rest-elimination-phase2-details.md (Lines 230-263)
 
-### [ ] Phase 7: Remove /sync endpoint and frontend Sync button (Group 6)
+### [x] Phase 7: Remove /sync endpoint and frontend Sync button (Group 6)
 
-- [ ] Task 7.1: Write failing test confirming /sync returns 404
+- [x] Task 7.1: Write failing test confirming /sync returns 404
   - Details: .copilot-tracking/planning/details/20260422-01-discord-rest-elimination-phase2-details.md (Lines 265-277)
 
-- [ ] Task 7.2: Remove /sync route handler from guilds.py
+- [x] Task 7.2: Remove /sync route handler from guilds.py
   - Details: .copilot-tracking/planning/details/20260422-01-discord-rest-elimination-phase2-details.md (Lines 278-296)
 
-- [ ] Task 7.3: Remove Sync button and tests from frontend
+- [x] Task 7.3: Remove Sync button and tests from frontend
   - Details: .copilot-tracking/planning/details/20260422-01-discord-rest-elimination-phase2-details.md (Lines 298-331)
 
 ## Dependencies

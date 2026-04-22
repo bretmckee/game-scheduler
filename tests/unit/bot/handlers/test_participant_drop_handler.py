@@ -80,9 +80,9 @@ def mock_participant(participant_db_id, mock_game):
 @pytest.fixture
 def mock_bot():
     bot = MagicMock(spec=discord.Client)
-    discord_user = AsyncMock()
+    discord_user = MagicMock()
     discord_user.send = AsyncMock()
-    bot.fetch_user = AsyncMock(return_value=discord_user)
+    bot.get_user = MagicMock(return_value=discord_user)
     return bot
 
 
@@ -149,8 +149,8 @@ async def test_handler_sends_removal_dm(
     with _patch_db(mock_db):
         await handle_participant_drop_due(drop_event_data, mock_bot, mock_publisher)
 
-    mock_bot.fetch_user.assert_called_once_with(int(PARTICIPANT_DISCORD_ID))
-    discord_user = await mock_bot.fetch_user(int(PARTICIPANT_DISCORD_ID))
+    mock_bot.get_user.assert_called_once_with(int(PARTICIPANT_DISCORD_ID))
+    discord_user = mock_bot.get_user(int(PARTICIPANT_DISCORD_ID))
     expected_msg = DMFormats.removal(mock_game.title)
     discord_user.send.assert_called_once_with(expected_msg)
 
@@ -187,7 +187,7 @@ async def test_handler_skips_when_participant_not_found(mock_bot, mock_publisher
         await handle_participant_drop_due(drop_event_data, mock_bot, mock_publisher)
 
     mock_db.delete.assert_not_called()
-    mock_bot.fetch_user.assert_not_called()
+    mock_bot.get_user.assert_not_called()
     mock_publisher.publish_game_updated.assert_not_called()
 
 
@@ -231,7 +231,7 @@ async def test_handler_suppresses_removal_dm_when_welcome_not_sent(
         await handle_participant_drop_due(drop_event_data, mock_bot, mock_publisher)
 
     mock_db.delete.assert_called_once_with(mock_participant)
-    mock_bot.fetch_user.assert_not_called()
+    mock_bot.get_user.assert_not_called()
     mock_publisher.publish_game_updated.assert_called_once()
 
 
@@ -245,7 +245,7 @@ async def test_handler_sends_removal_dm_when_welcome_already_sent(
     with _patch_db(mock_db):
         await handle_participant_drop_due(drop_event_data, mock_bot, mock_publisher)
 
-    mock_bot.fetch_user.assert_called_once_with(int(PARTICIPANT_DISCORD_ID))
+    mock_bot.get_user.assert_called_once_with(int(PARTICIPANT_DISCORD_ID))
     mock_publisher.publish_game_updated.assert_called_once()
 
 

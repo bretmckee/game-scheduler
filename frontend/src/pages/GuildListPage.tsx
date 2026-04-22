@@ -40,11 +40,9 @@ import {
   DialogContentText,
   DialogActions,
 } from '@mui/material';
-import RefreshIcon from '@mui/icons-material/Refresh';
 import { useAuth } from '../hooks/useAuth';
 import { toggleMaintainerMode, refreshMaintainers } from '../api/maintainers';
 import { apiClient } from '../api/client';
-import { syncUserGuilds, GuildSyncResponse } from '../api/guilds';
 import { Guild } from '../types';
 
 export const GuildListPage: FC = () => {
@@ -53,8 +51,6 @@ export const GuildListPage: FC = () => {
   const [guilds, setGuilds] = useState<Guild[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [syncing, setSyncing] = useState(false);
-  const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [confirmRefreshOpen, setConfirmRefreshOpen] = useState(false);
 
   const handleToggleMaintainer = async () => {
@@ -75,39 +71,6 @@ export const GuildListPage: FC = () => {
     } catch (err: any) {
       console.error('Failed to refresh maintainers:', err);
       setError(err.response?.data?.detail || 'Failed to refresh maintainers.');
-    }
-  };
-
-  const handleSyncGuilds = async () => {
-    try {
-      setSyncing(true);
-      setSyncMessage(null);
-      setError(null);
-
-      const result: GuildSyncResponse = await syncUserGuilds();
-
-      if (result.new_guilds > 0 || result.new_channels > 0) {
-        const messageParts: string[] = [];
-        if (result.new_guilds > 0) {
-          messageParts.push(`${result.new_guilds} new server${result.new_guilds > 1 ? 's' : ''}`);
-        }
-        if (result.new_channels > 0) {
-          messageParts.push(
-            `${result.new_channels} new channel${result.new_channels > 1 ? 's' : ''}`
-          );
-        }
-        setSyncMessage(`Synced ${messageParts.join(', ')}`);
-        // Refresh the guilds list
-        const response = await apiClient.get<{ guilds: Guild[] }>('/api/v1/guilds');
-        setGuilds(response.data.guilds);
-      } else {
-        setSyncMessage('All servers and channels are already synced');
-      }
-    } catch (err: any) {
-      console.error('Failed to sync guilds:', err);
-      setError(err.response?.data?.detail || 'Failed to sync servers. Please try again.');
-    } finally {
-      setSyncing(false);
     }
   };
 
@@ -159,19 +122,6 @@ export const GuildListPage: FC = () => {
           No servers with bot configurations found. Make sure the bot is added to your Discord
           server.
         </Alert>
-        <Button
-          variant="contained"
-          startIcon={<RefreshIcon />}
-          onClick={handleSyncGuilds}
-          disabled={syncing}
-        >
-          {syncing ? 'Syncing...' : 'Sync Guilds'}
-        </Button>
-        {syncMessage && (
-          <Alert severity="success" sx={{ mt: 2 }} onClose={() => setSyncMessage(null)}>
-            {syncMessage}
-          </Alert>
-        )}
       </Container>
     );
   }
@@ -199,14 +149,6 @@ export const GuildListPage: FC = () => {
               Refresh Maintainers
             </Button>
           )}
-          <Button
-            variant="outlined"
-            startIcon={<RefreshIcon />}
-            onClick={handleSyncGuilds}
-            disabled={syncing}
-          >
-            {syncing ? 'Syncing...' : 'Sync Guilds'}
-          </Button>
         </Box>
       </Box>
 
@@ -225,12 +167,6 @@ export const GuildListPage: FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-
-      {syncMessage && (
-        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSyncMessage(null)}>
-          {syncMessage}
-        </Alert>
-      )}
 
       <Grid container spacing={3}>
         {guilds.map((guild) => (

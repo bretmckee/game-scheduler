@@ -72,16 +72,23 @@ async def test_broadcast_filters_by_guild_membership(sse_bridge, mock_event, moc
 
     sse_bridge.connections["client1"] = (client_queue, session_token, discord_id)
 
+    mock_redis = AsyncMock()
     with (
         patch(
             "services.api.services.sse_bridge.get_bypass_db_session",
             return_value=mock_db_session,
         ),
         patch("services.api.services.sse_bridge.tokens.get_user_tokens") as mock_tokens,
-        patch("services.api.services.sse_bridge.oauth2.get_user_guilds") as mock_guilds,
+        patch(
+            "services.api.services.sse_bridge.cache_client.get_redis_client",
+            return_value=mock_redis,
+        ),
+        patch(
+            "services.api.services.sse_bridge.member_projection.get_user_guilds",
+            new=AsyncMock(return_value=["123456789"]),
+        ),
     ):
         mock_tokens.return_value = {"access_token": "token123"}
-        mock_guilds.return_value = [{"id": "123456789", "name": "Test Guild"}]
 
         await sse_bridge._broadcast_to_clients(mock_event)
 
@@ -101,16 +108,23 @@ async def test_broadcast_skips_non_members(sse_bridge, mock_event, mock_db_sessi
 
     sse_bridge.connections["client1"] = (client_queue, session_token, discord_id)
 
+    mock_redis = AsyncMock()
     with (
         patch(
             "services.api.services.sse_bridge.get_bypass_db_session",
             return_value=mock_db_session,
         ),
         patch("services.api.services.sse_bridge.tokens.get_user_tokens") as mock_tokens,
-        patch("services.api.services.sse_bridge.oauth2.get_user_guilds") as mock_guilds,
+        patch(
+            "services.api.services.sse_bridge.cache_client.get_redis_client",
+            return_value=mock_redis,
+        ),
+        patch(
+            "services.api.services.sse_bridge.member_projection.get_user_guilds",
+            new=AsyncMock(return_value=["999999999"]),
+        ),
     ):
         mock_tokens.return_value = {"access_token": "token123"}
-        mock_guilds.return_value = [{"id": "999999999", "name": "Other Guild"}]
 
         await sse_bridge._broadcast_to_clients(mock_event)
 
@@ -151,16 +165,23 @@ async def test_broadcast_handles_full_queue(sse_bridge, mock_event, mock_db_sess
 
     sse_bridge.connections["client1"] = (client_queue, session_token, discord_id)
 
+    mock_redis = AsyncMock()
     with (
         patch(
             "services.api.services.sse_bridge.get_bypass_db_session",
             return_value=mock_db_session,
         ),
         patch("services.api.services.sse_bridge.tokens.get_user_tokens") as mock_tokens,
-        patch("services.api.services.sse_bridge.oauth2.get_user_guilds") as mock_guilds,
+        patch(
+            "services.api.services.sse_bridge.cache_client.get_redis_client",
+            return_value=mock_redis,
+        ),
+        patch(
+            "services.api.services.sse_bridge.member_projection.get_user_guilds",
+            new=AsyncMock(return_value=["123456789"]),
+        ),
     ):
         mock_tokens.return_value = {"access_token": "token123"}
-        mock_guilds.return_value = [{"id": "123456789", "name": "Test Guild"}]
 
         await sse_bridge._broadcast_to_clients(mock_event)
 
@@ -261,16 +282,23 @@ async def test_broadcast_to_multiple_clients(sse_bridge, mock_event, mock_db_ses
     sse_bridge.connections["client1"] = (queue1, "session1", "user1")
     sse_bridge.connections["client2"] = (queue2, "session2", "user2")
 
+    mock_redis = AsyncMock()
     with (
         patch(
             "services.api.services.sse_bridge.get_bypass_db_session",
             return_value=mock_db_session,
         ),
         patch("services.api.services.sse_bridge.tokens.get_user_tokens") as mock_tokens,
-        patch("services.api.services.sse_bridge.oauth2.get_user_guilds") as mock_guilds,
+        patch(
+            "services.api.services.sse_bridge.cache_client.get_redis_client",
+            return_value=mock_redis,
+        ),
+        patch(
+            "services.api.services.sse_bridge.member_projection.get_user_guilds",
+            new=AsyncMock(return_value=["123456789"]),
+        ),
     ):
         mock_tokens.return_value = {"access_token": "token123"}
-        mock_guilds.return_value = [{"id": "123456789", "name": "Test Guild"}]
 
         await sse_bridge._broadcast_to_clients(mock_event)
 
@@ -299,3 +327,37 @@ def test_set_keepalive_interval_validation():
     # Negative should raise ValueError
     with pytest.raises(ValueError, match="Keepalive interval must be positive"):
         bridge.set_keepalive_interval(-1)
+
+
+@pytest.mark.asyncio
+async def test_broadcast_uses_projection_not_oauth_for_guild_check(
+    sse_bridge, mock_event, mock_db_session
+):
+    """Broadcast loop must use member_projection.get_user_guilds, not oauth2.get_user_guilds."""
+    client_queue = asyncio.Queue()
+    sse_bridge.connections["client1"] = (client_queue, "test_session", "user123")
+
+    mock_redis = AsyncMock()
+
+    with (
+        patch(
+            "services.api.services.sse_bridge.get_bypass_db_session",
+            return_value=mock_db_session,
+        ),
+        patch("services.api.services.sse_bridge.tokens.get_user_tokens") as mock_tokens,
+        patch(
+            "services.api.services.sse_bridge.cache_client.get_redis_client",
+            return_value=mock_redis,
+        ),
+        patch(
+            "services.api.services.sse_bridge.member_projection.get_user_guilds",
+            new=AsyncMock(return_value=["123456789"]),
+        ),
+    ):
+        mock_tokens.return_value = {"access_token": "token123", "is_maintainer": False}
+
+        await sse_bridge._broadcast_to_clients(mock_event)
+
+        assert not client_queue.empty(), (
+            "Message must be delivered via projection-based guild check"
+        )

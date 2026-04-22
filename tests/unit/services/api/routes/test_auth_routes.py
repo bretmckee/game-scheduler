@@ -164,6 +164,41 @@ class TestRefresh:
 
 class TestGetUserInfo:
     @pytest.mark.asyncio
+    async def test_get_user_info_no_guilds_field(self, mock_current_user_unit, mock_db_unit):
+        """get_user_info must not include guilds in response or call oauth2.get_user_guilds."""
+        token_data = {
+            "refresh_token": "refresh-tok",
+            "access_token": "access-tok",
+            "expires_at": "2099-01-01T00:00:00Z",
+        }
+        with (
+            patch(
+                "services.api.auth.tokens.get_user_tokens",
+                new_callable=AsyncMock,
+                return_value=token_data,
+            ),
+            patch(
+                "services.api.auth.tokens.is_token_expired",
+                new_callable=AsyncMock,
+                return_value=False,
+            ),
+            patch(
+                "services.api.auth.oauth2.get_user_from_token",
+                new_callable=AsyncMock,
+                return_value={"id": "123", "username": "testuser", "avatar": None},
+            ),
+            patch(
+                "services.api.auth.oauth2.get_user_guilds", new_callable=AsyncMock
+            ) as mock_guilds,
+        ):
+            result = await auth_routes.get_user_info(
+                current_user=mock_current_user_unit, _db=mock_db_unit
+            )
+
+            mock_guilds.assert_not_awaited()
+            assert not hasattr(result, "guilds")
+
+    @pytest.mark.asyncio
     async def test_get_user_info_expired_token_refresh_failure(
         self, mock_current_user_unit, mock_db_unit
     ):

@@ -92,7 +92,10 @@ async def handle_participant_drop_due(
 
     if discord_id and not welcome_not_sent:
         try:
-            user = await bot.fetch_user(int(discord_id))
+            user = bot.get_user(int(discord_id))
+            if user is None:
+                logger.warning("User %s not in cache, cannot send removal DM", discord_id)
+                return
             await user.send(DMFormats.removal(game_title))
         except Exception:
             logger.warning("Failed to send removal DM to user %s", discord_id, exc_info=True)

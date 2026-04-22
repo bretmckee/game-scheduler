@@ -258,7 +258,7 @@ class GameSchedulerBot(commands.Bot):
 
             await redis.set_json(
                 CacheKeys.discord_guild(guild_id),
-                {"id": guild_id, "name": guild.name},
+                {"id": guild_id, "name": guild.name, "owner_id": str(guild.owner_id)},
                 CacheTTL.DISCORD_GUILD,
             )
 

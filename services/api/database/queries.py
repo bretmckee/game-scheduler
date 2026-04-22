@@ -29,6 +29,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from starlette import status
 
+from shared.cache import client as cache_client
+from shared.cache import projection as member_projection
 from shared.data_access.guild_isolation import (
     get_current_guild_ids,
     set_current_guild_ids,
@@ -119,7 +121,7 @@ async def get_guild_by_id(db: AsyncSession, guild_id: str) -> GuildConfiguration
 async def require_guild_by_id(
     db: AsyncSession,
     guild_id: str,
-    access_token: str,
+    _access_token: str,
     user_discord_id: str,
     not_found_detail: str = "Guild configuration not found",
 ) -> GuildConfiguration:
@@ -132,7 +134,7 @@ async def require_guild_by_id(
     Args:
         db: Database session
         guild_id: Database UUID (GuildConfiguration.id)
-        access_token: User's OAuth2 access token
+        _access_token: Deprecated, no longer used (kept for API compatibility)
         user_discord_id: User's Discord ID
         not_found_detail: Custom error message for 404 response
 
@@ -142,12 +144,11 @@ async def require_guild_by_id(
     Raises:
         HTTPException(404): If guild not found OR user not authorized
     """
-    from services.api.auth import oauth2  # noqa: PLC0415 - avoid circular dependency
-
     # Ensure RLS context is set (idempotent - only fetches if not already set)
     if get_current_guild_ids() is None:
-        user_guilds = await oauth2.get_user_guilds(access_token, user_discord_id)
-        discord_guild_ids = [g["id"] for g in user_guilds]
+        redis = await cache_client.get_redis_client()
+        guild_ids = await member_projection.get_user_guilds(user_discord_id, redis=redis)
+        discord_guild_ids = guild_ids or []
         await setup_rls_and_convert_guild_ids(db, discord_guild_ids)
 
     guild_config = await get_guild_by_id(db, guild_id)

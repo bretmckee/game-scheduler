@@ -37,7 +37,6 @@ from services.bot.utils.discord_format import (
     format_user_or_placeholder,
     get_member_display_info,
 )
-from shared.discord.client import DiscordAPIError
 
 
 class TestFormatUserOrPlaceholder:
@@ -320,15 +319,22 @@ class TestGetMemberDisplayInfo:
     @pytest.mark.asyncio
     async def test_returns_nick_and_avatar_when_found(self):
         """Test successful member lookup returns nick and avatar URL."""
-        mock_api = AsyncMock()
-        mock_api.get_guild_member.return_value = {
+        mock_redis = AsyncMock()
+        mock_member = {
             "nick": "CoolNick",
-            "avatar": None,
-            "user": {"username": "user123", "global_name": None, "avatar": "abc"},
+            "global_name": None,
+            "username": "user123",
+            "avatar_url": "https://cdn.discordapp.com/avatars/user1/abc.png",
         }
-        with patch(
-            "services.bot.utils.discord_format.get_discord_client",
-            return_value=mock_api,
+        with (
+            patch(
+                "services.bot.utils.discord_format.cache_client.get_redis_client",
+                return_value=mock_redis,
+            ),
+            patch(
+                "services.bot.utils.discord_format.member_projection.get_member",
+                return_value=mock_member,
+            ),
         ):
             name, avatar = await get_member_display_info(MagicMock(), "guild1", "user1")
         assert name == "CoolNick"
@@ -337,19 +343,22 @@ class TestGetMemberDisplayInfo:
     @pytest.mark.asyncio
     async def test_returns_global_name_when_no_nick(self):
         """Test fallback to global_name when nick is absent."""
-        mock_api = AsyncMock()
-        mock_api.get_guild_member.return_value = {
+        mock_redis = AsyncMock()
+        mock_member = {
             "nick": None,
-            "avatar": None,
-            "user": {
-                "username": "user123",
-                "global_name": "GlobalUser",
-                "avatar": None,
-            },
+            "global_name": "GlobalUser",
+            "username": "user123",
+            "avatar_url": None,
         }
-        with patch(
-            "services.bot.utils.discord_format.get_discord_client",
-            return_value=mock_api,
+        with (
+            patch(
+                "services.bot.utils.discord_format.cache_client.get_redis_client",
+                return_value=mock_redis,
+            ),
+            patch(
+                "services.bot.utils.discord_format.member_projection.get_member",
+                return_value=mock_member,
+            ),
         ):
             name, avatar = await get_member_display_info(MagicMock(), "guild1", "user1")
         assert name == "GlobalUser"
@@ -357,24 +366,34 @@ class TestGetMemberDisplayInfo:
     @pytest.mark.asyncio
     async def test_returns_none_when_member_not_found(self):
         """Test that None is returned when member lookup returns empty."""
-        mock_api = AsyncMock()
-        mock_api.get_guild_member.return_value = None
-        with patch(
-            "services.bot.utils.discord_format.get_discord_client",
-            return_value=mock_api,
+        mock_redis = AsyncMock()
+        with (
+            patch(
+                "services.bot.utils.discord_format.cache_client.get_redis_client",
+                return_value=mock_redis,
+            ),
+            patch(
+                "services.bot.utils.discord_format.member_projection.get_member",
+                return_value=None,
+            ),
         ):
             name, avatar = await get_member_display_info(MagicMock(), "guild1", "user1")
         assert name is None
         assert avatar is None
 
     @pytest.mark.asyncio
-    async def test_returns_none_on_api_error(self):
-        """Test that None is returned when Discord API raises DiscordAPIError."""
-        mock_api = AsyncMock()
-        mock_api.get_guild_member.side_effect = DiscordAPIError(403, "Forbidden")
-        with patch(
-            "services.bot.utils.discord_format.get_discord_client",
-            return_value=mock_api,
+    async def test_returns_none_on_redis_error(self):
+        """Test that None is returned when Redis projection raises an exception."""
+        mock_redis = AsyncMock()
+        with (
+            patch(
+                "services.bot.utils.discord_format.cache_client.get_redis_client",
+                return_value=mock_redis,
+            ),
+            patch(
+                "services.bot.utils.discord_format.member_projection.get_member",
+                side_effect=Exception("redis error"),
+            ),
         ):
             name, avatar = await get_member_display_info(MagicMock(), "guild1", "user1")
         assert name is None
@@ -382,12 +401,17 @@ class TestGetMemberDisplayInfo:
 
     @pytest.mark.asyncio
     async def test_returns_none_on_key_error(self):
-        """Test that None is returned when member data is missing expected keys."""
-        mock_api = AsyncMock()
-        mock_api.get_guild_member.return_value = {"unexpected": "data"}
-        with patch(
-            "services.bot.utils.discord_format.get_discord_client",
-            return_value=mock_api,
+        """Test that None is returned when projection raises KeyError."""
+        mock_redis = AsyncMock()
+        with (
+            patch(
+                "services.bot.utils.discord_format.cache_client.get_redis_client",
+                return_value=mock_redis,
+            ),
+            patch(
+                "services.bot.utils.discord_format.member_projection.get_member",
+                side_effect=KeyError("missing key"),
+            ),
         ):
             name, avatar = await get_member_display_info(MagicMock(), "guild1", "user1")
         assert name is None
@@ -396,12 +420,43 @@ class TestGetMemberDisplayInfo:
     @pytest.mark.asyncio
     async def test_returns_none_on_unexpected_exception(self):
         """Test that None is returned on any unexpected exception."""
-        mock_api = AsyncMock()
-        mock_api.get_guild_member.side_effect = RuntimeError("unexpected")
-        with patch(
-            "services.bot.utils.discord_format.get_discord_client",
-            return_value=mock_api,
+        mock_redis = AsyncMock()
+        with (
+            patch(
+                "services.bot.utils.discord_format.cache_client.get_redis_client",
+                return_value=mock_redis,
+            ),
+            patch(
+                "services.bot.utils.discord_format.member_projection.get_member",
+                side_effect=RuntimeError("unexpected"),
+            ),
         ):
             name, avatar = await get_member_display_info(MagicMock(), "guild1", "user1")
         assert name is None
         assert avatar is None
+
+    @pytest.mark.asyncio
+    async def test_get_member_display_info_uses_projection_not_discord_api(self):
+        """Must read member info from Redis projection, not DiscordAPIClient."""
+        mock_redis = AsyncMock()
+        mock_member_data = {
+            "nick": "TestNick",
+            "global_name": "GlobalName",
+            "username": "user123",
+            "avatar_url": "https://cdn.discordapp.com/avatars/user1/abc.png",
+        }
+        with (
+            patch(
+                "services.bot.utils.discord_format.cache_client.get_redis_client",
+                return_value=mock_redis,
+            ),
+            patch(
+                "services.bot.utils.discord_format.member_projection.get_member",
+                return_value=mock_member_data,
+            ) as mock_get_member,
+        ):
+            name, avatar = await get_member_display_info(MagicMock(), "guild1", "user1")
+
+        mock_get_member.assert_awaited_once_with("guild1", "user1", redis=mock_redis)
+        assert name == "TestNick"
+        assert avatar == "https://cdn.discordapp.com/avatars/user1/abc.png"
