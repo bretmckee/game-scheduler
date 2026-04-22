@@ -169,17 +169,12 @@ class TestGameSchedulerBot:
 
     @pytest.mark.asyncio
     async def test_setup_hook_guild_sync_success(self, bot_config: BotConfig) -> None:
-        """Test setup_hook completes guild sync without error."""
+        """Test setup_hook completes without error."""
         bot_config.environment = "production"
         bot = GameSchedulerBot(bot_config)
 
         mock_publisher = MagicMock()
         mock_publisher.connect = AsyncMock()
-
-        mock_db = AsyncMock()
-        mock_db_ctx = MagicMock()
-        mock_db_ctx.__aenter__ = AsyncMock(return_value=mock_db)
-        mock_db_ctx.__aexit__ = AsyncMock(return_value=None)
 
         with (
             patch("services.bot.commands.setup_commands", new_callable=AsyncMock),
@@ -189,13 +184,6 @@ class TestGameSchedulerBot:
             ),
             patch("services.bot.handlers.ButtonHandler"),
             patch("services.bot.events.handlers.EventHandlers"),
-            patch("services.bot.bot.get_discord_client"),
-            patch("services.bot.bot.get_db_session", return_value=mock_db_ctx),
-            patch(
-                "services.bot.bot.sync_all_bot_guilds",
-                new_callable=AsyncMock,
-                return_value={"new_guilds": 1, "new_channels": 2},
-            ),
             patch.object(bot.tree, "sync", new_callable=AsyncMock),
         ):
             await bot.setup_hook()
@@ -244,15 +232,13 @@ class TestGameSchedulerBot:
         mock_db_session_cm.__aenter__ = AsyncMock(return_value=mock_db)
         mock_db_session_cm.__aexit__ = AsyncMock(return_value=None)
 
-        mock_discord_client = MagicMock()
         mock_sync_results = {"new_guilds": 1, "new_channels": 5}
 
         with (
             patch("services.bot.bot.logger") as mock_logger,
             patch("services.bot.bot.get_db_session", return_value=mock_db_session_cm),
-            patch("services.bot.bot.get_discord_client", return_value=mock_discord_client),
             patch(
-                "services.bot.bot.sync_all_bot_guilds",
+                "services.bot.bot.sync_single_guild_from_gateway",
                 new_callable=AsyncMock,
                 return_value=mock_sync_results,
             ) as mock_sync,
@@ -262,9 +248,7 @@ class TestGameSchedulerBot:
             mock_logger.info.assert_any_call(
                 "Bot added to guild: %s (ID: %s)", "Test Guild", 987654321
             )
-            mock_sync.assert_awaited_once_with(
-                mock_discord_client, mock_db, bot_config.discord_bot_token
-            )
+            mock_sync.assert_awaited_once_with(guild=mock_guild, db=mock_db)
             mock_db.commit.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -280,14 +264,11 @@ class TestGameSchedulerBot:
         mock_db_session_cm.__aenter__ = AsyncMock(return_value=mock_db)
         mock_db_session_cm.__aexit__ = AsyncMock(return_value=None)
 
-        mock_discord_client = MagicMock()
-
         with (
             patch("services.bot.bot.logger") as mock_logger,
             patch("services.bot.bot.get_db_session", return_value=mock_db_session_cm),
-            patch("services.bot.bot.get_discord_client", return_value=mock_discord_client),
             patch(
-                "services.bot.bot.sync_all_bot_guilds",
+                "services.bot.bot.sync_single_guild_from_gateway",
                 new_callable=AsyncMock,
                 side_effect=Exception("Sync failed"),
             ),
@@ -311,15 +292,13 @@ class TestGameSchedulerBot:
         mock_db_session_cm.__aenter__ = AsyncMock(return_value=mock_db)
         mock_db_session_cm.__aexit__ = AsyncMock(return_value=None)
 
-        mock_discord_client = MagicMock()
         mock_sync_results = {"new_guilds": 1, "new_channels": 5}
 
         with (
             patch("services.bot.bot.logger") as mock_logger,
             patch("services.bot.bot.get_db_session", return_value=mock_db_session_cm),
-            patch("services.bot.bot.get_discord_client", return_value=mock_discord_client),
             patch(
-                "services.bot.bot.sync_all_bot_guilds",
+                "services.bot.bot.sync_single_guild_from_gateway",
                 new_callable=AsyncMock,
                 return_value=mock_sync_results,
             ),
@@ -343,24 +322,20 @@ class TestGameSchedulerBot:
         mock_db_session_cm.__aenter__ = AsyncMock(return_value=mock_db)
         mock_db_session_cm.__aexit__ = AsyncMock(return_value=None)
 
-        mock_discord_client = MagicMock()
         mock_sync_results = {"new_guilds": 0, "new_channels": 0}
 
         with (
             patch("services.bot.bot.logger") as mock_logger,
             patch("services.bot.bot.get_db_session", return_value=mock_db_session_cm),
-            patch("services.bot.bot.get_discord_client", return_value=mock_discord_client),
             patch(
-                "services.bot.bot.sync_all_bot_guilds",
+                "services.bot.bot.sync_single_guild_from_gateway",
                 new_callable=AsyncMock,
                 return_value=mock_sync_results,
             ) as mock_sync,
         ):
             await bot.on_guild_join(mock_guild)
 
-            mock_sync.assert_awaited_once_with(
-                mock_discord_client, mock_db, bot_config.discord_bot_token
-            )
+            mock_sync.assert_awaited_once_with(guild=mock_guild, db=mock_db)
             mock_db.commit.assert_awaited_once()
             mock_logger.error.assert_not_called()
 
@@ -733,10 +708,10 @@ class TestGameSchedulerBot:
             await bot._sweep_deleted_embeds()  # must not raise
 
     @pytest.mark.asyncio
-    async def test_run_sweep_worker_calls_fetch_channel_when_get_channel_none(
+    async def test_run_sweep_worker_skips_channel_when_not_in_gateway_cache(
         self, bot_config: BotConfig
     ) -> None:
-        """Worker calls fetch_channel when get_channel returns None."""
+        """Worker skips and logs warning when get_channel returns None."""
         bot = GameSchedulerBot(bot_config)
 
         mock_publisher = AsyncMock()
@@ -745,20 +720,16 @@ class TestGameSchedulerBot:
         mock_redis = AsyncMock()
         mock_redis.claim_global_and_channel_slot = AsyncMock(return_value=0)
 
-        mock_channel = AsyncMock()
-        mock_channel.__class__ = discord.TextChannel
-        mock_channel.fetch_message = AsyncMock(side_effect=discord.NotFound(MagicMock(), ""))
-
         queue: asyncio.PriorityQueue = asyncio.PriorityQueue()
         await queue.put((datetime(2026, 1, 1, tzinfo=UTC), "game-1", "111222333", "999888777"))
 
         bot.get_channel = MagicMock(return_value=None)
-        bot.fetch_channel = AsyncMock(return_value=mock_channel)
+        bot.fetch_channel = AsyncMock()
 
         await bot._run_sweep_worker(queue, mock_redis, mock_publisher)
 
-        bot.fetch_channel.assert_awaited_once_with(int("111222333"))
-        mock_publisher.publish_embed_deleted.assert_awaited_once()
+        bot.fetch_channel.assert_not_awaited()
+        mock_publisher.publish_embed_deleted.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_run_sweep_worker_non_text_channel_skips(self, bot_config: BotConfig) -> None:

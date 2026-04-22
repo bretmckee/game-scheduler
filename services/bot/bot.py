@@ -40,8 +40,7 @@ from sqlalchemy.orm import joinedload
 
 from services.bot import guild_projection
 from services.bot.config import BotConfig
-from services.bot.dependencies.discord_client import get_discord_client
-from services.bot.guild_sync import sync_all_bot_guilds
+from services.bot.guild_sync import sync_guilds_from_gateway, sync_single_guild_from_gateway
 from services.bot.message_refresh_listener import MessageRefreshListener
 from shared.cache.client import RedisClient, get_redis_client
 from shared.cache.keys import CacheKeys
@@ -186,13 +185,9 @@ class GameSchedulerBot(commands.Bot):
 
             await self._rebuild_redis_from_gateway()
 
-            # Sync guilds now that Redis channel cache is populated from gateway
             try:
-                discord_client = get_discord_client()
                 async with get_db_session() as db:
-                    sync_results = await sync_all_bot_guilds(
-                        discord_client, db, self.config.discord_bot_token
-                    )
+                    sync_results = await sync_guilds_from_gateway(bot=self, db=db)
                     await db.commit()
                     logger.info(
                         "Guild sync on ready: %d new guilds, %d new channels",
@@ -585,7 +580,8 @@ class GameSchedulerBot(commands.Bot):
             try:
                 channel = self.get_channel(int(channel_id))
                 if channel is None:
-                    channel = await self.fetch_channel(int(channel_id))
+                    logger.warning("Sweep: channel %s not in gateway cache, skipping", channel_id)
+                    continue
                 if not isinstance(channel, discord.TextChannel):
                     logger.warning("Sweep: channel %s is not a text channel, skipping", channel_id)
                     continue
@@ -738,10 +734,7 @@ class GameSchedulerBot(commands.Bot):
 
             try:
                 async with get_db_session() as db:
-                    discord_client = get_discord_client()
-                    results = await sync_all_bot_guilds(
-                        discord_client, db, self.config.discord_bot_token
-                    )
+                    results = await sync_single_guild_from_gateway(guild=guild, db=db)
                     await db.commit()
 
                 logger.info(

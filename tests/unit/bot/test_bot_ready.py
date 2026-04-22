@@ -124,6 +124,22 @@ def on_ready_env(bot, mock_redis):
         stack.enter_context(patch.object(bot, "_sweep_orphaned_embeds", new_callable=AsyncMock))
         stack.enter_context(patch("services.bot.bot.tracer"))
         stack.enter_context(patch("services.bot.bot.os.getenv", return_value=None))
+        stack.enter_context(
+            patch(
+                "services.bot.bot.sync_guilds_from_gateway",
+                new_callable=AsyncMock,
+                return_value={"new_guilds": 0, "new_channels": 0},
+            )
+        )
+        stack.enter_context(
+            patch(
+                "services.bot.bot.get_db_session",
+                return_value=MagicMock(
+                    __aenter__=AsyncMock(return_value=AsyncMock()),
+                    __aexit__=AsyncMock(return_value=None),
+                ),
+            )
+        )
         yield guild
 
 
@@ -141,6 +157,17 @@ async def test_on_ready_calls_rebuild_redis_from_gateway(bot, mock_redis, on_rea
         await bot.on_ready()
 
     mock_rebuild.assert_awaited_once()
+
+
+async def test_on_ready_calls_sync_guilds_from_gateway(bot, mock_redis, on_ready_env) -> None:
+    """on_ready calls sync_guilds_from_gateway after _rebuild_redis_from_gateway."""
+    with (
+        patch("services.bot.bot.sync_guilds_from_gateway", new_callable=AsyncMock) as mock_sync,
+        patch("services.bot.bot.guild_projection.repopulate_all", new_callable=AsyncMock),
+    ):
+        await bot.on_ready()
+
+    mock_sync.assert_awaited_once()
 
 
 async def test_on_ready_calls_recover_pending_workers(bot, mock_redis, on_ready_env) -> None:

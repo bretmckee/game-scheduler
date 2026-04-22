@@ -72,15 +72,15 @@ Eliminate all non-message REST calls from the Discord bot by replacing `fetch_me
 - [x] Task 4.2: Implement both functions using `guild.channels` from gateway data; remove xfail markers
   - Details: .copilot-tracking/planning/details/20260421-02-bot-rest-api-elimination-details.md (Lines 154–182)
 
-### [ ] Phase 5: bot.py — Fix Startup Sync and Remove Remaining REST Fallbacks
+### [x] Phase 5: bot.py — Fix Startup Sync and Remove Remaining REST Fallbacks
 
-- [ ] Task 5.1: Remove `sync_all_bot_guilds` from `setup_hook`; add `sync_guilds_from_gateway` call in `on_ready` after `_rebuild_redis_from_gateway()`
+- [x] Task 5.1: Remove `sync_all_bot_guilds` from `setup_hook`; add `sync_guilds_from_gateway` call in `on_ready` after `_rebuild_redis_from_gateway()`
   - Details: .copilot-tracking/planning/details/20260421-02-bot-rest-api-elimination-details.md (Lines 185–204)
 
-- [ ] Task 5.2: Replace `sync_all_bot_guilds` in `on_guild_join` with `sync_single_guild_from_gateway(guild=guild, db=db)`
+- [x] Task 5.2: Replace `sync_all_bot_guilds` in `on_guild_join` with `sync_single_guild_from_gateway(guild=guild, db=db)`
   - Details: .copilot-tracking/planning/details/20260421-02-bot-rest-api-elimination-details.md (Lines 205–222)
 
-- [ ] Task 5.3: Remove `bot.fetch_channel()` fallback from `_run_sweep_worker`; log warning and skip on None
+- [x] Task 5.3: Remove `bot.fetch_channel()` fallback from `_run_sweep_worker`; log warning and skip on None
   - Details: .copilot-tracking/planning/details/20260421-02-bot-rest-api-elimination-details.md (Lines 223–239)
 
 ## Dependencies
