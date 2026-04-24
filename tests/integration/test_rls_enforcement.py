@@ -40,12 +40,15 @@ tables in production scenarios.
 CRITICAL: These tests require RLS policies to be ENABLED on guild_configurations.
 """
 
-from unittest.mock import AsyncMock, patch
+import json
+import os
 
 import pytest
 from fastapi import HTTPException
 
 from services.api.database import queries
+from shared.cache import client as cache_module
+from shared.cache.keys import CacheKeys
 from shared.data_access.guild_isolation import (
     clear_current_guild_ids,
     set_current_guild_ids,
@@ -61,197 +64,145 @@ class TestRequireGuildByIdRLSEnforcement:
     async def test_authorized_access_with_rls_context_set(self, admin_db, app_db, create_guild):
         """User in guild, RLS context set → Success."""
         guild_a = create_guild()
-        # Arrange: Set RLS context using Discord guild IDs (not database UUIDs)
         set_current_guild_ids([guild_a["guild_id"]])
         access_token = "test_token"
         user_discord_id = "123456789"
 
-        # Mock oauth2.get_user_guilds (shouldn't be called - context already set)
-        with patch(
-            "services.api.auth.oauth2.get_user_guilds", new_callable=AsyncMock
-        ) as mock_get_guilds:
-            # Act
-            result = await queries.require_guild_by_id(
-                app_db, guild_a["id"], access_token, user_discord_id
-            )
+        result = await queries.require_guild_by_id(
+            app_db, guild_a["id"], access_token, user_discord_id
+        )
 
-            # Assert
-            assert result is not None
-            assert result.id == guild_a["id"]
-            assert result.guild_id == guild_a["guild_id"]
-            mock_get_guilds.assert_not_called()
+        assert result is not None
+        assert result.id == guild_a["id"]
+        assert result.guild_id == guild_a["guild_id"]
 
     @pytest.mark.asyncio
     async def test_unauthorized_access_user_not_in_guild(self, admin_db, app_db, create_guild):
         """User NOT in guild, RLS context set → 404."""
         guild_a = create_guild()
         guild_b = create_guild()
-        # Arrange: Set context to guild_a only (using Discord guild ID)
         set_current_guild_ids([guild_a["guild_id"]])
         access_token = "test_token"
         user_discord_id = "123456789"
 
-        # Mock oauth2.get_user_guilds (shouldn't be called - context already set)
-        with patch(
-            "services.api.auth.oauth2.get_user_guilds", new_callable=AsyncMock
-        ) as mock_get_guilds:
-            # Act & Assert: Try to access guild_b (not in context)
-            with pytest.raises(HTTPException) as exc_info:
-                await queries.require_guild_by_id(
-                    app_db, guild_b["id"], access_token, user_discord_id
-                )
+        with pytest.raises(HTTPException) as exc_info:
+            await queries.require_guild_by_id(app_db, guild_b["id"], access_token, user_discord_id)
 
-            assert exc_info.value.status_code == 404
-            assert "Guild configuration not found" in exc_info.value.detail
-            mock_get_guilds.assert_not_called()
+        assert exc_info.value.status_code == 404
+        assert "Guild configuration not found" in exc_info.value.detail
 
     @pytest.mark.asyncio
     async def test_safe_failure_when_rls_context_not_set(self, admin_db, app_db, create_guild):
-        """RLS context NOT set → Fetches guilds, then enforces authorization."""
+        """RLS context NOT set, no projection entry → projection returns None → 404."""
         guild_a = create_guild()
-        # Arrange: Clear RLS context
+        # Arrange: Clear RLS context; leave proj_user_guilds absent (no data seeded)
         clear_current_guild_ids()
         access_token = "test_token"
-        user_discord_id = "123456789"
+        user_discord_id = "no_guilds_user_999"
 
-        # Mock oauth2.get_user_guilds to return empty list (user not in any guilds)
-        with patch(
-            "services.api.auth.oauth2.get_user_guilds",
-            new_callable=AsyncMock,
-            return_value=[],
-        ) as mock_get_guilds:
-            # Act & Assert: Should raise 404 after fetching guilds
-            with pytest.raises(HTTPException) as exc_info:
-                await queries.require_guild_by_id(
-                    app_db, guild_a["id"], access_token, user_discord_id
-                )
+        # Act & Assert: projection returns None (absent key) → empty guild list → 404
+        with pytest.raises(HTTPException) as exc_info:
+            await queries.require_guild_by_id(app_db, guild_a["id"], access_token, user_discord_id)
 
-            assert exc_info.value.status_code == 404
-            assert "Guild configuration not found" in exc_info.value.detail
-            mock_get_guilds.assert_called_once_with(access_token, user_discord_id)
+        assert exc_info.value.status_code == 404
+        assert "Guild configuration not found" in exc_info.value.detail
 
     @pytest.mark.asyncio
     async def test_multiple_guilds_in_context_valid_request(self, admin_db, app_db, create_guild):
         """Multiple guilds, requesting valid guild → Success."""
         guild_a = create_guild()
         guild_b = create_guild()
-        # Arrange: User is in both guilds (use Discord guild IDs)
         set_current_guild_ids([guild_a["guild_id"], guild_b["guild_id"]])
         access_token = "test_token"
         user_discord_id = "123456789"
 
-        # Mock oauth2.get_user_guilds (shouldn't be called)
-        with patch(
-            "services.api.auth.oauth2.get_user_guilds", new_callable=AsyncMock
-        ) as mock_get_guilds:
-            # Act: Request guild_a (in context)
-            result_a = await queries.require_guild_by_id(
-                app_db, guild_a["id"], access_token, user_discord_id
-            )
+        result_a = await queries.require_guild_by_id(
+            app_db, guild_a["id"], access_token, user_discord_id
+        )
+        assert result_a is not None
+        assert result_a.id == guild_a["id"]
+        assert result_a.guild_id == guild_a["guild_id"]
 
-            # Assert
-            assert result_a is not None
-            assert result_a.id == guild_a["id"]
-            assert result_a.guild_id == guild_a["guild_id"]
-
-            # Act: Request guild_b (also in context)
-            result_b = await queries.require_guild_by_id(
-                app_db, guild_b["id"], access_token, user_discord_id
-            )
-
-            # Assert
-            assert result_b is not None
-            assert result_b.id == guild_b["id"]
-            assert result_b.guild_id == guild_b["guild_id"]
-            mock_get_guilds.assert_not_called()
+        result_b = await queries.require_guild_by_id(
+            app_db, guild_b["id"], access_token, user_discord_id
+        )
+        assert result_b is not None
+        assert result_b.id == guild_b["id"]
+        assert result_b.guild_id == guild_b["guild_id"]
 
     @pytest.mark.asyncio
     async def test_multiple_guilds_in_context_invalid_request(self, admin_db, app_db, create_guild):
         """Multiple guilds, requesting invalid guild → 404."""
         guild_a = create_guild()
         guild_b = create_guild()
-        # Arrange: User is in guild_a and guild_b (use Discord guild IDs)
         set_current_guild_ids([guild_a["guild_id"], guild_b["guild_id"]])
         access_token = "test_token"
         user_discord_id = "123456789"
         nonexistent_guild_id = "00000000-0000-0000-0000-000000000000"
 
-        # Mock oauth2.get_user_guilds (shouldn't be called)
-        with patch(
-            "services.api.auth.oauth2.get_user_guilds", new_callable=AsyncMock
-        ) as mock_get_guilds:
-            # Act & Assert: Request nonexistent guild
-            with pytest.raises(HTTPException) as exc_info:
-                await queries.require_guild_by_id(
-                    app_db, nonexistent_guild_id, access_token, user_discord_id
-                )
+        with pytest.raises(HTTPException) as exc_info:
+            await queries.require_guild_by_id(
+                app_db, nonexistent_guild_id, access_token, user_discord_id
+            )
 
-            assert exc_info.value.status_code == 404
-            assert "Guild configuration not found" in exc_info.value.detail
-            mock_get_guilds.assert_not_called()
+        assert exc_info.value.status_code == 404
+        assert "Guild configuration not found" in exc_info.value.detail
 
     @pytest.mark.asyncio
     async def test_context_fetched_only_when_needed(self, admin_db, app_db, create_guild):
-        """RLS context fetched from Discord API only when not already set."""
+        """RLS context populated from Redis projection only when not already set."""
         guild_a = create_guild()
-        # Arrange: Clear context to force fetch
+        # Arrange: Clear context to force projection read; seed projection key
         clear_current_guild_ids()
         access_token = "test_token"
-        user_discord_id = "123456789"
-        mock_discord_guild_id = guild_a["guild_id"]
+        user_discord_id = "projection_test_user_777"
 
-        # Mock oauth2.get_user_guilds to return guild_a
-        with patch(
-            "services.api.auth.oauth2.get_user_guilds",
-            new_callable=AsyncMock,
-            return_value=[{"id": mock_discord_guild_id}],
-        ) as mock_get_guilds:
-            # Act: First call should fetch from Discord
-            result1 = await queries.require_guild_by_id(
-                app_db, guild_a["id"], access_token, user_discord_id
+        redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+        redis = cache_module.RedisClient(redis_url=redis_url)
+        await redis.connect()
+        try:
+            gen = await redis.get(CacheKeys.proj_gen()) or "1"
+            await redis.set(
+                CacheKeys.proj_user_guilds(gen, user_discord_id),
+                json.dumps([guild_a["guild_id"]]),
             )
+        finally:
+            await redis.disconnect()
 
-            # Assert: First call fetches from Discord
-            assert result1 is not None
-            assert result1.id == guild_a["id"]
-            mock_get_guilds.assert_called_once()
+        # Act: First call reads projection because context not set
+        result1 = await queries.require_guild_by_id(
+            app_db, guild_a["id"], access_token, user_discord_id
+        )
 
-            # Act: Second call should NOT fetch (context already set)
-            mock_get_guilds.reset_mock()
-            result2 = await queries.require_guild_by_id(
-                app_db, guild_a["id"], access_token, user_discord_id
-            )
+        assert result1 is not None
+        assert result1.id == guild_a["id"]
 
-            # Assert: Second call doesn't fetch (idempotent)
-            assert result2 is not None
-            assert result2.id == guild_a["id"]
-            mock_get_guilds.assert_not_called()
+        # Act: Second call uses already-set ContextVar (no Redis read needed)
+        result2 = await queries.require_guild_by_id(
+            app_db, guild_a["id"], access_token, user_discord_id
+        )
+
+        assert result2 is not None
+        assert result2.id == guild_a["id"]
 
     @pytest.mark.asyncio
     async def test_custom_error_message_respected(self, admin_db, app_db, create_guild):
         """Custom error message parameter works correctly."""
         guild_a = create_guild()
         guild_b = create_guild()
-        # Arrange: Set context to guild_a only (use Discord guild ID)
         set_current_guild_ids([guild_a["guild_id"]])
         access_token = "test_token"
         user_discord_id = "123456789"
         custom_message = "Custom guild not found message"
 
-        # Mock oauth2.get_user_guilds (shouldn't be called)
-        with patch(
-            "services.api.auth.oauth2.get_user_guilds", new_callable=AsyncMock
-        ) as mock_get_guilds:
-            # Act & Assert: Try to access guild_b with custom message
-            with pytest.raises(HTTPException) as exc_info:
-                await queries.require_guild_by_id(
-                    app_db,
-                    guild_b["id"],
-                    access_token,
-                    user_discord_id,
-                    not_found_detail=custom_message,
-                )
+        with pytest.raises(HTTPException) as exc_info:
+            await queries.require_guild_by_id(
+                app_db,
+                guild_b["id"],
+                access_token,
+                user_discord_id,
+                not_found_detail=custom_message,
+            )
 
-            assert exc_info.value.status_code == 404
-            assert custom_message in exc_info.value.detail
-            mock_get_guilds.assert_not_called()
+        assert exc_info.value.status_code == 404
+        assert custom_message in exc_info.value.detail

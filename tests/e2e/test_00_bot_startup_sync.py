@@ -26,6 +26,7 @@ Uses pytest-order to ensure this runs first, before other E2E tests,
 so we can verify bot startup automatic sync creates guilds correctly.
 """
 
+import httpx
 import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -44,17 +45,22 @@ async def test_bot_startup_sync_creates_guilds(
     discord_ids: DiscordTestEnvironment,
 ) -> None:
     """
-    Verify bot startup automatic sync creates guilds A and B.
+    Verify bot gateway sync creates guilds A and B.
 
-    This test runs first (order=0) and verifies that the bot service
-    automatically syncs guilds on startup. The cleanup_startup_sync_guilds
-    fixture removes these guilds after this test completes, ensuring
-    hermetic tests for the rest of the E2E suite.
+    Calls POST /admin/sync-guilds on the bot test server to trigger
+    sync_guilds_from_gateway, then verifies that guilds, channels, and
+    default templates were created. This is the same code path used by
+    bot.on_ready() at startup.
 
-    The bot service healthcheck ensures guild sync completes before
-    this test runs, so no polling is needed.
+    Running this via the test server makes the test reliable whether the
+    bot just started (fresh environment) or is already running (SKIP_STARTUP
+    re-run where previous test fixtures may have deleted the guilds).
     """
-    # Query for guilds A and B (bot healthcheck guarantees sync is complete)
+    async with httpx.AsyncClient() as client:
+        response = await client.post("http://bot:8089/admin/sync-guilds", timeout=30.0)
+        assert response.status_code == 200, f"sync-guilds returned {response.status_code}"
+
+    # Query for guilds A and B
     result = await admin_db.execute(
         select(GuildConfiguration).where(
             GuildConfiguration.guild_id.in_([discord_ids.guild_a_id, discord_ids.guild_b_id])

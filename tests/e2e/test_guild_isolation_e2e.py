@@ -85,10 +85,6 @@ async def guild_b_game_id(
     """Create a game in Guild B for isolation testing."""
     game_time = datetime.now(UTC) + timedelta(hours=24)
 
-    # First, sync Guild B
-    sync_response = await authenticated_client_b.post("/api/v1/guilds/sync")
-    assert sync_response.status_code == 200, f"Failed to sync Guild B: {sync_response.text}"
-
     # Create game in Guild B using template
     game_data = {
         "template_id": guild_b_template_id,

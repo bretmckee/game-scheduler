@@ -446,6 +446,7 @@ class GameSchedulerBot(commands.Bot):
         """Start the aiohttp test server on port 8089 for e2e sweep triggering."""
         app = aiohttp.web.Application()
         app.router.add_post("/admin/sweep", self._handle_sweep_request)
+        app.router.add_post("/admin/sync-guilds", self._handle_sync_guilds_request)
         runner = aiohttp.web.AppRunner(app)
         await runner.setup()
         site = aiohttp.web.TCPSite(runner, None, 8089)
@@ -457,6 +458,15 @@ class GameSchedulerBot(commands.Bot):
         await self._trigger_sweep()
         if self._sweep_task:
             await self._sweep_task
+        return aiohttp.web.Response(status=200)
+
+    async def _handle_sync_guilds_request(
+        self, _request: aiohttp.web.Request
+    ) -> aiohttp.web.Response:
+        """Handle POST /admin/sync-guilds: sync guilds from gateway and wait for completion."""
+        async with get_db_session() as db:
+            await sync_guilds_from_gateway(bot=self, db=db)
+            await db.commit()
         return aiohttp.web.Response(status=200)
 
     async def _recover_pending_workers(self) -> None:

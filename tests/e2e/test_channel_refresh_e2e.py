@@ -88,28 +88,22 @@ async def test_channel_refresh_reactivates_inactive_channels(
     authenticated_admin_client: AsyncClient,
     admin_db: AsyncSession,
     discord_ids,
-    get_guild_by_discord_id,
     get_channels_for_guild,
+    fresh_guild_a,
 ):
     """
     Verify refresh=true reactivates channels that were marked inactive.
 
     Workflow:
-    1. Sync guilds to create the guild record, then refresh channels via per-guild endpoint
+    1. Guild A is pre-seeded via fresh_guild_a; populate channels via per-guild refresh endpoint
     2. Mark a known channel as inactive in database
     3. Call channels endpoint with refresh=true
     4. Verify the channel is reactivated (is_active=true) in database
     """
-    # Step 1: Ensure guild exists, then populate channels via per-guild refresh endpoint
-    sync_response = await authenticated_admin_client.post("/api/v1/guilds/sync")
-    assert sync_response.status_code == 200, f"Guild sync failed: {sync_response.text}"
+    # Step 1: Guild A is pre-seeded; populate channels via per-guild refresh endpoint
+    guild_db_id = fresh_guild_a.db_id
 
-    # Get guild database UUID
-    guild = await get_guild_by_discord_id(discord_ids.guild_a_id)
-    assert guild is not None, "Guild A not found after sync"
-    guild_db_id = guild["id"]
-
-    # Populate channels using the per-guild refresh endpoint (sync no longer does this)
+    # Populate channels using the per-guild refresh endpoint
     setup_refresh_response = await authenticated_admin_client.get(
         f"/api/v1/guilds/{guild_db_id}/channels",
         params={"refresh": "true"},
@@ -179,27 +173,22 @@ async def test_channel_list_without_refresh_uses_cached_data(
     authenticated_admin_client: AsyncClient,
     admin_db: AsyncSession,
     discord_ids,
-    get_guild_by_discord_id,
     get_channels_for_guild,
+    fresh_guild_a,
 ):
     """
     Verify refresh=false returns cached channels without modifying database.
 
     Workflow:
-    1. Sync guilds to create the guild record, then refresh channels via per-guild endpoint
+    1. Guild A is pre-seeded via fresh_guild_a; populate channels via per-guild refresh endpoint
     2. Mark a channel as inactive
     3. Call channels endpoint with refresh=false
     4. Verify the inactive channel is NOT returned (still inactive in DB)
     """
-    # Step 1: Ensure guild exists, then populate channels via per-guild refresh endpoint
-    sync_response = await authenticated_admin_client.post("/api/v1/guilds/sync")
-    assert sync_response.status_code == 200, f"Guild sync failed: {sync_response.text}"
+    # Step 1: Guild A is pre-seeded; populate channels via per-guild refresh endpoint
+    guild_db_id = fresh_guild_a.db_id
 
-    guild = await get_guild_by_discord_id(discord_ids.guild_a_id)
-    assert guild is not None
-    guild_db_id = guild["id"]
-
-    # Populate channels using the per-guild refresh endpoint (sync no longer does this)
+    # Populate channels using the per-guild refresh endpoint
     setup_refresh_response = await authenticated_admin_client.get(
         f"/api/v1/guilds/{guild_db_id}/channels",
         params={"refresh": "true"},
