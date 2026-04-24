@@ -41,31 +41,31 @@ Simplify GuildDashboard by removing its fake tab pattern, embedding BrowseGames 
 
 ## Implementation Checklist
 
-### [ ] Phase 1: RED - Write Failing Tests
+### [x] Phase 1: RED - Write Failing Tests
 
-- [ ] Task 1.1: Write failing tests for GuildDashboard restructure
+- [x] Task 1.1: Write failing tests for GuildDashboard restructure
   - Details: .copilot-tracking/planning/details/20260424-01-guild-dashboard-ux-simplification-details.md (Lines 11-28)
 
-- [ ] Task 1.2: Write failing tests for CreateGame guildId param
+- [x] Task 1.2: Write failing tests for CreateGame guildId param
   - Details: .copilot-tracking/planning/details/20260424-01-guild-dashboard-ux-simplification-details.md (Lines 29-47)
 
-### [ ] Phase 2: GREEN - Implement Production Code Changes
+### [x] Phase 2: GREEN - Implement Production Code Changes
 
-- [ ] Task 2.1: Refactor GuildDashboard.tsx
+- [x] Task 2.1: Refactor GuildDashboard.tsx
   - Details: .copilot-tracking/planning/details/20260424-01-guild-dashboard-ux-simplification-details.md (Lines 48-75)
 
-- [ ] Task 2.2: Remove standalone heading from BrowseGames.tsx
+- [x] Task 2.2: Remove standalone heading from BrowseGames.tsx
   - Details: .copilot-tracking/planning/details/20260424-01-guild-dashboard-ux-simplification-details.md (Lines 76-89)
 
-- [ ] Task 2.3: Update App.tsx routes
+- [x] Task 2.3: Update App.tsx routes
   - Details: .copilot-tracking/planning/details/20260424-01-guild-dashboard-ux-simplification-details.md (Lines 90-107)
 
-- [ ] Task 2.4: Add guildId param support to CreateGame.tsx
+- [x] Task 2.4: Add guildId param support to CreateGame.tsx
   - Details: .copilot-tracking/planning/details/20260424-01-guild-dashboard-ux-simplification-details.md (Lines 108-139)
 
-### [ ] Phase 3: REFACTOR - Remove xfail Markers and Verify
+### [x] Phase 3: REFACTOR - Remove xfail Markers and Verify
 
-- [ ] Task 3.1: Remove test.fails markers and confirm full test pass
+- [x] Task 3.1: Remove test.fails markers and confirm full test pass
   - Details: .copilot-tracking/planning/details/20260424-01-guild-dashboard-ux-simplification-details.md (Lines 140-168)
 
 ## Dependencies

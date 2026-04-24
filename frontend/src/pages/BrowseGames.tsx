@@ -21,7 +21,6 @@
 import { FC, useState, useEffect } from 'react';
 import {
   Container,
-  Typography,
   Box,
   FormControl,
   InputLabel,
@@ -142,10 +141,6 @@ export const BrowseGames: FC = () => {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Typography variant="h4" gutterBottom>
-        Browse Games
-      </Typography>
-
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}

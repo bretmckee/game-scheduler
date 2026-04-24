@@ -20,39 +20,14 @@
 
 import { FC, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router';
-import {
-  Container,
-  Typography,
-  Card,
-  CardContent,
-  Grid,
-  Button,
-  Box,
-  CircularProgress,
-  Alert,
-  Tabs,
-  Tab,
-} from '@mui/material';
+import { Container, Typography, Button, Box, CircularProgress, Alert } from '@mui/material';
 import SettingsIcon from '@mui/icons-material/Settings';
 import AddIcon from '@mui/icons-material/Add';
 import CategoryIcon from '@mui/icons-material/Category';
 import { apiClient } from '../api/client';
 import { Guild } from '../types';
 import { canUserCreateGames } from '../utils/permissions';
-
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-const TabPanel: FC<TabPanelProps> = ({ children, value, index }) => {
-  return (
-    <div role="tabpanel" hidden={value !== index}>
-      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
-    </div>
-  );
-};
+import { BrowseGames } from './BrowseGames';
 
 export const GuildDashboard: FC = () => {
   const { guildId } = useParams<{ guildId: string }>();
@@ -60,18 +35,8 @@ export const GuildDashboard: FC = () => {
   const [guild, setGuild] = useState<Guild | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tabValue, setTabValue] = useState(0);
   const [isManager, setIsManager] = useState(false);
   const [canCreateGames, setCanCreateGames] = useState(false);
-
-  const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
-    if (newValue === 1) {
-      // Games tab - navigate to games page
-      navigate(`/guilds/${guildId}/games`);
-    } else {
-      setTabValue(newValue);
-    }
-  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -85,16 +50,13 @@ export const GuildDashboard: FC = () => {
 
         setGuild(guildResponse.data);
 
-        // Try to fetch config to determine if user is a manager
         try {
           await apiClient.get(`/api/v1/guilds/${guildId}/config`);
           setIsManager(true);
         } catch {
-          // User is not a manager (403) or other error
           setIsManager(false);
         }
 
-        // Check if user can create games by fetching templates
         setCanCreateGames(await canUserCreateGames(guildId));
       } catch (err: unknown) {
         console.error('Failed to fetch guild data:', err);
@@ -144,6 +106,15 @@ export const GuildDashboard: FC = () => {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4">{guild.guild_name}</Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
+          {canCreateGames && (
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => navigate(`/guilds/${guildId}/games/new`)}
+            >
+              Create a Game
+            </Button>
+          )}
           {isManager && (
             <>
               <Button
@@ -165,38 +136,7 @@ export const GuildDashboard: FC = () => {
         </Box>
       </Box>
 
-      <Tabs value={tabValue} onChange={handleTabChange} sx={{ mb: 2 }}>
-        <Tab label="Overview" />
-        <Tab label="Games" />
-      </Tabs>
-
-      <TabPanel value={tabValue} index={0}>
-        <Grid container spacing={3}>
-          <Grid size={{ xs: 12, md: 6 }}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Quick Actions
-                </Typography>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  {canCreateGames && (
-                    <Button
-                      variant="contained"
-                      startIcon={<AddIcon />}
-                      onClick={() => navigate(`/guilds/${guildId}/games/new`)}
-                    >
-                      Create New Game
-                    </Button>
-                  )}
-                  <Button variant="outlined" onClick={() => navigate(`/guilds/${guildId}/games`)}>
-                    Browse All Games
-                  </Button>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-      </TabPanel>
+      <BrowseGames />
     </Container>
   );
 };

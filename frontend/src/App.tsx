@@ -29,7 +29,6 @@ import { MyGames } from './pages/MyGames';
 import { GuildListPage } from './pages/GuildListPage';
 import { GuildDashboard } from './pages/GuildDashboard';
 import { GuildConfig } from './pages/GuildConfig';
-import { BrowseGames } from './pages/BrowseGames';
 import { GameDetails } from './pages/GameDetails';
 import { CreateGame } from './pages/CreateGame';
 import { EditGame } from './pages/EditGame';
@@ -61,7 +60,7 @@ function App() {
                 <Route path="/guilds/:guildId" element={<GuildDashboard />} />
                 <Route path="/guilds/:guildId/config" element={<GuildConfig />} />
                 <Route path="/guilds/:guildId/templates" element={<TemplateManagement />} />
-                <Route path="/guilds/:guildId/games" element={<BrowseGames />} />
+                <Route path="/guilds/:guildId/games/new" element={<CreateGame />} />
                 <Route path="/games/new" element={<CreateGame />} />
                 <Route path="/games/:gameId" element={<GameDetails />} />
                 <Route path="/games/:gameId/edit" element={<EditGame />} />

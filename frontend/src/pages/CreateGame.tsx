@@ -31,7 +31,7 @@ import {
   Box,
   Typography,
 } from '@mui/material';
-import { useNavigate } from 'react-router';
+import { useNavigate, useParams } from 'react-router';
 import { apiClient } from '../api/client';
 import { getTemplates } from '../api/templates';
 import { GameTemplate, Guild } from '../types';
@@ -67,6 +67,7 @@ interface ValidationErrorResponse {
 
 export const CreateGame: FC = () => {
   const navigate = useNavigate();
+  const { guildId: routeGuildId } = useParams<{ guildId?: string }>();
   const [guilds, setGuilds] = useState<Guild[]>([]);
   const [selectedGuild, setSelectedGuild] = useState<Guild | null>(null);
   const [guildsWithTemplates, setGuildsWithTemplates] = useState<Set<string>>(new Set());
@@ -101,10 +102,17 @@ export const CreateGame: FC = () => {
         );
         setGuildsWithTemplates(guildsWithAccess);
 
-        // Auto-select if only one guild with templates
-        const availableGuilds = allGuilds.filter((guild) => guildsWithAccess.has(guild.id));
-        if (availableGuilds.length === 1 && availableGuilds[0]) {
-          setSelectedGuild(availableGuilds[0]);
+        // Auto-select guild from route param, or fall back to single-guild auto-select
+        if (routeGuildId) {
+          const preselected = allGuilds.find((g) => g.id === routeGuildId);
+          if (preselected && guildsWithAccess.has(preselected.id)) {
+            setSelectedGuild(preselected);
+          }
+        } else {
+          const availableGuilds = allGuilds.filter((guild) => guildsWithAccess.has(guild.id));
+          if (availableGuilds.length === 1 && availableGuilds[0]) {
+            setSelectedGuild(availableGuilds[0]);
+          }
         }
       } catch (err: unknown) {
         console.error('Failed to fetch guilds:', err);
@@ -117,7 +125,7 @@ export const CreateGame: FC = () => {
     };
 
     fetchGuilds();
-  }, []);
+  }, [routeGuildId]);
 
   // Load templates when guild is selected
   useEffect(() => {
@@ -321,7 +329,7 @@ export const CreateGame: FC = () => {
   return (
     <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
       <Typography variant="h4" component="h1" gutterBottom>
-        Create New Game
+        {selectedGuild ? `Create New Game in ${selectedGuild.guild_name}` : 'Create New Game'}
       </Typography>
 
       {availableGuilds.length === 0 ? (
@@ -331,8 +339,8 @@ export const CreateGame: FC = () => {
         </Alert>
       ) : (
         <>
-          {/* Server Selection */}
-          {availableGuilds.length > 1 && (
+          {/* Server Selection — hidden when guild is pre-selected from route */}
+          {availableGuilds.length > 1 && !routeGuildId && (
             <Box sx={{ mb: 3 }}>
               <FormControl fullWidth>
                 <InputLabel>Server</InputLabel>

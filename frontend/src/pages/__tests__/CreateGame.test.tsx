@@ -22,7 +22,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { StatusCodes } from 'http-status-codes';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { BrowserRouter } from 'react-router';
+import { BrowserRouter, MemoryRouter, Route, Routes } from 'react-router';
 import { CreateGame } from '../CreateGame';
 import { AuthContext } from '../../contexts/AuthContext';
 import { CurrentUser, Guild, GameTemplate } from '../../types';
@@ -525,5 +525,129 @@ describe('CreateGame', () => {
       const formData = vi.mocked(apiClient.post).mock.calls[0]![1] as FormData;
       expect(formData.get('remind_host_rewards')).toBe('true');
     });
+  });
+});
+
+describe('CreateGame with guildId route param', () => {
+  const mockUser: CurrentUser = {
+    id: 'id-123',
+    user_uuid: 'user-123',
+    username: 'testuser',
+    discordId: 'discord-123',
+    avatar: null,
+  };
+
+  const mockGuild: Guild = {
+    id: '1',
+    guild_name: 'Test Server',
+    created_at: '2025-01-01T00:00:00Z',
+    updated_at: '2025-01-01T00:00:00Z',
+  };
+
+  const mockGuild2: Guild = {
+    id: '2',
+    guild_name: 'Other Server',
+    created_at: '2025-01-01T00:00:00Z',
+    updated_at: '2025-01-01T00:00:00Z',
+  };
+
+  const mockTemplate: GameTemplate = {
+    id: 'template-1',
+    guild_id: '1',
+    name: 'Default Game',
+    description: 'Default game template',
+    channel_id: 'channel-1',
+    channel_name: 'general',
+    max_players: 8,
+    expected_duration_minutes: 120,
+    reminder_minutes: [60, 15],
+    where: null,
+    signup_instructions: null,
+    is_default: true,
+    order: 1,
+    notify_role_ids: null,
+    allowed_player_role_ids: null,
+    allowed_host_role_ids: null,
+    allowed_signup_methods: null,
+    default_signup_method: null,
+    archive_channel_id: null,
+    archive_channel_name: null,
+    archive_delay_seconds: null,
+    created_at: '2025-01-01T00:00:00Z',
+    updated_at: '2025-01-01T00:00:00Z',
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const renderWithGuildRoute = (guildId: string, user: CurrentUser | null = mockUser) => {
+    const mockAuthValue = {
+      user,
+      login: vi.fn(),
+      logout: vi.fn(),
+      refreshUser: vi.fn(),
+      loading: false,
+    };
+
+    return render(
+      <MemoryRouter initialEntries={[`/guilds/${guildId}/games/new`]}>
+        <AuthContext.Provider value={mockAuthValue}>
+          <Routes>
+            <Route path="/guilds/:guildId/games/new" element={<CreateGame />} />
+          </Routes>
+        </AuthContext.Provider>
+      </MemoryRouter>
+    );
+  };
+
+  it('auto-selects guild matching guildId route param', async () => {
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url === '/api/v1/guilds') {
+        return Promise.resolve({ data: { guilds: [mockGuild, mockGuild2] } });
+      }
+      if (url === '/api/v1/guilds/1/templates') {
+        return Promise.resolve({ data: [mockTemplate] });
+      }
+      if (url.includes('/config')) {
+        return Promise.reject({ response: { status: 403 } });
+      }
+      return Promise.resolve({ data: [] });
+    });
+
+    renderWithGuildRoute('1');
+
+    await waitFor(() => {
+      expect(screen.getByText('Default Game (Default)')).toBeInTheDocument();
+    });
+  });
+
+  it('hides server picker when guildId route param is present', async () => {
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url === '/api/v1/guilds') {
+        return Promise.resolve({ data: { guilds: [mockGuild, mockGuild2] } });
+      }
+      if (url === '/api/v1/guilds/1/templates') {
+        return Promise.resolve({ data: [mockTemplate] });
+      }
+      if (url.includes('/config')) {
+        return Promise.reject({ response: { status: 403 } });
+      }
+      return Promise.resolve({ data: [] });
+    });
+
+    renderWithGuildRoute('1');
+
+    await waitFor(() => {
+      expect(screen.getByText('Default Game (Default)')).toBeInTheDocument();
+    });
+
+    // Server picker (combobox for server selection) should be hidden when guildId is in URL
+    // With two guilds available, normally the server picker would show — but with guildId param it should not
+    const comboboxes = screen.queryAllByRole('combobox');
+    const serverCombobox = comboboxes.find((el) =>
+      el.closest('div')?.textContent?.includes('Test Server')
+    );
+    expect(serverCombobox).toBeUndefined();
   });
 });
