@@ -25,7 +25,7 @@
 # Interactive restore script for the Game Scheduler Postgres database.
 #
 # Steps:
-#   1. Lists available S3 backups using the backup container image
+#   1. Lists available backups from BACKUP_DEST using the backup container image
 #   2. Prompts for backup selection
 #   3. Confirms before destroying postgres_data and redis_data volumes
 #   4. Stops all services, removes volumes, runs compose.restore.yaml
@@ -35,6 +35,7 @@
 #   ENV_FILE=config/env.prod ./scripts/restore.sh
 #
 # ENV_FILE defaults to config/env.dev if not set.
+# BACKUP_DEST in the env file must be set to an s3:// URL for this script to list backups.
 set -e
 
 ENV_FILE="${ENV_FILE:-config/env.dev}"
@@ -54,7 +55,7 @@ set +a
 
 PROJECT="${COMPOSE_PROJECT_NAME:-$(basename "$PWD")}"
 
-echo "Fetching available backups from s3://${BACKUP_S3_BUCKET}/backup/..."
+echo "Fetching available backups from ${BACKUP_DEST}/..."
 
 EXTRA_ARGS=()
 if [[ -n "${BACKUP_S3_ENDPOINT}" ]]; then
@@ -67,10 +68,10 @@ BACKUP_LIST=$(docker run --rm \
     -e AWS_DEFAULT_REGION="${BACKUP_S3_REGION:-us-east-1}" \
     --entrypoint aws \
     "${IMAGE_REGISTRY:-}game-scheduler-backup:${IMAGE_TAG:-latest}" \
-    "${EXTRA_ARGS[@]}" s3 ls "s3://${BACKUP_S3_BUCKET}/backup/")
+    "${EXTRA_ARGS[@]}" s3 ls "${BACKUP_DEST}/")
 
 if [[ -z "${BACKUP_LIST}" ]]; then
-    echo "No backups found in s3://${BACKUP_S3_BUCKET}/backup/" >&2
+    echo "No backups found in ${BACKUP_DEST}/" >&2
     exit 1
 fi
 
@@ -78,28 +79,28 @@ echo ""
 echo "Available backups:"
 mapfile -t FILES < <(echo "${BACKUP_LIST}" | awk '{print $NF}')
 for i in "${!FILES[@]}"; do
-    echo "  $((i + 1))) backup/${FILES[$i]}"
+    echo "  $((i + 1))) ${BACKUP_DEST}/${FILES[$i]}"
 done
 
 echo ""
 read -rp "Select backup number (or q to quit): " SELECTION
 
-if [[ "${SELECTION}" == "q" ]]; then
+if [[  "${SELECTION}" == "q" ]]; then
     echo "Restore cancelled."
     exit 0
 fi
 
-if ! [[ "${SELECTION}" =~ ^[0-9]+$ ]] \
-        || [[ "${SELECTION}" -lt 1 ]] \
-        || [[ "${SELECTION}" -gt "${#FILES[@]}" ]]; then
+if ! [[  "${SELECTION}" =~ ^[0-9]+$ ]] \
+        || [[  "${SELECTION}" -lt 1 ]] \
+        || [[  "${SELECTION}" -gt "${#FILES[@]}" ]]; then
     echo "Invalid selection: ${SELECTION}" >&2
     exit 1
 fi
 
-BACKUP_KEY="backup/${FILES[$((SELECTION - 1))]}"
+RESTORE_SRC="${BACKUP_DEST}/${FILES[$((SELECTION - 1))]}"
 
 echo ""
-echo "Selected: s3://${BACKUP_S3_BUCKET}/${BACKUP_KEY}"
+echo "Selected: ${RESTORE_SRC}"
 echo ""
 echo "WARNING: This will permanently destroy and recreate the following volumes:"
 echo "  - ${PROJECT}_postgres_data"
@@ -119,8 +120,8 @@ docker compose --env-file "${ENV_FILE}" down
 echo "Removing postgres_data and redis_data volumes..."
 docker volume rm "${PROJECT}_postgres_data" "${PROJECT}_redis_data"
 
-echo "Restoring from ${BACKUP_KEY}..."
-RESTORE_BACKUP_KEY="${BACKUP_KEY}" docker compose \
+echo "Restoring from ${RESTORE_SRC}..."
+RESTORE_SRC="${RESTORE_SRC}" docker compose \
     --env-file "${ENV_FILE}" \
     -f compose.yaml \
     -f compose.restore.yaml \

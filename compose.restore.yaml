@@ -4,8 +4,9 @@
 #   docker compose -f compose.yaml -f compose.restore.yaml up --exit-code-from restore
 #
 # Requires:
-#   RESTORE_BACKUP_KEY — S3 key of the backup to restore (e.g. backup/slot-0.dump.gz)
-#   All BACKUP_S3_* and POSTGRES_* vars from the base env file
+#   RESTORE_SRC — full URL of the backup to restore (e.g. s3://bucket/slot-0.dump.gz or file:///var/lib/backups/slot-0.dump.gz)
+#   BACKUP_S3_* vars only needed when RESTORE_SRC starts with s3://
+#   All POSTGRES_* vars from the base env file
 
 services:
   init:
@@ -21,12 +22,12 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-      BACKUP_S3_BUCKET: ${BACKUP_S3_BUCKET}
-      BACKUP_S3_ACCESS_KEY_ID: ${BACKUP_S3_ACCESS_KEY_ID}
-      BACKUP_S3_SECRET_ACCESS_KEY: ${BACKUP_S3_SECRET_ACCESS_KEY}
+      BACKUP_DEST: ${BACKUP_DEST}
+      BACKUP_S3_ACCESS_KEY_ID: ${BACKUP_S3_ACCESS_KEY_ID:-}
+      BACKUP_S3_SECRET_ACCESS_KEY: ${BACKUP_S3_SECRET_ACCESS_KEY:-}
       BACKUP_S3_REGION: ${BACKUP_S3_REGION:-us-east-1}
       BACKUP_S3_ENDPOINT: ${BACKUP_S3_ENDPOINT:-}
-      RESTORE_BACKUP_KEY: ${RESTORE_BACKUP_KEY}
+      RESTORE_SRC: ${RESTORE_SRC}
     depends_on:
       postgres:
         condition: service_healthy

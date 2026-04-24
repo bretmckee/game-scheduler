@@ -128,14 +128,14 @@ echo "==> Phase 2 complete: gameB record saved to volume ${RECORDS_VOLUME}"
 # ---------------------------------------------------------------------------
 echo "==> Phase 3: stopping application services for restore"
 
-# Determine the S3 key of the backup we just created (always slot 0 on a
+# Determine the full URL of the backup we just created (always slot 0 on a
 # fresh stack run because SLOT_FILE starts absent)
-RESTORE_KEY="backup/slot-0.dump.gz"
+RESTORE_SRC="${BACKUP_DEST}/slot-0.dump.gz"
 
 docker compose --progress quiet --env-file "$ENV_FILE" \
   stop api bot scheduler retry-daemon
 
-echo "==> Phase 3: restoring from ${RESTORE_KEY}"
+echo "==> Phase 3: restoring from ${RESTORE_SRC}"
 
 # Use 'run --rm' rather than 'up --exit-code-from' so that postgres keeps
 # running after the restore container exits.  With tmpfs volumes a
@@ -146,7 +146,7 @@ echo "==> Phase 3: restoring from ${RESTORE_KEY}"
 # are already active (e.g. compose.e2e.yaml from env.e2e).  Explicitly
 # passing -f flags overrides COMPOSE_FILE and causes compose to see a
 # different postgres config, triggering a container recreate that wipes tmpfs.
-RESTORE_BACKUP_KEY="${RESTORE_KEY}" \
+RESTORE_SRC="${RESTORE_SRC}" \
   COMPOSE_FILE="${COMPOSE_FILE}:compose.restore.yaml" \
   docker compose --env-file "$ENV_FILE" \
   run --rm restore

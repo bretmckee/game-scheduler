@@ -24,13 +24,13 @@
 #
 # Runs a single Postgres backup cycle:
 #   1. Insert a backup_metadata row (timestamp is thus included in the dump)
-#   2. pg_dump to custom format, gzip, upload to S3 using slot-based rotation
+#   2. pg_dump to custom format, gzip, write via backup_write (s3:// or file://)
 #
-# Slot key format: backup/slot-<N>.dump.gz  where N cycles 0..(RETENTION_COUNT-1)
+# Destination key format: ${BACKUP_DEST}/slot-<N>.dump.gz  where N cycles 0..(RETENTION_COUNT-1)
 set -ex
 
 RETENTION_COUNT="${BACKUP_RETENTION_COUNT:-14}"
-BUCKET="${BACKUP_S3_BUCKET}"
+BACKUP_DEST="${BACKUP_DEST}"
 REGION="${BACKUP_S3_REGION:-us-east-1}"
 
 # Build the database URL when running directly (e.g. docker compose run backup
@@ -61,9 +61,17 @@ else
     SLOT=0
 fi
 
-BACKUP_KEY="backup/slot-${SLOT}.dump.gz"
+BACKUP_KEY="${BACKUP_DEST}/slot-${SLOT}.dump.gz"
 
-echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] Starting backup to s3://${BUCKET}/${BACKUP_KEY}"
+backup_write() {
+    case "$1" in
+        s3://*)   aws_s3 cp - "$1" ;;
+        file://*) cat > "${1#file://}" ;;
+        *)        echo "Unknown backup destination scheme: $1" >&2; exit 1 ;;
+    esac
+}
+
+echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] Starting backup to ${BACKUP_KEY}"
 
 # Insert backup_metadata row before dumping so the timestamp is in the dump
 psql "${BACKUP_DATABASE_URL}" -c "INSERT INTO backup_metadata (backed_up_at) VALUES (now());"
@@ -79,9 +87,9 @@ pg_dump \
     --no-password \
     "${BACKUP_DATABASE_URL}" \
   | gzip \
-  | aws_s3 cp - "s3://${BUCKET}/${BACKUP_KEY}"
+  | backup_write "${BACKUP_KEY}"
 
 # Persist the slot so the next run advances to the next slot
 echo "${SLOT}" > "${SLOT_FILE}"
 
-echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] Backup complete: s3://${BUCKET}/${BACKUP_KEY}"
+echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] Backup complete: ${BACKUP_KEY}"

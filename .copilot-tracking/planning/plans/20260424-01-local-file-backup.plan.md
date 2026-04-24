@@ -39,37 +39,37 @@ Replace the five-variable `BACKUP_S3_BUCKET` + S3-creds pattern with a single `B
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Update backup and restore scripts
+### [x] Phase 1: Update backup and restore scripts
 
-- [ ] Task 1.1: Add `backup_write` function and update `backup-script.sh`
+- [x] Task 1.1: Add `backup_write` function and update `backup-script.sh`
   - Details: .copilot-tracking/planning/details/20260424-01-local-file-backup-details.md (Lines 18-56)
 
-- [ ] Task 1.2: Add `backup_read` function and rename var in `restore-script.sh`
+- [x] Task 1.2: Add `backup_read` function and rename var in `restore-script.sh`
   - Details: .copilot-tracking/planning/details/20260424-01-local-file-backup-details.md (Lines 58-90)
 
-### [ ] Phase 2: Update Docker Compose files
+### [x] Phase 2: Update Docker Compose files
 
-- [ ] Task 2.1: Update `compose.yaml` — replace `BACKUP_S3_BUCKET`, make creds optional, add `backup_data` volume
+- [x] Task 2.1: Update `compose.yaml` — replace `BACKUP_S3_BUCKET`, make creds optional, add `backup_data` volume
   - Details: .copilot-tracking/planning/details/20260424-01-local-file-backup-details.md (Lines 93-139)
 
-- [ ] Task 2.2: Update `compose.restore.yaml` — replace `BACKUP_S3_BUCKET` + `RESTORE_BACKUP_KEY`
+- [x] Task 2.2: Update `compose.restore.yaml` — replace `BACKUP_S3_BUCKET` + `RESTORE_BACKUP_KEY`
   - Details: .copilot-tracking/planning/details/20260424-01-local-file-backup-details.md (Lines 141-163)
 
-- [ ] Task 2.3: Update `compose.e2e.yaml` — replace `BACKUP_S3_BUCKET: test-backups` with `BACKUP_DEST: s3://test-backups`
+- [x] Task 2.3: Update `compose.e2e.yaml` — replace `BACKUP_S3_BUCKET: test-backups` with `BACKUP_DEST: s3://test-backups`
   - Details: .copilot-tracking/planning/details/20260424-01-local-file-backup-details.md (Lines 165-181)
 
-### [ ] Phase 3: Update environment configuration files
+### [x] Phase 3: Update environment configuration files
 
-- [ ] Task 3.1: Update `config.template/env.template` Backup Configuration section
+- [x] Task 3.1: Update `config.template/env.template` Backup Configuration section
   - Details: .copilot-tracking/planning/details/20260424-01-local-file-backup-details.md (Lines 184-228)
 
-- [ ] Task 3.2: Update `config/env.dev`, `config/env.prod`, `config/env.staging`
+- [x] Task 3.2: Update `config/env.dev`, `config/env.prod`, `config/env.staging`
   - Details: .copilot-tracking/planning/details/20260424-01-local-file-backup-details.md (Lines 230-265)
 
-- [ ] Task 3.3: Update `config/env.e2e`
+- [x] Task 3.3: Update `config/env.e2e`
   - Details: .copilot-tracking/planning/details/20260424-01-local-file-backup-details.md (Lines 267-285)
 
-- [ ] Task 3.4: Verify `config/env.int` remains correctly commented out
+- [x] Task 3.4: Verify `config/env.int` remains correctly commented out
   - Details: .copilot-tracking/planning/details/20260424-01-local-file-backup-details.md (Lines 287-297)
 
 ## Dependencies

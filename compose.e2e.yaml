@@ -171,7 +171,7 @@ services:
       minio-init:
         condition: service_completed_successfully
     environment:
-      BACKUP_S3_BUCKET: test-backups
+      BACKUP_DEST: s3://test-backups
       BACKUP_S3_ENDPOINT: http://minio:9000
       BACKUP_S3_ACCESS_KEY_ID: minioadmin
       BACKUP_S3_SECRET_ACCESS_KEY: minioadmin
