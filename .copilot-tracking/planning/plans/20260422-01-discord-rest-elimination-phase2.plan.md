@@ -105,12 +105,12 @@ Replace all remaining `oauth2.get_user_guilds()` REST calls (4 sites), the last 
 - [x] Task 8.2: Replace oauth2.get_user_guilds() with projection in shared/database.py
   - Details: .copilot-tracking/planning/details/20260422-01-discord-rest-elimination-phase2-details.md (Lines 337-370)
 
-### [ ] Phase 9: Remove dead REST functions from guild_sync.py (Finding 3 addendum)
+### [x] Phase 9: Remove dead REST functions from guild_sync.py (Finding 3 addendum)
 
-- [ ] Task 9.1: Delete dead test functions from test_guild_sync.py
+- [x] Task 9.1: Delete dead test functions from test_guild_sync.py
   - Details: .copilot-tracking/planning/details/20260422-01-discord-rest-elimination-phase2-details.md (Lines 373-392)
 
-- [ ] Task 9.2: Delete dead functions and DiscordAPIClient import from guild_sync.py
+- [x] Task 9.2: Delete dead functions and DiscordAPIClient import from guild_sync.py
   - Details: .copilot-tracking/planning/details/20260422-01-discord-rest-elimination-phase2-details.md (Lines 393-418)
 
 ## Dependencies
