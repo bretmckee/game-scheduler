@@ -2150,7 +2150,6 @@ async def test_list_games_role_participant_filters_count_query(game_service, moc
 
     count_query_str = str(mock_db.execute.call_args_list[0].args[0])
     assert "game_session_id" in count_query_str
-    assert "host_id" in count_query_str
 
 
 @pytest.mark.asyncio
@@ -2168,7 +2167,6 @@ async def test_list_games_role_participant_filters_main_query(game_service, mock
 
     main_query_str = str(mock_db.execute.call_args_list[1].args[0])
     assert "game_session_id" in main_query_str
-    assert "host_id" in main_query_str
 
 
 @pytest.mark.asyncio

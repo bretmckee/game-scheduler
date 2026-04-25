@@ -1072,9 +1072,7 @@ class GameService:
                 participant_model.GameParticipant.user_id == user_id
             )
             query = query.where(game_model.GameSession.id.in_(participant_subquery))
-            query = query.where(game_model.GameSession.host_id != user_id)
             count_query = count_query.where(game_model.GameSession.id.in_(participant_subquery))
-            count_query = count_query.where(game_model.GameSession.host_id != user_id)
 
         total_result = await self.db.execute(count_query)
         total = total_result.scalar() or 0
