@@ -592,7 +592,7 @@ class TestGameSchedulerBot:
             ),
         ):
             bot.get_channel = MagicMock(return_value=mock_channel)
-            await bot._sweep_deleted_embeds()
+            await bot._sweep_deleted_embeds("on_ready")
 
         mock_publisher.publish_embed_deleted.assert_awaited_once_with(
             game_id=str(mock_game.id),
@@ -642,7 +642,7 @@ class TestGameSchedulerBot:
             ),
         ):
             bot.get_channel = MagicMock(return_value=mock_channel)
-            await bot._sweep_deleted_embeds()
+            await bot._sweep_deleted_embeds("on_ready")
 
         mock_publisher.publish_embed_deleted.assert_not_awaited()
 
@@ -666,7 +666,7 @@ class TestGameSchedulerBot:
         mock_db_ctx.__aexit__ = AsyncMock(return_value=None)
 
         with patch("services.bot.bot.get_bypass_db_session", return_value=mock_db_ctx):
-            await bot._sweep_deleted_embeds()
+            await bot._sweep_deleted_embeds("on_ready")
 
         mock_publisher.publish_embed_deleted.assert_not_awaited()
 
@@ -677,7 +677,7 @@ class TestGameSchedulerBot:
         bot.event_publisher = None
 
         with patch("services.bot.bot.get_bypass_db_session") as mock_db:
-            await bot._sweep_deleted_embeds()
+            await bot._sweep_deleted_embeds("on_ready")
 
         mock_db.assert_not_called()
 
@@ -710,7 +710,7 @@ class TestGameSchedulerBot:
         mock_db_ctx.__aexit__ = AsyncMock(return_value=None)
 
         with patch("services.bot.bot.get_bypass_db_session", return_value=mock_db_ctx):
-            await bot._sweep_deleted_embeds()  # must not raise
+            await bot._sweep_deleted_embeds("on_ready")  # must not raise
 
     @pytest.mark.asyncio
     async def test_run_sweep_worker_skips_channel_when_not_in_gateway_cache(

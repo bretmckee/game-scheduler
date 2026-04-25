@@ -22,7 +22,7 @@
 """Unit tests for OTel metric increments in _sweep_deleted_embeds and _run_sweep_worker."""
 
 import asyncio
-from datetime import datetime
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import discord
@@ -63,7 +63,7 @@ def _db_ctx_empty_games():
 def _db_ctx_one_game():
     """Return an async context manager whose DB execute yields one game."""
     mock_game = MagicMock()
-    mock_game.scheduled_at = datetime(2025, 1, 1)
+    mock_game.scheduled_at = datetime(2025, 1, 1, tzinfo=UTC)
     mock_game.id = "game-uuid-1"
     mock_game.channel.channel_id = "111222333"
     mock_game.message_id = "444555666"
@@ -87,9 +87,9 @@ async def test_sweep_deleted_embeds_increments_started_counter(bot: GameSchedule
         patch("services.bot.bot.get_bypass_db_session", return_value=_db_ctx_empty_games()),
         patch("services.bot.bot.sweep_started_counter", mock_started),
     ):
-        await bot._sweep_deleted_embeds()
+        await bot._sweep_deleted_embeds("on_ready")
 
-    mock_started.add.assert_called_once_with(1)
+    mock_started.add.assert_called_once_with(1, {"reason": "on_ready"})
 
 
 async def test_sweep_interrupted_counter_incremented_when_sweep_cancelled(
@@ -108,9 +108,9 @@ async def test_sweep_interrupted_counter_incremented_when_sweep_cancelled(
         patch.object(bot, "_sweep_deleted_embeds", sweep_mock),
         patch("services.bot.bot.sweep_interrupted_counter", mock_counter),
     ):
-        await bot._trigger_sweep()
+        await bot._trigger_sweep("on_ready")
 
-    mock_counter.add.assert_called_once_with(1)
+    mock_counter.add.assert_called_once_with(1, {"reason": "on_ready"})
 
 
 async def test_sweep_deleted_embeds_records_duration_histogram(bot: GameSchedulerBot) -> None:
@@ -125,7 +125,7 @@ async def test_sweep_deleted_embeds_records_duration_histogram(bot: GameSchedule
         patch("services.bot.bot.sweep_duration_histogram", mock_histogram),
         patch("services.bot.bot.sweep_started_counter"),
     ):
-        await bot._sweep_deleted_embeds()
+        await bot._sweep_deleted_embeds("on_ready")
 
     mock_histogram.record.assert_called_once()
     elapsed = mock_histogram.record.call_args[0][0]
@@ -137,7 +137,7 @@ async def test_run_sweep_worker_increments_messages_checked_counter(
 ) -> None:
     """sweep_messages_checked_counter.add(1) is called once per successfully fetched message."""
     queue: asyncio.PriorityQueue = asyncio.PriorityQueue()
-    await queue.put((datetime(2025, 1, 1), "game-1", "123", "456"))
+    await queue.put((datetime(2025, 1, 1, tzinfo=UTC), "game-1", "123", "456"))
 
     mock_redis = AsyncMock()
     mock_redis.claim_global_and_channel_slot.return_value = 0
@@ -162,7 +162,7 @@ async def test_run_sweep_worker_increments_deletions_detected_counter(
 ) -> None:
     """sweep_deletions_detected_counter.add(1) is called when a message returns 404."""
     queue: asyncio.PriorityQueue = asyncio.PriorityQueue()
-    await queue.put((datetime(2025, 1, 1), "game-2", "123", "789"))
+    await queue.put((datetime(2025, 1, 1, tzinfo=UTC), "game-2", "123", "789"))
 
     mock_redis = AsyncMock()
     mock_redis.claim_global_and_channel_slot.return_value = 0

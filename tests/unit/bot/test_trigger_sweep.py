@@ -53,7 +53,7 @@ async def test_trigger_sweep_no_active_task_creates_new_task(bot: GameSchedulerB
         patch.object(bot, "_sweep_deleted_embeds", sweep_mock),
         patch("services.bot.bot.sweep_interrupted_counter", create=True),
     ):
-        await bot._trigger_sweep()
+        await bot._trigger_sweep("on_ready")
 
     assert bot._sweep_task is not None
     assert not bot._sweep_task.done() or sweep_mock.called
@@ -69,7 +69,7 @@ async def test_trigger_sweep_active_task_is_cancelled_and_replaced(bot: GameSche
         patch.object(bot, "_sweep_deleted_embeds", sweep_mock),
         patch("services.bot.bot.sweep_interrupted_counter", create=True),
     ):
-        await bot._trigger_sweep()
+        await bot._trigger_sweep("on_ready")
 
     assert old_task.cancelled()
     assert bot._sweep_task is not old_task
@@ -88,9 +88,9 @@ async def test_trigger_sweep_increments_interrupted_counter_on_cancellation(
         patch.object(bot, "_sweep_deleted_embeds", sweep_mock),
         patch("services.bot.bot.sweep_interrupted_counter", mock_counter, create=True),
     ):
-        await bot._trigger_sweep()
+        await bot._trigger_sweep("on_ready")
 
-    mock_counter.add.assert_called_once_with(1)
+    mock_counter.add.assert_called_once_with(1, {"reason": "on_ready"})
 
 
 async def test_trigger_sweep_does_not_increment_counter_when_no_active_task(
@@ -105,6 +105,6 @@ async def test_trigger_sweep_does_not_increment_counter_when_no_active_task(
         patch.object(bot, "_sweep_deleted_embeds", sweep_mock),
         patch("services.bot.bot.sweep_interrupted_counter", mock_counter, create=True),
     ):
-        await bot._trigger_sweep()
+        await bot._trigger_sweep("on_ready")
 
     mock_counter.add.assert_not_called()

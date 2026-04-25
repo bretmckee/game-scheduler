@@ -198,7 +198,7 @@ class GameSchedulerBot(commands.Bot):
                 logger.exception("Failed to sync guilds on ready: %s", e)
 
             await self._recover_pending_workers()
-            await self._trigger_sweep()
+            await self._trigger_sweep("on_ready")
             await self._sweep_orphaned_embeds()
 
             if not hasattr(self, "_refresh_listener_started"):
@@ -390,7 +390,7 @@ class GameSchedulerBot(commands.Bot):
         """Handle Gateway reconnection after disconnect."""
         logger.info("Bot reconnected to Gateway")
         await self._recover_pending_workers()
-        await self._trigger_sweep()
+        await self._trigger_sweep("on_resumed")
         await self._sweep_orphaned_embeds()
 
     async def on_member_add(self, _member: discord.Member) -> None:
@@ -447,7 +447,7 @@ class GameSchedulerBot(commands.Bot):
         except Exception as e:
             logger.exception("Error handling message delete for message %s: %s", message_id, e)
 
-    async def _trigger_sweep(self) -> None:
+    async def _trigger_sweep(self, reason: str) -> None:
         """Cancel any in-progress sweep and start a fresh one.
 
         If a sweep is already running, cancels it and waits for it to finish
@@ -456,11 +456,11 @@ class GameSchedulerBot(commands.Bot):
         """
         if self._sweep_task and not self._sweep_task.done():
             logger.warning("Embed deletion sweep interrupted: new sweep triggered")
-            sweep_interrupted_counter.add(1)
+            sweep_interrupted_counter.add(1, {"reason": reason})
             self._sweep_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await self._sweep_task
-        self._sweep_task = asyncio.create_task(self._sweep_deleted_embeds())
+        self._sweep_task = asyncio.create_task(self._sweep_deleted_embeds(reason))
 
     async def _start_test_server(self) -> None:
         """Start the aiohttp test server on port 8089 for e2e sweep triggering."""
@@ -475,7 +475,7 @@ class GameSchedulerBot(commands.Bot):
 
     async def _handle_sweep_request(self, _request: aiohttp.web.Request) -> aiohttp.web.Response:
         """Handle POST /admin/sweep: trigger sweep and wait for completion."""
-        await self._trigger_sweep()
+        await self._trigger_sweep("e2e_admin")
         if self._sweep_task:
             await self._sweep_task
         return aiohttp.web.Response(status=200)
@@ -523,7 +523,7 @@ class GameSchedulerBot(commands.Bot):
             return task
         return workers[channel_id]
 
-    async def _sweep_deleted_embeds(self) -> None:
+    async def _sweep_deleted_embeds(self, reason: str) -> None:
         """Check for embed posts deleted while the bot was offline.
 
         Queries all game sessions with a message_id, then fetches each Discord
@@ -537,7 +537,7 @@ class GameSchedulerBot(commands.Bot):
             logger.warning("Skipping embed deletion sweep: no event publisher")
             return
 
-        sweep_started_counter.add(1)
+        sweep_started_counter.add(1, {"reason": reason})
         start_time = time.time()
 
         try:
@@ -581,7 +581,7 @@ class GameSchedulerBot(commands.Bot):
             self._run_sweep_worker(queue, redis, self.event_publisher) for _ in range(num_workers)
         ]
         await asyncio.gather(*workers)
-        sweep_duration_histogram.record(time.time() - start_time)
+        sweep_duration_histogram.record(time.time() - start_time, {"reason": reason})
         logger.info("Embed deletion sweep complete")
 
     async def _run_sweep_worker(
