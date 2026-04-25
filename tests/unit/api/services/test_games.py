@@ -527,9 +527,7 @@ class TestResolveGameHost:
         mock_db.execute.return_value = _make_db_scalar_result(None)
 
         with pytest.raises(ValueError, match="Host user not found"):
-            await game_service._resolve_game_host(
-                mock_game_data, mock_guild_config, "user-uuid-1", "access-token"
-            )
+            await game_service._resolve_game_host(mock_game_data, mock_guild_config, "user-uuid-1")
 
 
 # ---------------------------------------------------------------------------

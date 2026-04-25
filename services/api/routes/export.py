@@ -129,7 +129,6 @@ async def export_game(
         discord_id=user.user.discord_id,
         role_service=role_service,
         db=db,
-        access_token=user.access_token,
         current_user=user,
     )
 

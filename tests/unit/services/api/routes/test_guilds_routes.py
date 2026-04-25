@@ -686,3 +686,65 @@ class TestListGuildRoles:
 
         assert len(result) == 1
         assert result[0]["name"] == "@Player"
+
+
+class TestGetGuildConfig:
+    """Test get_guild_config endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_get_guild_config_success(
+        self, mock_db, mock_current_user_unit, mock_guild_config
+    ):
+        """Test retrieving guild config with manage guild permission."""
+        with (
+            patch("services.api.database.queries.require_guild_by_id") as mock_get_guild,
+            patch(
+                "services.api.dependencies.permissions.get_guild_name",
+                new_callable=AsyncMock,
+                return_value="Test Guild",
+            ),
+        ):
+            mock_get_guild.return_value = mock_guild_config
+
+            result = await guilds.get_guild_config(
+                guild_id=mock_guild_config.id,
+                current_user=mock_current_user_unit,
+                db=mock_db,
+            )
+
+        mock_get_guild.assert_called_once_with(
+            mock_db, mock_guild_config.id, mock_current_user_unit.user.discord_id
+        )
+        assert result.id == mock_guild_config.id
+
+
+class TestValidateMention:
+    """Test validate_mention endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_validate_mention_non_at_mention(
+        self, mock_db, mock_current_user_unit, mock_guild_config
+    ):
+        """Test that non-@ strings are always valid (they are placeholders)."""
+        with (
+            patch("services.api.database.queries.require_guild_by_id") as mock_get_guild,
+            patch(
+                "services.api.dependencies.permissions.verify_guild_membership",
+                new_callable=AsyncMock,
+            ),
+        ):
+            mock_get_guild.return_value = mock_guild_config
+            request = guild_schemas.ValidateMentionRequest(mention="placeholder-text")
+
+            result = await guilds.validate_mention(
+                guild_id=mock_guild_config.id,
+                request=request,
+                current_user=mock_current_user_unit,
+                db=mock_db,
+            )
+
+        mock_get_guild.assert_called_once_with(
+            mock_db, mock_guild_config.id, mock_current_user_unit.user.discord_id
+        )
+        assert result.valid is True
+        assert result.error is None

@@ -107,9 +107,7 @@ async def get_guild(
     Returns guild name and metadata without sensitive configuration data.
     Requires user to be member of the guild.
     """
-    guild_config = await queries.require_guild_by_id(
-        db, guild_id, current_user.access_token, current_user.user.discord_id
-    )
+    guild_config = await queries.require_guild_by_id(db, guild_id, current_user.user.discord_id)
 
     # Verify guild membership - returns 404 if not member to prevent information disclosure
     await permissions.verify_guild_membership(guild_config.guild_id, current_user, db)
@@ -136,9 +134,7 @@ async def get_guild_config(
 
     Requires MANAGE_GUILD permission in the guild.
     """
-    guild_config = await queries.require_guild_by_id(
-        db, guild_id, current_user.access_token, current_user.user.discord_id
-    )
+    guild_config = await queries.require_guild_by_id(db, guild_id, current_user.user.discord_id)
 
     return await _build_guild_config_response(guild_config, current_user, db)
 
@@ -185,9 +181,7 @@ async def update_guild_config(
 
     Requires MANAGE_GUILD permission in the guild.
     """
-    guild_config = await queries.require_guild_by_id(
-        db, guild_id, current_user.access_token, current_user.user.discord_id
-    )
+    guild_config = await queries.require_guild_by_id(db, guild_id, current_user.user.discord_id)
 
     updates = request.model_dump(exclude_unset=True)
     guild_config = await guild_service.update_guild_config(guild_config, **updates)
@@ -214,9 +208,7 @@ async def list_guild_channels(
     Optional refresh parameter forces channel sync from Discord API to update
     the database with any new or deleted channels.
     """
-    guild_config = await queries.require_guild_by_id(
-        db, guild_id, current_user.access_token, current_user.user.discord_id
-    )
+    guild_config = await queries.require_guild_by_id(db, guild_id, current_user.user.discord_id)
 
     # Verify guild membership, returns 404 if not member to prevent information disclosure
     await permissions.verify_guild_membership(guild_config.guild_id, current_user, db)
@@ -271,9 +263,7 @@ async def list_guild_roles(
     Returns roles suitable for notification mentions, sorted alphabetically
     (case-insensitive) by name.
     """
-    guild_config = await queries.require_guild_by_id(
-        db, guild_id, current_user.access_token, current_user.user.discord_id
-    )
+    guild_config = await queries.require_guild_by_id(db, guild_id, current_user.user.discord_id)
 
     # Verify guild membership, returns 404 if not member to prevent information disclosure
     await permissions.verify_guild_membership(guild_config.guild_id, current_user, db)
@@ -319,9 +309,7 @@ async def validate_mention(
     Checks if the mention can be resolved to a valid guild member.
     Does not return user details, only validation status.
     """
-    guild_config = await queries.require_guild_by_id(
-        db, guild_id, current_user.access_token, current_user.user.discord_id
-    )
+    guild_config = await queries.require_guild_by_id(db, guild_id, current_user.user.discord_id)
 
     # Verify guild membership, returns 404 if not member to prevent information disclosure
     await permissions.verify_guild_membership(guild_config.guild_id, current_user, db)

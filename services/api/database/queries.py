@@ -121,7 +121,6 @@ async def get_guild_by_id(db: AsyncSession, guild_id: str) -> GuildConfiguration
 async def require_guild_by_id(
     db: AsyncSession,
     guild_id: str,
-    _access_token: str,
     user_discord_id: str,
     not_found_detail: str = "Guild configuration not found",
 ) -> GuildConfiguration:
@@ -134,7 +133,6 @@ async def require_guild_by_id(
     Args:
         db: Database session
         guild_id: Database UUID (GuildConfiguration.id)
-        _access_token: Deprecated, no longer used (kept for API compatibility)
         user_discord_id: User's Discord ID
         not_found_detail: Custom error message for 404 response
 

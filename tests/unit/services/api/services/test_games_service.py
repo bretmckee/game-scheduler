@@ -425,7 +425,7 @@ async def test_resolve_game_host_no_override_uses_requester(
     mock_db.execute = AsyncMock(return_value=host_result)
 
     host_user_id, host_user = await game_service._resolve_game_host(
-        sample_game_data, sample_guild, sample_user.id, "token"
+        sample_game_data, sample_guild, sample_user.id
     )
 
     assert host_user_id == sample_user.id
@@ -444,7 +444,7 @@ async def test_resolve_game_host_empty_string_uses_requester(
     mock_db.execute = AsyncMock(return_value=host_result)
 
     host_user_id, host_user = await game_service._resolve_game_host(
-        sample_game_data, sample_guild, sample_user.id, "token"
+        sample_game_data, sample_guild, sample_user.id
     )
 
     assert host_user_id == sample_user.id
@@ -465,7 +465,7 @@ async def test_resolve_game_host_requester_not_found_raises_error(
     mock_db.execute = AsyncMock(return_value=requester_result)
 
     with pytest.raises(ValueError, match="Requester user not found"):
-        await game_service._resolve_game_host(sample_game_data, sample_guild, requester_id, "token")
+        await game_service._resolve_game_host(sample_game_data, sample_guild, requester_id)
 
 
 @pytest.mark.asyncio
@@ -491,9 +491,7 @@ async def test_resolve_game_host_non_bot_manager_cannot_override(
 
     with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
         with pytest.raises(ValueError, match="Only bot managers can specify the game host"):
-            await game_service._resolve_game_host(
-                sample_game_data, sample_guild, sample_user.id, "token"
-            )
+            await game_service._resolve_game_host(sample_game_data, sample_guild, sample_user.id)
 
 
 @pytest.mark.asyncio
@@ -540,7 +538,7 @@ async def test_resolve_game_host_bot_manager_can_override_with_existing_user(
 
     with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
         host_user_id, host_user = await game_service._resolve_game_host(
-            sample_game_data, sample_guild, sample_user.id, "token"
+            sample_game_data, sample_guild, sample_user.id
         )
 
     assert host_user_id == other_user.id
@@ -600,7 +598,7 @@ async def test_resolve_game_host_bot_manager_creates_new_user(
 
     with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
         host_user_id, host_user = await game_service._resolve_game_host(
-            sample_game_data, sample_guild, sample_user.id, "token"
+            sample_game_data, sample_guild, sample_user.id
         )
 
     assert host_user == created_user
@@ -637,9 +635,7 @@ async def test_resolve_game_host_invalid_mention_raises_validation_error(
 
     with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
         with pytest.raises(resolver_module.ValidationError):
-            await game_service._resolve_game_host(
-                sample_game_data, sample_guild, sample_user.id, "token"
-            )
+            await game_service._resolve_game_host(sample_game_data, sample_guild, sample_user.id)
 
 
 @pytest.mark.asyncio
@@ -671,9 +667,7 @@ async def test_resolve_game_host_placeholder_not_allowed(
 
     with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
         with pytest.raises(resolver_module.ValidationError) as exc_info:
-            await game_service._resolve_game_host(
-                sample_game_data, sample_guild, sample_user.id, "token"
-            )
+            await game_service._resolve_game_host(sample_game_data, sample_guild, sample_user.id)
 
         assert "must be a Discord user" in str(exc_info.value.invalid_mentions[0]["reason"])
 
@@ -704,9 +698,7 @@ async def test_resolve_game_host_resolution_failure_wraps_exception(
 
     with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
         with pytest.raises(ValueError, match="Failed to resolve host mention"):
-            await game_service._resolve_game_host(
-                sample_game_data, sample_guild, sample_user.id, "token"
-            )
+            await game_service._resolve_game_host(sample_game_data, sample_guild, sample_user.id)
 
 
 @pytest.mark.asyncio
@@ -1480,7 +1472,6 @@ async def test_create_game_without_participants(
         game = await game_service.create_game(
             game_data=sample_game_data,
             host_user_id=sample_user.id,
-            access_token="token",
         )
 
     assert isinstance(game, game_model.GameSession)
@@ -1546,7 +1537,6 @@ async def test_create_game_with_where_field(
         game = await game_service.create_game(
             game_data=game_data,
             host_user_id=sample_user.id,
-            access_token="token",
         )
 
     assert isinstance(game, game_model.GameSession)
@@ -1610,7 +1600,6 @@ async def test_create_game_with_valid_channel_mention(
         game = await game_service.create_game(
             game_data=game_data,
             host_user_id=sample_user.id,
-            access_token="token",
         )
 
     assert isinstance(game, game_model.GameSession)
@@ -1688,7 +1677,6 @@ async def test_create_game_with_invalid_channel_raises_validation_error(
             await game_service.create_game(
                 game_data=game_data,
                 host_user_id=sample_user.id,
-                access_token="token",
             )
 
     assert exc_info.value.invalid_mentions == channel_errors
@@ -1761,7 +1749,6 @@ async def test_create_game_with_ambiguous_channel_raises_validation_error(
             await game_service.create_game(
                 game_data=game_data,
                 host_user_id=sample_user.id,
-                access_token="token",
             )
 
     assert exc_info.value.invalid_mentions == channel_errors
@@ -1824,7 +1811,6 @@ async def test_create_game_with_plain_text_location_unchanged(
         game = await game_service.create_game(
             game_data=game_data,
             host_user_id=sample_user.id,
-            access_token="token",
         )
 
     assert isinstance(game, game_model.GameSession)
@@ -1895,7 +1881,6 @@ async def test_create_game_with_valid_participants(
         game = await game_service.create_game(
             game_data=sample_game_data,
             host_user_id=sample_user.id,
-            access_token="token",
         )
 
     assert isinstance(game, game_model.GameSession)
@@ -1945,7 +1930,6 @@ async def test_create_game_with_invalid_participants(
         await game_service.create_game(
             game_data=sample_game_data,
             host_user_id=sample_user.id,
-            access_token="token",
         )
 
     assert len(exc_info.value.invalid_mentions) == 1
@@ -2038,7 +2022,6 @@ async def test_create_game_timezone_conversion(
         await game_service.create_game(
             game_data=game_data,
             host_user_id=sample_user.id,
-            access_token="token",
         )
 
     # Verify the stored time was converted to UTC (15:00, not 10:00)
@@ -2970,7 +2953,6 @@ async def test_create_game_creates_status_schedules(
         await game_service.create_game(
             game_data=game_data,
             host_user_id=sample_user.id,
-            access_token="mock_token",
         )
 
     # Verify status schedules were created
@@ -3070,7 +3052,6 @@ async def test_create_game_with_empty_host_defaults_to_current_user(
         game = await game_service.create_game(
             game_data=game_data,
             host_user_id=sample_user.id,
-            access_token="token",
         )
 
     assert game.host_id == sample_user.id
@@ -3120,7 +3101,6 @@ async def test_create_game_regular_user_cannot_override_host(
             await game_service.create_game(
                 game_data=game_data,
                 host_user_id=sample_user.id,
-                access_token="token",
             )
 
 
@@ -3212,7 +3192,6 @@ async def test_create_game_bot_manager_can_override_host(
         game = await game_service.create_game(
             game_data=game_data,
             host_user_id=sample_user.id,
-            access_token="token",
         )
 
     assert game.host_id == different_host.id
@@ -3275,7 +3254,6 @@ async def test_create_game_bot_manager_invalid_host_raises_validation_error(
             await game_service.create_game(
                 game_data=game_data,
                 host_user_id=sample_user.id,
-                access_token="token",
             )
 
         assert len(exc_info.value.invalid_mentions) == 1
@@ -3365,7 +3343,6 @@ async def test_create_game_bot_manager_host_without_permissions_fails(
             await game_service.create_game(
                 game_data=game_data,
                 host_user_id=sample_user.id,
-                access_token="token",
             )
 
 
@@ -3435,7 +3412,6 @@ async def test_create_game_bot_manager_empty_host_uses_self(
         game = await game_service.create_game(
             game_data=game_data,
             host_user_id=sample_user.id,
-            access_token="token",
         )
 
     assert game.host_id == sample_user.id
@@ -3492,7 +3468,6 @@ async def test_create_game_validates_signup_method_against_allowed_list(
             await game_service.create_game(
                 game_data=game_data,
                 host_user_id=sample_user.id,
-                access_token="token",
             )
 
 
@@ -4136,7 +4111,6 @@ async def test_verify_bot_manager_permission_success(
     """Test successful bot manager permission verification."""
     user_id = str(uuid.uuid4())
     guild_id = "guild123"
-    access_token = "token123"
 
     user = user_model.User(id=user_id, discord_id="discord123")
 
@@ -4154,14 +4128,12 @@ async def test_verify_bot_manager_permission_success(
         await game_service._verify_bot_manager_permission(
             user_id,
             guild_id,
-            access_token,
         )
 
         mock_role_service.check_bot_manager_permission.assert_called_once_with(
             "discord123",
             guild_id,
             mock_db,
-            access_token,
         )
 
 
@@ -4173,7 +4145,6 @@ async def test_verify_bot_manager_permission_user_not_found(
     """Test permission check with non-existent user."""
     user_id = str(uuid.uuid4())
     guild_id = "guild123"
-    access_token = "token123"
 
     mock_db.execute = AsyncMock(
         return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None))
@@ -4183,7 +4154,6 @@ async def test_verify_bot_manager_permission_user_not_found(
         await game_service._verify_bot_manager_permission(
             user_id,
             guild_id,
-            access_token,
         )
 
 
@@ -4195,7 +4165,6 @@ async def test_verify_bot_manager_permission_not_manager(
     """Test permission check with non-manager user."""
     user_id = str(uuid.uuid4())
     guild_id = "guild123"
-    access_token = "token123"
 
     user = user_model.User(id=user_id, discord_id="discord123")
 
@@ -4216,7 +4185,6 @@ async def test_verify_bot_manager_permission_not_manager(
         await game_service._verify_bot_manager_permission(
             user_id,
             guild_id,
-            access_token,
         )
 
 

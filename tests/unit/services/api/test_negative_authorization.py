@@ -192,9 +192,7 @@ class TestTemplateAccessAuthorization:
             ),
             pytest.raises(HTTPException) as exc_info,
         ):
-            await permissions.verify_template_access(
-                mock_template, "user123", "test_token", mock_db
-            )
+            await permissions.verify_template_access(mock_template, "user123", mock_db)
 
         assert exc_info.value.status_code == 404
         assert "Template not found" in exc_info.value.detail
@@ -216,9 +214,7 @@ class TestTemplateAccessAuthorization:
                 return_value=True,
             ),
         ):
-            result = await permissions.verify_template_access(
-                mock_template, "user123", "test_token", mock_db
-            )
+            result = await permissions.verify_template_access(mock_template, "user123", mock_db)
 
         assert result == mock_template
 
@@ -235,9 +231,7 @@ class TestTemplateAccessAuthorization:
             ),
             pytest.raises(HTTPException) as exc_info,
         ):
-            await permissions.verify_template_access(
-                mock_template, "user123", "test_token", mock_db
-            )
+            await permissions.verify_template_access(mock_template, "user123", mock_db)
 
         assert exc_info.value.status_code == 404
         assert "Template not found" in exc_info.value.detail
@@ -263,9 +257,7 @@ class TestGameAccessAuthorization:
             ),
             pytest.raises(HTTPException) as exc_info,
         ):
-            await permissions.verify_game_access(
-                mock_game, "user123", "test_token", mock_db, mock_role_service
-            )
+            await permissions.verify_game_access(mock_game, "user123", mock_db, mock_role_service)
 
         assert exc_info.value.status_code == 404
         assert "Game not found" in exc_info.value.detail
@@ -288,9 +280,7 @@ class TestGameAccessAuthorization:
             ),
             pytest.raises(HTTPException) as exc_info,
         ):
-            await permissions.verify_game_access(
-                mock_game, "user123", "test_token", mock_db, mock_role_service
-            )
+            await permissions.verify_game_access(mock_game, "user123", mock_db, mock_role_service)
 
         assert exc_info.value.status_code == 403
         assert "required role" in exc_info.value.detail.lower()
@@ -313,7 +303,7 @@ class TestGameAccessAuthorization:
             ),
         ):
             result = await permissions.verify_game_access(
-                mock_game, "user123", "test_token", mock_db, mock_role_service
+                mock_game, "user123", mock_db, mock_role_service
             )
 
         assert result == mock_game
@@ -338,7 +328,7 @@ class TestGameAccessAuthorization:
             ),
         ):
             result = await permissions.verify_game_access(
-                mock_game, "user123", "test_token", mock_db, mock_role_service
+                mock_game, "user123", mock_db, mock_role_service
             )
 
         assert result == mock_game
@@ -358,9 +348,7 @@ class TestGameAccessAuthorization:
             ),
             pytest.raises(HTTPException) as exc_info,
         ):
-            await permissions.verify_game_access(
-                mock_game, "user123", "test_token", mock_db, mock_role_service
-            )
+            await permissions.verify_game_access(mock_game, "user123", mock_db, mock_role_service)
 
         assert exc_info.value.status_code == 404
         assert "Game not found" in exc_info.value.detail
@@ -500,7 +488,6 @@ class TestGameExportAuthorization:
                     mock_current_user.user.discord_id,
                     mock_role_service,
                     mock_db,
-                    mock_tokens["access_token"],
                     mock_current_user,
                 )
 
@@ -527,7 +514,6 @@ class TestGameExportAuthorization:
                     mock_current_user.user.discord_id,
                     mock_role_service,
                     mock_db,
-                    mock_tokens["access_token"],
                     mock_current_user,
                 )
 
@@ -558,7 +544,6 @@ class TestGameExportAuthorization:
                     mock_current_user.user.discord_id,
                     mock_role_service,
                     mock_db,
-                    mock_tokens["access_token"],
                     mock_current_user,
                 )
 
@@ -585,7 +570,6 @@ class TestGameExportAuthorization:
                     mock_current_user.user.discord_id,
                     mock_role_service,
                     mock_db,
-                    mock_tokens["access_token"],
                     mock_current_user,
                 )
 
@@ -612,7 +596,6 @@ class TestGameExportAuthorization:
                     mock_current_user.user.discord_id,
                     mock_role_service,
                     mock_db,
-                    mock_tokens["access_token"],
                     mock_current_user,
                 )
 
@@ -679,9 +662,7 @@ class TestInformationDisclosurePrevention:
             ),
             pytest.raises(HTTPException) as exc_info,
         ):
-            await permissions.verify_template_access(
-                mock_template, "user123", "test_token", mock_db
-            )
+            await permissions.verify_template_access(mock_template, "user123", mock_db)
 
         assert exc_info.value.status_code == 404
         assert "Template not found" in exc_info.value.detail
@@ -703,9 +684,7 @@ class TestInformationDisclosurePrevention:
             ),
             pytest.raises(HTTPException) as exc_info,
         ):
-            await permissions.verify_game_access(
-                mock_game, "user123", "test_token", mock_db, mock_role_service
-            )
+            await permissions.verify_game_access(mock_game, "user123", mock_db, mock_role_service)
 
         assert exc_info.value.status_code == 404
         assert "Game not found" in exc_info.value.detail
@@ -733,9 +712,7 @@ class TestInformationDisclosurePrevention:
             ),
             pytest.raises(HTTPException) as exc_info,
         ):
-            await permissions.verify_game_access(
-                mock_game, "user123", "test_token", mock_db, mock_role_service
-            )
+            await permissions.verify_game_access(mock_game, "user123", mock_db, mock_role_service)
 
         # Guild member without role gets 403, not 404
         assert exc_info.value.status_code == 403

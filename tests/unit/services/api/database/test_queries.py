@@ -39,7 +39,6 @@ async def test_require_guild_by_id_success_context_already_set():
     guild_uuid = str(uuid4())
     guild_discord_id = "123456789"
     user_discord_id = "987654321"
-    access_token = "test_token"
 
     mock_guild = GuildConfiguration(id=guild_uuid, guild_id=guild_discord_id)
     mock_db = AsyncMock(spec=AsyncSession)
@@ -53,9 +52,7 @@ async def test_require_guild_by_id_success_context_already_set():
         patch("services.api.auth.oauth2.get_user_guilds") as mock_get_guilds,
     ):
         # Act
-        result = await queries.require_guild_by_id(
-            mock_db, guild_uuid, access_token, user_discord_id
-        )
+        result = await queries.require_guild_by_id(mock_db, guild_uuid, user_discord_id)
 
         # Assert
         assert result == mock_guild
@@ -68,7 +65,6 @@ async def test_require_guild_by_id_success_context_not_set():
     guild_uuid = str(uuid4())
     guild_discord_id = "123456789"
     user_discord_id = "987654321"
-    access_token = "test_token"
 
     mock_guild = GuildConfiguration(id=guild_uuid, guild_id=guild_discord_id)
     mock_db = AsyncMock(spec=AsyncSession)
@@ -93,9 +89,7 @@ async def test_require_guild_by_id_success_context_not_set():
             return_value=[guild_uuid],
         ) as mock_setup_rls,
     ):
-        result = await queries.require_guild_by_id(
-            mock_db, guild_uuid, access_token, user_discord_id
-        )
+        result = await queries.require_guild_by_id(mock_db, guild_uuid, user_discord_id)
 
         assert result == mock_guild
         mock_get_guilds.assert_called_once_with(user_discord_id, redis=mock_redis)
@@ -108,7 +102,6 @@ async def test_require_guild_by_id_guild_not_found():
     # Arrange
     guild_uuid = str(uuid4())
     user_discord_id = "987654321"
-    access_token = "test_token"
 
     mock_db = AsyncMock(spec=AsyncSession)
 
@@ -121,7 +114,7 @@ async def test_require_guild_by_id_guild_not_found():
     ):
         # Act & Assert
         with pytest.raises(HTTPException) as exc_info:
-            await queries.require_guild_by_id(mock_db, guild_uuid, access_token, user_discord_id)
+            await queries.require_guild_by_id(mock_db, guild_uuid, user_discord_id)
 
         assert exc_info.value.status_code == 404
         assert "Guild configuration not found" in exc_info.value.detail
@@ -135,7 +128,6 @@ async def test_require_guild_by_id_user_not_authorized():
     other_guild_uuid = str(uuid4())
     guild_discord_id = "123456789"
     user_discord_id = "987654321"
-    access_token = "test_token"
 
     mock_guild = GuildConfiguration(id=guild_uuid, guild_id=guild_discord_id)
     mock_db = AsyncMock(spec=AsyncSession)
@@ -149,7 +141,7 @@ async def test_require_guild_by_id_user_not_authorized():
     ):
         # Act & Assert
         with pytest.raises(HTTPException) as exc_info:
-            await queries.require_guild_by_id(mock_db, guild_uuid, access_token, user_discord_id)
+            await queries.require_guild_by_id(mock_db, guild_uuid, user_discord_id)
 
         assert exc_info.value.status_code == 404  # 404 not 403 to prevent info disclosure
         assert "Guild configuration not found" in exc_info.value.detail
@@ -161,7 +153,6 @@ async def test_require_guild_by_id_context_none_after_query():
     guild_uuid = str(uuid4())
     guild_discord_id = "123456789"
     user_discord_id = "987654321"
-    access_token = "test_token"
 
     mock_guild = GuildConfiguration(id=guild_uuid, guild_id=guild_discord_id)
     mock_db = AsyncMock(spec=AsyncSession)
@@ -188,7 +179,7 @@ async def test_require_guild_by_id_context_none_after_query():
         ),
     ):
         with pytest.raises(HTTPException) as exc_info:
-            await queries.require_guild_by_id(mock_db, guild_uuid, access_token, user_discord_id)
+            await queries.require_guild_by_id(mock_db, guild_uuid, user_discord_id)
 
         assert exc_info.value.status_code == 404
         assert "Guild configuration not found" in exc_info.value.detail
@@ -200,7 +191,6 @@ async def test_require_guild_by_id_custom_error_message():
     # Arrange
     guild_uuid = str(uuid4())
     user_discord_id = "987654321"
-    access_token = "test_token"
     custom_message = "Template not found"
 
     mock_db = AsyncMock(spec=AsyncSession)
@@ -214,9 +204,7 @@ async def test_require_guild_by_id_custom_error_message():
     ):
         # Act & Assert
         with pytest.raises(HTTPException) as exc_info:
-            await queries.require_guild_by_id(
-                mock_db, guild_uuid, access_token, user_discord_id, custom_message
-            )
+            await queries.require_guild_by_id(mock_db, guild_uuid, user_discord_id, custom_message)
 
         assert exc_info.value.status_code == 404
         assert custom_message in exc_info.value.detail
@@ -230,7 +218,6 @@ async def test_require_guild_by_id_multiple_guilds_authorized():
     other_guild_uuid = str(uuid4())
     guild_discord_id = "123456789"
     user_discord_id = "987654321"
-    access_token = "test_token"
 
     mock_guild = GuildConfiguration(id=guild_uuid, guild_id=guild_discord_id)
     mock_db = AsyncMock(spec=AsyncSession)
@@ -243,9 +230,7 @@ async def test_require_guild_by_id_multiple_guilds_authorized():
         patch("services.api.database.queries.get_guild_by_id", return_value=mock_guild),
     ):
         # Act
-        result = await queries.require_guild_by_id(
-            mock_db, guild_uuid, access_token, user_discord_id
-        )
+        result = await queries.require_guild_by_id(mock_db, guild_uuid, user_discord_id)
 
         # Assert
         assert result == mock_guild
@@ -258,7 +243,6 @@ async def test_require_guild_by_id_idempotent_context_set():
     guild_uuid = str(uuid4())
     guild_discord_id = "123456789"
     user_discord_id = "987654321"
-    access_token = "test_token"
 
     mock_guild = GuildConfiguration(id=guild_uuid, guild_id=guild_discord_id)
     mock_db = AsyncMock(spec=AsyncSession)
@@ -273,9 +257,7 @@ async def test_require_guild_by_id_idempotent_context_set():
         patch("services.api.auth.oauth2.get_user_guilds") as mock_get_guilds,
     ):
         # Act
-        result = await queries.require_guild_by_id(
-            mock_db, guild_uuid, access_token, user_discord_id
-        )
+        result = await queries.require_guild_by_id(mock_db, guild_uuid, user_discord_id)
 
         # Assert
         assert result == mock_guild
@@ -289,7 +271,6 @@ async def test_require_guild_by_id_oauth2_get_user_guilds_called_only_when_neede
     guild_uuid = str(uuid4())
     guild_discord_id = "123456789"
     user_discord_id = "987654321"
-    access_token = "test_token"
 
     mock_guild = GuildConfiguration(id=guild_uuid, guild_id=guild_discord_id)
     mock_db = AsyncMock(spec=AsyncSession)
@@ -322,7 +303,7 @@ async def test_require_guild_by_id_oauth2_get_user_guilds_called_only_when_neede
             return_value=[guild_uuid],
         ),
     ):
-        await queries.require_guild_by_id(mock_db, guild_uuid, access_token, user_discord_id)
+        await queries.require_guild_by_id(mock_db, guild_uuid, user_discord_id)
 
         assert call_count == 1  # Called exactly once when context was None
 
@@ -357,8 +338,6 @@ async def test_require_guild_by_id_uses_projection_not_oauth_for_guild_list():
             return_value=[guild_uuid],
         ),
     ):
-        result = await queries.require_guild_by_id(
-            mock_db, guild_uuid, "unused_token", user_discord_id
-        )
+        result = await queries.require_guild_by_id(mock_db, guild_uuid, user_discord_id)
 
         assert result == mock_guild

@@ -398,7 +398,6 @@ async def create_game(
         game = await game_service.create_game(
             game_data=game_data,
             host_user_id=current_user.user.id,
-            access_token=current_user.access_token,
             thumbnail_data=thumbnail_data,
             thumbnail_mime_type=thumbnail_mime,
             image_data=image_data,
@@ -448,7 +447,6 @@ async def list_games(
             await permissions_deps.verify_game_access(
                 game=game,
                 user_discord_id=current_user.user.discord_id,
-                access_token=current_user.access_token,
                 db=game_service.db,
                 role_service=role_service,
             )
@@ -514,7 +512,6 @@ async def get_game(
     await permissions_deps.verify_game_access(
         game=game,
         user_discord_id=current_user.user.discord_id,
-        access_token=current_user.access_token,
         db=game_service.db,
         role_service=role_service,
     )
@@ -721,7 +718,6 @@ async def join_game(
     await permissions_deps.verify_game_access(
         game=game,
         user_discord_id=current_user.user.discord_id,
-        access_token=current_user.access_token,
         db=game_service.db,
         role_service=role_service,
     )

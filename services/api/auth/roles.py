@@ -209,7 +209,6 @@ class RoleVerificationService:
         guild_id: str,
         db: AsyncSession,
         allowed_host_role_ids: list[str] | None = None,
-        access_token: str | None = None,
     ) -> bool:
         """
         Check if user can host games with optional template role restrictions.
@@ -222,15 +221,12 @@ class RoleVerificationService:
             guild_id: Discord guild ID
             db: Database session for configuration queries
             allowed_host_role_ids: Template's allowed host role IDs (None or [] = managers only)
-            access_token: User's OAuth2 access token
 
         Returns:
             True if user can host games with this template
         """
         # Bot managers can always host
-        is_bot_manager = await self.check_bot_manager_permission(
-            user_id, guild_id, db, access_token
-        )
+        is_bot_manager = await self.check_bot_manager_permission(user_id, guild_id, db)
         if is_bot_manager:
             return True
 
@@ -247,7 +243,6 @@ class RoleVerificationService:
         user_id: str,
         guild_id: str,
         db: AsyncSession,
-        _access_token: str | None = None,
     ) -> bool:
         """
         Check if user has Bot Manager role in guild.
@@ -259,7 +254,6 @@ class RoleVerificationService:
             user_id: Discord user ID
             guild_id: Discord guild ID
             db: Database session for configuration queries
-            _access_token: Retained for API compatibility; no longer used
 
         Returns:
             True if user has Bot Manager role or MANAGE_GUILD permission

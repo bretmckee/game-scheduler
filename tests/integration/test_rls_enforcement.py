@@ -65,12 +65,9 @@ class TestRequireGuildByIdRLSEnforcement:
         """User in guild, RLS context set → Success."""
         guild_a = create_guild()
         set_current_guild_ids([guild_a["guild_id"]])
-        access_token = "test_token"
         user_discord_id = "123456789"
 
-        result = await queries.require_guild_by_id(
-            app_db, guild_a["id"], access_token, user_discord_id
-        )
+        result = await queries.require_guild_by_id(app_db, guild_a["id"], user_discord_id)
 
         assert result is not None
         assert result.id == guild_a["id"]
@@ -82,11 +79,10 @@ class TestRequireGuildByIdRLSEnforcement:
         guild_a = create_guild()
         guild_b = create_guild()
         set_current_guild_ids([guild_a["guild_id"]])
-        access_token = "test_token"
         user_discord_id = "123456789"
 
         with pytest.raises(HTTPException) as exc_info:
-            await queries.require_guild_by_id(app_db, guild_b["id"], access_token, user_discord_id)
+            await queries.require_guild_by_id(app_db, guild_b["id"], user_discord_id)
 
         assert exc_info.value.status_code == 404
         assert "Guild configuration not found" in exc_info.value.detail
@@ -97,12 +93,11 @@ class TestRequireGuildByIdRLSEnforcement:
         guild_a = create_guild()
         # Arrange: Clear RLS context; leave proj_user_guilds absent (no data seeded)
         clear_current_guild_ids()
-        access_token = "test_token"
         user_discord_id = "no_guilds_user_999"
 
         # Act & Assert: projection returns None (absent key) → empty guild list → 404
         with pytest.raises(HTTPException) as exc_info:
-            await queries.require_guild_by_id(app_db, guild_a["id"], access_token, user_discord_id)
+            await queries.require_guild_by_id(app_db, guild_a["id"], user_discord_id)
 
         assert exc_info.value.status_code == 404
         assert "Guild configuration not found" in exc_info.value.detail
@@ -113,19 +108,14 @@ class TestRequireGuildByIdRLSEnforcement:
         guild_a = create_guild()
         guild_b = create_guild()
         set_current_guild_ids([guild_a["guild_id"], guild_b["guild_id"]])
-        access_token = "test_token"
         user_discord_id = "123456789"
 
-        result_a = await queries.require_guild_by_id(
-            app_db, guild_a["id"], access_token, user_discord_id
-        )
+        result_a = await queries.require_guild_by_id(app_db, guild_a["id"], user_discord_id)
         assert result_a is not None
         assert result_a.id == guild_a["id"]
         assert result_a.guild_id == guild_a["guild_id"]
 
-        result_b = await queries.require_guild_by_id(
-            app_db, guild_b["id"], access_token, user_discord_id
-        )
+        result_b = await queries.require_guild_by_id(app_db, guild_b["id"], user_discord_id)
         assert result_b is not None
         assert result_b.id == guild_b["id"]
         assert result_b.guild_id == guild_b["guild_id"]
@@ -136,14 +126,11 @@ class TestRequireGuildByIdRLSEnforcement:
         guild_a = create_guild()
         guild_b = create_guild()
         set_current_guild_ids([guild_a["guild_id"], guild_b["guild_id"]])
-        access_token = "test_token"
         user_discord_id = "123456789"
         nonexistent_guild_id = "00000000-0000-0000-0000-000000000000"
 
         with pytest.raises(HTTPException) as exc_info:
-            await queries.require_guild_by_id(
-                app_db, nonexistent_guild_id, access_token, user_discord_id
-            )
+            await queries.require_guild_by_id(app_db, nonexistent_guild_id, user_discord_id)
 
         assert exc_info.value.status_code == 404
         assert "Guild configuration not found" in exc_info.value.detail
@@ -154,7 +141,6 @@ class TestRequireGuildByIdRLSEnforcement:
         guild_a = create_guild()
         # Arrange: Clear context to force projection read; seed projection key
         clear_current_guild_ids()
-        access_token = "test_token"
         user_discord_id = "projection_test_user_777"
 
         redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
@@ -170,17 +156,13 @@ class TestRequireGuildByIdRLSEnforcement:
             await redis.disconnect()
 
         # Act: First call reads projection because context not set
-        result1 = await queries.require_guild_by_id(
-            app_db, guild_a["id"], access_token, user_discord_id
-        )
+        result1 = await queries.require_guild_by_id(app_db, guild_a["id"], user_discord_id)
 
         assert result1 is not None
         assert result1.id == guild_a["id"]
 
         # Act: Second call uses already-set ContextVar (no Redis read needed)
-        result2 = await queries.require_guild_by_id(
-            app_db, guild_a["id"], access_token, user_discord_id
-        )
+        result2 = await queries.require_guild_by_id(app_db, guild_a["id"], user_discord_id)
 
         assert result2 is not None
         assert result2.id == guild_a["id"]
@@ -191,7 +173,6 @@ class TestRequireGuildByIdRLSEnforcement:
         guild_a = create_guild()
         guild_b = create_guild()
         set_current_guild_ids([guild_a["guild_id"]])
-        access_token = "test_token"
         user_discord_id = "123456789"
         custom_message = "Custom guild not found message"
 
@@ -199,7 +180,6 @@ class TestRequireGuildByIdRLSEnforcement:
             await queries.require_guild_by_id(
                 app_db,
                 guild_b["id"],
-                access_token,
                 user_discord_id,
                 not_found_detail=custom_message,
             )

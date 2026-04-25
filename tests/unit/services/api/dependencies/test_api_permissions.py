@@ -178,7 +178,6 @@ async def test_require_game_host_success(mock_current_user, mock_role_service, m
         "user123",
         "guild456",
         mock_db,
-        access_token="test_token",
     )
 
 
@@ -222,7 +221,6 @@ async def test_require_game_host_no_channel(mock_current_user, mock_role_service
         "user123",
         "guild456",
         mock_db,
-        access_token="test_token",
     )
 
 
@@ -421,7 +419,7 @@ async def test_verify_template_access_success():
         ),
     ):
         result = await permissions.verify_template_access(
-            mock_template, "user123", "test_token", mock_db, redis=mock_redis
+            mock_template, "user123", mock_db, redis=mock_redis
         )
 
     assert result == mock_template
@@ -453,7 +451,7 @@ async def test_verify_template_access_not_member():
         pytest.raises(HTTPException) as exc_info,
     ):
         await permissions.verify_template_access(
-            mock_template, "user123", "test_token", mock_db, redis=mock_redis
+            mock_template, "user123", mock_db, redis=mock_redis
         )
 
     assert exc_info.value.status_code == 404
@@ -474,7 +472,7 @@ async def test_verify_template_access_not_member():
         pytest.raises(HTTPException) as exc_info,
     ):
         await permissions.verify_template_access(
-            mock_template, "user123", "test_token", mock_db, redis=mock_redis2
+            mock_template, "user123", mock_db, redis=mock_redis2
         )
 
     assert exc_info.value.status_code == 404
@@ -496,9 +494,7 @@ async def test_verify_template_access_guild_not_found():
         side_effect=HTTPException(status_code=404, detail="Template not found"),
     ):
         with pytest.raises(HTTPException) as exc_info:
-            await permissions.verify_template_access(
-                mock_template, "user123", "test_token", mock_db
-            )
+            await permissions.verify_template_access(mock_template, "user123", mock_db)
 
     assert exc_info.value.status_code == 404
     assert "Template not found" in exc_info.value.detail
@@ -531,7 +527,7 @@ async def test_verify_game_access_success():
         ),
     ):
         result = await permissions.verify_game_access(
-            mock_game, "user123", "test_token", mock_db, mock_role_service, redis=mock_redis
+            mock_game, "user123", mock_db, mock_role_service, redis=mock_redis
         )
 
     assert result == mock_game
@@ -564,7 +560,7 @@ async def test_verify_game_access_not_member():
         pytest.raises(HTTPException) as exc_info,
     ):
         await permissions.verify_game_access(
-            mock_game, "user123", "test_token", mock_db, mock_role_service, redis=mock_redis
+            mock_game, "user123", mock_db, mock_role_service, redis=mock_redis
         )
 
     assert exc_info.value.status_code == 404
@@ -599,7 +595,7 @@ async def test_verify_game_access_role_check_success():
         ),
     ):
         result = await permissions.verify_game_access(
-            mock_game, "user123", "test_token", mock_db, mock_role_service, redis=mock_redis
+            mock_game, "user123", mock_db, mock_role_service, redis=mock_redis
         )
 
     assert result == mock_game
@@ -637,7 +633,7 @@ async def test_verify_game_access_role_check_fails():
         pytest.raises(HTTPException) as exc_info,
     ):
         await permissions.verify_game_access(
-            mock_game, "user123", "test_token", mock_db, mock_role_service, redis=mock_redis
+            mock_game, "user123", mock_db, mock_role_service, redis=mock_redis
         )
 
     assert exc_info.value.status_code == 403
@@ -804,9 +800,7 @@ async def test_verify_game_access_guild_not_found():
         side_effect=HTTPException(status_code=404, detail="Game not found"),
     ):
         with pytest.raises(HTTPException) as exc_info:
-            await permissions.verify_game_access(
-                mock_game, "user123", "test_token", mock_db, mock_role_service
-            )
+            await permissions.verify_game_access(mock_game, "user123", mock_db, mock_role_service)
 
     assert exc_info.value.status_code == 404
     assert "Game not found" in exc_info.value.detail
@@ -824,7 +818,7 @@ async def test_resolve_guild_id_guild_not_found():
         ),
         pytest.raises(HTTPException) as exc_info,
     ):
-        await permissions._resolve_guild_id("some-uuid-format", mock_db, "test.token", "user123")
+        await permissions._resolve_guild_id("some-uuid-format", mock_db, "user123")
 
     assert exc_info.value.status_code == 404
     assert "Guild not found" in exc_info.value.detail
@@ -842,9 +836,7 @@ async def test_resolve_guild_id_uuid_success():
         "services.api.database.queries.require_guild_by_id",
         return_value=mock_guild_config,
     ):
-        result = await permissions._resolve_guild_id(
-            "db-guild-uuid-format", mock_db, "test.token", "user123"
-        )
+        result = await permissions._resolve_guild_id("db-guild-uuid-format", mock_db, "user123")
 
     assert result == "123456789012345678"
 
@@ -980,7 +972,7 @@ async def test_can_manage_game_no_token():
 
     assert result is False
     mock_role_service.check_bot_manager_permission.assert_called_once_with(
-        "user123", "guild123", mock_db, None
+        "user123", "guild123", mock_db
     )
 
 
@@ -1008,7 +1000,6 @@ async def test_can_export_game_user_is_host():
             "user123",
             mock_role_service,
             mock_db,
-            "test_token",
             mock_current_user,
         )
 
@@ -1043,7 +1034,6 @@ async def test_can_export_game_user_is_participant():
             "user123",  # discord_id matches participant
             mock_role_service,
             mock_db,
-            "test_token",
             mock_current_user,
         )
 
@@ -1075,7 +1065,6 @@ async def test_can_export_game_user_is_bot_manager():
             "user123",
             mock_role_service,
             mock_db,
-            "test_token",
             mock_current_user,
         )
 
@@ -1107,7 +1096,6 @@ async def test_can_export_game_user_unauthorized():
             "user123",
             mock_role_service,
             mock_db,
-            "test_token",
             mock_current_user,
         )
 
@@ -1143,7 +1131,6 @@ async def test_can_export_game_participant_user_is_none():
             "user123",
             mock_role_service,
             mock_db,
-            "test_token",
             mock_current_user,
         )
 
@@ -1168,7 +1155,6 @@ async def test_can_export_game_no_current_user():
         "user123",
         mock_role_service,
         mock_db,
-        "test_token",
         None,  # current_user is None
     )
 
@@ -1183,7 +1169,7 @@ async def test_require_permission_success(mock_current_user, mock_role_service, 
     """Test _require_permission with successful permission check."""
     mock_db = AsyncMock()
 
-    async def mock_permission_checker(user_id: str, guild_id: str, token: str, **kwargs) -> bool:
+    async def mock_permission_checker(user_id: str, guild_id: str, **kwargs) -> bool:
         return True
 
     with patch("services.api.auth.tokens.get_user_tokens", return_value=mock_tokens):
@@ -1206,7 +1192,7 @@ async def test_require_permission_failed_check(
     """Test _require_permission with failed permission check."""
     mock_db = AsyncMock()
 
-    async def mock_permission_checker(user_id: str, guild_id: str, token: str, **kwargs) -> bool:
+    async def mock_permission_checker(user_id: str, guild_id: str, **kwargs) -> bool:
         return False
 
     with (
@@ -1233,7 +1219,7 @@ async def test_require_permission_expired_token(mock_current_user, mock_role_ser
     """Test _require_permission with expired token."""
     mock_db = AsyncMock()
 
-    async def mock_permission_checker(user_id: str, guild_id: str, token: str, **kwargs) -> bool:
+    async def mock_permission_checker(user_id: str, guild_id: str, **kwargs) -> bool:
         return True
 
     with (
@@ -1260,7 +1246,7 @@ async def test_require_permission_with_uuid_guild_id(
     """Test _require_permission with database UUID guild_id requiring resolution."""
     mock_db = AsyncMock()
 
-    async def mock_permission_checker(user_id: str, guild_id: str, token: str, **kwargs) -> bool:
+    async def mock_permission_checker(user_id: str, guild_id: str, **kwargs) -> bool:
         assert guild_id == "999888777666555444"  # Resolved Discord ID
         return True
 
@@ -1293,7 +1279,7 @@ async def test_require_permission_with_checker_kwargs(
     """Test _require_permission passes additional kwargs to permission_checker."""
     mock_db = AsyncMock()
 
-    async def mock_permission_checker(user_id: str, guild_id: str, token: str, **kwargs) -> bool:
+    async def mock_permission_checker(user_id: str, guild_id: str, **kwargs) -> bool:
         assert "extra_param" in kwargs
         assert kwargs["extra_param"] == "test_value"
         return True
@@ -1319,7 +1305,7 @@ async def test_require_permission_checker_exception(
     """Test _require_permission handles exceptions from permission_checker."""
     mock_db = AsyncMock()
 
-    async def mock_permission_checker(user_id: str, guild_id: str, token: str, **kwargs) -> bool:
+    async def mock_permission_checker(user_id: str, guild_id: str, **kwargs) -> bool:
         msg = "Permission check error"
         raise ValueError(msg)
 

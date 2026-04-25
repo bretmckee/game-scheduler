@@ -100,15 +100,12 @@ class TestVerifyTemplateAccess:
             mock_require.return_value = guild_config
             mock_check.return_value = True
 
-            result = await permissions.verify_template_access(
-                game_template, "user123", "token123", mock_db
-            )
+            result = await permissions.verify_template_access(game_template, "user123", mock_db)
 
             assert result == game_template
             mock_require.assert_called_once_with(
                 mock_db,
                 game_template.guild_id,
-                "token123",
                 "user123",
                 not_found_detail="Template not found",
             )
@@ -129,9 +126,7 @@ class TestVerifyTemplateAccess:
             mock_require.side_effect = HTTPException(status_code=404, detail="Template not found")
 
             with pytest.raises(HTTPException) as exc_info:
-                await permissions.verify_template_access(
-                    game_template, "user123", "token123", mock_db
-                )
+                await permissions.verify_template_access(game_template, "user123", mock_db)
 
             assert exc_info.value.status_code == 404
             assert exc_info.value.detail == "Template not found"
@@ -157,9 +152,7 @@ class TestVerifyTemplateAccess:
             mock_check.return_value = False
 
             with pytest.raises(HTTPException) as exc_info:
-                await permissions.verify_template_access(
-                    game_template, "user123", "token123", mock_db
-                )
+                await permissions.verify_template_access(game_template, "user123", mock_db)
 
             assert exc_info.value.status_code == 404
             assert exc_info.value.detail == "Template not found"
@@ -190,14 +183,13 @@ class TestVerifyGameAccess:
             mock_role_service.has_any_role.return_value = True
 
             result = await permissions.verify_game_access(
-                game_session, "user123", "token123", mock_db, mock_role_service
+                game_session, "user123", mock_db, mock_role_service
             )
 
             assert result == game_session
             mock_require.assert_called_once_with(
                 mock_db,
                 game_session.guild_id,
-                "token123",
                 "user123",
                 not_found_detail="Game not found",
             )
@@ -224,7 +216,7 @@ class TestVerifyGameAccess:
 
             with pytest.raises(HTTPException) as exc_info:
                 await permissions.verify_game_access(
-                    game_session, "user123", "token123", mock_db, mock_role_service
+                    game_session, "user123", mock_db, mock_role_service
                 )
 
             assert exc_info.value.status_code == 404
@@ -252,7 +244,7 @@ class TestVerifyGameAccess:
 
             with pytest.raises(HTTPException) as exc_info:
                 await permissions.verify_game_access(
-                    game_session, "user123", "token123", mock_db, mock_role_service
+                    game_session, "user123", mock_db, mock_role_service
                 )
 
             assert exc_info.value.status_code == 404
@@ -281,7 +273,7 @@ class TestVerifyGameAccess:
 
             with pytest.raises(HTTPException) as exc_info:
                 await permissions.verify_game_access(
-                    game_session, "user123", "token123", mock_db, mock_role_service
+                    game_session, "user123", mock_db, mock_role_service
                 )
 
             assert exc_info.value.status_code == 403
@@ -315,7 +307,7 @@ class TestVerifyGameAccess:
             mock_check.return_value = True
 
             result = await permissions.verify_game_access(
-                game_no_roles, "user123", "token123", mock_db, mock_role_service
+                game_no_roles, "user123", mock_db, mock_role_service
             )
 
             assert result == game_no_roles
@@ -360,7 +352,7 @@ class TestResolveGuildDiscordId:
     async def test_resolve_guild_id_already_snowflake(self, mock_db):
         """Test resolution when guild_id is already a Discord snowflake."""
         snowflake_id = "123456789012345678"
-        result = await permissions._resolve_guild_id(snowflake_id, mock_db, "token123", "user123")
+        result = await permissions._resolve_guild_id(snowflake_id, mock_db, "user123")
         assert result == snowflake_id
 
     @pytest.mark.asyncio
@@ -373,11 +365,9 @@ class TestResolveGuildDiscordId:
             new_callable=AsyncMock,
         ) as mock_require:
             mock_require.return_value = guild_config
-            result = await permissions._resolve_guild_id(
-                guild_config.id, mock_db, "token123", "user123"
-            )
+            result = await permissions._resolve_guild_id(guild_config.id, mock_db, "user123")
             assert result == guild_config.guild_id
-            mock_require.assert_called_once_with(mock_db, guild_config.id, "token123", "user123")
+            mock_require.assert_called_once_with(mock_db, guild_config.id, "user123")
 
     @pytest.mark.asyncio
     async def test_resolve_guild_id_guild_not_found(self, mock_db):
@@ -390,7 +380,7 @@ class TestResolveGuildDiscordId:
             uuid_id = str(uuid4())
 
             with pytest.raises(HTTPException) as exc_info:
-                await permissions._resolve_guild_id(uuid_id, mock_db, "token123", "user123")
+                await permissions._resolve_guild_id(uuid_id, mock_db, "user123")
 
             assert exc_info.value.status_code == 404
             assert exc_info.value.detail == "Guild not found"

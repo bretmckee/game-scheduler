@@ -152,7 +152,6 @@ async def verify_guild_membership(
 async def verify_template_access(
     template: GameTemplate,
     user_discord_id: str,
-    access_token: str,
     db: AsyncSession,
     redis: RedisClient | None = None,
 ) -> GameTemplate:
@@ -165,7 +164,6 @@ async def verify_template_access(
     Args:
         template: Template to check access for
         user_discord_id: Discord ID of the user
-        access_token: User's OAuth2 access token (deprecated, no longer used)
         db: Database session
         redis: Redis client for projection checks (optional, will get singleton if not provided)
 
@@ -180,7 +178,6 @@ async def verify_template_access(
     guild_config = await queries.require_guild_by_id(
         db,
         template.guild_id,
-        access_token,
         user_discord_id,
         not_found_detail="Template not found",
     )
@@ -205,7 +202,6 @@ async def verify_template_access(
 async def verify_game_access(
     game: GameSession,
     user_discord_id: str,
-    access_token: str,
     db: AsyncSession,
     role_service: roles_module.RoleVerificationService,
     redis: RedisClient | None = None,
@@ -220,7 +216,6 @@ async def verify_game_access(
     Args:
         game: Game to check access for
         user_discord_id: Discord ID of the user
-        access_token: User's OAuth2 access token (deprecated, no longer used for guild checks)
         db: Database session
         role_service: Role verification service
         redis: Redis client for projection checks (optional, will get singleton if not provided)
@@ -237,7 +232,6 @@ async def verify_game_access(
     guild_config = await queries.require_guild_by_id(
         db,
         game.guild_id,
-        access_token,
         user_discord_id,
         not_found_detail="Game not found",
     )
@@ -290,16 +284,13 @@ async def get_role_service() -> roles_module.RoleVerificationService:
     return roles_module.get_role_service()
 
 
-async def _resolve_guild_id(
-    guild_id: str, db: AsyncSession, access_token: str, user_discord_id: str
-) -> str:
+async def _resolve_guild_id(guild_id: str, db: AsyncSession, user_discord_id: str) -> str:
     """
     Resolve database UUID to Discord guild ID if needed.
 
     Args:
         guild_id: Database guild UUID or Discord guild ID
         db: Database session
-        access_token: User's OAuth2 access token
         user_discord_id: Discord ID of the user
 
     Returns:
@@ -313,7 +304,7 @@ async def _resolve_guild_id(
         return guild_id
 
     # Otherwise treat as UUID and look up with authorization check
-    guild_config = await queries.require_guild_by_id(db, guild_id, access_token, user_discord_id)
+    guild_config = await queries.require_guild_by_id(db, guild_id, user_discord_id)
 
     return guild_config.guild_id
 
@@ -358,15 +349,11 @@ async def _require_permission(
     if token_data.get("is_maintainer"):
         return current_user
 
-    access_token = token_data["access_token"]
-    discord_guild_id = await _resolve_guild_id(
-        guild_id, db, access_token, current_user.user.discord_id
-    )
+    discord_guild_id = await _resolve_guild_id(guild_id, db, current_user.user.discord_id)
 
     has_permission = await permission_checker(
         current_user.user.discord_id,
         discord_guild_id,
-        access_token,
         **checker_kwargs,
     )
 
@@ -408,7 +395,7 @@ async def require_manage_guild(
         HTTPException: If user lacks MANAGE_GUILD permission
     """
 
-    async def check_manage_guild(user_id: str, guild_id: str, _token: str) -> bool:
+    async def check_manage_guild(user_id: str, guild_id: str) -> bool:
         return await role_service.has_permissions(
             user_id, guild_id, DiscordPermissions.MANAGE_GUILD
         )
@@ -452,7 +439,7 @@ async def require_manage_channels(
         HTTPException: If user lacks MANAGE_CHANNELS permission
     """
 
-    async def check_manage_channels(user_id: str, guild_id: str, _token: str) -> bool:
+    async def check_manage_channels(user_id: str, guild_id: str) -> bool:
         return await role_service.has_permissions(
             user_id, guild_id, DiscordPermissions.MANAGE_CHANNELS
         )
@@ -548,8 +535,8 @@ async def require_bot_manager(
         HTTPException: If user lacks bot manager role
     """
 
-    async def check_bot_manager(user_id: str, guild_id: str, token: str) -> bool:
-        return await role_service.check_bot_manager_permission(user_id, guild_id, db, token)
+    async def check_bot_manager(user_id: str, guild_id: str) -> bool:
+        return await role_service.check_bot_manager_permission(user_id, guild_id, db)
 
     return await _require_permission(
         guild_id,
@@ -627,13 +614,10 @@ async def require_game_host(
     if token_data.get("is_maintainer"):
         return current_user
 
-    access_token = token_data["access_token"]
-
     has_permission = await role_service.check_game_host_permission(
         current_user.user.discord_id,
         guild_id,
         db,
-        access_token=access_token,
     )
 
     if not has_permission:
@@ -689,10 +673,9 @@ async def can_manage_game(
     token_data = await tokens.get_user_tokens(current_user.session_token)
     if token_data and token_data.get("is_maintainer"):
         return True
-    access_token = token_data["access_token"] if token_data else None
 
     return await role_service.check_bot_manager_permission(
-        current_user.user.discord_id, guild_id, db, access_token
+        current_user.user.discord_id, guild_id, db
     )
 
 
@@ -704,7 +687,6 @@ async def can_export_game(
     discord_id: str,
     role_service: roles_module.RoleVerificationService,
     db: AsyncSession,
-    access_token: str | None = None,
     current_user: auth_schemas.CurrentUser | None = None,
 ) -> bool:
     """
@@ -726,7 +708,6 @@ async def can_export_game(
         discord_id: Discord ID of the user
         role_service: Role verification service
         db: Database session
-        access_token: OAuth2 access token (required for admin check)
         current_user: Current authenticated user (for guild membership check)
 
     Returns:
@@ -748,7 +729,7 @@ async def can_export_game(
         return True
 
     # Check if user is bot manager or admin
-    return await role_service.check_bot_manager_permission(discord_id, guild_id, db, access_token)
+    return await role_service.check_bot_manager_permission(discord_id, guild_id, db)
 
 
 async def require_administrator(

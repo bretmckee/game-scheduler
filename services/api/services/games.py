@@ -143,7 +143,6 @@ class GameService:
         self,
         requester_user_id: str,
         guild_id: str,
-        access_token: str,
     ) -> None:
         """Verify requester has bot manager permission."""
         requester_result = await self.db.execute(
@@ -159,7 +158,6 @@ class GameService:
             requester_user.discord_id,
             guild_id,
             self.db,
-            access_token,
         )
 
         if not is_bot_manager:
@@ -232,7 +230,6 @@ class GameService:
         game_data: game_schemas.GameCreateRequest,
         guild_config: guild_model.GuildConfiguration,
         requester_user_id: str,
-        access_token: str,
     ) -> tuple[str, user_model.User]:
         """
         Resolve game host, handling override for bot managers.
@@ -241,7 +238,6 @@ class GameService:
             game_data: Game creation data with optional host override
             guild_config: Guild configuration for permission checks
             requester_user_id: Database user ID of request initiator
-            access_token: User's access token for Discord API
 
         Returns:
             Tuple of (host_user_id, host_user_object)
@@ -256,7 +252,6 @@ class GameService:
             await self._verify_bot_manager_permission(
                 requester_user_id,
                 guild_config.guild_id,
-                access_token,
             )
 
             try:
@@ -585,7 +580,6 @@ class GameService:
         self,
         game_data: game_schemas.GameCreateRequest,
         host_user_id: str,
-        access_token: str,
         thumbnail_data: bytes | None = None,
         thumbnail_mime_type: str | None = None,
         image_data: bytes | None = None,
@@ -599,7 +593,6 @@ class GameService:
         Args:
             game_data: Game creation data with template_id
             host_user_id: Host's database user ID (UUID)
-            access_token: User's access token for Discord API
             thumbnail_data: Optional thumbnail image binary data
             thumbnail_mime_type: Optional thumbnail MIME type
             image_data: Optional banner image binary data
@@ -620,7 +613,7 @@ class GameService:
         # Resolve host (handles bot manager override)
         host_override = bool(game_data.host and game_data.host.strip())
         _actual_host_user_id, host_user = await self._resolve_game_host(
-            game_data, guild_config, host_user_id, access_token
+            game_data, guild_config, host_user_id
         )
 
         # Check if user can host games with this template.
@@ -635,7 +628,6 @@ class GameService:
                 guild_config.guild_id,
                 self.db,
                 template.allowed_host_role_ids,
-                access_token,
             )
             if not can_host:
                 msg = "User does not have permission to create games with this template"

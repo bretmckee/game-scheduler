@@ -101,9 +101,7 @@ async def list_templates(
     Templates are filtered by allowed_host_role_ids unless user is guild admin.
     Sorted with default template first, then by order.
     """
-    guild_config = await queries.require_guild_by_id(
-        db, guild_id, current_user.access_token, current_user.user.discord_id
-    )
+    guild_config = await queries.require_guild_by_id(db, guild_id, current_user.user.discord_id)
 
     role_service = roles_module.get_role_service()
     is_manager = await dependencies.permissions.check_bot_manager_permission(
@@ -116,7 +114,6 @@ async def list_templates(
         current_user.user.discord_id,
         guild_config.guild_id,
         role_service,
-        current_user.access_token,
         is_manager=is_manager,
     )
 
@@ -190,7 +187,7 @@ async def get_template(
 
     # Verify guild membership - returns 404 if not member to prevent info disclosure
     template = await dependencies.permissions.verify_template_access(
-        template, current_user.user.discord_id, current_user.access_token, db
+        template, current_user.user.discord_id, db
     )
 
     return await build_template_response(template, discord_client)
@@ -209,9 +206,7 @@ async def create_template(
     discord_client: Annotated[DiscordAPIClient, Depends(get_discord_client)],
 ) -> template_schemas.TemplateResponse:
     """Create new template (requires bot manager role)."""
-    await queries.require_guild_by_id(
-        db, guild_id, current_user.access_token, current_user.user.discord_id
-    )
+    await queries.require_guild_by_id(db, guild_id, current_user.user.discord_id)
 
     # Verify bot manager permission using dependency
     role_service = roles_module.get_role_service()

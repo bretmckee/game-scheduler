@@ -136,7 +136,6 @@ async def test_get_user_role_ids_absent_member(role_service, mock_cache):
 async def test_check_game_host_permission_with_manage_guild(role_service):
     """Test game host permission with MANAGE_GUILD permission."""
     mock_db = AsyncMock()
-    mock_access_token = "test_token"
 
     with patch.object(
         role_service, "check_bot_manager_permission", return_value=True
@@ -146,11 +145,10 @@ async def test_check_game_host_permission_with_manage_guild(role_service):
             "guild456",
             mock_db,
             allowed_host_role_ids=["role1", "role2"],
-            access_token=mock_access_token,
         )
 
     assert has_perm is True
-    mock_check_manager.assert_called_once_with("user123", "guild456", mock_db, mock_access_token)
+    mock_check_manager.assert_called_once_with("user123", "guild456", mock_db)
 
 
 @pytest.mark.asyncio
@@ -169,7 +167,6 @@ async def test_check_game_host_permission_without_token(role_service):
             "guild456",
             mock_db,
             allowed_host_role_ids=["role1"],
-            access_token=None,
         )
 
     assert has_perm is False
@@ -180,7 +177,6 @@ async def test_check_game_host_permission_without_token(role_service):
 async def test_check_game_host_permission_no_permission(role_service):
     """Test game host permission without MANAGE_GUILD returns False."""
     mock_db = AsyncMock()
-    mock_access_token = "test_token"
 
     with (
         patch.object(
@@ -193,7 +189,6 @@ async def test_check_game_host_permission_no_permission(role_service):
             "guild456",
             mock_db,
             allowed_host_role_ids=["role1"],
-            access_token=mock_access_token,
         )
 
     assert has_perm is False

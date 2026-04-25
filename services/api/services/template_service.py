@@ -49,7 +49,6 @@ class TemplateService:
         user_id: str,
         discord_guild_id: str,
         role_service: roles_module.RoleVerificationService,
-        access_token: str | None = None,
         is_manager: bool = False,
     ) -> list[GameTemplate]:
         """
@@ -64,7 +63,6 @@ class TemplateService:
             user_id: Discord user ID
             discord_guild_id: Discord guild ID (snowflake)
             role_service: Role service for permission checking
-            access_token: User's Discord access token
 
         Returns:
             List of accessible templates
@@ -91,7 +89,6 @@ class TemplateService:
                 discord_guild_id,
                 self.db,
                 template.allowed_host_role_ids,
-                access_token,
             )
             if can_host:
                 templates.append(template)

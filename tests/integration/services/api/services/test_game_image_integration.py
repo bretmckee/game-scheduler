@@ -149,7 +149,6 @@ async def test_create_game_with_thumbnail_stores_image(
     game = await service.create_game(
         game_data=game_data,
         host_user_id=user["id"],
-        access_token="valid-test-token",
         thumbnail_data=valid_png_data,
         thumbnail_mime_type="image/png",
     )
@@ -214,7 +213,6 @@ async def test_create_game_with_both_images_stores_both(
     game = await service.create_game(
         game_data=game_data,
         host_user_id=user["id"],
-        access_token="valid-test-token",
         thumbnail_data=valid_png_data,
         thumbnail_mime_type="image/png",
         image_data=valid_jpeg_data,
@@ -286,7 +284,6 @@ async def test_create_two_games_same_image_deduplicates(
     game1 = await service.create_game(
         game_data=game1_data,
         host_user_id=user["id"],
-        access_token="valid-test-token",
         thumbnail_data=valid_png_data,
         thumbnail_mime_type="image/png",
     )
@@ -305,7 +302,6 @@ async def test_create_two_games_same_image_deduplicates(
     game2 = await service.create_game(
         game_data=game2_data,
         host_user_id=user["id"],
-        access_token="valid-test-token",
         thumbnail_data=valid_png_data,
         thumbnail_mime_type="image/png",
     )
@@ -370,7 +366,6 @@ async def test_update_game_replaces_thumbnail(
     game = await service.create_game(
         game_data=game_data,
         host_user_id=user["id"],
-        access_token="valid-test-token",
         thumbnail_data=valid_png_data,
         thumbnail_mime_type="image/png",
     )
@@ -465,7 +460,6 @@ async def test_delete_game_releases_images(
     game = await service.create_game(
         game_data=game_data,
         host_user_id=user["id"],
-        access_token="valid-test-token",
         thumbnail_data=valid_png_data,
         thumbnail_mime_type="image/png",
     )
@@ -546,7 +540,6 @@ async def test_delete_shared_image_keeps_image_until_all_refs_gone(
     game1 = await service.create_game(
         game_data=game1_data,
         host_user_id=user["id"],
-        access_token="valid-test-token",
         thumbnail_data=valid_png_data,
         thumbnail_mime_type="image/png",
     )
@@ -564,7 +557,6 @@ async def test_delete_shared_image_keeps_image_until_all_refs_gone(
     game2 = await service.create_game(
         game_data=game2_data,
         host_user_id=user["id"],
-        access_token="valid-test-token",
         thumbnail_data=valid_png_data,
         thumbnail_mime_type="image/png",
     )
@@ -656,7 +648,6 @@ async def test_clone_game_increments_image_refcounts(
     source_game = await service.create_game(
         game_data=game_data,
         host_user_id=user["id"],
-        access_token="valid-test-token",
         thumbnail_data=valid_png_data,
         thumbnail_mime_type="image/png",
         image_data=valid_jpeg_data,
@@ -782,7 +773,6 @@ async def test_delete_game_removes_row_from_db(
     game = await service.create_game(
         game_data=game_data,
         host_user_id=user["id"],
-        access_token="valid-test-token",
     )
     await admin_db.commit()
     game_id = game.id
@@ -853,7 +843,6 @@ async def test_delete_game_cascades_participants_gone(
     game = await service.create_game(
         game_data=game_data,
         host_user_id=user["id"],
-        access_token="valid-test-token",
     )
     await admin_db.commit()
     game_id = game.id
@@ -926,7 +915,6 @@ async def test_delete_game_no_images_succeeds(
     game = await service.create_game(
         game_data=game_data,
         host_user_id=user["id"],
-        access_token="valid-test-token",
     )
     await admin_db.commit()
 
@@ -999,7 +987,6 @@ async def test_delete_game_shared_image_persists(
             template_id=template["id"],
         ),
         host_user_id=user["id"],
-        access_token="valid-test-token",
         thumbnail_data=valid_png_data,
         thumbnail_mime_type="image/png",
     )
@@ -1014,7 +1001,6 @@ async def test_delete_game_shared_image_persists(
             template_id=template["id"],
         ),
         host_user_id=user["id"],
-        access_token="valid-test-token",
         thumbnail_data=valid_png_data,
         thumbnail_mime_type="image/png",
     )
@@ -1089,7 +1075,6 @@ async def test_delete_game_status_schedules_removed(
     game = await service.create_game(
         game_data=game_data,
         host_user_id=user["id"],
-        access_token="valid-test-token",
     )
     await admin_db.commit()
     game_id = game.id
