@@ -31,37 +31,37 @@ Store `username` and `avatar` in the Redis session at OAuth callback time so `GE
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Update Token Storage Layer
+### [x] Phase 1: Update Token Storage Layer
 
-- [ ] Task 1.1 (RED): Write failing tests for `username`/`avatar` in token storage
+- [x] Task 1.1 (RED): Write failing tests for `username`/`avatar` in token storage
   - Details: .copilot-tracking/planning/details/20260424-01-eliminate-discord-rest-call-get-user-info-details.md (Lines 11-27)
 
-- [ ] Task 1.2 (GREEN): Update `store_user_tokens` and `get_user_tokens` to persist `username` and `avatar`
+- [x] Task 1.2 (GREEN): Update `store_user_tokens` and `get_user_tokens` to persist `username` and `avatar`
   - Details: .copilot-tracking/planning/details/20260424-01-eliminate-discord-rest-call-get-user-info-details.md (Lines 28-41)
 
-- [ ] Task 1.3 (REFACTOR): Remove `xfail` markers from token tests
+- [x] Task 1.3 (REFACTOR): Remove `xfail` markers from token tests
   - Details: .copilot-tracking/planning/details/20260424-01-eliminate-discord-rest-call-get-user-info-details.md (Lines 42-52)
 
-### [ ] Phase 2: Update OAuth Callback to Persist Profile Fields
+### [x] Phase 2: Update OAuth Callback to Persist Profile Fields
 
-- [ ] Task 2.1 (RED): Write failing test asserting `callback` passes `username`/`avatar` to `store_user_tokens`
+- [x] Task 2.1 (RED): Write failing test asserting `callback` passes `username`/`avatar` to `store_user_tokens`
   - Details: .copilot-tracking/planning/details/20260424-01-eliminate-discord-rest-call-get-user-info-details.md (Lines 55-68)
 
-- [ ] Task 2.2 (GREEN): Update `callback` to pass `username` and `avatar` to `store_user_tokens`
+- [x] Task 2.2 (GREEN): Update `callback` to pass `username` and `avatar` to `store_user_tokens`
   - Details: .copilot-tracking/planning/details/20260424-01-eliminate-discord-rest-call-get-user-info-details.md (Lines 69-82)
 
-- [ ] Task 2.3 (REFACTOR): Remove `xfail` markers from callback tests
+- [x] Task 2.3 (REFACTOR): Remove `xfail` markers from callback tests
   - Details: .copilot-tracking/planning/details/20260424-01-eliminate-discord-rest-call-get-user-info-details.md (Lines 83-93)
 
-### [ ] Phase 3: Simplify get_user_info Route
+### [x] Phase 3: Simplify get_user_info Route
 
-- [ ] Task 3.1 (RED): Update `test_get_user_info_no_guilds_field` to expect session-sourced response (will fail until 3.3)
+- [x] Task 3.1 (RED): Update `test_get_user_info_no_guilds_field` to expect session-sourced response (will fail until 3.3)
   - Details: .copilot-tracking/planning/details/20260424-01-eliminate-discord-rest-call-get-user-info-details.md (Lines 96-109)
 
-- [ ] Task 3.2: Delete `test_get_user_info_expired_token_refresh_failure`
+- [x] Task 3.2: Delete `test_get_user_info_expired_token_refresh_failure`
   - Details: .copilot-tracking/planning/details/20260424-01-eliminate-discord-rest-call-get-user-info-details.md (Lines 110-122)
 
-- [ ] Task 3.3 (GREEN): Simplify `get_user_info` to read from session data only, removing refresh block and REST call
+- [x] Task 3.3 (GREEN): Simplify `get_user_info` to read from session data only, removing refresh block and REST call
   - Details: .copilot-tracking/planning/details/20260424-01-eliminate-discord-rest-call-get-user-info-details.md (Lines 123-148)
 
 ## Dependencies

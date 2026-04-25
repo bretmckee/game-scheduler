@@ -153,3 +153,79 @@ async def test_get_user_tokens_returns_maintainer_flags():
     assert result is not None
     assert result.get("can_be_maintainer") is True
     assert result.get("is_maintainer") is True
+
+
+@pytest.mark.asyncio
+async def test_store_user_tokens_stores_username():
+    """Test that store_user_tokens persists username in session."""
+    mock_redis = AsyncMock()
+    stored_data = {}
+
+    async def capture_set_json(key, data, **kwargs):
+        stored_data.update(data)
+
+    mock_redis.set_json = AsyncMock(side_effect=capture_set_json)
+
+    with (
+        patch(
+            "services.api.auth.tokens.cache_client.get_redis_client",
+            new_callable=AsyncMock,
+            return_value=mock_redis,
+        ),
+        patch("services.api.auth.tokens.encrypt_token", return_value="enc"),
+    ):
+        await tokens.store_user_tokens("user1", "access", "refresh", 3600, username="testuser")
+
+    assert stored_data.get("username") == "testuser"
+
+
+@pytest.mark.asyncio
+async def test_store_user_tokens_stores_avatar():
+    """Test that store_user_tokens persists a non-None avatar hash in session."""
+    mock_redis = AsyncMock()
+    stored_data = {}
+
+    async def capture_set_json(key, data, **kwargs):
+        stored_data.update(data)
+
+    mock_redis.set_json = AsyncMock(side_effect=capture_set_json)
+
+    with (
+        patch(
+            "services.api.auth.tokens.cache_client.get_redis_client",
+            new_callable=AsyncMock,
+            return_value=mock_redis,
+        ),
+        patch("services.api.auth.tokens.encrypt_token", return_value="enc"),
+    ):
+        await tokens.store_user_tokens(
+            "user1", "access", "refresh", 3600, username="testuser", avatar="abc123"
+        )
+
+    assert stored_data.get("avatar") == "abc123"
+
+
+@pytest.mark.asyncio
+async def test_store_user_tokens_stores_none_avatar():
+    """Test that store_user_tokens persists None avatar (no avatar set)."""
+    mock_redis = AsyncMock()
+    stored_data = {}
+
+    async def capture_set_json(key, data, **kwargs):
+        stored_data.update(data)
+
+    mock_redis.set_json = AsyncMock(side_effect=capture_set_json)
+
+    with (
+        patch(
+            "services.api.auth.tokens.cache_client.get_redis_client",
+            new_callable=AsyncMock,
+            return_value=mock_redis,
+        ),
+        patch("services.api.auth.tokens.encrypt_token", return_value="enc"),
+    ):
+        await tokens.store_user_tokens(
+            "user1", "access", "refresh", 3600, username="testuser", avatar=None
+        )
+
+    assert stored_data.get("avatar") is None

@@ -132,6 +132,8 @@ async def callback(
         token_data["refresh_token"],
         token_data["expires_in"],
         can_be_maintainer=can_be_maintainer,
+        username=user_data.get("username", ""),
+        avatar=user_data.get("avatar"),
     )
 
     config = get_api_config()
@@ -212,50 +214,24 @@ async def get_user_info(
     _db: Annotated[AsyncSession, Depends(get_db)],
 ) -> auth_schemas.UserInfoResponse:
     """
-    Get current user information and guilds.
+    Get current user information.
 
     Args:
         current_user: Current authenticated user
-        db: Database session
+        _db: Database session (unused, kept for dependency injection consistency)
 
     Returns:
-        User info and guild list
+        User info from session cache
     """
     token_data = await tokens.get_user_tokens(current_user.session_token)
     if not token_data:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No session found")
 
-    if await tokens.is_token_expired(token_data["expires_at"]):
-        try:
-            new_tokens = await oauth2.refresh_access_token(token_data["refresh_token"])
-            await tokens.refresh_user_tokens(
-                current_user.session_token,
-                new_tokens["access_token"],
-                new_tokens["expires_in"],
-            )
-            access_token = new_tokens["access_token"]
-        except Exception as e:
-            logger.error("Token refresh in get_user_info failed: %s", e)
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired"
-            ) from e
-    else:
-        access_token = token_data["access_token"]
-
-    try:
-        user_info = await oauth2.get_user_from_token(access_token)
-
-        return auth_schemas.UserInfoResponse(
-            id=user_info["id"],
-            user_uuid=str(current_user.user.id),
-            username=user_info["username"],
-            avatar=user_info.get("avatar"),
-            can_be_maintainer=bool(token_data.get("can_be_maintainer")),
-            is_maintainer=bool(token_data.get("is_maintainer")),
-        )
-    except Exception as e:
-        logger.error("Failed to fetch user info: %s", e)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to fetch user info",
-        ) from e
+    return auth_schemas.UserInfoResponse(
+        id=current_user.user.discord_id,
+        user_uuid=str(current_user.user.id),
+        username=token_data["username"],
+        avatar=token_data.get("avatar"),
+        can_be_maintainer=bool(token_data.get("can_be_maintainer")),
+        is_maintainer=bool(token_data.get("is_maintainer")),
+    )

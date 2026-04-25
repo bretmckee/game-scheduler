@@ -122,6 +122,61 @@ class TestCallback:
         mock_store.assert_called_once()
         assert mock_store.call_args.kwargs["can_be_maintainer"] is False
 
+    @pytest.mark.asyncio
+    async def test_callback_passes_username_and_avatar_to_store_user_tokens(self):
+        """callback must forward username and avatar from user_data to store_user_tokens."""
+        mock_db = AsyncMock()
+        mock_db.execute = AsyncMock(return_value=MagicMock())
+        mock_response = MagicMock()
+
+        with (
+            patch(
+                "services.api.auth.oauth2.validate_state",
+                new_callable=AsyncMock,
+                return_value="http://localhost/callback",
+            ),
+            patch(
+                "services.api.auth.oauth2.exchange_code_for_tokens",
+                new_callable=AsyncMock,
+                return_value={
+                    "access_token": "access-tok",
+                    "refresh_token": "refresh-tok",
+                    "expires_in": 3600,
+                },
+            ),
+            patch(
+                "services.api.auth.oauth2.get_user_from_token",
+                new_callable=AsyncMock,
+                return_value={
+                    "id": "usr-discord-123",
+                    "username": "testuser",
+                    "avatar": "abc123",
+                },
+            ),
+            patch(
+                "services.api.auth.oauth2.is_app_maintainer",
+                new_callable=AsyncMock,
+                return_value=False,
+            ),
+            patch(
+                "services.api.auth.tokens.store_user_tokens",
+                new_callable=AsyncMock,
+                return_value="session-tok",
+            ) as mock_store,
+            patch("services.api.routes.auth.get_api_config") as mock_config,
+        ):
+            mock_config.return_value.environment = "development"
+            mock_config.return_value.cookie_domain = None
+            await auth_routes.callback(
+                response=mock_response,
+                code="auth_code",
+                state="state_token",
+                db=mock_db,
+            )
+
+        assert mock_store.call_args.kwargs.get("username") == "testuser"
+        assert mock_store.call_args.kwargs.get("avatar") == "abc123"
+
 
 class TestRefresh:
     @pytest.mark.asyncio
@@ -165,27 +220,19 @@ class TestRefresh:
 class TestGetUserInfo:
     @pytest.mark.asyncio
     async def test_get_user_info_no_guilds_field(self, mock_current_user_unit, mock_db_unit):
-        """get_user_info must not include guilds in response or call oauth2.get_user_guilds."""
+        """get_user_info must return username/avatar from session without calling oauth2."""
         token_data = {
             "refresh_token": "refresh-tok",
             "access_token": "access-tok",
             "expires_at": "2099-01-01T00:00:00Z",
+            "username": "testuser",
+            "avatar": "abc123",
         }
         with (
             patch(
                 "services.api.auth.tokens.get_user_tokens",
                 new_callable=AsyncMock,
                 return_value=token_data,
-            ),
-            patch(
-                "services.api.auth.tokens.is_token_expired",
-                new_callable=AsyncMock,
-                return_value=False,
-            ),
-            patch(
-                "services.api.auth.oauth2.get_user_from_token",
-                new_callable=AsyncMock,
-                return_value={"id": "123", "username": "testuser", "avatar": None},
             ),
             patch(
                 "services.api.auth.oauth2.get_user_guilds", new_callable=AsyncMock
@@ -197,37 +244,5 @@ class TestGetUserInfo:
 
             mock_guilds.assert_not_awaited()
             assert not hasattr(result, "guilds")
-
-    @pytest.mark.asyncio
-    async def test_get_user_info_expired_token_refresh_failure(
-        self, mock_current_user_unit, mock_db_unit
-    ):
-        token_data = {
-            "refresh_token": "old-refresh-tok",
-            "access_token": "old-access-tok",
-            "expires_at": "2026-01-01T00:00:00Z",
-        }
-
-        with (
-            patch(
-                "services.api.auth.tokens.get_user_tokens",
-                new_callable=AsyncMock,
-                return_value=token_data,
-            ),
-            patch(
-                "services.api.auth.tokens.is_token_expired",
-                new_callable=AsyncMock,
-                return_value=True,
-            ),
-            patch(
-                "services.api.auth.oauth2.refresh_access_token",
-                side_effect=RuntimeError("token refresh failed"),
-            ),
-        ):
-            with pytest.raises(HTTPException) as exc_info:
-                await auth_routes.get_user_info(
-                    current_user=mock_current_user_unit, _db=mock_db_unit
-                )
-
-        assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
-        assert exc_info.value.detail == "Session expired"
+            assert result.username == "testuser"
+            assert result.avatar == "abc123"

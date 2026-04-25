@@ -92,6 +92,8 @@ async def store_user_tokens(
     refresh_token: str,
     expires_in: int,
     can_be_maintainer: bool = False,
+    username: str = "",
+    avatar: str | None = None,
 ) -> str:
     """
     Store user OAuth2 tokens in Redis session.
@@ -101,6 +103,8 @@ async def store_user_tokens(
         access_token: OAuth2 access token
         refresh_token: OAuth2 refresh token
         expires_in: Seconds until access token expires
+        username: Discord username
+        avatar: Discord avatar hash or None
 
     Returns:
         Session token (UUID4) for retrieving tokens later
@@ -113,13 +117,15 @@ async def store_user_tokens(
 
     expiry = datetime.now(UTC).replace(tzinfo=None) + timedelta(seconds=expires_in)
 
-    session_data: dict[str, str | bool] = {
+    session_data: dict[str, str | bool | None] = {
         "user_id": user_id,
         "access_token": encrypted_access,
         "refresh_token": encrypted_refresh,
         "expires_at": expiry.isoformat(),
         "can_be_maintainer": can_be_maintainer,
         "is_maintainer": False,
+        "username": username,
+        "avatar": avatar,
     }
 
     session_key = f"session:{session_token}"
@@ -162,6 +168,8 @@ async def get_user_tokens(session_token: str) -> dict[str, Any] | None:
         "expires_at": datetime.fromisoformat(str(session_data.get("expires_at", ""))),
         "can_be_maintainer": bool(session_data.get("can_be_maintainer")),
         "is_maintainer": bool(session_data.get("is_maintainer")),
+        "username": str(session_data.get("username", "")),
+        "avatar": session_data.get("avatar"),
     }
 
 
