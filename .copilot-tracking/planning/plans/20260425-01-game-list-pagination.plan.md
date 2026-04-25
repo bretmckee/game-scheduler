@@ -39,32 +39,32 @@ Add server-side pagination to the game list API and wire up MUI `Pagination` con
 
 ## Implementation Checklist
 
-### [ ] Phase 1: RED — failing Python tests for service role filter
+### [x] Phase 1: RED — failing Python tests for service role filter
 
-- [ ] Task 1.1: Add xfail tests for `role=host` filter in service tests
+- [x] Task 1.1: Add xfail tests for `role=host` filter in service tests
   - Details: .copilot-tracking/planning/details/20260425-01-game-list-pagination-details.md (Lines 13-27)
 
-- [ ] Task 1.2: Add xfail tests for `role=participant` filter in service tests
+- [x] Task 1.2: Add xfail tests for `role=participant` filter in service tests
   - Details: .copilot-tracking/planning/details/20260425-01-game-list-pagination-details.md (Lines 28-41)
 
-- [ ] Task 1.3: Verify xfail tests fail as expected (`uv run pytest ... -v`)
+- [x] Task 1.3: Verify xfail tests fail as expected (`uv run pytest ... -v`)
   - Details: .copilot-tracking/planning/details/20260425-01-game-list-pagination-details.md (Lines 42-52)
 
-### [ ] Phase 2: GREEN — backend implementation
+### [x] Phase 2: GREEN — backend implementation
 
-- [ ] Task 2.1: Add `limit` and `offset` to `GameListResponse` schema
+- [x] Task 2.1: Add `limit` and `offset` to `GameListResponse` schema
   - Details: .copilot-tracking/planning/details/20260425-01-game-list-pagination-details.md (Lines 57-70)
 
-- [ ] Task 2.2: Add `role`/`user_id` params and role-filter SQL to `list_games` service method; lower default limit to 25
+- [x] Task 2.2: Add `role`/`user_id` params and role-filter SQL to `list_games` service method; lower default limit to 25
   - Details: .copilot-tracking/planning/details/20260425-01-game-list-pagination-details.md (Lines 71-91)
 
-- [ ] Task 2.3: Add `role` query param to route; lower limit max to 25; fix `total`; pass `limit`/`offset` to response
+- [x] Task 2.3: Add `role` query param to route; lower limit max to 25; fix `total`; pass `limit`/`offset` to response
   - Details: .copilot-tracking/planning/details/20260425-01-game-list-pagination-details.md (Lines 92-113)
 
-- [ ] Task 2.4: Update route unit tests — add `role=None` to existing call sites; update expected response shapes; remove xfail markers from service tests
+- [x] Task 2.4: Update route unit tests — add `role=None` to existing call sites; update expected response shapes; remove xfail markers from service tests
   - Details: .copilot-tracking/planning/details/20260425-01-game-list-pagination-details.md (Lines 114-132)
 
-- [ ] Task 2.5: Run full unit test suite; confirm all tests pass
+- [x] Task 2.5: Run full unit test suite; confirm all tests pass
   - Details: .copilot-tracking/planning/details/20260425-01-game-list-pagination-details.md (Lines 133-143)
 
 ### [ ] Phase 3: RED — failing TypeScript tests for frontend pagination

@@ -233,7 +233,11 @@ class GameListResponse(BaseModel):
     """List of games response."""
 
     games: list[GameResponse] = Field(..., description="List of games")
-    total: int = Field(..., description="Total number of games")
+    total: int = Field(
+        ..., description="Total number of matching games (pre-authorization approximation)"
+    )
+    limit: int = Field(..., description="Page size used for this request")
+    offset: int = Field(..., description="Offset used for this request")
 
 
 # Import at end to avoid circular import

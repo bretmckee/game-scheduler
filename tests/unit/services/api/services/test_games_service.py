@@ -2102,6 +2102,76 @@ async def test_list_games_with_filters(game_service, mock_db, sample_guild):
 
 
 @pytest.mark.asyncio
+async def test_list_games_role_host_filters_count_query(game_service, mock_db):
+    """Test that role=host adds a host_id WHERE filter to the count query."""
+    count_result = MagicMock()
+    count_result.scalar.return_value = 1
+    games_result = MagicMock()
+    games_result.scalars.return_value.all.return_value = [
+        game_model.GameSession(id=str(uuid.uuid4()), title="Host Game"),
+    ]
+    mock_db.execute = AsyncMock(side_effect=[count_result, games_result])
+
+    await game_service.list_games(role="host", user_id="user-id-123")
+
+    count_query_str = str(mock_db.execute.call_args_list[0].args[0])
+    assert "host_id" in count_query_str
+
+
+@pytest.mark.asyncio
+async def test_list_games_role_host_filters_main_query(game_service, mock_db):
+    """Test that role=host adds a host_id WHERE filter to the main query."""
+    count_result = MagicMock()
+    count_result.scalar.return_value = 1
+    games_result = MagicMock()
+    games_result.scalars.return_value.all.return_value = [
+        game_model.GameSession(id=str(uuid.uuid4()), title="Host Game"),
+    ]
+    mock_db.execute = AsyncMock(side_effect=[count_result, games_result])
+
+    await game_service.list_games(role="host", user_id="user-id-123")
+
+    main_query_str = str(mock_db.execute.call_args_list[1].args[0])
+    assert "host_id" in main_query_str
+
+
+@pytest.mark.asyncio
+async def test_list_games_role_participant_filters_count_query(game_service, mock_db):
+    """Test that role=participant uses a game_session_id subquery in the count query."""
+    count_result = MagicMock()
+    count_result.scalar.return_value = 1
+    games_result = MagicMock()
+    games_result.scalars.return_value.all.return_value = [
+        game_model.GameSession(id=str(uuid.uuid4()), title="Joined Game"),
+    ]
+    mock_db.execute = AsyncMock(side_effect=[count_result, games_result])
+
+    await game_service.list_games(role="participant", user_id="user-id-123")
+
+    count_query_str = str(mock_db.execute.call_args_list[0].args[0])
+    assert "game_session_id" in count_query_str
+    assert "host_id" in count_query_str
+
+
+@pytest.mark.asyncio
+async def test_list_games_role_participant_filters_main_query(game_service, mock_db):
+    """Test that role=participant uses a game_session_id subquery in the main query."""
+    count_result = MagicMock()
+    count_result.scalar.return_value = 1
+    games_result = MagicMock()
+    games_result.scalars.return_value.all.return_value = [
+        game_model.GameSession(id=str(uuid.uuid4()), title="Joined Game"),
+    ]
+    mock_db.execute = AsyncMock(side_effect=[count_result, games_result])
+
+    await game_service.list_games(role="participant", user_id="user-id-123")
+
+    main_query_str = str(mock_db.execute.call_args_list[1].args[0])
+    assert "game_session_id" in main_query_str
+    assert "host_id" in main_query_str
+
+
+@pytest.mark.asyncio
 async def test_update_game_success(game_service, mock_db, sample_user, sample_guild):
     """Test updating game by host."""
 

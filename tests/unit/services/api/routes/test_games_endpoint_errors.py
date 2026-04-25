@@ -102,7 +102,8 @@ class TestListGames:
                 guild_id=None,
                 channel_id=None,
                 status=None,
-                limit=50,
+                role=None,
+                limit=25,
                 offset=0,
                 current_user=mock_current_user_unit,
                 game_service=mock_game_service,
@@ -111,7 +112,7 @@ class TestListGames:
             )
 
         assert result.games == []
-        assert result.total == 0
+        assert result.total == 1  # DB pre-auth count is returned even when auth filters all games
 
 
 class TestGetGame:

@@ -415,7 +415,10 @@ async def list_games(
     guild_id: Annotated[str | None, Query(description="Filter by guild UUID")] = None,
     channel_id: Annotated[str | None, Query(description="Filter by channel UUID")] = None,
     status: Annotated[list[str] | None, Query(description="Filter by status")] = None,
-    limit: Annotated[int, Query(ge=1, le=100, description="Maximum results")] = 50,
+    role: Annotated[
+        str | None, Query(description="Filter by caller role: 'host' or 'participant'")
+    ] = None,
+    limit: Annotated[int, Query(ge=1, le=25, description="Maximum results")] = 25,
     offset: Annotated[int, Query(ge=0, description="Results offset")] = 0,
     *,  # Force remaining parameters to be keyword-only
     current_user: Annotated[auth_schemas.CurrentUser, Depends(auth_deps.get_current_user)],
@@ -428,13 +431,15 @@ async def list_games(
     """
     List games with optional filters.
 
-    Supports filtering by guild, channel, and status with pagination.
+    Supports filtering by guild, channel, status, and caller role with pagination.
     Games are filtered by guild membership and template player role restrictions.
     """
-    games, _total = await game_service.list_games(
+    games, total = await game_service.list_games(
         guild_id=guild_id,
         channel_id=channel_id,
         status=status,
+        role=role,
+        user_id=current_user.user.id,
         limit=limit,
         offset=offset,
     )
@@ -487,7 +492,9 @@ async def list_games(
 
     return game_schemas.GameListResponse(
         games=list(game_responses),
-        total=len(authorized_games),
+        total=total,
+        limit=limit,
+        offset=offset,
     )
 
 

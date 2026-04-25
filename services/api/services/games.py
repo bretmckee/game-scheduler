@@ -1018,7 +1018,9 @@ class GameService:
         guild_id: str | None = None,
         channel_id: str | None = None,
         status: list[str] | None = None,
-        limit: int = 50,
+        role: str | None = None,
+        user_id: str | None = None,
+        limit: int = 25,
         offset: int = 0,
     ) -> tuple[list[game_model.GameSession], int]:
         """
@@ -1028,7 +1030,10 @@ class GameService:
             guild_id: Filter by guild UUID
             channel_id: Filter by channel UUID
             status: Filter by one or more statuses (SCHEDULED, IN_PROGRESS, etc.)
-            limit: Maximum results
+            role: Filter by caller's role — "host" returns only games the user hosts;
+                  "participant" returns only games where the user is a non-host participant
+            user_id: DB UUID of the calling user; required when role is set
+            limit: Maximum results (default 25)
             offset: Results offset
 
         Returns:
@@ -1058,6 +1063,18 @@ class GameService:
             count_query = count_query.where(game_model.GameSession.channel_id == channel_id)
         if status:
             count_query = count_query.where(game_model.GameSession.status.in_(status))
+
+        if role == "host" and user_id:
+            query = query.where(game_model.GameSession.host_id == user_id)
+            count_query = count_query.where(game_model.GameSession.host_id == user_id)
+        elif role == "participant" and user_id:
+            participant_subquery = select(participant_model.GameParticipant.game_session_id).where(
+                participant_model.GameParticipant.user_id == user_id
+            )
+            query = query.where(game_model.GameSession.id.in_(participant_subquery))
+            query = query.where(game_model.GameSession.host_id != user_id)
+            count_query = count_query.where(game_model.GameSession.id.in_(participant_subquery))
+            count_query = count_query.where(game_model.GameSession.host_id != user_id)
 
         total_result = await self.db.execute(count_query)
         total = total_result.scalar() or 0
