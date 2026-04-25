@@ -238,8 +238,8 @@ async def test_update_message_discord_not_found_is_handled(handlers):
         ),
         patch.object(
             handlers,
-            "_fetch_channel_and_message",
-            new=AsyncMock(return_value=(mock_channel, mock_message)),
+            "_get_channel_and_partial_message",
+            return_value=(mock_channel, mock_message),
         ),
         patch.object(
             handlers,
@@ -266,8 +266,8 @@ async def test_update_message_general_exception_is_handled(handlers):
         ),
         patch.object(
             handlers,
-            "_fetch_channel_and_message",
-            new=AsyncMock(return_value=(mock_channel, mock_message)),
+            "_get_channel_and_partial_message",
+            return_value=(mock_channel, mock_message),
         ),
         patch.object(
             handlers,
@@ -420,7 +420,9 @@ async def test_archive_announcement_message_not_found_is_handled(handlers):
     game.archive_channel_id = None
 
     mock_channel = AsyncMock()
-    mock_channel.fetch_message = AsyncMock(side_effect=_not_found())
+    mock_message = AsyncMock()
+    mock_message.delete = AsyncMock(side_effect=_not_found())
+    mock_channel.get_partial_message = MagicMock(return_value=mock_message)
 
     with patch.object(handlers, "_get_bot_channel", new=AsyncMock(return_value=mock_channel)):
         await handlers._archive_game_announcement(game)
@@ -437,7 +439,7 @@ async def test_archive_announcement_delete_exception_is_handled(handlers):
     mock_message = AsyncMock()
     mock_message.delete = AsyncMock(side_effect=RuntimeError("connection reset"))
     mock_channel = AsyncMock()
-    mock_channel.fetch_message = AsyncMock(return_value=mock_message)
+    mock_channel.get_partial_message = MagicMock(return_value=mock_message)
 
     with patch.object(handlers, "_get_bot_channel", new=AsyncMock(return_value=mock_channel)):
         await handlers._archive_game_announcement(game)
@@ -463,7 +465,7 @@ async def test_archive_announcement_with_rewards_mentions_confirmed_players(hand
     game.max_players = 4
 
     mock_active_channel = AsyncMock()
-    mock_active_channel.fetch_message = AsyncMock(return_value=AsyncMock())
+    mock_active_channel.get_partial_message = MagicMock(return_value=AsyncMock())
     mock_archive_channel = AsyncMock()
 
     mock_partitioned = MagicMock()
@@ -506,7 +508,7 @@ async def test_archive_announcement_with_rewards_ignores_role_mention_content(ha
     game.max_players = 4
 
     mock_active_channel = AsyncMock()
-    mock_active_channel.fetch_message = AsyncMock(return_value=AsyncMock())
+    mock_active_channel.get_partial_message = MagicMock(return_value=AsyncMock())
     mock_archive_channel = AsyncMock()
 
     mock_partitioned = MagicMock()
@@ -549,7 +551,7 @@ async def test_archive_announcement_without_rewards_sends_no_content(handlers):
     game.max_players = 4
 
     mock_active_channel = AsyncMock()
-    mock_active_channel.fetch_message = AsyncMock(return_value=AsyncMock())
+    mock_active_channel.get_partial_message = MagicMock(return_value=AsyncMock())
     mock_archive_channel = AsyncMock()
 
     with (
@@ -583,7 +585,7 @@ async def test_archive_announcement_with_rewards_no_confirmed_players(handlers):
     game.max_players = 4
 
     mock_active_channel = AsyncMock()
-    mock_active_channel.fetch_message = AsyncMock(return_value=AsyncMock())
+    mock_active_channel.get_partial_message = MagicMock(return_value=AsyncMock())
     mock_archive_channel = AsyncMock()
 
     mock_partitioned = MagicMock()

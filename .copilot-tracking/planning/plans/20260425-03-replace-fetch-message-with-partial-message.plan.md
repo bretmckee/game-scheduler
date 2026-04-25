@@ -43,26 +43,26 @@ Eliminate three `channel.fetch_message()` REST GET calls in `handlers.py` that e
 
 ## Implementation Checklist
 
-### [ ] Phase 1: RED — Add xfail tests for `_get_channel_and_partial_message`
+### [x] Phase 1: RED — Add xfail tests for `_get_channel_and_partial_message`
 
-- [ ] Task 1.1: Write three `xfail` tests for the new `_get_channel_and_partial_message` method (success, channel not in cache, wrong channel type)
+- [x] Task 1.1: Write three `xfail` tests for the new `_get_channel_and_partial_message` method (success, channel not in cache, wrong channel type)
   - Details: .copilot-tracking/planning/details/20260425-03-replace-fetch-message-with-partial-message-details.md (Lines 11–29)
 
-### [ ] Phase 2: GREEN — Implement refactoring and update all tests
+### [x] Phase 2: GREEN — Implement refactoring and update all tests
 
-- [ ] Task 2.1: Rename `_fetch_channel_and_message` to `_get_channel_and_partial_message`, make synchronous, replace `fetch_message` with `get_partial_message`
+- [x] Task 2.1: Rename `_fetch_channel_and_message` to `_get_channel_and_partial_message`, make synchronous, replace `fetch_message` with `get_partial_message`
   - Details: .copilot-tracking/planning/details/20260425-03-replace-fetch-message-with-partial-message-details.md (Lines 33–56)
 
-- [ ] Task 2.2: Delete `_fetch_message_for_refresh`, inline `channel.get_partial_message` in `_refresh_game_message`
+- [x] Task 2.2: Delete `_fetch_message_for_refresh`, inline `channel.get_partial_message` in `_refresh_game_message`
   - Details: .copilot-tracking/planning/details/20260425-03-replace-fetch-message-with-partial-message-details.md (Lines 57–87)
 
-- [ ] Task 2.3: Update `_archive_game_announcement` to use `get_partial_message` inline
+- [x] Task 2.3: Update `_archive_game_announcement` to use `get_partial_message` inline
   - Details: .copilot-tracking/planning/details/20260425-03-replace-fetch-message-with-partial-message-details.md (Lines 88–115)
 
-- [ ] Task 2.4: Update the three `_fetch_channel_and_message` call sites to `_get_channel_and_partial_message` without `await`
+- [x] Task 2.4: Update the three `_fetch_channel_and_message` call sites to `_get_channel_and_partial_message` without `await`
   - Details: .copilot-tracking/planning/details/20260425-03-replace-fetch-message-with-partial-message-details.md (Lines 116–133)
 
-- [ ] Task 2.5: Remove xfail markers; delete and update all obsolete tests
+- [x] Task 2.5: Remove xfail markers; delete and update all obsolete tests
   - Details: .copilot-tracking/planning/details/20260425-03-replace-fetch-message-with-partial-message-details.md (Lines 134–175)
 
 ## Dependencies

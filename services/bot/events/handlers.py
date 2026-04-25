@@ -334,58 +334,30 @@ class EventHandlers:
 
         return channel
 
-    async def _fetch_message_for_refresh(
-        self, channel: discord.TextChannel, message_id: str
-    ) -> discord.Message | None:
-        """
-        Fetch Discord message with error handling.
-
-        Args:
-            channel: Discord text channel
-            message_id: Message ID to fetch
-
-        Returns:
-            Discord Message if found, None otherwise
-        """
-        try:
-            return await channel.fetch_message(int(message_id))
-        except discord.NotFound:
-            logger.warning("Message not found: %s", message_id)
-            return None
-
-    async def _fetch_channel_and_message(
+    def _get_channel_and_partial_message(
         self,
         channel_id: str,
         message_id: str,
-    ) -> tuple[discord.TextChannel, discord.Message] | None:
+    ) -> tuple[discord.TextChannel, discord.PartialMessage] | None:
         """
-        Fetch Discord channel and message objects with validation.
+        Get Discord channel and partial message from the gateway cache.
 
         Args:
             channel_id: Discord channel ID
             message_id: Discord message ID
 
         Returns:
-            Tuple of (channel, message) or None if not found/invalid
+            Tuple of (channel, partial_message) or None if not cached or wrong type
         """
         channel = self.bot.get_channel(int(channel_id))
-        if not channel:
-            logger.error("Invalid or inaccessible channel: %s", channel_id)
-            return None
-
         if not channel or not isinstance(channel, discord.TextChannel):
             logger.error("Invalid or inaccessible channel: %s", channel_id)
             return None
 
-        try:
-            message = await channel.fetch_message(int(message_id))
-            return (channel, message)
-        except Exception as e:
-            logger.error("Failed to fetch message %s: %s", message_id, e)
-            return None
+        return (channel, channel.get_partial_message(int(message_id)))
 
     async def _update_game_message_content(
-        self, message: discord.Message, game: game_model.GameSession
+        self, message: discord.Message | discord.PartialMessage, game: game_model.GameSession
     ) -> None:
         """
         Update Discord message with new game content.
@@ -415,10 +387,7 @@ class EventHandlers:
                 if not channel:
                     return
 
-                message = await self._fetch_message_for_refresh(channel, game.message_id)
-                if not message:
-                    return
-
+                message = channel.get_partial_message(int(game.message_id))
                 await self._update_game_message_content(message, game)
 
         except Exception as e:
@@ -971,7 +940,7 @@ class EventHandlers:
                 logger.error("Game not found: %s", game_id)
                 return
 
-            result = await self._fetch_channel_and_message(channel_id, message_id)
+            result = self._get_channel_and_partial_message(channel_id, message_id)
             if not result:
                 return
 
@@ -1101,7 +1070,7 @@ class EventHandlers:
         _game_id, message_id, channel_id = event_data
 
         try:
-            result = await self._fetch_channel_and_message(channel_id, message_id)
+            result = self._get_channel_and_partial_message(channel_id, message_id)
             if not result:
                 return
 
@@ -1293,7 +1262,7 @@ class EventHandlers:
                 await archive_channel.send(content=self._build_archive_content(game), embed=embed)
 
         try:
-            message = await channel.fetch_message(int(game.message_id))
+            message = channel.get_partial_message(int(game.message_id))
             await message.delete()
         except discord.NotFound:
             logger.warning(
@@ -1467,7 +1436,7 @@ class EventHandlers:
             return False
 
         channel_id_str = str(game.channel.channel_id) if game.channel else discord_channel_id
-        fetched = await self._fetch_channel_and_message(channel_id_str, game.message_id)
+        fetched = self._get_channel_and_partial_message(channel_id_str, game.message_id)
         if fetched is None:
             logger.warning("Channel or message not found: %s", game_id)
             return False

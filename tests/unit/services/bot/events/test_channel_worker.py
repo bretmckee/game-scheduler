@@ -167,7 +167,7 @@ class TestChannelWorkerRateLimitSlot:
             patch.object(handlers, "_get_game_with_participants", return_value=mock_game),
             patch.object(
                 handlers,
-                "_fetch_channel_and_message",
+                "_get_channel_and_partial_message",
                 return_value=(mock_channel, mock_message),
             ),
             patch.object(handlers, "_update_game_message_content", new_callable=AsyncMock),
@@ -226,7 +226,7 @@ class TestChannelWorkerRateLimitSlot:
             patch.object(handlers, "_get_game_with_participants", return_value=mock_game),
             patch.object(
                 handlers,
-                "_fetch_channel_and_message",
+                "_get_channel_and_partial_message",
                 return_value=(mock_channel, mock_message),
             ),
             patch.object(handlers, "_update_game_message_content", new_callable=AsyncMock),
@@ -284,7 +284,7 @@ class TestChannelWorkerSuccessfulEdit:
             patch.object(handlers, "_get_game_with_participants", return_value=mock_game),
             patch.object(
                 handlers,
-                "_fetch_channel_and_message",
+                "_get_channel_and_partial_message",
                 return_value=(mock_channel, mock_message),
             ),
             patch.object(handlers, "_update_game_message_content", new_callable=AsyncMock),
@@ -357,7 +357,7 @@ class TestChannelWorker429Handling:
             patch.object(handlers, "_get_game_with_participants", return_value=mock_game),
             patch.object(
                 handlers,
-                "_fetch_channel_and_message",
+                "_get_channel_and_partial_message",
                 return_value=(mock_channel, mock_message),
             ),
             patch.object(
@@ -425,7 +425,7 @@ class TestChannelWorker429Handling:
             patch.object(handlers, "_get_game_with_participants", return_value=mock_game),
             patch.object(
                 handlers,
-                "_fetch_channel_and_message",
+                "_get_channel_and_partial_message",
                 return_value=(mock_channel, mock_message),
             ),
             patch.object(handlers, "_update_game_message_content", side_effect=_edit_raise),
@@ -495,7 +495,7 @@ class TestChannelWorkerMultiGame:
             patch.object(handlers, "_get_game_with_participants", side_effect=_game_for_id),
             patch.object(
                 handlers,
-                "_fetch_channel_and_message",
+                "_get_channel_and_partial_message",
                 return_value=(mock_channel, mock_message),
             ),
             patch.object(handlers, "_update_game_message_content", side_effect=_track_edit),
@@ -561,7 +561,7 @@ class TestChannelWorkerMultiGame:
             patch.object(handlers, "_get_game_with_participants", return_value=mock_game),
             patch.object(
                 handlers,
-                "_fetch_channel_and_message",
+                "_get_channel_and_partial_message",
                 return_value=(mock_channel, mock_message),
             ),
             patch.object(handlers, "_update_game_message_content", new_callable=AsyncMock),

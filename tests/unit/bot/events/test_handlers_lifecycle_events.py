@@ -249,8 +249,8 @@ async def test_game_cancelled_delete_general_exception_is_caught(handlers):
     mock_message.delete = AsyncMock(side_effect=RuntimeError("network failure"))
     with patch.object(
         handlers,
-        "_fetch_channel_and_message",
-        new=AsyncMock(return_value=(mock_channel, mock_message)),
+        "_get_channel_and_partial_message",
+        return_value=(mock_channel, mock_message),
     ):
         await handlers._handle_game_cancelled(data)
 
