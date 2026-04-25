@@ -122,7 +122,9 @@ async def test_logout_clears_session(create_user, api_base_url):
 async def test_user_info_returns_username(create_user, api_base_url):
     """Valid session → GET /auth/user returns 200 with username from fake Discord."""
     create_user(discord_user_id=_FAKE_DISCORD_USER_ID)
-    session_token, _ = await create_test_session("fake.access_token", _FAKE_DISCORD_USER_ID)
+    session_token, _ = await create_test_session(
+        "fake.access_token", _FAKE_DISCORD_USER_ID, username=_FAKE_DISCORD_USERNAME
+    )
 
     async with httpx.AsyncClient(
         base_url=api_base_url,

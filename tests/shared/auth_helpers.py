@@ -39,6 +39,7 @@ async def create_test_session(
     ttl_seconds: int = 604800,
     can_be_maintainer: bool = False,
     is_maintainer: bool = False,
+    username: str = "",
 ) -> tuple[str, dict]:
     """
     Create test session in Redis with encrypted tokens.
@@ -49,6 +50,7 @@ async def create_test_session(
         ttl_seconds: Session TTL in seconds (default: 7 days)
         can_be_maintainer: Whether user is eligible for maintainer mode
         is_maintainer: Whether maintainer mode is currently active
+        username: Discord username to store in session
 
     Returns:
         Tuple of (session_token, session_data) where session_token is the
@@ -76,6 +78,7 @@ async def create_test_session(
         "expires_at": expiry.isoformat(),
         "can_be_maintainer": can_be_maintainer,
         "is_maintainer": is_maintainer,
+        "username": username,
     }
 
     session_key = f"session:{session_token}"
