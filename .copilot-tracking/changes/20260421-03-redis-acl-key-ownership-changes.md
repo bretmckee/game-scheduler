@@ -60,6 +60,22 @@ Enforces Redis key ownership at the server level by renaming API-owned keys to a
 
 ### Added
 
+- `docker/redis-entrypoint.sh`: New startup script; generates `/tmp/users.acl` from `BOT_REDIS_PASSWORD`, `API_REDIS_PASSWORD`, `TEST_REDIS_PASSWORD` env vars using shell heredoc expansion, then calls `docker-entrypoint.sh "$@"`. Defines `bot` (read/write projection + bot + gateway + `api:user_roles:*`), `api` (read projection/bot/gateway + read/write `api:*`), `test` (all keys + all channels + all non-admin commands), and `default` (ping-only, unauthenticated).
+
 ### Modified
+
+- `compose.yaml` (`redis` service): add `entrypoint: ["/usr/local/bin/redis-entrypoint.sh"]`; mount `./docker/redis-entrypoint.sh` as read-only volume; add `BOT_REDIS_PASSWORD`, `API_REDIS_PASSWORD`, `TEST_REDIS_PASSWORD` env vars; update default `REDIS_COMMAND` to include `--aclfile /tmp/users.acl`
+- `compose.yaml` (`bot` service): `REDIS_URL` source changed from `${REDIS_URL}` to `${BOT_REDIS_URL}`
+- `compose.yaml` (`api` service): `REDIS_URL` source changed from `${REDIS_URL}` to `${API_REDIS_URL}`
+- `compose.int.yaml` (`redis` service): add entrypoint, volume mount, password env vars; update command to include `--aclfile /tmp/users.acl`
+- `compose.int.yaml` (`integration-tests` service): `REDIS_URL` source changed to `${TEST_REDIS_URL}`
+- `compose.e2e.yaml` (`redis` service): same entrypoint/volume/env changes
+- `compose.e2e.yaml` (`e2e-tests` service): `REDIS_URL` source changed to `${TEST_REDIS_URL}`
+- `config.template/env.template`: added `BOT_REDIS_PASSWORD`, `API_REDIS_PASSWORD`, `TEST_REDIS_PASSWORD`, `BOT_REDIS_URL`, `API_REDIS_URL`, `TEST_REDIS_URL`; marked `REDIS_URL` as legacy
+- `config/env.dev`: same additions with development placeholder values
+- `config/env.e2e`: same additions with e2e placeholder values
+- `config/env.int`: same additions; updated `REDIS_COMMAND` to include `--aclfile /tmp/users.acl`
+- `config/env.prod`: same additions with prod change-reminder placeholder values
+- `config/env.staging`: same additions with staging change-reminder placeholder values
 
 ### Removed

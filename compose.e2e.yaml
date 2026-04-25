@@ -87,7 +87,14 @@ services:
       RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: -rabbit log_levels [{connection,debug}]
 
   redis:
-    command: valkey-server --appendonly yes --loglevel debug
+    entrypoint: ["/usr/local/bin/redis-entrypoint.sh"]
+    command: valkey-server --aclfile /tmp/users.acl --appendonly yes --loglevel debug
+    environment:
+      BOT_REDIS_PASSWORD: ${BOT_REDIS_PASSWORD}
+      API_REDIS_PASSWORD: ${API_REDIS_PASSWORD}
+      TEST_REDIS_PASSWORD: ${TEST_REDIS_PASSWORD}
+    volumes:
+      - ./docker/redis-entrypoint.sh:/usr/local/bin/redis-entrypoint.sh:ro
 
   system-ready:
     image: alpine:latest
@@ -137,7 +144,7 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       ADMIN_DATABASE_URL: ${ADMIN_DATABASE_URL}
       RABBITMQ_URL: ${RABBITMQ_URL}
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      REDIS_URL: ${TEST_REDIS_URL:-redis://redis:6379/0}
       BACKEND_URL: http://api:8000
       DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN}
       DISCORD_USER_ID: ${DISCORD_USER_ID}

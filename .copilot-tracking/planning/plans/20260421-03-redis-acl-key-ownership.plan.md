@@ -75,21 +75,21 @@ Enforce Redis key ownership at the server level by renaming API-owned keys under
 - [x] Task 3.2: Rename `CacheKeys.member` and update `shared/discord/client.py` callers
   - Details: .copilot-tracking/planning/details/20260421-03-redis-acl-key-ownership-details.md (Lines 145-160)
 
-### [ ] Phase 4: ACL infrastructure wiring (prerequisite: bot REST plan complete)
+### [x] Phase 4: ACL infrastructure wiring (prerequisite: bot REST plan complete)
 
-- [ ] Task 4.1: Create `config/redis/users.acl` with `bot` and `api` user definitions
+- [x] Task 4.1: Create `config/redis/users.acl` with `bot` and `api` user definitions
   - Details: .copilot-tracking/planning/details/20260421-03-redis-acl-key-ownership-details.md (Lines 167-202)
 
-- [ ] Task 4.2: Update compose files to mount ACL file and inject `--aclfile` flag
+- [x] Task 4.2: Update compose files to mount ACL file and inject `--aclfile` flag
   - Details: .copilot-tracking/planning/details/20260421-03-redis-acl-key-ownership-details.md (Lines 203-215)
 
-- [ ] Task 4.3: Update `REDIS_URL` in env templates and compose overrides to include credentials
+- [x] Task 4.3: Update `REDIS_URL` in env templates and compose overrides to include credentials
   - Details: .copilot-tracking/planning/details/20260421-03-redis-acl-key-ownership-details.md (Lines 216-228)
 
-- [ ] Task 4.4: Update test infrastructure to provision ACL users or use a privileged connection
+- [x] Task 4.4: Update test infrastructure to provision ACL users or use a privileged connection
   - Details: .copilot-tracking/planning/details/20260421-03-redis-acl-key-ownership-details.md (Lines 229-242)
 
-- [ ] Task 4.5: Verify ACL enforcement: `NOPERM` for cross-service writes; full integration suite passes
+- [x] Task 4.5: Verify ACL enforcement: `NOPERM` for cross-service writes; full integration suite passes
   - Details: .copilot-tracking/planning/details/20260421-03-redis-acl-key-ownership-details.md (Lines 243-255)
 
 ## Dependencies

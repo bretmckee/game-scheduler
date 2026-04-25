@@ -72,7 +72,14 @@ services:
       RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: -rabbit log_levels [{connection,debug}]
 
   redis:
-    command: valkey-server --appendonly yes --loglevel debug
+    entrypoint: ["/usr/local/bin/redis-entrypoint.sh"]
+    command: valkey-server --aclfile /tmp/users.acl --appendonly yes --loglevel debug
+    environment:
+      BOT_REDIS_PASSWORD: ${BOT_REDIS_PASSWORD}
+      API_REDIS_PASSWORD: ${API_REDIS_PASSWORD}
+      TEST_REDIS_PASSWORD: ${TEST_REDIS_PASSWORD}
+    volumes:
+      - ./docker/redis-entrypoint.sh:/usr/local/bin/redis-entrypoint.sh:ro
 
   system-ready:
     image: alpine:latest
@@ -121,7 +128,7 @@ services:
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      REDIS_URL: ${TEST_REDIS_URL:-redis://redis:6379/0}
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
       TEST_ENVIRONMENT: ${TEST_ENVIRONMENT}
       SSE_KEEPALIVE_INTERVAL_SECONDS: ${SSE_KEEPALIVE_INTERVAL_SECONDS:-30}
