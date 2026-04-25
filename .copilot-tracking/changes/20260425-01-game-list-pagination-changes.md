@@ -6,7 +6,7 @@ Add server-side pagination to the game list API and wire up MUI `Pagination`
 controls in BrowseGames and MyGames, replacing unbounded fetches with 25-game
 pages.
 
-## Status: In Progress (Phases 1–2 complete)
+## Status: Complete (Phases 1–4 done)
 
 ---
 
@@ -39,6 +39,25 @@ pages.
   `test_list_games_filters_unauthorized_games` to assert `total == 1`
   (DB pre-auth count) instead of `total == 0`; added `role=None`; fixed
   `limit=50` → `limit=25`
+- `frontend/src/types/index.ts`: made `limit` and `offset` required (removed
+  `?`) in `GameListResponse` interface
+- `frontend/src/pages/BrowseGames.tsx`: added `Pagination` MUI import;
+  added `PAGE_SIZE = 25`; added `page` and `total` state; added `limit` and
+  `offset` to API params; reset `page` to 1 on filter changes; render MUI
+  `Pagination` when `total > PAGE_SIZE`
+- `frontend/src/pages/MyGames.tsx`: added `Pagination` MUI import;
+  added `PAGE_SIZE = 25`; added per-tab `hostedPage`, `joinedPage`,
+  `hostedTotal`, `joinedTotal` state; replaced single games fetch with
+  three-way `Promise.all` using `role: 'host'` and `role: 'participant'`
+  params; render MUI `Pagination` in each tab when total exceeds page size;
+  updated tab labels to show totals
+- `frontend/src/pages/__tests__/BrowseGames.test.tsx`: added `limit`/`offset`
+  to all existing mock responses; promoted 3 `it.fails` pagination tests to
+  regular passing tests; re-added second mock in page-2 navigation test
+- `frontend/src/pages/__tests__/MyGames.test.tsx`: added `limit`/`offset` to
+  `mockGamesResponse`; updated SSE tests to mock 4 calls (hosted + joined +
+  guilds + SSE); promoted 3 `it.fails` pagination tests to regular passing
+  tests with correct separate-call mock setup
 
 ## Removed
 

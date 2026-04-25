@@ -132,6 +132,8 @@ export interface Participant {
 export interface GameListResponse {
   games: GameSession[];
   total: number;
+  limit: number;
+  offset: number;
 }
 
 export interface AuthTokens {

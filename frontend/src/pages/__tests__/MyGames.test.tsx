@@ -66,6 +66,8 @@ describe('MyGames - Server Selection Logic', () => {
   const mockGamesResponse: GameListResponse = {
     games: [],
     total: 0,
+    limit: 25,
+    offset: 0,
   };
 
   beforeEach(() => {
@@ -224,7 +226,10 @@ describe('MyGames - SSE Integration', () => {
 
     vi.mocked(apiClient.get)
       .mockResolvedValueOnce({
-        data: { games: [mockHostedGame], total: 1 },
+        data: { games: [mockHostedGame], total: 1, limit: 25, offset: 0 },
+      })
+      .mockResolvedValueOnce({
+        data: { games: [], total: 0, limit: 25, offset: 0 },
       })
       .mockResolvedValueOnce({
         data: { guilds: [] },
@@ -263,7 +268,10 @@ describe('MyGames - SSE Integration', () => {
 
     vi.mocked(apiClient.get)
       .mockResolvedValueOnce({
-        data: { games: [mockJoinedGame], total: 1 },
+        data: { games: [], total: 0, limit: 25, offset: 0 },
+      })
+      .mockResolvedValueOnce({
+        data: { games: [mockJoinedGame], total: 1, limit: 25, offset: 0 },
       })
       .mockResolvedValueOnce({
         data: { guilds: [] },
@@ -293,6 +301,271 @@ describe('MyGames - SSE Integration', () => {
 
     await waitFor(() => {
       expect(apiClient.get).toHaveBeenCalledWith('/api/v1/games/game-2');
+    });
+  });
+});
+
+describe('MyGames - Pagination', () => {
+  const mockUser = {
+    id: 'id-123',
+    user_uuid: 'user-123',
+    username: 'testuser',
+  };
+
+  const mockAuthContext = {
+    user: mockUser,
+    login: vi.fn(),
+    logout: vi.fn(),
+    loading: false,
+    refreshUser: vi.fn(),
+  };
+
+  const renderMyGames = async () => {
+    const { useGameUpdates } = await import('../../hooks/useGameUpdates');
+    vi.mocked(useGameUpdates).mockImplementation(() => {});
+
+    return render(
+      <AuthContext.Provider value={mockAuthContext}>
+        <BrowserRouter>
+          <MyGames />
+        </BrowserRouter>
+      </AuthContext.Provider>
+    );
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('makes two separate role-parameterized API calls on mount', async () => {
+    vi.mocked(apiClient.get)
+      .mockResolvedValueOnce({
+        data: { games: [], total: 0, limit: 25, offset: 0 },
+      })
+      .mockResolvedValueOnce({
+        data: { games: [], total: 0, limit: 25, offset: 0 },
+      })
+      .mockResolvedValueOnce({ data: { guilds: [] } });
+
+    await renderMyGames();
+
+    await screen.findByText('My Games');
+
+    expect(apiClient.get).toHaveBeenCalledWith('/api/v1/games', {
+      params: expect.objectContaining({ role: 'host' }),
+    });
+
+    expect(apiClient.get).toHaveBeenCalledWith('/api/v1/games', {
+      params: expect.objectContaining({ role: 'participant' }),
+    });
+  });
+
+  it('renders Pagination in Hosting tab when hosted total exceeds 25', async () => {
+    const manyHostedGames = Array.from({ length: 25 }, (_, i) => ({
+      id: `g${i}`,
+      title: `Hosted Game ${i}`,
+      host: { user_id: 'user-123', display_name: 'testuser' },
+      status: 'SCHEDULED',
+      participant_count: 1,
+    }));
+
+    vi.mocked(apiClient.get)
+      .mockResolvedValueOnce({
+        data: { games: manyHostedGames, total: 30, limit: 25, offset: 0 },
+      })
+      .mockResolvedValueOnce({
+        data: { games: [], total: 0, limit: 25, offset: 0 },
+      })
+      .mockResolvedValueOnce({ data: { guilds: [] } });
+
+    await renderMyGames();
+
+    await waitFor(() => {
+      expect(screen.getByText('Hosted Game 0')).toBeInTheDocument();
+    });
+
+    expect(screen.getByRole('navigation', { name: /pagination/i })).toBeInTheDocument();
+  });
+
+  it('renders Pagination in Joined tab when joined total exceeds 25', async () => {
+    const manyJoinedGames = Array.from({ length: 25 }, (_, i) => ({
+      id: `j${i}`,
+      title: `Joined Game ${i}`,
+      host: { user_id: 'other-user', display_name: 'other' },
+      participants: [{ user_id: 'user-123' }],
+      status: 'SCHEDULED',
+      participant_count: 2,
+    }));
+
+    vi.mocked(apiClient.get)
+      .mockResolvedValueOnce({
+        data: {
+          games: [
+            {
+              id: 'hosted-1',
+              title: 'My Hosted',
+              host: { user_id: 'user-123' },
+              status: 'SCHEDULED',
+              participant_count: 1,
+            },
+          ],
+          total: 1,
+          limit: 25,
+          offset: 0,
+        },
+      })
+      .mockResolvedValueOnce({
+        data: { games: manyJoinedGames, total: 30, limit: 25, offset: 0 },
+      })
+      .mockResolvedValueOnce({ data: { guilds: [] } });
+
+    await renderMyGames();
+
+    await waitFor(() => {
+      expect(screen.getByRole('tab', { name: /Joined/i })).toBeInTheDocument();
+    });
+
+    const user = (await import('@testing-library/user-event')).default.setup();
+    await user.click(screen.getByRole('tab', { name: /Joined/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Joined Game 0')).toBeInTheDocument();
+    });
+
+    expect(screen.getByRole('navigation', { name: /pagination/i })).toBeInTheDocument();
+  });
+
+  it('sends offset=25 when navigating to page 2 in Hosting tab', async () => {
+    const manyHostedGames = Array.from({ length: 25 }, (_, i) => ({
+      id: `g${i}`,
+      title: `Hosted Game ${i}`,
+      host: { user_id: 'user-123', display_name: 'testuser' },
+      status: 'SCHEDULED',
+      participant_count: 1,
+    }));
+
+    vi.mocked(apiClient.get)
+      .mockResolvedValueOnce({ data: { games: manyHostedGames, total: 30, limit: 25, offset: 0 } })
+      .mockResolvedValueOnce({ data: { games: [], total: 0, limit: 25, offset: 0 } })
+      .mockResolvedValueOnce({ data: { guilds: [] } })
+      .mockResolvedValueOnce({
+        data: {
+          games: [
+            {
+              id: 'g25',
+              title: 'Hosted Game 25',
+              host: { user_id: 'user-123' },
+              status: 'SCHEDULED',
+              participant_count: 1,
+            },
+          ],
+          total: 30,
+          limit: 25,
+          offset: 25,
+        },
+      })
+      .mockResolvedValueOnce({ data: { games: [], total: 0, limit: 25, offset: 0 } })
+      .mockResolvedValueOnce({ data: { guilds: [] } });
+
+    await renderMyGames();
+
+    await waitFor(() => {
+      expect(screen.getByText('Hosted Game 0')).toBeInTheDocument();
+    });
+
+    const user = (await import('@testing-library/user-event')).default.setup();
+    await user.click(screen.getByRole('button', { name: /go to page 2/i }));
+
+    await waitFor(() => {
+      expect(apiClient.get).toHaveBeenCalledWith('/api/v1/games', {
+        params: expect.objectContaining({ role: 'host', offset: 25 }),
+      });
+    });
+  });
+
+  it('sends offset=25 when navigating to page 2 in Joined tab', async () => {
+    const manyJoinedGames = Array.from({ length: 25 }, (_, i) => ({
+      id: `j${i}`,
+      title: `Joined Game ${i}`,
+      host: { user_id: 'other-user', display_name: 'other' },
+      participants: [{ user_id: 'user-123' }],
+      status: 'SCHEDULED',
+      participant_count: 2,
+    }));
+
+    vi.mocked(apiClient.get)
+      .mockResolvedValueOnce({
+        data: {
+          games: [
+            {
+              id: 'h1',
+              title: 'My Hosted',
+              host: { user_id: 'user-123' },
+              status: 'SCHEDULED',
+              participant_count: 1,
+            },
+          ],
+          total: 1,
+          limit: 25,
+          offset: 0,
+        },
+      })
+      .mockResolvedValueOnce({ data: { games: manyJoinedGames, total: 30, limit: 25, offset: 0 } })
+      .mockResolvedValueOnce({ data: { guilds: [] } })
+      .mockResolvedValueOnce({
+        data: {
+          games: [
+            {
+              id: 'h1',
+              title: 'My Hosted',
+              host: { user_id: 'user-123' },
+              status: 'SCHEDULED',
+              participant_count: 1,
+            },
+          ],
+          total: 1,
+          limit: 25,
+          offset: 0,
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          games: [
+            {
+              id: 'j25',
+              title: 'Joined Game 25',
+              host: { user_id: 'other-user' },
+              participants: [{ user_id: 'user-123' }],
+              status: 'SCHEDULED',
+              participant_count: 2,
+            },
+          ],
+          total: 30,
+          limit: 25,
+          offset: 25,
+        },
+      })
+      .mockResolvedValueOnce({ data: { guilds: [] } });
+
+    await renderMyGames();
+
+    await waitFor(() => {
+      expect(screen.getByRole('tab', { name: /Joined/i })).toBeInTheDocument();
+    });
+
+    const user = (await import('@testing-library/user-event')).default.setup();
+    await user.click(screen.getByRole('tab', { name: /Joined/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Joined Game 0')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: /go to page 2/i }));
+
+    await waitFor(() => {
+      expect(apiClient.get).toHaveBeenCalledWith('/api/v1/games', {
+        params: expect.objectContaining({ role: 'participant', offset: 25 }),
+      });
     });
   });
 });

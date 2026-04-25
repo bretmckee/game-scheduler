@@ -28,6 +28,7 @@ import {
   CircularProgress,
   Alert,
   Button,
+  Pagination,
 } from '@mui/material';
 import { useNavigate } from 'react-router';
 import { apiClient } from '../api/client';
@@ -59,6 +60,8 @@ function TabPanel(props: TabPanelProps) {
   );
 }
 
+const PAGE_SIZE = 25;
+
 export const MyGames: FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -69,6 +72,10 @@ export const MyGames: FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tabValue, setTabValue] = useState(0);
+  const [hostedPage, setHostedPage] = useState(1);
+  const [joinedPage, setJoinedPage] = useState(1);
+  const [hostedTotal, setHostedTotal] = useState(0);
+  const [joinedTotal, setJoinedTotal] = useState(0);
 
   const handleGameUpdate = (updatedGame: GameSession) => {
     setHostedGames((prevGames) =>
@@ -98,26 +105,30 @@ export const MyGames: FC = () => {
         setLoading(true);
         setError(null);
 
-        const [gamesResponse, guildsResponse] = await Promise.all([
+        const [hostedResponse, joinedResponse, guildsResponse] = await Promise.all([
           apiClient.get<GameListResponse>('/api/v1/games', {
-            params: { status: ['SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'] },
+            params: {
+              role: 'host',
+              status: ['SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'],
+              limit: PAGE_SIZE,
+              offset: (hostedPage - 1) * PAGE_SIZE,
+            },
+          }),
+          apiClient.get<GameListResponse>('/api/v1/games', {
+            params: {
+              role: 'participant',
+              status: ['SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'],
+              limit: PAGE_SIZE,
+              offset: (joinedPage - 1) * PAGE_SIZE,
+            },
           }),
           apiClient.get<{ guilds: Guild[] }>('/api/v1/guilds'),
         ]);
 
-        const allGames = gamesResponse.data.games;
-
-        const hosted = allGames.filter(
-          (game: GameSession) => game.host?.user_id === user.user_uuid
-        );
-        const joined = allGames.filter(
-          (game: GameSession) =>
-            game.host?.user_id !== user.user_uuid &&
-            game.participants?.some((p) => p.user_id === user.user_uuid)
-        );
-
-        setHostedGames(hosted);
-        setJoinedGames(joined);
+        setHostedGames(hostedResponse.data.games);
+        setJoinedGames(joinedResponse.data.games);
+        setHostedTotal(hostedResponse.data.total);
+        setJoinedTotal(joinedResponse.data.total);
         setGuilds(guildsResponse.data.guilds);
 
         // Check which guilds have accessible templates
@@ -139,7 +150,7 @@ export const MyGames: FC = () => {
     };
 
     fetchGames();
-  }, [user]);
+  }, [user, hostedPage, joinedPage]);
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
@@ -181,12 +192,12 @@ export const MyGames: FC = () => {
         </Alert>
       )}
 
-      {hostedGames.length > 0 ? (
+      {hostedTotal > 0 ? (
         <>
           <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
             <Tabs value={tabValue} onChange={handleTabChange} aria-label="game tabs">
-              <Tab label={`Hosting (${hostedGames.length})`} />
-              <Tab label={`Joined (${joinedGames.length})`} />
+              <Tab label={`Hosting (${hostedTotal})`} />
+              <Tab label={`Joined (${joinedTotal})`} />
             </Tabs>
           </Box>
 
@@ -196,10 +207,18 @@ export const MyGames: FC = () => {
                 <GameCard key={game.id} game={game} onGameUpdate={handleGameUpdate} />
               ))}
             </Box>
+            {hostedTotal > PAGE_SIZE && (
+              <Pagination
+                count={Math.ceil(hostedTotal / PAGE_SIZE)}
+                page={hostedPage}
+                onChange={(_e, v) => setHostedPage(v)}
+                sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}
+              />
+            )}
           </TabPanel>
 
           <TabPanel value={tabValue} index={1}>
-            {joinedGames.length === 0 ? (
+            {joinedTotal === 0 ? (
               <Alert severity="info">
                 You haven&apos;t joined any games yet. Browse games to find one to join!
               </Alert>
@@ -209,6 +228,14 @@ export const MyGames: FC = () => {
                   <GameCard key={game.id} game={game} onGameUpdate={handleGameUpdate} />
                 ))}
               </Box>
+            )}
+            {joinedTotal > PAGE_SIZE && (
+              <Pagination
+                count={Math.ceil(joinedTotal / PAGE_SIZE)}
+                page={joinedPage}
+                onChange={(_e, v) => setJoinedPage(v)}
+                sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}
+              />
             )}
           </TabPanel>
         </>

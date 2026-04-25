@@ -89,7 +89,7 @@ describe('BrowseGames - SSE Integration', () => {
 
     vi.mocked(apiClient.get)
       .mockResolvedValueOnce({
-        data: { games: [mockGame], total: 1 },
+        data: { games: [mockGame], total: 1, limit: 25, offset: 0 },
       })
       .mockResolvedValueOnce({
         data: updatedGame,
@@ -130,7 +130,7 @@ describe('BrowseGames - SSE Integration', () => {
 
     vi.mocked(apiClient.get)
       .mockResolvedValueOnce({
-        data: { games: [mockGame], total: 1 },
+        data: { games: [mockGame], total: 1, limit: 25, offset: 0 },
       })
       .mockResolvedValueOnce({
         data: { ...mockGame, id: 'game-2' },
@@ -170,7 +170,7 @@ describe('BrowseGames - Status Filter', () => {
 
   it('passes status as array for specific status selection', async () => {
     vi.mocked(apiClient.get).mockResolvedValueOnce({
-      data: { games: [mockGame], total: 1 },
+      data: { games: [mockGame], total: 1, limit: 25, offset: 0 },
     });
 
     const { useGameUpdates } = await import('../../hooks/useGameUpdates');
@@ -197,7 +197,7 @@ describe('BrowseGames - Status Filter', () => {
 
   it('passes full non-archived status list when ALL is selected', async () => {
     vi.mocked(apiClient.get).mockResolvedValueOnce({
-      data: { games: [mockGame], total: 1 },
+      data: { games: [mockGame], total: 1, limit: 25, offset: 0 },
     });
 
     const { useGameUpdates } = await import('../../hooks/useGameUpdates');
@@ -218,7 +218,7 @@ describe('BrowseGames - Status Filter', () => {
     });
 
     vi.mocked(apiClient.get).mockResolvedValueOnce({
-      data: { games: [mockGame], total: 1 },
+      data: { games: [mockGame], total: 1, limit: 25, offset: 0 },
     });
 
     const statusSelect = screen.getAllByRole('combobox')[1]!;
@@ -268,7 +268,12 @@ describe('BrowseGames - Channel Filter', () => {
     };
 
     vi.mocked(apiClient.get).mockResolvedValueOnce({
-      data: { games: [gameWithAlpha, gameWithZebra, gameWithMiddle], total: 3 },
+      data: {
+        games: [gameWithAlpha, gameWithZebra, gameWithMiddle],
+        total: 3,
+        limit: 25,
+        offset: 0,
+      },
     });
 
     const { useGameUpdates } = await import('../../hooks/useGameUpdates');
@@ -302,7 +307,7 @@ describe('BrowseGames - Channel Filter', () => {
 
   it('derives channel list from loaded games without calling channels endpoint', async () => {
     vi.mocked(apiClient.get).mockResolvedValueOnce({
-      data: { games: [mockGame], total: 1 },
+      data: { games: [mockGame], total: 1, limit: 25, offset: 0 },
     });
 
     const { useGameUpdates } = await import('../../hooks/useGameUpdates');
@@ -327,5 +332,116 @@ describe('BrowseGames - Channel Filter', () => {
       expect.stringContaining('/channels'),
       expect.anything()
     );
+  });
+});
+
+describe('BrowseGames - Pagination', () => {
+  const renderBrowseGames = async () => {
+    const { useGameUpdates } = await import('../../hooks/useGameUpdates');
+    vi.mocked(useGameUpdates).mockImplementation(() => {});
+
+    return render(
+      <AuthContext.Provider value={mockAuthContext}>
+        <MemoryRouter initialEntries={['/browse/guild-1']}>
+          <Routes>
+            <Route path="/browse/:guildId" element={<BrowseGames />} />
+          </Routes>
+        </MemoryRouter>
+      </AuthContext.Provider>
+    );
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('sends limit=25 and offset=0 params on initial fetch', async () => {
+    vi.mocked(apiClient.get).mockResolvedValueOnce({
+      data: { games: [mockGame], total: 50, limit: 25, offset: 0 },
+    });
+
+    await renderBrowseGames();
+
+    await waitFor(() => {
+      expect(screen.getByText('D&D Adventure')).toBeInTheDocument();
+    });
+
+    expect(apiClient.get).toHaveBeenCalledWith('/api/v1/games', {
+      params: expect.objectContaining({ limit: 25, offset: 0 }),
+    });
+  });
+
+  it('renders Pagination control when total exceeds 25', async () => {
+    vi.mocked(apiClient.get).mockResolvedValueOnce({
+      data: { games: [mockGame], total: 50, limit: 25, offset: 0 },
+    });
+
+    await renderBrowseGames();
+
+    await waitFor(() => {
+      expect(screen.getByText('D&D Adventure')).toBeInTheDocument();
+    });
+
+    expect(screen.getByRole('navigation', { name: /pagination/i })).toBeInTheDocument();
+  });
+
+  it('sends offset=25 when navigating to page 2', async () => {
+    vi.mocked(apiClient.get)
+      .mockResolvedValueOnce({
+        data: { games: [mockGame], total: 50, limit: 25, offset: 0 },
+      })
+      .mockResolvedValueOnce({
+        data: { games: [{ ...mockGame, id: 'game-26' }], total: 50, limit: 25, offset: 25 },
+      });
+
+    await renderBrowseGames();
+
+    await waitFor(() => {
+      expect(screen.getByText('D&D Adventure')).toBeInTheDocument();
+    });
+
+    const page2Button = screen.getByRole('button', { name: /go to page 2/i });
+    const user = (await import('@testing-library/user-event')).default.setup();
+    await user.click(page2Button);
+
+    await waitFor(() => {
+      expect(apiClient.get).toHaveBeenLastCalledWith('/api/v1/games', {
+        params: expect.objectContaining({ limit: 25, offset: 25 }),
+      });
+    });
+  });
+
+  it('resets to page 1 when channel filter changes', async () => {
+    const gameWithOtherChannel = {
+      ...mockGame,
+      id: 'game-2',
+      channel_id: 'ch-2',
+      channel_name: 'other-channel',
+    };
+
+    vi.mocked(apiClient.get)
+      .mockResolvedValueOnce({
+        data: { games: [mockGame, gameWithOtherChannel], total: 50, limit: 25, offset: 0 },
+      })
+      .mockResolvedValueOnce({
+        data: { games: [gameWithOtherChannel], total: 1, limit: 25, offset: 0 },
+      });
+
+    await renderBrowseGames();
+
+    await waitFor(() => {
+      expect(screen.getAllByText('D&D Adventure')).toHaveLength(2);
+    });
+
+    const channelSelect = screen.getAllByRole('combobox')[0]!;
+    const user = (await import('@testing-library/user-event')).default.setup();
+    await user.click(channelSelect);
+    await user.click(screen.getByRole('option', { name: 'other-channel' }));
+
+    await waitFor(() => {
+      expect(apiClient.get).toHaveBeenLastCalledWith('/api/v1/games', {
+        params: expect.objectContaining({ offset: 0 }),
+      });
+    });
   });
 });

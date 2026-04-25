@@ -28,6 +28,7 @@ import {
   MenuItem,
   CircularProgress,
   Alert,
+  Pagination,
   SelectChangeEvent,
 } from '@mui/material';
 import { useParams } from 'react-router';
@@ -35,6 +36,8 @@ import { apiClient } from '../api/client';
 import { GameSession, GameListResponse } from '../types';
 import { GameCard } from '../components/GameCard';
 import { useGameUpdates } from '../hooks/useGameUpdates';
+
+const PAGE_SIZE = 25;
 
 export const BrowseGames: FC = () => {
   const { guildId } = useParams<{ guildId: string }>();
@@ -44,6 +47,8 @@ export const BrowseGames: FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedChannel, setSelectedChannel] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('SCHEDULED');
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
 
   const handleGameUpdate = (updatedGame: GameSession) => {
     setGames((prevGames) =>
@@ -73,6 +78,8 @@ export const BrowseGames: FC = () => {
             selectedStatus !== 'ALL'
               ? [selectedStatus]
               : ['SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'],
+          limit: PAGE_SIZE,
+          offset: (page - 1) * PAGE_SIZE,
         };
 
         if (guildId) {
@@ -110,6 +117,7 @@ export const BrowseGames: FC = () => {
         }
 
         setGames(filteredGames);
+        setTotal(gamesResponse.data.total);
       } catch (err: unknown) {
         console.error('Failed to fetch games:', err);
         setError((err as any).response?.data?.detail || 'Failed to load games. Please try again.');
@@ -119,14 +127,16 @@ export const BrowseGames: FC = () => {
     };
 
     fetchData();
-  }, [guildId, selectedChannel, selectedStatus]);
+  }, [guildId, selectedChannel, selectedStatus, page]);
 
   const handleChannelChange = (event: SelectChangeEvent) => {
     setSelectedChannel(event.target.value);
+    setPage(1);
   };
 
   const handleStatusChange = (event: SelectChangeEvent) => {
     setSelectedStatus(event.target.value);
+    setPage(1);
   };
 
   if (loading) {
@@ -180,6 +190,14 @@ export const BrowseGames: FC = () => {
             <GameCard key={game.id} game={game} onGameUpdate={handleGameUpdate} />
           ))}
         </Box>
+      )}
+      {total > PAGE_SIZE && (
+        <Pagination
+          count={Math.ceil(total / PAGE_SIZE)}
+          page={page}
+          onChange={(_e, v) => setPage(v)}
+          sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}
+        />
       )}
     </Container>
   );

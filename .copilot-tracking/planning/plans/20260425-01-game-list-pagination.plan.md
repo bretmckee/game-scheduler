@@ -67,35 +67,35 @@ Add server-side pagination to the game list API and wire up MUI `Pagination` con
 - [x] Task 2.5: Run full unit test suite; confirm all tests pass
   - Details: .copilot-tracking/planning/details/20260425-01-game-list-pagination-details.md (Lines 133-143)
 
-### [ ] Phase 3: RED — failing TypeScript tests for frontend pagination
+### [x] Phase 3: RED — failing TypeScript tests for frontend pagination
 
-- [ ] Task 3.1: Add `limit?`/`offset?` optional fields to `GameListResponse` TypeScript interface
+- [x] Task 3.1: Add `limit?`/`offset?` optional fields to `GameListResponse` TypeScript interface
   - Details: .copilot-tracking/planning/details/20260425-01-game-list-pagination-details.md (Lines 148-161)
 
-- [ ] Task 3.2: Add `test.failing` tests to `BrowseGames.test.tsx` for pagination control and limit/offset params
+- [x] Task 3.2: Add `test.failing` tests to `BrowseGames.test.tsx` for pagination control and limit/offset params
   - Details: .copilot-tracking/planning/details/20260425-01-game-list-pagination-details.md (Lines 162-182)
 
-- [ ] Task 3.3: Add `test.failing` tests to `MyGames.test.tsx` for role-split fetches and per-tab pagination
+- [x] Task 3.3: Add `test.failing` tests to `MyGames.test.tsx` for role-split fetches and per-tab pagination
   - Details: .copilot-tracking/planning/details/20260425-01-game-list-pagination-details.md (Lines 183-201)
 
-- [ ] Task 3.4: Verify `test.failing` tests fail as expected (`npm test` in `frontend/`)
+- [x] Task 3.4: Verify `test.failing` tests fail as expected (`npm test` in `frontend/`)
   - Details: .copilot-tracking/planning/details/20260425-01-game-list-pagination-details.md (Lines 202-212)
 
-### [ ] Phase 4: GREEN — frontend implementation
+### [x] Phase 4: GREEN — frontend implementation
 
-- [ ] Task 4.1: Make `limit` and `offset` required in the TypeScript `GameListResponse` interface
+- [x] Task 4.1: Make `limit` and `offset` required in the TypeScript `GameListResponse` interface
   - Details: .copilot-tracking/planning/details/20260425-01-game-list-pagination-details.md (Lines 217-229)
 
-- [ ] Task 4.2: Implement BrowseGames page state, limit/offset params, and Pagination control
+- [x] Task 4.2: Implement BrowseGames page state, limit/offset params, and Pagination control
   - Details: .copilot-tracking/planning/details/20260425-01-game-list-pagination-details.md (Lines 230-260)
 
-- [ ] Task 4.3: Implement MyGames two-fetch split with per-tab page state and Pagination controls
+- [x] Task 4.3: Implement MyGames two-fetch split with per-tab page state and Pagination controls
   - Details: .copilot-tracking/planning/details/20260425-01-game-list-pagination-details.md (Lines 261-284)
 
-- [ ] Task 4.4: Update existing BrowseGames and MyGames mocks to include `limit`/`offset`; remove `test.failing` markers
+- [x] Task 4.4: Update existing BrowseGames and MyGames mocks to include `limit`/`offset`; remove `test.failing` markers
   - Details: .copilot-tracking/planning/details/20260425-01-game-list-pagination-details.md (Lines 285-306)
 
-- [ ] Task 4.5: Run full frontend test suite; confirm all tests pass
+- [x] Task 4.5: Run full frontend test suite; confirm all tests pass
   - Details: .copilot-tracking/planning/details/20260425-01-game-list-pagination-details.md (Lines 307-317)
 
 ## Dependencies
