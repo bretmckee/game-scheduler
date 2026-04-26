@@ -249,7 +249,11 @@ export const GameDetails: FC = () => {
           </Alert>
         )}
 
-        <Typography variant="body1" paragraph sx={{ wordBreak: 'break-word' }}>
+        <Typography
+          variant="body1"
+          paragraph
+          sx={{ wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}
+        >
           {game.description}
         </Typography>
 
@@ -333,7 +337,9 @@ export const GameDetails: FC = () => {
             <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
               ℹ️ Signup Instructions
             </Typography>
-            <Typography variant="body2">{game.signup_instructions}</Typography>
+            <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+              {game.signup_instructions}
+            </Typography>
           </Box>
         )}
 
