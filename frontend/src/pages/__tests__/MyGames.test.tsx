@@ -225,18 +225,12 @@ describe('MyGames - SSE Integration', () => {
     const updatedGame = { ...mockHostedGame, participant_count: 3 };
 
     vi.mocked(apiClient.get)
-      .mockResolvedValueOnce({
-        data: { games: [mockHostedGame], total: 1, limit: 25, offset: 0 },
-      })
-      .mockResolvedValueOnce({
-        data: { games: [], total: 0, limit: 25, offset: 0 },
-      })
-      .mockResolvedValueOnce({
-        data: { guilds: [] },
-      })
-      .mockResolvedValueOnce({
-        data: updatedGame,
-      });
+      .mockResolvedValueOnce({ data: { games: [mockHostedGame], total: 1, limit: 25, offset: 0 } })
+      .mockResolvedValueOnce({ data: { games: [], total: 0, limit: 25, offset: 0 } })
+      .mockResolvedValueOnce({ data: { guilds: [] } })
+      .mockResolvedValueOnce({ data: { games: [updatedGame], total: 1, limit: 25, offset: 0 } })
+      .mockResolvedValueOnce({ data: { games: [], total: 0, limit: 25, offset: 0 } })
+      .mockResolvedValueOnce({ data: { guilds: [] } });
 
     const { useGameUpdates } = await import('../../hooks/useGameUpdates');
     vi.mocked(useGameUpdates).mockImplementation((_guildId, callback) => {
@@ -258,7 +252,10 @@ describe('MyGames - SSE Integration', () => {
     sseCallback!('game-1');
 
     await waitFor(() => {
-      expect(apiClient.get).toHaveBeenCalledWith('/api/v1/games/game-1');
+      expect(apiClient.get).toHaveBeenCalledTimes(6);
+    });
+    expect(apiClient.get).toHaveBeenCalledWith('/api/v1/games', {
+      params: expect.objectContaining({ role: 'host' }),
     });
   });
 
@@ -267,18 +264,12 @@ describe('MyGames - SSE Integration', () => {
     const updatedGame = { ...mockJoinedGame, participant_count: 4 };
 
     vi.mocked(apiClient.get)
-      .mockResolvedValueOnce({
-        data: { games: [], total: 0, limit: 25, offset: 0 },
-      })
-      .mockResolvedValueOnce({
-        data: { games: [mockJoinedGame], total: 1, limit: 25, offset: 0 },
-      })
-      .mockResolvedValueOnce({
-        data: { guilds: [] },
-      })
-      .mockResolvedValueOnce({
-        data: updatedGame,
-      });
+      .mockResolvedValueOnce({ data: { games: [], total: 0, limit: 25, offset: 0 } })
+      .mockResolvedValueOnce({ data: { games: [mockJoinedGame], total: 1, limit: 25, offset: 0 } })
+      .mockResolvedValueOnce({ data: { guilds: [] } })
+      .mockResolvedValueOnce({ data: { games: [], total: 0, limit: 25, offset: 0 } })
+      .mockResolvedValueOnce({ data: { games: [updatedGame], total: 1, limit: 25, offset: 0 } })
+      .mockResolvedValueOnce({ data: { guilds: [] } });
 
     const { useGameUpdates } = await import('../../hooks/useGameUpdates');
     vi.mocked(useGameUpdates).mockImplementation((_guildId, callback) => {
@@ -300,7 +291,10 @@ describe('MyGames - SSE Integration', () => {
     sseCallback!('game-2');
 
     await waitFor(() => {
-      expect(apiClient.get).toHaveBeenCalledWith('/api/v1/games/game-2');
+      expect(apiClient.get).toHaveBeenCalledTimes(6);
+    });
+    expect(apiClient.get).toHaveBeenCalledWith('/api/v1/games', {
+      params: expect.objectContaining({ role: 'participant' }),
     });
   });
 });

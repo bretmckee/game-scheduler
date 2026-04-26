@@ -18,7 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import { FC, useState, useEffect } from 'react';
+import { FC, useState, useEffect, useCallback } from 'react';
 import {
   Container,
   Typography,
@@ -86,23 +86,12 @@ export const MyGames: FC = () => {
     );
   };
 
-  const handleSSEUpdate = async (gameId: string) => {
-    try {
-      const response = await apiClient.get<GameSession>(`/api/v1/games/${gameId}`);
-      handleGameUpdate(response.data);
-    } catch (err) {
-      console.error('Failed to fetch updated game:', err);
-    }
-  };
-
-  useGameUpdates(undefined, handleSSEUpdate);
-
-  useEffect(() => {
-    const fetchGames = async () => {
+  const fetchAllData = useCallback(
+    async (showLoading = true) => {
       if (!user) return;
 
       try {
-        setLoading(true);
+        if (showLoading) setLoading(true);
         setError(null);
 
         const [hostedResponse, joinedResponse, guildsResponse] = await Promise.all([
@@ -145,12 +134,24 @@ export const MyGames: FC = () => {
         console.error('Failed to fetch games:', err);
         setError((err as any).response?.data?.detail || 'Failed to load games. Please try again.');
       } finally {
-        setLoading(false);
+        if (showLoading) setLoading(false);
       }
-    };
+    },
+    [user, hostedPage, joinedPage]
+  );
 
-    fetchGames();
-  }, [user, hostedPage, joinedPage]);
+  const handleSSEUpdate = useCallback(
+    async (_gameId: string) => {
+      await fetchAllData(false);
+    },
+    [fetchAllData]
+  );
+
+  useGameUpdates(undefined, handleSSEUpdate);
+
+  useEffect(() => {
+    fetchAllData();
+  }, [fetchAllData]);
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
