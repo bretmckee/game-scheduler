@@ -23,7 +23,7 @@
 
 import json
 from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import discord
 import pytest
@@ -310,7 +310,7 @@ class TestRepopulateAll:
         guild.members = [member1, member2]
         bot.guilds = [guild]
 
-        await repopulate_all(bot=bot, redis=redis, reason="test")
+        await repopulate_all(bot=bot, redis=redis)
 
         redis.get.assert_called()
         # Members and guild name are queued to the pipeline via pipe.set
@@ -342,7 +342,7 @@ class TestRepopulateAll:
         guild.members = [member]
         bot.guilds = [guild]
 
-        await repopulate_all(bot=bot, redis=redis, reason="test")
+        await repopulate_all(bot=bot, redis=redis)
 
         gen_flip_calls = [
             i
@@ -362,7 +362,7 @@ class TestRepopulateAll:
         bot = MagicMock(spec=discord.Client)
         bot.guilds = []
 
-        await repopulate_all(bot=bot, redis=redis, reason="test")
+        await repopulate_all(bot=bot, redis=redis)
 
         assert redis.set.called
 
@@ -386,13 +386,13 @@ class TestRepopulateAll:
         bot = MagicMock(spec=discord.Client)
         bot.guilds = []
 
-        await repopulate_all(bot=bot, redis=redis, reason="test")
+        await repopulate_all(bot=bot, redis=redis)
 
         mock_client.scan.assert_called()
 
     @pytest.mark.asyncio
     async def test_repopulate_all_otel_metrics(self):
-        """Test that OTel metrics are recorded."""
+        """OTel metrics are recorded; started counter is not emitted inside repopulate_all."""
         redis = AsyncMock()
         redis.get = AsyncMock(return_value="old_gen")
         mock_client, _pipe = self._make_mock_client()
@@ -401,9 +401,10 @@ class TestRepopulateAll:
         bot = MagicMock(spec=discord.Client)
         bot.guilds = []
 
-        await repopulate_all(bot=bot, redis=redis, reason="on_ready")
+        with patch("services.bot.guild_projection.repopulation_started_counter") as mock_counter:
+            await repopulate_all(bot=bot, redis=redis)
 
-        assert True
+        assert mock_counter.add.call_count == 0
 
     @pytest.mark.asyncio
     async def test_repopulate_all_writes_bot_last_seen(self):
@@ -416,7 +417,7 @@ class TestRepopulateAll:
         bot = MagicMock(spec=discord.Client)
         bot.guilds = []
 
-        await repopulate_all(bot=bot, redis=redis, reason="on_ready")
+        await repopulate_all(bot=bot, redis=redis)
 
         bot_last_seen_writes = [
             call for call in redis.set.call_args_list if CacheKeys.bot_last_seen() in str(call)
@@ -424,6 +425,33 @@ class TestRepopulateAll:
         assert len(bot_last_seen_writes) == 1, (
             "repopulate_all must write bot:last_seen to eliminate the freshness gap"
         )
+
+    async def test_repopulate_all_has_no_reason_parameter(self):
+        """repopulate_all accepts only bot= and redis= after reason param is removed."""
+        redis = AsyncMock()
+        redis.get = AsyncMock(return_value=None)
+        mock_client, _pipe = self._make_mock_client()
+        redis._client = mock_client
+
+        bot = MagicMock(spec=discord.Client)
+        bot.guilds = []
+
+        await repopulate_all(bot=bot, redis=redis)
+
+    async def test_repopulate_all_does_not_emit_started_counter(self):
+        """repopulate_all does not call repopulation_started_counter after refactor."""
+        redis = AsyncMock()
+        redis.get = AsyncMock(return_value=None)
+        mock_client, _pipe = self._make_mock_client()
+        redis._client = mock_client
+
+        bot = MagicMock(spec=discord.Client)
+        bot.guilds = []
+
+        with patch("services.bot.guild_projection.repopulation_started_counter") as mock_counter:
+            await repopulate_all(bot=bot, redis=redis)
+
+        assert mock_counter.add.call_count == 0
 
 
 class TestDeleteOldGenerationPipeline:
@@ -662,7 +690,7 @@ class TestRepopulateAllUsesPipeline:
         bot = MagicMock(spec=discord.Client)
         bot.guilds = []
 
-        await repopulate_all(bot=bot, redis=redis, reason="test")
+        await repopulate_all(bot=bot, redis=redis)
 
         redis._client.pipeline.assert_called_once()
 
@@ -685,7 +713,7 @@ class TestRepopulateAllUsesPipeline:
         guild.members = [member]
         bot.guilds = [guild]
 
-        await repopulate_all(bot=bot, redis=redis, reason="test")
+        await repopulate_all(bot=bot, redis=redis)
 
         pipe.execute.assert_awaited_once()
 
@@ -701,7 +729,7 @@ class TestRepopulateAllUsesPipeline:
         bot = MagicMock(spec=discord.Client)
         bot.guilds = []
 
-        await repopulate_all(bot=bot, redis=redis, reason="test")
+        await repopulate_all(bot=bot, redis=redis)
 
         # Fails before Task 10.2: no pipeline is opened yet
         redis._client.pipeline.assert_called_once()

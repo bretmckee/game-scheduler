@@ -190,7 +190,6 @@ async def repopulate_all(
     *,
     bot: discord.Client,
     redis: RedisClient,
-    reason: str,
 ) -> None:
     """
     Repopulate entire member projection from bot gateway cache.
@@ -201,10 +200,8 @@ async def repopulate_all(
     Args:
         bot: Discord bot instance with guild cache
         redis: Redis async client
-        reason: Reason for repopulation (e.g., "on_ready", "member_add")
     """
     start_time = datetime.now(UTC)
-    repopulation_started_counter.add(1, {"reason": reason})
 
     new_gen = str(int(datetime.now(UTC).timestamp() * 1000))
     prev_gen = await redis.get(CacheKeys.proj_gen())
@@ -221,14 +218,13 @@ async def repopulate_all(
     await write_bot_last_seen(redis=redis)
 
     write_duration = (datetime.now(UTC) - start_time).total_seconds()
-    repopulation_duration_histogram.record(write_duration, {"reason": reason})
-    repopulation_members_written_histogram.record(total_members_written, {"reason": reason})
+    repopulation_duration_histogram.record(write_duration)
+    repopulation_members_written_histogram.record(total_members_written)
 
     logger.info(
-        "Projection repopulation complete: %d members, %.2fs, reason=%s",
+        "Projection repopulation complete: %d members, %.2fs",
         total_members_written,
         write_duration,
-        reason,
     )
 
     if prev_gen:

@@ -202,13 +202,13 @@ async def test_on_ready_calls_sweep_orphaned_embeds(bot, mock_redis, on_ready_en
 
 
 async def test_on_ready_calls_repopulate_all(bot, mock_redis, on_ready_env) -> None:
-    """on_ready calls guild_projection.repopulate_all with reason='on_ready'."""
+    """on_ready calls guild_projection.repopulate_all without reason= after refactor."""
     with patch(
         "services.bot.bot.guild_projection.repopulate_all", new_callable=AsyncMock
     ) as mock_repopulate:
         await bot.on_ready()
 
-    mock_repopulate.assert_awaited_once_with(bot=bot, redis=mock_redis, reason="on_ready")
+    mock_repopulate.assert_awaited_once_with(bot=bot, redis=mock_redis)
 
 
 async def test_on_ready_touches_bot_ready_file(bot, mock_redis, on_ready_env) -> None:
