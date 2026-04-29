@@ -68,7 +68,7 @@ repopulation_duration_gauge = meter.create_gauge(
 repopulation_members_written_gauge = meter.create_gauge(
     name="bot.projection.repopulation.members_written",
     description="Number of members written in projection repopulation",
-    unit="1",
+    unit="{member}",
 )
 repopulation_coalesced_counter = meter.create_counter(
     name="bot.projection.repopulation.coalesced",
