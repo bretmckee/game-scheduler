@@ -68,6 +68,10 @@ This file indexes the instruction files in `.github/instructions/`. Each entry i
 **Scope:** `**` (all files)
 **When to use:** Running `scripts/run-integration-tests.sh` or `scripts/run-e2e-tests.sh`. Critical: always capture full output with `tee`.
 
+### Testmon — critical rule
+
+**Never run `pytest --testmon` or `pytest --testmon-nocollect` manually.** The pre-commit hook uses `pytest --testmon` to generate `coverage.xml`. Running it manually advances testmon's checksum database (`.testmondata`) so the hook then sees "0 changed files", runs 0 tests, and produces a near-empty `coverage.xml` that fails the diff coverage check. Always run unit tests without `--testmon`: `uv run pytest tests/unit`. If `.testmondata` becomes stale (pre-commit fails with unexpected 0% diff coverage), delete it (`rm .testmondata`) before retrying the commit.
+
 ---
 
 ## Commit & Quality

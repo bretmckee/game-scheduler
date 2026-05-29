@@ -63,3 +63,11 @@ For any code generated, follow these guidelines:
 - `git commit` runs pre-commit hooks that include the full unit test suite and
   duplicate detection, which take 60-90 seconds. Always use a terminal timeout
   of at least **180000ms** (3 minutes) for commits, and 300000ms for large changesets.
+- **Never run `pytest --testmon` or `pytest --testmon-nocollect` manually.** The
+  pre-commit hook runs `pytest --testmon` to generate `coverage.xml`. If you run
+  it manually first, testmon advances its checksum database (`.testmondata`) to
+  match the current files, so the pre-commit hook then sees "0 changed files",
+  runs 0 tests, and produces a near-empty `coverage.xml` that fails the diff
+  coverage check. Always run tests without `--testmon`: `uv run pytest tests/unit`.
+  If `.testmondata` becomes stale (pre-commit fails with unexpected 0% diff
+  coverage), delete it (`rm .testmondata`) before retrying the commit.
