@@ -460,6 +460,82 @@ describe('CreateGame', () => {
     expect(screen.getByText('#announcements')).toBeInTheDocument();
   });
 
+  it('clicking one suggestion removes only that error, leaving others intact', async () => {
+    const user = userEvent.setup();
+
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url === '/api/v1/guilds') {
+        return Promise.resolve({ data: { guilds: [mockGuild] } });
+      }
+      if (url === '/api/v1/guilds/1/templates') {
+        return Promise.resolve({ data: [mockTemplate] });
+      }
+      if (url.includes('/config')) {
+        return Promise.resolve({ status: StatusCodes.FORBIDDEN });
+      }
+      return Promise.resolve({ data: [] });
+    });
+
+    vi.mocked(apiClient.post).mockRejectedValueOnce({
+      response: {
+        status: StatusCodes.UNPROCESSABLE_ENTITY,
+        data: {
+          detail: {
+            error: 'invalid_mentions',
+            message: 'Some mentions could not be resolved',
+            invalid_mentions: [
+              {
+                input: '@user1',
+                reason: 'User not found',
+                suggestions: [{ discordId: '1', username: 'alice', displayName: 'Alice' }],
+              },
+              {
+                input: '@user2',
+                reason: 'User not found',
+                suggestions: [{ discordId: '2', username: 'bob', displayName: 'Bob' }],
+              },
+            ],
+            valid_participants: [],
+          },
+        },
+      },
+    });
+
+    renderWithAuth();
+
+    await waitFor(() => {
+      expect(screen.getByText('Default Game (Default)')).toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('textbox', { name: /game title/i })).toBeInTheDocument();
+    });
+
+    const titleInput = screen.getByRole('textbox', { name: /game title/i });
+    await user.clear(titleInput);
+    await user.paste('Test Game');
+
+    const descriptionInput = screen.getByRole('textbox', { name: /description/i });
+    await user.clear(descriptionInput);
+    await user.paste('Test Description');
+
+    const submitButton = screen.getByRole('button', { name: /create game/i });
+    await user.click(submitButton);
+
+    await waitFor(() => {
+      expect(screen.getByText('@user1')).toBeInTheDocument();
+      expect(screen.getByText('@user2')).toBeInTheDocument();
+    });
+
+    const aliceChip = screen.getByText('@alice (Alice)');
+    await user.click(aliceChip);
+
+    await waitFor(() => {
+      expect(screen.queryByText('@user1')).not.toBeInTheDocument();
+    });
+    expect(screen.getByText('@user2')).toBeInTheDocument();
+  });
+
   describe('remind_host_rewards in form submission', () => {
     const setupMocksAndRender = () => {
       vi.mocked(apiClient.get).mockImplementation((url: string) => {

@@ -467,6 +467,68 @@ describe('EditGame', () => {
     });
   });
 
+  it('participant suggestion click removes only that error in EditGame', async () => {
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url.includes('/games/')) return Promise.resolve({ data: mockGame });
+      if (url.includes('/channels')) return Promise.resolve({ data: mockChannels });
+      if (url.includes('/roles')) return Promise.resolve({ data: [] });
+      return Promise.reject(new Error('Unknown URL'));
+    });
+
+    vi.mocked(apiClient.put).mockRejectedValueOnce({
+      response: {
+        status: StatusCodes.UNPROCESSABLE_ENTITY,
+        data: {
+          detail: {
+            error: 'invalid_mentions',
+            message: 'Some mentions could not be resolved',
+            invalid_mentions: [
+              {
+                input: '@user1',
+                reason: 'User not found',
+                suggestions: [{ discordId: '1', username: 'alice', displayName: 'Alice' }],
+              },
+              {
+                input: '@user2',
+                reason: 'User not found',
+                suggestions: [{ discordId: '2', username: 'bob', displayName: 'Bob' }],
+              },
+            ],
+            valid_participants: [],
+          },
+        },
+      },
+    });
+
+    const user = userEvent.setup();
+
+    render(
+      <AuthContext.Provider value={mockAuthContextValue}>
+        <BrowserRouter>
+          <EditGame />
+        </BrowserRouter>
+      </AuthContext.Provider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('Test Game')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Save Changes'));
+
+    await waitFor(() => {
+      expect(screen.getByText('@user1')).toBeInTheDocument();
+      expect(screen.getByText('@user2')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('@alice (Alice)'));
+
+    await waitFor(() => {
+      expect(screen.queryByText('@user1')).not.toBeInTheDocument();
+    });
+    expect(screen.getByText('@user2')).toBeInTheDocument();
+  });
+
   it('calls PUT with archive_delay_seconds: 1 when Save and Archive is clicked', async () => {
     const gameWithRewards: GameSession = {
       ...mockGame,

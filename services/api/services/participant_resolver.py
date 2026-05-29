@@ -268,7 +268,12 @@ class ParticipantResolver:
             Tuple of (resolved_text, errors) where errors follow the same format
             as participant resolution errors.
         """
-        tokens = re.findall(r"@\w+", text)
+        # Scan for @mention tokens. Discord usernames allow word characters
+        # (\w = [a-zA-Z0-9_]) as well as interior periods (e.g. @foo.bar).
+        # Using @\w+(?:\.\w+)* matches period-separated word segments, which
+        # avoids consuming a trailing sentence-period (e.g. "...@bob." extracts
+        # @bob, not @bob.).
+        tokens = re.findall(r"@\w+(?:\.\w+)*", text)
         if not tokens:
             return text, []
 

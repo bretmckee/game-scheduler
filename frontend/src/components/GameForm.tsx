@@ -144,6 +144,26 @@ interface GameFormProps {
   onChannelValidationErrorClick?: (originalInput: string, newChannelName: string) => void;
 }
 
+/**
+ * Replace all exact occurrences of `token` in `text` with `replacement`,
+ * but only when the token is not immediately followed by a character that
+ * could be part of a longer mention.
+ *
+ * Discord usernames (and channel names) allow word characters (\w = [a-zA-Z0-9_])
+ * as well as periods (`.`), so "@foo" must NOT match inside "@foo.bar".
+ * The negative lookahead `(?![\w.])` stops the match when either a word
+ * character or a period follows, ensuring only the exact token is replaced.
+ */
+function replaceMentionToken(text: string, token: string, replacement: string): string {
+  // Escape all regex metacharacters in the token so it is treated as a
+  // literal string (e.g. "#general-chat" contains "-" which is safe, but
+  // "@foo.bar" contains "." which would otherwise match any character).
+  const escaped = token.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // (?![\w.]) — negative lookahead: fail if the next char is a word char or
+  // a period, both of which are valid continuation characters in a mention.
+  return text.replace(new RegExp(escaped + '(?![\\w.])', 'g'), replacement);
+}
+
 export const GameForm: FC<GameFormProps> = ({
   mode,
   initialData,
@@ -513,21 +533,28 @@ export const GameForm: FC<GameFormProps> = ({
     setFormData((prev) => ({
       ...prev,
       where: prev.where.trim() === originalInput.trim() ? newChannelName : prev.where,
+      description: replaceMentionToken(prev.description, originalInput, newChannelName),
+      signupInstructions: replaceMentionToken(
+        prev.signupInstructions,
+        originalInput,
+        newChannelName
+      ),
     }));
     onChannelValidationErrorClick?.(originalInput, newChannelName);
   };
 
   const handleSuggestionClick = (originalInput: string, newUsername: string) => {
-    const updatedParticipants = formData.participants.map((p) =>
-      p.mention.trim() === originalInput.trim()
-        ? { ...p, mention: newUsername, validationStatus: 'unknown' as const }
-        : p
-    );
-    setFormData((prev) => ({ ...prev, participants: updatedParticipants }));
-
-    if (onValidationErrorClick) {
-      onValidationErrorClick(originalInput, newUsername);
-    }
+    setFormData((prev) => ({
+      ...prev,
+      participants: prev.participants.map((p) =>
+        p.mention.trim() === originalInput.trim()
+          ? { ...p, mention: newUsername, validationStatus: 'unknown' as const }
+          : p
+      ),
+      description: replaceMentionToken(prev.description, originalInput, newUsername),
+      signupInstructions: replaceMentionToken(prev.signupInstructions, originalInput, newUsername),
+    }));
+    onValidationErrorClick?.(originalInput, newUsername);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

@@ -198,6 +198,110 @@ describe('GameForm Error Handling', () => {
 
       expect(onValidationErrorClick).toHaveBeenCalledWith('@oldname', '@newname');
     });
+
+    it('replaces @mention token in description and signupInstructions when suggestion is clicked', async () => {
+      const user = userEvent.setup();
+      const validationErrors = [
+        {
+          input: '@oldname',
+          reason: 'Username changed',
+          suggestions: [
+            {
+              discordId: '123',
+              username: 'newname',
+              displayName: 'New Name',
+            },
+          ],
+        },
+      ];
+
+      renderGameForm({
+        validationErrors,
+        initialData: {
+          description: 'Game hosted by @oldname, join now',
+          signup_instructions: 'Contact @oldname to reserve a spot',
+        },
+      });
+
+      const suggestionChip = screen.getByText(/@newname/i);
+      await user.click(suggestionChip);
+
+      const descriptionInput = screen.getByRole('textbox', { name: /description/i });
+      expect(descriptionInput).toHaveValue('Game hosted by @newname, join now');
+
+      const signupInput = screen.getByRole('textbox', { name: /signup instructions/i });
+      expect(signupInput).toHaveValue('Contact @newname to reserve a spot');
+    });
+
+    it('does not replace a longer @mention token with the same prefix', async () => {
+      const user = userEvent.setup();
+      const validationErrors = [
+        {
+          input: '@foo',
+          reason: 'Not found',
+          suggestions: [
+            {
+              discordId: '999',
+              username: 'alice',
+              displayName: 'Alice',
+            },
+          ],
+        },
+      ];
+
+      renderGameForm({
+        validationErrors,
+        initialData: {
+          // @foo.bar uses a period — valid in Discord usernames — and must not
+          // be treated as a prefix match for the shorter token @foo.
+          description: 'Contact @foo and also @foobar and @foo.bar today',
+          signup_instructions: '',
+        },
+      });
+
+      const suggestionChip = screen.getByText(/@alice/i);
+      await user.click(suggestionChip);
+
+      const descriptionInput = screen.getByRole('textbox', { name: /description/i });
+      // @foo (standalone) is replaced; @foobar and @foo.bar are left untouched
+      expect(descriptionInput).toHaveValue('Contact @alice and also @foobar and @foo.bar today');
+    });
+
+    it('@foo and @foo.bar in the same text are replaced independently', async () => {
+      // Regression: selecting @foo.bar as the replacement for @foo must not
+      // cause a re-submission to prompt again because @foo is found inside
+      // the newly-written @foo.bar.
+      const user = userEvent.setup();
+      const validationErrors = [
+        {
+          input: '@foo',
+          reason: 'Ambiguous',
+          suggestions: [
+            {
+              discordId: '222',
+              username: 'foo.bar',
+              displayName: 'Foo Bar',
+            },
+          ],
+        },
+      ];
+
+      renderGameForm({
+        validationErrors,
+        initialData: {
+          description: 'Contact @foo and @foo.bar today',
+          signup_instructions: '',
+        },
+      });
+
+      // User picks @foo.bar as the intended replacement for @foo
+      const suggestionChip = screen.getByText(/@foo\.bar \(Foo Bar\)/);
+      await user.click(suggestionChip);
+
+      const descriptionInput = screen.getByRole('textbox', { name: /description/i });
+      // The standalone @foo is replaced; the existing @foo.bar is untouched
+      expect(descriptionInput).toHaveValue('Contact @foo.bar and @foo.bar today');
+    });
   });
 
   describe('Image Upload Validation', () => {

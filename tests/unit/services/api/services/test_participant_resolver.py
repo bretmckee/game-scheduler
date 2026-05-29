@@ -1099,3 +1099,87 @@ async def test_resolve_mentions_in_text_multiple_tokens_all_resolved(resolver):
     assert resolved == "Contact <@111> or <@222>."
     assert errors == []
     assert call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_resolve_mentions_in_text_period_username_not_split(resolver):
+    """@foo.bar must be treated as a single token, not as @foo followed by .bar."""
+    member = {
+        "uid": "333",
+        "username": "foo.bar",
+        "global_name": "Foo Bar",
+        "nick": None,
+        "roles": [],
+        "avatar_url": None,
+    }
+    with (
+        patch(
+            "services.api.services.participant_resolver.cache_client.get_redis_client",
+            new_callable=AsyncMock,
+            return_value=AsyncMock(),
+        ),
+        patch(
+            "services.api.services.participant_resolver.member_projection.search_members_by_prefix",
+            new_callable=AsyncMock,
+            return_value=[member],
+        ),
+    ):
+        resolved, errors = await resolver.resolve_mentions_in_text(
+            "Ask @foo.bar for help.", "123456789"
+        )
+
+    assert resolved == "Ask <@333> for help."
+    assert errors == []
+
+
+@pytest.mark.asyncio
+async def test_resolve_mentions_in_text_prefix_and_dotted_variant_are_independent(resolver):
+    """
+    @foo and @foo.bar in the same text are two independent tokens.
+
+    This is the regression case for the bug where a user replaced @foo with
+    @foo.bar (via suggestion), then re-submitted only to be prompted again
+    because the old @word+ scanner extracted @foo from inside @foo.bar.
+    """
+    foo_member = {
+        "uid": "111",
+        "username": "foo",
+        "global_name": "Foo",
+        "nick": None,
+        "roles": [],
+        "avatar_url": None,
+    }
+    foo_bar_member = {
+        "uid": "222",
+        "username": "foo.bar",
+        "global_name": "Foo Bar",
+        "nick": None,
+        "roles": [],
+        "avatar_url": None,
+    }
+
+    async def _search(guild_id, prefix, redis):
+        if prefix == "foo.bar":
+            return [foo_bar_member]
+        if prefix == "foo":
+            return [foo_member]
+        return []
+
+    with (
+        patch(
+            "services.api.services.participant_resolver.cache_client.get_redis_client",
+            new_callable=AsyncMock,
+            return_value=AsyncMock(),
+        ),
+        patch(
+            "services.api.services.participant_resolver.member_projection.search_members_by_prefix",
+            new_callable=AsyncMock,
+            side_effect=_search,
+        ),
+    ):
+        resolved, errors = await resolver.resolve_mentions_in_text(
+            "Contact @foo and @foo.bar today.", "123456789"
+        )
+
+    assert resolved == "Contact <@111> and <@222> today."
+    assert errors == []

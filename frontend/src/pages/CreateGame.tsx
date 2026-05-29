@@ -248,17 +248,25 @@ export const CreateGame: FC = () => {
       ) {
         const errorData = (err as any).response.data.detail as ValidationErrorResponse;
 
-        // Separate participant and channel validation errors
+        // Separate participant and channel validation errors, deduplicating by input
         const participantErrors: ValidationError[] = [];
         const channelErrors: ChannelValidationError[] = [];
+        const seenParticipant = new Set<string>();
+        const seenChannel = new Set<string>();
 
         errorData.invalid_mentions.forEach((mention: any) => {
           if (mention.type) {
             // Channel validation error (has 'type' field)
-            channelErrors.push(mention as ChannelValidationError);
+            if (!seenChannel.has(mention.input)) {
+              seenChannel.add(mention.input);
+              channelErrors.push(mention as ChannelValidationError);
+            }
           } else {
             // Participant validation error (no 'type' field)
-            participantErrors.push(mention as ValidationError);
+            if (!seenParticipant.has(mention.input)) {
+              seenParticipant.add(mention.input);
+              participantErrors.push(mention as ValidationError);
+            }
           }
         });
 
@@ -281,14 +289,20 @@ export const CreateGame: FC = () => {
     }
   };
 
-  const handleSuggestionClick = (_originalInput: string, _newUsername: string) => {
-    setValidationErrors(null);
+  const handleSuggestionClick = (originalInput: string, _newUsername: string) => {
+    setValidationErrors((prev) => {
+      const updated = (prev ?? []).filter((e) => e.input !== originalInput);
+      return updated.length > 0 ? updated : null;
+    });
     setValidParticipants(null);
     setError(null);
   };
 
-  const handleChannelSuggestionClick = (_originalInput: string, _newChannelName: string) => {
-    setChannelValidationErrors(null);
+  const handleChannelSuggestionClick = (originalInput: string, _newChannelName: string) => {
+    setChannelValidationErrors((prev) => {
+      const updated = (prev ?? []).filter((e) => e.input !== originalInput);
+      return updated.length > 0 ? updated : null;
+    });
     setError(null);
   };
 
