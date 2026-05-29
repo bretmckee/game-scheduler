@@ -22,11 +22,13 @@ import uuid
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from fastapi import HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.status import HTTP_404_NOT_FOUND
 
-from services.api.routes.public import get_image, head_image
+from services.api.routes.public import get_image, head_image, router
+from shared.database import get_db
 from shared.models.game_image import GameImage
 
 
@@ -64,7 +66,7 @@ async def test_get_image_success(mock_request, mock_db, sample_image):
     mock_result.scalar_one_or_none.return_value = sample_image
     mock_db.execute.return_value = mock_result
 
-    response = await get_image(mock_request, sample_image.id, mock_db)
+    response = await get_image(mock_request, str(sample_image.id), mock_db)
 
     assert response.status_code == 200
     assert response.body == b"fake image data"
@@ -82,7 +84,7 @@ async def test_get_image_not_found(mock_request, mock_db):
 
     image_id = uuid.uuid4()
     with pytest.raises(HTTPException) as exc_info:
-        await get_image(mock_request, image_id, mock_db)
+        await get_image(mock_request, str(image_id), mock_db)
 
     assert exc_info.value.status_code == HTTP_404_NOT_FOUND
 
@@ -94,7 +96,7 @@ async def test_get_image_database_error(mock_request, mock_db):
 
     image_id = uuid.uuid4()
     with pytest.raises(Exception, match="Database connection failed"):
-        await get_image(mock_request, image_id, mock_db)
+        await get_image(mock_request, str(image_id), mock_db)
 
 
 @pytest.mark.asyncio
@@ -104,7 +106,7 @@ async def test_head_image_success(mock_request, mock_db, sample_image):
     mock_result.scalar_one_or_none.return_value = sample_image
     mock_db.execute.return_value = mock_result
 
-    response = await head_image(mock_request, sample_image.id, mock_db)
+    response = await head_image(mock_request, str(sample_image.id), mock_db)
 
     assert response.status_code == 200
     assert response.body == b""
@@ -122,7 +124,7 @@ async def test_head_image_not_found(mock_request, mock_db):
 
     image_id = uuid.uuid4()
     with pytest.raises(HTTPException) as exc_info:
-        await head_image(mock_request, image_id, mock_db)
+        await head_image(mock_request, str(image_id), mock_db)
 
     assert exc_info.value.status_code == HTTP_404_NOT_FOUND
 
@@ -134,4 +136,50 @@ async def test_head_image_database_error(mock_request, mock_db):
 
     image_id = uuid.uuid4()
     with pytest.raises(Exception, match="Database connection failed"):
-        await head_image(mock_request, image_id, mock_db)
+        await head_image(mock_request, str(image_id), mock_db)
+
+
+@pytest.fixture
+def public_app(sample_image):
+    """FastAPI test app with public router and mocked database."""
+    app = FastAPI()
+    app.include_router(router)
+
+    mock_db = AsyncMock(spec=AsyncSession)
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = sample_image
+    mock_db.execute.return_value = mock_result
+
+    async def override_get_db():
+        yield mock_db
+
+    app.dependency_overrides[get_db] = override_get_db
+    return app
+
+
+def test_get_image_with_gif_extension_returns_200(public_app, sample_image):
+    """Regression: GET with .gif extension returns 200."""
+    client = TestClient(public_app)
+    response = client.get(f"/api/v1/public/images/{sample_image.id}.gif")
+    assert response.status_code == 200
+
+
+def test_head_image_with_gif_extension_returns_200(public_app, sample_image):
+    """Regression: HEAD with .gif extension returns 200."""
+    client = TestClient(public_app)
+    response = client.head(f"/api/v1/public/images/{sample_image.id}.gif")
+    assert response.status_code == 200
+
+
+def test_get_image_with_invalid_uuid_returns_404(public_app):
+    """GET with non-UUID path segment returns 404."""
+    client = TestClient(public_app)
+    response = client.get("/api/v1/public/images/not-a-uuid.gif")
+    assert response.status_code == 404
+
+
+def test_head_image_with_invalid_uuid_returns_404(public_app):
+    """HEAD with non-UUID path segment returns 404."""
+    client = TestClient(public_app)
+    response = client.head("/api/v1/public/images/not-a-uuid.gif")
+    assert response.status_code == 404

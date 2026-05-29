@@ -1338,7 +1338,9 @@ class EventHandlers:
             host_display_name=host_display_name,
             host_avatar_url=host_avatar_url,
             thumbnail_id=str(game.thumbnail_id) if game.thumbnail_id else None,
+            thumbnail_mime_type=game.thumbnail.mime_type if game.thumbnail else None,
             banner_image_id=str(game.banner_image_id) if game.banner_image_id else None,
+            banner_image_mime_type=game.banner_image.mime_type if game.banner_image else None,
             guild_id=game.guild.guild_id if game.guild else None,
             rewards=game.rewards,
         )

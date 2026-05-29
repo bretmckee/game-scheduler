@@ -45,15 +45,15 @@ resolution, custom emoji resolution) and document one deprecated Discord pattern
 
 ## Implementation Checklist
 
-### [ ] Phase 1: GIF Animation Fix
+### [x] Phase 1: GIF Animation Fix
 
-- [ ] Task 1.1: Change `image_id` path parameter from `UUID` to `str` in `public.py` (GET and HEAD)
+- [x] Task 1.1: Change `image_id` path parameter from `UUID` to `str` in `public.py` (GET and HEAD)
   - Details: .copilot-tracking/planning/details/20260529-01-web-ui-game-creation-fixes-details.md (Lines 13-38)
 
-- [ ] Task 1.2: Add `_MIME_TO_EXT` map and update `format_game_announcement()` in `game_message.py`
+- [x] Task 1.2: Add `_MIME_TO_EXT` map and update `format_game_announcement()` in `game_message.py`
   - Details: .copilot-tracking/planning/details/20260529-01-web-ui-game-creation-fixes-details.md (Lines 39-65)
 
-- [ ] Task 1.3: Pass `thumbnail_mime_type` and `banner_image_mime_type` from loaded relationships in `handlers.py`
+- [x] Task 1.3: Pass `thumbnail_mime_type` and `banner_image_mime_type` from loaded relationships in `handlers.py`
   - Details: .copilot-tracking/planning/details/20260529-01-web-ui-game-creation-fixes-details.md (Lines 66-91)
 
 ### [ ] Phase 2: #channel Integer Passthrough Fix

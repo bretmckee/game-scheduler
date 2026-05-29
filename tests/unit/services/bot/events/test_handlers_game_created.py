@@ -163,3 +163,61 @@ async def test_get_bot_channel_invalid_type(event_handlers, mock_bot):
 
     assert result is None
     mock_bot.fetch_channel.assert_not_called()
+
+
+class TestCreateGameAnnouncementMimeTypes:
+    """Tests that _create_game_announcement passes MIME types to format_game_announcement."""
+
+    @pytest.mark.asyncio
+    async def test_thumbnail_mime_type_is_passed_to_formatter(
+        self, event_handlers, sample_game, sample_user
+    ):
+        """thumbnail.mime_type is forwarded to format_game_announcement."""
+        sample_game.host = sample_user
+        sample_game.participants = []
+        sample_game.thumbnail_id = uuid4()
+        mock_thumbnail = MagicMock()
+        mock_thumbnail.mime_type = "image/gif"
+        sample_game.thumbnail = mock_thumbnail
+        sample_game.banner_image = None
+
+        with (
+            patch("services.bot.events.handlers.format_game_announcement") as mock_fmt,
+            patch(
+                "services.bot.events.handlers.get_member_display_info",
+                return_value=(None, None),
+            ),
+        ):
+            mock_fmt.return_value = (None, MagicMock(), MagicMock())
+            await event_handlers._create_game_announcement(sample_game)
+
+        mock_fmt.assert_called_once()
+        _args, kwargs = mock_fmt.call_args
+        assert kwargs.get("thumbnail_mime_type") == "image/gif"
+
+    @pytest.mark.asyncio
+    async def test_banner_image_mime_type_is_passed_to_formatter(
+        self, event_handlers, sample_game, sample_user
+    ):
+        """banner_image.mime_type is forwarded to format_game_announcement."""
+        sample_game.host = sample_user
+        sample_game.participants = []
+        sample_game.banner_image_id = uuid4()
+        mock_banner = MagicMock()
+        mock_banner.mime_type = "image/png"
+        sample_game.banner_image = mock_banner
+        sample_game.thumbnail = None
+
+        with (
+            patch("services.bot.events.handlers.format_game_announcement") as mock_fmt,
+            patch(
+                "services.bot.events.handlers.get_member_display_info",
+                return_value=(None, None),
+            ),
+        ):
+            mock_fmt.return_value = (None, MagicMock(), MagicMock())
+            await event_handlers._create_game_announcement(sample_game)
+
+        mock_fmt.assert_called_once()
+        _args, kwargs = mock_fmt.call_args
+        assert kwargs.get("banner_image_mime_type") == "image/png"

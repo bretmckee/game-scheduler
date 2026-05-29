@@ -56,11 +56,13 @@ def _apply_rate_limits(func: Callable) -> Callable:
     return func
 
 
-@router.get("/{image_id}")
+@router.get("/{image_id_with_ext}")
 @_apply_rate_limits
 async def get_image(
     request: Request,
-    image_id: Annotated[UUID, Path(description="UUID of the image to retrieve")],
+    image_id_with_ext: Annotated[
+        str, Path(description="UUID of the image, optionally with a file extension")
+    ],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> Response:
     """
@@ -71,7 +73,8 @@ async def get_image(
     which has no RLS policies.
 
     Args:
-        image_id: UUID of the image to retrieve
+        image_id_with_ext: UUID of the image, optionally suffixed with a file extension
+            (e.g. ``{uuid}.gif``) so Discord animates GIFs correctly
         db: Database session
 
     Returns:
@@ -81,6 +84,7 @@ async def get_image(
         HTTPException: 404 if image not found
     """
     try:
+        image_id = UUID(image_id_with_ext.split(".")[0])
         logger.info("GET image request for %s from %s", image_id, get_remote_address(request))
 
         stmt = select(GameImage).where(GameImage.id == image_id)
@@ -105,16 +109,22 @@ async def get_image(
                 "Access-Control-Allow-Origin": "*",
             },
         )
+    except HTTPException:
+        raise
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Image not found") from None
     except Exception as e:
-        logger.exception("Error serving image %s: %s", image_id, e)
+        logger.exception("Error serving image %s: %s", image_id_with_ext, e)
         raise
 
 
-@router.head("/{image_id}")
+@router.head("/{image_id_with_ext}")
 @_apply_rate_limits
 async def head_image(
     request: Request,  # Required by slowapi for rate limiting  # noqa: ARG001
-    image_id: Annotated[UUID, Path(description="UUID of the image to retrieve")],
+    image_id_with_ext: Annotated[
+        str, Path(description="UUID of the image, optionally with a file extension")
+    ],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> Response:
     """
@@ -124,7 +134,7 @@ async def head_image(
     checking if an image exists and getting its content-type.
 
     Args:
-        image_id: UUID of the image to retrieve
+        image_id_with_ext: UUID of the image, optionally suffixed with a file extension
         db: Database session
 
     Returns:
@@ -133,6 +143,10 @@ async def head_image(
     Raises:
         HTTPException: 404 if image not found
     """
+    try:
+        image_id = UUID(image_id_with_ext.split(".")[0])
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Image not found") from None
     stmt = select(GameImage).where(GameImage.id == image_id)
     result = await db.execute(stmt)
     image = result.scalar_one_or_none()

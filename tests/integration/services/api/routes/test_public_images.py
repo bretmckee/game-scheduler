@@ -135,10 +135,36 @@ async def test_get_jpeg_image_correct_mime_type(
 
 
 @pytest.mark.asyncio
+async def test_get_image_with_extension_returns_data(
+    async_client: AsyncClient,
+    stored_png_image: str,
+) -> None:
+    """GET with a file extension suffix still serves the image correctly."""
+    response = await async_client.get(f"/api/v1/public/images/{stored_png_image}.png")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"
+    assert response.content == PNG_DATA
+
+
+@pytest.mark.asyncio
+async def test_head_image_with_extension_returns_headers(
+    async_client: AsyncClient,
+    stored_png_image: str,
+) -> None:
+    """HEAD with a file extension suffix returns correct headers."""
+    response = await async_client.head(f"/api/v1/public/images/{stored_png_image}.png")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"
+    assert len(response.content) == 0
+
+
+@pytest.mark.asyncio
 async def test_get_image_invalid_uuid_returns_404(
     async_client: AsyncClient,
 ) -> None:
-    """Invalid UUID format returns 422 Unprocessable Entity."""
+    """Invalid UUID format returns 404 Not Found."""
     response = await async_client.get("/api/v1/public/images/not-a-uuid")
 
-    assert response.status_code == 422
+    assert response.status_code == 404

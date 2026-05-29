@@ -1475,3 +1475,89 @@ class TestTrimEmbedIfNeeded:
         assert len(embed) <= DISCORD_EMBED_TOTAL_SAFE_LIMIT
         result = GameMessageFormatter._trim_embed_if_needed(embed)
         assert result.description == "A" * MAX_DESCRIPTION_LENGTH
+
+
+class TestFormatGameAnnouncementMimeTypes:
+    """Tests for MIME-type-based URL extension appended by format_game_announcement."""
+
+    _scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
+    _thumbnail_uuid = "00000000-0000-0000-0000-000000000001"
+    _banner_uuid = "00000000-0000-0000-0000-000000000002"
+
+    def _call(self, **extra):
+        return format_game_announcement(
+            game_id="game-123",
+            game_title="Test Game",
+            description="Desc",
+            scheduled_at=self._scheduled_at,
+            host_id="host-456",
+            participant_ids=[],
+            overflow_ids=[],
+            current_count=0,
+            max_players=5,
+            status="SCHEDULED",
+            signup_method="SELF_SIGNUP",
+            **extra,
+        )
+
+    def test_gif_thumbnail_mime_type_appends_gif_extension(self):
+        """GIF thumbnail MIME type produces a URL ending in .gif."""
+        mock_config = MagicMock()
+        mock_config.backend_url = "http://api"
+        with (
+            patch("services.bot.formatters.game_message.get_config", return_value=mock_config),
+            patch("services.bot.formatters.game_message.GameView"),
+        ):
+            _content, embed, _view = self._call(
+                thumbnail_id=self._thumbnail_uuid,
+                thumbnail_mime_type="image/gif",
+            )
+        assert embed.thumbnail.url.endswith(".gif"), (
+            f"Expected .gif extension, got: {embed.thumbnail.url}"
+        )
+
+    def test_png_thumbnail_mime_type_appends_png_extension(self):
+        """PNG thumbnail MIME type produces a URL ending in .png."""
+        mock_config = MagicMock()
+        mock_config.backend_url = "http://api"
+        with (
+            patch("services.bot.formatters.game_message.get_config", return_value=mock_config),
+            patch("services.bot.formatters.game_message.GameView"),
+        ):
+            _content, embed, _view = self._call(
+                thumbnail_id=self._thumbnail_uuid,
+                thumbnail_mime_type="image/png",
+            )
+        assert embed.thumbnail.url.endswith(".png"), (
+            f"Expected .png extension, got: {embed.thumbnail.url}"
+        )
+
+    def test_none_thumbnail_mime_type_produces_url_without_extension(self):
+        """None thumbnail MIME type produces a URL with no extension."""
+        mock_config = MagicMock()
+        mock_config.backend_url = "http://api"
+        with (
+            patch("services.bot.formatters.game_message.get_config", return_value=mock_config),
+            patch("services.bot.formatters.game_message.GameView"),
+        ):
+            _content, embed, _view = self._call(
+                thumbnail_id=self._thumbnail_uuid,
+                thumbnail_mime_type=None,
+            )
+        assert not any(
+            embed.thumbnail.url.endswith(ext) for ext in (".gif", ".png", ".jpg", ".webp")
+        ), f"Expected no extension, got: {embed.thumbnail.url}"
+
+    def test_gif_banner_mime_type_appends_gif_extension(self):
+        """GIF banner MIME type produces a banner URL ending in .gif."""
+        mock_config = MagicMock()
+        mock_config.backend_url = "http://api"
+        with (
+            patch("services.bot.formatters.game_message.get_config", return_value=mock_config),
+            patch("services.bot.formatters.game_message.GameView"),
+        ):
+            _content, embed, _view = self._call(
+                banner_image_id=self._banner_uuid,
+                banner_image_mime_type="image/gif",
+            )
+        assert embed.image.url.endswith(".gif"), f"Expected .gif extension, got: {embed.image.url}"

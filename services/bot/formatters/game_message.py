@@ -45,6 +45,13 @@ from shared.utils.limits import DISCORD_EMBED_TOTAL_SAFE_LIMIT, EMBED_FIELD_REWA
 
 logger = logging.getLogger(__name__)
 
+_MIME_TO_EXT: dict[str, str] = {
+    "image/gif": ".gif",
+    "image/png": ".png",
+    "image/jpeg": ".jpg",
+    "image/webp": ".webp",
+}
+
 
 class GameMessageFormatter:
     """Formatter for game session Discord messages.
@@ -377,6 +384,8 @@ def format_game_announcement(
     banner_image_id: str | None = None,
     guild_id: str | None = None,
     rewards: str | None = None,
+    thumbnail_mime_type: str | None = None,
+    banner_image_mime_type: str | None = None,
 ) -> tuple[str | None, discord.Embed, GameView]:
     """Format a complete game announcement with embed and buttons.
 
@@ -412,10 +421,12 @@ def format_game_announcement(
     image_url = None
 
     if thumbnail_id:
-        thumbnail_url = f"{config.backend_url}/api/v1/public/images/{thumbnail_id}"
+        ext = _MIME_TO_EXT.get(thumbnail_mime_type or "", "")
+        thumbnail_url = f"{config.backend_url}/api/v1/public/images/{thumbnail_id}{ext}"
 
     if banner_image_id:
-        image_url = f"{config.backend_url}/api/v1/public/images/{banner_image_id}"
+        ext = _MIME_TO_EXT.get(banner_image_mime_type or "", "")
+        image_url = f"{config.backend_url}/api/v1/public/images/{banner_image_id}{ext}"
 
     embed = formatter.create_game_embed(
         game_title=game_title,
