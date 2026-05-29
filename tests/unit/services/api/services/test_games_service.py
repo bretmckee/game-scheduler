@@ -1613,7 +1613,7 @@ async def test_create_game_with_valid_channel_mention(
 
     assert isinstance(game, game_model.GameSession)
     assert game.where == "Meet in <#123456789> lobby"
-    mock_channel_resolver.resolve_channel_mentions.assert_awaited_once_with(
+    mock_channel_resolver.resolve_channel_mentions.assert_any_await(
         "Meet in #general lobby",
         sample_guild.guild_id,
     )
@@ -1824,7 +1824,7 @@ async def test_create_game_with_plain_text_location_unchanged(
 
     assert isinstance(game, game_model.GameSession)
     assert game.where == "In-person at the office"
-    mock_channel_resolver.resolve_channel_mentions.assert_awaited_once_with(
+    mock_channel_resolver.resolve_channel_mentions.assert_any_await(
         "In-person at the office",
         sample_guild.guild_id,
     )
@@ -4488,3 +4488,360 @@ async def test_delete_game_internal_releases_images_and_publishes(
 
     assert mock_release.call_count == 2
     mock_db.delete.assert_awaited_once_with(mock_game)
+
+
+@pytest.mark.asyncio
+async def test_create_game_resolves_channel_mention_in_description(
+    game_service,
+    mock_db,
+    mock_event_publisher,
+    mock_participant_resolver,
+    mock_channel_resolver,
+    mock_role_service,
+    sample_template,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """Test creating a game with a channel mention in description resolves it."""
+    game_data = game_schemas.GameCreateRequest(
+        template_id=sample_template.id,
+        title="Test Game",
+        description="See #announcements for details",
+        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        max_players=4,
+        reminder_minutes=[60],
+    )
+
+    mock_channel_resolver.resolve_channel_mentions = AsyncMock(
+        return_value=("See <#111222333> for details", [])
+    )
+
+    created_game = game_model.GameSession(
+        id=str(uuid.uuid4()),
+        title="Test Game",
+        description="See <#111222333> for details",
+        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        guild_id=sample_guild.id,
+        channel_id=sample_channel.id,
+        host_id=sample_user.id,
+        status="SCHEDULED",
+        signup_method="SELF_SIGNUP",
+    )
+    created_game.host = sample_user
+    created_game.participants = []
+
+    setup_create_game_mocks(
+        mock_db,
+        sample_template,
+        sample_guild,
+        sample_user,
+        sample_channel,
+        created_game,
+    )
+
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
+        await game_service.create_game(
+            game_data=game_data,
+            host_user_id=sample_user.id,
+        )
+
+    mock_channel_resolver.resolve_channel_mentions.assert_any_await(
+        "See #announcements for details",
+        sample_guild.guild_id,
+    )
+
+
+@pytest.mark.asyncio
+async def test_create_game_with_invalid_channel_in_description_raises_validation_error(
+    game_service,
+    mock_db,
+    mock_event_publisher,
+    mock_participant_resolver,
+    mock_channel_resolver,
+    mock_role_service,
+    sample_template,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """Test that an invalid channel mention in description raises ValidationError."""
+    game_data = game_schemas.GameCreateRequest(
+        template_id=sample_template.id,
+        title="Test Game",
+        description="See #nonexistent for details",
+        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        max_players=4,
+        reminder_minutes=[60],
+    )
+
+    channel_errors = [
+        {
+            "type": "not_found",
+            "input": "#nonexistent",
+            "reason": "Channel '#nonexistent' not found",
+            "suggestions": [],
+        }
+    ]
+    mock_channel_resolver.resolve_channel_mentions = AsyncMock(
+        return_value=("See #nonexistent for details", channel_errors)
+    )
+
+    template_result = MagicMock()
+    template_result.scalar_one_or_none.return_value = sample_template
+    guild_result = MagicMock()
+    guild_result.scalar_one_or_none.return_value = sample_guild
+    channel_result = MagicMock()
+    channel_result.scalar_one_or_none.return_value = sample_channel
+    host_result = MagicMock()
+    host_result.scalar_one_or_none.return_value = sample_user
+    mock_db.execute = AsyncMock(
+        side_effect=[template_result, guild_result, channel_result, host_result]
+    )
+    mock_db.flush = AsyncMock()
+
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
+        with pytest.raises(resolver_module.ValidationError) as exc_info:
+            await game_service.create_game(
+                game_data=game_data,
+                host_user_id=sample_user.id,
+            )
+
+    assert exc_info.value.invalid_mentions == channel_errors
+    assert exc_info.value.valid_participants == []
+
+
+@pytest.mark.asyncio
+async def test_create_game_resolves_channel_mention_in_signup_instructions(
+    game_service,
+    mock_db,
+    mock_event_publisher,
+    mock_participant_resolver,
+    mock_channel_resolver,
+    mock_role_service,
+    sample_template,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """Test creating a game with a channel mention in signup_instructions resolves it."""
+    game_data = game_schemas.GameCreateRequest(
+        template_id=sample_template.id,
+        title="Test Game",
+        description="A game",
+        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        signup_instructions="Post in #signup-channel to join",
+        max_players=4,
+        reminder_minutes=[60],
+    )
+
+    mock_channel_resolver.resolve_channel_mentions = AsyncMock(
+        return_value=("Post in <#555666777> to join", [])
+    )
+
+    created_game = game_model.GameSession(
+        id=str(uuid.uuid4()),
+        title="Test Game",
+        description="A game",
+        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        signup_instructions="Post in <#555666777> to join",
+        guild_id=sample_guild.id,
+        channel_id=sample_channel.id,
+        host_id=sample_user.id,
+        status="SCHEDULED",
+        signup_method="SELF_SIGNUP",
+    )
+    created_game.host = sample_user
+    created_game.participants = []
+
+    setup_create_game_mocks(
+        mock_db,
+        sample_template,
+        sample_guild,
+        sample_user,
+        sample_channel,
+        created_game,
+    )
+
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
+        await game_service.create_game(
+            game_data=game_data,
+            host_user_id=sample_user.id,
+        )
+
+    mock_channel_resolver.resolve_channel_mentions.assert_any_await(
+        "Post in #signup-channel to join",
+        sample_guild.guild_id,
+    )
+
+
+@pytest.mark.asyncio
+async def test_create_game_with_invalid_channel_in_signup_instructions_raises_validation_error(
+    game_service,
+    mock_db,
+    mock_event_publisher,
+    mock_participant_resolver,
+    mock_channel_resolver,
+    mock_role_service,
+    sample_template,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """Test that an invalid channel in signup_instructions raises ValidationError."""
+    game_data = game_schemas.GameCreateRequest(
+        template_id=sample_template.id,
+        title="Test Game",
+        description="A game",
+        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        signup_instructions="Post in #nonexistent-channel to join",
+        max_players=4,
+        reminder_minutes=[60],
+    )
+
+    channel_errors = [
+        {
+            "type": "not_found",
+            "input": "#nonexistent-channel",
+            "reason": "Channel '#nonexistent-channel' not found",
+            "suggestions": [],
+        }
+    ]
+    mock_channel_resolver.resolve_channel_mentions = AsyncMock(
+        return_value=("Post in #nonexistent-channel to join", channel_errors)
+    )
+
+    template_result = MagicMock()
+    template_result.scalar_one_or_none.return_value = sample_template
+    guild_result = MagicMock()
+    guild_result.scalar_one_or_none.return_value = sample_guild
+    channel_result = MagicMock()
+    channel_result.scalar_one_or_none.return_value = sample_channel
+    host_result = MagicMock()
+    host_result.scalar_one_or_none.return_value = sample_user
+    mock_db.execute = AsyncMock(
+        side_effect=[template_result, guild_result, channel_result, host_result]
+    )
+    mock_db.flush = AsyncMock()
+
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
+        with pytest.raises(resolver_module.ValidationError) as exc_info:
+            await game_service.create_game(
+                game_data=game_data,
+                host_user_id=sample_user.id,
+            )
+
+    assert exc_info.value.invalid_mentions == channel_errors
+    assert exc_info.value.valid_participants == []
+
+
+@pytest.mark.asyncio
+async def test_update_game_resolves_channel_mention_in_description(
+    game_service,
+    mock_db,
+    mock_channel_resolver,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """Test updating a game with a channel mention in description resolves it."""
+    game_id = str(uuid.uuid4())
+    mock_game = game_model.GameSession(
+        id=game_id,
+        title="Test Game",
+        description="Original description",
+        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        guild_id=sample_guild.id,
+        channel_id=sample_channel.id,
+        host_id=sample_user.id,
+        max_players=5,
+        status="SCHEDULED",
+        participants=[],
+    )
+    mock_game.host = sample_user
+    mock_game.guild = sample_guild
+    mock_game.channel = sample_channel
+
+    mock_channel_resolver.resolve_channel_mentions = AsyncMock(
+        return_value=("See <#987654321> for info", [])
+    )
+
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = mock_game
+    mock_db.execute.return_value = mock_result
+    mock_db.refresh = AsyncMock()
+
+    update_data = game_schemas.GameUpdateRequest(description="See #general for info")
+
+    mock_current_user = MagicMock()
+    mock_current_user.user.discord_id = sample_user.discord_id
+    mock_role_service = AsyncMock()
+
+    with patch("services.api.dependencies.permissions.can_manage_game", return_value=True):
+        await game_service.update_game(
+            game_id=game_id,
+            update_data=update_data,
+            current_user=mock_current_user,
+            role_service=mock_role_service,
+        )
+
+    mock_channel_resolver.resolve_channel_mentions.assert_any_call(
+        "See #general for info", sample_guild.guild_id
+    )
+    assert mock_game.description == "See <#987654321> for info"
+
+
+@pytest.mark.asyncio
+async def test_update_game_resolves_channel_mention_in_signup_instructions(
+    game_service,
+    mock_db,
+    mock_channel_resolver,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """Test updating a game with a channel mention in signup_instructions resolves it."""
+    game_id = str(uuid.uuid4())
+    mock_game = game_model.GameSession(
+        id=game_id,
+        title="Test Game",
+        signup_instructions="Original instructions",
+        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        guild_id=sample_guild.id,
+        channel_id=sample_channel.id,
+        host_id=sample_user.id,
+        max_players=5,
+        status="SCHEDULED",
+        participants=[],
+    )
+    mock_game.host = sample_user
+    mock_game.guild = sample_guild
+    mock_game.channel = sample_channel
+
+    mock_channel_resolver.resolve_channel_mentions = AsyncMock(
+        return_value=("Sign up in <#111222333>", [])
+    )
+
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = mock_game
+    mock_db.execute.return_value = mock_result
+    mock_db.refresh = AsyncMock()
+
+    update_data = game_schemas.GameUpdateRequest(signup_instructions="Sign up in #signup-channel")
+
+    mock_current_user = MagicMock()
+    mock_current_user.user.discord_id = sample_user.discord_id
+    mock_role_service = AsyncMock()
+
+    with patch("services.api.dependencies.permissions.can_manage_game", return_value=True):
+        await game_service.update_game(
+            game_id=game_id,
+            update_data=update_data,
+            current_user=mock_current_user,
+            role_service=mock_role_service,
+        )
+
+    mock_channel_resolver.resolve_channel_mentions.assert_any_call(
+        "Sign up in #signup-channel", sample_guild.guild_id
+    )
+    assert mock_game.signup_instructions == "Sign up in <#111222333>"

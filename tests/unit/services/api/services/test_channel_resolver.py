@@ -499,6 +499,67 @@ async def test_resolve_snowflake_token_unknown_id(resolver, mock_discord_client)
     assert errors[0]["input"] == "<#999999999999999999>"
 
 
+# ---------------------------------------------------------------------------
+# Integer token passthrough tests (Task 2.1)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_integer_hash_token_passes_through_unchanged(resolver, mock_discord_client):
+    """#<integer> tokens pass through without error when no channel with that name exists."""
+    mock_discord_client.get_guild_channels = AsyncMock(
+        return_value=[
+            {"id": "123456789", "name": "general", "type": 0},
+        ]
+    )
+
+    resolved_text, errors = await resolver.resolve_channel_mentions(
+        location_text="See step #1 for details",
+        guild_discord_id="guild123",
+    )
+
+    assert resolved_text == "See step #1 for details"
+    assert len(errors) == 0
+
+
+@pytest.mark.asyncio
+async def test_multiple_integer_hash_tokens_pass_through(resolver, mock_discord_client):
+    """Multiple #<integer> tokens all pass through without errors."""
+    mock_discord_client.get_guild_channels = AsyncMock(
+        return_value=[
+            {"id": "123456789", "name": "general", "type": 0},
+        ]
+    )
+
+    resolved_text, errors = await resolver.resolve_channel_mentions(
+        location_text="Steps: #1 then #42 then #100",
+        guild_discord_id="guild123",
+    )
+
+    assert resolved_text == "Steps: #1 then #42 then #100"
+    assert len(errors) == 0
+
+
+@pytest.mark.asyncio
+async def test_non_integer_unknown_channel_still_errors(resolver, mock_discord_client):
+    """#<non-integer> tokens that don't match a channel name still produce not_found errors."""
+    mock_discord_client.get_guild_channels = AsyncMock(
+        return_value=[
+            {"id": "123456789", "name": "general", "type": 0},
+        ]
+    )
+
+    resolved_text, errors = await resolver.resolve_channel_mentions(
+        location_text="Meet in #unknown-channel",
+        guild_discord_id="guild123",
+    )
+
+    assert resolved_text == "Meet in #unknown-channel"
+    assert len(errors) == 1
+    assert errors[0]["type"] == "not_found"
+    assert errors[0]["input"] == "#unknown-channel"
+
+
 def test_render_where_display_none_input():
     """render_where_display returns None when where is None."""
     result = resolver_module.render_where_display(None, [{"id": "123", "name": "general"}])

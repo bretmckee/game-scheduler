@@ -56,12 +56,12 @@ resolution, custom emoji resolution) and document one deprecated Discord pattern
 - [x] Task 1.3: Pass `thumbnail_mime_type` and `banner_image_mime_type` from loaded relationships in `handlers.py`
   - Details: .copilot-tracking/planning/details/20260529-01-web-ui-game-creation-fixes-details.md (Lines 66-91)
 
-### [ ] Phase 2: #channel Integer Passthrough Fix
+### [x] Phase 2: #channel Integer Passthrough Fix
 
-- [ ] Task 2.1: Add `channel_name.isdigit()` passthrough in `resolve_channel_mentions()` not-found branch
+- [x] Task 2.1: Add `channel_name.isdigit()` passthrough in `resolve_channel_mentions()` not-found branch
   - Details: .copilot-tracking/planning/details/20260529-01-web-ui-game-creation-fixes-details.md (Lines 94-121)
 
-- [ ] Task 2.2: Apply `resolve_channel_mentions()` to `description` and `signup_instructions` in `games.py`
+- [x] Task 2.2: Apply `resolve_channel_mentions()` to `description` and `signup_instructions` in `games.py`
   - Details: .copilot-tracking/planning/details/20260529-01-web-ui-game-creation-fixes-details.md (Lines 122-145)
 
 ### [ ] Phase 3: @mention Resolution in Free-Text Fields

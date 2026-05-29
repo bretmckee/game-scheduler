@@ -122,6 +122,10 @@ class ChannelResolver:
                     ],
                 })
             else:
+                # Pure integers (e.g. #1, #42) are likely list markers, not channel
+                # references. Pass them through unchanged rather than erroring.
+                if channel_name.isdigit():
+                    continue
                 similar_channels = [
                     ch for ch in text_channels if channel_name.lower() in ch["name"].lower()
                 ][:5]

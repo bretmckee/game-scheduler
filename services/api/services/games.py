@@ -526,7 +526,7 @@ class GameService:
         return game_model.GameSession(
             id=game_model.generate_uuid(),
             title=game_data.title,
-            description=game_data.description,
+            description=resolved_fields.get("description", game_data.description),
             signup_instructions=resolved_fields["signup_instructions"],
             scheduled_at=scheduled_at_naive,
             where=resolved_fields["where"],
@@ -635,24 +635,37 @@ class GameService:
 
         # Resolve field values from request and template
         resolved_fields = self._resolve_template_fields(game_data, template)
+        resolved_fields["description"] = game_data.description
 
-        # Resolve channel mentions in location field
+        # Resolve channel mentions in free-text fields, accumulating all errors.
+        # where: always resolve when present (existing behaviour).
+        # description/signup_instructions: only resolve when '#' is present to
+        # avoid unnecessary resolver calls and preserve existing test contracts.
+        all_channel_errors: list[dict] = []
+
         if resolved_fields["where"]:
-            (
-                resolved_location,
-                channel_errors,
-            ) = await self.channel_resolver.resolve_channel_mentions(
+            resolved_value, errors = await self.channel_resolver.resolve_channel_mentions(
                 resolved_fields["where"],
                 guild_config.guild_id,
             )
+            resolved_fields["where"] = resolved_value
+            all_channel_errors.extend(errors)
 
-            if channel_errors:
-                raise resolver_module.ValidationError(
-                    invalid_mentions=channel_errors,
-                    valid_participants=[],
+        for field_key in ("description", "signup_instructions"):
+            value = resolved_fields[field_key]
+            if value and "#" in value:
+                resolved_value, errors = await self.channel_resolver.resolve_channel_mentions(
+                    value,
+                    guild_config.guild_id,
                 )
+                resolved_fields[field_key] = resolved_value
+                all_channel_errors.extend(errors)
 
-            resolved_fields["where"] = resolved_location
+        if all_channel_errors:
+            raise resolver_module.ValidationError(
+                invalid_mentions=all_channel_errors,
+                valid_participants=[],
+            )
 
         # Resolve initial participants if provided
         valid_participants: list[dict[str, Any]] = []
@@ -1727,6 +1740,55 @@ class GameService:
                 promoted_discord_ids=promoted_discord_ids,
             )
 
+    async def _resolve_channel_mentions_for_update(
+        self,
+        game: game_model.GameSession,
+        update_data: game_schemas.GameUpdateRequest,
+    ) -> None:
+        """
+        Resolve channel mentions in updated free-text fields and mutate game in place.
+
+        Resolves where (always, when updated), description and signup_instructions
+        (only when '#' is present). Raises ValidationError if any channel mentions
+        cannot be resolved.
+
+        Args:
+            game: Game session to mutate
+            update_data: Incoming update data
+
+        Raises:
+            resolver_module.ValidationError: If any channel mentions cannot be resolved
+        """
+        all_channel_errors: list[dict] = []
+
+        if update_data.where is not None and game.where:
+            resolved_value, errors = await self.channel_resolver.resolve_channel_mentions(
+                game.where,
+                game.guild.guild_id,
+            )
+            game.where = resolved_value
+            all_channel_errors.extend(errors)
+
+        for field_name, is_updated in (
+            ("description", update_data.description is not None),
+            ("signup_instructions", update_data.signup_instructions is not None),
+        ):
+            if is_updated:
+                current_value = getattr(game, field_name)
+                if current_value and "#" in current_value:
+                    resolved_value, errors = await self.channel_resolver.resolve_channel_mentions(
+                        current_value,
+                        game.guild.guild_id,
+                    )
+                    setattr(game, field_name, resolved_value)
+                    all_channel_errors.extend(errors)
+
+        if all_channel_errors:
+            raise resolver_module.ValidationError(
+                invalid_mentions=all_channel_errors,
+                valid_participants=[],
+            )
+
     async def update_game(
         self,
         game_id: str,
@@ -1796,23 +1858,8 @@ class GameService:
             game, update_data
         )
 
-        # Resolve channel mentions in location field
-        if update_data.where is not None:
-            (
-                resolved_location,
-                channel_errors,
-            ) = await self.channel_resolver.resolve_channel_mentions(
-                game.where,
-                game.guild.guild_id,
-            )
-
-            if channel_errors:
-                raise resolver_module.ValidationError(
-                    invalid_mentions=channel_errors,
-                    valid_participants=[],
-                )
-
-            game.where = resolved_location
+        # Resolve channel mentions in updated free-text fields
+        await self._resolve_channel_mentions_for_update(game, update_data)
 
         # Update images if provided
         await self._update_image_fields(

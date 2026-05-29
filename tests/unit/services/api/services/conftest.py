@@ -101,8 +101,10 @@ def mock_participant_resolver():
 
 @pytest.fixture
 def mock_channel_resolver():
-    """Mock channel resolver."""
-    return AsyncMock(spec=channel_resolver_module.ChannelResolver)
+    """Mock channel resolver with a passthrough default: returns input unchanged, no errors."""
+    mock = AsyncMock(spec=channel_resolver_module.ChannelResolver)
+    mock.resolve_channel_mentions.side_effect = lambda text, guild_id: (text, [])
+    return mock
 
 
 @pytest.fixture
