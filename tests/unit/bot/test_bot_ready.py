@@ -395,3 +395,23 @@ async def test_on_ready_excludes_non_postable_channels_from_guild_channels_key(
         [{"id": str(postable_ch.id), "name": postable_ch.name, "type": postable_ch.type.value}],
         CacheTTL.DISCORD_GUILD_CHANNELS,
     )
+
+
+@pytest.mark.asyncio
+async def test_on_ready_writes_guild_emojis_key(bot, mock_redis, on_ready_env) -> None:
+    """on_ready writes discord:guild_emojis:{id} with emoji list for each guild."""
+    guild = on_ready_env
+    emoji = MagicMock()
+    emoji.id = 9001
+    emoji.name = "wave"
+    emoji.animated = False
+    guild.emojis = [emoji]
+
+    with patch("services.bot.bot.guild_projection.repopulate_all", new_callable=AsyncMock):
+        await bot.on_ready()
+
+    mock_redis.set_json.assert_any_call(
+        CacheKeys.discord_guild_emojis(str(guild.id)),
+        [{"id": "9001", "name": "wave", "animated": False}],
+        CacheTTL.DISCORD_GUILD_EMOJIS,
+    )

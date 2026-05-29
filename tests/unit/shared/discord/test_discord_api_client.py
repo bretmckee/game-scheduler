@@ -1420,3 +1420,31 @@ class TestPhase6CacheOnlyBehavior:
         assert exc_info.value.status == 503
         assert discord_client._session is None
         mock_get_redis.assert_called_once_with()
+
+    @pytest.mark.asyncio
+    async def test_get_guild_emojis_returns_list_on_cache_hit(self, discord_client, mock_redis):
+        """get_guild_emojis returns emoji list from Redis cache."""
+        emoji_data = [{"id": "111", "name": "wave", "animated": False}]
+        mock_redis.get = AsyncMock(return_value=json.dumps(emoji_data))
+
+        with patch("shared.discord.client.cache_client.get_redis_client") as mock_get_redis:
+            mock_get_redis.return_value = mock_redis
+            result = await discord_client.get_guild_emojis("guild123")
+
+        assert result == emoji_data
+        mock_get_redis.assert_called_once_with()
+
+    @pytest.mark.asyncio
+    async def test_get_guild_emojis_cache_miss_raises_503(self, discord_client, mock_redis):
+        """get_guild_emojis raises DiscordAPIError(503) on cache miss; no REST call made."""
+        mock_redis.get = AsyncMock(return_value=None)
+
+        with patch("shared.discord.client.cache_client.get_redis_client") as mock_get_redis:
+            mock_get_redis.return_value = mock_redis
+
+            with pytest.raises(DiscordAPIError) as exc_info:
+                await discord_client.get_guild_emojis("guild123")
+
+        assert exc_info.value.status == 503
+        assert discord_client._session is None
+        mock_get_redis.assert_called_once_with()

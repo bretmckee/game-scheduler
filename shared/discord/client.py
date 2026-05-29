@@ -456,6 +456,30 @@ class DiscordAPIClient:
             ),
         )
 
+    async def get_guild_emojis(self, guild_id: str) -> list[dict[str, Any]]:
+        """
+        Fetch all custom emojis in a guild from the Redis gateway cache.
+
+        The bot keeps this key current via guild emoji update gateway events.
+        A cache miss means the bot is not yet connected — raises 503 instead of REST fallback.
+
+        Args:
+            guild_id: Discord guild (server) ID
+
+        Returns:
+            List of emoji objects with id, name, animated fields.
+
+        Raises:
+            DiscordAPIError: 503 if guild emojis are not in the gateway cache
+        """
+        return cast(
+            "list[dict[str, Any]]",
+            await self._read_cache_only(
+                cache_keys.CacheKeys.discord_guild_emojis(guild_id),
+                CacheOperation.FETCH_GUILD_EMOJIS,
+            ),
+        )
+
     async def fetch_channel(self, channel_id: str) -> dict[str, Any]:
         """
         Fetch channel information from the Redis gateway cache.

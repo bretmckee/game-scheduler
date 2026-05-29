@@ -143,3 +143,18 @@ async def test_startup_cache_known_role_id_in_guild_roles(
     assert role_id in cached_role_ids, (
         f"DISCORD_TEST_ROLE_A_ID {role_id!r} not found in cached guild roles: {cached_role_ids}"
     )
+
+
+async def test_startup_cache_guild_emojis_key_written(
+    redis: RedisClient,
+    discord_ids: DiscordTestEnvironment,
+) -> None:
+    """Verify discord:guild_emojis:{guild_id} is populated by on_ready.
+
+    The key must exist and be a list (may be empty if the guild has no custom emojis).
+    """
+    key = cache_keys.CacheKeys.discord_guild_emojis(discord_ids.guild_a_id)
+    data = await redis.get_json(key)
+
+    assert data is not None, f"Expected Redis key {key!r} to be populated by on_ready"
+    assert isinstance(data, list), f"Expected list, got {type(data).__name__}"

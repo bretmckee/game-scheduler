@@ -303,3 +303,41 @@ async def test_on_guild_role_delete_writes_roles_list(
         CacheTTL.DISCORD_GUILD_ROLES,
     )
     mock_redis.delete.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Emoji event handler
+# ---------------------------------------------------------------------------
+
+
+def _make_emoji(emoji_id: int, name: str, animated: bool = False) -> MagicMock:
+    emoji = MagicMock(spec=discord.Emoji)
+    emoji.id = emoji_id
+    emoji.name = name
+    emoji.animated = animated
+    return emoji
+
+
+@pytest.mark.asyncio
+async def test_on_guild_emojis_update_writes_emoji_cache(
+    bot: GameSchedulerBot, mock_redis: AsyncMock
+) -> None:
+    """on_guild_emojis_update rewrites discord:guild_emojis:{guild_id} with current list."""
+    guild = MagicMock()
+    guild.id = 111
+    before = [_make_emoji(1, "wave")]
+    after = [_make_emoji(1, "wave"), _make_emoji(2, "dance", animated=True)]
+
+    with patch(
+        "services.bot.bot.get_redis_client", new_callable=AsyncMock, return_value=mock_redis
+    ):
+        await bot.on_guild_emojis_update(guild, before, after)
+
+    mock_redis.set_json.assert_called_once_with(
+        CacheKeys.discord_guild_emojis(str(guild.id)),
+        [
+            {"id": "1", "name": "wave", "animated": False},
+            {"id": "2", "name": "dance", "animated": True},
+        ],
+        CacheTTL.DISCORD_GUILD_EMOJIS,
+    )

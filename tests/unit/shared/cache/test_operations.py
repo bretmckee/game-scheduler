@@ -31,6 +31,7 @@ _EXPECTED_OPERATIONS = {
     "fetch_channel",
     "fetch_guild_roles",
     "fetch_guild_channels",
+    "fetch_guild_emojis",
     "get_application_info",
     "user_roles_api",
     "display_name",

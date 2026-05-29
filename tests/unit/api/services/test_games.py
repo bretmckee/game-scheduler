@@ -37,6 +37,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from services.api.schemas.clone_game import CarryoverOption, CloneGameRequest
+from services.api.services import emoji_resolver as emoji_resolver_module
 from services.api.services import participant_resolver as resolver_module
 from services.api.services.games import GameService
 from shared.models import game as game_model
@@ -782,3 +783,31 @@ class TestUpdatePrefilledParticipants:
         participant_added = mock_db.add.call_args[0][0]
         assert participant_added.game_session_id == "game-uuid-1"
         assert participant_added.user_id == "user-uuid"
+
+
+# ---------------------------------------------------------------------------
+# Emoji resolution in _resolve_mentions_in_fields
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_emoji_in_description_is_resolved(game_service) -> None:
+    """When description contains :emoji_name:, emoji_resolver is called and result applied."""
+    mock_emoji_resolver = AsyncMock(spec=emoji_resolver_module.EmojiResolver)
+    mock_emoji_resolver.resolve_emoji_mentions = AsyncMock(return_value=("Hello <:wave:111>", []))
+    game_service.emoji_resolver = mock_emoji_resolver
+
+    resolved_fields: dict = {
+        "where": None,
+        "description": "Hello :wave:",
+        "signup_instructions": None,
+    }
+    await game_service._resolve_free_text_fields_for_create(
+        resolved_fields=resolved_fields,
+        guild_id="discord-guild-1",
+    )
+
+    assert resolved_fields["description"] == "Hello <:wave:111>"
+    mock_emoji_resolver.resolve_emoji_mentions.assert_called_once_with(
+        "Hello :wave:", "discord-guild-1"
+    )

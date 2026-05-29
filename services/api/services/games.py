@@ -39,6 +39,7 @@ from sqlalchemy.orm import selectinload
 from services.api.auth import roles as roles_module
 from services.api.schemas.clone_game import CarryoverOption, CloneGameRequest
 from services.api.services import channel_resolver as channel_resolver_module
+from services.api.services import emoji_resolver as emoji_resolver_module
 from services.api.services import notification_schedule as notification_schedule_service
 from services.api.services import participant_resolver as resolver_module
 from services.api.services.notification_schedule import schedule_join_notification
@@ -122,6 +123,7 @@ class GameService:
         discord_client: discord_client_module.DiscordAPIClient | None = None,
         participant_resolver: resolver_module.ParticipantResolver | None = None,
         channel_resolver: channel_resolver_module.ChannelResolver | None = None,
+        emoji_resolver: emoji_resolver_module.EmojiResolver | None = None,
     ) -> None:
         """
         Initialize game service.
@@ -132,12 +134,14 @@ class GameService:
             discord_client: Discord API client
             participant_resolver: Participant resolver service
             channel_resolver: Channel resolver service
+            emoji_resolver: Emoji resolver service
         """
         self.db = db
         self.event_publisher = event_publisher
         self.discord_client = discord_client
         self.participant_resolver = participant_resolver
         self.channel_resolver = channel_resolver
+        self.emoji_resolver = emoji_resolver
 
     async def _verify_bot_manager_permission(
         self,
@@ -631,11 +635,33 @@ class GameService:
                 resolved_fields[field_key] = resolved_value
                 all_errors.extend(errors)
 
+        all_errors.extend(await self._resolve_emoji_fields(resolved_fields, guild_id))
+
         if all_errors:
             raise resolver_module.ValidationError(
                 invalid_mentions=all_errors,
                 valid_participants=[],
             )
+
+    async def _resolve_emoji_fields(
+        self,
+        resolved_fields: dict[str, Any],
+        guild_id: str,
+    ) -> list[dict]:
+        """Apply emoji resolution to description and signup_instructions if emoji_resolver set."""
+        if not self.emoji_resolver:
+            return []
+        all_errors: list[dict] = []
+        for field_key in ("description", "signup_instructions"):
+            value = resolved_fields[field_key]
+            if value and ":" in value:
+                resolved_value, errors = await self.emoji_resolver.resolve_emoji_mentions(
+                    value,
+                    guild_id,
+                )
+                resolved_fields[field_key] = resolved_value
+                all_errors.extend(errors)
+        return all_errors
 
     async def create_game(
         self,

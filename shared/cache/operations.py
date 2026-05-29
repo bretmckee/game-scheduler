@@ -57,6 +57,7 @@ class CacheOperation(StrEnum):
     FETCH_CHANNEL = "fetch_channel"
     FETCH_GUILD_ROLES = "fetch_guild_roles"
     FETCH_GUILD_CHANNELS = "fetch_guild_channels"
+    FETCH_GUILD_EMOJIS = "fetch_guild_emojis"
     GET_APPLICATION_INFO = "get_application_info"
     USER_ROLES_API = "user_roles_api"
     DISPLAY_NAME = "display_name"

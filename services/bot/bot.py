@@ -119,7 +119,9 @@ class GameSchedulerBot(commands.Bot):
         self._sweep_task: asyncio.Task[None] | None = None
         self._member_event: asyncio.Event = asyncio.Event()
 
-        intents = discord.Intents(guilds=True, guild_messages=True, members=True)
+        intents = discord.Intents(
+            guilds=True, guild_messages=True, members=True, emojis_and_stickers=True
+        )
 
         super().__init__(
             command_prefix="!",
@@ -299,6 +301,15 @@ class GameSchedulerBot(commands.Bot):
                 CacheTTL.DISCORD_GUILD_ROLES,
             )
 
+            emojis = [
+                {"id": str(e.id), "name": e.name, "animated": e.animated} for e in guild.emojis
+            ]
+            await redis.set_json(
+                CacheKeys.discord_guild_emojis(guild_id),
+                emojis,
+                CacheTTL.DISCORD_GUILD_EMOJIS,
+            )
+
             logger.info(
                 "Redis cache rebuilt for guild %r (%s): %d channels, %d roles",
                 guild.name,
@@ -387,6 +398,21 @@ class GameSchedulerBot(commands.Bot):
     async def on_guild_role_delete(self, role: discord.Role) -> None:
         """Rewrite the guild roles cache from current gateway state."""
         await self._rewrite_guild_roles_cache(role.guild)
+
+    async def on_guild_emojis_update(
+        self,
+        guild: discord.Guild,
+        _before: list[discord.Emoji],
+        after: list[discord.Emoji],
+    ) -> None:
+        """Rewrite the guild emojis cache from the updated emoji list."""
+        redis = await get_redis_client()
+        emojis = [{"id": str(e.id), "name": e.name, "animated": e.animated} for e in after]
+        await redis.set_json(
+            CacheKeys.discord_guild_emojis(str(guild.id)),
+            emojis,
+            CacheTTL.DISCORD_GUILD_EMOJIS,
+        )
 
     async def on_disconnect(self) -> None:
         """Handle Gateway disconnection."""

@@ -72,21 +72,21 @@ resolution, custom emoji resolution) and document one deprecated Discord pattern
 - [x] Task 3.2: Apply `resolve_mentions_in_text()` to `description` and `signup_instructions` in `games.py`
   - Details: .copilot-tracking/planning/details/20260529-01-web-ui-game-creation-fixes-details.md (Lines 177-199)
 
-### [ ] Phase 4: Custom Emoji Resolution
+### [x] Phase 4: Custom Emoji Resolution
 
-- [ ] Task 4.1: Add `discord_guild_emojis` cache key to `keys.py` and `FETCH_GUILD_EMOJIS` operation
+- [x] Task 4.1: Add `discord_guild_emojis` cache key to `keys.py` and `FETCH_GUILD_EMOJIS` operation
   - Details: .copilot-tracking/planning/details/20260529-01-web-ui-game-creation-fixes-details.md (Lines 202-225)
 
-- [ ] Task 4.2: Add `get_guild_emojis()` cache-only method to `DiscordAPIClient`
+- [x] Task 4.2: Add `get_guild_emojis()` cache-only method to `DiscordAPIClient`
   - Details: .copilot-tracking/planning/details/20260529-01-web-ui-game-creation-fixes-details.md (Lines 226-247)
 
-- [ ] Task 4.3: Add `on_guild_emojis_update` bot event handler; populate emoji cache on `on_guild_available`
+- [x] Task 4.3: Add `on_guild_emojis_update` bot event handler; populate emoji cache on `on_guild_available`
   - Details: .copilot-tracking/planning/details/20260529-01-web-ui-game-creation-fixes-details.md (Lines 248-274)
 
-- [ ] Task 4.4: Create `services/api/services/emoji_resolver.py` with `EmojiResolver` class
+- [x] Task 4.4: Create `services/api/services/emoji_resolver.py` with `EmojiResolver` class
   - Details: .copilot-tracking/planning/details/20260529-01-web-ui-game-creation-fixes-details.md (Lines 275-303)
 
-- [ ] Task 4.5: Wire `EmojiResolver` into `games.py` for `description` and `signup_instructions`
+- [x] Task 4.5: Wire `EmojiResolver` into `games.py` for `description` and `signup_instructions`
   - Details: .copilot-tracking/planning/details/20260529-01-web-ui-game-creation-fixes-details.md (Lines 304-325)
 
 ### [ ] Phase 5: Documentation Update

@@ -91,3 +91,8 @@ class TestCacheKeys:
         """Test projection username sorted set key generation."""
         key = CacheKeys.proj_usernames("gen123", "guild456")
         assert key == "proj:usernames:gen123:guild456"
+
+    def test_discord_guild_emojis_key(self):
+        """Test Discord guild emojis cache key generation."""
+        key = CacheKeys.discord_guild_emojis("123")
+        assert key == "discord:guild_emojis:123"

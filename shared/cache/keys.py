@@ -81,6 +81,11 @@ class CacheKeys:
         return f"discord:guild_channels:{guild_id}"
 
     @staticmethod
+    def discord_guild_emojis(guild_id: str) -> str:
+        """Return cache key for Discord guild emoji list."""
+        return f"discord:guild_emojis:{guild_id}"
+
+    @staticmethod
     def discord_member(guild_id: str, user_id: str) -> str:
         """Return cache key for Discord guild member information."""
         return f"api:member:{guild_id}:{user_id}"
