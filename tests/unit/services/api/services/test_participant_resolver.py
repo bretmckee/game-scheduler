@@ -983,3 +983,119 @@ async def test_process_single_participant_input_user_friendly_mention_not_found(
     assert participant is None
     assert error is not None
     assert error["input"] == "@unknownuser"
+
+
+# Tests for resolve_mentions_in_text()
+
+
+@pytest.mark.asyncio
+async def test_resolve_mentions_in_text_no_mentions_returns_unchanged(resolver):
+    """Text with no @ tokens is returned unchanged with no errors."""
+    text = "Join us in the main voice channel!"
+    resolved, errors = await resolver.resolve_mentions_in_text(text, "123456789")
+    assert resolved == text
+    assert errors == []
+
+
+@pytest.mark.asyncio
+async def test_resolve_mentions_in_text_valid_user_replaced(resolver):
+    """@username token in text is replaced with <@discord_id>."""
+    members = [
+        {
+            "uid": "987654321",
+            "username": "alice",
+            "global_name": "Alice",
+            "nick": None,
+            "roles": [],
+            "avatar_url": None,
+        }
+    ]
+    with (
+        patch(
+            "services.api.services.participant_resolver.cache_client.get_redis_client",
+            new_callable=AsyncMock,
+            return_value=AsyncMock(),
+        ),
+        patch(
+            "services.api.services.participant_resolver.member_projection.search_members_by_prefix",
+            new_callable=AsyncMock,
+            return_value=members,
+        ),
+    ):
+        resolved, errors = await resolver.resolve_mentions_in_text(
+            "Ping @alice about this.", "123456789"
+        )
+
+    assert resolved == "Ping <@987654321> about this."
+    assert errors == []
+
+
+@pytest.mark.asyncio
+async def test_resolve_mentions_in_text_unknown_user_produces_error(resolver):
+    """@unknownuser token produces a validation error and is left unchanged."""
+    with (
+        patch(
+            "services.api.services.participant_resolver.cache_client.get_redis_client",
+            new_callable=AsyncMock,
+            return_value=AsyncMock(),
+        ),
+        patch(
+            "services.api.services.participant_resolver.member_projection.search_members_by_prefix",
+            new_callable=AsyncMock,
+            return_value=[],
+        ),
+    ):
+        resolved, errors = await resolver.resolve_mentions_in_text(
+            "Ask @ghost for help.", "123456789"
+        )
+
+    assert len(errors) == 1
+    assert errors[0]["input"] == "@ghost"
+    assert errors[0]["reason"] == "User not found in server"
+
+
+@pytest.mark.asyncio
+async def test_resolve_mentions_in_text_multiple_tokens_all_resolved(resolver):
+    """Multiple @username tokens in one text are all resolved."""
+    alice = {
+        "uid": "111",
+        "username": "alice",
+        "global_name": "Alice",
+        "nick": None,
+        "roles": [],
+        "avatar_url": None,
+    }
+    bob = {
+        "uid": "222",
+        "username": "bob",
+        "global_name": "Bob",
+        "nick": None,
+        "roles": [],
+        "avatar_url": None,
+    }
+    call_count = 0
+
+    async def _search(guild_id, prefix, redis):
+        nonlocal call_count
+        call_count += 1
+        return [alice] if prefix == "alice" else [bob]
+
+    with (
+        patch(
+            "services.api.services.participant_resolver.cache_client.get_redis_client",
+            new_callable=AsyncMock,
+            return_value=AsyncMock(),
+        ),
+        patch(
+            "services.api.services.participant_resolver.member_projection.search_members_by_prefix",
+            new_callable=AsyncMock,
+            side_effect=_search,
+        ),
+    ):
+        resolved, errors = await resolver.resolve_mentions_in_text(
+            "Contact @alice or @bob.", "123456789"
+        )
+
+    assert resolved == "Contact <@111> or <@222>."
+    assert errors == []
+    assert call_count == 2

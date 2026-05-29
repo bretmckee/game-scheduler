@@ -64,12 +64,12 @@ resolution, custom emoji resolution) and document one deprecated Discord pattern
 - [x] Task 2.2: Apply `resolve_channel_mentions()` to `description` and `signup_instructions` in `games.py`
   - Details: .copilot-tracking/planning/details/20260529-01-web-ui-game-creation-fixes-details.md (Lines 122-145)
 
-### [ ] Phase 3: @mention Resolution in Free-Text Fields
+### [x] Phase 3: @mention Resolution in Free-Text Fields
 
-- [ ] Task 3.1: Add `resolve_mentions_in_text()` method to `ParticipantResolver`
+- [x] Task 3.1: Add `resolve_mentions_in_text()` method to `ParticipantResolver`
   - Details: .copilot-tracking/planning/details/20260529-01-web-ui-game-creation-fixes-details.md (Lines 148-176)
 
-- [ ] Task 3.2: Apply `resolve_mentions_in_text()` to `description` and `signup_instructions` in `games.py`
+- [x] Task 3.2: Apply `resolve_mentions_in_text()` to `description` and `signup_instructions` in `games.py`
   - Details: .copilot-tracking/planning/details/20260529-01-web-ui-game-creation-fixes-details.md (Lines 177-199)
 
 ### [ ] Phase 4: Custom Emoji Resolution

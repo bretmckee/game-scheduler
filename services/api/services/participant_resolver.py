@@ -248,6 +248,45 @@ class ParticipantResolver:
 
         return self._create_placeholder_participant(input_text), None
 
+    async def resolve_mentions_in_text(
+        self,
+        text: str,
+        guild_id: str,
+    ) -> tuple[str, list[dict]]:
+        """
+        Resolve @username tokens in free-form text to Discord mention format.
+
+        Scans `text` for `@word` tokens and replaces each resolved username with
+        `<@discord_id>`. Tokens that cannot be resolved are left unchanged and
+        produce an error entry.
+
+        Args:
+            text: Free-form text that may contain @username tokens
+            guild_id: Discord guild snowflake ID
+
+        Returns:
+            Tuple of (resolved_text, errors) where errors follow the same format
+            as participant resolution errors.
+        """
+        tokens = re.findall(r"@\w+", text)
+        if not tokens:
+            return text, []
+
+        errors: list[dict] = []
+        resolved_text = text
+
+        for token in tokens:
+            username = token[1:].lower()
+            participant, error = await self._resolve_user_friendly_mention(
+                guild_id, token, username
+            )
+            if participant:
+                resolved_text = resolved_text.replace(token, f"<@{participant['discord_id']}>", 1)
+            elif error:
+                errors.append(error)
+
+        return resolved_text, errors
+
     async def resolve_initial_participants(
         self,
         guild_discord_id: str,

@@ -4845,3 +4845,300 @@ async def test_update_game_resolves_channel_mention_in_signup_instructions(
         "Sign up in #signup-channel", sample_guild.guild_id
     )
     assert mock_game.signup_instructions == "Sign up in <#111222333>"
+
+
+# Tests for @mention resolution in description and signup_instructions
+
+
+@pytest.mark.asyncio
+async def test_create_game_resolves_at_mention_in_description(
+    game_service,
+    mock_db,
+    mock_event_publisher,
+    mock_participant_resolver,
+    mock_role_service,
+    sample_template,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """Test creating a game with @username in description resolves it to <@discord_id>."""
+    game_data = game_schemas.GameCreateRequest(
+        template_id=sample_template.id,
+        title="Test Game",
+        description="Ask @alice for details",
+        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        max_players=4,
+        reminder_minutes=[60],
+    )
+
+    mock_participant_resolver.resolve_mentions_in_text = AsyncMock(
+        return_value=("Ask <@987654321> for details", [])
+    )
+
+    created_game = game_model.GameSession(
+        id=str(uuid.uuid4()),
+        title="Test Game",
+        description="Ask <@987654321> for details",
+        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        guild_id=sample_guild.id,
+        channel_id=sample_channel.id,
+        host_id=sample_user.id,
+        status="SCHEDULED",
+        signup_method="SELF_SIGNUP",
+    )
+    created_game.host = sample_user
+    created_game.participants = []
+
+    setup_create_game_mocks(
+        mock_db,
+        sample_template,
+        sample_guild,
+        sample_user,
+        sample_channel,
+        created_game,
+    )
+
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
+        await game_service.create_game(
+            game_data=game_data,
+            host_user_id=sample_user.id,
+        )
+
+    mock_participant_resolver.resolve_mentions_in_text.assert_any_await(
+        "Ask @alice for details",
+        sample_guild.guild_id,
+    )
+
+
+@pytest.mark.asyncio
+async def test_create_game_resolves_at_mention_in_signup_instructions(
+    game_service,
+    mock_db,
+    mock_event_publisher,
+    mock_participant_resolver,
+    mock_role_service,
+    sample_template,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """Test creating a game with @username in signup_instructions resolves it."""
+    game_data = game_schemas.GameCreateRequest(
+        template_id=sample_template.id,
+        title="Test Game",
+        description="A game",
+        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        signup_instructions="DM @bob to reserve a spot",
+        max_players=4,
+        reminder_minutes=[60],
+    )
+
+    mock_participant_resolver.resolve_mentions_in_text = AsyncMock(
+        return_value=("DM <@111222333> to reserve a spot", [])
+    )
+
+    created_game = game_model.GameSession(
+        id=str(uuid.uuid4()),
+        title="Test Game",
+        description="A game",
+        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        signup_instructions="DM <@111222333> to reserve a spot",
+        guild_id=sample_guild.id,
+        channel_id=sample_channel.id,
+        host_id=sample_user.id,
+        status="SCHEDULED",
+        signup_method="SELF_SIGNUP",
+    )
+    created_game.host = sample_user
+    created_game.participants = []
+
+    setup_create_game_mocks(
+        mock_db,
+        sample_template,
+        sample_guild,
+        sample_user,
+        sample_channel,
+        created_game,
+    )
+
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
+        await game_service.create_game(
+            game_data=game_data,
+            host_user_id=sample_user.id,
+        )
+
+    mock_participant_resolver.resolve_mentions_in_text.assert_any_await(
+        "DM @bob to reserve a spot",
+        sample_guild.guild_id,
+    )
+
+
+@pytest.mark.asyncio
+async def test_create_game_with_invalid_at_mention_in_description_raises_validation_error(
+    game_service,
+    mock_db,
+    mock_event_publisher,
+    mock_participant_resolver,
+    mock_role_service,
+    sample_template,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """Test that an unresolvable @mention in description raises ValidationError."""
+    game_data = game_schemas.GameCreateRequest(
+        template_id=sample_template.id,
+        title="Test Game",
+        description="Contact @nobody for info",
+        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        max_players=4,
+        reminder_minutes=[60],
+    )
+
+    mention_errors = [
+        {
+            "input": "@nobody",
+            "reason": "User not found in server",
+            "suggestions": [],
+        }
+    ]
+    mock_participant_resolver.resolve_mentions_in_text = AsyncMock(
+        return_value=("Contact @nobody for info", mention_errors)
+    )
+
+    template_result = MagicMock()
+    template_result.scalar_one_or_none.return_value = sample_template
+    guild_result = MagicMock()
+    guild_result.scalar_one_or_none.return_value = sample_guild
+    channel_result = MagicMock()
+    channel_result.scalar_one_or_none.return_value = sample_channel
+    host_result = MagicMock()
+    host_result.scalar_one_or_none.return_value = sample_user
+    mock_db.execute = AsyncMock(
+        side_effect=[template_result, guild_result, channel_result, host_result]
+    )
+    mock_db.flush = AsyncMock()
+
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
+        with pytest.raises(resolver_module.ValidationError) as exc_info:
+            await game_service.create_game(
+                game_data=game_data,
+                host_user_id=sample_user.id,
+            )
+
+    assert exc_info.value.invalid_mentions == mention_errors
+
+
+@pytest.mark.asyncio
+async def test_update_game_resolves_at_mention_in_description(
+    game_service,
+    mock_db,
+    mock_participant_resolver,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """Test updating a game with @username in description resolves it."""
+    game_id = str(uuid.uuid4())
+    mock_game = game_model.GameSession(
+        id=game_id,
+        title="Test Game",
+        description="Original description",
+        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        guild_id=sample_guild.id,
+        channel_id=sample_channel.id,
+        host_id=sample_user.id,
+        max_players=5,
+        status="SCHEDULED",
+        participants=[],
+    )
+    mock_game.host = sample_user
+    mock_game.guild = sample_guild
+    mock_game.channel = sample_channel
+
+    mock_participant_resolver.resolve_mentions_in_text = AsyncMock(
+        return_value=("Ask <@111> for info", [])
+    )
+
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = mock_game
+    mock_db.execute.return_value = mock_result
+    mock_db.refresh = AsyncMock()
+
+    update_data = game_schemas.GameUpdateRequest(description="Ask @alice for info")
+
+    mock_current_user = MagicMock()
+    mock_current_user.user.discord_id = sample_user.discord_id
+    mock_role_service = AsyncMock()
+
+    with patch("services.api.dependencies.permissions.can_manage_game", return_value=True):
+        await game_service.update_game(
+            game_id=game_id,
+            update_data=update_data,
+            current_user=mock_current_user,
+            role_service=mock_role_service,
+        )
+
+    mock_participant_resolver.resolve_mentions_in_text.assert_any_await(
+        "Ask @alice for info",
+        sample_guild.guild_id,
+    )
+    assert mock_game.description == "Ask <@111> for info"
+
+
+@pytest.mark.asyncio
+async def test_update_game_resolves_at_mention_in_signup_instructions(
+    game_service,
+    mock_db,
+    mock_participant_resolver,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """Test updating a game with @username in signup_instructions resolves it."""
+    game_id = str(uuid.uuid4())
+    mock_game = game_model.GameSession(
+        id=game_id,
+        title="Test Game",
+        signup_instructions="Original instructions",
+        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        guild_id=sample_guild.id,
+        channel_id=sample_channel.id,
+        host_id=sample_user.id,
+        max_players=5,
+        status="SCHEDULED",
+        participants=[],
+    )
+    mock_game.host = sample_user
+    mock_game.guild = sample_guild
+    mock_game.channel = sample_channel
+
+    mock_participant_resolver.resolve_mentions_in_text = AsyncMock(
+        return_value=("DM <@222> to sign up", [])
+    )
+
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = mock_game
+    mock_db.execute.return_value = mock_result
+    mock_db.refresh = AsyncMock()
+
+    update_data = game_schemas.GameUpdateRequest(signup_instructions="DM @bob to sign up")
+
+    mock_current_user = MagicMock()
+    mock_current_user.user.discord_id = sample_user.discord_id
+    mock_role_service = AsyncMock()
+
+    with patch("services.api.dependencies.permissions.can_manage_game", return_value=True):
+        await game_service.update_game(
+            game_id=game_id,
+            update_data=update_data,
+            current_user=mock_current_user,
+            role_service=mock_role_service,
+        )
+
+    mock_participant_resolver.resolve_mentions_in_text.assert_any_await(
+        "DM @bob to sign up",
+        sample_guild.guild_id,
+    )
+    assert mock_game.signup_instructions == "DM <@222> to sign up"

@@ -576,6 +576,67 @@ class GameService:
         # Populate status transition schedule for SCHEDULED games
         await self._create_game_status_schedules(game, expected_duration_minutes)
 
+    async def _resolve_free_text_fields_for_create(
+        self,
+        resolved_fields: dict[str, Any],
+        guild_id: str,
+    ) -> None:
+        """
+        Resolve channel mentions and @mention tokens in free-text fields for game creation.
+
+        Mutates resolved_fields in place. Raises ValidationError if any mentions
+        cannot be resolved.
+
+        Channel resolution:
+          - where: always resolved when non-empty
+          - description, signup_instructions: only when '#' present
+
+        @mention resolution:
+          - description, signup_instructions: only when '@' present
+
+        Args:
+            resolved_fields: Dict of resolved template+request field values
+            guild_id: Discord guild snowflake ID
+
+        Raises:
+            resolver_module.ValidationError: If any channel or @mention cannot be resolved
+        """
+        all_errors: list[dict] = []
+
+        if resolved_fields["where"]:
+            resolved_value, errors = await self.channel_resolver.resolve_channel_mentions(
+                resolved_fields["where"],
+                guild_id,
+            )
+            resolved_fields["where"] = resolved_value
+            all_errors.extend(errors)
+
+        for field_key in ("description", "signup_instructions"):
+            value = resolved_fields[field_key]
+            if value and "#" in value:
+                resolved_value, errors = await self.channel_resolver.resolve_channel_mentions(
+                    value,
+                    guild_id,
+                )
+                resolved_fields[field_key] = resolved_value
+                all_errors.extend(errors)
+
+        for field_key in ("description", "signup_instructions"):
+            value = resolved_fields[field_key]
+            if value and "@" in value:
+                resolved_value, errors = await self.participant_resolver.resolve_mentions_in_text(
+                    value,
+                    guild_id,
+                )
+                resolved_fields[field_key] = resolved_value
+                all_errors.extend(errors)
+
+        if all_errors:
+            raise resolver_module.ValidationError(
+                invalid_mentions=all_errors,
+                valid_participants=[],
+            )
+
     async def create_game(
         self,
         game_data: game_schemas.GameCreateRequest,
@@ -637,35 +698,8 @@ class GameService:
         resolved_fields = self._resolve_template_fields(game_data, template)
         resolved_fields["description"] = game_data.description
 
-        # Resolve channel mentions in free-text fields, accumulating all errors.
-        # where: always resolve when present (existing behaviour).
-        # description/signup_instructions: only resolve when '#' is present to
-        # avoid unnecessary resolver calls and preserve existing test contracts.
-        all_channel_errors: list[dict] = []
-
-        if resolved_fields["where"]:
-            resolved_value, errors = await self.channel_resolver.resolve_channel_mentions(
-                resolved_fields["where"],
-                guild_config.guild_id,
-            )
-            resolved_fields["where"] = resolved_value
-            all_channel_errors.extend(errors)
-
-        for field_key in ("description", "signup_instructions"):
-            value = resolved_fields[field_key]
-            if value and "#" in value:
-                resolved_value, errors = await self.channel_resolver.resolve_channel_mentions(
-                    value,
-                    guild_config.guild_id,
-                )
-                resolved_fields[field_key] = resolved_value
-                all_channel_errors.extend(errors)
-
-        if all_channel_errors:
-            raise resolver_module.ValidationError(
-                invalid_mentions=all_channel_errors,
-                valid_participants=[],
-            )
+        # Resolve channel and @mention tokens in all free-text fields.
+        await self._resolve_free_text_fields_for_create(resolved_fields, guild_config.guild_id)
 
         # Resolve initial participants if provided
         valid_participants: list[dict[str, Any]] = []
@@ -1789,6 +1823,50 @@ class GameService:
                 valid_participants=[],
             )
 
+    async def _resolve_mentions_for_update(
+        self,
+        game: game_model.GameSession,
+        update_data: game_schemas.GameUpdateRequest,
+    ) -> None:
+        """
+        Resolve @mention tokens in updated free-text fields and mutate game in place.
+
+        Applies to description and signup_instructions when they are being updated
+        and contain @ tokens. Raises ValidationError if any mentions cannot be
+        resolved.
+
+        Args:
+            game: Game session to mutate
+            update_data: Incoming update data
+
+        Raises:
+            resolver_module.ValidationError: If any @mentions cannot be resolved
+        """
+        all_mention_errors: list[dict] = []
+
+        for field_name, is_updated in (
+            ("description", update_data.description is not None),
+            ("signup_instructions", update_data.signup_instructions is not None),
+        ):
+            if is_updated:
+                current_value = getattr(game, field_name)
+                if current_value and "@" in current_value:
+                    (
+                        resolved_value,
+                        errors,
+                    ) = await self.participant_resolver.resolve_mentions_in_text(
+                        current_value,
+                        game.guild.guild_id,
+                    )
+                    setattr(game, field_name, resolved_value)
+                    all_mention_errors.extend(errors)
+
+        if all_mention_errors:
+            raise resolver_module.ValidationError(
+                invalid_mentions=all_mention_errors,
+                valid_participants=[],
+            )
+
     async def update_game(
         self,
         game_id: str,
@@ -1860,6 +1938,9 @@ class GameService:
 
         # Resolve channel mentions in updated free-text fields
         await self._resolve_channel_mentions_for_update(game, update_data)
+
+        # Resolve @mention tokens in updated free-text fields
+        await self._resolve_mentions_for_update(game, update_data)
 
         # Update images if provided
         await self._update_image_fields(

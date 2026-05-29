@@ -46,9 +46,13 @@ Implementation record for fixing four UX issues in game creation: GIF animation,
 
 ### Added
 
+- `tests/unit/services/api/services/test_participant_resolver.py` — added 4 tests: `test_resolve_mentions_in_text_no_mentions_returns_unchanged`, `test_resolve_mentions_in_text_valid_user_replaced`, `test_resolve_mentions_in_text_unknown_user_produces_error`, `test_resolve_mentions_in_text_multiple_tokens_all_resolved`
+- `tests/unit/services/api/services/test_games_service.py` — added 5 tests: `test_create_game_resolves_at_mention_in_description`, `test_create_game_resolves_at_mention_in_signup_instructions`, `test_create_game_with_invalid_at_mention_in_description_raises_validation_error`, `test_update_game_resolves_at_mention_in_description`, `test_update_game_resolves_at_mention_in_signup_instructions`
+
 ### Modified
 
-### Removed
+- `services/api/services/participant_resolver.py` — added `resolve_mentions_in_text(text, guild_id)` async method that scans `@\w+` tokens, resolves each via `_resolve_user_friendly_mention()`, replaces with `<@discord_id>` on success, and returns `(resolved_text, errors)`
+- `services/api/services/games.py` — extracted `_resolve_free_text_fields_for_create()` helper that runs channel and @mention resolution for `create_game()` (reduces complexity); added `_resolve_mentions_for_update()` helper that applies `resolve_mentions_in_text()` to `description` and `signup_instructions` when updated; wired both helpers into `create_game()` and `update_game()` respectively
 
 ---
 
