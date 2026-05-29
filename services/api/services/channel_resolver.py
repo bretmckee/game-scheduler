@@ -159,6 +159,43 @@ class ChannelResolver:
         return errors
 
 
+_USER_MENTION_PATTERN = re.compile(r"<@(\d+)>")
+
+
+def extract_user_mention_ids(text: str | None) -> set[str]:
+    """Extract Discord snowflake IDs from all <@id> user mention tokens in text."""
+    if not text:
+        return set()
+    return set(_USER_MENTION_PATTERN.findall(text))
+
+
+def render_text_for_display(
+    text: str | None,
+    channels: list[dict],
+    user_id_to_name: dict[str, str],
+) -> str | None:
+    """
+    Replace <#id> and <@id> tokens in text with human-readable equivalents.
+
+    Returns None if text is None. Returns text unchanged when no tokens match.
+    Leaves tokens with unknown IDs unchanged.
+    """
+    if text is None:
+        return None
+    id_to_channel = {ch["id"]: ch["name"] for ch in channels}
+
+    def _replace_channel(m: re.Match) -> str:
+        name = id_to_channel.get(m.group(1))
+        return f"#{name}" if name is not None else m.group(0)
+
+    def _replace_user(m: re.Match) -> str:
+        name = user_id_to_name.get(m.group(1))
+        return f"@{name}" if name is not None else m.group(0)
+
+    text = re.sub(r"<#(\d+)>", _replace_channel, text)
+    return _USER_MENTION_PATTERN.sub(_replace_user, text)
+
+
 def render_where_display(where: str | None, channels: list[dict]) -> str | None:
     """
     Replace `<#id>` tokens in a stored location string with `#name`.

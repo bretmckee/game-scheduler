@@ -945,6 +945,31 @@ def _build_host_response(
     )
 
 
+async def _render_text_fields(
+    description: str | None,
+    signup_instructions: str | None,
+    channels: list[dict],
+    guild_discord_id: str | None,
+) -> tuple[str | None, str | None]:
+    """
+    Render <#id> and <@id> tokens in description and signup_instructions to human-readable form.
+    """
+    user_ids = channel_resolver_module.extract_user_mention_ids(
+        description
+    ) | channel_resolver_module.extract_user_mention_ids(signup_instructions)
+    user_id_to_name: dict[str, str] = {}
+    if user_ids and guild_discord_id:
+        resolver = await display_names_module.get_display_name_resolver()
+        user_id_to_name = await resolver.resolve_display_names(guild_discord_id, list(user_ids))
+    rendered_description = channel_resolver_module.render_text_for_display(
+        description, channels, user_id_to_name
+    )
+    rendered_signup = channel_resolver_module.render_text_for_display(
+        signup_instructions, channels, user_id_to_name
+    )
+    return rendered_description, rendered_signup
+
+
 async def _build_game_response(
     game: game_model.GameSession,
     can_manage: bool = False,
@@ -979,15 +1004,21 @@ async def _build_game_response(
     host_response = _build_host_response(game, host_discord_id, display_data_map)
 
     where_display = None
+    channels: list[dict] = []
     if game.guild:
         channels = await get_guild_channels_safe(game.guild.guild_id)
         where_display = channel_resolver_module.render_where_display(game.where, channels)
 
+    guild_discord_id = game.guild.guild_id if game.guild else None
+    description_display, signup_instructions_display = await _render_text_fields(
+        game.description, game.signup_instructions, channels, guild_discord_id
+    )
+
     return game_schemas.GameResponse(
         id=game.id,
         title=game.title,
-        description=game.description,
-        signup_instructions=game.signup_instructions,
+        description=description_display,
+        signup_instructions=signup_instructions_display,
         scheduled_at=datetime_utils.format_datetime_as_utc(game.scheduled_at),
         where=game.where,
         where_display=where_display,

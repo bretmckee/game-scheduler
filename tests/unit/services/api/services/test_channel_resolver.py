@@ -580,3 +580,85 @@ def test_render_where_display_replaces_tokens():
     ]
     result = resolver_module.render_where_display("<#123> and <#456>", channels)
     assert result == "#foo and #bar"
+
+
+# --- extract_user_mention_ids ---
+
+
+def test_extract_user_mention_ids_none_input():
+    """extract_user_mention_ids returns empty set for None."""
+    assert resolver_module.extract_user_mention_ids(None) == set()
+
+
+def test_extract_user_mention_ids_empty_string():
+    """extract_user_mention_ids returns empty set for empty string."""
+    assert resolver_module.extract_user_mention_ids("") == set()
+
+
+def test_extract_user_mention_ids_no_tokens():
+    """extract_user_mention_ids returns empty set when text has no <@id> tokens."""
+    assert resolver_module.extract_user_mention_ids("hello world #general") == set()
+
+
+def test_extract_user_mention_ids_finds_ids():
+    """extract_user_mention_ids returns all snowflake IDs found in text."""
+    text = "Thanks <@111> and <@222> for signing up"
+    assert resolver_module.extract_user_mention_ids(text) == {"111", "222"}
+
+
+def test_extract_user_mention_ids_deduplicates():
+    """extract_user_mention_ids deduplicates repeated IDs."""
+    text = "<@111> and again <@111>"
+    assert resolver_module.extract_user_mention_ids(text) == {"111"}
+
+
+# --- render_text_for_display ---
+
+
+def test_render_text_for_display_none_input():
+    """render_text_for_display returns None when text is None."""
+    result = resolver_module.render_text_for_display(None, [], {})
+    assert result is None
+
+
+def test_render_text_for_display_no_tokens():
+    """render_text_for_display returns original text when no tokens are present."""
+    result = resolver_module.render_text_for_display("plain text, no tokens", [], {})
+    assert result == "plain text, no tokens"
+
+
+def test_render_text_for_display_replaces_channel_tokens():
+    """render_text_for_display replaces <#id> tokens with #name."""
+    channels = [{"id": "123", "name": "general"}, {"id": "456", "name": "voice"}]
+    result = resolver_module.render_text_for_display("Meet in <#123>", channels, {})
+    assert result == "Meet in #general"
+
+
+def test_render_text_for_display_replaces_user_tokens():
+    """render_text_for_display replaces <@id> tokens with @display-name."""
+    result = resolver_module.render_text_for_display(
+        "Contact <@999> for details", [], {"999": "Alice"}
+    )
+    assert result == "Contact @Alice for details"
+
+
+def test_render_text_for_display_replaces_both():
+    """render_text_for_display replaces both channel and user mention tokens."""
+    channels = [{"id": "123", "name": "general"}]
+    result = resolver_module.render_text_for_display(
+        "Ask <@111> in <#123>", channels, {"111": "Bob"}
+    )
+    assert result == "Ask @Bob in #general"
+
+
+def test_render_text_for_display_unknown_ids_unchanged():
+    """render_text_for_display leaves tokens with unknown IDs unchanged."""
+    channels = [{"id": "999", "name": "other"}]
+    result = resolver_module.render_text_for_display("<#123> and <@456>", channels, {})
+    assert result == "<#123> and <@456>"
+
+
+def test_render_text_for_display_empty_string():
+    """render_text_for_display returns empty string for empty string input."""
+    result = resolver_module.render_text_for_display("", [], {})
+    assert result == ""

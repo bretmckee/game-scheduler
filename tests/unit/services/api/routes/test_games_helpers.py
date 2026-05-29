@@ -28,7 +28,7 @@ Tests the extracted helper functions from update_game and _build_game_response r
 import json
 from datetime import UTC, datetime
 from io import BytesIO
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import HTTPException, UploadFile
@@ -40,6 +40,7 @@ from services.api.routes.games import (
     _fetch_discord_names,
     _parse_update_form_data,
     _process_image_upload,
+    _render_text_fields,
     _resolve_display_data,
 )
 from shared.models.participant import ParticipantType
@@ -793,3 +794,66 @@ class TestPrefetchedDisplayData:
         mock_resolve.assert_called_once_with(
             game, mock_partition.return_value, resolve_participants=True
         )
+
+
+class TestRenderTextFields:
+    """Tests for _render_text_fields helper."""
+
+    @pytest.mark.asyncio
+    async def test_no_tokens_returns_originals(self):
+        """When no <#id> or <@id> tokens, returns the original text unchanged."""
+        description, signup = await _render_text_fields(
+            "Plain description", "Plain signup", [], "guild123"
+        )
+        assert description == "Plain description"
+        assert signup == "Plain signup"
+
+    @pytest.mark.asyncio
+    async def test_none_inputs_return_none(self):
+        """None inputs return None outputs."""
+        description, signup = await _render_text_fields(None, None, [], "guild123")
+        assert description is None
+        assert signup is None
+
+    @pytest.mark.asyncio
+    @patch("services.api.routes.games.display_names_module.get_display_name_resolver")
+    async def test_user_tokens_resolved_in_both_fields(self, mock_get_resolver):
+        """<@id> tokens in description and signup_instructions are both resolved."""
+        mock_resolver = AsyncMock()
+        mock_resolver.resolve_display_names = AsyncMock(return_value={"111": "Alice", "222": "Bob"})
+        mock_get_resolver.return_value = mock_resolver
+
+        description, signup = await _render_text_fields(
+            "Hello <@111>", "Contact <@222>", [], "guild123"
+        )
+
+        assert description == "Hello @Alice"
+        assert signup == "Contact @Bob"
+        mock_resolver.resolve_display_names.assert_called_once_with("guild123", ANY)
+        resolved_ids = set(mock_resolver.resolve_display_names.call_args.args[1])
+        assert resolved_ids == {"111", "222"}
+
+    @pytest.mark.asyncio
+    async def test_channel_tokens_resolved_from_channels_list(self):
+        """<#id> tokens are replaced with #name from the channels list without a resolver call."""
+        channels = [{"id": "999", "name": "general"}]
+
+        description, signup = await _render_text_fields(
+            "Meet in <#999>", None, channels, "guild123"
+        )
+
+        assert description == "Meet in #general"
+        assert signup is None
+
+    @pytest.mark.asyncio
+    @patch("services.api.routes.games.display_names_module.get_display_name_resolver")
+    async def test_no_resolver_call_when_no_user_tokens(self, mock_get_resolver):
+        """get_display_name_resolver is not called when there are no <@id> tokens."""
+        channels = [{"id": "123", "name": "general"}]
+
+        description, signup = await _render_text_fields(
+            "<#123> channel only", None, channels, "guild123"
+        )
+
+        mock_get_resolver.assert_not_called()
+        assert description == "#general channel only"
