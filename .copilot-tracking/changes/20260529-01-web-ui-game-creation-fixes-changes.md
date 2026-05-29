@@ -60,9 +60,17 @@ Implementation record for fixing four UX issues in game creation: GIF animation,
 
 ### Added
 
+- `tests/unit/api/services/test_emoji_resolver.py` — added `TestRenderEmojiForDisplay` class with 5 tests: static emoji, animated emoji, multiple emojis, plain text passthrough, and `None` input returns `None`
+- `tests/unit/api/services/test_games.py` — added `test_emoji_in_title_is_resolved` (create path) and `test_emoji_in_title_resolved_on_update` (update path)
+
 ### Modified
 
-### Removed
+- `docker/redis-entrypoint.sh` — added `%RW~discord:guild_emojis:*` to the `bot` user ACL line and `%R~discord:guild_emojis:*` to the `api` user ACL line so both users can access the emoji cache keys the bot writes
+- `services/api/services/emoji_resolver.py` — added `_STORED_EMOJI_PATTERN = re.compile(r"<a?:(\w+):\d+>")` and `render_emoji_for_display(text)` function that converts stored `<:name:id>` / `<a:name:id>` tokens back to `:name:` shorthand for display
+- `services/api/services/games.py` — added `"title"` to the fields tuple in `_resolve_emoji_fields`; added `resolved_fields["title"] = game_data.title` before free-text resolution in `create_game()`; updated `_build_game_session()` to use `resolved_fields.get("title", game_data.title)`; added `_resolve_emoji_fields_for_update()` method that resolves emoji in `title`, `description`, and `signup_instructions` on update; wired it into `update_game()` after `_resolve_mentions_for_update()`
+- `services/api/routes/games.py` — added `emoji_resolver_module` import; updated `_get_game_service()` to instantiate `EmojiResolver` and pass it to `GameService`; updated `_render_text_fields()` to accept `title` as first parameter and return a 3-tuple `(title, description, signup)`; added `render_emoji_for_display` calls for all three fields; updated `_build_game_response()` to unpack and use `title_display`
+- `tests/unit/api/services/test_games.py` — updated `test_emoji_in_description_is_resolved` to include `"title"` in the expected `resolved_fields` dict
+- `tests/unit/services/api/routes/test_games_helpers.py` — updated all `TestRenderTextFields` tests to use the new 5-argument / 3-tuple signature; added `test_stored_emoji_in_title_rendered_to_shorthand` and `test_stored_emoji_in_description_rendered_to_shorthand`
 
 ---
 

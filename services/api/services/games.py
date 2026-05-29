@@ -529,7 +529,7 @@ class GameService:
 
         return game_model.GameSession(
             id=game_model.generate_uuid(),
-            title=game_data.title,
+            title=resolved_fields.get("title", game_data.title),
             description=resolved_fields.get("description", game_data.description),
             signup_instructions=resolved_fields["signup_instructions"],
             scheduled_at=scheduled_at_naive,
@@ -652,7 +652,7 @@ class GameService:
         if not self.emoji_resolver:
             return []
         all_errors: list[dict] = []
-        for field_key in ("description", "signup_instructions"):
+        for field_key in ("title", "description", "signup_instructions"):
             value = resolved_fields[field_key]
             if value and ":" in value:
                 resolved_value, errors = await self.emoji_resolver.resolve_emoji_mentions(
@@ -723,6 +723,7 @@ class GameService:
         # Resolve field values from request and template
         resolved_fields = self._resolve_template_fields(game_data, template)
         resolved_fields["description"] = game_data.description
+        resolved_fields["title"] = game_data.title
 
         # Resolve channel and @mention tokens in all free-text fields.
         await self._resolve_free_text_fields_for_create(resolved_fields, guild_config.guild_id)
@@ -1893,6 +1894,28 @@ class GameService:
                 valid_participants=[],
             )
 
+    async def _resolve_emoji_fields_for_update(
+        self,
+        game: game_model.GameSession,
+        update_data: game_schemas.GameUpdateRequest,
+    ) -> None:
+        """Resolve :emoji_name: tokens in updated title, description, and signup_instructions."""
+        if not self.emoji_resolver:
+            return
+        for field_name, is_updated in (
+            ("title", update_data.title is not None),
+            ("description", update_data.description is not None),
+            ("signup_instructions", update_data.signup_instructions is not None),
+        ):
+            if is_updated:
+                current_value = getattr(game, field_name)
+                if current_value and ":" in current_value:
+                    resolved_value, _ = await self.emoji_resolver.resolve_emoji_mentions(
+                        current_value,
+                        game.guild.guild_id,
+                    )
+                    setattr(game, field_name, resolved_value)
+
     async def update_game(
         self,
         game_id: str,
@@ -1967,6 +1990,9 @@ class GameService:
 
         # Resolve @mention tokens in updated free-text fields
         await self._resolve_mentions_for_update(game, update_data)
+
+        # Resolve :emoji_name: tokens in updated free-text fields
+        await self._resolve_emoji_fields_for_update(game, update_data)
 
         # Update images if provided
         await self._update_image_fields(

@@ -43,6 +43,7 @@ from services.api.dependencies.discord import get_discord_client
 from services.api.schemas.clone_game import CloneGameRequest
 from services.api.services import channel_resolver as channel_resolver_module
 from services.api.services import display_names as display_names_module
+from services.api.services import emoji_resolver as emoji_resolver_module
 from services.api.services import games as games_service
 from services.api.services import participant_resolver as resolver_module
 from shared import database
@@ -111,6 +112,7 @@ async def _get_game_service(
     discord_client = get_discord_client()
     participant_resolver = resolver_module.ParticipantResolver()
     channel_resolver = channel_resolver_module.ChannelResolver(discord_client)
+    emoji_resolver = emoji_resolver_module.EmojiResolver(discord_client=discord_client)
 
     return games_service.GameService(
         db=db,
@@ -118,6 +120,7 @@ async def _get_game_service(
         discord_client=discord_client,
         participant_resolver=participant_resolver,
         channel_resolver=channel_resolver,
+        emoji_resolver=emoji_resolver,
     )
 
 
@@ -946,13 +949,17 @@ def _build_host_response(
 
 
 async def _render_text_fields(
+    title: str | None,
     description: str | None,
     signup_instructions: str | None,
     channels: list[dict],
     guild_discord_id: str | None,
-) -> tuple[str | None, str | None]:
+) -> tuple[str | None, str | None, str | None]:
     """
-    Render <#id> and <@id> tokens in description and signup_instructions to human-readable form.
+    Render <#id>, <@id>, and <:emoji:id> tokens for display.
+
+    Returns (title, description, signup_instructions) with tokens replaced by
+    human-readable equivalents.
     """
     user_ids = channel_resolver_module.extract_user_mention_ids(
         description
@@ -967,7 +974,10 @@ async def _render_text_fields(
     rendered_signup = channel_resolver_module.render_text_for_display(
         signup_instructions, channels, user_id_to_name
     )
-    return rendered_description, rendered_signup
+    rendered_title = emoji_resolver_module.render_emoji_for_display(title)
+    rendered_description = emoji_resolver_module.render_emoji_for_display(rendered_description)
+    rendered_signup = emoji_resolver_module.render_emoji_for_display(rendered_signup)
+    return rendered_title, rendered_description, rendered_signup
 
 
 async def _build_game_response(
@@ -1010,13 +1020,13 @@ async def _build_game_response(
         where_display = channel_resolver_module.render_where_display(game.where, channels)
 
     guild_discord_id = game.guild.guild_id if game.guild else None
-    description_display, signup_instructions_display = await _render_text_fields(
-        game.description, game.signup_instructions, channels, guild_discord_id
+    title_display, description_display, signup_instructions_display = await _render_text_fields(
+        game.title, game.description, game.signup_instructions, channels, guild_discord_id
     )
 
     return game_schemas.GameResponse(
         id=game.id,
-        title=game.title,
+        title=title_display,
         description=description_display,
         signup_instructions=signup_instructions_display,
         scheduled_at=datetime_utils.format_datetime_as_utc(game.scheduled_at),

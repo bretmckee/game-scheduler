@@ -25,7 +25,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from services.api.services.emoji_resolver import EmojiResolver
+from services.api.services.emoji_resolver import EmojiResolver, render_emoji_for_display
 from shared.discord.client import DiscordAPIClient, DiscordAPIError
 
 
@@ -93,3 +93,27 @@ class TestEmojiResolver:
 
         assert result == ":wave: hello"
         assert errors == []
+
+
+class TestRenderEmojiForDisplay:
+    """Tests for render_emoji_for_display."""
+
+    def test_static_emoji_converted_to_shorthand(self) -> None:
+        """<:name:id> is replaced with :name:."""
+        assert render_emoji_for_display("Hello <:wave:111> world") == "Hello :wave: world"
+
+    def test_animated_emoji_converted_to_shorthand(self) -> None:
+        """<a:name:id> is replaced with :name:."""
+        assert render_emoji_for_display("<a:dance:222> to the beat") == ":dance: to the beat"
+
+    def test_multiple_emojis_all_converted(self) -> None:
+        """Multiple stored emoji tokens are all converted."""
+        assert render_emoji_for_display("<:a:1> and <a:b:2>") == ":a: and :b:"
+
+    def test_no_emoji_tokens_returned_unchanged(self) -> None:
+        """Text with no stored tokens is returned unchanged."""
+        assert render_emoji_for_display("plain text") == "plain text"
+
+    def test_none_returns_none(self) -> None:
+        """None input returns None."""
+        assert render_emoji_for_display(None) is None

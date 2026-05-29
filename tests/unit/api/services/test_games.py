@@ -798,6 +798,7 @@ async def test_emoji_in_description_is_resolved(game_service) -> None:
     game_service.emoji_resolver = mock_emoji_resolver
 
     resolved_fields: dict = {
+        "title": "A game",
         "where": None,
         "description": "Hello :wave:",
         "signup_instructions": None,
@@ -810,4 +811,52 @@ async def test_emoji_in_description_is_resolved(game_service) -> None:
     assert resolved_fields["description"] == "Hello <:wave:111>"
     mock_emoji_resolver.resolve_emoji_mentions.assert_called_once_with(
         "Hello :wave:", "discord-guild-1"
+    )
+
+
+@pytest.mark.asyncio
+async def test_emoji_in_title_is_resolved(game_service) -> None:
+    """When title contains :emoji_name:, emoji_resolver is called and result applied."""
+    mock_emoji_resolver = AsyncMock(spec=emoji_resolver_module.EmojiResolver)
+    mock_emoji_resolver.resolve_emoji_mentions = AsyncMock(return_value=("Game <:test:999>", []))
+    game_service.emoji_resolver = mock_emoji_resolver
+
+    resolved_fields: dict = {
+        "title": "Game :test:",
+        "where": None,
+        "description": None,
+        "signup_instructions": None,
+    }
+    await game_service._resolve_free_text_fields_for_create(
+        resolved_fields=resolved_fields,
+        guild_id="discord-guild-1",
+    )
+
+    assert resolved_fields["title"] == "Game <:test:999>"
+    mock_emoji_resolver.resolve_emoji_mentions.assert_called_once_with(
+        "Game :test:", "discord-guild-1"
+    )
+
+
+@pytest.mark.asyncio
+async def test_emoji_in_title_resolved_on_update(game_service) -> None:
+    """When title is updated and contains :emoji_name:, emoji_resolver is applied."""
+    mock_emoji_resolver = AsyncMock(spec=emoji_resolver_module.EmojiResolver)
+    mock_emoji_resolver.resolve_emoji_mentions = AsyncMock(return_value=("Updated <:test:999>", []))
+    game_service.emoji_resolver = mock_emoji_resolver
+
+    game = MagicMock()
+    game.title = "Updated :test:"
+    game.guild.guild_id = "discord-guild-1"
+
+    update_data = MagicMock()
+    update_data.title = "Updated :test:"
+    update_data.description = None
+    update_data.signup_instructions = None
+
+    await game_service._resolve_emoji_fields_for_update(game, update_data)
+
+    assert game.title == "Updated <:test:999>"
+    mock_emoji_resolver.resolve_emoji_mentions.assert_called_once_with(
+        "Updated :test:", "discord-guild-1"
     )

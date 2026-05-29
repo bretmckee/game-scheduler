@@ -29,6 +29,14 @@ from shared.discord.client import DiscordAPIClient, DiscordAPIError
 logger = logging.getLogger(__name__)
 
 _EMOJI_PATTERN = re.compile(r":(\w+):")
+_STORED_EMOJI_PATTERN = re.compile(r"<a?:(\w+):\d+>")
+
+
+def render_emoji_for_display(text: str | None) -> str | None:
+    """Convert stored <:name:id> and <a:name:id> tokens back to :name: for display."""
+    if text is None:
+        return None
+    return _STORED_EMOJI_PATTERN.sub(r":\1:", text)
 
 
 class EmojiResolver:

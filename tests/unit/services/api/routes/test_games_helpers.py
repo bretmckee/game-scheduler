@@ -801,17 +801,19 @@ class TestRenderTextFields:
 
     @pytest.mark.asyncio
     async def test_no_tokens_returns_originals(self):
-        """When no <#id> or <@id> tokens, returns the original text unchanged."""
-        description, signup = await _render_text_fields(
-            "Plain description", "Plain signup", [], "guild123"
+        """When no tokens, returns the original text unchanged."""
+        title, description, signup = await _render_text_fields(
+            "A game", "Plain description", "Plain signup", [], "guild123"
         )
+        assert title == "A game"
         assert description == "Plain description"
         assert signup == "Plain signup"
 
     @pytest.mark.asyncio
     async def test_none_inputs_return_none(self):
         """None inputs return None outputs."""
-        description, signup = await _render_text_fields(None, None, [], "guild123")
+        title, description, signup = await _render_text_fields(None, None, None, [], "guild123")
+        assert title is None
         assert description is None
         assert signup is None
 
@@ -823,8 +825,8 @@ class TestRenderTextFields:
         mock_resolver.resolve_display_names = AsyncMock(return_value={"111": "Alice", "222": "Bob"})
         mock_get_resolver.return_value = mock_resolver
 
-        description, signup = await _render_text_fields(
-            "Hello <@111>", "Contact <@222>", [], "guild123"
+        title, description, signup = await _render_text_fields(
+            "A game", "Hello <@111>", "Contact <@222>", [], "guild123"
         )
 
         assert description == "Hello @Alice"
@@ -838,8 +840,8 @@ class TestRenderTextFields:
         """<#id> tokens are replaced with #name from the channels list without a resolver call."""
         channels = [{"id": "999", "name": "general"}]
 
-        description, signup = await _render_text_fields(
-            "Meet in <#999>", None, channels, "guild123"
+        title, description, signup = await _render_text_fields(
+            "A game", "Meet in <#999>", None, channels, "guild123"
         )
 
         assert description == "Meet in #general"
@@ -851,9 +853,25 @@ class TestRenderTextFields:
         """get_display_name_resolver is not called when there are no <@id> tokens."""
         channels = [{"id": "123", "name": "general"}]
 
-        description, signup = await _render_text_fields(
-            "<#123> channel only", None, channels, "guild123"
+        title, description, signup = await _render_text_fields(
+            "A game", "<#123> channel only", None, channels, "guild123"
         )
 
         mock_get_resolver.assert_not_called()
         assert description == "#general channel only"
+
+    @pytest.mark.asyncio
+    async def test_stored_emoji_in_title_rendered_to_shorthand(self):
+        """<:name:id> in title is converted back to :name: for display."""
+        title, description, signup = await _render_text_fields(
+            "Game <:test:999>", None, None, [], "guild123"
+        )
+        assert title == "Game :test:"
+
+    @pytest.mark.asyncio
+    async def test_stored_emoji_in_description_rendered_to_shorthand(self):
+        """<:name:id> in description is converted back to :name: for display."""
+        title, description, signup = await _render_text_fields(
+            None, "Fun <:wave:111> game", None, [], "guild123"
+        )
+        assert description == "Fun :wave: game"
