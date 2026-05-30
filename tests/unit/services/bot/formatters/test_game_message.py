@@ -527,6 +527,26 @@ class TestGameMessageFormatterHelpers:
         calls = [call[1] for call in embed.add_field.call_args_list]
         assert any("Waitlisted (2)" in c.get("name", "") for c in calls)
 
+    def test_add_participant_fields_shows_open_slots_when_under_capacity(self):
+        """Test that open slot placeholders appear when game is not full."""
+        embed = MagicMock()
+
+        GameMessageFormatter._add_participant_fields(embed, ["111", "222"], [], 2, 5)
+
+        call_kwargs = embed.add_field.call_args[1]
+        assert "open slot" in call_kwargs["value"].lower()
+
+    def test_add_participant_fields_no_open_slots_when_at_capacity(self):
+        """Test that no open slot placeholders appear when game is full."""
+        embed = MagicMock()
+
+        GameMessageFormatter._add_participant_fields(
+            embed, ["111", "222", "333", "444", "555"], [], 5, 5
+        )
+
+        call_kwargs = embed.add_field.call_args[1]
+        assert "open slot" not in call_kwargs["value"].lower()
+
     def test_add_footer_and_links_with_calendar_url(self):
         """Test adding footer and links when calendar URL is present."""
         embed = MagicMock()

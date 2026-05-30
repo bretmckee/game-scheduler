@@ -108,12 +108,12 @@ notifications for promotions and demotions.
 - [x] Task 5.4: E2E tests — join button state, waitlist DM content, promotion drag full chain
   - Details: .copilot-tracking/planning/details/20260530-01-host-selected-waitlist-details.md (Lines 429-460)
 
-### [ ] Phase 6: Open Slot Placeholders — Bot (TDD)
+### [x] Phase 6: Open Slot Placeholders — Bot (TDD)
 
-- [ ] Task 6.1 (RED): Stub open slot padding in `_add_participant_fields`; write 2 xfail tests
+- [x] Task 6.1 (RED): Stub open slot padding in `_add_participant_fields`; write 2 xfail tests
   - Details: .copilot-tracking/planning/details/20260530-01-host-selected-waitlist-details.md (Lines 463-483)
 
-- [ ] Task 6.2 (GREEN): Implement open slot padding; remove stubs and xfail markers
+- [x] Task 6.2 (GREEN): Implement open slot padding; remove stubs and xfail markers
   - Details: .copilot-tracking/planning/details/20260530-01-host-selected-waitlist-details.md (Lines 484-506)
 
 ### [ ] Phase 7: Frontend Changes (TypeScript)

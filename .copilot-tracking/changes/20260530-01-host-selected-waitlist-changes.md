@@ -72,3 +72,16 @@ host promotes them to confirmed slots by dragging in the edit form, with full DM
 ### Deviations from Plan
 
 - `_is_participant_confirmed` extended to allow SELF_ADDED overflow players to receive join notifications in `HOST_SELECTED_WITH_WAITLIST` mode (not specified in plan, required to avoid silent DM drops)
+
+---
+
+## Phase 6: Open Slot Placeholders — Bot
+
+### Modified
+
+- `services/bot/formatters/game_message.py` — added open slot padding in `_add_participant_fields`: when `len(participant_ids) < max_players`, appends `"open slot"` strings for empty slots so the Discord embed shows all slots (confirmed + open)
+- `tests/unit/services/bot/formatters/test_game_message.py` — added `test_add_participant_fields_shows_open_slots_when_under_capacity` (TDD RED→GREEN) and `test_add_participant_fields_no_open_slots_when_at_capacity`; added `import pytest` (was missing)
+
+### Added
+
+- `tests/unit/services/bot/formatters/conftest.py` — pre-imports `services.bot.events.handlers` to break pre-existing circular import that prevented formatters tests from running in isolation
