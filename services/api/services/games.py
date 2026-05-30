@@ -692,6 +692,10 @@ class GameService:
             ValidationError: If @mentions cannot be resolved
             ValueError: If template not found or user unauthorized
         """
+        if game_data.post_at is not None and game_data.post_at >= game_data.scheduled_at:
+            msg = "post_at must be before scheduled_at"
+            raise ValueError(msg)
+
         # Load template, guild, and channel configurations
         template, guild_config, channel_config = await self._load_game_dependencies(
             game_data.template_id
@@ -801,18 +805,22 @@ class GameService:
         )
         game = result.scalar_one()
 
-        await self._setup_game_schedules(
-            game,
-            resolved_fields["reminder_minutes"],
-            resolved_fields["expected_duration_minutes"],
-        )
+        deferred = game.post_at is not None and game.post_at > datetime.datetime.now(datetime.UTC)
+
+        if not deferred:
+            await self._setup_game_schedules(
+                game,
+                resolved_fields["reminder_minutes"],
+                resolved_fields["expected_duration_minutes"],
+            )
 
         game = await self.get_game(game.id)
         if game is None:
             msg = "Failed to reload created game"
             raise ValueError(msg)
 
-        await self._publish_game_created(game, channel_config)
+        if not deferred:
+            await self._publish_game_created(game, channel_config)
 
         return game
 

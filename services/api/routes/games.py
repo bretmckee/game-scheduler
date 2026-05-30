@@ -322,6 +322,7 @@ async def create_game(
     initial_participants: Annotated[str | None, Form()] = None,
     host: Annotated[str | None, Form()] = None,
     remind_host_rewards: Annotated[bool | None, Form()] = None,
+    post_at: Annotated[str | None, Form()] = None,
     thumbnail: Annotated[UploadFile | None, File()] = None,
     image: Annotated[UploadFile | None, File()] = None,
     *,  # Force remaining parameters to be keyword-only
@@ -346,6 +347,9 @@ async def create_game(
             initial_participants_list = json.loads(initial_participants)
 
         scheduled_at_datetime = datetime.fromisoformat(scheduled_at.replace("Z", "+00:00"))
+        post_at_datetime = (
+            datetime.fromisoformat(post_at.replace("Z", "+00:00")) if post_at else None
+        )
 
         # Build request object
         game_data = game_schemas.GameCreateRequest(
@@ -362,7 +366,7 @@ async def create_game(
             initial_participants=initial_participants_list,
             host=host,
             remind_host_rewards=remind_host_rewards,
-            post_at=None,
+            post_at=post_at_datetime,
         )
 
         # Validate and read thumbnail

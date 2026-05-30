@@ -44,11 +44,12 @@ def mock_game():
     game.guild_id = "guild-uuid-1234"
     game.host_id = "host-uuid-1234"
     game.channel_id = "channel-uuid-1234"
-    game.scheduled_at = datetime.datetime(2026, 6, 1, 18, 0, 0)
+    game.scheduled_at = datetime.datetime(2026, 6, 1, 18, 0, 0, tzinfo=datetime.UTC)
     game.max_players = 4
     game.notify_role_ids = []
     game.signup_method = "normal"
     game.status = game_model.GameStatus.SCHEDULED.value
+    game.post_at = None
     return game
 
 
@@ -117,6 +118,33 @@ async def test_persist_and_publish_adds_game_to_db(
 
     game_service.db.add.assert_called_once_with(mock_game)
     game_service.db.flush.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_persist_and_publish_skips_schedules_when_post_at_future(
+    game_service, mock_game, mock_channel_config, resolved_fields
+):
+    """_persist_and_publish does not schedule or publish when post_at is in the future."""
+    mock_game.post_at = datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=1)
+
+    mock_setup = AsyncMock()
+    mock_publish = AsyncMock()
+
+    with (
+        patch.object(game_service, "_create_participant_records", new=AsyncMock()),
+        patch.object(game_service, "_setup_game_schedules", new=mock_setup),
+        patch.object(game_service, "get_game", new=AsyncMock(return_value=mock_game)),
+        patch.object(game_service, "_publish_game_created", new=mock_publish),
+        patch.object(
+            game_service.db,
+            "execute",
+            new=AsyncMock(return_value=MagicMock(scalar_one=MagicMock(return_value=mock_game))),
+        ),
+    ):
+        await game_service._persist_and_publish(mock_game, [], resolved_fields, mock_channel_config)
+
+    mock_setup.assert_not_called()
+    mock_publish.assert_not_called()
 
 
 @pytest.mark.asyncio

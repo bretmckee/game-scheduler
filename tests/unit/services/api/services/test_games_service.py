@@ -5142,3 +5142,56 @@ async def test_update_game_resolves_at_mention_in_signup_instructions(
         sample_guild.guild_id,
     )
     assert mock_game.signup_instructions == "DM <@222> to sign up"
+
+
+# Tests for post_at validation in create_game
+
+
+@pytest.mark.asyncio
+async def test_create_game_rejects_post_at_after_scheduled_at(
+    game_service,
+    mock_db,
+    mock_role_service,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """create_game raises ValueError when post_at is not before scheduled_at."""
+    scheduled_at = datetime.datetime(2026, 7, 1, 18, 0, 0, tzinfo=datetime.UTC)
+    template_id = str(uuid.uuid4())
+    game_data = game_schemas.GameCreateRequest(
+        template_id=template_id,
+        title="Test Game",
+        description="Test description",
+        scheduled_at=scheduled_at,
+        post_at=scheduled_at,
+    )
+
+    template_result = MagicMock()
+    template_result.scalar_one_or_none.return_value = template_model.GameTemplate(
+        id=template_id,
+        guild_id=sample_guild.id,
+        channel_id=sample_channel.id,
+        name="Test Template",
+        order=0,
+        is_default=True,
+        max_players=10,
+        reminder_minutes=[60],
+    )
+    guild_result = MagicMock()
+    guild_result.scalar_one_or_none.return_value = sample_guild
+    channel_result = MagicMock()
+    channel_result.scalar_one_or_none.return_value = sample_channel
+    host_result = MagicMock()
+    host_result.scalar_one_or_none.return_value = sample_user
+
+    mock_db.execute = AsyncMock(
+        side_effect=[template_result, guild_result, channel_result, host_result]
+    )
+
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
+        with pytest.raises(ValueError, match="post_at must be before scheduled_at"):
+            await game_service.create_game(
+                game_data=game_data,
+                host_user_id=sample_user.id,
+            )

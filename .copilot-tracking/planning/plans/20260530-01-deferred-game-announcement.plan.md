@@ -41,23 +41,23 @@ Allow game creators to specify a future `post_at` timestamp so the Discord annou
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Database foundation — migration, model, schema
+### [x] Phase 1: Database foundation — migration, model, schema
 
-- [ ] Task 1.1: Add `post_at TIMESTAMPTZ NULL` to `game_sessions` via Alembic migration with NOTIFY trigger
+- [x] Task 1.1: Add `post_at TIMESTAMPTZ NULL` to `game_sessions` via Alembic migration with NOTIFY trigger
   - Details: .copilot-tracking/planning/details/20260530-01-deferred-game-announcement-details.md (Lines 13–31)
 
-- [ ] Task 1.2: Add `post_at: Mapped[datetime | None]` to `GameSession` model
+- [x] Task 1.2: Add `post_at: Mapped[datetime | None]` to `GameSession` model
   - Details: .copilot-tracking/planning/details/20260530-01-deferred-game-announcement-details.md (Lines 32–41)
 
-- [ ] Task 1.3: Add `post_at` field to `GameCreateRequest`, `GameUpdateRequest`, and `GameResponse` schemas
+- [x] Task 1.3: Add `post_at` field to `GameCreateRequest`, `GameUpdateRequest`, and `GameResponse` schemas
   - Details: .copilot-tracking/planning/details/20260530-01-deferred-game-announcement-details.md (Lines 42–77)
 
-### [ ] Phase 2: API create path — parse and gate on `post_at`
+### [x] Phase 2: API create path — parse and gate on `post_at`
 
-- [ ] Task 2.1: Add `post_at` form parameter to the `create_game` route and pass it through to the service
+- [x] Task 2.1: Add `post_at` form parameter to the `create_game` route and pass it through to the service
   - Details: .copilot-tracking/planning/details/20260530-01-deferred-game-announcement-details.md (Lines 80–93)
 
-- [ ] Task 2.2: Validate `post_at < scheduled_at` in `create_game` service and gate `_persist_and_publish` schedule/publish calls
+- [x] Task 2.2: Validate `post_at < scheduled_at` in `create_game` service and gate `_persist_and_publish` schedule/publish calls
   - Details: .copilot-tracking/planning/details/20260530-01-deferred-game-announcement-details.md (Lines 94–132)
 
 ### [ ] Phase 3: API update path, join guard, and list visibility

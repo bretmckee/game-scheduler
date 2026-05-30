@@ -536,3 +536,38 @@ class TestListGamesUsesDisplayNameResolver:
         mock_display_resolver.resolve_display_names_and_avatars.assert_awaited_once_with(
             "guild_discord_1", ["host1"]
         )
+
+
+class TestCreateGameRoutePostAt:
+    """Tests for create_game route post_at parameter handling."""
+
+    @pytest.mark.asyncio
+    async def test_create_game_route_passes_post_at_to_service(self):
+        """create_game route parses post_at form field and passes it to game service."""
+        post_at_str = "2026-06-01T12:00:00Z"
+        expected_dt = datetime(2026, 6, 1, 12, 0, 0, tzinfo=UTC)
+
+        mock_current_user = MagicMock()
+        mock_current_user.user.id = "user-123"
+
+        mock_game = MagicMock()
+        mock_game_service = MagicMock()
+        mock_game_service.create_game = AsyncMock(return_value=mock_game)
+
+        with patch(
+            "services.api.routes.games._build_game_response",
+            new_callable=AsyncMock,
+            return_value=MagicMock(),
+        ):
+            await games_routes.create_game(
+                template_id="template-123",
+                title="Test Game",
+                scheduled_at="2026-07-01T18:00:00Z",
+                post_at=post_at_str,
+                current_user=mock_current_user,
+                game_service=mock_game_service,
+            )
+
+        call_kwargs = mock_game_service.create_game.call_args.kwargs
+        game_data = call_kwargs["game_data"]
+        assert game_data.post_at == expected_dt
