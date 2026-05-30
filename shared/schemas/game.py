@@ -99,6 +99,10 @@ class GameCreateRequest(BaseModel):
         None,
         description="Send host a DM reminder when game completes with no rewards set",
     )
+    post_at: datetime | None = Field(
+        None,
+        description="When to post the Discord announcement. None or past = post immediately.",
+    )
 
     @field_validator("signup_method")
     @classmethod
@@ -154,6 +158,14 @@ class GameUpdateRequest(BaseModel):
     rewards: str | None = Field(None, max_length=2000)
     remind_host_rewards: bool | None = None
     archive_delay_seconds: int | None = Field(None, ge=0)
+    post_at: datetime | None = Field(
+        None,
+        description="Update scheduled announcement time. None means do not change.",
+    )
+    clear_post_at: bool = Field(
+        False,
+        description="If True, clear post_at and announce immediately if not yet announced.",
+    )
 
     @field_validator("notify_role_ids")
     @classmethod
@@ -195,6 +207,9 @@ class GameResponse(BaseModel):
     channel_id: str = Field(..., description="Channel ID (UUID)")
     channel_name: str | None = Field(None, description="Channel name")
     message_id: str | None = Field(None, description="Discord message snowflake ID)")
+    post_at: str | None = Field(
+        None, description="Scheduled announcement time (ISO 8601 UTC) or None"
+    )
     host: "ParticipantResponse" = Field(..., description="Game host information")
     reminder_minutes: list[int] | None = Field(None, description="Reminder times (resolved)")
     expected_duration_minutes: int | None = Field(

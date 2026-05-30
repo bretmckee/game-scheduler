@@ -19,7 +19,7 @@
 # SOFTWARE.
 
 
-"""Tests for GameSession model image storage."""
+"""Tests for GameSession model attributes."""
 
 from sqlalchemy import inspect
 
@@ -48,6 +48,20 @@ def test_game_session_image_columns_nullable():
 
     assert columns["thumbnail_id"].nullable, "thumbnail_id should be nullable"
     assert columns["banner_image_id"].nullable, "banner_image_id should be nullable"
+
+
+def test_game_session_has_post_at_column():
+    """Verify GameSession model has post_at column."""
+    mapper = inspect(GameSession)
+    column_names = {col.key for col in mapper.columns}
+    assert "post_at" in column_names
+
+
+def test_game_session_post_at_column_nullable():
+    """Verify post_at column is nullable."""
+    mapper = inspect(GameSession)
+    columns = {col.key: col for col in mapper.columns}
+    assert columns["post_at"].nullable, "post_at should be nullable"
 
 
 def test_game_session_image_fk_columns_are_uuid():

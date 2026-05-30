@@ -26,11 +26,19 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
-from shared.schemas.game import GameCreateRequest, GameUpdateRequest
+from shared.schemas.game import GameCreateRequest, GameResponse, GameUpdateRequest
+from shared.schemas.participant import ParticipantResponse
 from shared.utils.limits import MAX_DESCRIPTION_LENGTH
 
 VALID_TEMPLATE_ID = "00000000-0000-0000-0000-000000000001"
 VALID_SCHEDULED_AT = datetime(2026, 6, 1, 18, 0, 0, tzinfo=UTC)
+VALID_HOST = ParticipantResponse(
+    id="00000000-0000-0000-0000-000000000002",
+    game_session_id="00000000-0000-0000-0000-000000000001",
+    joined_at="2026-05-30T00:00:00+00:00",
+    position_type=8000,
+    position=0,
+)
 
 
 class TestGameCreateRequestDescriptionLimit:
@@ -83,3 +91,86 @@ class TestGameUpdateRequestDescriptionLimit:
         """Test that None description is accepted."""
         req = GameUpdateRequest(description=None)
         assert req.description is None
+
+
+class TestGameCreateRequestPostAt:
+    """Tests for GameCreateRequest.post_at field."""
+
+    def test_post_at_none_accepted(self):
+        """post_at defaults to None."""
+        req = GameCreateRequest(
+            template_id=VALID_TEMPLATE_ID,
+            title="Test Game",
+            scheduled_at=VALID_SCHEDULED_AT,
+        )
+        assert req.post_at is None
+
+    def test_post_at_datetime_accepted(self):
+        """post_at accepts a datetime value."""
+        post_at = datetime(2026, 5, 31, 12, 0, 0, tzinfo=UTC)
+        req = GameCreateRequest(
+            template_id=VALID_TEMPLATE_ID,
+            title="Test Game",
+            scheduled_at=VALID_SCHEDULED_AT,
+            post_at=post_at,
+        )
+        assert req.post_at == post_at
+
+
+class TestGameUpdateRequestPostAt:
+    """Tests for GameUpdateRequest post_at and clear_post_at fields."""
+
+    def test_post_at_defaults_to_none(self):
+        """post_at defaults to None (meaning do not change)."""
+        req = GameUpdateRequest()
+        assert req.post_at is None
+
+    def test_clear_post_at_defaults_to_false(self):
+        """clear_post_at sentinel defaults to False."""
+        req = GameUpdateRequest()
+        assert req.clear_post_at is False
+
+    def test_clear_post_at_true_accepted(self):
+        """clear_post_at=True is accepted."""
+        req = GameUpdateRequest(clear_post_at=True)
+        assert req.clear_post_at is True
+
+
+class TestGameResponsePostAt:
+    """Tests for GameResponse.post_at field."""
+
+    def test_post_at_none_serializes(self):
+        """post_at=None is valid and serializes correctly."""
+        response = GameResponse(
+            id="00000000-0000-0000-0000-000000000001",
+            title="Test Game",
+            scheduled_at="2026-06-01T18:00:00+00:00",
+            guild_id="g1",
+            channel_id="c1",
+            host=VALID_HOST,
+            status="SCHEDULED",
+            signup_method="SELF_SIGNUP",
+            participant_count=0,
+            created_at="2026-05-30T00:00:00+00:00",
+            updated_at="2026-05-30T00:00:00+00:00",
+            post_at=None,
+        )
+        assert response.post_at is None
+
+    def test_post_at_iso_string_accepted(self):
+        """post_at accepts an ISO 8601 string."""
+        response = GameResponse(
+            id="00000000-0000-0000-0000-000000000001",
+            title="Test Game",
+            scheduled_at="2026-06-01T18:00:00+00:00",
+            guild_id="g1",
+            channel_id="c1",
+            host=VALID_HOST,
+            status="SCHEDULED",
+            signup_method="SELF_SIGNUP",
+            participant_count=0,
+            created_at="2026-05-30T00:00:00+00:00",
+            updated_at="2026-05-30T00:00:00+00:00",
+            post_at="2026-05-31T12:00:00+00:00",
+        )
+        assert response.post_at == "2026-05-31T12:00:00+00:00"

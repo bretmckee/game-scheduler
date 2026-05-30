@@ -72,6 +72,7 @@ class GameSession(Base):
         Boolean, nullable=False, default=False, server_default=text("false")
     )
     message_id: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    post_at: Mapped[datetime | None] = mapped_column(nullable=True)
     host_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
     reminder_minutes: Mapped[list[int] | None] = mapped_column(JSON, nullable=True)
     notify_role_ids: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)

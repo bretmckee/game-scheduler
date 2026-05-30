@@ -362,6 +362,7 @@ async def create_game(
             initial_participants=initial_participants_list,
             host=host,
             remind_host_rewards=remind_host_rewards,
+            post_at=None,
         )
 
         # Validate and read thumbnail
@@ -616,6 +617,8 @@ async def update_game(
             rewards=rewards,
             remind_host_rewards=remind_host_rewards,
             archive_delay_seconds=archive_delay_seconds,
+            post_at=None,
+            clear_post_at=False,
         )
 
         # Process file uploads
@@ -1056,4 +1059,5 @@ async def _build_game_response(
         rewards=game.rewards,
         remind_host_rewards=bool(game.remind_host_rewards),
         archive_channel_id=game.archive_channel_id,
+        post_at=datetime_utils.format_datetime_as_utc(game.post_at) if game.post_at else None,
     )
