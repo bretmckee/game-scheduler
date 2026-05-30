@@ -231,3 +231,43 @@ def test_join_simple_no_jump_url_omits_link():
     msg = DMFormats.join_simple("Epic Quest", jump_url=None)
     assert "discord.com" not in msg
     assert "Epic Quest" in msg
+
+
+# ---------------------------------------------------------------------------
+# DMFormats.join_waitlist and DMFormats.waitlist_demotion (TDD RED)
+# ---------------------------------------------------------------------------
+
+
+_JUMP_URL_GAME = "https://discord.com/channels/111/222/999"
+
+
+def test_join_waitlist_contains_game_title():
+    msg = DMFormats.join_waitlist("Epic Quest")
+    assert "Epic Quest" in msg
+
+
+def test_join_waitlist_contains_waitlist_text():
+    msg = DMFormats.join_waitlist("Epic Quest")
+    assert "joined" not in msg.lower()
+    assert "waitlist" in msg.lower()
+
+
+def test_join_waitlist_with_jump_url_includes_link():
+    msg = DMFormats.join_waitlist("Epic Quest", jump_url=_JUMP_URL_GAME)
+    assert _JUMP_URL_GAME in msg
+
+
+def test_join_waitlist_without_jump_url_omits_link():
+    msg = DMFormats.join_waitlist("Epic Quest", jump_url=None)
+    assert "discord.com" not in msg
+    assert "Epic Quest" in msg
+
+
+def test_waitlist_demotion_contains_game_title():
+    msg = DMFormats.waitlist_demotion("Epic Quest")
+    assert "Epic Quest" in msg
+
+
+def test_waitlist_demotion_with_jump_url_includes_link():
+    msg = DMFormats.waitlist_demotion("Epic Quest", jump_url=_JUMP_URL_GAME)
+    assert _JUMP_URL_GAME in msg

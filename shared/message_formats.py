@@ -204,6 +204,45 @@ class DMFormats:
             f"[Edit game to add rewards]({edit_url})"
         )
 
+    @staticmethod
+    def join_waitlist(game_title: str, jump_url: str | None = None) -> str:
+        """
+        Format DM sent when a player joins the waitlist for a HOST_SELECTED_WITH_WAITLIST game.
+
+        Args:
+            game_title: Title of the game
+            jump_url: Discord jump URL to game posting, or None if unavailable
+
+        Returns:
+            Formatted waitlist join message
+        """
+        text = (
+            f"\U0001f3ab You're on the waitlist for **{game_title}**. "
+            f"The host will confirm participants."
+        )
+        if jump_url:
+            text += f"\n[View game in Discord]({jump_url})"
+        return text
+
+    @staticmethod
+    def waitlist_demotion(game_title: str, jump_url: str | None = None) -> str:
+        """
+        Format DM sent when a confirmed player is moved back to the waitlist.
+
+        Args:
+            game_title: Title of the game
+            jump_url: Discord jump URL to game posting, or None if unavailable
+
+        Returns:
+            Formatted demotion message
+        """
+        text = (
+            f"\u26a0\ufe0f A change by the host has moved you to the waitlist for **{game_title}**."
+        )
+        if jump_url:
+            text += f"\n[View game in Discord]({jump_url})"
+        return text
+
 
 class DMPredicates:
     """Predicates for matching Discord DMs in tests."""

@@ -66,12 +66,12 @@ notifications for promotions and demotions.
 - [x] Task 2.2 (GREEN): Implement HOST_ADDED-only partition logic and `entered_waitlist()`; remove xfail markers
   - Details: .copilot-tracking/planning/details/20260530-01-host-selected-waitlist-details.md (Lines 112-151)
 
-### [ ] Phase 3: New DM Formats (TDD)
+### [x] Phase 3: New DM Formats (TDD)
 
-- [ ] Task 3.1 (RED): Stub `join_waitlist` and `waitlist_demotion` in DMFormats; write 6 xfail tests
+- [x] Task 3.1 (RED): Stub `join_waitlist` and `waitlist_demotion` in DMFormats; write 6 xfail tests
   - Details: .copilot-tracking/planning/details/20260530-01-host-selected-waitlist-details.md (Lines 154-187)
 
-- [ ] Task 3.2 (GREEN): Implement `join_waitlist` and `waitlist_demotion`; remove xfail markers
+- [x] Task 3.2 (GREEN): Implement `join_waitlist` and `waitlist_demotion`; remove xfail markers
   - Details: .copilot-tracking/planning/details/20260530-01-host-selected-waitlist-details.md (Lines 188-219)
 
 ### [ ] Phase 4: Backend Services — Callers + Upsert + Transitions (TDD)
