@@ -177,6 +177,15 @@ export const GameCard: FC<GameCardProps> = ({ game, showActions = true, onGameUp
           {truncateDescription(game.description, UI.DEFAULT_TRUNCATE_LENGTH)}
         </Typography>
 
+        {game.post_at && !game.message_id && (
+          <Chip
+            label={`Pending announcement: ${formatDateTime(game.post_at)}`}
+            color="warning"
+            size="small"
+            sx={{ mb: 1 }}
+          />
+        )}
+
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 1 }}>
           <Typography variant="body2">
             <strong>When:</strong> {formatDateTime(game.scheduled_at)}

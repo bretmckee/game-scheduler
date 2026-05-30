@@ -39,6 +39,7 @@ import {
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { subMinutes } from 'date-fns';
 import { Channel, GameSession, ParticipantType, SignupMethod, SIGNUP_METHOD_INFO } from '../types';
 import { ValidationErrors } from './ValidationErrors';
 import { ChannelValidationErrors } from './ChannelValidationErrors';
@@ -92,6 +93,8 @@ export interface GameFormData {
   description: string;
   signupInstructions: string;
   scheduledAt: Date | null;
+  postAt: Date | null;
+  clearPostAt: boolean;
   where: string;
   channelId: string;
   maxPlayers: string;
@@ -215,6 +218,8 @@ export const GameForm: FC<GameFormProps> = ({
     description: initialData?.description || '',
     signupInstructions: initialData?.signup_instructions || '',
     scheduledAt: initialData?.scheduled_at ? new Date(initialData.scheduled_at) : getNextHalfHour(),
+    postAt: initialData?.post_at ? new Date(initialData.post_at) : null,
+    clearPostAt: false,
     where: initialData?.where_display ?? initialData?.where ?? '',
     channelId: initialData?.channel_id || '',
     maxPlayers: initialData?.max_players?.toString() || '10',
@@ -264,6 +269,8 @@ export const GameForm: FC<GameFormProps> = ({
         scheduledAt: initialData.scheduled_at
           ? new Date(initialData.scheduled_at)
           : getNextHalfHour(),
+        postAt: initialData.post_at ? new Date(initialData.post_at) : null,
+        clearPostAt: false,
         where: initialData.where_display ?? initialData.where ?? '',
         channelId: initialData.channel_id || '',
         maxPlayers: initialData.max_players?.toString() || '10',
@@ -443,6 +450,18 @@ export const GameForm: FC<GameFormProps> = ({
     setFormData((prev) => ({ ...prev, scheduledAt: date }));
     const result = validateFutureDate(date);
     setScheduledAtError(result.error || null);
+  };
+
+  const handlePostAtChange = (date: Date | null) => {
+    setFormData((prev) => ({ ...prev, postAt: date, clearPostAt: false }));
+  };
+
+  const handleClearPostAtChange = (checked: boolean) => {
+    setFormData((prev) => ({
+      ...prev,
+      clearPostAt: checked,
+      postAt: checked ? null : prev.postAt,
+    }));
   };
 
   const handleDurationChange = (minutes: number | null) => {
@@ -716,6 +735,50 @@ export const GameForm: FC<GameFormProps> = ({
             }}
             sx={{ width: '100%', mt: 1, mb: 1 }}
           />
+
+          {mode === 'edit' &&
+            initialData?.post_at &&
+            !initialData?.message_id &&
+            new Date(initialData.post_at) > new Date() && (
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={formData.clearPostAt}
+                    onChange={(e) => handleClearPostAtChange(e.target.checked)}
+                    disabled={loading}
+                  />
+                }
+                label="Post immediately (announce now)"
+              />
+            )}
+
+          {!formData.clearPostAt &&
+            !(
+              mode === 'edit' &&
+              initialData?.post_at &&
+              new Date(initialData.post_at) <= new Date()
+            ) && (
+              <DateTimePicker
+                label="Schedule announcement (optional)"
+                value={formData.postAt}
+                onChange={handlePostAtChange}
+                minDateTime={new Date()}
+                maxDateTime={formData.scheduledAt ? subMinutes(formData.scheduledAt, 1) : undefined}
+                disabled={loading}
+                slotProps={{
+                  field: { clearable: true },
+                  textField: {
+                    helperText: formData.scheduledAt
+                      ? `Leave empty to post immediately · must be between now and game start (${formData.scheduledAt.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })})`
+                      : 'Leave empty to post immediately',
+                    InputLabelProps: {
+                      sx: { fontSize: '1.1rem' },
+                    },
+                  },
+                }}
+                sx={{ width: '100%', mt: 1, mb: 1 }}
+              />
+            )}
 
           <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap', mb: 1, mt: 1 }}>
             <Box sx={{ flex: '1 1 45%', minWidth: '200px' }}>

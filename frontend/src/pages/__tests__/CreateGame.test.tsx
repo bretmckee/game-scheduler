@@ -727,3 +727,89 @@ describe('CreateGame with guildId route param', () => {
     expect(serverCombobox).toBeUndefined();
   });
 });
+
+describe('CreateGame - post_at scheduling field', () => {
+  const mockUser: CurrentUser = {
+    id: 'id-123',
+    user_uuid: 'user-123',
+    username: 'testuser',
+    discordId: 'discord-123',
+    avatar: null,
+  };
+
+  const mockGuild: Guild = {
+    id: '1',
+    guild_name: 'Test Server',
+    created_at: '2025-01-01T00:00:00Z',
+    updated_at: '2025-01-01T00:00:00Z',
+  };
+
+  const mockTemplate: GameTemplate = {
+    id: 'template-1',
+    guild_id: '1',
+    name: 'Default Game',
+    description: 'Default game template',
+    channel_id: 'channel-1',
+    channel_name: 'general',
+    max_players: 8,
+    expected_duration_minutes: 120,
+    reminder_minutes: [60, 15],
+    where: null,
+    signup_instructions: null,
+    is_default: true,
+    order: 1,
+    notify_role_ids: null,
+    allowed_player_role_ids: null,
+    allowed_host_role_ids: null,
+    allowed_signup_methods: null,
+    default_signup_method: null,
+    archive_channel_id: null,
+    archive_channel_name: null,
+    archive_delay_seconds: null,
+    created_at: '2025-01-01T00:00:00Z',
+    updated_at: '2025-01-01T00:00:00Z',
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url === '/api/v1/guilds') {
+        return Promise.resolve({ data: { guilds: [mockGuild] } });
+      }
+      if (url === '/api/v1/guilds/1/templates') {
+        return Promise.resolve({ data: [mockTemplate] });
+      }
+      if (url.includes('/config')) {
+        return Promise.resolve({ status: 403 });
+      }
+      return Promise.resolve({ data: [] });
+    });
+  });
+
+  const renderWithAuth = () => {
+    const mockAuthValue = {
+      user: mockUser,
+      login: vi.fn(),
+      logout: vi.fn(),
+      refreshUser: vi.fn(),
+      loading: false,
+    };
+    return render(
+      <BrowserRouter>
+        <AuthContext.Provider value={mockAuthValue}>
+          <CreateGame />
+        </AuthContext.Provider>
+      </BrowserRouter>
+    );
+  };
+
+  it('renders a "Schedule announcement (optional)" datetime field', async () => {
+    renderWithAuth();
+
+    await waitFor(() => {
+      expect(screen.getByRole('textbox', { name: /game title/i })).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/Leave empty to post immediately/)).toBeInTheDocument();
+  });
+});

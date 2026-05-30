@@ -215,6 +215,12 @@ export const EditGame: FC = () => {
       payload.append('rewards', formData.rewards || '');
       payload.append('remind_host_rewards', formData.remindHostRewards ? 'true' : 'false');
 
+      if (formData.clearPostAt) {
+        payload.append('clear_post_at', 'true');
+      } else if (formData.postAt) {
+        payload.append('post_at', formData.postAt.toISOString());
+      }
+
       await apiClient.put(`/api/v1/games/${gameId}`, payload, {
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -344,6 +350,13 @@ export const EditGame: FC = () => {
     }
     payload.append('rewards', formData.rewards || '');
     payload.append('remind_host_rewards', formData.remindHostRewards ? 'true' : 'false');
+
+    if (formData.clearPostAt) {
+      payload.append('clear_post_at', 'true');
+    } else if (formData.postAt) {
+      payload.append('post_at', formData.postAt.toISOString());
+    }
+
     payload.append('archive_delay_seconds', '1');
 
     await apiClient.put(`/api/v1/games/${gameId}`, payload, {

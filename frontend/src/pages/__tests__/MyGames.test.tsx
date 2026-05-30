@@ -563,3 +563,65 @@ describe('MyGames - Pagination', () => {
     });
   });
 });
+
+describe('MyGames - pending announcement badge', () => {
+  const mockUser = {
+    id: 'id-123',
+    user_uuid: 'user-123',
+    username: 'testuser',
+  };
+
+  const mockAuthContext = {
+    user: mockUser,
+    login: vi.fn(),
+    logout: vi.fn(),
+    loading: false,
+    refreshUser: vi.fn(),
+  };
+
+  const renderMyGames = async () => {
+    const { useGameUpdates } = await import('../../hooks/useGameUpdates');
+    vi.mocked(useGameUpdates).mockImplementation(() => {});
+
+    return render(
+      <AuthContext.Provider value={mockAuthContext}>
+        <BrowserRouter>
+          <MyGames />
+        </BrowserRouter>
+      </AuthContext.Provider>
+    );
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('shows "Pending announcement" badge for hosted game with post_at and no message_id', async () => {
+    const gameWithPostAt = {
+      id: 'game-pending',
+      title: 'Pending Announcement Game',
+      host: { user_id: 'user-123', display_name: 'testuser' },
+      status: 'SCHEDULED',
+      participant_count: 0,
+      message_id: null,
+      post_at: '2099-11-20T09:00:00Z',
+    };
+
+    vi.mocked(apiClient.get)
+      .mockResolvedValueOnce({
+        data: { games: [gameWithPostAt], total: 1, limit: 25, offset: 0 },
+      })
+      .mockResolvedValueOnce({
+        data: { games: [], total: 0, limit: 25, offset: 0 },
+      })
+      .mockResolvedValueOnce({ data: { guilds: [] } });
+
+    await renderMyGames();
+
+    await waitFor(() => {
+      expect(screen.getByText('Pending Announcement Game')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/Pending announcement:/i)).toBeInTheDocument();
+  });
+});

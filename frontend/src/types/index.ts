@@ -89,6 +89,7 @@ export interface GameSession {
   description: string;
   signup_instructions: string | null;
   scheduled_at: string;
+  post_at?: string | null;
   where: string | null;
   max_players: number | null;
   guild_id: string;

@@ -267,3 +267,45 @@ describe('GameDetails - Cancel Game button visibility', () => {
     expect(screen.queryByText('Cancel Game')).not.toBeInTheDocument();
   });
 });
+
+describe('GameDetails - pending announcement badge', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('shows "Announcement scheduled for" alert when post_at is set and message_id is null', async () => {
+    const gameWithPostAt: GameSession = {
+      ...baseGame,
+      post_at: '2099-11-20T09:00:00Z',
+      message_id: null,
+    };
+
+    vi.mocked(apiClient.get).mockResolvedValue({ data: gameWithPostAt });
+
+    renderGameDetails();
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Game')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/Announcement scheduled for/i)).toBeInTheDocument();
+  });
+
+  it('does not show the announcement badge when message_id is set', async () => {
+    const announcedGame: GameSession = {
+      ...baseGame,
+      post_at: '2099-11-20T09:00:00Z',
+      message_id: 'discord-message-123',
+    };
+
+    vi.mocked(apiClient.get).mockResolvedValue({ data: announcedGame });
+
+    renderGameDetails();
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Game')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText(/Announcement scheduled for/i)).not.toBeInTheDocument();
+  });
+});

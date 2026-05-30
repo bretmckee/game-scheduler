@@ -18,7 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { StatusCodes } from 'http-status-codes';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -574,5 +574,123 @@ describe('EditGame', () => {
       expect(formData.get('archive_delay_seconds')).toBe('1');
       expect(mockNavigate).toHaveBeenCalledWith('/games/game123');
     });
+  });
+});
+
+describe('EditGame - post_at scheduling field', () => {
+  const mockGameWithPostAt: GameSession = {
+    id: 'game456',
+    title: 'Scheduled Game',
+    description: 'A game with a pending announcement',
+    signup_instructions: null,
+    scheduled_at: '2099-12-01T18:00:00Z',
+    post_at: '2099-11-20T09:00:00Z',
+    where: null,
+    max_players: 4,
+    guild_id: 'guild123',
+    guild_name: 'Test Server',
+    channel_id: 'channel123',
+    channel_name: 'Test Channel',
+    message_id: null,
+    host: {
+      id: 'host-participant-id',
+      game_session_id: 'game456',
+      user_id: 'user123',
+      discord_id: '123456789',
+      display_name: 'Test Host',
+      joined_at: '2025-01-01T00:00:00Z',
+      position_type: ParticipantType.SELF_ADDED,
+      position: 0,
+    },
+    reminder_minutes: [60],
+    notify_role_ids: [],
+    expected_duration_minutes: null,
+    status: 'SCHEDULED',
+    signup_method: 'SELF_SIGNUP',
+    participant_count: 0,
+    participants: [],
+    created_at: '2025-01-01T00:00:00Z',
+    updated_at: '2025-01-01T00:00:00Z',
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockParams.gameId = 'game456';
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url === '/api/v1/games/game456') {
+        return Promise.resolve({ data: mockGameWithPostAt });
+      }
+      if (url === '/api/v1/guilds/guild123/channels') {
+        return Promise.resolve({ data: [] });
+      }
+      if (url === '/api/v1/guilds/guild123/roles') {
+        return Promise.resolve({ data: [] });
+      }
+      return Promise.resolve({ data: [] });
+    });
+  });
+
+  afterEach(() => {
+    mockParams.gameId = 'game123';
+  });
+
+  const renderWithAuth = () => {
+    return render(
+      <BrowserRouter>
+        <AuthContext.Provider value={mockAuthContextValue}>
+          <EditGame />
+        </AuthContext.Provider>
+      </BrowserRouter>
+    );
+  };
+
+  it('pre-populates the "Schedule announcement (optional)" field from game.post_at', async () => {
+    renderWithAuth();
+
+    await waitFor(() => {
+      expect(screen.getByRole('textbox', { name: /game title/i })).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/Leave empty to post immediately/)).toBeInTheDocument();
+  });
+
+  it('sends post_at in FormData when form is submitted with pre-populated post_at', async () => {
+    vi.mocked(apiClient.put).mockResolvedValueOnce({ data: mockGameWithPostAt });
+    const user = userEvent.setup();
+    renderWithAuth();
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('Scheduled Game')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Save Changes'));
+
+    await waitFor(() => {
+      expect(apiClient.put).toHaveBeenCalled();
+    });
+
+    const formData = vi.mocked(apiClient.put).mock.calls[0]![1] as FormData;
+    expect(formData.get('post_at')).toBe('2099-11-20T09:00:00.000Z');
+  });
+
+  it('sends clear_post_at when "Post immediately" checkbox is checked before submit', async () => {
+    vi.mocked(apiClient.put).mockResolvedValueOnce({ data: mockGameWithPostAt });
+    const user = userEvent.setup();
+    renderWithAuth();
+
+    await waitFor(() => {
+      expect(screen.getByRole('checkbox', { name: /Post immediately/i })).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('checkbox', { name: /Post immediately/i }));
+    await user.click(screen.getByText('Save Changes'));
+
+    await waitFor(() => {
+      expect(apiClient.put).toHaveBeenCalled();
+    });
+
+    const formData = vi.mocked(apiClient.put).mock.calls[0]![1] as FormData;
+    expect(formData.get('clear_post_at')).toBe('true');
+    expect(formData.get('post_at')).toBeNull();
   });
 });

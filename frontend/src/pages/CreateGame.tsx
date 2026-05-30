@@ -233,6 +233,10 @@ export const CreateGame: FC = () => {
 
       payload.append('remind_host_rewards', formData.remindHostRewards ? 'true' : 'false');
 
+      if (formData.postAt) {
+        payload.append('post_at', formData.postAt.toISOString());
+      }
+
       const response = await apiClient.post('/api/v1/games', payload, {
         headers: {
           'Content-Type': 'multipart/form-data',

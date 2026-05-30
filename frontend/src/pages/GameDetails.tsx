@@ -263,6 +263,11 @@ export const GameDetails: FC = () => {
           <Typography variant="h6" gutterBottom>
             Game Details
           </Typography>
+          {game.post_at && !game.message_id && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              Announcement scheduled for {formatDateTime(game.post_at)}
+            </Alert>
+          )}
           {game.host && game.host.display_name && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
               <Avatar

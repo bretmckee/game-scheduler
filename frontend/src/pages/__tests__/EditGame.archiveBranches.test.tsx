@@ -116,6 +116,8 @@ describe('EditGame - handleSaveAndArchive optional field branches', () => {
     description: 'Test Description',
     signupInstructions: '',
     scheduledAt: new Date('2025-12-01T18:00:00Z'),
+    postAt: null,
+    clearPostAt: false,
     where: '',
     channelId: 'channel123',
     maxPlayers: '8',
@@ -267,6 +269,32 @@ describe('EditGame - handleSaveAndArchive optional field branches', () => {
       const putFormData = vi.mocked(apiClient.put).mock.calls[0]?.[1] as FormData;
       expect(putFormData.get('remove_thumbnail')).toBe('true');
       expect(putFormData.get('remove_image')).toBe('true');
+    });
+  });
+
+  it('appends post_at to FormData when postAt is set', async () => {
+    setupMocks();
+    renderEditGame();
+    const onSaveAndArchive = await getOnSaveAndArchive();
+
+    await onSaveAndArchive({ ...baseFormData, postAt: new Date('2099-11-20T09:00:00Z') });
+
+    await waitFor(() => {
+      const putFormData = vi.mocked(apiClient.put).mock.calls[0]?.[1] as FormData;
+      expect(putFormData.get('post_at')).toBe('2099-11-20T09:00:00.000Z');
+    });
+  });
+
+  it('appends clear_post_at to FormData when clearPostAt is true', async () => {
+    setupMocks();
+    renderEditGame();
+    const onSaveAndArchive = await getOnSaveAndArchive();
+
+    await onSaveAndArchive({ ...baseFormData, clearPostAt: true });
+
+    await waitFor(() => {
+      const putFormData = vi.mocked(apiClient.put).mock.calls[0]?.[1] as FormData;
+      expect(putFormData.get('clear_post_at')).toBe('true');
     });
   });
 });

@@ -46,3 +46,33 @@
 ### Added
 
 - `tests/integration/test_deferred_game_announcement.py` — Four integration tests verifying join guard (404 for pending, 200 after announcement posted) and list visibility (hidden from non-manager, visible to host)
+
+---
+
+## Phase 5: Frontend — `post_at` field and pending-announcement badge
+
+### Modified
+
+- `frontend/src/types/index.ts` — Added `post_at?: string | null` to the `GameSession` interface (optional field, backward-compatible with all existing mocks)
+
+- `frontend/src/components/GameForm.tsx` — Added `postAt: Date | null` and `clearPostAt: boolean` to `GameFormData`; initialized both in `useState` and the `useEffect` sync; added `handlePostAtChange` and `handleClearPostAtChange` handlers; added `DateTimePicker` with label "Schedule announcement (optional)" and helper text "Leave empty to post immediately", `maxDateTime` capped at `scheduledAt`; added "Post immediately (announce now)" `Checkbox` in edit mode when `initialData.post_at` is set and `message_id` is null
+
+- `frontend/src/pages/CreateGame.tsx` — Appends `post_at` ISO string to `FormData` when `formData.postAt` is non-null
+
+- `frontend/src/pages/EditGame.tsx` — Appends `clear_post_at=true` (or `post_at` ISO string) to `FormData` in both `handleSubmit` and `handleSaveAndArchive`
+
+- `frontend/src/components/GameCard.tsx` — Added warning `Chip` showing "Pending announcement: [timestamp]" when `game.post_at` is set and `game.message_id` is null
+
+- `frontend/src/pages/GameDetails.tsx` — Added info `Alert` showing "Announcement scheduled for [timestamp]" when `game.post_at` is set and `game.message_id` is null
+
+### Added
+
+- `frontend/src/types/__tests__/index.test.ts` — Two tests verifying `GameSession.post_at` accepts `null` and ISO strings
+
+- `frontend/src/pages/__tests__/CreateGame.test.tsx` — Added `describe('CreateGame - post_at scheduling field')` with test verifying the "Schedule announcement (optional)" helper text is rendered
+
+- `frontend/src/pages/__tests__/EditGame.test.tsx` — Added `describe('EditGame - post_at scheduling field')` with test verifying the picker renders and shows helper text when editing a game with `post_at` set
+
+- `frontend/src/pages/__tests__/MyGames.test.tsx` — Added `describe('MyGames - pending announcement badge')` with test verifying "Pending announcement:" chip appears for a hosted game with `post_at` and no `message_id`
+
+- `frontend/src/pages/__tests__/GameDetails.test.tsx` — Added `describe('GameDetails - pending announcement badge')` with two tests: shows "Announcement scheduled for" alert when `post_at` is set and `message_id` is null; does not show the alert when `message_id` is set

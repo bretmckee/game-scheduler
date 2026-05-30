@@ -88,15 +88,15 @@ Allow game creators to specify a future `post_at` timestamp so the Discord annou
 - [x] Task 4.3: E2e tests for deferred announcement flow
   - Details: .copilot-tracking/planning/details/20260530-01-deferred-game-announcement-details.md (Lines 361–379)
 
-### [ ] Phase 5: Frontend — `post_at` field and pending-announcement badge
+### [x] Phase 5: Frontend — `post_at` field and pending-announcement badge
 
-- [ ] Task 5.1: Add `post_at` to `GameSession` TypeScript interface and API call helpers
+- [x] Task 5.1: Add `post_at` to `GameSession` TypeScript interface and API call helpers
   - Details: .copilot-tracking/planning/details/20260530-01-deferred-game-announcement-details.md (Lines 382–392)
 
-- [ ] Task 5.2: Add `post_at` DateTimePicker to `CreateGame` and `EditGame` forms
+- [x] Task 5.2: Add `post_at` DateTimePicker to `CreateGame` and `EditGame` forms
   - Details: .copilot-tracking/planning/details/20260530-01-deferred-game-announcement-details.md (Lines 393–409)
 
-- [ ] Task 5.3: Add pending-announcement badge to `MyGames` and `GameDetails`
+- [x] Task 5.3: Add pending-announcement badge to `MyGames` and `GameDetails`
   - Details: .copilot-tracking/planning/details/20260530-01-deferred-game-announcement-details.md (Lines 410–438)
 
 ## Dependencies
