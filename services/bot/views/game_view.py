@@ -79,7 +79,7 @@ class GameView(View):
             style=discord.ButtonStyle.success,
             label="Join Game",
             custom_id=f"join_game_{game_id}",
-            disabled=is_started or (signup_method == SignupMethod.HOST_SELECTED.value),
+            disabled=is_started or signup_method in (SignupMethod.HOST_SELECTED.value,),
         )
 
         self.leave_button = _LeaveButton(
@@ -106,8 +106,8 @@ class GameView(View):
         self.is_started = is_started
         if signup_method is not None:
             self.signup_method = signup_method
-        self.join_button.disabled = is_started or (
-            self.signup_method == SignupMethod.HOST_SELECTED.value
+        self.join_button.disabled = is_started or self.signup_method in (
+            SignupMethod.HOST_SELECTED.value,
         )
         self.leave_button.disabled = is_started
 

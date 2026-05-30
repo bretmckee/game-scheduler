@@ -304,6 +304,25 @@ class DMPredicates:
         return predicate
 
     @staticmethod
+    def join_waitlist(game_title: str) -> Callable[[DiscordMessage], bool]:
+        """
+        Predicate to match waitlist join DMs for HOST_SELECTED_WITH_WAITLIST games.
+
+        Args:
+            game_title: Title of the game
+
+        Returns:
+            Predicate function for wait_for_dm_matching
+        """
+
+        def predicate(dm: DiscordMessage) -> bool:
+            return bool(
+                dm.content and "waitlist" in dm.content.lower() and game_title in dm.content
+            )
+
+        return predicate
+
+    @staticmethod
     def reminder(game_title: str) -> Callable[[DiscordMessage], bool]:
         """
         Predicate to match reminder DMs (host, participant, or waitlist).

@@ -35,6 +35,7 @@ class DMType(StrEnum):
 
     REMINDER = "reminder"
     JOIN = "join"
+    WAITLIST_JOIN = "waitlist_join"
     REMOVAL = "removal"
     PROMOTION = "promotion"
     CLONE_CONFIRMATION = "clone_confirmation"
@@ -668,6 +669,7 @@ class DiscordTestHelper:
         predicates = {
             DMType.REMINDER: DMPredicates.reminder(game_title),
             DMType.JOIN: DMPredicates.join(game_title),
+            DMType.WAITLIST_JOIN: DMPredicates.join_waitlist(game_title),
             DMType.REMOVAL: DMPredicates.removal(game_title),
             DMType.PROMOTION: DMPredicates.promotion(game_title),
             DMType.CLONE_CONFIRMATION: DMPredicates.clone_confirmation(game_title),

@@ -480,6 +480,47 @@ async def test_user_main_bot(
         logger.debug("test_user_main_bot teardown: raw SQL delete succeeded")
 
 
+@pytest.fixture
+async def test_user_discord_user_id(
+    admin_db: AsyncSession,
+    discord_user_id: str,
+) -> AsyncGenerator[User]:
+    """
+    Create a User record for discord_user_id (DISCORD_USER_ID env var).
+
+    Provides hermetic user creation with automatic cleanup.
+    Used by tests that insert game participants directly for discord_user_id
+    so that join/promotion DMs are delivered to the watched DM channel.
+    """
+    logger.debug("test_user_discord_user_id setup: inserting discord_id=%s", discord_user_id)
+    user = User(discord_id=discord_user_id)
+    admin_db.add(user)
+    await admin_db.commit()
+    await admin_db.refresh(user)
+    logger.debug("test_user_discord_user_id setup: inserted user.id=%s", user.id)
+
+    assert user.discord_id is not None
+    yield user
+
+    logger.debug("test_user_discord_user_id teardown: deleting discord_id=%s", discord_user_id)
+    try:
+        await admin_db.delete(user)
+        await admin_db.commit()
+        logger.debug("test_user_discord_user_id teardown: ORM delete succeeded")
+    except Exception as exc:
+        logger.debug(
+            "test_user_discord_user_id teardown: ORM delete failed (%s), falling back to raw SQL",
+            exc,
+        )
+        await admin_db.rollback()
+        await admin_db.execute(
+            text("DELETE FROM users WHERE discord_id = :discord_id"),
+            {"discord_id": discord_user_id},
+        )
+        await admin_db.commit()
+        logger.debug("test_user_discord_user_id teardown: raw SQL delete succeeded")
+
+
 async def wait_for_db_condition(
     db_session: AsyncSession,
     query: str,

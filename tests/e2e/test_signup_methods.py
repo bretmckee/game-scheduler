@@ -535,3 +535,85 @@ async def test_edit_game_signup_method_host_to_self(
     updated_button = updated_message.components[0].children[0]
     assert not updated_button.disabled, "Button should be ENABLED after edit to SELF_SIGNUP"
     print("[TEST] ✓ Discord button updated to enabled")
+
+
+@pytest.mark.timeout(120)
+@pytest.mark.asyncio
+async def test_join_button_enabled_for_host_selected_with_waitlist(
+    authenticated_admin_client,
+    admin_db,
+    discord_helper,
+    discord_guild_id,
+    discord_channel_id,
+    synced_guild,
+    test_timeouts,
+):
+    """
+    E2E: Game with HOST_SELECTED_WITH_WAITLIST has enabled join button.
+
+    Verifies:
+    - Game created with signup_method=HOST_SELECTED_WITH_WAITLIST
+    - Discord message posted with join button ENABLED (players can join waitlist)
+    """
+    result = await admin_db.execute(
+        text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
+        {"guild_id": discord_guild_id},
+    )
+    row = result.fetchone()
+    assert row, f"Test guild {discord_guild_id} not found"
+    test_guild_id = row[0]
+
+    result = await admin_db.execute(
+        text("SELECT id FROM game_templates WHERE guild_id = :guild_id AND is_default = true"),
+        {"guild_id": test_guild_id},
+    )
+    row = result.fetchone()
+    assert row, f"Default template not found for guild {test_guild_id}"
+    test_template_id = row[0]
+
+    scheduled_time = datetime.now(UTC) + timedelta(hours=2)
+    game_title = f"E2E Waitlist Join Button Test {uuid4().hex[:8]}"
+
+    game_data = {
+        "template_id": test_template_id,
+        "title": game_title,
+        "description": "Testing HOST_SELECTED_WITH_WAITLIST join button enabled",
+        "scheduled_at": scheduled_time.isoformat(),
+        "max_players": "4",
+        "signup_method": SignupMethod.HOST_SELECTED_WITH_WAITLIST.value,
+    }
+
+    response = await authenticated_admin_client.post("/api/v1/games", data=game_data)
+    assert response.status_code == 201, f"Failed to create game: {response.text}"
+    game_id = response.json()["id"]
+    print(f"\n[TEST] Game created with ID: {game_id}, signup_method: HOST_SELECTED_WITH_WAITLIST")
+
+    admin_db.expire_all()
+    await admin_db.commit()
+
+    message_id = await wait_for_game_message_id(
+        admin_db, game_id, test_timeouts[TimeoutType.MESSAGE_CREATE]
+    )
+    print(f"[TEST] Message ID retrieved: {message_id}")
+
+    message = await discord_helper.wait_for_message(
+        discord_channel_id,
+        message_id,
+        timeout=test_timeouts[TimeoutType.MESSAGE_CREATE],
+    )
+    print("[TEST] Message fetched, checking button state")
+
+    assert message.components, "Message should have button components"
+    action_row = message.components[0]
+    assert len(action_row.children) >= 2, "Action row should have Join and Leave buttons"
+
+    join_button = action_row.children[0]
+    assert join_button.label == "Join Game", (
+        f"First button should be Join Game: {join_button.label}"
+    )
+    assert not join_button.disabled, (
+        "Join button should be ENABLED for HOST_SELECTED_WITH_WAITLIST games "
+        "(players can join the waitlist)"
+    )
+    print(f"[TEST] ✓ Join button is enabled (disabled={join_button.disabled})")
+    print("[TEST] ✓ HOST_SELECTED_WITH_WAITLIST join button state verified")

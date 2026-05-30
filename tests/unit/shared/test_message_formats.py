@@ -263,6 +263,26 @@ def test_join_waitlist_without_jump_url_omits_link():
     assert "Epic Quest" in msg
 
 
+# DMPredicates.join_waitlist
+
+
+def test_join_waitlist_predicate_matches_waitlist_dm():
+    msg = DMFormats.join_waitlist("Epic Quest")
+    predicate = DMPredicates.join_waitlist("Epic Quest")
+    assert predicate(_DM(msg)) is True
+
+
+def test_join_waitlist_predicate_rejects_wrong_title():
+    msg = DMFormats.join_waitlist("Epic Quest")
+    predicate = DMPredicates.join_waitlist("Other Game")
+    assert predicate(_DM(msg)) is False
+
+
+def test_join_waitlist_predicate_rejects_none_content():
+    predicate = DMPredicates.join_waitlist("Epic Quest")
+    assert predicate(_DM(None)) is False
+
+
 def test_waitlist_demotion_contains_game_title():
     msg = DMFormats.waitlist_demotion("Epic Quest")
     assert "Epic Quest" in msg

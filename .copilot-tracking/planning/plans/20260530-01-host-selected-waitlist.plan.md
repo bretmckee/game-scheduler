@@ -94,18 +94,18 @@ notifications for promotions and demotions.
 - [x] Task 4.6: Integration tests — DB round-trip, upsert persistence, demotion notification chain
   - Details: .copilot-tracking/planning/details/20260530-01-host-selected-waitlist-details.md (Lines 335-363)
 
-### [ ] Phase 5: Bot Changes (TDD)
+### [x] Phase 5: Bot Changes (TDD)
 
-- [ ] Task 5.1: Fix join button disable guard so `HOST_SELECTED_WITH_WAITLIST` does not disable the button; add 1 direct test
+- [x] Task 5.1: Fix join button disable guard so `HOST_SELECTED_WITH_WAITLIST` does not disable the button; add 1 direct test
   - Details: .copilot-tracking/planning/details/20260530-01-host-selected-waitlist-details.md (Lines 366-386)
 
-- [ ] Task 5.2 (RED): Add waitlist DM dispatch stub in `_format_join_notification_message`; write 1 xfail test
+- [x] Task 5.2 (RED): Add waitlist DM dispatch stub in `_format_join_notification_message`; write 1 xfail test
   - Details: .copilot-tracking/planning/details/20260530-01-host-selected-waitlist-details.md (Lines 387-409)
 
-- [ ] Task 5.3 (GREEN): Implement `join_waitlist` DM dispatch; remove stub and xfail marker
+- [x] Task 5.3 (GREEN): Implement `join_waitlist` DM dispatch; remove stub and xfail marker
   - Details: .copilot-tracking/planning/details/20260530-01-host-selected-waitlist-details.md (Lines 410-428)
 
-- [ ] Task 5.4: E2E tests — join button state, waitlist DM content, promotion drag full chain
+- [x] Task 5.4: E2E tests — join button state, waitlist DM content, promotion drag full chain
   - Details: .copilot-tracking/planning/details/20260530-01-host-selected-waitlist-details.md (Lines 429-460)
 
 ### [ ] Phase 6: Open Slot Placeholders — Bot (TDD)

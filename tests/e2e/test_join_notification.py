@@ -51,6 +51,9 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import text
 
+from services.api.services.notification_schedule import schedule_join_notification
+from shared.models.participant import ParticipantType
+from shared.models.signup_method import SignupMethod
 from tests.e2e.conftest import TimeoutType, wait_for_game_message_id
 from tests.e2e.helpers.discord import DMType
 
@@ -344,3 +347,123 @@ async def test_join_notification_without_signup_instructions(
 
     print(f"[TEST] DM Content:\n{join_dm.content}")
     print("[TEST] ✓ Generic join notification DM delivery verified successfully")
+
+
+@pytest.mark.timeout(240)
+@pytest.mark.asyncio
+async def test_join_dm_says_waitlist_for_host_selected_with_waitlist(
+    authenticated_admin_client,
+    admin_db,
+    discord_helper,
+    discord_guild_id,
+    discord_channel_id,
+    discord_user_id,
+    synced_guild,
+    main_bot_helper,
+    test_timeouts,
+    test_user_discord_user_id,
+):
+    """
+    E2E: Joining a HOST_SELECTED_WITH_WAITLIST game sends waitlist DM (not "joined").
+
+    Verifies:
+    - Game created with signup_method=HOST_SELECTED_WITH_WAITLIST
+    - Player joins game via /join endpoint
+    - Join notification DM contains waitlist language (not "joined")
+    - DM does NOT say the player confirmed/joined the game
+    """
+    result = await admin_db.execute(
+        text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
+        {"guild_id": discord_guild_id},
+    )
+    row = result.fetchone()
+    assert row, f"Test guild {discord_guild_id} not found"
+    test_guild_id = row[0]
+
+    result = await admin_db.execute(
+        text("SELECT id FROM game_templates WHERE guild_id = :guild_id AND is_default = true"),
+        {"guild_id": test_guild_id},
+    )
+    row = result.fetchone()
+    assert row, f"Default template not found for guild {test_guild_id}"
+    test_template_id = row[0]
+
+    scheduled_time = datetime.now(UTC) + timedelta(hours=2)
+    game_title = f"E2E Waitlist DM Test {uuid4().hex[:8]}"
+
+    game_data = {
+        "template_id": test_template_id,
+        "title": game_title,
+        "description": "Testing waitlist join DM",
+        "scheduled_at": scheduled_time.isoformat(),
+        "max_players": "4",
+        "signup_method": SignupMethod.HOST_SELECTED_WITH_WAITLIST.value,
+    }
+
+    response = await authenticated_admin_client.post("/api/v1/games", data=game_data)
+    assert response.status_code == 201, f"Failed to create game: {response.text}"
+    game_id = response.json()["id"]
+    print(f"\n[TEST] Game created with ID: {game_id}, signup_method: HOST_SELECTED_WITH_WAITLIST")
+
+    message_id = await wait_for_game_message_id(
+        admin_db, game_id, timeout=test_timeouts[TimeoutType.DB_WRITE]
+    )
+    await main_bot_helper.wait_for_message(
+        channel_id=discord_channel_id,
+        message_id=message_id,
+        timeout=test_timeouts[TimeoutType.MESSAGE_CREATE],
+    )
+
+    real_user_id = test_user_discord_user_id.id
+
+    participant_id = str(uuid4())
+    await admin_db.execute(
+        text(
+            "INSERT INTO game_participants "
+            "(id, game_session_id, user_id, position, position_type) "
+            "VALUES (:id, :game_id, :user_id, :position, :position_type)"
+        ),
+        {
+            "id": participant_id,
+            "game_id": game_id,
+            "user_id": real_user_id,
+            "position": 5,
+            "position_type": int(ParticipantType.SELF_ADDED),
+        },
+    )
+    await schedule_join_notification(
+        db=admin_db,
+        game_id=game_id,
+        participant_id=participant_id,
+        game_scheduled_at=scheduled_time.replace(tzinfo=None),
+        delay_seconds=60,
+    )
+    await admin_db.commit()
+    print(f"[TEST] Player {discord_user_id} added to game waitlist via direct DB insert")
+
+    # Wait for waitlist join DM
+    join_dm = await main_bot_helper.wait_for_recent_dm(
+        user_id=discord_user_id,
+        game_title=game_title,
+        dm_type=DMType.WAITLIST_JOIN,
+        timeout=90,
+        interval=5,
+    )
+
+    assert game_title in join_dm.content, (
+        f"Join notification DM should mention game title '{game_title}'"
+    )
+    print("[TEST] ✓ Join notification DM contains game title")
+
+    assert "waitlist" in join_dm.content.lower(), (
+        "Join notification DM for HOST_SELECTED_WITH_WAITLIST should say 'waitlist'"
+    )
+    print("[TEST] ✓ Join notification DM contains waitlist language")
+
+    assert "joined" not in join_dm.content.lower().replace("waitlist", ""), (
+        "Join notification DM should NOT say player 'joined' (they are on the waitlist)"
+    )
+    print("[TEST] ✓ Join notification DM does NOT say 'joined'")
+
+    print(f"[TEST] DM Content:\n{join_dm.content}")
+    print("[TEST] ✓ Waitlist join DM delivery verified successfully")

@@ -28,6 +28,7 @@ from uuid import uuid4
 import pytest
 
 from shared.messaging.events import NotificationDueEvent
+from shared.models.signup_method import SignupMethod
 from shared.models.user import User
 
 
@@ -400,6 +401,32 @@ class TestHandleJoinNotificationHelpers:
                     sample_game.id,
                 )
 
+    def test_is_participant_confirmed_returns_true_for_waitlisted_in_hsw_mode(
+        self, event_handlers, sample_game
+    ):
+        """Test waitlisted player is treated as confirmed in HOST_SELECTED_WITH_WAITLIST.
+
+        SELF_ADDED players land in overflow; they must receive the waitlist join DM.
+        """
+        sample_game.signup_method = SignupMethod.HOST_SELECTED_WITH_WAITLIST
+        participant = MagicMock()
+        participant.id = str(uuid4())
+
+        with patch("services.bot.events.handlers.partition_participants") as mock_partition:
+            mock_partitioned = MagicMock()
+            mock_partitioned.confirmed = []
+            mock_partitioned.overflow = [participant]
+            mock_partition.return_value = mock_partitioned
+
+            is_confirmed = event_handlers._is_participant_confirmed(participant, sample_game)
+
+            assert is_confirmed is True
+            mock_partition.assert_called_once_with(
+                sample_game.participants,
+                sample_game.max_players,
+                signup_method=sample_game.signup_method,
+            )
+
     def test_format_join_notification_message_with_instructions(self, event_handlers, sample_game):
         """Test message formatting with signup instructions."""
         sample_game.signup_instructions = "Join our Discord at https://discord.gg/test"
@@ -491,3 +518,25 @@ class TestHandleJoinNotificationHelpers:
                 mock_send.assert_called_once_with("123456789", message)
                 mock_logger.warning.assert_called_once()
                 assert "Failed to send join notification" in str(mock_logger.warning.call_args)
+
+    def test_format_join_notification_dispatches_waitlist_dm(self, event_handlers, sample_game):
+        """Test join notification dispatches join_waitlist for HOST_SELECTED_WITH_WAITLIST.
+
+        join_simple and join_with_instructions must NOT be called.
+        """
+        sample_game.signup_method = SignupMethod.HOST_SELECTED_WITH_WAITLIST
+        sample_game.signup_instructions = None
+
+        with patch("services.bot.events.handlers.DMFormats") as mock_formats:
+            mock_formats.join_waitlist.return_value = "You're on the waitlist!"
+
+            message = event_handlers._format_join_notification_message(sample_game)
+
+            mock_formats.join_waitlist.assert_called_once_with(
+                game_title=sample_game.title,
+                jump_url=f"https://discord.com/channels/"
+                f"{sample_game.guild.guild_id}/{sample_game.channel.channel_id}/{sample_game.message_id}",
+            )
+            mock_formats.join_simple.assert_not_called()
+            mock_formats.join_with_instructions.assert_not_called()
+            assert message == "You're on the waitlist!"

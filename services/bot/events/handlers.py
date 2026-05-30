@@ -57,6 +57,7 @@ from shared.models.game_status_schedule import GameStatusSchedule
 from shared.models.message_refresh_queue import MessageRefreshQueue
 from shared.models.participant import GameParticipant
 from shared.models.participant_action_schedule import ParticipantActionSchedule
+from shared.models.signup_method import SignupMethod
 from shared.schemas.events import GameStatusTransitionDueEvent
 from shared.utils.games import resolve_max_players
 from shared.utils.participant_sorting import partition_participants
@@ -648,19 +649,27 @@ class EventHandlers:
         game: GameSession,
     ) -> bool:
         """
-        Check if participant is confirmed (not on waitlist).
+        Check if participant should receive a join notification.
+
+        Returns True for confirmed participants in any mode, and also True for
+        waitlisted participants in HOST_SELECTED_WITH_WAITLIST (where being on the
+        waitlist is the intended state and the player should receive the waitlist DM).
 
         Args:
             participant: The participant to check
             game: The game session
 
         Returns:
-            True if participant is confirmed, False if waitlisted
+            True if a join notification should be sent, False otherwise
         """
         partitioned = partition_participants(
             game.participants, game.max_players, signup_method=game.signup_method
         )
         is_confirmed = participant in partitioned.confirmed
+        is_waitlisted = participant in partitioned.overflow
+
+        if game.signup_method == SignupMethod.HOST_SELECTED_WITH_WAITLIST and is_waitlisted:
+            return True
 
         if not is_confirmed:
             logger.info(
@@ -692,6 +701,9 @@ class EventHandlers:
             )
         else:
             logger.warning("Cannot build jump URL for join notification on game %s", game.id)
+
+        if game.signup_method == SignupMethod.HOST_SELECTED_WITH_WAITLIST:
+            return DMFormats.join_waitlist(game_title=game.title, jump_url=jump_url)
 
         if game.signup_instructions:
             return DMFormats.join_with_instructions(

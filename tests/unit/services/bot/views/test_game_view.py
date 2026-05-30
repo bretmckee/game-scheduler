@@ -278,3 +278,30 @@ class TestGameView:
         )
         assert view.join_button.disabled
         assert not view.leave_button.disabled
+
+    @pytest.mark.asyncio
+    async def test_join_button_enabled_for_host_selected_with_waitlist(self):
+        """Test join button is enabled for HOST_SELECTED_WITH_WAITLIST.
+
+        Players can join the waitlist so the button must remain enabled.
+        """
+        view = GameView(
+            game_id="test-game-id",
+            is_full=True,
+            is_started=False,
+            signup_method=SignupMethod.HOST_SELECTED_WITH_WAITLIST.value,
+        )
+        assert not view.join_button.disabled
+
+    @pytest.mark.asyncio
+    async def test_update_button_states_host_selected_with_waitlist_keeps_join_enabled(self):
+        """Test that updating to HOST_SELECTED_WITH_WAITLIST keeps join button enabled."""
+        view = GameView(game_id="test-id", signup_method=SignupMethod.HOST_SELECTED.value)
+        assert view.join_button.disabled
+
+        view.update_button_states(
+            is_full=False,
+            is_started=False,
+            signup_method=SignupMethod.HOST_SELECTED_WITH_WAITLIST.value,
+        )
+        assert not view.join_button.disabled
