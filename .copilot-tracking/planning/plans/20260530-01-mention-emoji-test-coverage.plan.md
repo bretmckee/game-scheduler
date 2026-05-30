@@ -57,15 +57,15 @@ Add integration and e2e test coverage for the user/channel/emoji mention resolut
 - [x] Task 2.2: Augment `test_join_notification_with_signup_instructions` with channel mention and optional emoji in signup_instructions
   - Details: .copilot-tracking/planning/details/20260530-01-mention-emoji-test-coverage-details.md (Lines 82-108)
 
-### [ ] Phase 3: Add `DISCORD_TEST_EMOJI_NAME` Environment Variable
+### [x] Phase 3: Add `DISCORD_TEST_EMOJI_NAME` Environment Variable
 
-- [ ] Task 3.1: Add commented-out `DISCORD_TEST_EMOJI_NAME` entry to `config.template/env.template`
+- [x] Task 3.1: Add commented-out `DISCORD_TEST_EMOJI_NAME` entry to `config.template/env.template`
   - Details: .copilot-tracking/planning/details/20260530-01-mention-emoji-test-coverage-details.md (Lines 111-129)
 
-- [ ] Task 3.2: Add `DISCORD_TEST_EMOJI_NAME: ${DISCORD_TEST_EMOJI_NAME:-}` to `compose.e2e.yaml`
+- [x] Task 3.2: Add `DISCORD_TEST_EMOJI_NAME: ${DISCORD_TEST_EMOJI_NAME:-}` to `compose.e2e.yaml`
   - Details: .copilot-tracking/planning/details/20260530-01-mention-emoji-test-coverage-details.md (Lines 130-143)
 
-- [ ] Task 3.3: Add "Custom Emoji E2E Testing" section to `docs/developer/TESTING.md`
+- [x] Task 3.3: Add "Custom Emoji E2E Testing" section to `docs/developer/TESTING.md`
   - Details: .copilot-tracking/planning/details/20260530-01-mention-emoji-test-coverage-details.md (Lines 144-157)
 
 ## Dependencies

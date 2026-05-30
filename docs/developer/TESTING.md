@@ -335,6 +335,26 @@ DISCORD_TEST_ROLE_B_ID=<id of "E2E Priority Role B">
 If either variable is absent, the four parametrized cases in `test_role_based_signup.py`
 will **fail** with a clear error message pointing to this section.
 
+#### 7. Custom Emoji E2E Testing
+
+`tests/e2e/test_join_notification.py` includes an optional assertion that verifies a
+custom emoji in `signup_instructions` is resolved to its Discord token form in the
+delivered DM. This assertion only runs when `DISCORD_TEST_EMOJI_NAME` is set.
+
+**Setup steps:**
+
+1. Ensure the test guild has at least one custom emoji uploaded
+2. Note the exact emoji name (the part between `:` in `:emoji_name:`)
+3. Set the value in `config/env.e2e`:
+
+```bash
+DISCORD_TEST_EMOJI_NAME=<name of a custom emoji in the test guild>
+```
+
+If the variable is absent the emoji assertion is skipped — the test still passes and
+verifies channel mention resolution. If the variable is set, the test also asserts that
+`<:emoji_name:` appears in the join DM content.
+
 ### Running E2E Tests
 
 ```bash

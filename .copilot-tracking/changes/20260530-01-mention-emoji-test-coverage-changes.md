@@ -34,4 +34,11 @@ resolution pipeline in game text fields.
 
 ## Phase 3: Add `DISCORD_TEST_EMOJI_NAME` Environment Variable
 
-_(not yet implemented)_
+### Modified
+
+- `config.template/env.template` — added commented-out `DISCORD_TEST_EMOJI_NAME`
+  entry near the other optional test role vars
+- `compose.e2e.yaml` — added `DISCORD_TEST_EMOJI_NAME: ${DISCORD_TEST_EMOJI_NAME:-}`
+  passthrough to the e2e test container
+- `docs/developer/TESTING.md` — added "Custom Emoji E2E Testing" section (§7)
+  describing the optional env var, what it enables, and setup steps
