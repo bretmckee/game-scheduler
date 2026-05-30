@@ -108,9 +108,28 @@ You WILL use these exact naming patterns:
 
 ## Phase Isolation Requirements
 
-**MANDATORY**: Every phase MUST be an independently committable unit. The full test suite MUST pass at the end of every phase with no failures. A plan that leaves tests broken at any phase boundary is invalid and MUST be restructured before use.
+**MANDATORY**: Every phase MUST be an independently committable unit. The user commits between phases; each commit runs the full pre-commit suite. A plan that leaves the system unable to commit cleanly at any phase boundary is invalid and MUST be restructured before use.
+
+### Phase Completion Gate
+
+Before declaring a phase complete, ALL of the following must pass:
+
+- **`uv run pytest tests/unit`** — Python unit tests
+- **`uv run mypy shared/ services/`** — Python type checking; mypy failures are build failures and equally block commits
+- **`cd frontend && npm run build`** — TypeScript compilation (if any frontend files changed)
+- **`cd frontend && npm run test`** — Frontend unit tests (if any frontend files changed)
+
+"Tests pass" means all applicable gates pass, not just pytest.
 
 When designing phase boundaries, you MUST apply this principle: **a phase MUST NOT remove or modify code without also updating every caller of that code in the same phase.** Tests are callers. Removing a function while leaving its tests to a later phase violates this rule.
+
+**Signature changes are modifications.** If a phase changes any function signature, method signature, `__init__` parameter list, or type annotation, every call site must be updated in the same phase. mypy enforces this — a plan that leaves mypy errors to be fixed in a later phase is invalid and must be restructured so the signature change and all its call-site updates land together.
+
+### Forward Import Prohibition
+
+A phase MUST NOT add imports (in test or production code) for modules, classes, or functions that are created in a later phase. An unresolvable import causes pytest collection failure for the entire file, which fails the pre-commit gate regardless of whether the tests themselves would pass.
+
+For TDD phases: stubs (`raise NotImplementedError`) MUST be created in the same phase as the tests that import them. A Phase 1 RED phase that writes `from services.bot.new_module import NewClass` must also create `new_module.py` with a `NewClass` stub in Phase 1.
 
 ### Ordering Rule for Code Removal or Replacement
 
@@ -335,7 +354,14 @@ You WILL follow ALL project standards and conventions:
 
 **CRITICAL**: If ${input:phaseStop:true} is true, you WILL stop after each Phase for user review.
 **CRITICAL**: If ${input:taskStop:true} is true, you WILL stop after each Task for user review.
-**CRITICAL**: Before marking any Phase complete or committing its changes, you MUST verify the full unit test suite passes. A phase is not done until tests are green.
+**CRITICAL**: Before marking any Phase complete or committing its changes, you MUST verify ALL pre-commit gates pass:
+
+- `uv run pytest tests/unit` — Python unit tests
+- `uv run mypy shared/ services/` — type checking (mypy failures block commits exactly like test failures)
+- `cd frontend && npm run build` — TypeScript build (if any frontend files changed)
+- `cd frontend && npm run test` — frontend tests (if any frontend files changed)
+
+A phase is not done until all applicable gates are green.
 
 ### Step 3: Cleanup
 
