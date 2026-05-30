@@ -44,9 +44,9 @@ Add integration and e2e test coverage for the user/channel/emoji mention resolut
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Integration Tests
+### [x] Phase 1: Integration Tests
 
-- [ ] Task 1.1: Create `tests/integration/test_games_field_display.py` with three tests
+- [x] Task 1.1: Create `tests/integration/test_games_field_display.py` with three tests
   - Details: .copilot-tracking/planning/details/20260530-01-mention-emoji-test-coverage-details.md (Lines 11-51)
 
 ### [ ] Phase 2: Augment Existing E2E Tests
