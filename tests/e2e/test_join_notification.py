@@ -44,6 +44,7 @@ E2E data seeded by init service:
 """
 
 import json
+import os
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
@@ -99,9 +100,17 @@ async def test_join_notification_with_signup_instructions(
     scheduled_time = datetime.now(UTC) + timedelta(hours=2)
     game_title = f"E2E Join Notification Test {uuid4().hex[:8]}"
     game_description = "Test game for join notification DM verification"
+
+    posting_channel = await main_bot_helper.client.fetch_channel(int(discord_channel_id))
+    channel_name = posting_channel.name
+    emoji_name = os.environ.get("DISCORD_TEST_EMOJI_NAME", "")
+
     signup_instructions = (
-        "Join our Discord server at https://discord.gg/example123\nCheck in at the game table."
+        f"Join our Discord server at https://discord.gg/example123\n"
+        f"Check in at the #{channel_name} channel."
     )
+    if emoji_name:
+        signup_instructions += f"\nLook for the :{emoji_name}: reaction."
 
     # Create game with signup instructions and test user as initial participant
     game_data = {
@@ -179,8 +188,8 @@ async def test_join_notification_with_signup_instructions(
     )
     print("[TEST] ✓ Join notification DM contains game title")
 
-    assert signup_instructions in join_dm.content, (
-        "Join notification DM should include full signup instructions"
+    assert "Join our Discord server at https://discord.gg/example123" in join_dm.content, (
+        "Join notification DM should include signup instructions"
     )
     print("[TEST] ✓ Join notification DM contains signup instructions")
 
@@ -208,6 +217,16 @@ async def test_join_notification_with_signup_instructions(
 
     print(f"[TEST] DM Content:\n{join_dm.content}")
     print("[TEST] ✓ Join notification DM delivery with signup instructions verified successfully")
+    assert f"<#{discord_channel_id}>" in join_dm.content, (
+        f"DM should contain resolved channel token <#{discord_channel_id}>"
+    )
+    print(f"[TEST] \u2713 Join DM contains resolved channel mention <#{discord_channel_id}>")
+
+    if emoji_name:
+        assert f"<:{emoji_name}:" in join_dm.content, (
+            f"DM should contain resolved custom emoji <:{emoji_name}:...>"
+        )
+        print(f"[TEST] \u2713 Join DM contains resolved emoji <:{emoji_name}:...>")
 
 
 @pytest.mark.timeout(240)

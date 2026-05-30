@@ -19,7 +19,16 @@ resolution pipeline in game text fields.
 
 ## Phase 2: Augment Existing E2E Tests
 
-_(not yet implemented)_
+### Modified
+
+- `tests/e2e/test_channel_mentions.py` — augmented
+  `test_channel_mention_in_location_displays_as_discord_link` to include
+  `#channel-name` and `@username` in description; asserts `embed.description`
+  contains `<#channel_id>` and `<@user_id>` tokens
+- `tests/e2e/test_join_notification.py` — augmented
+  `test_join_notification_with_signup_instructions` to include `#channel-name`
+  in `signup_instructions` (resolved to `<#id>` in DM); optional
+  `:emoji_name:` assertion guarded by `DISCORD_TEST_EMOJI_NAME` env var
 
 ---
 

@@ -97,13 +97,16 @@ async def test_channel_mention_in_location_displays_as_discord_link(
     target_channel = text_channels[0]
     channel_name = target_channel.name
 
+    test_user = await discord_helper.client.fetch_user(int(discord_user_id))
+    test_username = test_user.name
+
     scheduled_time = datetime.now(UTC) + timedelta(hours=2)
     game_title = f"E2E Channel Link Test {uuid4().hex[:8]}"
     game_location = f"Meet in #{channel_name} voice lobby"
     game_data = {
         "template_id": test_template_id,
         "title": game_title,
-        "description": "Testing channel mention resolution",
+        "description": f"Players should gather in #{channel_name} and ping @{test_username}",
         "scheduled_at": scheduled_time.isoformat(),
         "max_players": "4",
         "where": game_location,
@@ -142,5 +145,18 @@ async def test_channel_mention_in_location_displays_as_discord_link(
         f"Expected: 'Meet in {expected_mention} voice lobby', Got: {where_field.value}"
     )
 
+    expected_channel_in_description = f"<#{target_channel.id}>"
+    expected_user_in_description = f"<@{discord_user_id}>"
+    assert expected_channel_in_description in embed.description, (
+        f"embed.description should contain channel token {expected_channel_in_description}, "
+        f"got: {embed.description!r}"
+    )
+    assert expected_user_in_description in embed.description, (
+        f"embed.description should contain Discord user mention {expected_user_in_description}, "
+        f"got: {embed.description!r}"
+    )
+
     print(f"[TEST] ✓ Channel mention #{channel_name} resolved to {expected_mention}")
     print("[TEST] ✓ Discord will render this as clickable link")
+    print(f"[TEST] ✓ embed.description contains {expected_channel_in_description}")
+    print(f"[TEST] ✓ embed.description contains {expected_user_in_description}")

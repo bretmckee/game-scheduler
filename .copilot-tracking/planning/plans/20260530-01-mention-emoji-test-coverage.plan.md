@@ -49,12 +49,12 @@ Add integration and e2e test coverage for the user/channel/emoji mention resolut
 - [x] Task 1.1: Create `tests/integration/test_games_field_display.py` with three tests
   - Details: .copilot-tracking/planning/details/20260530-01-mention-emoji-test-coverage-details.md (Lines 11-51)
 
-### [ ] Phase 2: Augment Existing E2E Tests
+### [x] Phase 2: Augment Existing E2E Tests
 
-- [ ] Task 2.1: Augment `test_channel_mention_in_location_displays_as_discord_link` with description field and `embed.description` assertions
+- [x] Task 2.1: Augment `test_channel_mention_in_location_displays_as_discord_link` with description field and `embed.description` assertions
   - Details: .copilot-tracking/planning/details/20260530-01-mention-emoji-test-coverage-details.md (Lines 54-81)
 
-- [ ] Task 2.2: Augment `test_join_notification_with_signup_instructions` with channel mention and optional emoji in signup_instructions
+- [x] Task 2.2: Augment `test_join_notification_with_signup_instructions` with channel mention and optional emoji in signup_instructions
   - Details: .copilot-tracking/planning/details/20260530-01-mention-emoji-test-coverage-details.md (Lines 82-108)
 
 ### [ ] Phase 3: Add `DISCORD_TEST_EMOJI_NAME` Environment Variable
