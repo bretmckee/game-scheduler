@@ -42,6 +42,8 @@ from services.api.routes.games import (
     _process_image_upload,
     _render_text_fields,
     _resolve_display_data,
+    _resolve_join_position,
+    _resolve_participant_display,
 )
 from shared.models.participant import ParticipantType
 from shared.schemas.participant import ParticipantResponse
@@ -64,6 +66,8 @@ class TestParseUpdateFormData:
             role_ids_list,
             participants_list,
             removed_list,
+            _post_at_dt,
+            _clear_post_at,
         ) = _parse_update_form_data(
             scheduled_at,
             reminder_minutes,
@@ -86,6 +90,8 @@ class TestParseUpdateFormData:
             role_ids_list,
             participants_list,
             removed_list,
+            _post_at_dt,
+            _clear_post_at,
         ) = _parse_update_form_data(None, None, None, None, None)
 
         assert scheduled_at_dt is None
@@ -98,7 +104,7 @@ class TestParseUpdateFormData:
         """Parse ISO datetime with Z suffix correctly."""
         scheduled_at = "2026-02-14T12:30:00Z"
 
-        (scheduled_at_dt, _, _, _, _) = _parse_update_form_data(
+        (scheduled_at_dt, _, _, _, _, _, _) = _parse_update_form_data(
             scheduled_at, None, None, None, None
         )
 
@@ -108,7 +114,7 @@ class TestParseUpdateFormData:
         """Parse ISO datetime with timezone offset."""
         scheduled_at = "2026-02-14T12:30:00+05:00"
 
-        (scheduled_at_dt, _, _, _, _) = _parse_update_form_data(
+        (scheduled_at_dt, _, _, _, _, _, _) = _parse_update_form_data(
             scheduled_at, None, None, None, None
         )
 
@@ -124,6 +130,8 @@ class TestParseUpdateFormData:
             role_ids_list,
             participants_list,
             removed_list,
+            _post_at_dt,
+            _clear_post_at,
         ) = _parse_update_form_data(None, "[]", "[]", "[]", "[]")
 
         assert reminder_list == []
@@ -138,13 +146,39 @@ class TestParseUpdateFormData:
             {"type": "placeholder", "display_name": "Guest Player"},
         ])
 
-        (_, _, _, participants_list, _) = _parse_update_form_data(
+        (_, _, _, participants_list, _, _, _) = _parse_update_form_data(
             None, None, None, participants, None
         )
 
         assert len(participants_list) == 2
         assert participants_list[0]["type"] == "discord"
         assert participants_list[1]["display_name"] == "Guest Player"
+
+
+class TestParseUpdateFormDataPostAt:
+    """Tests for post_at and clear_post_at fields in _parse_update_form_data."""
+
+    def test_parse_post_at_string_returns_datetime(self):
+        """post_at ISO string is parsed to datetime and returned as the 6th element."""
+        result = _parse_update_form_data(
+            None, None, None, None, None, "2026-06-01T12:00:00Z", False
+        )
+        assert result[5] == datetime(2026, 6, 1, 12, 0, 0, tzinfo=UTC)
+
+    def test_parse_post_at_none_returns_none(self):
+        """post_at=None returns None as the 6th element."""
+        result = _parse_update_form_data(None, None, None, None, None, None, False)
+        assert result[5] is None
+
+    def test_parse_clear_post_at_true_returned(self):
+        """clear_post_at=True is returned as the 7th element."""
+        result = _parse_update_form_data(None, None, None, None, None, None, True)
+        assert result[6] is True
+
+    def test_parse_clear_post_at_defaults_false(self):
+        """clear_post_at defaults to False when not provided."""
+        result = _parse_update_form_data(None, None, None, None, None, None)
+        assert result[6] is False
 
 
 class TestProcessImageUpload:
@@ -875,3 +909,102 @@ class TestRenderTextFields:
             None, "Fun <:wave:111> game", None, [], "guild123"
         )
         assert description == "Fun :wave: game"
+
+
+class TestResolveJoinPosition:
+    @pytest.mark.asyncio
+    async def test_returns_self_added_when_no_template(self):
+        """Returns (SELF_ADDED, 0) when game has no template."""
+        game = MagicMock()
+        game.template = None
+
+        position_type, position = await _resolve_join_position(game, "discord-123", MagicMock())
+
+        assert position_type == ParticipantType.SELF_ADDED
+        assert position == 0
+
+    @pytest.mark.asyncio
+    async def test_returns_self_added_when_template_has_no_priority_roles(self):
+        """Returns (SELF_ADDED, 0) when template exists but has no priority role IDs."""
+        game = MagicMock()
+        game.template.signup_priority_role_ids = []
+
+        position_type, position = await _resolve_join_position(game, "discord-123", MagicMock())
+
+        assert position_type == ParticipantType.SELF_ADDED
+        assert position == 0
+
+    @pytest.mark.asyncio
+    @patch("services.api.routes.games._resolve_role_position_for_user", new_callable=AsyncMock)
+    async def test_delegates_to_role_position_resolver_when_priority_roles_set(self, mock_resolver):
+        """Calls _resolve_role_position_for_user with the correct arguments."""
+        game = MagicMock()
+        game.template.signup_priority_role_ids = ["role-1", "role-2"]
+        game.guild.guild_id = "discord-guild-123"
+        mock_resolver.return_value = (ParticipantType.ROLE_MATCHED, 1)
+        mock_role_service = MagicMock()
+
+        position_type, position = await _resolve_join_position(
+            game, "discord-123", mock_role_service
+        )
+
+        mock_resolver.assert_awaited_once_with(
+            ["role-1", "role-2"], "discord-123", "discord-guild-123", mock_role_service
+        )
+        assert position_type == ParticipantType.ROLE_MATCHED
+        assert position == 1
+
+
+class TestResolveParticipantDisplay:
+    @pytest.mark.asyncio
+    async def test_returns_fallback_when_participant_has_no_user(self):
+        """When participant.user is None, returns the stored display_name and no avatar."""
+        participant = MagicMock()
+        participant.user = None
+        participant.display_name = "FallbackName"
+
+        display_name, avatar_url = await _resolve_participant_display(
+            participant, "guild-123", AsyncMock()
+        )
+
+        assert display_name == "FallbackName"
+        assert avatar_url is None
+
+    @pytest.mark.asyncio
+    async def test_returns_fallback_when_user_absent_from_display_data(self):
+        """When the resolver returns no data for the user, falls back to stored display_name."""
+        participant = MagicMock()
+        participant.user.discord_id = "discord-123"
+        participant.display_name = "StoredName"
+
+        resolver = AsyncMock()
+        resolver.resolve_display_names_and_avatars.return_value = {}
+
+        display_name, avatar_url = await _resolve_participant_display(
+            participant, "guild-123", resolver
+        )
+
+        assert display_name == "StoredName"
+        assert avatar_url is None
+
+    @pytest.mark.asyncio
+    async def test_returns_resolved_name_and_avatar_when_user_found(self):
+        """When the resolver returns data for the user, those values are returned."""
+        participant = MagicMock()
+        participant.user.discord_id = "discord-123"
+        participant.display_name = "StoredName"
+
+        resolver = AsyncMock()
+        resolver.resolve_display_names_and_avatars.return_value = {
+            "discord-123": {
+                "display_name": "GuildDisplayName",
+                "avatar_url": "https://cdn.discordapp.com/avatar.png",
+            }
+        }
+
+        display_name, avatar_url = await _resolve_participant_display(
+            participant, "guild-123", resolver
+        )
+
+        assert display_name == "GuildDisplayName"
+        assert avatar_url == "https://cdn.discordapp.com/avatar.png"

@@ -21,7 +21,7 @@
 
 """add_post_at_game_sessions
 
-Revision ID: 20260530_add_post_at_game_sessions
+# Revision ID: a1b2c3d4e5f6
 Revises: 20260419_drop_user_display_names
 Create Date: 2026-05-30 00:00:00.000000
 
@@ -34,7 +34,7 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "20260530_add_post_at_game_sessions"
+revision: str = "a1b2c3d4e5f6"
 down_revision: str | None = "20260419_drop_user_display_names"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None

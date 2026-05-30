@@ -60,21 +60,21 @@ Allow game creators to specify a future `post_at` timestamp so the Discord annou
 - [x] Task 2.2: Validate `post_at < scheduled_at` in `create_game` service and gate `_persist_and_publish` schedule/publish calls
   - Details: .copilot-tracking/planning/details/20260530-01-deferred-game-announcement-details.md (Lines 94–132)
 
-### [ ] Phase 3: API update path, join guard, and list visibility
+### [x] Phase 3: API update path, join guard, and list visibility
 
-- [ ] Task 3.1: Extend `update_game` route and `_parse_update_form_data` with `post_at` / `clear_post_at` form fields
+- [x] Task 3.1: Extend `update_game` route and `_parse_update_form_data` with `post_at` / `clear_post_at` form fields
   - Details: .copilot-tracking/planning/details/20260530-01-deferred-game-announcement-details.md (Lines 135–149)
 
-- [ ] Task 3.2: Handle `post_at` in `update_game` service — clear-to-announce-immediately, change-time, and `_publish_game_updated` guard
+- [x] Task 3.2: Handle `post_at` in `update_game` service — clear-to-announce-immediately, change-time, and `_publish_game_updated` guard
   - Details: .copilot-tracking/planning/details/20260530-01-deferred-game-announcement-details.md (Lines 150–178)
 
-- [ ] Task 3.3: Guard `join_game` route — return 404 for pre-announced games
+- [x] Task 3.3: Guard `join_game` route — return 404 for pre-announced games
   - Details: .copilot-tracking/planning/details/20260530-01-deferred-game-announcement-details.md (Lines 179–199)
 
-- [ ] Task 3.4: Filter pending-announcement games in `list_games` route for non-managers
+- [x] Task 3.4: Filter pending-announcement games in `list_games` route for non-managers
   - Details: .copilot-tracking/planning/details/20260530-01-deferred-game-announcement-details.md (Lines 200–230)
 
-- [ ] Task 3.5: Integration tests for join guard and list visibility
+- [x] Task 3.5: Integration tests for join guard and list visibility
   - Details: .copilot-tracking/planning/details/20260530-01-deferred-game-announcement-details.md (Lines 231–248)
 
 ### [ ] Phase 4: AnnouncementLoop bot task

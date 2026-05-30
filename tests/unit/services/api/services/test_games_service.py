@@ -5195,3 +5195,180 @@ async def test_create_game_rejects_post_at_after_scheduled_at(
                 game_data=game_data,
                 host_user_id=sample_user.id,
             )
+
+
+# Tests for post_at handling in update_game service
+
+
+def _make_update_game_mock(
+    sample_guild, sample_channel, sample_user, post_at=None, message_id=None
+):
+    """Return a configured GameSession and matching mock_result for update_game tests."""
+    game_id = str(uuid.uuid4())
+    game = game_model.GameSession(
+        id=game_id,
+        title="Test Game",
+        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        guild_id=sample_guild.id,
+        channel_id=sample_channel.id,
+        host_id=sample_user.id,
+        max_players=5,
+        status="SCHEDULED",
+        participants=[],
+    )
+    game.host = sample_user
+    game.guild = sample_guild
+    game.channel = sample_channel
+    game.post_at = post_at
+    game.message_id = message_id
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = game
+    return game, mock_result
+
+
+@pytest.mark.asyncio
+async def test_update_game_clear_post_at_announces_immediately(
+    game_service,
+    mock_db,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """update_game with clear_post_at=True calls setup+publish_created and skips publish_updated."""
+    future_dt = datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=1)
+    game, mock_result = _make_update_game_mock(
+        sample_guild, sample_channel, sample_user, post_at=future_dt, message_id=None
+    )
+    mock_db.execute.return_value = mock_result
+    mock_db.refresh = AsyncMock()
+
+    mock_setup = AsyncMock()
+    mock_publish_created = AsyncMock()
+    mock_publish_updated = AsyncMock()
+
+    mock_current_user = MagicMock()
+    mock_current_user.user.discord_id = sample_user.discord_id
+
+    with (
+        patch("services.api.dependencies.permissions.can_manage_game", return_value=True),
+        patch.object(game_service, "_setup_game_schedules", new=mock_setup),
+        patch.object(game_service, "_publish_game_created", new=mock_publish_created),
+        patch.object(game_service, "_publish_game_updated", new=mock_publish_updated),
+    ):
+        result = await game_service.update_game(
+            game_id=game.id,
+            update_data=game_schemas.GameUpdateRequest(clear_post_at=True),
+            current_user=mock_current_user,
+            role_service=AsyncMock(),
+        )
+
+    mock_setup.assert_called_once_with(game, [60, 15], None)
+    mock_publish_created.assert_called_once_with(game, sample_channel)
+    mock_publish_updated.assert_not_called()
+    assert result.post_at is None
+
+
+@pytest.mark.asyncio
+async def test_update_game_change_post_at_updates_value(
+    game_service,
+    mock_db,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """update_game updates game.post_at when post_at is provided and clear_post_at is False."""
+    current_post_at = datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=1)
+    new_post_at = datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=3)
+    game, mock_result = _make_update_game_mock(
+        sample_guild, sample_channel, sample_user, post_at=current_post_at, message_id=None
+    )
+    mock_db.execute.return_value = mock_result
+    mock_db.refresh = AsyncMock()
+
+    mock_publish_updated = AsyncMock()
+
+    mock_current_user = MagicMock()
+    mock_current_user.user.discord_id = sample_user.discord_id
+
+    with (
+        patch("services.api.dependencies.permissions.can_manage_game", return_value=True),
+        patch.object(game_service, "_publish_game_updated", new=mock_publish_updated),
+    ):
+        result = await game_service.update_game(
+            game_id=game.id,
+            update_data=game_schemas.GameUpdateRequest(post_at=new_post_at),
+            current_user=mock_current_user,
+            role_service=AsyncMock(),
+        )
+
+    assert result.post_at == new_post_at
+    mock_publish_updated.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_update_game_skips_publish_updated_when_not_yet_announced(
+    game_service,
+    mock_db,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """update_game skips _publish_game_updated when game.message_id is None."""
+    future_dt = datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=1)
+    game, mock_result = _make_update_game_mock(
+        sample_guild, sample_channel, sample_user, post_at=future_dt, message_id=None
+    )
+    mock_db.execute.return_value = mock_result
+    mock_db.refresh = AsyncMock()
+
+    mock_publish_updated = AsyncMock()
+
+    mock_current_user = MagicMock()
+    mock_current_user.user.discord_id = sample_user.discord_id
+
+    with (
+        patch("services.api.dependencies.permissions.can_manage_game", return_value=True),
+        patch.object(game_service, "_publish_game_updated", new=mock_publish_updated),
+    ):
+        await game_service.update_game(
+            game_id=game.id,
+            update_data=game_schemas.GameUpdateRequest(title="New Title"),
+            current_user=mock_current_user,
+            role_service=AsyncMock(),
+        )
+
+    mock_publish_updated.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_update_game_publishes_updated_when_already_announced(
+    game_service,
+    mock_db,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """update_game calls _publish_game_updated when game.message_id is set (already announced)."""
+    game, mock_result = _make_update_game_mock(
+        sample_guild, sample_channel, sample_user, post_at=None, message_id="discord-msg-id"
+    )
+    mock_db.execute.return_value = mock_result
+    mock_db.refresh = AsyncMock()
+
+    mock_publish_updated = AsyncMock()
+
+    mock_current_user = MagicMock()
+    mock_current_user.user.discord_id = sample_user.discord_id
+
+    with (
+        patch("services.api.dependencies.permissions.can_manage_game", return_value=True),
+        patch.object(game_service, "_publish_game_updated", new=mock_publish_updated),
+    ):
+        await game_service.update_game(
+            game_id=game.id,
+            update_data=game_schemas.GameUpdateRequest(title="New Title"),
+            current_user=mock_current_user,
+            role_service=AsyncMock(),
+        )
+
+    mock_publish_updated.assert_called_once_with(game)

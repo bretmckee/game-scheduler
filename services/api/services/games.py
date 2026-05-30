@@ -1306,6 +1306,10 @@ class GameService:
         # Update remaining fields (max_players, duration, roles, status, signup_method)
         status_schedule_needs_update = self._update_remaining_fields(game, update_data)
 
+        # Update post_at when explicitly provided and clear_post_at is not requested
+        if update_data.post_at is not None and not update_data.clear_post_at:
+            game.post_at = update_data.post_at
+
         # scheduled_at affects both schedules
         if scheduled_at_updated:
             schedule_needs_update = True
@@ -2032,8 +2036,19 @@ class GameService:
         # Detect promotions and notify promoted users
         await self._detect_and_notify_promotions(game, old_partitioned)
 
-        # Publish game.updated event
-        await self._publish_game_updated(game)
+        # When clearing post_at on a not-yet-announced game, announce immediately
+        if update_data.clear_post_at and game.post_at is not None and game.message_id is None:
+            game.post_at = None
+            reminder_minutes = (
+                game.reminder_minutes if game.reminder_minutes is not None else [60, 15]
+            )
+            await self._setup_game_schedules(game, reminder_minutes, game.expected_duration_minutes)
+            await self._publish_game_created(game, game.channel)
+            return game
+
+        # Only publish updated event for games that have already been announced
+        if game.message_id is not None:
+            await self._publish_game_updated(game)
 
         return game
 

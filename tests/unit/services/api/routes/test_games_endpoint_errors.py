@@ -268,6 +268,8 @@ class TestJoinGame:
         game.guild_id = "guild-uuid-1"
         game.guild = MagicMock()
         game.guild.guild_id = "discord-guild-123"
+        game.post_at = None
+        game.message_id = None
         return game
 
     @pytest.mark.asyncio
@@ -313,6 +315,69 @@ class TestJoinGame:
                 )
 
         assert exc_info.value.status_code == http_status.HTTP_400_BAD_REQUEST
+
+    @pytest.mark.asyncio
+    async def test_join_game_returns_404_for_pre_announced_game(
+        self, mock_current_user_unit, mock_game_service, mock_role_service
+    ):
+        """join_game returns 404 when game has a future post_at and no message_id."""
+        mock_game = MagicMock()
+        mock_game.post_at = datetime(2099, 1, 1, tzinfo=UTC)
+        mock_game.message_id = None
+        mock_game_service.get_game.return_value = mock_game
+
+        with pytest.raises(HTTPException) as exc_info:
+            await games_routes.join_game(
+                game_id="game-1",
+                current_user=mock_current_user_unit,
+                game_service=mock_game_service,
+                role_service=mock_role_service,
+                display_name_resolver=MagicMock(),
+            )
+
+        assert exc_info.value.status_code == http_status.HTTP_404_NOT_FOUND
+
+    @pytest.mark.asyncio
+    async def test_join_game_success_returns_resolved_display_name(
+        self, mock_current_user_unit, mock_game_service, mock_role_service, mock_game
+    ):
+        """Successful join returns a ParticipantResponse with the guild display name."""
+        mock_game.template = None
+        mock_game_service.get_game.return_value = mock_game
+
+        participant = MagicMock()
+        participant.id = "participant-uuid-1"
+        participant.game_session_id = "game-uuid-1"
+        participant.user_id = "user-uuid-1"
+        participant.user.discord_id = "discord-user-123"
+        participant.display_name = "StoredName"
+        participant.joined_at = datetime(2026, 1, 1, 12, 0, 0, tzinfo=UTC)
+        participant.position_type = 24000
+        participant.position = 0
+        mock_game_service.join_game.return_value = participant
+
+        mock_resolver = AsyncMock()
+        mock_resolver.resolve_display_names_and_avatars.return_value = {
+            "discord-user-123": {
+                "display_name": "GuildDisplayName",
+                "avatar_url": "https://cdn.discordapp.com/avatar.png",
+            }
+        }
+
+        with patch(
+            "services.api.dependencies.permissions.verify_game_access",
+            new_callable=AsyncMock,
+        ):
+            result = await games_routes.join_game(
+                game_id="game-1",
+                current_user=mock_current_user_unit,
+                game_service=mock_game_service,
+                role_service=mock_role_service,
+                display_name_resolver=mock_resolver,
+            )
+
+        assert result.display_name == "GuildDisplayName"
+        assert result.avatar_url == "https://cdn.discordapp.com/avatar.png"
 
 
 class TestLeaveGame:

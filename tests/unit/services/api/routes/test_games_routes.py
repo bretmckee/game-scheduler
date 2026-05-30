@@ -276,6 +276,8 @@ class TestListGamesResolvesParticipants:
     async def test_list_games_calls_build_with_resolve_participants_false(self):
         """list_games calls _build_game_response with resolve_participants=False."""
         game = MagicMock()
+        game.post_at = None
+        game.message_id = None
         current_user = MagicMock()
         current_user.user.discord_id = "user123"
         current_user.access_token = "token"
@@ -331,6 +333,8 @@ class TestListGamesPrefetchedDisplayData:
         game.guild = MagicMock()
         game.guild.guild_id = guild_discord_id
         game.guild_id = "guild-db-id"
+        game.post_at = None
+        game.message_id = None
         return game
 
     @pytest.mark.asyncio
@@ -487,6 +491,8 @@ class TestListGamesUsesDisplayNameResolver:
         game.guild = MagicMock()
         game.guild.guild_id = guild_discord_id
         game.guild_id = "guild-db-id"
+        game.post_at = None
+        game.message_id = None
         return game
 
     @pytest.mark.asyncio
@@ -571,3 +577,187 @@ class TestCreateGameRoutePostAt:
         call_kwargs = mock_game_service.create_game.call_args.kwargs
         game_data = call_kwargs["game_data"]
         assert game_data.post_at == expected_dt
+
+
+class TestUpdateGameRoutePostAt:
+    """Tests for update_game route post_at/clear_post_at parameter handling."""
+
+    @pytest.mark.asyncio
+    async def test_update_game_route_passes_post_at_to_service(self):
+        """update_game route parses post_at form field and passes it to service."""
+        post_at_str = "2026-06-01T12:00:00Z"
+        expected_dt = datetime(2026, 6, 1, 12, 0, 0, tzinfo=UTC)
+
+        mock_current_user = MagicMock()
+        mock_game = MagicMock()
+        mock_game_service = MagicMock()
+        mock_game_service.update_game = AsyncMock(return_value=mock_game)
+        role_service = MagicMock()
+
+        with patch(
+            "services.api.routes.games._build_game_response",
+            new_callable=AsyncMock,
+            return_value=MagicMock(),
+        ):
+            await games_routes.update_game(
+                game_id="game-123",
+                post_at=post_at_str,
+                current_user=mock_current_user,
+                game_service=mock_game_service,
+                role_service=role_service,
+            )
+
+        call_kwargs = mock_game_service.update_game.call_args.kwargs
+        update_data = call_kwargs["update_data"]
+        assert update_data.post_at == expected_dt
+
+    @pytest.mark.asyncio
+    async def test_update_game_route_passes_clear_post_at_true(self):
+        """update_game route passes clear_post_at=True to service when provided."""
+        mock_current_user = MagicMock()
+        mock_game = MagicMock()
+        mock_game_service = MagicMock()
+        mock_game_service.update_game = AsyncMock(return_value=mock_game)
+        role_service = MagicMock()
+
+        with patch(
+            "services.api.routes.games._build_game_response",
+            new_callable=AsyncMock,
+            return_value=MagicMock(),
+        ):
+            await games_routes.update_game(
+                game_id="game-123",
+                clear_post_at=True,
+                current_user=mock_current_user,
+                game_service=mock_game_service,
+                role_service=role_service,
+            )
+
+        call_kwargs = mock_game_service.update_game.call_args.kwargs
+        update_data = call_kwargs["update_data"]
+        assert update_data.clear_post_at is True
+
+
+class TestListGamesPendingAnnouncementFilter:
+    """Tests for pending-announcement visibility filter in list_games."""
+
+    def _make_pending_game(self) -> MagicMock:
+        game = MagicMock()
+        game.post_at = datetime(2099, 1, 1, tzinfo=UTC)
+        game.message_id = None
+        game.host = MagicMock()
+        game.host.discord_id = "host1"
+        game.guild = MagicMock()
+        game.guild.guild_id = "guild_discord_1"
+        game.guild_id = "guild-db-id"
+        return game
+
+    @pytest.mark.asyncio
+    async def test_list_games_hides_pending_announcement_from_non_manager(self):
+        """list_games excludes games with future post_at and no message_id for non-managers."""
+        game = self._make_pending_game()
+        current_user = MagicMock()
+        current_user.user.discord_id = "user123"
+        current_user.access_token = "token"
+        game_service = MagicMock()
+        game_service.list_games = AsyncMock(return_value=([game], 1))
+        game_service.db = MagicMock()
+        role_service = MagicMock()
+
+        captured_games = []
+
+        async def mock_build(game, **kwargs):
+            captured_games.append(game)
+            return MagicMock()
+
+        with (
+            patch(
+                "services.api.routes.games.permissions_deps.verify_game_access",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "services.api.routes.games.permissions_deps.can_manage_game",
+                new_callable=AsyncMock,
+                return_value=False,
+            ),
+            patch(
+                "services.api.routes.games._build_game_response",
+                side_effect=mock_build,
+            ),
+            patch(
+                "services.api.routes.games.game_schemas.GameListResponse",
+                return_value=MagicMock(),
+            ),
+        ):
+            mock_display_svc = MagicMock()
+            mock_display_svc.resolve_display_names_and_avatars = AsyncMock(return_value={})
+
+            await games_routes.list_games(
+                guild_id=None,
+                channel_id=None,
+                status=None,
+                role=None,
+                limit=25,
+                offset=0,
+                current_user=current_user,
+                game_service=game_service,
+                role_service=role_service,
+                display_name_resolver=mock_display_svc,
+            )
+
+        assert len(captured_games) == 0
+
+    @pytest.mark.asyncio
+    async def test_list_games_shows_pending_announcement_to_manager(self):
+        """list_games includes games with future post_at and no message_id for managers."""
+        game = self._make_pending_game()
+        current_user = MagicMock()
+        current_user.user.discord_id = "user123"
+        current_user.access_token = "token"
+        game_service = MagicMock()
+        game_service.list_games = AsyncMock(return_value=([game], 1))
+        game_service.db = MagicMock()
+        role_service = MagicMock()
+
+        captured_games = []
+
+        async def mock_build(game, **kwargs):
+            captured_games.append(game)
+            return MagicMock()
+
+        with (
+            patch(
+                "services.api.routes.games.permissions_deps.verify_game_access",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "services.api.routes.games.permissions_deps.can_manage_game",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+            patch(
+                "services.api.routes.games._build_game_response",
+                side_effect=mock_build,
+            ),
+            patch(
+                "services.api.routes.games.game_schemas.GameListResponse",
+                return_value=MagicMock(),
+            ),
+        ):
+            mock_display_svc = MagicMock()
+            mock_display_svc.resolve_display_names_and_avatars = AsyncMock(return_value={})
+
+            await games_routes.list_games(
+                guild_id=None,
+                channel_id=None,
+                status=None,
+                role=None,
+                limit=25,
+                offset=0,
+                current_user=current_user,
+                game_service=game_service,
+                role_service=role_service,
+                display_name_resolver=mock_display_svc,
+            )
+
+        assert len(captured_games) == 1

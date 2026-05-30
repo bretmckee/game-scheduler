@@ -55,7 +55,7 @@ from shared.discord.client import (
 from shared.messaging import deferred_publisher as messaging_deferred_publisher
 from shared.messaging import publisher as messaging_publisher
 from shared.models import game as game_model
-from shared.models.participant import ParticipantType
+from shared.models.participant import GameParticipant, ParticipantType
 from shared.schemas import auth as auth_schemas
 from shared.schemas import game as game_schemas
 from shared.schemas import participant as participant_schemas
@@ -140,18 +140,79 @@ _DisplayNameResolverDep = Annotated[
 ]
 
 
+def _is_pending_announcement(game: game_model.GameSession) -> bool:
+    """Return True when a game is deferred and the bot has not yet posted the announcement."""
+    return game.post_at is not None and game.post_at > datetime.now(UTC) and game.message_id is None
+
+
+async def _is_pending_and_hidden(
+    game: game_model.GameSession,
+    current_user: auth_schemas.CurrentUser,
+    role_service: roles_module.RoleVerificationService,
+    db: AsyncSession,
+) -> bool:
+    """Return True when a pending-announcement game should be hidden from the requesting user."""
+    if not _is_pending_announcement(game):
+        return False
+    return not await permissions_deps.can_manage_game(
+        game_host_id=game.host.discord_id,
+        guild_id=game.guild.guild_id,
+        current_user=current_user,
+        role_service=role_service,
+        db=db,
+    )
+
+
+async def _resolve_join_position(
+    game: game_model.GameSession,
+    discord_id: str,
+    role_service: roles_module.RoleVerificationService,
+) -> tuple[int, int]:
+    """Determine the queue position and type for a user joining a game."""
+    priority_role_ids = (game.template.signup_priority_role_ids or []) if game.template else []
+    if not priority_role_ids:
+        return ParticipantType.SELF_ADDED, 0
+    return await _resolve_role_position_for_user(
+        priority_role_ids,
+        discord_id,
+        game.guild.guild_id,
+        role_service,
+    )
+
+
+async def _resolve_participant_display(
+    participant: GameParticipant,
+    guild_discord_id: str,
+    display_name_resolver: display_names_module.DisplayNameResolver,
+) -> tuple[str, str | None]:
+    """Fetch the guild display name and avatar for a joined participant."""
+    if not (participant.user and participant.user.discord_id):
+        return participant.display_name, None
+    display_data = await display_name_resolver.resolve_display_names_and_avatars(
+        guild_discord_id, [participant.user.discord_id]
+    )
+    user_data = display_data.get(participant.user.discord_id)
+    if user_data is None:
+        return participant.display_name, None
+    return user_data["display_name"], user_data["avatar_url"]
+
+
 def _parse_update_form_data(
     scheduled_at: str | None,
     reminder_minutes: str | None,
     notify_role_ids: str | None,
     participants: str | None,
     removed_participant_ids: str | None,
+    post_at: str | None = None,
+    clear_post_at: bool = False,
 ) -> tuple[
     datetime | None,
     list[int] | None,
     list[str] | None,
     list[dict] | None,
     list[str] | None,
+    datetime | None,
+    bool,
 ]:
     """
     Parse JSON fields from form data for game update.
@@ -162,10 +223,12 @@ def _parse_update_form_data(
         notify_role_ids: JSON array of role IDs
         participants: JSON array of participant objects
         removed_participant_ids: JSON array of participant IDs to remove
+        post_at: ISO datetime string for deferred announcement
+        clear_post_at: Whether to clear post_at and announce immediately
 
     Returns:
         Tuple of (scheduled_at_datetime, reminder_minutes_list, notify_role_ids_list,
-                  participants_list, removed_participant_ids_list)
+                  participants_list, removed_participant_ids_list, post_at_datetime, clear_post_at)
     """
     scheduled_at_datetime = None
     if scheduled_at:
@@ -187,12 +250,18 @@ def _parse_update_form_data(
     if removed_participant_ids:
         removed_participant_ids_list = json.loads(removed_participant_ids)
 
+    post_at_datetime = None
+    if post_at:
+        post_at_datetime = datetime.fromisoformat(post_at.replace("Z", "+00:00"))
+
     return (
         scheduled_at_datetime,
         reminder_minutes_list,
         notify_role_ids_list,
         participants_list,
         removed_participant_ids_list,
+        post_at_datetime,
+        clear_post_at,
     )
 
 
@@ -463,10 +532,15 @@ async def list_games(
                 db=game_service.db,
                 role_service=role_service,
             )
-            authorized_games.append(game)
         except HTTPException:
             # User not authorized to see this game - skip it
             continue
+
+        # Hide pre-announced games from non-managers until the bot posts the announcement
+        if await _is_pending_and_hidden(game, current_user, role_service, game_service.db):
+            continue
+
+        authorized_games.append(game)
 
     # Batch-fetch host display names grouped by guild — one API call per guild, hosts deduplicated.
     hosts_by_guild: defaultdict[str, list[str]] = defaultdict(list)
@@ -571,6 +645,8 @@ async def update_game(
     rewards: Annotated[str | None, Form()] = None,
     remind_host_rewards: Annotated[bool | None, Form()] = None,
     archive_delay_seconds: Annotated[int | None, Form()] = None,
+    post_at: Annotated[str | None, Form()] = None,
+    clear_post_at: Annotated[bool, Form()] = False,
     *,  # Force remaining parameters to be keyword-only
     current_user: Annotated[auth_schemas.CurrentUser, Depends(auth_deps.get_current_user)],
     game_service: Annotated[games_service.GameService, Depends(_get_game_service)],
@@ -595,12 +671,16 @@ async def update_game(
             notify_role_ids_list,
             participants_list,
             removed_participant_ids_list,
+            post_at_datetime,
+            clear_post_at_parsed,
         ) = _parse_update_form_data(
             scheduled_at,
             reminder_minutes,
             notify_role_ids,
             participants,
             removed_participant_ids,
+            post_at,
+            clear_post_at,
         )
 
         # Build update request
@@ -621,8 +701,8 @@ async def update_game(
             rewards=rewards,
             remind_host_rewards=remind_host_rewards,
             archive_delay_seconds=archive_delay_seconds,
-            post_at=None,
-            clear_post_at=False,
+            post_at=post_at_datetime,
+            clear_post_at=clear_post_at_parsed,
         )
 
         # Process file uploads
@@ -731,6 +811,10 @@ async def join_game(
     if game is None:
         raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Game not found")
 
+    # Pre-announced games are hidden until the bot posts the announcement
+    if _is_pending_announcement(game):
+        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Game not found")
+
     # Verify user has access (guild membership + player roles)
     await permissions_deps.verify_game_access(
         game=game,
@@ -740,16 +824,8 @@ async def join_game(
     )
 
     try:
-        priority_role_ids = (game.template.signup_priority_role_ids or []) if game.template else []
-        position_type, position = (
-            await _resolve_role_position_for_user(
-                priority_role_ids,
-                current_user.user.discord_id,
-                game.guild.guild_id,
-                role_service,
-            )
-            if priority_role_ids
-            else (ParticipantType.SELF_ADDED, 0)
+        position_type, position = await _resolve_join_position(
+            game, current_user.user.discord_id, role_service
         )
 
         participant = await game_service.join_game(
@@ -759,19 +835,9 @@ async def join_game(
             position=position,
         )
 
-        # Resolve display name and avatar for the participant
-        display_data_map = {}
-        if participant.user and participant.user.discord_id and game.guild_id:
-            guild_discord_id = game.guild.guild_id
-            display_data_map = await display_name_resolver.resolve_display_names_and_avatars(
-                guild_discord_id, [participant.user.discord_id]
-            )
-
-        display_name = participant.display_name
-        avatar_url = None
-        if participant.user and participant.user.discord_id in display_data_map:
-            display_name = display_data_map[participant.user.discord_id]["display_name"]
-            avatar_url = display_data_map[participant.user.discord_id]["avatar_url"]
+        display_name, avatar_url = await _resolve_participant_display(
+            participant, game.guild.guild_id, display_name_resolver
+        )
 
         return participant_schemas.ParticipantResponse(
             id=participant.id,
