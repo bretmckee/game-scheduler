@@ -31,6 +31,7 @@ from shared.models import game as game_model
 from shared.models import participant as participant_model
 from shared.models import user as user_model
 from shared.models.participant import ParticipantType
+from shared.models.signup_method import SignupMethod
 from shared.schemas import game as game_schemas
 
 
@@ -229,3 +230,54 @@ async def test_update_game_preserves_discord_users_not_placeholders(
     # The key assertion: participant should be type "discord", not "placeholder"
     assert resolved[0][0]["type"] == "discord"
     assert resolved[0][0]["discord_id"] == "123456789012345678"
+
+
+@pytest.mark.asyncio
+async def test_update_prefilled_promotes_self_added_participants(
+    game_service,
+    mock_db,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """SELF_ADDED participants should be promoted to HOST_ADDED when host explicitly adds them."""
+    game_id = str(uuid.uuid4())
+    participant_id = str(uuid.uuid4())
+    user_id = str(uuid.uuid4())
+
+    self_added = participant_model.GameParticipant(
+        id=participant_id,
+        game_session_id=game_id,
+        user_id=user_id,
+        display_name=None,
+        position_type=ParticipantType.SELF_ADDED,
+        position=0,
+    )
+
+    game = game_model.GameSession(
+        id=game_id,
+        title="Waitlist Game",
+        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        guild_id=sample_guild.id,
+        channel_id=sample_channel.id,
+        host_id=sample_user.id,
+        max_players=5,
+        status="SCHEDULED",
+        signup_method=SignupMethod.HOST_SELECTED_WITH_WAITLIST.value,
+        participants=[self_added],
+    )
+    game.guild = sample_guild
+    game.channel = sample_channel
+    game.host = sample_user
+
+    mock_result = MagicMock()
+    mock_result.scalars.return_value.all.return_value = []
+    mock_db.execute = AsyncMock(return_value=mock_result)
+    mock_db.flush = AsyncMock()
+
+    participant_data_list = [{"participant_id": participant_id, "position": 2}]
+
+    await game_service._update_prefilled_participants(game, participant_data_list)
+
+    assert self_added.position_type == ParticipantType.HOST_ADDED
+    assert self_added.position == 2

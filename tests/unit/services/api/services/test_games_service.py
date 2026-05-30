@@ -4205,7 +4205,7 @@ async def test_detect_and_notify_promotions_with_promotions(game_service):
     )
 
     with patch.object(game_service, "_notify_promoted_users", new=AsyncMock()) as mock_notify:
-        await game_service._detect_and_notify_promotions(game, old_partitioned)
+        await game_service._detect_and_notify_transitions(game, old_partitioned)
 
         mock_notify.assert_called_once()
         call_args = mock_notify.call_args
@@ -4247,7 +4247,7 @@ async def test_detect_and_notify_promotions_no_promotions(game_service):
     )
 
     with patch.object(game_service, "_notify_promoted_users", new=AsyncMock()) as mock_notify:
-        await game_service._detect_and_notify_promotions(game, old_partitioned)
+        await game_service._detect_and_notify_transitions(game, old_partitioned)
 
         mock_notify.assert_not_called()
 

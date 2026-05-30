@@ -74,24 +74,24 @@ notifications for promotions and demotions.
 - [x] Task 3.2 (GREEN): Implement `join_waitlist` and `waitlist_demotion`; remove xfail markers
   - Details: .copilot-tracking/planning/details/20260530-01-host-selected-waitlist-details.md (Lines 188-219)
 
-### [ ] Phase 4: Backend Services — Callers + Upsert + Transitions (TDD)
+### [x] Phase 4: Backend Services — Callers + Upsert + Transitions (TDD)
 
-- [ ] Task 4.1: Update all 10 `partition_participants` callers to pass `signup_method=game.signup_method`
+- [x] Task 4.1: Update all 10 `partition_participants` callers to pass `signup_method=game.signup_method`
   - Details: .copilot-tracking/planning/details/20260530-01-host-selected-waitlist-details.md (Lines 222-240)
 
-- [ ] Task 4.2 (RED): Add SELF_ADDED upsert stub in `_update_prefilled_participants`; write 1 xfail test
+- [x] Task 4.2 (RED): Add SELF_ADDED upsert stub in `_update_prefilled_participants`; write 1 xfail test
   - Details: .copilot-tracking/planning/details/20260530-01-host-selected-waitlist-details.md (Lines 241-266)
 
-- [ ] Task 4.3 (GREEN): Implement SELF_ADDED → HOST_ADDED upsert; remove xfail marker
+- [x] Task 4.3 (GREEN): Implement SELF_ADDED → HOST_ADDED upsert; remove xfail marker
   - Details: .copilot-tracking/planning/details/20260530-01-host-selected-waitlist-details.md (Lines 267-296)
 
-- [ ] Task 4.4 (RED): Rename `_detect_and_notify_promotions` → `_detect_and_notify_transitions`; add demotion stub; write 2 xfail tests
+- [x] Task 4.4 (RED): Rename `_detect_and_notify_promotions` → `_detect_and_notify_transitions`; add demotion stub; write 2 xfail tests
   - Details: .copilot-tracking/planning/details/20260530-01-host-selected-waitlist-details.md (Lines 297-317)
 
-- [ ] Task 4.5 (GREEN): Implement `_notify_demoted_users`; remove stubs and xfail markers
+- [x] Task 4.5 (GREEN): Implement `_notify_demoted_users`; remove stubs and xfail markers
   - Details: .copilot-tracking/planning/details/20260530-01-host-selected-waitlist-details.md (Lines 320-334)
 
-- [ ] Task 4.6: Integration tests — DB round-trip, upsert persistence, demotion notification chain
+- [x] Task 4.6: Integration tests — DB round-trip, upsert persistence, demotion notification chain
   - Details: .copilot-tracking/planning/details/20260530-01-host-selected-waitlist-details.md (Lines 335-363)
 
 ### [ ] Phase 5: Bot Changes (TDD)

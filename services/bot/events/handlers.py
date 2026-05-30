@@ -456,7 +456,9 @@ class EventHandlers:
         game: game_model.GameSession,
     ) -> tuple[list[participant_model.GameParticipant], list[participant_model.GameParticipant]]:
         """Partition participants and filter to real users only."""
-        partitioned = partition_participants(game.participants, game.max_players)
+        partitioned = partition_participants(
+            game.participants, game.max_players, signup_method=game.signup_method
+        )
 
         confirmed = [p for p in partitioned.confirmed if p.user]
         overflow = [p for p in partitioned.overflow if p.user]
@@ -655,7 +657,9 @@ class EventHandlers:
         Returns:
             True if participant is confirmed, False if waitlisted
         """
-        partitioned = partition_participants(game.participants, game.max_players)
+        partitioned = partition_participants(
+            game.participants, game.max_players, signup_method=game.signup_method
+        )
         is_confirmed = participant in partitioned.confirmed
 
         if not is_confirmed:
@@ -1246,7 +1250,9 @@ class EventHandlers:
         mentions = " ".join(
             f"<@{uid}>"
             for uid in sorted(
-                partition_participants(game.participants, game.max_players).confirmed_real_user_ids
+                partition_participants(
+                    game.participants, game.max_players, signup_method=game.signup_method
+                ).confirmed_real_user_ids
             )
         )
         return mentions or None
@@ -1296,7 +1302,9 @@ class EventHandlers:
             Tuple of (confirmed_ids, overflow_ids) where IDs are
             Discord user IDs (formatted as mentions) or placeholder names
         """
-        partitioned = partition_participants(game.participants, game.max_players)
+        partitioned = partition_participants(
+            game.participants, game.max_players, signup_method=game.signup_method
+        )
 
         confirmed_ids = [
             p.user.discord_id if p.user else p.display_name for p in partitioned.confirmed

@@ -933,7 +933,11 @@ class GameService:
         await increment_image_ref(self.db, source_game.banner_image_id)
         await self.db.flush()
 
-        partitioned = partition_participants(source_game.participants, source_game.max_players)
+        partitioned = partition_participants(
+            source_game.participants,
+            source_game.max_players,
+            signup_method=source_game.signup_method,
+        )
 
         carry_options = {CarryoverOption.YES, CarryoverOption.YES_WITH_DEADLINE}
         players_to_carry = (
@@ -1448,6 +1452,20 @@ class GameService:
             mentions_with_positions,
         ) = self._separate_existing_and_new_participants(participant_data_list)
 
+        if game.signup_method == SignupMethod.HOST_SELECTED_WITH_WAITLIST:
+            self_added_to_promote = [
+                p
+                for p in game.participants
+                if p.id in existing_participant_ids
+                and p.position_type == ParticipantType.SELF_ADDED
+            ]
+            for p in self_added_to_promote:
+                position = next(
+                    d["position"] for d in participant_data_list if d.get("participant_id") == p.id
+                )
+                p.position_type = ParticipantType.HOST_ADDED
+                p.position = position
+
         # Remove pre-filled participants not in the existing list
         await self._remove_outdated_participants(current_participants, existing_participant_ids)
 
@@ -1535,7 +1553,9 @@ class GameService:
             game: Game session with participants relationship loaded
         """
         # Only notify confirmed participants, not waitlisted ones
-        partitioned = partition_participants(game.participants, game.max_players)
+        partitioned = partition_participants(
+            game.participants, game.max_players, signup_method=game.signup_method
+        )
 
         for participant in partitioned.confirmed:
             # Only schedule for Discord users (participants with user_id)
@@ -1730,7 +1750,9 @@ class GameService:
             )
             for p in game.participants
         ]
-        old_partitioned = partition_participants(old_participants_snapshot, old_max_players)
+        old_partitioned = partition_participants(
+            old_participants_snapshot, old_max_players, signup_method=game.signup_method
+        )
         return old_max_players, old_participants_snapshot, old_partitioned
 
     async def _update_image_fields(
@@ -1802,26 +1824,95 @@ class GameService:
         if status_schedule_needs_update:
             await self._update_status_schedules(game)
 
-    async def _detect_and_notify_promotions(
+    async def _detect_and_notify_transitions(
         self,
         game: game_model.GameSession,
         old_partitioned: PartitionedParticipants,
     ) -> None:
         """
-        Detect waitlist promotions and notify promoted users.
+        Detect waitlist transitions and notify affected users.
 
         Args:
             game: Updated game session
             old_partitioned: Partitioned participants before update
         """
         new_max_players = resolve_max_players(game.max_players)
-        new_partitioned = partition_participants(game.participants, new_max_players)
+        new_partitioned = partition_participants(
+            game.participants, new_max_players, signup_method=game.signup_method
+        )
         promoted_discord_ids = new_partitioned.cleared_waitlist(old_partitioned)
+        demoted_discord_ids = new_partitioned.entered_waitlist(old_partitioned)
 
         if promoted_discord_ids:
             await self._notify_promoted_users(
                 game=game,
                 promoted_discord_ids=promoted_discord_ids,
+            )
+
+        if demoted_discord_ids:
+            await self._notify_demoted_users(
+                game=game,
+                demoted_discord_ids=demoted_discord_ids,
+            )
+
+    async def _notify_demoted_users(
+        self,
+        game: game_model.GameSession,
+        demoted_discord_ids: set[str],
+    ) -> None:
+        """
+        Send demotion notifications to users moved from confirmed to the waitlist.
+
+        Args:
+            game: Game session after updates applied
+            demoted_discord_ids: Set of Discord IDs of demoted users
+        """
+        if not demoted_discord_ids:
+            return
+
+        logger.info(
+            "Notifying %s demoted users for game %s: %s",
+            len(demoted_discord_ids),
+            game.id,
+            demoted_discord_ids,
+        )
+
+        for discord_id in demoted_discord_ids:
+            scheduled_at_unix = int(game.scheduled_at.timestamp())
+
+            jump_url = None
+            if game.message_id and game.guild and game.channel:
+                jump_url = (
+                    f"https://discord.com/channels/"
+                    f"{game.guild.guild_id}/{game.channel.channel_id}/{game.message_id}"
+                )
+            else:
+                logger.warning(
+                    "Cannot build jump URL for demotion notification on game %s", game.id
+                )
+
+            message = DMFormats.waitlist_demotion(game.title, jump_url=jump_url)
+
+            notification_event = messaging_events.NotificationSendDMEvent(
+                user_id=discord_id,
+                game_id=uuid.UUID(game.id),
+                game_title=game.title,
+                game_time_unix=scheduled_at_unix,
+                notification_type="waitlist_demotion",
+                message=message,
+            )
+
+            event = messaging_events.Event(
+                event_type=messaging_events.EventType.NOTIFICATION_SEND_DM,
+                data=notification_event.model_dump(mode="json"),
+            )
+
+            self.event_publisher.publish_deferred(event=event)
+
+            logger.info(
+                "Deferred demotion notification for user %s in game %s",
+                discord_id,
+                game.id,
             )
 
     async def _resolve_channel_mentions_for_update(
@@ -2044,8 +2135,8 @@ class GameService:
             msg = "Failed to reload updated game"
             raise ValueError(msg)
 
-        # Detect promotions and notify promoted users
-        await self._detect_and_notify_promotions(game, old_partitioned)
+        # Detect promotions/demotions and notify affected users
+        await self._detect_and_notify_transitions(game, old_partitioned)
 
         # When clearing post_at on a not-yet-announced game, announce immediately
         if update_data.clear_post_at and game.post_at is not None and game.message_id is None:

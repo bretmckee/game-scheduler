@@ -68,7 +68,9 @@ async def _schedule_join_notifications(
     db: AsyncSession,
     game: game_model.GameSession,
 ) -> None:
-    partitioned = partition_participants(game.participants, game.max_players)
+    partitioned = partition_participants(
+        game.participants, game.max_players, signup_method=game.signup_method
+    )
     for participant in partitioned.confirmed:
         if participant.user_id:
             schedule = notification_schedule_model.NotificationSchedule(

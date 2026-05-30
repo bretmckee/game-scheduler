@@ -370,7 +370,9 @@ class TestHandleJoinNotificationHelpers:
 
             assert is_confirmed is True
             mock_partition.assert_called_once_with(
-                sample_game.participants, sample_game.max_players
+                sample_game.participants,
+                sample_game.max_players,
+                signup_method=sample_game.signup_method,
             )
 
     def test_is_participant_confirmed_when_waitlisted(self, event_handlers, sample_game):
@@ -388,7 +390,9 @@ class TestHandleJoinNotificationHelpers:
 
                 assert is_confirmed is False
                 mock_partition.assert_called_once_with(
-                    sample_game.participants, sample_game.max_players
+                    sample_game.participants,
+                    sample_game.max_players,
+                    signup_method=sample_game.signup_method,
                 )
                 mock_logger.info.assert_called_once_with(
                     "Participant %s is waitlisted, skipping join notification for game %s",

@@ -1073,7 +1073,9 @@ async def _build_game_response(
         Game response schema with resolved display names and sorted participants
     """
     participant_count = min(len(game.participants), resolve_max_players(game.max_players))
-    partitioned = participant_sorting.partition_participants(game.participants, game.max_players)
+    partitioned = participant_sorting.partition_participants(
+        game.participants, game.max_players, signup_method=game.signup_method
+    )
 
     if prefetched_display_data is not None:
         display_data_map = prefetched_display_data

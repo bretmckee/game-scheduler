@@ -146,7 +146,7 @@ def sort_participants(participants: list["GameParticipant"]) -> list["GamePartic
 def partition_participants(
     participants: list["GameParticipant"],
     max_players: int | None = None,
-    signup_method: SignupMethod = SignupMethod.SELF_SIGNUP,
+    signup_method: str | SignupMethod = SignupMethod.SELF_SIGNUP,
 ) -> PartitionedParticipants:
     """Sort and partition participants into confirmed and overflow groups.
 

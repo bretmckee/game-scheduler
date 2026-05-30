@@ -33,6 +33,7 @@ from shared.models.game import GameSession
 from shared.models.participant import GameParticipant, ParticipantType
 from shared.models.user import User
 from shared.schemas.game import GameUpdateRequest
+from shared.utils.participant_sorting import partition_participants
 
 
 @pytest.fixture
@@ -668,11 +669,10 @@ async def test_promotion_multiple_placeholders_removed(
 
 
 @pytest.mark.asyncio
-async def test_no_promotion_when_placeholder_added_to_overflow(
+async def test_no_promotion_when_max_players_reduced(
     game_service, sample_game, mock_event_publisher, mock_db
 ):
-    """Test that no promotion occurs when a placeholder is added to overflow."""
-    # Setup: Game with max_players=2, participants=[User1, User2]
+    """Reducing max_players sends demotion DM to demoted user but no promotion DM."""
     base_time = datetime.now(UTC).replace(tzinfo=None)
 
     user1 = create_participant(sample_game.id, str(uuid4()), "user_1", base_time)
@@ -681,42 +681,40 @@ async def test_no_promotion_when_placeholder_added_to_overflow(
     sample_game.max_players = 2
     sample_game.participants = [user1, user2]
 
-    # Mock database operations
     mock_db.commit = AsyncMock()
     mock_db.refresh = AsyncMock()
     mock_db.flush = AsyncMock()
 
-    # Mock get_game to return our sample game
     with patch.object(game_service, "get_game", return_value=sample_game):
         mock_role_service = AsyncMock()
         mock_current_user = MagicMock()
         mock_current_user.discord_id = sample_game.host.discord_id
 
         with patch("services.api.dependencies.permissions.can_manage_game", return_value=True):
-            # Add a placeholder to overflow (should not affect promotions)
-            # This would be done via a different route, but we test that max_players
-            # decrease doesn't cause false promotions
-            update_request = GameUpdateRequest(max_players=1)
-
             await game_service.update_game(
                 game_id=sample_game.id,
-                update_data=update_request,
+                update_data=GameUpdateRequest(max_players=1),
                 current_user=mock_current_user,
                 role_service=mock_role_service,
             )
 
-    # Verify no promotion notifications were published
     publish_calls = mock_event_publisher.publish_deferred.call_args_list
-
-    notification_calls = [
+    dm_calls = [
         call
         for call in publish_calls
         if call[1]["event"].event_type == EventType.NOTIFICATION_SEND_DM
     ]
 
-    assert len(notification_calls) == 0, (
-        "Should not send promotion notifications when reducing max_players"
-    )
+    promotion_calls = [
+        c for c in dm_calls if c[1]["event"].data.get("notification_type") == "waitlist_promotion"
+    ]
+    demotion_calls = [
+        c for c in dm_calls if c[1]["event"].data.get("notification_type") == "waitlist_demotion"
+    ]
+
+    assert len(promotion_calls) == 0, "Should not promote anyone when reducing max_players"
+    assert len(demotion_calls) == 1, "Should send one demotion DM to the demoted user"
+    assert user2.user.discord_id == demotion_calls[0][1]["event"].data["user_id"]
 
 
 @pytest.mark.asyncio
@@ -762,3 +760,55 @@ async def test_promotion_notification_no_message_id(
     assert len(notification_calls) == 1
     event_data = notification_calls[0][1]["event"].data
     assert "discord.com" not in event_data["message"]
+
+
+@pytest.mark.asyncio
+async def test_detect_transitions_notifies_demoted_users(
+    game_service, sample_game, mock_event_publisher, mock_db
+):
+    """_detect_and_notify_transitions calls _notify_demoted_users for demoted users."""
+    base_time = datetime.now(UTC).replace(tzinfo=None)
+
+    demoted_user = create_participant(sample_game.id, str(uuid4()), "demoted_user", base_time)
+    other_user = create_participant(sample_game.id, str(uuid4()), "other_user", base_time)
+    sample_game.max_players = 1
+
+    old_partitioned = partition_participants([demoted_user, other_user], max_players=2)
+    sample_game.participants = [demoted_user, other_user]
+
+    notify_mock = AsyncMock()
+    with patch.object(game_service, "_notify_demoted_users", notify_mock):
+        await game_service._detect_and_notify_transitions(sample_game, old_partitioned)
+
+    notify_mock.assert_called_once()
+    assert other_user.user.discord_id in notify_mock.call_args[1]["demoted_discord_ids"]
+
+
+@pytest.mark.asyncio
+async def test_detect_transitions_sends_demotion_dm(
+    game_service, sample_game, mock_event_publisher, mock_db
+):
+    """Demotion DM uses waitlist_demotion notification_type and contains 'waitlist'."""
+    base_time = datetime.now(UTC).replace(tzinfo=None)
+
+    user1 = create_participant(sample_game.id, str(uuid4()), "user_1", base_time)
+    demoted_user = create_participant(sample_game.id, str(uuid4()), "demoted_user", base_time)
+
+    old_partitioned = partition_participants([user1, demoted_user], max_players=2)
+    sample_game.max_players = 1
+    sample_game.participants = [user1, demoted_user]
+
+    await game_service._detect_and_notify_transitions(sample_game, old_partitioned)
+
+    publish_calls = mock_event_publisher.publish_deferred.call_args_list
+    dm_calls = [
+        call
+        for call in publish_calls
+        if call[1]["event"].event_type == EventType.NOTIFICATION_SEND_DM
+    ]
+    assert len(dm_calls) == 1
+    event_data = dm_calls[0][1]["event"].data
+    assert event_data["notification_type"] == "waitlist_demotion"
+    assert "waitlist" in event_data["message"].lower()
+    assert event_data["user_id"] == demoted_user.user.discord_id
+    assert "waitlist" in event_data["message"].lower()
