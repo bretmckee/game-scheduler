@@ -25,6 +25,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from shared.models.participant import ParticipantType
+from shared.models.signup_method import SignupMethod
 from shared.utils.games import DEFAULT_MAX_PLAYERS
 
 if TYPE_CHECKING:
@@ -77,6 +78,25 @@ class PartitionedParticipants:
             if discord_id in self.confirmed_real_user_ids
         }
 
+    def entered_waitlist(self, previous: "PartitionedParticipants") -> set[str]:
+        """
+        Identify users who entered the waitlist (demoted from confirmed to overflow).
+
+        Compares this state with a previous state to find users who were in confirmed
+        before but are now in overflow.
+
+        Args:
+            previous: Previous PartitionedParticipants state
+
+        Returns:
+            Set of Discord IDs of users demoted from confirmed to overflow
+        """
+        return {
+            discord_id
+            for discord_id in previous.confirmed_real_user_ids
+            if discord_id in self.overflow_real_user_ids
+        }
+
 
 def resolve_role_position(
     user_role_ids: list[str], priority_role_ids: list[str]
@@ -126,6 +146,7 @@ def sort_participants(participants: list["GameParticipant"]) -> list["GamePartic
 def partition_participants(
     participants: list["GameParticipant"],
     max_players: int | None = None,
+    signup_method: SignupMethod = SignupMethod.SELF_SIGNUP,
 ) -> PartitionedParticipants:
     """Sort and partition participants into confirmed and overflow groups.
 
@@ -135,19 +156,29 @@ def partition_participants(
     Args:
         participants: List of all participants (including placeholders)
         max_players: Maximum confirmed participants (defaults to DEFAULT_MAX_PLAYERS if None)
+        signup_method: Signup method governing partition logic
 
     Returns:
         PartitionedParticipants with sorted lists and pre-computed ID sets
 
     Example:
-        >>> partitioned = partition_participants(game.participants, game.max_players)
+        >>> partitioned = partition_participants(
+        ...     game.participants, game.max_players, game.signup_method
+        ... )
         >>> confirmed_ids = partitioned.confirmed_real_user_ids
         >>> overflow_ids = partitioned.overflow_real_user_ids
     """
     max_players = max_players or DEFAULT_MAX_PLAYERS
     sorted_all = sort_participants(participants)
-    confirmed = sorted_all[:max_players]
-    overflow = sorted_all[max_players:]
+
+    if signup_method == SignupMethod.HOST_SELECTED_WITH_WAITLIST:
+        host_added = [p for p in sorted_all if p.position_type == ParticipantType.HOST_ADDED]
+        other = [p for p in sorted_all if p.position_type != ParticipantType.HOST_ADDED]
+        confirmed = host_added[:max_players]
+        overflow = host_added[max_players:] + other
+    else:
+        confirmed = sorted_all[:max_players]
+        overflow = sorted_all[max_players:]
 
     confirmed_ids = {p.user.discord_id for p in confirmed if p.user and p.user.discord_id}
     overflow_ids = {p.user.discord_id for p in overflow if p.user and p.user.discord_id}

@@ -58,12 +58,12 @@ notifications for promotions and demotions.
 - [x] Task 1.2: Mirror new enum value in `frontend/src/types/index.ts` with SIGNUP_METHOD_INFO entry
   - Details: .copilot-tracking/planning/details/20260530-01-host-selected-waitlist-details.md (Lines 38-60)
 
-### [ ] Phase 2: Core Partition Logic + Demotion Detection (TDD)
+### [x] Phase 2: Core Partition Logic + Demotion Detection (TDD)
 
-- [ ] Task 2.1 (RED): Add `signup_method` param stub + `entered_waitlist()` stub to participant_sorting.py; write 5 xfail tests
+- [x] Task 2.1 (RED): Add `signup_method` param stub + `entered_waitlist()` stub to participant_sorting.py; write 5 xfail tests
   - Details: .copilot-tracking/planning/details/20260530-01-host-selected-waitlist-details.md (Lines 63-111)
 
-- [ ] Task 2.2 (GREEN): Implement HOST_ADDED-only partition logic and `entered_waitlist()`; remove xfail markers
+- [x] Task 2.2 (GREEN): Implement HOST_ADDED-only partition logic and `entered_waitlist()`; remove xfail markers
   - Details: .copilot-tracking/planning/details/20260530-01-host-selected-waitlist-details.md (Lines 112-151)
 
 ### [ ] Phase 3: New DM Formats (TDD)

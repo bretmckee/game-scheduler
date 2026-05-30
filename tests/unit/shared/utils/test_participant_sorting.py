@@ -27,6 +27,7 @@ from unittest.mock import Mock
 import pytest
 
 from shared.models.participant import ParticipantType
+from shared.models.signup_method import SignupMethod
 from shared.utils.games import DEFAULT_MAX_PLAYERS
 from shared.utils.participant_sorting import (
     PartitionedParticipants,
@@ -681,3 +682,121 @@ class TestResolveRolePosition:
         """When user has multiple priority roles, the lowest-index one wins."""
         result = resolve_role_position(["role_b", "role_a"], ["role_a", "role_b"])
         assert result == (ParticipantType.ROLE_MATCHED, 0)
+
+
+# ---------------------------------------------------------------------------
+# HOST_SELECTED_WITH_WAITLIST partition logic + entered_waitlist (TDD RED)
+# ---------------------------------------------------------------------------
+
+
+def test_partition_host_selected_waitlist_only_host_added_in_confirmed(mock_participant):
+    """HOST_ADDED <= max fills confirmed; SELF_ADDED go to overflow."""
+    base_time = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
+
+    host1 = mock_participant(
+        "h1", joined_at=base_time, position_type=ParticipantType.HOST_ADDED, position=1
+    )
+    host1.user = Mock()
+    host1.user.discord_id = "host_1"
+
+    host2 = mock_participant(
+        "h2", joined_at=base_time, position_type=ParticipantType.HOST_ADDED, position=2
+    )
+    host2.user = Mock()
+    host2.user.discord_id = "host_2"
+
+    self1 = mock_participant("s1", joined_at=base_time.replace(minute=1))
+    self1.user = Mock()
+    self1.user.discord_id = "self_1"
+
+    result = partition_participants(
+        [host1, host2, self1],
+        max_players=3,
+        signup_method=SignupMethod.HOST_SELECTED_WITH_WAITLIST,
+    )
+
+    assert result.confirmed_real_user_ids == {"host_1", "host_2"}
+    assert result.overflow_real_user_ids == {"self_1"}
+
+
+def test_partition_host_selected_waitlist_excess_host_added_overflow(mock_participant):
+    """HOST_ADDED > max_players; extras go to overflow before SELF_ADDED."""
+    base_time = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
+
+    hosts = []
+    for i in range(4):
+        h = mock_participant(
+            f"h{i}", joined_at=base_time, position_type=ParticipantType.HOST_ADDED, position=i + 1
+        )
+        h.user = Mock()
+        h.user.discord_id = f"host_{i}"
+        hosts.append(h)
+
+    self1 = mock_participant("s1", joined_at=base_time.replace(minute=1))
+    self1.user = Mock()
+    self1.user.discord_id = "self_1"
+
+    result = partition_participants(
+        [*hosts, self1],
+        max_players=2,
+        signup_method=SignupMethod.HOST_SELECTED_WITH_WAITLIST,
+    )
+
+    assert result.confirmed_real_user_ids == {"host_0", "host_1"}
+    assert result.overflow_real_user_ids == {"host_2", "host_3", "self_1"}
+
+
+def test_partition_host_selected_waitlist_empty_host_added(mock_participant):
+    """No HOST_ADDED; all SELF_ADDED in overflow."""
+    base_time = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
+
+    self1 = mock_participant("s1", joined_at=base_time)
+    self1.user = Mock()
+    self1.user.discord_id = "self_1"
+
+    self2 = mock_participant("s2", joined_at=base_time.replace(minute=1))
+    self2.user = Mock()
+    self2.user.discord_id = "self_2"
+
+    result = partition_participants(
+        [self1, self2],
+        max_players=5,
+        signup_method=SignupMethod.HOST_SELECTED_WITH_WAITLIST,
+    )
+
+    assert result.confirmed_real_user_ids == set()
+    assert result.overflow_real_user_ids == {"self_1", "self_2"}
+
+
+def test_entered_waitlist_detects_confirmed_to_overflow_transition(mock_participant):
+    """Player present in previous.confirmed now in self.overflow is detected."""
+    base_time = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
+
+    user1 = mock_participant("u1", joined_at=base_time)
+    user1.user = Mock()
+    user1.user.discord_id = "discord_1"
+
+    user2 = mock_participant("u2", joined_at=base_time.replace(minute=1))
+    user2.user = Mock()
+    user2.user.discord_id = "discord_2"
+
+    old_partitioned = partition_participants([user1, user2], max_players=2)
+    new_partitioned = partition_participants([user1, user2], max_players=1)
+
+    demoted = new_partitioned.entered_waitlist(old_partitioned)
+    assert demoted == {"discord_2"}
+
+
+def test_entered_waitlist_returns_empty_when_no_demotions(mock_participant):
+    """No movement from confirmed to overflow returns empty set."""
+    base_time = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
+
+    user1 = mock_participant("u1", joined_at=base_time)
+    user1.user = Mock()
+    user1.user.discord_id = "discord_1"
+
+    old_partitioned = partition_participants([user1], max_players=2)
+    new_partitioned = partition_participants([user1], max_players=2)
+
+    demoted = new_partitioned.entered_waitlist(old_partitioned)
+    assert demoted == set()
