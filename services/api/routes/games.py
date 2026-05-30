@@ -142,7 +142,8 @@ _DisplayNameResolverDep = Annotated[
 
 def _is_pending_announcement(game: game_model.GameSession) -> bool:
     """Return True when a game is deferred and the bot has not yet posted the announcement."""
-    return game.post_at is not None and game.post_at > datetime.now(UTC) and game.message_id is None
+    now = datetime.now(UTC).replace(tzinfo=None)
+    return game.post_at is not None and game.post_at > now and game.message_id is None
 
 
 async def _is_pending_and_hidden(
@@ -154,13 +155,14 @@ async def _is_pending_and_hidden(
     """Return True when a pending-announcement game should be hidden from the requesting user."""
     if not _is_pending_announcement(game):
         return False
-    return not await permissions_deps.can_manage_game(
+    can_manage = await permissions_deps.can_manage_game(
         game_host_id=game.host.discord_id,
         guild_id=game.guild.guild_id,
         current_user=current_user,
         role_service=role_service,
         db=db,
     )
+    return not can_manage
 
 
 async def _resolve_join_position(

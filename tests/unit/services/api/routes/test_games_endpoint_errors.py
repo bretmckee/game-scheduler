@@ -322,7 +322,7 @@ class TestJoinGame:
     ):
         """join_game returns 404 when game has a future post_at and no message_id."""
         mock_game = MagicMock()
-        mock_game.post_at = datetime(2099, 1, 1, tzinfo=UTC)
+        mock_game.post_at = datetime(2099, 1, 1, tzinfo=UTC).replace(tzinfo=None)
         mock_game.message_id = None
         mock_game_service.get_game.return_value = mock_game
 

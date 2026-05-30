@@ -148,9 +148,9 @@ exclude = []
     "SIM117",   # Nested with statements in test mocks
     "PT011",    # pytest.raises without match parameter
     "PT012",    # pytest.raises with multiple statements
-    "PT018",    # Compound assertions in tests    "ASYNC230", # Blocking file I/O in async test functions (acceptable for small metadata files)
+    "PT018",    # Compound assertions in tests
     "ASYNC240", # os.path in async context (acceptable in test helpers)
-    "EM102",   # f-string in exception (acceptable in test assertions)    "DTZ001",   # datetime without tzinfo in test data
+    "EM102",    # f-string in exception (acceptable in test assertions)
     "ASYNC109", # Async function with timeout parameter
     "ARG001",   # Unused function arguments in fixtures and test helpers
     "ARG002",   # Unused method arguments in test classes

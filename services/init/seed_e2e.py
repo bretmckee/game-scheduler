@@ -53,6 +53,8 @@ class E2EConfig:
     guild_b_id: str
     channel_b_id: str
     user_b_id: str
+    main_bot_token: str
+    player_a_client_id: str | None
 
 
 @dataclass
@@ -80,6 +82,7 @@ def _validate_e2e_config() -> E2EConfig | None:
         "guild_b_id": os.getenv("DISCORD_GUILD_B_ID"),
         "channel_b_id": os.getenv("DISCORD_GUILD_B_CHANNEL_ID"),
         "user_b_id": os.getenv("DISCORD_ADMIN_BOT_B_CLIENT_ID"),
+        "main_bot_token": os.getenv("DISCORD_BOT_TOKEN"),
     }
 
     if not all(required.values()):
@@ -89,6 +92,7 @@ def _validate_e2e_config() -> E2EConfig | None:
     return E2EConfig(
         **required,
         archive_channel_id=os.getenv("DISCORD_ARCHIVE_CHANNEL_ID"),
+        player_a_client_id=os.getenv("DISCORD_PLAYER_A_CLIENT_ID"),
     )
 
 
@@ -190,7 +194,42 @@ def _create_guild_entities(
             },
         )
 
-    logger.info("Created guild entities for %s", guild_config.guild_name)
+    logger.debug(
+        "Created guild entities for %s: guild_db_id=%s channel_db_id=%s",
+        guild_config.guild_name,
+        guild_id,
+        channel_config_id,
+    )
+
+
+def _seed_standalone_users(session: Session, discord_ids: list[str]) -> None:
+    """
+    Seed user records for IDs not covered by guild entity seeding.
+
+    Uses ON CONFLICT DO NOTHING so this is safe to call on an already-seeded DB.
+
+    Args:
+        session: Database session
+        discord_ids: Discord snowflake IDs to ensure exist in the users table
+    """
+    logger.debug("_seed_standalone_users: inserting %d user(s): %s", len(discord_ids), discord_ids)
+    now = datetime.now(UTC).replace(tzinfo=None)
+    for discord_id in discord_ids:
+        logger.debug("  inserting user discord_id=%s", discord_id)
+        session.execute(
+            text(
+                "INSERT INTO users (id, discord_id, created_at, updated_at) "
+                "VALUES (:id, :discord_id, :created_at, :updated_at) "
+                "ON CONFLICT (discord_id) DO NOTHING"
+            ),
+            {
+                "id": str(uuid4()),
+                "discord_id": discord_id,
+                "created_at": now,
+                "updated_at": now,
+            },
+        )
+    logger.debug("_seed_standalone_users: done")
 
 
 def seed_e2e_data() -> bool:
@@ -203,21 +242,39 @@ def seed_e2e_data() -> bool:
     - Test host user (User A)
     - Default game template for Guild A
     - Guild B, Channel B, User B for cross-guild isolation testing (required)
+    - Main notification bot user record
+    - Player A user record (if DISCORD_PLAYER_A_CLIENT_ID is set)
 
     Returns:
         True if seeding succeeded, False otherwise
     """
+    logger.debug("seed_e2e_data: starting")
     config = _validate_e2e_config()
     if not config:
         return True
 
+    logger.debug(
+        "seed_e2e_data: config loaded guild_a=%s guild_b=%s user_id=%s",
+        config.guild_a_id,
+        config.guild_b_id,
+        config.user_id,
+    )
+
     bot_id = extract_bot_discord_id(config.bot_token)
-    logger.info("Extracted bot Discord ID: %s", bot_id)
+    logger.debug("seed_e2e_data: bot_a discord_id=%s", bot_id)
 
     try:
         session: Session
         with get_sync_db_session() as session:
+            main_bot_id = extract_bot_discord_id(config.main_bot_token)
+            standalone_ids = [main_bot_id]
+            if config.player_a_client_id:
+                standalone_ids.append(config.player_a_client_id)
+            _seed_standalone_users(session, standalone_ids)
+            logger.info("Seeded standalone users: %s", standalone_ids)
+
             if _guild_exists(session, config.guild_a_id):
+                session.commit()
                 logger.info("E2E test guild %s already exists, skipping seed", config.guild_a_id)
                 return True
 
@@ -229,12 +286,15 @@ def seed_e2e_data() -> bool:
                 guild_name="Guild A",
             )
             _create_guild_entities(session, guild_a_config, bot_id)
-            logger.info("E2E test data seeded successfully (guild A, channel A, users, template)")
-
             logger.info(
-                "Seeding Guild B for cross-guild isolation testing: %s",
-                config.guild_b_id,
+                "Guild A seeded: guild=%s channel=%s user=%s bot=%s",
+                config.guild_a_id,
+                config.channel_a_id,
+                config.user_id,
+                bot_id,
             )
+
+            logger.debug("seed_e2e_data: checking Guild B %s", config.guild_b_id)
 
             if _guild_exists(session, config.guild_b_id):
                 logger.info("Guild B %s already exists, skipping seed", config.guild_b_id)
@@ -247,9 +307,16 @@ def seed_e2e_data() -> bool:
                     guild_name="Guild B",
                 )
                 _create_guild_entities(session, guild_b_config)
-                logger.info("Guild B seeded successfully (guild B, channel B, user B, template)")
+                logger.info(
+                    "Guild B seeded: guild=%s channel=%s user=%s",
+                    config.guild_b_id,
+                    config.channel_b_id,
+                    config.user_b_id,
+                )
 
+            logger.debug("seed_e2e_data: committing")
             session.commit()
+            logger.info("seed_e2e_data: committed, all done")
             return True
 
     except Exception as e:

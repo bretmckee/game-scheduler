@@ -44,6 +44,7 @@ def _make_bot() -> GameSchedulerBot:
     instance.api_cache = None
     instance._sweep_task = None
     instance._refresh_listener_started = True
+    instance._announcement_loop_started = True
     return instance
 
 
@@ -248,6 +249,31 @@ async def test_on_ready_does_not_restart_message_refresh_listener(
         await bot.on_ready()
 
     mock_listener_cls.assert_not_called()
+
+
+async def test_on_ready_starts_announcement_loop(bot, mock_redis, on_ready_env) -> None:
+    """on_ready starts AnnouncementLoop task when not already running."""
+    del bot._announcement_loop_started
+    with (
+        patch("services.bot.bot.guild_projection.repopulate_all", new_callable=AsyncMock),
+        patch("services.bot.bot.AnnouncementLoop") as mock_loop_cls,
+    ):
+        mock_loop_cls.return_value.start = AsyncMock()
+        await bot.on_ready()
+
+    mock_loop_cls.assert_called_once_with(bot.config.database_url, bot)
+
+
+async def test_on_ready_does_not_restart_announcement_loop(bot, mock_redis, on_ready_env) -> None:
+    """on_ready does not start a second AnnouncementLoop if already running."""
+    # bot._announcement_loop_started is set by _make_bot, so the flag is present
+    with (
+        patch("services.bot.bot.guild_projection.repopulate_all", new_callable=AsyncMock),
+        patch("services.bot.bot.AnnouncementLoop") as mock_loop_cls,
+    ):
+        await bot.on_ready()
+
+    mock_loop_cls.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

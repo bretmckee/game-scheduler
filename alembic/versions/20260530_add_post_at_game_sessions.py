@@ -64,7 +64,7 @@ def upgrade() -> None:
     """Add post_at column and NOTIFY trigger to game_sessions."""
     op.add_column(
         "game_sessions",
-        sa.Column("post_at", sa.TIMESTAMP(timezone=True), nullable=True),
+        sa.Column("post_at", sa.DateTime(), nullable=True),
     )
     op.execute(_TRIGGER_FUNC)
     op.execute(_TRIGGER)

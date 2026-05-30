@@ -1203,6 +1203,76 @@ async def test_build_game_session_remind_host_rewards_falls_back_to_template(
 
 
 @pytest.mark.asyncio
+async def test_build_game_session_post_at_stored_as_naive_utc(
+    game_service,
+    sample_template,
+    sample_guild,
+):
+    """Test _build_game_session stores post_at as naive UTC, stripping tzinfo."""
+    host_user = user_model.User(id=str(uuid.uuid4()), discord_id="123456")
+    post_at_aware = datetime.datetime(2026, 6, 15, 14, 0, 0, tzinfo=datetime.UTC)
+
+    game_data = game_schemas.GameCreateRequest(
+        template_id=sample_template.id,
+        title="Deferred Game",
+        description="Test deferred",
+        scheduled_at=datetime.datetime(2026, 6, 15, 20, 0, 0, tzinfo=datetime.UTC),
+        post_at=post_at_aware,
+    )
+
+    resolved_fields = {
+        "max_players": 4,
+        "reminder_minutes": [],
+        "expected_duration_minutes": 60,
+        "where": "Online",
+        "signup_instructions": "",
+        "signup_method": SignupMethod.SELF_SIGNUP.value,
+    }
+
+    game = await game_service._build_game_session(
+        game_data, sample_template, sample_guild, host_user, resolved_fields, GameMediaAttachments()
+    )
+
+    assert game.post_at is not None
+    assert game.post_at.tzinfo is None
+    assert game.post_at == datetime.datetime(2026, 6, 15, 14, 0, 0, tzinfo=datetime.UTC).replace(
+        tzinfo=None
+    )
+
+
+@pytest.mark.asyncio
+async def test_build_game_session_post_at_none_when_not_provided(
+    game_service,
+    sample_template,
+    sample_guild,
+):
+    """Test _build_game_session leaves post_at as None when not provided."""
+    host_user = user_model.User(id=str(uuid.uuid4()), discord_id="123456")
+
+    game_data = game_schemas.GameCreateRequest(
+        template_id=sample_template.id,
+        title="Immediate Game",
+        description="No deferred post",
+        scheduled_at=datetime.datetime(2026, 6, 15, 20, 0, 0, tzinfo=datetime.UTC),
+    )
+
+    resolved_fields = {
+        "max_players": 4,
+        "reminder_minutes": [],
+        "expected_duration_minutes": 60,
+        "where": "Online",
+        "signup_instructions": "",
+        "signup_method": SignupMethod.SELF_SIGNUP.value,
+    }
+
+    game = await game_service._build_game_session(
+        game_data, sample_template, sample_guild, host_user, resolved_fields, GameMediaAttachments()
+    )
+
+    assert game.post_at is None
+
+
+@pytest.mark.asyncio
 async def test_setup_game_schedules_with_reminders_and_duration(
     game_service,
     mock_db,
@@ -5301,7 +5371,7 @@ async def test_update_game_change_post_at_updates_value(
             role_service=AsyncMock(),
         )
 
-    assert result.post_at == new_post_at
+    assert result.post_at == new_post_at.replace(tzinfo=None)
     mock_publish_updated.assert_not_called()
 
 

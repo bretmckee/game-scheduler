@@ -554,6 +554,11 @@ class GameService:
             status=game_model.GameStatus.SCHEDULED.value,
             thumbnail_id=thumbnail_id,
             banner_image_id=banner_image_id,
+            post_at=(
+                game_data.post_at.astimezone(datetime.UTC).replace(tzinfo=None)
+                if game_data.post_at is not None and game_data.post_at.tzinfo is not None
+                else game_data.post_at
+            ),
         )
 
     async def _setup_game_schedules(
@@ -805,7 +810,9 @@ class GameService:
         )
         game = result.scalar_one()
 
-        deferred = game.post_at is not None and game.post_at > datetime.datetime.now(datetime.UTC)
+        deferred = game.post_at is not None and game.post_at > datetime.datetime.now(
+            datetime.UTC
+        ).replace(tzinfo=None)
 
         if not deferred:
             await self._setup_game_schedules(
@@ -1308,7 +1315,11 @@ class GameService:
 
         # Update post_at when explicitly provided and clear_post_at is not requested
         if update_data.post_at is not None and not update_data.clear_post_at:
-            game.post_at = update_data.post_at
+            game.post_at = (
+                update_data.post_at.astimezone(datetime.UTC).replace(tzinfo=None)
+                if update_data.post_at.tzinfo is not None
+                else update_data.post_at
+            )
 
         # scheduled_at affects both schedules
         if scheduled_at_updated:

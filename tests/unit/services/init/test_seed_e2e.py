@@ -21,13 +21,16 @@
 
 """Unit tests for init service seed_e2e module helpers."""
 
-from unittest.mock import Mock, patch
+from unittest.mock import ANY, MagicMock, Mock, patch
 
 from services.init.seed_e2e import (
+    E2EConfig,
     GuildConfig,
     _create_guild_entities,
     _guild_exists,
+    _seed_standalone_users,
     _validate_e2e_config,
+    seed_e2e_data,
 )
 
 
@@ -83,6 +86,7 @@ class TestValidateE2EConfig:
                 "DISCORD_GUILD_B_ID": "guild_b_234",
                 "DISCORD_GUILD_B_CHANNEL_ID": "channel_b_567",
                 "DISCORD_ADMIN_BOT_B_CLIENT_ID": "bot_b_890",
+                "DISCORD_BOT_TOKEN": "main_bot_token_xyz",
             }
             return env_vars.get(key)
 
@@ -98,6 +102,8 @@ class TestValidateE2EConfig:
         assert result.guild_b_id == "guild_b_234"
         assert result.channel_b_id == "channel_b_567"
         assert result.user_b_id == "bot_b_890"
+        assert result.main_bot_token == "main_bot_token_xyz"
+        assert result.player_a_client_id is None
 
 
 class TestGuildExists:
@@ -162,7 +168,12 @@ class TestCreateGuildEntities:
         _create_guild_entities(mock_session, guild_config)
 
         assert mock_session.execute.call_count == 4
-        mock_logger.info.assert_called_once_with("Created guild entities for %s", "Test Guild")
+        mock_logger.debug.assert_called_once_with(
+            "Created guild entities for %s: guild_db_id=%s channel_db_id=%s",
+            "Test Guild",
+            "guild-id",
+            "channel-config-id",
+        )
 
     @patch("services.init.seed_e2e.datetime")
     @patch("services.init.seed_e2e.uuid4")
@@ -233,3 +244,130 @@ class TestCreateGuildEntities:
 
         user_insert_params = execute_calls[3][0][1]
         assert user_insert_params["discord_id"] == "specific-user-id"
+
+
+class TestSeedStandaloneUsers:
+    """Tests for _seed_standalone_users helper."""
+
+    @patch("services.init.seed_e2e.logger")
+    def test_inserts_each_discord_id(self, mock_logger):
+        """Should execute one INSERT for each discord_id in the list."""
+        mock_session = Mock()
+        _seed_standalone_users(mock_session, ["111", "222", "333"])
+
+        assert mock_session.execute.call_count == 3
+
+    @patch("services.init.seed_e2e.logger")
+    def test_empty_list_inserts_nothing(self, mock_logger):
+        """Should not call execute when discord_ids is empty."""
+        mock_session = Mock()
+        _seed_standalone_users(mock_session, [])
+
+        mock_session.execute.assert_not_called()
+
+
+class TestSeedE2EData:
+    """Tests for seed_e2e_data top-level function."""
+
+    def _make_config(self, player_a_client_id=None):
+        return E2EConfig(
+            guild_a_id="guild-a-123",
+            channel_a_id="channel-a-456",
+            archive_channel_id=None,
+            user_id="user-789",
+            bot_token="bot-token",
+            guild_b_id="guild-b-234",
+            channel_b_id="channel-b-567",
+            user_b_id="user-b-890",
+            main_bot_token="main-bot-token",
+            player_a_client_id=player_a_client_id,
+        )
+
+    def _make_session_ctx(self, mock_session):
+        ctx = MagicMock()
+        ctx.__enter__ = Mock(return_value=mock_session)
+        ctx.__exit__ = Mock(return_value=False)
+        return ctx
+
+    @patch("services.init.seed_e2e.logger")
+    @patch("services.init.seed_e2e.get_sync_db_session")
+    @patch("services.init.seed_e2e.extract_bot_discord_id")
+    @patch("services.init.seed_e2e._guild_exists")
+    @patch("services.init.seed_e2e._create_guild_entities")
+    @patch("services.init.seed_e2e._seed_standalone_users")
+    @patch("services.init.seed_e2e._validate_e2e_config")
+    def test_seeds_new_guilds_and_returns_true(
+        self,
+        mock_validate,
+        mock_seed_standalone,
+        mock_create_entities,
+        mock_guild_exists,
+        mock_extract_bot_id,
+        mock_get_session,
+        mock_logger,
+    ):
+        """seed_e2e_data seeds both guilds and returns True for a fresh DB."""
+        mock_validate.return_value = self._make_config()
+        mock_extract_bot_id.return_value = "bot-discord-id"
+        mock_guild_exists.return_value = False
+
+        mock_session = Mock()
+        mock_get_session.return_value = self._make_session_ctx(mock_session)
+
+        result = seed_e2e_data()
+
+        assert result is True
+        mock_seed_standalone.assert_called_once_with(mock_session, ["bot-discord-id"])
+        assert mock_create_entities.call_count == 2
+        mock_session.commit.assert_called_once()
+
+    @patch("services.init.seed_e2e.logger")
+    @patch("services.init.seed_e2e.get_sync_db_session")
+    @patch("services.init.seed_e2e.extract_bot_discord_id")
+    @patch("services.init.seed_e2e._guild_exists")
+    @patch("services.init.seed_e2e._create_guild_entities")
+    @patch("services.init.seed_e2e._seed_standalone_users")
+    @patch("services.init.seed_e2e._validate_e2e_config")
+    def test_skips_seed_when_guild_a_already_exists(
+        self,
+        mock_validate,
+        mock_seed_standalone,
+        mock_create_entities,
+        mock_guild_exists,
+        mock_extract_bot_id,
+        mock_get_session,
+        mock_logger,
+    ):
+        """seed_e2e_data returns True early when guild A already exists."""
+        mock_validate.return_value = self._make_config()
+        mock_extract_bot_id.return_value = "bot-discord-id"
+        mock_guild_exists.return_value = True
+
+        mock_session = Mock()
+        mock_get_session.return_value = self._make_session_ctx(mock_session)
+
+        result = seed_e2e_data()
+
+        assert result is True
+        mock_create_entities.assert_not_called()
+
+    @patch("services.init.seed_e2e.logger")
+    @patch("services.init.seed_e2e.get_sync_db_session")
+    @patch("services.init.seed_e2e.extract_bot_discord_id")
+    @patch("services.init.seed_e2e._validate_e2e_config")
+    def test_returns_false_on_exception(
+        self,
+        mock_validate,
+        mock_extract_bot_id,
+        mock_get_session,
+        mock_logger,
+    ):
+        """seed_e2e_data returns False when an exception is raised."""
+        mock_validate.return_value = self._make_config()
+        mock_extract_bot_id.return_value = "bot-discord-id"
+        mock_get_session.side_effect = RuntimeError("DB connection failed")
+
+        result = seed_e2e_data()
+
+        assert result is False
+        mock_logger.error.assert_called_once_with("Failed to seed E2E test data: %s", ANY)

@@ -643,7 +643,7 @@ class TestListGamesPendingAnnouncementFilter:
 
     def _make_pending_game(self) -> MagicMock:
         game = MagicMock()
-        game.post_at = datetime(2099, 1, 1, tzinfo=UTC)
+        game.post_at = datetime(2099, 1, 1, tzinfo=UTC).replace(tzinfo=None)
         game.message_id = None
         game.host = MagicMock()
         game.host.discord_id = "host1"

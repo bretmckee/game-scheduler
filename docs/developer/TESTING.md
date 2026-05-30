@@ -355,6 +355,33 @@ If the variable is absent the emoji assertion is skipped — the test still pass
 verifies channel mention resolution. If the variable is set, the test also asserts that
 `<:emoji_name:` appears in the join DM content.
 
+#### 8. Player Bot A (non-admin Guild A member)
+
+`tests/e2e/test_deferred_game_announcement.py` requires a second bot that is a plain
+member of Guild A with **no host or manager role**. This allows the tests to verify that
+deferred-announcement games (those with a future `post_at`) are hidden from regular
+users until the bot posts the Discord message.
+
+**Setup steps:**
+
+1. In the [Discord Developer Portal](https://discord.com/developers/applications), create
+   a new application "Game Scheduler Player Bot A"
+2. Under **Bot**, enable **SERVER MEMBERS INTENT**
+3. Copy the bot token → `DISCORD_PLAYER_A_TOKEN`
+4. Copy the application ID → `DISCORD_PLAYER_A_CLIENT_ID`
+5. Generate an OAuth2 invite URL with only **View Channels** permission
+6. Invite the bot to **Guild A only** (not Guild B)
+7. Do **not** assign any roles to the bot — it must be a plain member
+8. Set the values in `config/env.e2e`:
+
+```bash
+DISCORD_PLAYER_A_TOKEN=<bot token>
+DISCORD_PLAYER_A_CLIENT_ID=<application/client ID>
+```
+
+If either variable is absent, tests in `test_deferred_game_announcement.py` that use
+the `authenticated_player_a_client` fixture will fail with a clear error message.
+
 ### Running E2E Tests
 
 ```bash
@@ -944,6 +971,7 @@ jobs:
    - `DISCORD_GUILD_A_CHANNEL_ID`
    - `DISCORD_ARCHIVE_CHANNEL_ID`
    - `DISCORD_USER_ID`
+   - `DISCORD_PLAYER_A_CLIENT_ID`
    - `DISCORD_GUILD_B_ID`
    - `DISCORD_GUILD_B_CHANNEL_ID`
    - `DISCORD_ADMIN_BOT_B_CLIENT_ID`

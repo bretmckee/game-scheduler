@@ -26,6 +26,7 @@ Provides fixtures for Discord credentials, database sessions,
 and HTTP clients needed by E2E tests.
 """
 
+import logging
 import os
 import struct
 import zlib
@@ -47,6 +48,8 @@ from tests.e2e.helpers.discord import DiscordTestHelper
 from tests.shared.auth_helpers import cleanup_test_session, create_test_session
 from tests.shared.polling import wait_for_db_condition_async
 
+logger = logging.getLogger(__name__)
+
 # Export TimeoutType so e2e tests can import it from here
 __all__ = ["TimeoutType"]
 
@@ -66,6 +69,7 @@ class DiscordTestEnvironment:
     guild_a_id: str
     channel_a_id: str
     user_a_id: str
+    player_a_id: str  # Non-admin bot member of Guild A only
 
     # Guild B (for cross-guild isolation tests)
     guild_b_id: str
@@ -85,6 +89,7 @@ class DiscordTestEnvironment:
             "DISCORD_GUILD_A_ID": "Guild A ID",
             "DISCORD_GUILD_A_CHANNEL_ID": "Guild A channel ID",
             "DISCORD_USER_ID": "Guild A user ID",
+            "DISCORD_PLAYER_A_CLIENT_ID": "Guild A player bot client ID",
             "DISCORD_GUILD_B_ID": "Guild B ID",
             "DISCORD_GUILD_B_CHANNEL_ID": "Guild B channel ID",
             "DISCORD_ADMIN_BOT_B_CLIENT_ID": "Guild B user ID",
@@ -118,6 +123,10 @@ class DiscordTestEnvironment:
                 os.getenv("DISCORD_GUILD_A_CHANNEL_ID"), "DISCORD_GUILD_A_CHANNEL_ID"
             ),
             user_a_id=validate_snowflake(os.getenv("DISCORD_USER_ID"), "DISCORD_USER_ID"),
+            player_a_id=validate_snowflake(
+                os.getenv("DISCORD_PLAYER_A_CLIENT_ID"),
+                "DISCORD_PLAYER_A_CLIENT_ID",
+            ),
             guild_b_id=validate_snowflake(os.getenv("DISCORD_GUILD_B_ID"), "DISCORD_GUILD_B_ID"),
             channel_b_id=validate_snowflake(
                 os.getenv("DISCORD_GUILD_B_CHANNEL_ID"), "DISCORD_GUILD_B_CHANNEL_ID"
@@ -365,20 +374,33 @@ async def test_user_a(
     """
     Create User A (admin bot) for tests requiring authenticated user.
 
-    Provides hermetic user creation - only tests that need users include this fixture.
-    Automatically cleans up after test.
+    Provides hermetic user creation with automatic cleanup.
     Uses bot_discord_id to ensure user record matches authenticated_admin_client.
     """
+    logger.debug("test_user_a setup: inserting discord_id=%s", bot_discord_id)
     user = User(discord_id=bot_discord_id)
     admin_db.add(user)
     await admin_db.commit()
     await admin_db.refresh(user)
+    logger.debug("test_user_a setup: inserted user.id=%s", user.id)
 
     assert user.discord_id is not None
     yield user
 
-    await admin_db.delete(user)
-    await admin_db.commit()
+    logger.debug("test_user_a teardown: deleting discord_id=%s", bot_discord_id)
+    try:
+        await admin_db.delete(user)
+        await admin_db.commit()
+        logger.debug("test_user_a teardown: ORM delete succeeded")
+    except Exception as exc:
+        logger.debug("test_user_a teardown: ORM delete failed (%s), falling back to raw SQL", exc)
+        await admin_db.rollback()
+        await admin_db.execute(
+            text("DELETE FROM users WHERE discord_id = :discord_id"),
+            {"discord_id": bot_discord_id},
+        )
+        await admin_db.commit()
+        logger.debug("test_user_a teardown: raw SQL delete succeeded")
 
 
 @pytest.fixture
@@ -389,21 +411,34 @@ async def test_user_b(
     """
     Create User B (bot B) for tests requiring Guild B authenticated user.
 
-    Provides hermetic user creation - only tests that need users include this fixture.
-    Automatically cleans up after test.
+    Provides hermetic user creation with automatic cleanup.
     Uses discord_user_b_token to ensure user record matches authenticated_client_b.
     """
     user_b_discord_id = extract_bot_discord_id(discord_user_b_token)
+    logger.debug("test_user_b setup: inserting discord_id=%s", user_b_discord_id)
     user = User(discord_id=user_b_discord_id)
     admin_db.add(user)
     await admin_db.commit()
     await admin_db.refresh(user)
+    logger.debug("test_user_b setup: inserted user.id=%s", user.id)
 
     assert user.discord_id is not None
     yield user
 
-    await admin_db.delete(user)
-    await admin_db.commit()
+    logger.debug("test_user_b teardown: deleting discord_id=%s", user_b_discord_id)
+    try:
+        await admin_db.delete(user)
+        await admin_db.commit()
+        logger.debug("test_user_b teardown: ORM delete succeeded")
+    except Exception as exc:
+        logger.debug("test_user_b teardown: ORM delete failed (%s), falling back to raw SQL", exc)
+        await admin_db.rollback()
+        await admin_db.execute(
+            text("DELETE FROM users WHERE discord_id = :discord_id"),
+            {"discord_id": user_b_discord_id},
+        )
+        await admin_db.commit()
+        logger.debug("test_user_b teardown: raw SQL delete succeeded")
 
 
 @pytest.fixture
@@ -414,20 +449,35 @@ async def test_user_main_bot(
     """
     Create main notification bot user for tests requiring notification bot.
 
-    Provides hermetic user creation - only tests that need users include this fixture.
-    Automatically cleans up after test.
+    Provides hermetic user creation with automatic cleanup.
     """
     main_bot_discord_id = extract_bot_discord_id(discord_main_bot_token)
+    logger.debug("test_user_main_bot setup: inserting discord_id=%s", main_bot_discord_id)
     user = User(discord_id=main_bot_discord_id)
     admin_db.add(user)
     await admin_db.commit()
     await admin_db.refresh(user)
+    logger.debug("test_user_main_bot setup: inserted user.id=%s", user.id)
 
     assert user.discord_id is not None
     yield user
 
-    await admin_db.delete(user)
-    await admin_db.commit()
+    logger.debug("test_user_main_bot teardown: deleting discord_id=%s", main_bot_discord_id)
+    try:
+        await admin_db.delete(user)
+        await admin_db.commit()
+        logger.debug("test_user_main_bot teardown: ORM delete succeeded")
+    except Exception as exc:
+        logger.debug(
+            "test_user_main_bot teardown: ORM delete failed (%s), falling back to raw SQL", exc
+        )
+        await admin_db.rollback()
+        await admin_db.execute(
+            text("DELETE FROM users WHERE discord_id = :discord_id"),
+            {"discord_id": main_bot_discord_id},
+        )
+        await admin_db.commit()
+        logger.debug("test_user_main_bot teardown: raw SQL delete succeeded")
 
 
 async def wait_for_db_condition(
@@ -569,6 +619,87 @@ def discord_user_b_token():
             "See TESTING_E2E.md section 6 for setup instructions."
         )
     return user_b_token
+
+
+@pytest.fixture(scope="session")
+def discord_player_a_id(discord_ids: DiscordTestEnvironment):
+    """Guild A player bot client ID (non-admin, non-host member of Guild A)."""
+    return discord_ids.player_a_id
+
+
+@pytest.fixture(scope="session")
+def discord_player_a_token():
+    """Bot token for Player A (non-admin bot, Guild A member only)."""
+    token = os.environ.get("DISCORD_PLAYER_A_TOKEN")
+    if not token:
+        pytest.fail(
+            "DISCORD_PLAYER_A_TOKEN environment variable not set. "
+            "Player Bot A is required for deferred-announcement visibility tests. "
+            "See docs/developer/TESTING.md for setup instructions."
+        )
+    return token
+
+
+@pytest.fixture
+async def test_user_player_a(
+    admin_db: AsyncSession,
+    discord_player_a_token: str,
+) -> AsyncGenerator[User]:
+    """
+    Create Player A user record for tests requiring a non-admin Guild A member.
+
+    Player A is a regular bot member of Guild A only, with no host or manager
+    roles. Used to test visibility rules that apply to non-host/non-manager users.
+    Provides hermetic user creation with automatic cleanup.
+    """
+    player_a_discord_id = extract_bot_discord_id(discord_player_a_token)
+    logger.debug("test_user_player_a setup: inserting discord_id=%s", player_a_discord_id)
+    user = User(discord_id=player_a_discord_id)
+    admin_db.add(user)
+    await admin_db.commit()
+    await admin_db.refresh(user)
+    logger.debug("test_user_player_a setup: inserted user.id=%s", user.id)
+
+    assert user.discord_id is not None
+    yield user
+
+    logger.debug("test_user_player_a teardown: deleting discord_id=%s", player_a_discord_id)
+    try:
+        await admin_db.delete(user)
+        await admin_db.commit()
+        logger.debug("test_user_player_a teardown: ORM delete succeeded")
+    except Exception as exc:
+        logger.debug(
+            "test_user_player_a teardown: ORM delete failed (%s), falling back to raw SQL", exc
+        )
+        await admin_db.rollback()
+        await admin_db.execute(
+            text("DELETE FROM users WHERE discord_id = :discord_id"),
+            {"discord_id": player_a_discord_id},
+        )
+        await admin_db.commit()
+        logger.debug("test_user_player_a teardown: raw SQL delete succeeded")
+
+
+@pytest.fixture
+async def authenticated_player_a_client(
+    api_base_url, discord_player_a_id, discord_player_a_token, test_user_player_a: User
+):
+    """
+    HTTP client authenticated as Player A (non-admin Guild A member).
+
+    Player A holds no manager or host roles in Guild A, so deferred-announcement
+    games are hidden from their view until the bot posts the Discord message.
+    """
+    client = httpx.AsyncClient(base_url=api_base_url, timeout=10.0)
+
+    session_token, _ = await create_test_session(discord_player_a_token, discord_player_a_id)
+    client.cookies.set("session_token", session_token)
+
+    yield client
+
+    await cleanup_test_session(session_token)
+    await client.aclose()
 
 
 @pytest.fixture

@@ -39,6 +39,7 @@ from sqlalchemy import distinct, select
 from sqlalchemy.orm import joinedload
 
 from services.bot import guild_projection
+from services.bot.announcement_loop import AnnouncementLoop
 from services.bot.config import BotConfig
 from services.bot.guild_sync import sync_guilds_from_gateway, sync_single_guild_from_gateway
 from services.bot.message_refresh_listener import MessageRefreshListener
@@ -217,6 +218,13 @@ class GameSchedulerBot(commands.Bot):
                     ).start()
                 )
                 logger.info("Started message refresh listener task")
+
+            if not hasattr(self, "_announcement_loop_started"):
+                self._announcement_loop_started = True
+                self._announcement_loop_task = asyncio.create_task(
+                    AnnouncementLoop(self.config.database_url, self).start()
+                )
+                logger.info("Started announcement loop task")
 
             # Populate member projection from gateway
 

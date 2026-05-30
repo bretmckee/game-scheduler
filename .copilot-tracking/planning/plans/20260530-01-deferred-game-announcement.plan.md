@@ -77,15 +77,15 @@ Allow game creators to specify a future `post_at` timestamp so the Discord annou
 - [x] Task 3.5: Integration tests for join guard and list visibility
   - Details: .copilot-tracking/planning/details/20260530-01-deferred-game-announcement-details.md (Lines 231–248)
 
-### [ ] Phase 4: AnnouncementLoop bot task
+### [x] Phase 4: AnnouncementLoop bot task
 
-- [ ] Task 4.1: Create `services/bot/announcement_loop.py` with asyncpg LISTEN + `SKIP_LOCKED` query loop
+- [x] Task 4.1: Create `services/bot/announcement_loop.py` with asyncpg LISTEN + `SKIP_LOCKED` query loop
   - Details: .copilot-tracking/planning/details/20260530-01-deferred-game-announcement-details.md (Lines 251–337)
 
-- [ ] Task 4.2: Wire `AnnouncementLoop` into `bot.on_ready` under `_announcement_loop_started` hasattr guard
+- [x] Task 4.2: Wire `AnnouncementLoop` into `bot.on_ready` under `_announcement_loop_started` hasattr guard
   - Details: .copilot-tracking/planning/details/20260530-01-deferred-game-announcement-details.md (Lines 338–360)
 
-- [ ] Task 4.3: E2e tests for deferred announcement flow
+- [x] Task 4.3: E2e tests for deferred announcement flow
   - Details: .copilot-tracking/planning/details/20260530-01-deferred-game-announcement-details.md (Lines 361–379)
 
 ### [ ] Phase 5: Frontend — `post_at` field and pending-announcement badge

@@ -125,7 +125,9 @@ async def test_persist_and_publish_skips_schedules_when_post_at_future(
     game_service, mock_game, mock_channel_config, resolved_fields
 ):
     """_persist_and_publish does not schedule or publish when post_at is in the future."""
-    mock_game.post_at = datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=1)
+    mock_game.post_at = datetime.datetime.now(datetime.UTC).replace(
+        tzinfo=None
+    ) + datetime.timedelta(hours=1)
 
     mock_setup = AsyncMock()
     mock_publish = AsyncMock()
