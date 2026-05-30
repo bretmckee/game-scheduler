@@ -21,6 +21,7 @@
 export enum SignupMethod {
   SELF_SIGNUP = 'SELF_SIGNUP',
   HOST_SELECTED = 'HOST_SELECTED',
+  HOST_SELECTED_WITH_WAITLIST = 'HOST_SELECTED_WITH_WAITLIST',
   ROLE_BASED = 'ROLE_BASED',
 }
 
@@ -40,6 +41,11 @@ export const SIGNUP_METHOD_INFO: Record<SignupMethod, SignupMethodInfo> = {
     value: SignupMethod.HOST_SELECTED,
     displayName: 'Host Selected',
     description: 'Only the host can add players (Discord button disabled)',
+  },
+  [SignupMethod.HOST_SELECTED_WITH_WAITLIST]: {
+    value: SignupMethod.HOST_SELECTED_WITH_WAITLIST,
+    displayName: 'Host Selected (with Waitlist)',
+    description: 'Players join a waitlist; the host promotes them to confirmed.',
   },
   [SignupMethod.ROLE_BASED]: {
     value: SignupMethod.ROLE_BASED,

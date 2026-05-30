@@ -50,12 +50,12 @@ notifications for promotions and demotions.
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Enum Additions
+### [x] Phase 1: Enum Additions
 
-- [ ] Task 1.1: Add `HOST_SELECTED_WITH_WAITLIST` to Python `SignupMethod` enum with display_name and description
+- [x] Task 1.1: Add `HOST_SELECTED_WITH_WAITLIST` to Python `SignupMethod` enum with display_name and description
   - Details: .copilot-tracking/planning/details/20260530-01-host-selected-waitlist-details.md (Lines 13-37)
 
-- [ ] Task 1.2: Mirror new enum value in `frontend/src/types/index.ts` with SIGNUP_METHOD_INFO entry
+- [x] Task 1.2: Mirror new enum value in `frontend/src/types/index.ts` with SIGNUP_METHOD_INFO entry
   - Details: .copilot-tracking/planning/details/20260530-01-host-selected-waitlist-details.md (Lines 38-60)
 
 ### [ ] Phase 2: Core Partition Logic + Demotion Detection (TDD)

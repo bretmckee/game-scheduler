@@ -33,9 +33,10 @@ def test_signup_method_values():
 def test_signup_method_members():
     """Verify SignupMethod enum has the expected members."""
     members = list(SignupMethod)
-    assert len(members) == 3
+    assert len(members) == 4
     assert SignupMethod.SELF_SIGNUP in members
     assert SignupMethod.HOST_SELECTED in members
+    assert SignupMethod.HOST_SELECTED_WITH_WAITLIST in members
     assert SignupMethod.ROLE_BASED in members
 
 

@@ -29,6 +29,7 @@ class SignupMethod(StrEnum):
 
     SELF_SIGNUP = "SELF_SIGNUP"
     HOST_SELECTED = "HOST_SELECTED"
+    HOST_SELECTED_WITH_WAITLIST = "HOST_SELECTED_WITH_WAITLIST"
     ROLE_BASED = "ROLE_BASED"
 
     @property
@@ -37,6 +38,7 @@ class SignupMethod(StrEnum):
         display_map = {
             "SELF_SIGNUP": "Self Signup",
             "HOST_SELECTED": "Host Selected",
+            "HOST_SELECTED_WITH_WAITLIST": "Host Selected (with Waitlist)",
             "ROLE_BASED": "Role Based",
         }
         return display_map[self.value]
@@ -47,6 +49,9 @@ class SignupMethod(StrEnum):
         description_map = {
             "SELF_SIGNUP": "Players can join the game by clicking the Discord button",
             "HOST_SELECTED": "Only the host can add players (Discord button disabled)",
+            "HOST_SELECTED_WITH_WAITLIST": (
+                "Players can join a waitlist; the host promotes them to confirmed."
+            ),
             "ROLE_BASED": "Players are prioritised by Discord role when the game fills up",
         }
         return description_map[self.value]
