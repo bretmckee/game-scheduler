@@ -405,10 +405,15 @@ class TestHandleJoinNotificationHelpers:
 
             message = event_handlers._format_join_notification_message(sample_game)
 
+            expected_jump_url = (
+                f"https://discord.com/channels/"
+                f"{sample_game.guild.guild_id}/{sample_game.channel.channel_id}/{sample_game.message_id}"
+            )
             mock_formats.join_with_instructions.assert_called_once_with(
                 sample_game.title,
                 sample_game.signup_instructions,
                 int(sample_game.scheduled_at.timestamp()),
+                jump_url=expected_jump_url,
             )
             assert message == "Test message with instructions"
 
@@ -423,7 +428,26 @@ class TestHandleJoinNotificationHelpers:
 
             message = event_handlers._format_join_notification_message(sample_game)
 
-            mock_formats.join_simple.assert_called_once_with(sample_game.title)
+            expected_jump_url = (
+                f"https://discord.com/channels/"
+                f"{sample_game.guild.guild_id}/{sample_game.channel.channel_id}/{sample_game.message_id}"
+            )
+            mock_formats.join_simple.assert_called_once_with(
+                sample_game.title, jump_url=expected_jump_url
+            )
+            assert message == "Test simple message"
+
+    def test_format_join_notification_message_no_message_id(self, event_handlers, sample_game):
+        """Test message formatting passes jump_url=None when message_id is absent."""
+        sample_game.message_id = None
+        sample_game.signup_instructions = None
+
+        with patch("services.bot.events.handlers.DMFormats") as mock_formats:
+            mock_formats.join_simple.return_value = "Test simple message"
+
+            message = event_handlers._format_join_notification_message(sample_game)
+
+            mock_formats.join_simple.assert_called_once_with(sample_game.title, jump_url=None)
             assert message == "Test simple message"
 
     @pytest.mark.asyncio

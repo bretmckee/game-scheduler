@@ -680,13 +680,23 @@ class EventHandlers:
         Returns:
             Formatted message string
         """
+        jump_url = None
+        if game.message_id and game.guild and game.channel:
+            jump_url = (
+                f"https://discord.com/channels/"
+                f"{game.guild.guild_id}/{game.channel.channel_id}/{game.message_id}"
+            )
+        else:
+            logger.warning("Cannot build jump URL for join notification on game %s", game.id)
+
         if game.signup_instructions:
             return DMFormats.join_with_instructions(
                 game.title,
                 game.signup_instructions,
                 int(game.scheduled_at.timestamp()),
+                jump_url=jump_url,
             )
-        return DMFormats.join_simple(game.title)
+        return DMFormats.join_simple(game.title, jump_url=jump_url)
 
     async def _send_join_notification_dm(
         self,

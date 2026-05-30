@@ -41,22 +41,26 @@ class DMFormats:
     """Format strings for Discord DMs sent by the bot."""
 
     @staticmethod
-    def promotion(game_title: str, scheduled_at_unix: int) -> str:
+    def promotion(game_title: str, scheduled_at_unix: int, jump_url: str | None = None) -> str:
         """
         Format promotion DM when user moves from waitlist to confirmed.
 
         Args:
             game_title: Title of the game
             scheduled_at_unix: Unix timestamp of game start time
+            jump_url: Discord jump URL to game posting, or None if unavailable
 
         Returns:
             Formatted promotion message
         """
-        return (
+        base = (
             f"✅ Good news! A spot opened up in **{game_title}** "
             f"scheduled for <t:{scheduled_at_unix}:F>. "
             f"You've been moved from the waitlist to confirmed participants!"
         )
+        if jump_url:
+            return f"{base}\n[View game in Discord]({jump_url})"
+        return base
 
     @staticmethod
     def removal(game_title: str) -> str:
@@ -73,7 +77,10 @@ class DMFormats:
 
     @staticmethod
     def join_with_instructions(
-        game_title: str, signup_instructions: str, scheduled_at_unix: int
+        game_title: str,
+        signup_instructions: str,
+        scheduled_at_unix: int,
+        jump_url: str | None = None,
     ) -> str:
         """
         Format join DM with signup instructions.
@@ -82,29 +89,37 @@ class DMFormats:
             game_title: Title of the game
             signup_instructions: Game-specific signup instructions
             scheduled_at_unix: Unix timestamp of game start time
+            jump_url: Discord jump URL to game posting, or None if unavailable
 
         Returns:
             Formatted join message with instructions
         """
-        return (
+        base = (
             f"✅ **You've joined {game_title}**\n\n"
             f"📋 **Signup Instructions**\n"
             f"{signup_instructions}\n\n"
             f"Game starts <t:{scheduled_at_unix}:R>"
         )
+        if jump_url:
+            return f"{base}\n[View game in Discord]({jump_url})"
+        return base
 
     @staticmethod
-    def join_simple(game_title: str) -> str:
+    def join_simple(game_title: str, jump_url: str | None = None) -> str:
         """
         Format simple join DM without signup instructions.
 
         Args:
             game_title: Title of the game
+            jump_url: Discord jump URL to game posting, or None if unavailable
 
         Returns:
             Formatted join message
         """
-        return f"✅ You've joined **{game_title}**!"
+        base = f"✅ You've joined **{game_title}**!"
+        if jump_url:
+            return f"{base}\n[View game in Discord]({jump_url})"
+        return base
 
     @staticmethod
     def reminder_host(game_title: str, game_time_unix: int, jump_url: str | None) -> str:

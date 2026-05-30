@@ -198,3 +198,36 @@ def test_reminder_predicate_rejects_wrong_title():
 def test_reminder_predicate_rejects_none_content():
     predicate = DMPredicates.reminder("Epic Quest")
     assert predicate(_DM(None)) is False
+
+
+# ---------------------------------------------------------------------------
+# DMFormats.promotion
+# ---------------------------------------------------------------------------
+
+
+def test_promotion_no_jump_url_omits_link():
+    msg = DMFormats.promotion("Epic Quest", _UNIX, jump_url=None)
+    assert "discord.com" not in msg
+    assert "Epic Quest" in msg
+
+
+# ---------------------------------------------------------------------------
+# DMFormats.join_with_instructions
+# ---------------------------------------------------------------------------
+
+
+def test_join_with_instructions_no_jump_url_omits_link():
+    msg = DMFormats.join_with_instructions("Epic Quest", "Do the thing", _UNIX, jump_url=None)
+    assert "discord.com" not in msg
+    assert "Epic Quest" in msg
+
+
+# ---------------------------------------------------------------------------
+# DMFormats.join_simple
+# ---------------------------------------------------------------------------
+
+
+def test_join_simple_no_jump_url_omits_link():
+    msg = DMFormats.join_simple("Epic Quest", jump_url=None)
+    assert "discord.com" not in msg
+    assert "Epic Quest" in msg

@@ -229,5 +229,11 @@ async def test_waitlist_promotion_sends_dm(
     assert game_title in promotion_dm.content, (
         f"Game title '{game_title}' not found in DM: {promotion_dm.content[:100]}"
     )
+    expected_jump_url = (
+        f"https://discord.com/channels/{discord_guild_id}/{discord_channel_id}/{message_id}"
+    )
+    assert f"[View game in Discord]({expected_jump_url})" in promotion_dm.content, (
+        f"Promotion DM should contain link to game embed: {expected_jump_url}"
+    )
     print(f"✓ Test user received promotion DM: {promotion_dm.content[:100]}...")
     print(f"✓ Test complete: Waitlist promotion via {test_desc} validated")

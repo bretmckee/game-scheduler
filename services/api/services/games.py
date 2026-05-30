@@ -2426,7 +2426,16 @@ class GameService:
         """
         scheduled_at_unix = int(game.scheduled_at.timestamp())
 
-        message = DMFormats.promotion(game.title, scheduled_at_unix)
+        jump_url = None
+        if game.message_id and game.guild and game.channel:
+            jump_url = (
+                f"https://discord.com/channels/"
+                f"{game.guild.guild_id}/{game.channel.channel_id}/{game.message_id}"
+            )
+        else:
+            logger.warning("Cannot build jump URL for promotion notification on game %s", game.id)
+
+        message = DMFormats.promotion(game.title, scheduled_at_unix, jump_url=jump_url)
 
         notification_event = messaging_events.NotificationSendDMEvent(
             user_id=discord_id,

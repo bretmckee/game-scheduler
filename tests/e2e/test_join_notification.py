@@ -189,6 +189,14 @@ async def test_join_notification_with_signup_instructions(
     )
     print("[TEST] ✓ Join notification DM confirms user joined")
 
+    expected_jump_url = (
+        f"https://discord.com/channels/{discord_guild_id}/{discord_channel_id}/{message_id}"
+    )
+    assert f"[View game in Discord]({expected_jump_url})" in join_dm.content, (
+        f"Join DM should contain link to game embed: {expected_jump_url}"
+    )
+    print("[TEST] ✓ Join notification DM contains link to game embed")
+
     # Verify notification marked as sent in database
     result = await admin_db.execute(
         text("SELECT sent FROM notification_schedule WHERE id = :schedule_id"),
@@ -300,6 +308,14 @@ async def test_join_notification_without_signup_instructions(
         "Join notification DM should confirm user joined the game"
     )
     print("[TEST] ✓ Join notification DM confirms user joined")
+
+    expected_jump_url = (
+        f"https://discord.com/channels/{discord_guild_id}/{discord_channel_id}/{message_id}"
+    )
+    assert f"[View game in Discord]({expected_jump_url})" in join_dm.content, (
+        f"Join DM should contain link to game embed: {expected_jump_url}"
+    )
+    print("[TEST] ✓ Join notification DM contains link to game embed")
 
     # Should NOT contain signup instructions header
     assert "Signup Instructions" not in join_dm.content, (

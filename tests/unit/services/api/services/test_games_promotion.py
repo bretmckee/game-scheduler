@@ -717,3 +717,48 @@ async def test_no_promotion_when_placeholder_added_to_overflow(
     assert len(notification_calls) == 0, (
         "Should not send promotion notifications when reducing max_players"
     )
+
+
+@pytest.mark.asyncio
+async def test_promotion_notification_no_message_id(
+    game_service, sample_game, mock_event_publisher, mock_db
+):
+    """Test promotion notification is still sent when game has no message_id."""
+    base_time = datetime.now(UTC).replace(tzinfo=None)
+    participants = [
+        create_participant(sample_game.id, str(uuid4()), f"confirmed_{i}", base_time)
+        for i in range(5)
+    ]
+    overflow_participant = create_participant(sample_game.id, str(uuid4()), "overflow_0", base_time)
+    sample_game.participants = [*participants, overflow_participant]
+    sample_game.message_id = None
+
+    mock_db.commit = AsyncMock()
+    mock_db.refresh = AsyncMock()
+    mock_db.flush = AsyncMock()
+
+    with patch.object(game_service, "get_game", return_value=sample_game):
+        mock_role_service = AsyncMock()
+        mock_current_user = MagicMock()
+        mock_current_user.discord_id = sample_game.host.discord_id
+
+        with patch("services.api.dependencies.permissions.can_manage_game", return_value=True):
+            update_request = GameUpdateRequest(max_players=6)
+
+            await game_service.update_game(
+                game_id=sample_game.id,
+                update_data=update_request,
+                current_user=mock_current_user,
+                role_service=mock_role_service,
+            )
+
+    publish_calls = mock_event_publisher.publish_deferred.call_args_list
+    notification_calls = [
+        call
+        for call in publish_calls
+        if call[1]["event"].event_type == EventType.NOTIFICATION_SEND_DM
+    ]
+
+    assert len(notification_calls) == 1
+    event_data = notification_calls[0][1]["event"].data
+    assert "discord.com" not in event_data["message"]
