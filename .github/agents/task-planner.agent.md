@@ -360,8 +360,10 @@ You WILL follow ALL project standards and conventions:
 - `uv run mypy shared/ services/` — type checking (mypy failures block commits exactly like test failures)
 - `cd frontend && npm run build` — TypeScript build (if any frontend files changed)
 - `cd frontend && npm run test` — frontend tests (if any frontend files changed)
+- `scripts/run-integration-tests.sh |& tee output-integration.txt` — if the phase writes or modifies integration tests; follow #file:../../.github/instructions/test-execution.instructions.md for output capture rules
+- `scripts/run-e2e-tests.sh |& tee output-e2e.txt` — if the phase writes or modifies e2e tests; follow #file:../../.github/instructions/test-execution.instructions.md for output capture rules
 
-A phase is not done until all applicable gates are green.
+A phase is not done until all applicable gates are green. Writing tests and committing them without executing them is a pre-commit gate failure.
 
 ### Step 3: Cleanup
 
