@@ -30,7 +30,10 @@ import json
 import logging
 from collections import defaultdict
 from datetime import UTC, datetime
-from typing import Annotated, NoReturn
+from typing import TYPE_CHECKING, Annotated, NoReturn
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -60,7 +63,6 @@ from shared.schemas import auth as auth_schemas
 from shared.schemas import game as game_schemas
 from shared.schemas import participant as participant_schemas
 from shared.utils import datetime_utils, participant_sorting
-from shared.utils.games import resolve_max_players
 
 logger = logging.getLogger(__name__)
 
@@ -948,21 +950,21 @@ async def _fetch_discord_names(
 
 
 def _build_participant_responses(
-    partitioned: participant_sorting.PartitionedParticipants,
+    participants: "Sequence[GameParticipant]",
     display_data_map: dict[str, dict[str, str | None]],
 ) -> list[participant_schemas.ParticipantResponse]:
     """
-    Build ParticipantResponse objects from partitioned participants.
+    Build ParticipantResponse objects from a list of participants.
 
     Args:
-        partitioned: Partitioned participant data
+        participants: Ordered list of participants to convert
         display_data_map: Mapping of discord IDs to display data
 
     Returns:
         List of participant response objects
     """
     participant_responses = []
-    for participant in partitioned.all_sorted:
+    for participant in participants:
         discord_id = participant.user.discord_id if participant.user else None
         display_name = participant.display_name
         avatar_url = None
@@ -1072,10 +1074,10 @@ async def _build_game_response(
     Returns:
         Game response schema with resolved display names and sorted participants
     """
-    participant_count = min(len(game.participants), resolve_max_players(game.max_players))
     partitioned = participant_sorting.partition_participants(
         game.participants, game.max_players, signup_method=game.signup_method
     )
+    participant_count = len(partitioned.confirmed)
 
     if prefetched_display_data is not None:
         display_data_map = prefetched_display_data
@@ -1087,7 +1089,9 @@ async def _build_game_response(
             resolve_participants=resolve_participants,
         )
     channel_name, guild_name = await _fetch_discord_names(game)
-    participant_responses = _build_participant_responses(partitioned, display_data_map)
+    participant_responses = _build_participant_responses(partitioned.all_sorted, display_data_map)
+    confirmed_responses = _build_participant_responses(partitioned.confirmed, display_data_map)
+    overflow_responses = _build_participant_responses(partitioned.overflow, display_data_map)
     host_response = _build_host_response(game, host_discord_id, display_data_map)
 
     where_display = None
@@ -1123,6 +1127,8 @@ async def _build_game_response(
         signup_method=game.signup_method,
         participant_count=participant_count,
         participants=participant_responses,
+        confirmed_participants=confirmed_responses,
+        waitlist_participants=overflow_responses,
         created_at=datetime_utils.format_datetime_as_utc(game.created_at),
         updated_at=datetime_utils.format_datetime_as_utc(game.updated_at),
         has_thumbnail=game.thumbnail_id is not None,

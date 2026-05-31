@@ -111,6 +111,8 @@ export interface GameSession {
   status: 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'ARCHIVED';
   participant_count: number;
   participants?: Participant[];
+  confirmed_participants?: Participant[];
+  waitlist_participants?: Participant[];
   created_at: string;
   updated_at: string;
   has_thumbnail?: boolean;

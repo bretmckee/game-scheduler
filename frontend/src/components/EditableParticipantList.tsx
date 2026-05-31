@@ -35,19 +35,18 @@ export interface ParticipantInput {
   preFillPosition: number;
   isExplicitlyPositioned?: boolean; // Track if user explicitly moved/added this participant
   isReadOnly?: boolean; // Joined participants can't be edited, only reordered/removed
+  isOpenSlot?: boolean; // Placeholder for an unfilled confirmed slot
   validationStatus?: 'valid' | 'unknown' | 'invalid'; // Track validation state
 }
 
 interface EditableParticipantListProps {
   participants: ParticipantInput[];
   onChange: (participants: ParticipantInput[]) => void;
-  maxPlayers?: number;
 }
 
 export const EditableParticipantList: FC<EditableParticipantListProps> = ({
   participants,
   onChange,
-  maxPlayers,
 }) => {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
@@ -157,75 +156,92 @@ export const EditableParticipantList: FC<EditableParticipantListProps> = ({
           No participants added by host (users can join via Discord button)
         </Typography>
       ) : (
-        participants.map((p, index) => (
-          <Box
-            key={p.id}
-            draggable
-            onDragStart={() => handleDragStart(index)}
-            onDragOver={(e) => handleDragOver(e, index)}
-            onDrop={(e) => handleDrop(e, index)}
-            onDragEnd={handleDragEnd}
-            sx={{
-              display: 'flex',
-              gap: 1,
-              mb: 1,
-              alignItems: 'flex-start',
-              cursor: 'move',
-              opacity: draggedIndex === index ? UI.HOVER_OPACITY : 1,
-              transition: 'opacity 0.2s',
-              '&:hover': {
-                backgroundColor: 'action.hover',
-              },
-            }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexGrow: 1 }}>
-              {p.validationStatus === 'valid' && (
-                <CheckCircleIcon color="success" fontSize="small" titleAccess="Validated" />
-              )}
-              {p.validationStatus === 'invalid' && (
-                <ErrorIcon color="error" fontSize="small" titleAccess="Validation failed" />
-              )}
-              {(!p.validationStatus || p.validationStatus === 'unknown') && (
-                <HelpOutlineIcon color="action" fontSize="small" titleAccess="Not validated" />
-              )}
-              <TextField
-                value={p.mention}
-                onChange={(e) => handleMentionChange(p.id, e.target.value)}
-                placeholder="@username or Discord user"
-                helperText={p.isReadOnly ? 'Joined player (can reorder or remove)' : undefined}
-                fullWidth
-                size="small"
-                disabled={p.isReadOnly}
-              />
-            </Box>
-            <IconButton onClick={() => moveUp(index)} disabled={index === 0} size="small">
-              <ArrowUpwardIcon />
-            </IconButton>
-            <IconButton
-              onClick={() => moveDown(index)}
-              disabled={index === participants.length - 1}
-              size="small"
+        participants.map((p, index) =>
+          p.isOpenSlot ? (
+            <Box
+              key={p.id}
+              onDragOver={(e) => handleDragOver(e, index)}
+              onDrop={(e) => handleDrop(e, index)}
+              sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'flex-start' }}
             >
-              <ArrowDownwardIcon />
-            </IconButton>
-            <IconButton onClick={() => removeParticipant(p.id)} size="small" color="error">
-              <DeleteIcon />
-            </IconButton>
-          </Box>
-        ))
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexGrow: 1 }}>
+                <HelpOutlineIcon color="disabled" fontSize="small" />
+                <Box
+                  sx={{
+                    flexGrow: 1,
+                    border: '1px solid',
+                    borderColor: 'action.disabled',
+                    borderRadius: 1,
+                    px: '14px',
+                    py: '8.5px',
+                  }}
+                >
+                  <Typography variant="body2" sx={{ fontStyle: 'italic', color: 'text.disabled' }}>
+                    open slot
+                  </Typography>
+                </Box>
+              </Box>
+            </Box>
+          ) : (
+            <Box
+              key={p.id}
+              draggable
+              onDragStart={() => handleDragStart(index)}
+              onDragOver={(e) => handleDragOver(e, index)}
+              onDrop={(e) => handleDrop(e, index)}
+              onDragEnd={handleDragEnd}
+              sx={{
+                display: 'flex',
+                gap: 1,
+                mb: 1,
+                alignItems: 'flex-start',
+                cursor: 'move',
+                opacity: draggedIndex === index ? UI.HOVER_OPACITY : 1,
+                transition: 'opacity 0.2s',
+                '&:hover': {
+                  backgroundColor: 'action.hover',
+                },
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, flexGrow: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', height: 40 }}>
+                  {p.validationStatus === 'valid' && (
+                    <CheckCircleIcon color="success" fontSize="small" titleAccess="Validated" />
+                  )}
+                  {p.validationStatus === 'invalid' && (
+                    <ErrorIcon color="error" fontSize="small" titleAccess="Validation failed" />
+                  )}
+                  {(!p.validationStatus || p.validationStatus === 'unknown') && (
+                    <HelpOutlineIcon color="action" fontSize="small" titleAccess="Not validated" />
+                  )}
+                </Box>
+                <TextField
+                  value={p.mention}
+                  onChange={(e) => handleMentionChange(p.id, e.target.value)}
+                  placeholder="@username or Discord user"
+                  helperText={p.isReadOnly ? 'Joined player (can reorder or remove)' : undefined}
+                  fullWidth
+                  size="small"
+                  disabled={p.isReadOnly}
+                />
+              </Box>
+              <IconButton onClick={() => moveUp(index)} disabled={index === 0} size="small">
+                <ArrowUpwardIcon />
+              </IconButton>
+              <IconButton
+                onClick={() => moveDown(index)}
+                disabled={index === participants.length - 1}
+                size="small"
+              >
+                <ArrowDownwardIcon />
+              </IconButton>
+              <IconButton onClick={() => removeParticipant(p.id)} size="small" color="error">
+                <DeleteIcon />
+              </IconButton>
+            </Box>
+          )
+        )
       )}
-
-      {maxPlayers !== undefined &&
-        Array.from({ length: Math.max(0, maxPlayers - participants.length) }).map((_, i) => (
-          <Box
-            key={`open-slot-${i}`}
-            sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'center', pl: 0.5 }}
-          >
-            <Typography variant="body2" sx={{ fontStyle: 'italic', color: 'text.secondary' }}>
-              open slot
-            </Typography>
-          </Box>
-        ))}
 
       <Button onClick={addParticipant} startIcon={<AddIcon />} variant="outlined" sx={{ mt: 1 }}>
         Add Participant

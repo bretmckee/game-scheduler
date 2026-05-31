@@ -34,24 +34,18 @@ import { formatParticipantDisplay } from '../utils/formatParticipant';
 import { UI } from '../constants/ui';
 
 interface ParticipantListProps {
-  participants: Participant[];
+  confirmedParticipants: Participant[];
+  waitlistParticipants: Participant[];
   maxPlayers?: number;
 }
 
-export const ParticipantList: FC<ParticipantListProps> = ({ participants, maxPlayers }) => {
-  if (!participants || participants.length === 0) {
-    return (
-      <Typography variant="body2" color="text.secondary">
-        No participants yet
-      </Typography>
-    );
-  }
-
-  // Backend returns participants already sorted (priority participants first, then regular by join time)
-  // All participants in the list are active (no status filtering needed)
+export const ParticipantList: FC<ParticipantListProps> = ({
+  confirmedParticipants,
+  waitlistParticipants,
+  maxPlayers,
+}) => {
   const maxSlots = maxPlayers || UI.DEFAULT_MAX_PLAYERS;
-  const confirmedParticipants = participants.slice(0, maxSlots);
-  const waitlistParticipants = participants.slice(maxSlots);
+  const openSlots = Math.max(0, maxSlots - confirmedParticipants.length);
 
   return (
     <Box>
@@ -67,6 +61,20 @@ export const ParticipantList: FC<ParticipantListProps> = ({ participants, maxPla
                 participant.position_type === ParticipantType.HOST_ADDED
                   ? 'Added by host'
                   : 'Joined via button'
+              }
+            />
+          </ListItem>
+        ))}
+        {Array.from({ length: openSlots }).map((_, i) => (
+          <ListItem key={`open-slot-${i}`}>
+            <ListItemAvatar>
+              <Avatar sx={{ bgcolor: 'action.disabledBackground' }}>—</Avatar>
+            </ListItemAvatar>
+            <ListItemText
+              primary={
+                <Typography variant="body2" sx={{ fontStyle: 'italic', color: 'text.secondary' }}>
+                  open slot
+                </Typography>
               }
             />
           </ListItem>

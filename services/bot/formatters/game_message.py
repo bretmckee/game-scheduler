@@ -171,10 +171,11 @@ class GameMessageFormatter:
             current_count: Current participant count
             max_players: Maximum allowed participants
         """
+        open_slots = max(0, max_players - len(participant_ids))
+        if open_slots > 0:
+            participant_ids = list(participant_ids) + ["open slot"] * open_slots
+
         if participant_ids:
-            open_slots = max_players - len(participant_ids)
-            if open_slots > 0:
-                participant_ids = list(participant_ids) + ["open slot"] * open_slots
             embed.add_field(
                 name=f"Participants ({current_count}/{max_players})",
                 value=format_participant_list(participant_ids, max_display=15, start_number=1),

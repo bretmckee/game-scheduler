@@ -382,7 +382,8 @@ export const GameDetails: FC = () => {
             )
           </Typography>
           <ParticipantList
-            participants={game.participants || []}
+            confirmedParticipants={game.confirmed_participants || []}
+            waitlistParticipants={game.waitlist_participants || []}
             maxPlayers={game.max_players || UI.DEFAULT_MAX_PLAYERS}
           />
         </Box>

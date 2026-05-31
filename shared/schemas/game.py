@@ -219,7 +219,13 @@ class GameResponse(BaseModel):
     signup_method: str = Field(..., description="Signup method (SELF_SIGNUP or HOST_SELECTED)")
     participant_count: int = Field(..., description="Current number of participants")
     participants: list["ParticipantResponse"] = Field(
-        default_factory=list, description="List of participants"
+        default_factory=list, description="All participants sorted (confirmed first, then waitlist)"
+    )
+    confirmed_participants: list["ParticipantResponse"] = Field(
+        default_factory=list, description="Confirmed participants only"
+    )
+    waitlist_participants: list["ParticipantResponse"] = Field(
+        default_factory=list, description="Waitlisted participants only"
     )
     notify_role_ids: list[str] | None = Field(
         None, description="Discord role IDs to mention in announcement"

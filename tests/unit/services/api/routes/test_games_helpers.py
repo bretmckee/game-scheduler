@@ -377,7 +377,9 @@ class TestBuildGameResponseHelpers:
             "discord456": {"display_name": "User2", "avatar_url": "http://avatar2.com"},
         }
 
-        responses = _build_participant_responses(sample_partitioned_participants, display_data_map)
+        responses = _build_participant_responses(
+            sample_partitioned_participants.all_sorted, display_data_map
+        )
 
         assert len(responses) == 2
         assert responses[0].discord_id == "discord123"
@@ -391,7 +393,7 @@ class TestBuildGameResponseHelpers:
         sample_partitioned_participants.all_sorted[0].user = None
         sample_partitioned_participants.all_sorted[0].display_name = "Placeholder"
 
-        responses = _build_participant_responses(sample_partitioned_participants, {})
+        responses = _build_participant_responses(sample_partitioned_participants.all_sorted, {})
 
         assert len(responses) == 2
         assert responses[0].discord_id is None

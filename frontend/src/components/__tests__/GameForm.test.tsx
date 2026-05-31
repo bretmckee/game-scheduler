@@ -23,6 +23,7 @@ import { render } from '@testing-library/react';
 import { GameForm } from '../GameForm';
 import { AuthContext } from '../../contexts/AuthContext';
 import type { Channel } from '../../types';
+import { ParticipantType } from '../../types';
 
 const mockAuthContextValue = {
   user: { id: '1', user_uuid: 'uuid1', username: 'testuser' },
@@ -649,5 +650,64 @@ describe('GameForm - HOST_SELECTED_WITH_WAITLIST checkbox', () => {
     );
 
     expect(queryByLabelText(/players can join waitlist/i)).not.toBeInTheDocument();
+  });
+});
+
+describe('GameForm - edit mode with non-HSWW participants', () => {
+  const mockChannel: Channel = {
+    id: 'ch1',
+    channel_name: 'General',
+    guild_id: 'guild1',
+    channel_id: 'ch1',
+    is_active: true,
+    created_at: '2025-01-01T00:00:00Z',
+    updated_at: '2025-01-01T00:00:00Z',
+  };
+
+  it('pre-populates participant inputs sorted by HOST_ADDED position', () => {
+    const { getAllByRole } = renderWithAuth(
+      <GameForm
+        mode="edit"
+        guildId="guild1"
+        channels={[mockChannel]}
+        initialData={{
+          id: 'game-1',
+          title: 'Test Game',
+          scheduled_at: new Date().toISOString(),
+          channel_id: 'ch1',
+          description: 'Test',
+          signup_method: 'HOST_SELECTED',
+          participants: [
+            {
+              id: 'p1',
+              game_session_id: 'game-1',
+              user_id: null,
+              discord_id: '111',
+              display_name: 'Player B',
+              joined_at: new Date().toISOString(),
+              position_type: ParticipantType.SELF_ADDED,
+              position: 2,
+            },
+            {
+              id: 'p2',
+              game_session_id: 'game-1',
+              user_id: null,
+              discord_id: '222',
+              display_name: 'Player A',
+              joined_at: new Date().toISOString(),
+              position_type: ParticipantType.HOST_ADDED,
+              position: 1,
+            },
+          ],
+        }}
+        onSubmit={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    );
+
+    const participantInputs = getAllByRole('textbox').filter(
+      (el) => el.getAttribute('placeholder') === '@username or Discord user'
+    );
+    expect(participantInputs).toHaveLength(2);
   });
 });

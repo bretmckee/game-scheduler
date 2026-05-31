@@ -507,7 +507,7 @@ class TestGameMessageFormatterHelpers:
         assert "Participants (3/5)" in call_kwargs["name"]
 
     def test_add_participant_fields_without_participants(self):
-        """Test adding participant fields without any participants."""
+        """Test adding participant fields without any participants shows open slots."""
         embed = MagicMock()
 
         GameMessageFormatter._add_participant_fields(embed, [], [], 0, 5)
@@ -515,7 +515,8 @@ class TestGameMessageFormatterHelpers:
         embed.add_field.assert_called_once()
         call_kwargs = embed.add_field.call_args[1]
         assert "Participants (0/5)" in call_kwargs["name"]
-        assert "No participants yet" in call_kwargs["value"]
+        assert "open slot" in call_kwargs["value"].lower()
+        assert "No participants yet" not in call_kwargs["value"]
 
     def test_add_participant_fields_with_waitlist(self):
         """Test adding participant fields with waitlisted participants."""
@@ -535,6 +536,16 @@ class TestGameMessageFormatterHelpers:
 
         call_kwargs = embed.add_field.call_args[1]
         assert "open slot" in call_kwargs["value"].lower()
+
+    def test_add_participant_fields_shows_open_slots_when_no_participants(self):
+        """Test that open slot placeholders appear even when no participants have joined."""
+        embed = MagicMock()
+
+        GameMessageFormatter._add_participant_fields(embed, [], [], 0, 4)
+
+        call_kwargs = embed.add_field.call_args[1]
+        assert "open slot" in call_kwargs["value"].lower()
+        assert "No participants yet" not in call_kwargs["value"]
 
     def test_add_participant_fields_no_open_slots_when_at_capacity(self):
         """Test that no open slot placeholders appear when game is full."""

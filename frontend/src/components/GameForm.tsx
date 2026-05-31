@@ -167,6 +167,57 @@ function replaceMentionToken(text: string, token: string, replacement: string): 
   return text.replace(new RegExp(escaped + '(?![\\w.])', 'g'), replacement);
 }
 
+function buildParticipantList(data: Partial<GameSession>): EditableParticipantInput[] {
+  if (data.signup_method === SignupMethod.HOST_SELECTED_WITH_WAITLIST) {
+    const confirmed = (data.confirmed_participants ?? []).map((p, index) => ({
+      id: p.id,
+      mention: formatParticipantDisplay(p.display_name, p.discord_id),
+      isValid: true,
+      preFillPosition: index + 1,
+      isExplicitlyPositioned: true,
+      isReadOnly: false,
+      validationStatus: 'valid' as const,
+    }));
+    const maxSlots = data.max_players ?? UI.DEFAULT_MAX_PLAYERS;
+    const openSlotCount = Math.max(0, maxSlots - confirmed.length);
+    const openSlots = Array.from({ length: openSlotCount }, (_, i) => ({
+      id: `open-slot-${i}`,
+      mention: '',
+      preFillPosition: confirmed.length + i + 1,
+      isOpenSlot: true as const,
+      isExplicitlyPositioned: false,
+      validationStatus: 'valid' as const,
+    }));
+    const waitlisted = (data.waitlist_participants ?? []).map((p, index) => ({
+      id: p.id,
+      mention: formatParticipantDisplay(p.display_name, p.discord_id),
+      isValid: true,
+      preFillPosition: confirmed.length + openSlotCount + index + 1,
+      isExplicitlyPositioned: false,
+      isReadOnly: true,
+      validationStatus: 'valid' as const,
+    }));
+    return [...confirmed, ...openSlots, ...waitlisted];
+  }
+  return (data.participants ?? [])
+    .sort((a, b) => {
+      const aPos =
+        a.position_type === ParticipantType.HOST_ADDED ? a.position : Number.MAX_SAFE_INTEGER;
+      const bPos =
+        b.position_type === ParticipantType.HOST_ADDED ? b.position : Number.MAX_SAFE_INTEGER;
+      return aPos - bPos;
+    })
+    .map((p, index) => ({
+      id: p.id,
+      mention: formatParticipantDisplay(p.display_name, p.discord_id),
+      isValid: true,
+      preFillPosition: index + 1,
+      isExplicitlyPositioned: p.position_type === ParticipantType.HOST_ADDED,
+      isReadOnly: p.position_type !== ParticipantType.HOST_ADDED,
+      validationStatus: 'valid' as const,
+    }));
+}
+
 export const GameForm: FC<GameFormProps> = ({
   mode,
   initialData,
@@ -232,26 +283,7 @@ export const GameForm: FC<GameFormProps> = ({
         ? [...initialData.reminder_minutes]
         : [],
     expectedDurationMinutes: initialData?.expected_duration_minutes ?? null,
-    participants: initialData?.participants
-      ? initialData.participants
-          .sort((a, b) => {
-            // Sort: host-added first (by position), then self-added (by join time)
-            const aPos =
-              a.position_type === ParticipantType.HOST_ADDED ? a.position : Number.MAX_SAFE_INTEGER;
-            const bPos =
-              b.position_type === ParticipantType.HOST_ADDED ? b.position : Number.MAX_SAFE_INTEGER;
-            return aPos - bPos;
-          })
-          .map((p, index) => ({
-            id: p.id,
-            mention: formatParticipantDisplay(p.display_name, p.discord_id),
-            isValid: true,
-            preFillPosition: index + 1,
-            isExplicitlyPositioned: p.position_type === ParticipantType.HOST_ADDED,
-            isReadOnly: p.position_type !== ParticipantType.HOST_ADDED, // Self-added users are read-only
-            validationStatus: 'valid' as const, // From server, so validated
-          }))
-      : [],
+    participants: initialData ? buildParticipantList(initialData) : [],
     signupMethod: initialData?.signup_method || resolvedDefaultSignupMethod,
     thumbnailFile: null,
     imageFile: null,
@@ -283,29 +315,7 @@ export const GameForm: FC<GameFormProps> = ({
             ? [...initialData.reminder_minutes]
             : [],
         expectedDurationMinutes: initialData.expected_duration_minutes ?? null,
-        participants: initialData.participants
-          ? initialData.participants
-              .sort((a, b) => {
-                const aPos =
-                  a.position_type === ParticipantType.HOST_ADDED
-                    ? a.position
-                    : Number.MAX_SAFE_INTEGER;
-                const bPos =
-                  b.position_type === ParticipantType.HOST_ADDED
-                    ? b.position
-                    : Number.MAX_SAFE_INTEGER;
-                return aPos - bPos;
-              })
-              .map((p, index) => ({
-                id: p.id,
-                mention: formatParticipantDisplay(p.display_name, p.discord_id),
-                isValid: true,
-                preFillPosition: index + 1,
-                isExplicitlyPositioned: p.position_type === ParticipantType.HOST_ADDED,
-                isReadOnly: p.position_type !== ParticipantType.HOST_ADDED,
-                validationStatus: 'valid' as const,
-              }))
-          : [],
+        participants: buildParticipantList(initialData),
         signupMethod: initialData.signup_method || resolvedDefaultSignupMethod,
         thumbnailFile: null,
         imageFile: null,

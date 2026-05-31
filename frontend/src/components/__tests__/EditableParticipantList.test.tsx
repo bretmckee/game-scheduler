@@ -19,7 +19,7 @@
 // SOFTWARE.
 
 import { describe, it, expect, vi } from 'vitest';
-import { render } from '@testing-library/react';
+import { render, fireEvent } from '@testing-library/react';
 import { EditableParticipantList } from '../EditableParticipantList';
 import type { ParticipantInput } from '../EditableParticipantList';
 
@@ -31,8 +31,17 @@ const makeParticipant = (id: string): ParticipantInput => ({
   validationStatus: 'unknown',
 });
 
+const makeOpenSlot = (index: number): ParticipantInput => ({
+  id: `open-slot-${index}`,
+  mention: '',
+  preFillPosition: index + 1,
+  isOpenSlot: true,
+  isExplicitlyPositioned: false,
+  validationStatus: 'valid',
+});
+
 describe('EditableParticipantList - open slot placeholders', () => {
-  it('should render normally without maxPlayers', () => {
+  it('should render normally without open slot entries', () => {
     const participants = [makeParticipant('1')];
     const { queryAllByText } = render(
       <EditableParticipantList participants={participants} onChange={vi.fn()} />
@@ -40,27 +49,28 @@ describe('EditableParticipantList - open slot placeholders', () => {
     expect(queryAllByText(/open slot/i)).toHaveLength(0);
   });
 
-  it('should render open slot rows for empty slots when maxPlayers is given', () => {
-    const participants = [makeParticipant('1')];
+  it('should render open slot entries when included in participants', () => {
+    const participants = [makeParticipant('1'), makeOpenSlot(1), makeOpenSlot(2)];
     const { getAllByText } = render(
-      <EditableParticipantList participants={participants} onChange={vi.fn()} maxPlayers={3} />
+      <EditableParticipantList participants={participants} onChange={vi.fn()} />
     );
 
     const openSlots = getAllByText(/open slot/i);
     expect(openSlots).toHaveLength(2);
   });
 
-  it('should not render open slot rows when at capacity', () => {
+  it('should not render open slot rows when none are included', () => {
     const participants = [makeParticipant('1'), makeParticipant('2')];
     const { queryAllByText } = render(
-      <EditableParticipantList participants={participants} onChange={vi.fn()} maxPlayers={2} />
+      <EditableParticipantList participants={participants} onChange={vi.fn()} />
     );
     expect(queryAllByText(/open slot/i)).toHaveLength(0);
   });
 
-  it('should render open slot rows with italic styling', () => {
+  it('should render open slot entries with italic styling', () => {
+    const participants = [makeOpenSlot(0), makeOpenSlot(1)];
     const { getAllByText } = render(
-      <EditableParticipantList participants={[]} onChange={vi.fn()} maxPlayers={2} />
+      <EditableParticipantList participants={participants} onChange={vi.fn()} />
     );
 
     const openSlots = getAllByText(/open slot/i);
@@ -68,5 +78,28 @@ describe('EditableParticipantList - open slot placeholders', () => {
       const style = window.getComputedStyle(el);
       expect(style.fontStyle).toBe('italic');
     });
+  });
+
+  it('should handle drag over and drop events on open slot rows', () => {
+    const participants = [makeParticipant('1'), makeOpenSlot(1)];
+    const onChange = vi.fn();
+    const { getByText, getByDisplayValue } = render(
+      <EditableParticipantList participants={participants} onChange={onChange} />
+    );
+
+    const openSlotText = getByText(/open slot/i);
+    // Walk up: Typography -> styled Box -> inner Box -> outer Box (has onDragOver/onDrop)
+    const outerBox = openSlotText.parentElement?.parentElement?.parentElement;
+    expect(outerBox).not.toBeNull();
+
+    // Initiate drag from the first participant to set draggedIndex state
+    const draggable = getByDisplayValue('@user1').closest('[draggable="true"]');
+    expect(draggable).not.toBeNull();
+    fireEvent.dragStart(draggable!);
+
+    fireEvent.dragOver(outerBox!);
+    fireEvent.drop(outerBox!);
+
+    expect(onChange).toHaveBeenCalled();
   });
 });
