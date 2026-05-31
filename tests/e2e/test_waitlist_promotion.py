@@ -91,6 +91,7 @@ async def test_waitlist_promotion_sends_dm(
     discord_guild_id,
     synced_guild,
     test_timeouts,
+    test_user_discord_user_id,
 ):
     """
     E2E: Waitlist user promoted via trigger and receives DM.

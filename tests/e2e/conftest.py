@@ -492,6 +492,11 @@ async def test_user_discord_user_id(
     Used by tests that insert game participants directly for discord_user_id
     so that join/promotion DMs are delivered to the watched DM channel.
     """
+    await admin_db.execute(
+        text("DELETE FROM users WHERE discord_id = :discord_id"),
+        {"discord_id": discord_user_id},
+    )
+    await admin_db.commit()
     logger.debug("test_user_discord_user_id setup: inserting discord_id=%s", discord_user_id)
     user = User(discord_id=discord_user_id)
     admin_db.add(user)
