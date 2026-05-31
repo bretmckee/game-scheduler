@@ -40,6 +40,7 @@ class DMType(StrEnum):
     PROMOTION = "promotion"
     CLONE_CONFIRMATION = "clone_confirmation"
     REWARDS_REMINDER = "rewards_reminder"
+    HOST_ADDED_DROPOUT = "host_added_dropout"
 
 
 async def wait_for_condition[T](
@@ -674,6 +675,7 @@ class DiscordTestHelper:
             DMType.PROMOTION: DMPredicates.promotion(game_title),
             DMType.CLONE_CONFIRMATION: DMPredicates.clone_confirmation(game_title),
             DMType.REWARDS_REMINDER: DMPredicates.rewards_reminder(game_title),
+            DMType.HOST_ADDED_DROPOUT: DMPredicates.host_added_dropout(game_title),
         }
 
         return await self.wait_for_dm_matching(

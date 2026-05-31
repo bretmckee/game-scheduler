@@ -2407,6 +2407,10 @@ class GameService:
 
         logger.info("Found participant: id=%s, deleting...", participant.id)
 
+        # Capture before delete to avoid session expiry
+        position_type = participant.position_type
+        host_discord_id = game.host.discord_id if game.host else None
+
         # Remove participant
         await self.db.delete(participant)
         logger.info("Participant deleted")
@@ -2419,6 +2423,32 @@ class GameService:
 
         # Publish game.updated event
         await self._publish_game_updated(game)
+
+        if position_type == ParticipantType.HOST_ADDED and host_discord_id:
+            scheduled_unix = int(game.scheduled_at.timestamp())
+            jump_url = (
+                f"https://discord.com/channels/{game.guild.guild_id}/"
+                f"{game.channel.channel_id}/{game.message_id}"
+                if game.message_id
+                else None
+            )
+            event = messaging_events.Event(
+                event_type=messaging_events.EventType.NOTIFICATION_SEND_DM,
+                data=messaging_events.NotificationSendDMEvent(
+                    user_id=host_discord_id,
+                    game_id=uuid.UUID(game.id),
+                    game_title=game.title,
+                    game_time_unix=scheduled_unix,
+                    notification_type="host_added_dropout",
+                    message=DMFormats.host_added_dropout(
+                        player_mention=f"<@{user.discord_id}>",
+                        game_title=game.title,
+                        game_time_unix=scheduled_unix,
+                        jump_url=jump_url,
+                    ),
+                ).model_dump(),
+            )
+            self.event_publisher.publish_deferred(event=event)
 
     async def _publish_game_created(
         self,

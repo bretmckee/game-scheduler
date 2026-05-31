@@ -32,6 +32,7 @@ Tests verify:
 """
 
 import datetime
+import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -40,6 +41,7 @@ from services.api.schemas.clone_game import CarryoverOption, CloneGameRequest
 from services.api.services import emoji_resolver as emoji_resolver_module
 from services.api.services import participant_resolver as resolver_module
 from services.api.services.games import GameService
+from shared.messaging import events as messaging_events
 from shared.models import game as game_model
 from shared.models import participant as participant_model
 from shared.models.participant import ParticipantType
@@ -295,6 +297,74 @@ class TestLeaveGame:
 
         with pytest.raises(ValueError, match="Failed to reload game after leave"):
             await game_service.leave_game(game.id, "user123")
+
+    @pytest.mark.asyncio
+    async def test_host_added_leave_publishes_notification_send_dm(self, game_service, mock_db):
+        game = _make_game()
+        game.id = str(uuid.uuid4())
+        game.title = "Test Game"
+        game.message_id = None
+        game_service.get_game = AsyncMock(return_value=game)
+        mock_publish = MagicMock()
+        game_service.event_publisher.publish_deferred = mock_publish
+
+        mock_user = MagicMock()
+        mock_user.id = "user-uuid"
+        mock_user.discord_id = "user123"
+
+        mock_participant = MagicMock()
+        mock_participant.id = "participant-uuid"
+        mock_participant.position_type = ParticipantType.HOST_ADDED
+
+        mock_db.execute.side_effect = [
+            _make_db_scalar_result(mock_user),
+            _make_db_scalar_result(mock_participant),
+        ]
+        mock_db.delete = AsyncMock()
+
+        await game_service.leave_game(game.id, "user123")
+
+        notification_calls = [
+            c
+            for c in mock_publish.call_args_list
+            if c.kwargs.get("event")
+            and c.kwargs["event"].event_type == messaging_events.EventType.NOTIFICATION_SEND_DM
+        ]
+        assert len(notification_calls) == 1
+        event_data = notification_calls[0].kwargs["event"].data
+        assert event_data["user_id"] == "host-discord-id"
+        assert event_data["notification_type"] == "host_added_dropout"
+
+    @pytest.mark.asyncio
+    async def test_non_host_added_leave_does_not_publish_notification(self, game_service, mock_db):
+        game = _make_game()
+        game_service.get_game = AsyncMock(return_value=game)
+        mock_publish = MagicMock()
+        game_service.event_publisher.publish_deferred = mock_publish
+
+        mock_user = MagicMock()
+        mock_user.id = "user-uuid"
+        mock_user.discord_id = "user123"
+
+        mock_participant = MagicMock()
+        mock_participant.id = "participant-uuid"
+        mock_participant.position_type = ParticipantType.SELF_ADDED
+
+        mock_db.execute.side_effect = [
+            _make_db_scalar_result(mock_user),
+            _make_db_scalar_result(mock_participant),
+        ]
+        mock_db.delete = AsyncMock()
+
+        await game_service.leave_game(game.id, "user123")
+
+        notification_calls = [
+            c
+            for c in mock_publish.call_args_list
+            if c.kwargs.get("event")
+            and c.kwargs["event"].event_type == messaging_events.EventType.NOTIFICATION_SEND_DM
+        ]
+        assert len(notification_calls) == 0
 
 
 # ---------------------------------------------------------------------------

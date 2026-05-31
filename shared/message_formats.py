@@ -242,6 +242,21 @@ class DMFormats:
             text += f"\n[View game in Discord]({jump_url})"
         return text
 
+    @staticmethod
+    def host_added_dropout(
+        player_mention: str,
+        game_title: str,
+        game_time_unix: int,
+        jump_url: str | None = None,
+    ) -> str:
+        base = (
+            f"⚠️ {player_mention} (who you added) dropped out of **{game_title}**"
+            f" which starts <t:{game_time_unix}:R>"
+        )
+        if jump_url:
+            return f"{base}\n{jump_url}"
+        return base
+
 
 class DMPredicates:
     """Predicates for matching Discord DMs in tests."""
@@ -375,6 +390,18 @@ class DMPredicates:
                 and game_title in dm.content
                 and "rewards" in dm.content.lower()
                 and "completed" in dm.content.lower()
+            )
+
+        return predicate
+
+    @staticmethod
+    def host_added_dropout(game_title: str) -> Callable[[DiscordMessage], bool]:
+        def predicate(dm: DiscordMessage) -> bool:
+            return bool(
+                dm.content
+                and game_title in dm.content
+                and "dropped out" in dm.content
+                and "who you added" in dm.content
             )
 
         return predicate

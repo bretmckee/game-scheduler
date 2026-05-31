@@ -291,3 +291,51 @@ def test_waitlist_demotion_contains_game_title():
 def test_waitlist_demotion_with_jump_url_includes_link():
     msg = DMFormats.waitlist_demotion("Epic Quest", jump_url=_JUMP_URL_GAME)
     assert _JUMP_URL_GAME in msg
+
+
+# ---------------------------------------------------------------------------
+# DMFormats.host_added_dropout and DMPredicates.host_added_dropout (TDD RED)
+# ---------------------------------------------------------------------------
+
+
+def test_host_added_dropout_contains_player_mention():
+    msg = DMFormats.host_added_dropout("<@123456>", "Epic Quest", _UNIX)
+    assert "<@123456>" in msg
+
+
+def test_host_added_dropout_contains_game_title():
+    msg = DMFormats.host_added_dropout("<@123456>", "Epic Quest", _UNIX)
+    assert "Epic Quest" in msg
+
+
+def test_host_added_dropout_contains_relative_timestamp():
+    msg = DMFormats.host_added_dropout("<@123456>", "Epic Quest", _UNIX)
+    assert f"<t:{_UNIX}:R>" in msg
+
+
+def test_host_added_dropout_with_jump_url_includes_link():
+    msg = DMFormats.host_added_dropout("<@123456>", "Epic Quest", _UNIX, jump_url=_JUMP_URL)
+    assert _JUMP_URL in msg
+
+
+def test_host_added_dropout_without_jump_url_omits_link():
+    msg = DMFormats.host_added_dropout("<@123456>", "Epic Quest", _UNIX, jump_url=None)
+    assert "discord.com" not in msg
+    assert f"<t:{_UNIX}:R>" in msg
+
+
+def test_host_added_dropout_predicate_matches():
+    msg = DMFormats.host_added_dropout("<@123456>", "Epic Quest", _UNIX)
+    predicate = DMPredicates.host_added_dropout("Epic Quest")
+    assert predicate(_DM(msg)) is True
+
+
+def test_host_added_dropout_predicate_rejects_wrong_title():
+    msg = DMFormats.host_added_dropout("<@123456>", "Epic Quest", _UNIX)
+    predicate = DMPredicates.host_added_dropout("Other Game")
+    assert predicate(_DM(msg)) is False
+
+
+def test_host_added_dropout_predicate_rejects_none_content():
+    predicate = DMPredicates.host_added_dropout("Epic Quest")
+    assert predicate(_DM(None)) is False

@@ -38,66 +38,66 @@ covering both the Discord button leave path and the web UI (API) leave path.
 
 ## Implementation Checklist
 
-### [ ] Phase 1: DM format stubs + RED unit tests
+### [x] Phase 1: DM format stubs + RED unit tests
 
-- [ ] Task 1.1: Add `DMFormats.host_added_dropout` and `DMPredicates.host_added_dropout` stubs to `shared/message_formats.py`
+- [x] Task 1.1: Add `DMFormats.host_added_dropout` and `DMPredicates.host_added_dropout` stubs to `shared/message_formats.py`
   - Details: .copilot-tracking/planning/details/20260531-01-host-added-dropout-notification-details.md (Lines 13-29)
 
-- [ ] Task 1.2: Add xfail unit tests for format and predicate in `tests/unit/shared/test_message_formats.py`
+- [x] Task 1.2: Add xfail unit tests for format and predicate in `tests/unit/shared/test_message_formats.py`
   - Details: .copilot-tracking/planning/details/20260531-01-host-added-dropout-notification-details.md (Lines 30-55)
 
-### [ ] Phase 2: DM format implementation (GREEN)
+### [x] Phase 2: DM format implementation (GREEN)
 
-- [ ] Task 2.1: Implement `DMFormats.host_added_dropout` in `shared/message_formats.py`
+- [x] Task 2.1: Implement `DMFormats.host_added_dropout` in `shared/message_formats.py`
   - Details: .copilot-tracking/planning/details/20260531-01-host-added-dropout-notification-details.md (Lines 58-89)
 
-- [ ] Task 2.2: Implement `DMPredicates.host_added_dropout` in `shared/message_formats.py`
+- [x] Task 2.2: Implement `DMPredicates.host_added_dropout` in `shared/message_formats.py`
   - Details: .copilot-tracking/planning/details/20260531-01-host-added-dropout-notification-details.md (Lines 90-116)
 
-- [ ] Task 2.3: Remove xfail markers from Phase 1 unit tests
+- [x] Task 2.3: Remove xfail markers from Phase 1 unit tests
   - Details: .copilot-tracking/planning/details/20260531-01-host-added-dropout-notification-details.md (Lines 117-129)
 
-### [ ] Phase 3: Bot handler RED unit tests
+### [x] Phase 3: Bot handler RED unit tests
 
-- [ ] Task 3.1: Add xfail unit tests for HOST_ADDED leave host DM in `tests/unit/bot/handlers/test_leave_game_handler.py`
+- [x] Task 3.1: Add xfail unit tests for HOST_ADDED leave host DM in `tests/unit/bot/handlers/test_leave_game_handler.py`
   - Details: .copilot-tracking/planning/details/20260531-01-host-added-dropout-notification-details.md (Lines 132-164)
 
-### [ ] Phase 4: Bot handler implementation (GREEN)
+### [x] Phase 4: Bot handler implementation (GREEN)
 
-- [ ] Task 4.1: Add `selectinload(GameSession.host)` and `selectinload(GameSession.channel)` to `_validate_leave_game`
+- [x] Task 4.1: Add `selectinload(GameSession.host)` and `selectinload(GameSession.channel)` to `_validate_leave_game`
   - Details: .copilot-tracking/planning/details/20260531-01-host-added-dropout-notification-details.md (Lines 167-193)
 
-- [ ] Task 4.2: Add host DM sending logic in `handle_leave_game` after participant deletion
+- [x] Task 4.2: Add host DM sending logic in `handle_leave_game` after participant deletion
   - Details: .copilot-tracking/planning/details/20260531-01-host-added-dropout-notification-details.md (Lines 194-232)
 
-- [ ] Task 4.3: Remove xfail markers from Phase 3 unit tests
+- [x] Task 4.3: Remove xfail markers from Phase 3 unit tests
   - Details: .copilot-tracking/planning/details/20260531-01-host-added-dropout-notification-details.md (Lines 233-245)
 
-### [ ] Phase 5: API service RED unit + integration tests
+### [x] Phase 5: API service RED unit + integration tests
 
-- [ ] Task 5.1: Add xfail unit test for HOST_ADDED leave publishes `NOTIFICATION_SEND_DM` in `tests/unit/api/services/test_games.py`
+- [x] Task 5.1: Add xfail unit test for HOST_ADDED leave publishes `NOTIFICATION_SEND_DM` in `tests/unit/api/services/test_games.py`
   - Details: .copilot-tracking/planning/details/20260531-01-host-added-dropout-notification-details.md (Lines 248-274)
 
-- [ ] Task 5.2: Add xfail integration test for HOST_ADDED leave in `tests/integration/test_leave_game.py`
+- [x] Task 5.2: Add xfail integration test for HOST_ADDED leave in `tests/integration/test_leave_game.py`
   - Details: .copilot-tracking/planning/details/20260531-01-host-added-dropout-notification-details.md (Lines 275-301)
 
-### [ ] Phase 6: API service implementation (GREEN)
+### [x] Phase 6: API service implementation (GREEN)
 
-- [ ] Task 6.1: Capture `position_type` and `host_discord_id` before `db.delete(participant)` in `leave_game()`
+- [x] Task 6.1: Capture `position_type` and `host_discord_id` before `db.delete(participant)` in `leave_game()`
   - Details: .copilot-tracking/planning/details/20260531-01-host-added-dropout-notification-details.md (Lines 304-326)
 
-- [ ] Task 6.2: After reload, publish `NOTIFICATION_SEND_DM` event if participant was `HOST_ADDED`
+- [x] Task 6.2: After reload, publish `NOTIFICATION_SEND_DM` event if participant was `HOST_ADDED`
   - Details: .copilot-tracking/planning/details/20260531-01-host-added-dropout-notification-details.md (Lines 327-371)
 
-- [ ] Task 6.3: Remove xfail markers from unit and integration tests added in Phase 5
+- [x] Task 6.3: Remove xfail markers from unit and integration tests added in Phase 5
   - Details: .copilot-tracking/planning/details/20260531-01-host-added-dropout-notification-details.md (Lines 372-386)
 
-### [ ] Phase 7: E2E test + DMType enum
+### [x] Phase 7: E2E test + DMType enum
 
-- [ ] Task 7.1: Add `HOST_ADDED_DROPOUT = "host_added_dropout"` to `DMType` enum in `tests/e2e/helpers/discord.py`
+- [x] Task 7.1: Add `HOST_ADDED_DROPOUT = "host_added_dropout"` to `DMType` enum in `tests/e2e/helpers/discord.py`
   - Details: .copilot-tracking/planning/details/20260531-01-host-added-dropout-notification-details.md (Lines 389-402)
 
-- [ ] Task 7.2: Add e2e test for HOST_ADDED dropout notification via API path
+- [x] Task 7.2: Add e2e test for HOST_ADDED dropout notification via API path
   - Details: .copilot-tracking/planning/details/20260531-01-host-added-dropout-notification-details.md (Lines 403-450)
 
 ## Dependencies

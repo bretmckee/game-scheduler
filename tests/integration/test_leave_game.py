@@ -26,6 +26,7 @@ patch get_db_session to BYPASSRLS, use real DB fixtures.
 """
 
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -35,6 +36,7 @@ from sqlalchemy import text
 from services.bot.events.publisher import BotEventPublisher
 from services.bot.handlers.leave_game import handle_leave_game
 from shared.database import BotAsyncSessionLocal, bot_engine
+from shared.message_formats import DMPredicates
 from shared.utils.status_transitions import GameStatus
 
 pytestmark = pytest.mark.integration
@@ -245,3 +247,50 @@ async def test_successful_leave_deletes_participant_and_publishes_event(
 
     interaction.user.send.assert_called_once()
     assert "You've left" in interaction.user.send.call_args.kwargs["content"]
+
+
+@pytest.mark.asyncio
+async def test_host_added_leave_sends_dm_to_host(
+    test_game, mock_publisher, create_user, admin_db_sync
+) -> None:
+    """When a HOST_ADDED participant leaves, the host receives a DM."""
+    player = create_user(discord_user_id=PLAYER_DISCORD_ID)
+    host = test_game["host"]
+    game = test_game["game"]
+
+    participant_id = str(uuid.uuid4())
+    admin_db_sync.execute(
+        text(
+            "INSERT INTO game_participants "
+            "(id, game_session_id, user_id, position, position_type) "
+            "VALUES (:id, :game_id, :user_id, :position, :position_type)"
+        ),
+        {
+            "id": participant_id,
+            "game_id": game["id"],
+            "user_id": player["id"],
+            "position": 1,
+            "position_type": 8000,  # ParticipantType.HOST_ADDED
+        },
+    )
+    admin_db_sync.commit()
+
+    host_dm_mock = MagicMock()
+    host_dm_mock.send = AsyncMock()
+
+    interaction = _make_interaction(PLAYER_DISCORD_ID)
+    interaction.client = MagicMock()
+    interaction.client.get_user = MagicMock(return_value=host_dm_mock)
+
+    with _patch_db():
+        await handle_leave_game(interaction, game["id"], mock_publisher)
+
+    interaction.client.get_user.assert_called_once_with(int(host["discord_id"]))
+    host_dm_mock.send.assert_called_once()
+    dm_content = host_dm_mock.send.call_args.args[0]
+
+    @dataclass
+    class _DM:
+        content: str | None
+
+    assert DMPredicates.host_added_dropout(game["title"])(_DM(dm_content))

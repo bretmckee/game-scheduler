@@ -31,9 +31,10 @@ import pytest
 
 from services.bot.events.publisher import BotEventPublisher
 from services.bot.handlers.leave_game import handle_leave_game
+from shared.message_formats import DMPredicates
 from shared.models.game import GameSession
 from shared.models.notification_schedule import NotificationSchedule
-from shared.models.participant import GameParticipant
+from shared.models.participant import GameParticipant, ParticipantType
 from shared.models.user import User
 
 USER_DISCORD_ID = "111222333444555666"
@@ -203,3 +204,161 @@ async def test_leave_publishes_game_updated_regardless_of_notification(
     mock_publisher.publish_game_updated.assert_awaited_once_with(
         game_id=game_id, guild_id="guild-db-uuid-42", updated_fields={"participants": True}
     )
+
+
+# ---------------------------------------------------------------------------
+# HOST_ADDED leave — host DM notification (TDD RED)
+# ---------------------------------------------------------------------------
+
+HOST_DISCORD_ID = "999888777"
+HOST_CHANNEL_ID = "111222333"
+HOST_GUILD_DISCORD_ID = "444555666"
+HOST_MESSAGE_ID = "777888999"
+
+
+def _make_host_added_game(game_id: str) -> MagicMock:
+    game = MagicMock(spec=GameSession)
+    game.id = game_id
+    game.title = "Leave Test Game"
+    game.guild_id = "guild-db-uuid-42"
+    game.status = "SCHEDULED"
+    game.message_id = HOST_MESSAGE_ID
+    game.scheduled_at = MagicMock()
+    game.scheduled_at.timestamp.return_value = 1700000000.0
+    host = MagicMock()
+    host.discord_id = HOST_DISCORD_ID
+    game.host = host
+    channel = MagicMock()
+    channel.channel_id = HOST_CHANNEL_ID
+    game.channel = channel
+    guild = MagicMock()
+    guild.guild_id = HOST_GUILD_DISCORD_ID
+    game.guild = guild
+    return game
+
+
+def _make_host_added_participant(participant_db_id: str, game_id: str) -> MagicMock:
+    participant = MagicMock(spec=GameParticipant)
+    participant.id = participant_db_id
+    participant.game_session_id = game_id
+    participant.position_type = ParticipantType.HOST_ADDED
+    participant.user = MagicMock(spec=User)
+    participant.user.discord_id = USER_DISCORD_ID
+    return participant
+
+
+def _make_host_added_interaction() -> MagicMock:
+    interaction = MagicMock(spec=discord.Interaction)
+    interaction.user = MagicMock()
+    interaction.user.id = int(USER_DISCORD_ID)
+    interaction.user.send = AsyncMock()
+    interaction.response = MagicMock()
+    interaction.response.is_done = MagicMock(return_value=False)
+    interaction.response.defer = AsyncMock()
+    interaction.followup = MagicMock()
+    interaction.followup.send = AsyncMock()
+    interaction.client = MagicMock()
+    return interaction
+
+
+def _make_host_added_mock_db(participant: MagicMock, game: MagicMock) -> MagicMock:
+    mock_db = AsyncMock()
+    mock_db.delete = AsyncMock()
+    mock_db.commit = AsyncMock()
+
+    game_result = MagicMock()
+    game_result.scalar_one_or_none = MagicMock(return_value=game)
+
+    user = MagicMock(spec=User)
+    user.id = str(uuid4())
+    user_result = MagicMock()
+    user_result.scalar_one_or_none = MagicMock(return_value=user)
+
+    participant_result = MagicMock()
+    participant_result.scalar_one_or_none = MagicMock(return_value=participant)
+
+    count_result = MagicMock()
+    count_result.scalar_one_or_none = MagicMock(return_value=2)
+
+    notif_result = MagicMock()
+    notif_result.scalar_one_or_none = MagicMock(return_value=None)
+
+    upsert_result = MagicMock()
+
+    mock_db.execute = AsyncMock(
+        side_effect=[
+            game_result,
+            user_result,
+            participant_result,
+            count_result,
+            notif_result,
+            upsert_result,
+        ]
+    )
+    return mock_db
+
+
+@pytest.mark.asyncio
+async def test_host_added_leave_sends_dm_to_host(game_id, participant_db_id):
+    """HOST_ADDED participant leaves → host receives a DM matching host_added_dropout."""
+    game = _make_host_added_game(game_id)
+    participant = _make_host_added_participant(participant_db_id, game_id)
+    interaction = _make_host_added_interaction()
+
+    mock_host_user = MagicMock()
+    mock_host_user.send = AsyncMock()
+    interaction.client.get_user.return_value = mock_host_user
+
+    publisher = MagicMock(spec=BotEventPublisher)
+    publisher.publish_game_updated = AsyncMock()
+
+    mock_db = _make_host_added_mock_db(participant, game)
+
+    with _patch_db(mock_db):
+        await handle_leave_game(interaction, game_id, publisher)
+
+    mock_host_user.send.assert_awaited_once()
+    sent_content = mock_host_user.send.call_args.args[0]
+    predicate = DMPredicates.host_added_dropout(game.title)
+    assert predicate(MagicMock(content=sent_content)), (
+        f"Sent DM did not match host_added_dropout predicate: {sent_content!r}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_non_host_added_leave_does_not_send_host_dm(game_id, participant_db_id):
+    """SELF_ADDED participant leaves → get_user is never called for host notification."""
+    game = _make_host_added_game(game_id)
+    participant = _make_host_added_participant(participant_db_id, game_id)
+    participant.position_type = ParticipantType.SELF_ADDED
+
+    interaction = _make_host_added_interaction()
+    publisher = MagicMock(spec=BotEventPublisher)
+    publisher.publish_game_updated = AsyncMock()
+
+    mock_db = _make_host_added_mock_db(participant, game)
+
+    with _patch_db(mock_db):
+        await handle_leave_game(interaction, game_id, publisher)
+
+    interaction.client.get_user.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_host_added_leave_no_dm_when_host_not_in_cache(game_id, participant_db_id):
+    """HOST_ADDED participant leaves, host not in Discord cache → no exception, leave succeeds."""
+    game = _make_host_added_game(game_id)
+    participant = _make_host_added_participant(participant_db_id, game_id)
+    interaction = _make_host_added_interaction()
+
+    interaction.client.get_user.return_value = None
+
+    publisher = MagicMock(spec=BotEventPublisher)
+    publisher.publish_game_updated = AsyncMock()
+
+    mock_db = _make_host_added_mock_db(participant, game)
+
+    with _patch_db(mock_db):
+        await handle_leave_game(interaction, game_id, publisher)
+
+    publisher.publish_game_updated.assert_awaited_once()

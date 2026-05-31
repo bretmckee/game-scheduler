@@ -37,9 +37,10 @@ from services.bot.handlers.utils import (
     send_success_message,
 )
 from shared.database import get_db_session
+from shared.message_formats import DMFormats
 from shared.models.game import GameSession
 from shared.models.notification_schedule import NotificationSchedule
-from shared.models.participant import GameParticipant
+from shared.models.participant import GameParticipant, ParticipantType
 from shared.models.user import User
 
 logger = logging.getLogger(__name__)
@@ -88,6 +89,9 @@ async def handle_leave_game(
         )
         join_not_sent = notif_result.scalar_one_or_none() is not None
 
+        # Capture position_type before deletion to avoid session expiry issues
+        position_type = participant.position_type
+
         # Delete participant from database
         await db.delete(participant)
         await db.commit()
@@ -101,11 +105,42 @@ async def handle_leave_game(
     if not join_not_sent:
         await send_success_message(interaction, f"❌ You've left **{game.title}**")
 
+    await _notify_host_if_host_added(interaction, game, position_type)
+
     logger.info(
         "User %s left game %s (%s remaining)",
         user_discord_id,
         game_id,
         participant_count - 1,
+    )
+
+
+async def _notify_host_if_host_added(
+    interaction: discord.Interaction,
+    game: GameSession,
+    position_type: ParticipantType,
+) -> None:
+    if position_type != ParticipantType.HOST_ADDED:
+        return
+    if not game.host or not game.host.discord_id:
+        return
+    host_user = interaction.client.get_user(int(game.host.discord_id))
+    if not host_user:
+        return
+    scheduled_unix = int(game.scheduled_at.timestamp())
+    jump_url = (
+        f"https://discord.com/channels/{game.guild.guild_id}/"
+        f"{game.channel.channel_id}/{game.message_id}"
+        if game.message_id
+        else None
+    )
+    await host_user.send(
+        DMFormats.host_added_dropout(
+            player_mention=f"<@{interaction.user.id}>",
+            game_title=game.title,
+            game_time_unix=scheduled_unix,
+            jump_url=jump_url,
+        )
     )
 
 
@@ -126,7 +161,11 @@ async def _validate_leave_game(db: AsyncSession, game_id: uuid.UUID, user_discor
     """
     result = await db.execute(
         select(GameSession)
-        .options(selectinload(GameSession.guild))
+        .options(
+            selectinload(GameSession.guild),
+            selectinload(GameSession.host),
+            selectinload(GameSession.channel),
+        )
         .where(GameSession.id == str(game_id))
     )
     game = result.scalar_one_or_none()
