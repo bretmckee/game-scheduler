@@ -22,6 +22,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render } from '@testing-library/react';
 import { GameForm } from '../GameForm';
 import { AuthContext } from '../../contexts/AuthContext';
+import type { Channel } from '../../types';
 
 const mockAuthContextValue = {
   user: { id: '1', user_uuid: 'uuid1', username: 'testuser' },
@@ -558,5 +559,95 @@ describe('GameForm - ReminderSelector Integration', () => {
     // Note: Full test for chip display would require checking internal state
     // which is better tested through integration/e2e tests
     // The ReminderSelector unit tests verify chip display works correctly
+  });
+});
+
+describe('GameForm - HOST_SELECTED_WITH_WAITLIST checkbox', () => {
+  const mockOnSubmit = vi.fn();
+  const mockOnCancel = vi.fn();
+  const mockChannel: Channel = {
+    id: 'ch1',
+    channel_name: 'General',
+    guild_id: 'guild1',
+    channel_id: 'ch1',
+    is_active: true,
+    created_at: '2025-01-01T00:00:00Z',
+    updated_at: '2025-01-01T00:00:00Z',
+  };
+
+  it('should show waitlist checkbox when HOST_SELECTED is selected', () => {
+    const { getByLabelText } = renderWithAuth(
+      <GameForm
+        mode="create"
+        guildId="guild1"
+        channels={[mockChannel]}
+        defaultSignupMethod="HOST_SELECTED"
+        onSubmit={mockOnSubmit}
+        onCancel={mockOnCancel}
+      />
+    );
+
+    const checkbox = getByLabelText(/players can join waitlist/i);
+    expect(checkbox).toBeInTheDocument();
+    expect(checkbox).not.toBeChecked();
+  });
+
+  it('should check the waitlist checkbox and uncheck it correctly', () => {
+    const { getByLabelText } = renderWithAuth(
+      <GameForm
+        mode="create"
+        guildId="guild1"
+        channels={[mockChannel]}
+        defaultSignupMethod="HOST_SELECTED"
+        onSubmit={mockOnSubmit}
+        onCancel={mockOnCancel}
+      />
+    );
+
+    const checkbox = getByLabelText(/players can join waitlist/i) as HTMLInputElement;
+    expect(checkbox).not.toBeChecked();
+    checkbox.click();
+    expect(checkbox).toBeChecked();
+    checkbox.click();
+    expect(checkbox).not.toBeChecked();
+  });
+
+  it('should show HOST_SELECTED in select and checked checkbox when initialData is HOST_SELECTED_WITH_WAITLIST', () => {
+    const { getByLabelText, getByText } = renderWithAuth(
+      <GameForm
+        mode="edit"
+        guildId="guild1"
+        channels={[mockChannel]}
+        initialData={{
+          id: 'game-1',
+          title: 'Test Game',
+          scheduled_at: new Date().toISOString(),
+          channel_id: 'ch1',
+          description: 'Test',
+          signup_method: 'HOST_SELECTED_WITH_WAITLIST',
+        }}
+        onSubmit={mockOnSubmit}
+        onCancel={mockOnCancel}
+      />
+    );
+
+    expect(getByText('Host Selected')).toBeInTheDocument();
+    const checkbox = getByLabelText(/players can join waitlist/i);
+    expect(checkbox).toBeChecked();
+  });
+
+  it('should not show waitlist checkbox when SELF_SIGNUP is selected', () => {
+    const { queryByLabelText } = renderWithAuth(
+      <GameForm
+        mode="create"
+        guildId="guild1"
+        channels={[mockChannel]}
+        defaultSignupMethod="SELF_SIGNUP"
+        onSubmit={mockOnSubmit}
+        onCancel={mockOnCancel}
+      />
+    );
+
+    expect(queryByLabelText(/players can join waitlist/i)).not.toBeInTheDocument();
   });
 });

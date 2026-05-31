@@ -41,11 +41,13 @@ export interface ParticipantInput {
 interface EditableParticipantListProps {
   participants: ParticipantInput[];
   onChange: (participants: ParticipantInput[]) => void;
+  maxPlayers?: number;
 }
 
 export const EditableParticipantList: FC<EditableParticipantListProps> = ({
   participants,
   onChange,
+  maxPlayers,
 }) => {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
@@ -212,6 +214,18 @@ export const EditableParticipantList: FC<EditableParticipantListProps> = ({
           </Box>
         ))
       )}
+
+      {maxPlayers !== undefined &&
+        Array.from({ length: Math.max(0, maxPlayers - participants.length) }).map((_, i) => (
+          <Box
+            key={`open-slot-${i}`}
+            sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'center', pl: 0.5 }}
+          >
+            <Typography variant="body2" sx={{ fontStyle: 'italic', color: 'text.secondary' }}>
+              open slot
+            </Typography>
+          </Box>
+        ))}
 
       <Button onClick={addParticipant} startIcon={<AddIcon />} variant="outlined" sx={{ mt: 1 }}>
         Add Participant

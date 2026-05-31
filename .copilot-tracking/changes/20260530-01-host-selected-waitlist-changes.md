@@ -85,3 +85,14 @@ host promotes them to confirmed slots by dragging in the edit form, with full DM
 ### Added
 
 - `tests/unit/services/bot/formatters/conftest.py` — pre-imports `services.bot.events.handlers` to break pre-existing circular import that prevented formatters tests from running in isolation
+
+---
+
+## Phase 7: Frontend Changes (TypeScript)
+
+### Modified
+
+- `frontend/src/components/GameForm.tsx` — filter `HOST_SELECTED_WITH_WAITLIST` from the signup method select; map `HSW → HOST_SELECTED` in the select value; render a "Players can join waitlist (host selects from queue)" checkbox below the select when `HOST_SELECTED` or `HOST_SELECTED_WITH_WAITLIST` is active; checking/unchecking the checkbox toggles `signupMethod` between `HOST_SELECTED_WITH_WAITLIST` and `HOST_SELECTED`
+- `frontend/src/components/EditableParticipantList.tsx` — added optional `maxPlayers` prop; render read-only italic "open slot" rows for `maxPlayers - participants.length` empty slots when `maxPlayers` is provided
+- `frontend/src/components/__tests__/GameForm.test.tsx` — added `GameForm - HOST_SELECTED_WITH_WAITLIST checkbox` describe block with 4 tests (TDD RED→GREEN); added `import type { Channel }` import
+- `frontend/src/components/__tests__/EditableParticipantList.test.tsx` — new file with 4 tests for open slot placeholder rendering (TDD RED→GREEN)

@@ -116,12 +116,12 @@ notifications for promotions and demotions.
 - [x] Task 6.2 (GREEN): Implement open slot padding; remove stubs and xfail markers
   - Details: .copilot-tracking/planning/details/20260530-01-host-selected-waitlist-details.md (Lines 484-506)
 
-### [ ] Phase 7: Frontend Changes (TypeScript)
+### [x] Phase 7: Frontend Changes (TypeScript)
 
-- [ ] Task 7.1: GameForm checkbox sub-option for `HOST_SELECTED_WITH_WAITLIST` with Vitest TDD
+- [x] Task 7.1: GameForm checkbox sub-option for `HOST_SELECTED_WITH_WAITLIST` with Vitest TDD
   - Details: .copilot-tracking/planning/details/20260530-01-host-selected-waitlist-details.md (Lines 509-532)
 
-- [ ] Task 7.2: Open slot placeholder rows in participant display components with Vitest TDD
+- [x] Task 7.2: Open slot placeholder rows in participant display components with Vitest TDD
   - Details: .copilot-tracking/planning/details/20260530-01-host-selected-waitlist-details.md (Lines 533-576)
 
 ## Dependencies

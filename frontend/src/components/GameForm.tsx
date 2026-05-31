@@ -200,11 +200,14 @@ export const GameForm: FC<GameFormProps> = ({
   const [signupInstructionsError, setSignupInstructionsError] = useState<string | null>(null);
   const [scheduledAtError, setScheduledAtError] = useState<string | null>(null);
 
-  // Calculate available signup methods: if empty/null, all methods are available
-  const availableSignupMethods =
+  // Calculate available signup methods: if empty/null, all methods are available.
+  // HOST_SELECTED_WITH_WAITLIST is a sub-option of HOST_SELECTED and is excluded from the
+  // select — it is toggled via the waitlist checkbox instead.
+  const availableSignupMethods = (
     !allowedSignupMethods || allowedSignupMethods.length === 0
       ? Object.values(SignupMethod)
-      : allowedSignupMethods.filter((method) => method in SignupMethod);
+      : allowedSignupMethods.filter((method) => method in SignupMethod)
+  ).filter((method) => method !== SignupMethod.HOST_SELECTED_WITH_WAITLIST);
 
   // Determine default signup method
   const resolvedDefaultSignupMethod =
@@ -828,7 +831,11 @@ export const GameForm: FC<GameFormProps> = ({
           <FormControl fullWidth margin="normal" sx={{ mb: 1 }}>
             <InputLabel sx={{ fontSize: '1.1rem' }}>Signup Method</InputLabel>
             <Select
-              value={formData.signupMethod}
+              value={
+                formData.signupMethod === SignupMethod.HOST_SELECTED_WITH_WAITLIST
+                  ? SignupMethod.HOST_SELECTED
+                  : formData.signupMethod
+              }
               onChange={handleSelectChange}
               name="signupMethod"
               label="Signup Method"
@@ -846,6 +853,28 @@ export const GameForm: FC<GameFormProps> = ({
                 'Select how players can join this game'}
             </Typography>
           </FormControl>
+
+          {(formData.signupMethod === SignupMethod.HOST_SELECTED ||
+            formData.signupMethod === SignupMethod.HOST_SELECTED_WITH_WAITLIST) && (
+            <FormControlLabel
+              label="Players can join waitlist (host selects from queue)"
+              sx={{ mb: 1, ml: 0.5 }}
+              control={
+                <Checkbox
+                  checked={formData.signupMethod === SignupMethod.HOST_SELECTED_WITH_WAITLIST}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      signupMethod: e.target.checked
+                        ? SignupMethod.HOST_SELECTED_WITH_WAITLIST
+                        : SignupMethod.HOST_SELECTED,
+                    }))
+                  }
+                  disabled={loading}
+                />
+              }
+            />
+          )}
 
           <TextField
             fullWidth
