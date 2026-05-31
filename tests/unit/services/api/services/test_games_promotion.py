@@ -149,7 +149,7 @@ async def test_promotion_when_max_players_increased(
     for call in notification_calls:
         event_data = call[1]["event"].data
         assert event_data["notification_type"] == "waitlist_promotion"
-        assert "A spot opened up" in event_data["message"]
+        assert "You've been moved from the waitlist" in event_data["message"]
         assert event_data["game_title"] == sample_game.title
 
 
