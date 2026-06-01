@@ -48,6 +48,7 @@ logs/
 
 # Testing
 .testmondata
+.testmondata.pre-run
 .pytest_cache/
 .coverage
 .coverage.*
