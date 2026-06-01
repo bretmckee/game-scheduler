@@ -179,7 +179,7 @@ export const GameCard: FC<GameCardProps> = ({ game, showActions = true, onGameUp
 
         {game.post_at && !game.message_id && (
           <Chip
-            label={`Pending announcement: ${formatDateTime(game.post_at)}`}
+            label={`Pending posting: ${formatDateTime(game.post_at)}`}
             color="warning"
             size="small"
             sx={{ mb: 1 }}

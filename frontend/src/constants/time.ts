@@ -46,6 +46,11 @@ export const Time = {
   MILLISECONDS_PER_SECOND: 1000,
 
   /**
+   * Number of milliseconds in one minute.
+   */
+  MILLISECONDS_PER_MINUTE: 60000,
+
+  /**
    * Number of minutes in a half hour.
    */
   MINUTES_PER_HALF_HOUR: 30,

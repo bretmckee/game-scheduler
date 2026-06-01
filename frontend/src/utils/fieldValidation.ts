@@ -18,6 +18,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+import { Time } from '../constants/time';
+
 export interface ValidationResult {
   isValid: boolean;
   error?: string;
@@ -116,4 +118,57 @@ export function validateFutureDate(
   }
 
   return { isValid: true };
+}
+
+export const MAX_REMINDER_MINUTES = 10080;
+
+const MIN_REMINDER_MINUTES = 1;
+
+export function computeMaxReminderMinutes(scheduledAt: Date | null | undefined): number {
+  if (!scheduledAt) return MAX_REMINDER_MINUTES;
+  return Math.max(
+    MIN_REMINDER_MINUTES,
+    Math.floor((scheduledAt.getTime() - new Date().getTime()) / Time.MILLISECONDS_PER_MINUTE) - 1
+  );
+}
+
+export function validateReminderMinutes(
+  minutes: number[],
+  scheduledAt: Date | null | undefined
+): ValidationResult {
+  const maxMinutes = computeMaxReminderMinutes(scheduledAt);
+  const invalidValues = minutes.filter(
+    (val) => val < MIN_REMINDER_MINUTES || val > maxMinutes || !Number.isInteger(val)
+  );
+  if (invalidValues.length > 0) {
+    return {
+      isValid: false,
+      error: `All reminder values must be integers between 1 and ${maxMinutes} minutes`,
+    };
+  }
+  return { isValid: true };
+}
+
+export function validateCustomReminderInput(
+  input: string,
+  maxMinutes: number,
+  existingValues: number[]
+): string | null {
+  if (!input.trim() || isNaN(parseInt(input, 10))) {
+    return 'Please enter a valid number';
+  }
+  if (!Number.isInteger(parseFloat(input))) {
+    return 'Please enter a whole number';
+  }
+  const num = parseInt(input, 10);
+  if (num < MIN_REMINDER_MINUTES) {
+    return `Reminder must be at least ${MIN_REMINDER_MINUTES} minute`;
+  }
+  if (num > maxMinutes) {
+    return `That time is in the past. Max value is currently ${maxMinutes}`;
+  }
+  if (existingValues.includes(num)) {
+    return 'This reminder time is already added';
+  }
+  return null;
 }

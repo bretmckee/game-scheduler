@@ -147,8 +147,8 @@ export const EditableParticipantList: FC<EditableParticipantListProps> = ({
         Pre-populate Participants (Optional)
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Add Discord users who should be included automatically. Use @mentions or user names. Others
-        can join via Discord button.
+        Specify users to add to the player list automatically. Use @mentions to tag a user, or plain
+        text for a generic placeholder. Other users can still self-sign-up with the Discord button.
       </Typography>
 
       {participants.length === 0 ? (

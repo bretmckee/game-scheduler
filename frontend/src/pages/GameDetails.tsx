@@ -265,7 +265,7 @@ export const GameDetails: FC = () => {
           </Typography>
           {game.post_at && !game.message_id && (
             <Alert severity="info" sx={{ mb: 2 }}>
-              Announcement scheduled for {formatDateTime(game.post_at)}
+              Posting scheduled for {formatDateTime(game.post_at)}
             </Alert>
           )}
           {game.host && game.host.display_name && (

@@ -58,6 +58,7 @@ import {
   validateMaxPlayers,
   validateCharacterLimit,
   validateFutureDate,
+  validateReminderMinutes,
 } from '../utils/fieldValidation';
 
 /**
@@ -378,20 +379,8 @@ export const GameForm: FC<GameFormProps> = ({
   };
 
   const validateReminderField = () => {
-    // Validate array directly since ReminderSelector ensures valid input
-    // Still validate range to catch any edge cases
-    const MAX_REMINDER_MINUTES = 10080;
-    const invalidValues = formData.reminderMinutesArray.filter(
-      (val) => val < 1 || val > MAX_REMINDER_MINUTES || !Number.isInteger(val)
-    );
-
-    if (invalidValues.length > 0) {
-      setReminderError(
-        `All reminder values must be integers between 1 and ${MAX_REMINDER_MINUTES} minutes`
-      );
-    } else {
-      setReminderError(null);
-    }
+    const result = validateReminderMinutes(formData.reminderMinutesArray, formData.scheduledAt);
+    setReminderError(result.error ?? null);
   };
 
   const validateMaxPlayersField = () => {
@@ -732,7 +721,7 @@ export const GameForm: FC<GameFormProps> = ({
           />
 
           <DateTimePicker
-            label="Scheduled Time (Your Local Time Zone) *"
+            label="Game time (Your Local Time Zone) *"
             value={formData.scheduledAt}
             onChange={handleDateChange}
             disablePast
@@ -772,7 +761,7 @@ export const GameForm: FC<GameFormProps> = ({
               new Date(initialData.post_at) <= new Date()
             ) && (
               <DateTimePicker
-                label="Schedule announcement (optional)"
+                label="Schedule Posting (optional)"
                 value={formData.postAt}
                 onChange={handlePostAtChange}
                 minDateTime={new Date()}
@@ -807,6 +796,7 @@ export const GameForm: FC<GameFormProps> = ({
               <ReminderSelector
                 value={formData.reminderMinutesArray}
                 onChange={handleReminderChange}
+                scheduledAt={formData.scheduledAt}
                 error={!!reminderError}
                 helperText={reminderError || 'Select one or more reminder times'}
               />
@@ -885,6 +875,11 @@ export const GameForm: FC<GameFormProps> = ({
               }
             />
           )}
+
+          <EditableParticipantList
+            participants={formData.participants}
+            onChange={handleParticipantsChange}
+          />
 
           <TextField
             fullWidth
@@ -1027,11 +1022,6 @@ export const GameForm: FC<GameFormProps> = ({
               </Box>
             </Box>
           </Box>
-
-          <EditableParticipantList
-            participants={formData.participants}
-            onChange={handleParticipantsChange}
-          />
 
           <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
             <Button type="submit" variant="contained" disabled={loading} fullWidth>

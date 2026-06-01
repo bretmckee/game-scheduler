@@ -644,7 +644,7 @@ describe('EditGame - post_at scheduling field', () => {
     );
   };
 
-  it('pre-populates the "Schedule announcement (optional)" field from game.post_at', async () => {
+  it('pre-populates the "Schedule Posting (optional)" field from game.post_at', async () => {
     renderWithAuth();
 
     await waitFor(() => {

@@ -24,6 +24,9 @@ import {
   validateMaxPlayers,
   validateCharacterLimit,
   validateFutureDate,
+  validateReminderMinutes,
+  validateCustomReminderInput,
+  MAX_REMINDER_MINUTES,
 } from '../fieldValidation';
 
 describe('validateDuration', () => {
@@ -194,5 +197,79 @@ describe('validateFutureDate', () => {
     const futureDate = new Date(Date.now() + 7200000 + 5000);
     const result = validateFutureDate(futureDate, 2);
     expect(result.isValid).toBe(true);
+  });
+});
+
+describe('validateReminderMinutes', () => {
+  it('should accept valid minutes with no scheduledAt', () => {
+    const result = validateReminderMinutes([60, 120], null);
+    expect(result.isValid).toBe(true);
+  });
+
+  it('should reject values below 1 with no scheduledAt', () => {
+    const result = validateReminderMinutes([0, 60], null);
+    expect(result.isValid).toBe(false);
+    expect(result.error).toContain('1');
+  });
+
+  it('should reject non-integer values', () => {
+    const result = validateReminderMinutes([1.5, 60], null);
+    expect(result.isValid).toBe(false);
+    expect(result.error).toBeDefined();
+  });
+
+  it('should use MAX_REMINDER_MINUTES as fallback when scheduledAt is null', () => {
+    const result = validateReminderMinutes([MAX_REMINDER_MINUTES], null);
+    expect(result.isValid).toBe(true);
+  });
+
+  it('should reject values exceeding scheduledAt-relative max', () => {
+    const scheduledAt = new Date(Date.now() + 60 * 60 * 1000);
+    const result = validateReminderMinutes([MAX_REMINDER_MINUTES], scheduledAt);
+    expect(result.isValid).toBe(false);
+    expect(result.error).toContain('minutes');
+  });
+
+  it('should accept value within scheduledAt-relative max', () => {
+    const scheduledAt = new Date(Date.now() + 60 * 60 * 1000);
+    const result = validateReminderMinutes([30], scheduledAt);
+    expect(result.isValid).toBe(true);
+  });
+});
+
+describe('validateCustomReminderInput', () => {
+  it('should reject empty input', () => {
+    const result = validateCustomReminderInput('', 10080, []);
+    expect(result).toBe('Please enter a valid number');
+  });
+
+  it('should reject non-numeric input', () => {
+    const result = validateCustomReminderInput('abc', 10080, []);
+    expect(result).toBe('Please enter a valid number');
+  });
+
+  it('should reject non-integer input', () => {
+    const result = validateCustomReminderInput('2.5', 10080, []);
+    expect(result).toBe('Please enter a whole number');
+  });
+
+  it('should reject value below minimum', () => {
+    const result = validateCustomReminderInput('0', 10080, []);
+    expect(result).toContain('1 minute');
+  });
+
+  it('should reject value exceeding maxMinutes', () => {
+    const result = validateCustomReminderInput('100', 50, []);
+    expect(result).toBe('That time is in the past. Max value is currently 50');
+  });
+
+  it('should reject duplicate value', () => {
+    const result = validateCustomReminderInput('60', 10080, [60, 120]);
+    expect(result).toBe('This reminder time is already added');
+  });
+
+  it('should return null for valid input', () => {
+    const result = validateCustomReminderInput('60', 10080, []);
+    expect(result).toBeNull();
   });
 });

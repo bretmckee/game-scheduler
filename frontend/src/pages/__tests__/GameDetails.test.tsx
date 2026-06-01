@@ -288,7 +288,7 @@ describe('GameDetails - pending announcement badge', () => {
       expect(screen.getByText('Test Game')).toBeInTheDocument();
     });
 
-    expect(screen.getByText(/Announcement scheduled for/i)).toBeInTheDocument();
+    expect(screen.getByText(/Posting scheduled for/i)).toBeInTheDocument();
   });
 
   it('does not show the announcement badge when message_id is set', async () => {
@@ -306,6 +306,6 @@ describe('GameDetails - pending announcement badge', () => {
       expect(screen.getByText('Test Game')).toBeInTheDocument();
     });
 
-    expect(screen.queryByText(/Announcement scheduled for/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Posting scheduled for/i)).not.toBeInTheDocument();
   });
 });

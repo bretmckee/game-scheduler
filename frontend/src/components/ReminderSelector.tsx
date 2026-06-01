@@ -30,12 +30,14 @@ import {
   TextField,
   Button,
 } from '@mui/material';
+import { computeMaxReminderMinutes, validateCustomReminderInput } from '../utils/fieldValidation';
 
 export interface ReminderSelectorProps {
   value: number[];
   onChange: (minutes: number[]) => void;
   error?: boolean;
   helperText?: string;
+  scheduledAt?: Date | null;
 }
 
 const PRESET_OPTIONS = [
@@ -48,13 +50,20 @@ const PRESET_OPTIONS = [
 ];
 
 const MIN_MINUTES = 1;
-const MAX_MINUTES = 10080;
 
-export function ReminderSelector({ value, onChange, error, helperText }: ReminderSelectorProps) {
+export function ReminderSelector({
+  value,
+  onChange,
+  error,
+  helperText,
+  scheduledAt,
+}: ReminderSelectorProps) {
   const [showCustom, setShowCustom] = useState(false);
   const [customMinutes, setCustomMinutes] = useState('');
+  const [customError, setCustomError] = useState<string | null>(null);
 
   const safeValue = Array.isArray(value) ? value : [];
+  const maxMinutes = computeMaxReminderMinutes(scheduledAt);
 
   const handlePresetAdd = (event: { target: { value: string | number } }) => {
     const selectedValue = event.target.value;
@@ -76,22 +85,21 @@ export function ReminderSelector({ value, onChange, error, helperText }: Reminde
   };
 
   const handleCustomAdd = () => {
-    const num = parseInt(customMinutes, 10);
-    if (
-      !isNaN(num) &&
-      num >= MIN_MINUTES &&
-      num <= MAX_MINUTES &&
-      !safeValue.includes(num) &&
-      Number.isInteger(parseFloat(customMinutes))
-    ) {
-      onChange([...safeValue, num].sort((a, b) => a - b));
-      setCustomMinutes('');
-      setShowCustom(false);
+    const errorMessage = validateCustomReminderInput(customMinutes, maxMinutes, safeValue);
+    if (errorMessage) {
+      setCustomError(errorMessage);
+      return;
     }
+    const num = parseInt(customMinutes, 10);
+    onChange([...safeValue, num].sort((a, b) => a - b));
+    setCustomMinutes('');
+    setCustomError(null);
+    setShowCustom(false);
   };
 
   const handleCancel = () => {
     setCustomMinutes('');
+    setCustomError(null);
     setShowCustom(false);
   };
 
@@ -115,7 +123,7 @@ export function ReminderSelector({ value, onChange, error, helperText }: Reminde
             <MenuItem
               key={preset.value}
               value={preset.value}
-              disabled={safeValue.includes(preset.value)}
+              disabled={safeValue.includes(preset.value) || preset.value > maxMinutes}
             >
               {preset.label}
             </MenuItem>
@@ -130,11 +138,15 @@ export function ReminderSelector({ value, onChange, error, helperText }: Reminde
             label="Custom Minutes"
             type="number"
             value={customMinutes}
-            onChange={(e) => setCustomMinutes(e.target.value)}
-            inputProps={{ min: MIN_MINUTES, max: MAX_MINUTES }}
+            onChange={(e) => {
+              setCustomMinutes(e.target.value);
+              setCustomError(null);
+            }}
+            inputProps={{ min: MIN_MINUTES, max: maxMinutes }}
             size="small"
             sx={{ flex: 1 }}
-            error={error}
+            error={!!customError || error}
+            helperText={customError || undefined}
           />
           <Button onClick={handleCustomAdd} variant="contained" size="small">
             Add

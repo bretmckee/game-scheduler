@@ -622,6 +622,6 @@ describe('MyGames - pending announcement badge', () => {
       expect(screen.getByText('Pending Announcement Game')).toBeInTheDocument();
     });
 
-    expect(screen.getByText(/Pending announcement:/i)).toBeInTheDocument();
+    expect(screen.getByText(/Pending posting:/i)).toBeInTheDocument();
   });
 });
