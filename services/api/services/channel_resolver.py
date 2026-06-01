@@ -77,9 +77,22 @@ class ChannelResolver:
         text_channels = [ch for ch in channels if ch.get("type") == 0]
         text_channel_ids = {ch["id"] for ch in text_channels}
 
-        resolved = location_text
-        errors: list[dict] = []
+        resolved, errors = self._resolve_url_mentions(
+            location_text, url_matches, guild_discord_id, text_channel_ids
+        )
+        errors.extend(self._check_snowflake_tokens(snowflake_matches, text_channel_ids))
+        resolved, hash_errors = self._resolve_hash_mentions(resolved, hash_matches, text_channels)
+        errors.extend(hash_errors)
+        return resolved, errors
 
+    def _resolve_url_mentions(
+        self,
+        resolved: str,
+        url_matches: list[re.Match],
+        guild_discord_id: str,
+        text_channel_ids: set[str],
+    ) -> tuple[str, list[dict]]:
+        errors: list[dict] = []
         for url_match in url_matches:
             url_guild_id = url_match.group(1)
             url_channel_id = url_match.group(2)
@@ -97,9 +110,15 @@ class ChannelResolver:
                 })
             else:
                 resolved = resolved.replace(full_url, f"<#{url_channel_id}>", 1)
+        return resolved, errors
 
-        errors.extend(self._check_snowflake_tokens(snowflake_matches, text_channel_ids))
-
+    def _resolve_hash_mentions(
+        self,
+        resolved: str,
+        hash_matches: list[re.Match],
+        text_channels: list[dict],
+    ) -> tuple[str, list[dict]]:
+        errors: list[dict] = []
         for match in hash_matches:
             channel_name = match.group(1)
             matching_channels = [
@@ -137,7 +156,6 @@ class ChannelResolver:
                         {"id": ch["id"], "name": ch["name"]} for ch in similar_channels
                     ],
                 })
-
         return resolved, errors
 
     def _check_snowflake_tokens(

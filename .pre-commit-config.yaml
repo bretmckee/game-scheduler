@@ -206,11 +206,10 @@ repos:
       # Python cognitive complexity
       - id: complexipy
         name: complexipy cognitive complexity check
-        entry: bash -c 'mx=$(grep -m1 "max-complexity-allowed" pyproject.toml | awk -F"=" "{print \$2+0}"); out=$(complexipy .); rc=$?; [ $rc -eq 0 ] || { echo "$out" | awk -F"│" -v mx="$mx" "NF==6 && \$5+0 > mx"; exit $rc; }'
-        language: python
+        entry: bash -c 'mx=$(grep -m1 "max-complexity-allowed" pyproject.toml | awk -F"=" "{print \$2+0}"); out=$(uv run complexipy .); rc=$?; [ $rc -eq 0 ] || { echo "$out" | awk -F"│" -v mx="$mx" "NF==6 && \$5+0 > mx"; exit $rc; }'
+        language: system
         types: [python]
         pass_filenames: false
-        additional_dependencies: ['complexipy~=4.2.0']
 
       # TypeScript cyclomatic complexity
       - id: lizard-typescript
