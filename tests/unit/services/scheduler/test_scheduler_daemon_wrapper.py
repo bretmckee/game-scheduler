@@ -21,6 +21,7 @@
 
 """Unit tests for the unified scheduler daemon wrapper."""
 
+import logging
 import signal
 from unittest.mock import MagicMock, patch
 
@@ -187,3 +188,22 @@ class TestMainEdgeCases:
             wrapper.main()
 
         assert mock_cfg.call_args.kwargs["level"] == 10  # logging.DEBUG == 10
+
+    @patch("services.scheduler.scheduler_daemon_wrapper.flush_telemetry")
+    @patch("services.scheduler.scheduler_daemon_wrapper.init_telemetry")
+    @patch("services.scheduler.scheduler_daemon_wrapper.SchedulerDaemon")
+    def test_calls_suppress_noisy_loggers(
+        self, mock_daemon_cls, mock_init_telemetry, mock_flush, monkeypatch
+    ):
+        """suppress_noisy_loggers is called with the resolved log level."""
+        monkeypatch.setenv("LOG_LEVEL", "DEBUG")
+        mock_instance = MagicMock()
+        mock_instance.run.side_effect = lambda flag: None
+        mock_daemon_cls.return_value = mock_instance
+
+        with patch(
+            "services.scheduler.scheduler_daemon_wrapper.suppress_noisy_loggers"
+        ) as mock_suppress:
+            wrapper.main()
+
+        mock_suppress.assert_called_once_with(logging.DEBUG)

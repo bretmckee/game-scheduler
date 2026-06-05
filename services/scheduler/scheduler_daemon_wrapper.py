@@ -32,6 +32,7 @@ from shared.models import (
     ParticipantActionSchedule,
 )
 from shared.telemetry import flush_telemetry, init_telemetry
+from shared.utils.logging import suppress_noisy_loggers
 
 from .daemon_runner import register_shutdown_signals
 from .event_builders import build_notification_event, build_status_transition_event
@@ -53,6 +54,8 @@ def main() -> None:
         level=getattr(logging, log_level),
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
+
+    suppress_noisy_loggers(getattr(logging, log_level))
 
     init_telemetry("scheduler-daemon")
 

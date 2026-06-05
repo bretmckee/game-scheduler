@@ -32,6 +32,7 @@ from pathlib import Path
 from services.bot.bot import create_bot
 from services.bot.config import get_config
 from shared.telemetry import flush_telemetry, init_telemetry
+from shared.utils.logging import suppress_noisy_loggers
 
 
 def setup_logging(log_level: str) -> None:
@@ -49,6 +50,8 @@ def setup_logging(log_level: str) -> None:
 
     logging.getLogger("discord").setLevel(logging.WARNING)
     logging.getLogger("discord.http").setLevel(logging.WARNING)
+
+    suppress_noisy_loggers(getattr(logging, log_level.upper()))
 
 
 async def main() -> None:

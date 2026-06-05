@@ -57,6 +57,18 @@ def test_setup_logging_with_lowercase_level():
         assert call_kwargs["level"] == logging.INFO
 
 
+def test_setup_logging_calls_suppress_noisy_loggers():
+    """Test that suppress_noisy_loggers is called with the resolved log level."""
+    with (
+        patch("logging.basicConfig"),
+        patch("logging.getLogger"),
+        patch("services.api.main.suppress_noisy_loggers") as mock_suppress,
+    ):
+        main.setup_logging("DEBUG")
+
+        mock_suppress.assert_called_once_with(logging.DEBUG)
+
+
 @pytest.mark.asyncio
 async def test_main_starts_uvicorn_server():
     """Test that main function starts Uvicorn server with correct configuration."""

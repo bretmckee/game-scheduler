@@ -112,6 +112,17 @@ class TestSetupLogging:
             assert "%(levelname)s" in call_kwargs["format"]
             assert "%(message)s" in call_kwargs["format"]
 
+    def test_setup_logging_calls_suppress_noisy_loggers(self) -> None:
+        """Test that suppress_noisy_loggers is called with the resolved log level."""
+        with (
+            patch("logging.basicConfig"),
+            patch("logging.getLogger"),
+            patch("services.bot.main.suppress_noisy_loggers") as mock_suppress,
+        ):
+            setup_logging("DEBUG")
+
+            mock_suppress.assert_called_once_with(logging.DEBUG)
+
 
 class TestMain:
     """Test suite for main function."""

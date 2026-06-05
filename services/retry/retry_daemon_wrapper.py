@@ -31,6 +31,7 @@ import signal
 from typing import Any
 
 from shared.telemetry import flush_telemetry, init_telemetry
+from shared.utils.logging import suppress_noisy_loggers
 
 from .retry_daemon import RetryDaemon
 
@@ -54,6 +55,8 @@ def main() -> None:
         level=getattr(logging, log_level),
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
+
+    suppress_noisy_loggers(getattr(logging, log_level))
 
     init_telemetry("retry-daemon")
 

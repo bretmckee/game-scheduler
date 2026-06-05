@@ -33,6 +33,7 @@ import uvicorn
 from services.api.app import create_app
 from services.api.config import get_api_config
 from shared.telemetry import flush_telemetry, init_telemetry
+from shared.utils.logging import suppress_noisy_loggers
 
 app = create_app()
 
@@ -53,6 +54,8 @@ def setup_logging(log_level: str) -> None:
     logging.getLogger("uvicorn").setLevel(logging.INFO)
     logging.getLogger("fastapi").setLevel(logging.INFO)
     logging.getLogger("services.api").setLevel(logging.INFO)
+
+    suppress_noisy_loggers(getattr(logging, log_level.upper()))
 
 
 async def main() -> None:
