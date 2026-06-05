@@ -44,12 +44,13 @@ async def setup_game_schedules(
     db: AsyncSession,
     game: game_model.GameSession,
     reminder_minutes: list[int],
-    expected_duration_minutes: int | None,
 ) -> None:
-    """Set up all game schedules after a game is announced.
+    """Set up announcement schedules after a game is announced.
 
-    Creates join-notification entries for confirmed participants, populates the
-    reminder schedule, and creates status-transition schedule records.
+    Creates join-notification entries for confirmed participants and populates
+    the reminder schedule. Status-transition schedules (IN_PROGRESS/COMPLETED)
+    are created unconditionally at game creation time and must not be created
+    here.
 
     Does not commit.  The caller is responsible for committing the transaction.
 
@@ -57,11 +58,9 @@ async def setup_game_schedules(
         db: Active async database session.
         game: The just-announced GameSession (participants relationship must be loaded).
         reminder_minutes: Minutes before game start at which to send reminders.
-        expected_duration_minutes: Game duration for calculating the COMPLETED transition.
     """
     await _schedule_join_notifications(db, game)
     await _populate_reminder_schedule(db, game, reminder_minutes)
-    _create_status_schedules(db, game, expected_duration_minutes)
 
 
 async def _schedule_join_notifications(

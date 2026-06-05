@@ -106,6 +106,7 @@ async def test_persist_and_publish_adds_game_to_db(
     with (
         patch.object(game_service, "_create_participant_records", new=AsyncMock()),
         patch.object(game_service, "_setup_game_schedules", new=AsyncMock()),
+        patch.object(game_service, "_create_game_status_schedules", new=AsyncMock()),
         patch.object(game_service, "get_game", new=AsyncMock(return_value=mock_game)),
         patch.object(game_service, "_publish_game_created", new=AsyncMock()),
         patch.object(
@@ -121,20 +122,50 @@ async def test_persist_and_publish_adds_game_to_db(
 
 
 @pytest.mark.asyncio
-async def test_persist_and_publish_skips_schedules_when_post_at_future(
+async def test_deferred_game_creates_status_schedules_immediately(
     game_service, mock_game, mock_channel_config, resolved_fields
 ):
-    """_persist_and_publish does not schedule or publish when post_at is in the future."""
+    """Status schedules must be created at game creation even when post_at is in the future."""
     mock_game.post_at = datetime.datetime.now(datetime.UTC).replace(
         tzinfo=None
     ) + datetime.timedelta(hours=1)
 
-    mock_setup = AsyncMock()
+    mock_status_schedules = AsyncMock()
+
+    with (
+        patch.object(game_service, "_create_participant_records", new=AsyncMock()),
+        patch.object(game_service, "_setup_game_schedules", new=AsyncMock()),
+        patch.object(game_service, "_create_game_status_schedules", new=mock_status_schedules),
+        patch.object(game_service, "get_game", new=AsyncMock(return_value=mock_game)),
+        patch.object(game_service, "_publish_game_created", new=AsyncMock()),
+        patch.object(
+            game_service.db,
+            "execute",
+            new=AsyncMock(return_value=MagicMock(scalar_one=MagicMock(return_value=mock_game))),
+        ),
+    ):
+        await game_service._persist_and_publish(mock_game, [], resolved_fields, mock_channel_config)
+
+    mock_status_schedules.assert_called_once_with(
+        mock_game, resolved_fields["expected_duration_minutes"]
+    )
+
+
+@pytest.mark.asyncio
+async def test_persist_and_publish_skips_announcement_when_post_at_future(
+    game_service, mock_game, mock_channel_config, resolved_fields
+):
+    """_persist_and_publish does not publish game_created when post_at is in the future."""
+    mock_game.post_at = datetime.datetime.now(datetime.UTC).replace(
+        tzinfo=None
+    ) + datetime.timedelta(hours=1)
+
     mock_publish = AsyncMock()
 
     with (
         patch.object(game_service, "_create_participant_records", new=AsyncMock()),
-        patch.object(game_service, "_setup_game_schedules", new=mock_setup),
+        patch.object(game_service, "_setup_game_schedules", new=AsyncMock()),
+        patch.object(game_service, "_create_game_status_schedules", new=AsyncMock()),
         patch.object(game_service, "get_game", new=AsyncMock(return_value=mock_game)),
         patch.object(game_service, "_publish_game_created", new=mock_publish),
         patch.object(
@@ -145,7 +176,6 @@ async def test_persist_and_publish_skips_schedules_when_post_at_future(
     ):
         await game_service._persist_and_publish(mock_game, [], resolved_fields, mock_channel_config)
 
-    mock_setup.assert_not_called()
     mock_publish.assert_not_called()
 
 
@@ -198,7 +228,6 @@ async def test_persist_and_publish_sets_up_schedules(
     mock_setup.assert_called_once_with(
         mock_game,
         resolved_fields["reminder_minutes"],
-        resolved_fields["expected_duration_minutes"],
     )
 
 

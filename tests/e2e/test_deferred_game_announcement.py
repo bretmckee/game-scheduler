@@ -121,6 +121,21 @@ async def test_deferred_game_not_visible_before_announcement(
         f"Game with future post_at should not be announced immediately; message_id={row[0]}"
     )
 
+    # Status schedules must exist immediately at creation — before announcement.
+    # This verifies that status schedule creation is unconditional and not gated
+    # on the game being announced (the root cause of the June 2026 late-post incident).
+    result = await admin_db.execute(
+        text("SELECT target_status FROM game_status_schedule WHERE game_id = :game_id"),
+        {"game_id": game_id},
+    )
+    target_statuses = {row[0] for row in result.fetchall()}
+    assert "IN_PROGRESS" in target_statuses, (
+        "IN_PROGRESS status schedule must exist immediately after deferred game creation"
+    )
+    assert "COMPLETED" in target_statuses, (
+        "COMPLETED status schedule must exist immediately after deferred game creation"
+    )
+
     # Player A (non-host, non-manager) must not see the pending game in the list.
     player_response = await authenticated_player_a_client.get(
         f"/api/v1/games?guild_id={guild_db_id}"

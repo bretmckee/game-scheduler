@@ -133,7 +133,6 @@ async def test_announcement_loop_announce_posts_to_discord_and_sets_message_id()
         db=mock_db,
         game=game,
         reminder_minutes=[60, 15],
-        expected_duration_minutes=120,
     )
 
 
@@ -192,6 +191,77 @@ async def test_announcement_loop_start_closes_connection_on_cancel() -> None:
             await loop.start()
 
     mock_conn.close.assert_awaited_once()
+
+
+async def test_announcement_loop_start_logs_sleep_and_wake() -> None:
+    """start() logs the sleep duration and wake reason during a normal iteration."""
+    mock_conn = AsyncMock()
+    mock_conn.add_listener = AsyncMock()
+    mock_conn.close = AsyncMock()
+
+    bot = MagicMock()
+    loop = AnnouncementLoop("postgresql://test", bot)
+
+    process_calls = 0
+
+    async def fake_process_due() -> None:
+        nonlocal process_calls
+        process_calls += 1
+        if process_calls >= 2:
+            raise asyncio.CancelledError
+
+    async def fake_wait_for(coro: object, timeout: float) -> None:
+        if hasattr(coro, "close"):
+            coro.close()
+
+    with (
+        patch(
+            "services.bot.announcement_loop.asyncpg.connect",
+            new=AsyncMock(return_value=mock_conn),
+        ),
+        patch.object(loop, "_process_due", side_effect=fake_process_due),
+        patch.object(loop, "_next_due_time", new=AsyncMock(return_value=None)),
+        patch(
+            "services.bot.announcement_loop.asyncio.wait_for",
+            side_effect=fake_wait_for,
+        ),
+    ):
+        with pytest.raises(asyncio.CancelledError):
+            await loop.start()
+
+    assert process_calls == 2
+
+
+async def test_announcement_loop_start_retries_after_transient_error() -> None:
+    """start() catches non-CancelledError exceptions and retries the loop iteration."""
+    mock_conn = AsyncMock()
+    mock_conn.add_listener = AsyncMock()
+    mock_conn.close = AsyncMock()
+
+    bot = MagicMock()
+    loop = AnnouncementLoop("postgresql://test", bot)
+
+    process_calls = 0
+
+    async def fake_process_due() -> None:
+        nonlocal process_calls
+        process_calls += 1
+        if process_calls == 1:
+            msg = "transient DB error"
+            raise RuntimeError(msg)
+        raise asyncio.CancelledError
+
+    with (
+        patch(
+            "services.bot.announcement_loop.asyncpg.connect",
+            new=AsyncMock(return_value=mock_conn),
+        ),
+        patch.object(loop, "_process_due", side_effect=fake_process_due),
+    ):
+        with pytest.raises(asyncio.CancelledError):
+            await loop.start()
+
+    assert process_calls == 2
 
 
 async def test_announcement_loop_announce_logs_error_when_channel_not_found() -> None:

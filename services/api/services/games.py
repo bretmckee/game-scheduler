@@ -565,15 +565,16 @@ class GameService:
         self,
         game: game_model.GameSession,
         reminder_minutes: list[int],
-        expected_duration_minutes: int | None,
     ) -> None:
         """
-        Set up all game schedules (join notifications, reminders, status transitions).
+        Set up announcement schedules (join notifications, reminders).
+
+        Status-transition schedules (IN_PROGRESS/COMPLETED) are created
+        unconditionally at game creation time and must not be created here.
 
         Args:
             game: Game session to schedule notifications for
             reminder_minutes: List of minutes before game to send reminders
-            expected_duration_minutes: Expected game duration in minutes (for status transitions)
         """
         # Schedule join notifications for newly added participants
         await self._schedule_join_notifications_for_game(game)
@@ -581,9 +582,6 @@ class GameService:
         # Populate reminder notification schedule
         schedule_service = notification_schedule_service.NotificationScheduleService(self.db)
         await schedule_service.populate_schedule(game, reminder_minutes)
-
-        # Populate status transition schedule for SCHEDULED games
-        await self._create_game_status_schedules(game, expected_duration_minutes)
 
     async def _resolve_free_text_fields_for_create(
         self,
@@ -814,11 +812,16 @@ class GameService:
             datetime.UTC
         ).replace(tzinfo=None)
 
+        # Status schedules are always created at game creation time, regardless of
+        # whether the announcement is deferred. They depend only on scheduled_at, not
+        # on the game being publicly visible. The announcement loop must not recreate
+        # them later or it will hit the unique constraint.
+        await self._create_game_status_schedules(game, resolved_fields["expected_duration_minutes"])
+
         if not deferred:
             await self._setup_game_schedules(
                 game,
                 resolved_fields["reminder_minutes"],
-                resolved_fields["expected_duration_minutes"],
             )
 
         game = await self.get_game(game.id)
@@ -975,7 +978,6 @@ class GameService:
         await self._setup_game_schedules(
             new_game,
             source_game.reminder_minutes,
-            source_game.expected_duration_minutes,
         )
 
         await self._apply_deadline_carryover(
@@ -2144,7 +2146,7 @@ class GameService:
             reminder_minutes = (
                 game.reminder_minutes if game.reminder_minutes is not None else [60, 15]
             )
-            await self._setup_game_schedules(game, reminder_minutes, game.expected_duration_minutes)
+            await self._setup_game_schedules(game, reminder_minutes)
             await self._publish_game_created(game, game.channel)
             return game
 

@@ -61,8 +61,8 @@ def game():
 
 
 @pytest.mark.asyncio
-async def test_setup_game_schedules_delegates_to_all_three_helpers(db, game):
-    """setup_game_schedules must call all three helper functions."""
+async def test_setup_game_schedules_delegates_to_helpers(db, game):
+    """setup_game_schedules must call join-notification and reminder helpers."""
     with (
         patch(
             "shared.services.game_schedules._schedule_join_notifications", new=AsyncMock()
@@ -70,13 +70,11 @@ async def test_setup_game_schedules_delegates_to_all_three_helpers(db, game):
         patch(
             "shared.services.game_schedules._populate_reminder_schedule", new=AsyncMock()
         ) as mock_reminder,
-        patch("shared.services.game_schedules._create_status_schedules") as mock_status,
     ):
-        await setup_game_schedules(db, game, reminder_minutes=[30], expected_duration_minutes=90)
+        await setup_game_schedules(db, game, reminder_minutes=[30])
 
     mock_join.assert_awaited_once_with(db, game)
     mock_reminder.assert_awaited_once_with(db, game, [30])
-    mock_status.assert_called_once_with(db, game, 90)
 
 
 @pytest.mark.asyncio

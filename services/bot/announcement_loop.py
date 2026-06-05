@@ -67,26 +67,41 @@ class AnnouncementLoop:
         try:
             conn = await asyncpg.connect(db_url)
             await conn.add_listener("game_announcement_changed", self._on_notify)
+            logger.debug("AnnouncementLoop connected, listening for game_announcement_changed")
             while True:
-                await self._process_due()
-                next_due = await self._next_due_time()
-                if next_due is not None:
-                    wait = max(
-                        0.0,
-                        (
-                            next_due - datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
-                        ).total_seconds(),
+                try:
+                    await self._process_due()
+                    next_due = await self._next_due_time()
+                    if next_due is not None:
+                        wait = max(
+                            0.0,
+                            (
+                                next_due - datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+                            ).total_seconds(),
+                        )
+                    else:
+                        wait = float(self.MAX_TIMEOUT)
+                    wait = min(wait, float(self.MAX_TIMEOUT))
+                    logger.debug(
+                        "AnnouncementLoop sleeping %.1fs (next_due=%s)",
+                        wait,
+                        next_due,
                     )
-                else:
-                    wait = float(self.MAX_TIMEOUT)
-                wait = min(wait, float(self.MAX_TIMEOUT))
-                self._wake_event.clear()
-                with contextlib.suppress(TimeoutError):
-                    await asyncio.wait_for(self._wake_event.wait(), timeout=wait)
+                    self._wake_event.clear()
+                    with contextlib.suppress(TimeoutError):
+                        await asyncio.wait_for(self._wake_event.wait(), timeout=wait)
+                    logger.debug(
+                        "AnnouncementLoop woke up (reason=%s)",
+                        "notify" if self._wake_event.is_set() else "timeout",
+                    )
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    logger.exception("AnnouncementLoop: error in loop iteration, retrying")
         except asyncio.CancelledError:
             raise
         except Exception:
-            logger.exception("AnnouncementLoop failed")
+            logger.exception("AnnouncementLoop failed: could not establish database connection")
         finally:
             if conn is not None:
                 await conn.close()
@@ -95,6 +110,7 @@ class AnnouncementLoop:
         self, _conn: asyncpg.Connection, _pid: int, _channel: str, _payload: str
     ) -> None:
         """Wake the loop when a game_announcement_changed NOTIFY arrives."""
+        logger.debug("AnnouncementLoop: NOTIFY received (payload=%s)", _payload)
         self._wake_event.set()
 
     async def _next_due_time(self) -> datetime.datetime | None:
@@ -112,6 +128,7 @@ class AnnouncementLoop:
 
     async def _process_due(self) -> None:
         """Find all due unannounced games and announce each one."""
+        logger.debug("AnnouncementLoop: checking for due games")
         async with get_db_session() as db:
             result = await db.execute(
                 select(GameSession.id)
@@ -125,11 +142,13 @@ class AnnouncementLoop:
             )
             game_ids = list(result.scalars().all())
 
+        logger.debug("AnnouncementLoop: found %d due game(s): %s", len(game_ids), game_ids)
         for game_id in game_ids:
             await self._announce(game_id)
 
     async def _announce(self, game_id: str) -> None:
         """Post the Discord announcement for a single game and set up its schedules."""
+        logger.debug("AnnouncementLoop: announcing game=%s", game_id)
         async with get_db_session() as db:
             result = await db.execute(
                 select(GameSession)
@@ -170,13 +189,11 @@ class AnnouncementLoop:
             game.message_id = message_id
             await db.commit()
 
-            # Set up reminders and status schedules now that the announcement is live.
-            # These were intentionally skipped at game creation time for deferred games.
+            # Set up reminders and join notifications now that the announcement is live.
             await setup_game_schedules(
                 db=db,
                 game=game,
                 reminder_minutes=game.reminder_minutes or [],
-                expected_duration_minutes=game.expected_duration_minutes,
             )
             await db.commit()
 
