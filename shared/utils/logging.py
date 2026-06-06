@@ -26,6 +26,7 @@ import logging
 _NOISY_THIRD_PARTY_LOGGERS = [
     "aiormq",
     "aio_pika",
+    "pika",
     "urllib3",
 ]
 

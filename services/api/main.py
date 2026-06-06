@@ -35,8 +35,6 @@ from services.api.config import get_api_config
 from shared.telemetry import flush_telemetry, init_telemetry
 from shared.utils.logging import suppress_noisy_loggers
 
-app = create_app()
-
 
 def setup_logging(log_level: str) -> None:
     """
@@ -56,6 +54,12 @@ def setup_logging(log_level: str) -> None:
     logging.getLogger("services.api").setLevel(logging.INFO)
 
     suppress_noisy_loggers(getattr(logging, log_level.upper()))
+
+
+_config = get_api_config()
+setup_logging(_config.log_level)
+
+app = create_app()
 
 
 async def main() -> None:

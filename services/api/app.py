@@ -29,7 +29,6 @@ error handlers, and route registration.
 import asyncio
 import logging
 import os
-import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
 
@@ -61,14 +60,6 @@ from shared.version import get_api_version, get_git_version
 
 # Get log level from environment
 _log_level = os.getenv("LOG_LEVEL", "INFO").upper()
-
-# Configure logging at module level before anything else
-logging.basicConfig(
-    level=getattr(logging, _log_level),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler(sys.stdout)],
-    force=True,  # Override any existing configuration
-)
 
 # Set log levels for various loggers
 logging.getLogger("uvicorn.access").setLevel(getattr(logging, _log_level))
