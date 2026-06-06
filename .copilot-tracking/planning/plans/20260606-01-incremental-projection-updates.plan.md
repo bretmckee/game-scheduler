@@ -78,12 +78,12 @@ Replace the 60-second debouncing coalescing worker with per-event incremental Re
 - [x] Task 4.4: Add integration tests for `add_member` and `remove_member`
   - Details: `.copilot-tracking/planning/details/20260606-01-incremental-projection-updates-details.md` (Lines 214-230)
 
-### [ ] Phase 5: Fix `on_resumed` and Add `on_guild_available`
+### [x] Phase 5: Fix `on_resumed` and Add `on_guild_available`
 
-- [ ] Task 5.1: Fix `on_resumed` to call `repopulate_all` (TDD red→green)
+- [x] Task 5.1: Fix `on_resumed` to call `repopulate_all` (TDD red→green)
   - Details: `.copilot-tracking/planning/details/20260606-01-incremental-projection-updates-details.md` (Lines 234-246)
 
-- [ ] Task 5.2: Add `on_guild_available` handler (TDD red→green)
+- [x] Task 5.2: Add `on_guild_available` handler (TDD red→green)
   - Details: `.copilot-tracking/planning/details/20260606-01-incremental-projection-updates-details.md` (Lines 248-271)
 
 ### [ ] Phase 6: Remove Coalescing Worker

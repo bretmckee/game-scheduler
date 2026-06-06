@@ -429,9 +429,17 @@ class GameSchedulerBot(commands.Bot):
     async def on_resumed(self) -> None:
         """Handle Gateway reconnection after disconnect."""
         logger.info("Bot reconnected to Gateway")
+        redis = await get_redis_client()
+        await guild_projection.repopulate_all(bot=self, redis=redis)
         await self._recover_pending_workers()
         await self._trigger_sweep("on_resumed")
         await self._sweep_orphaned_embeds()
+
+    async def on_guild_available(self, guild: discord.Guild) -> None:
+        """Handle guild becoming available after a Discord outage."""
+        logger.info("Guild available: %s", guild.id)
+        redis = await get_redis_client()
+        await guild_projection.repopulate_all(bot=self, redis=redis)
 
     def _signal_repopulation(self, reason: str) -> None:
         """Emit telemetry and signal the coalescing worker to run a repopulation.

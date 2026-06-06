@@ -207,10 +207,25 @@ class TestGameSchedulerBot:
 
     @pytest.mark.asyncio
     async def test_on_resumed_event(self, bot_config: BotConfig) -> None:
-        """Test on_resumed event handler logs reconnection."""
+        """Test on_resumed event handler logs reconnection and triggers repopulation."""
         bot = GameSchedulerBot(bot_config)
+        mock_redis = AsyncMock()
 
-        with patch("services.bot.bot.logger") as mock_logger:
+        with (
+            patch("services.bot.bot.logger") as mock_logger,
+            patch(
+                "services.bot.bot.get_redis_client",
+                new_callable=AsyncMock,
+                return_value=mock_redis,
+            ),
+            patch(
+                "services.bot.bot.guild_projection.repopulate_all",
+                new_callable=AsyncMock,
+            ),
+            patch.object(bot, "_recover_pending_workers", new_callable=AsyncMock),
+            patch.object(bot, "_trigger_sweep", new_callable=AsyncMock),
+            patch.object(bot, "_sweep_orphaned_embeds", new_callable=AsyncMock),
+        ):
             await bot.on_resumed()
 
             mock_logger.info.assert_called_once_with("Bot reconnected to Gateway")
