@@ -53,29 +53,29 @@ Replace the 60-second debouncing coalescing worker with per-event incremental Re
 - [x] Task 2.4: Add integration tests for `update_member`
   - Details: `.copilot-tracking/planning/details/20260606-01-incremental-projection-updates-details.md` (Lines 81-97)
 
-### [ ] Phase 3: `on_user_update` Handler
+### [x] Phase 3: `on_user_update` Handler
 
-- [ ] Task 3.1: Add `_user_global_variants` and `update_user` to `guild_projection.py` (TDD red→green)
+- [x] Task 3.1: Add `_user_global_variants` and `update_user` to `guild_projection.py` (TDD red→green)
   - Details: `.copilot-tracking/planning/details/20260606-01-incremental-projection-updates-details.md` (Lines 101-124)
 
-- [ ] Task 3.2: Add `on_user_update` handler to `bot.py`
+- [x] Task 3.2: Add `on_user_update` handler to `bot.py`
   - Details: `.copilot-tracking/planning/details/20260606-01-incremental-projection-updates-details.md` (Lines 126-138)
 
-- [ ] Task 3.3: Add integration tests for `update_user`
+- [x] Task 3.3: Add integration tests for `update_user`
   - Details: `.copilot-tracking/planning/details/20260606-01-incremental-projection-updates-details.md` (Lines 140-154)
 
-### [ ] Phase 4: Incremental `on_member_add` / `on_member_remove`
+### [x] Phase 4: Incremental `on_member_add` / `on_member_remove`
 
-- [ ] Task 4.1: Add `add_member` and `remove_member` to `guild_projection.py` (TDD red→green)
+- [x] Task 4.1: Add `add_member` and `remove_member` to `guild_projection.py` (TDD red→green)
   - Details: `.copilot-tracking/planning/details/20260606-01-incremental-projection-updates-details.md` (Lines 158-183)
 
-- [ ] Task 4.2: Update `on_member_add` and `on_member_remove` in `bot.py`
+- [x] Task 4.2: Update `on_member_add` and `on_member_remove` in `bot.py`
   - Details: `.copilot-tracking/planning/details/20260606-01-incremental-projection-updates-details.md` (Lines 185-205)
 
-- [ ] Task 4.3: Delete `TestMemberEventHandlers` and `TestSignalRepopulation` classes from `test_bot_member_event_worker.py`
+- [x] Task 4.3: Delete `TestMemberEventHandlers` and `TestSignalRepopulation` classes from `test_bot_member_event_worker.py`
   - Details: `.copilot-tracking/planning/details/20260606-01-incremental-projection-updates-details.md` (Lines 207-212)
 
-- [ ] Task 4.4: Add integration tests for `add_member` and `remove_member`
+- [x] Task 4.4: Add integration tests for `add_member` and `remove_member`
   - Details: `.copilot-tracking/planning/details/20260606-01-incremental-projection-updates-details.md` (Lines 214-230)
 
 ### [ ] Phase 5: Fix `on_resumed` and Add `on_guild_available`

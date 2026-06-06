@@ -324,3 +324,150 @@ async def test_member_update_atomic_visibility(
     entries = {e.rsplit("\x00", 1)[0] for e in entries_raw}
     assert "renamed" in entries
     assert "ali" not in entries
+
+
+@pytest.mark.asyncio
+async def test_user_update_updates_all_guilds(
+    redis: cache_module.RedisClient, two_guild_bot: MagicMock
+) -> None:
+    """update_user updates proj:member and proj:usernames in every guild the user is in."""
+    await guild_projection.repopulate_all(bot=two_guild_bot, redis=redis)
+    gen = await redis.get(CacheKeys.proj_gen())
+    assert gen is not None
+
+    uid = 1003
+    uid_str = "1003"
+
+    user_before = MagicMock(spec=discord.User)
+    user_before.id = uid
+    user_before.name = "shared_user"
+    user_before.global_name = "Shared One"
+
+    user_after = MagicMock(spec=discord.User)
+    user_after.id = uid
+    user_after.name = "shared_user"
+    user_after.global_name = "Shared Renamed"
+
+    # Build guild mocks whose get_member() returns the after-state member
+    member_a = _make_mock_member(uid, "shared_user", global_name="Shared Renamed", nick="shared")
+    member_b = _make_mock_member(uid, "shared_user", global_name="Shared Renamed", nick="shared")
+    guild_a = MagicMock(spec=discord.Guild)
+    guild_a.id = 111
+    guild_a.get_member = MagicMock(return_value=member_a)
+    guild_b = MagicMock(spec=discord.Guild)
+    guild_b.id = 222
+    guild_b.get_member = MagicMock(return_value=member_b)
+
+    await guild_projection.update_user(
+        gen, user_before, user_after, [guild_a, guild_b], redis=redis
+    )
+
+    for guild_id in ("111", "222"):
+        raw = await redis._client.get(CacheKeys.proj_member(gen, guild_id, uid_str))
+        assert raw is not None, f"Missing proj:member for guild={guild_id}"
+        data = json.loads(raw)
+        assert data["global_name"] == "Shared Renamed"
+
+        usernames_key = CacheKeys.proj_usernames(gen, guild_id)
+        entries_raw = await redis._client.zrangebylex(usernames_key, "-", "+")
+        entries = {e.rsplit("\x00", 1)[0] for e in entries_raw}
+        assert "shared renamed" in entries
+        assert "shared one" not in entries
+
+    new_gen = await redis.get(CacheKeys.proj_gen())
+    assert new_gen == gen
+
+
+@pytest.mark.asyncio
+async def test_member_add_creates_member_key_and_updates_guilds(
+    redis: cache_module.RedisClient, two_guild_bot: MagicMock
+) -> None:
+    """add_member creates proj:member, adds guild to user_guilds, and ZADDs username variants."""
+    await guild_projection.repopulate_all(bot=two_guild_bot, redis=redis)
+    gen = await redis.get(CacheKeys.proj_gen())
+    assert gen is not None
+
+    new_member = _make_mock_member(
+        9999, "newuser", global_name="New User", nick="nicky", role_ids=[8001]
+    )
+    guild = MagicMock()
+    guild.id = 111
+    new_member.guild = guild
+
+    await guild_projection.add_member(gen, new_member, redis=redis)
+
+    raw = await redis._client.get(CacheKeys.proj_member(gen, "111", "9999"))
+    assert raw is not None
+    data = json.loads(raw)
+    assert data["username"] == "newuser"
+    assert data["global_name"] == "New User"
+
+    guilds_raw = await redis._client.get(CacheKeys.proj_user_guilds(gen, "9999"))
+    assert guilds_raw is not None
+    assert "111" in json.loads(guilds_raw)
+
+    entries_raw = await redis._client.zrangebylex(CacheKeys.proj_usernames(gen, "111"), "-", "+")
+    entries = {e.rsplit("\x00", 1)[0] for e in entries_raw}
+    assert "newuser" in entries
+    assert "new user" in entries
+    assert "nicky" in entries
+
+    assert await redis.get(CacheKeys.proj_gen()) == gen
+
+
+@pytest.mark.asyncio
+async def test_member_remove_deletes_member_key_and_updates_guilds(
+    redis: cache_module.RedisClient, two_guild_bot: MagicMock
+) -> None:
+    """remove_member deletes proj:member, removes guild from user_guilds, ZREMs variants."""
+    await guild_projection.repopulate_all(bot=two_guild_bot, redis=redis)
+    gen = await redis.get(CacheKeys.proj_gen())
+    assert gen is not None
+
+    # shared_user (1003) is in both guilds; remove from guild 111
+    member = _make_mock_member(
+        1003, "shared_user", global_name="Shared One", nick="shared", role_ids=[]
+    )
+    guild = MagicMock()
+    guild.id = 111
+    member.guild = guild
+
+    await guild_projection.remove_member(gen, member, redis=redis)
+
+    assert await redis._client.get(CacheKeys.proj_member(gen, "111", "1003")) is None
+
+    guilds_raw = await redis._client.get(CacheKeys.proj_user_guilds(gen, "1003"))
+    assert guilds_raw is not None
+    remaining = json.loads(guilds_raw)
+    assert "111" not in remaining
+    assert "222" in remaining
+
+    entries_raw = await redis._client.zrangebylex(CacheKeys.proj_usernames(gen, "111"), "-", "+")
+    entries = {e.rsplit("\x00", 1)[0] for e in entries_raw}
+    assert "shared_user" not in entries
+
+    assert await redis.get(CacheKeys.proj_gen()) == gen
+
+
+@pytest.mark.asyncio
+async def test_member_remove_last_guild_leaves_empty_guilds_list(
+    redis: cache_module.RedisClient, two_guild_bot: MagicMock
+) -> None:
+    """Removing a user from their only guild leaves proj:user_guilds as an empty list."""
+    await guild_projection.repopulate_all(bot=two_guild_bot, redis=redis)
+    gen = await redis.get(CacheKeys.proj_gen())
+    assert gen is not None
+
+    # bob (1002) is only in guild 111
+    member = _make_mock_member(1002, "bob", global_name="Bob Jones", nick=None, role_ids=[9002])
+    guild = MagicMock()
+    guild.id = 111
+    member.guild = guild
+
+    await guild_projection.remove_member(gen, member, redis=redis)
+
+    assert await redis._client.get(CacheKeys.proj_member(gen, "111", "1002")) is None
+
+    guilds_raw = await redis._client.get(CacheKeys.proj_user_guilds(gen, "1002"))
+    assert guilds_raw is not None
+    assert json.loads(guilds_raw) == []

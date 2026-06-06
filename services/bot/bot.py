@@ -448,9 +448,13 @@ class GameSchedulerBot(commands.Bot):
             logger.info("Repopulation triggered: reason=%s", reason)
         self._member_event.set()
 
-    async def on_member_add(self, _member: discord.Member) -> None:
+    async def on_member_add(self, member: discord.Member) -> None:
         """Handle member added to guild event."""
-        self._signal_repopulation("member_add")
+        redis = await get_redis_client()
+        gen = await redis.get(CacheKeys.proj_gen())
+        if gen is None:
+            return
+        await guild_projection.add_member(gen, member, redis=redis)
 
     async def on_member_update(self, before: discord.Member, after: discord.Member) -> None:
         """Handle member profile update event."""
@@ -460,9 +464,21 @@ class GameSchedulerBot(commands.Bot):
             return
         await guild_projection.update_member(gen, before, after, redis=redis)
 
-    async def on_member_remove(self, _member: discord.Member) -> None:
+    async def on_user_update(self, before: discord.User, after: discord.User) -> None:
+        """Handle user profile update event (global username or global_name change)."""
+        redis = await get_redis_client()
+        gen = await redis.get(CacheKeys.proj_gen())
+        if gen is None:
+            return
+        await guild_projection.update_user(gen, before, after, self.guilds, redis=redis)
+
+    async def on_member_remove(self, member: discord.Member) -> None:
         """Handle member removed from guild event."""
-        self._signal_repopulation("member_remove")
+        redis = await get_redis_client()
+        gen = await redis.get(CacheKeys.proj_gen())
+        if gen is None:
+            return
+        await guild_projection.remove_member(gen, member, redis=redis)
 
     async def on_raw_message_delete(self, payload: discord.RawMessageDeleteEvent) -> None:
         """Handle raw message delete event to detect embed deletions.

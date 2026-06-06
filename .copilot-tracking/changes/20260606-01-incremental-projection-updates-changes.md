@@ -33,13 +33,34 @@ Replace the 60-second debouncing coalescing worker with per-event incremental Re
 
 ## Phase 3: `on_user_update` Handler
 
-_(not yet implemented)_
+### Added
+
+- `_user_global_variants(user)` in `services/bot/guild_projection.py` — deduped lowercase username and global_name variants for a `discord.User` (no nick, which is guild-scoped)
+- `update_user(gen, user_before, user_after, bot_guilds, *, redis)` in `services/bot/guild_projection.py` — returns early if indexed variants unchanged; otherwise opens an atomic pipeline and for each guild where the user is a member, writes the member key and ZADDs/ZREMs changed variants
+- `on_user_update` handler in `services/bot/bot.py` — fetches gen, returns if absent, delegates to `update_user`
+- 10 unit tests in `tests/unit/bot/test_guild_projection_incremental.py` — 3 for `_user_global_variants`, 5 for `update_user`, 2 for the `on_user_update` handler
+- 1 integration test in `tests/integration/test_guild_projection_writes.py` — `test_user_update_updates_all_guilds` verifies both guilds get updated member keys and sorted sets, old variant removed, gen unchanged
 
 ---
 
 ## Phase 4: Incremental `on_member_add` / `on_member_remove`
 
-_(not yet implemented)_
+### Added
+
+- `add_member(gen, member, *, redis)` in `services/bot/guild_projection.py` — atomic pipeline: writes member key, appends guild to user_guilds, ZADDs all username variants; does not change gen pointer
+- `remove_member(gen, member, *, redis)` in `services/bot/guild_projection.py` — atomic pipeline: deletes member key, removes guild from user_guilds, ZREMs all username variants; does not change gen pointer
+- 8 unit tests in `tests/unit/bot/test_guild_projection_incremental.py` for `add_member` and `remove_member` (member key written/deleted, guilds list updated, sorted set ZADDs/ZREMs correct, pipeline executed)
+- 4 handler unit tests in `tests/unit/bot/test_guild_projection_incremental.py` for `on_member_add` and `on_member_remove` handlers
+- 3 integration tests in `tests/integration/test_guild_projection_writes.py` — add creates member key and updates guilds, remove deletes member key and updates guilds, remove from last guild leaves empty guilds list
+
+### Modified
+
+- `services/bot/bot.py` — `on_member_add` and `on_member_remove` now call `add_member`/`remove_member` directly instead of `_signal_repopulation`
+
+### Deleted
+
+- `TestMemberEventHandlers` class from `tests/unit/bot/test_bot_member_event_worker.py` — handler no longer signals the coalescing event
+- `TestSignalRepopulation` class from `tests/unit/bot/test_bot_member_event_worker.py` — `_signal_repopulation` is now dead code (removed in Phase 6)
 
 ---
 

@@ -23,6 +23,7 @@
 
 import json
 import logging
+from collections.abc import Iterable
 from datetime import UTC, datetime
 
 import discord
@@ -346,6 +347,144 @@ async def update_member(
             for name_lower in new_variants - old_variants:
                 pipe.zadd(usernames_key, {f"{name_lower}\x00{uid}": 0})
             for name_lower in old_variants - new_variants:
+                pipe.zrem(usernames_key, f"{name_lower}\x00{uid}")
+        await pipe.execute()
+
+
+async def add_member(gen: str, member: discord.Member, *, redis: RedisClient) -> None:
+    """Add a new member to the projection incrementally using an atomic pipeline.
+
+    Writes the member key, appends the guild to the user's guild list, and ZADDs
+    all username variants. Does not change the generation pointer.
+
+    Args:
+        gen: Current generation pointer value
+        member: The new Discord member
+        redis: Redis async client
+    """
+    guild_id = str(member.guild.id)
+    uid = str(member.id)
+
+    raw = await redis.get(CacheKeys.proj_user_guilds(gen, uid))
+    current_guilds: list[str] = json.loads(raw) if raw else []
+    if guild_id not in current_guilds:
+        current_guilds.append(guild_id)
+
+    member_key, guilds_key, usernames_key = _member_projection_keys(gen, guild_id, uid)
+
+    async with redis._client.pipeline(transaction=True) as pipe:
+        pipe.multi()
+        pipe.set(member_key, json.dumps(_build_member_data(member)))
+        pipe.set(guilds_key, json.dumps(current_guilds))
+        for name_lower in _member_username_variants(member):
+            pipe.zadd(usernames_key, {f"{name_lower}\x00{uid}": 0})
+        await pipe.execute()
+
+
+async def remove_member(gen: str, member: discord.Member, *, redis: RedisClient) -> None:
+    """Remove a member from the projection incrementally using an atomic pipeline.
+
+    Deletes the member key, removes the guild from the user's guild list, and ZREMs
+    all username variants. Does not change the generation pointer.
+
+    Args:
+        gen: Current generation pointer value
+        member: The Discord member being removed
+        redis: Redis async client
+    """
+    guild_id = str(member.guild.id)
+    uid = str(member.id)
+
+    raw = await redis.get(CacheKeys.proj_user_guilds(gen, uid))
+    current_guilds: list[str] = json.loads(raw) if raw else []
+    updated_guilds = [g for g in current_guilds if g != guild_id]
+
+    member_key, guilds_key, usernames_key = _member_projection_keys(gen, guild_id, uid)
+
+    async with redis._client.pipeline(transaction=True) as pipe:
+        pipe.multi()
+        pipe.delete(member_key)
+        pipe.set(guilds_key, json.dumps(updated_guilds))
+        for name_lower in _member_username_variants(member):
+            pipe.zrem(usernames_key, f"{name_lower}\x00{uid}")
+        await pipe.execute()
+
+
+def _member_projection_keys(gen: str, guild_id: str, uid: str) -> tuple[str, str, str]:
+    """Return the three projection keys for a single guild member."""
+    return (
+        CacheKeys.proj_member(gen, guild_id, uid),
+        CacheKeys.proj_user_guilds(gen, uid),
+        CacheKeys.proj_usernames(gen, guild_id),
+    )
+
+
+def _user_global_variants(user: discord.User) -> list[str]:
+    """Return lowercased, deduplicated name variants for a User (username and global_name only).
+
+    Mirrors _member_username_variants but takes a discord.User. Nick is guild-scoped
+    and is not available on the User object.
+    """
+    seen: set[str] = set()
+    result: list[str] = []
+    for name in [user.name, user.global_name]:
+        if not name:
+            continue
+        lower = name.lower()
+        if lower not in seen:
+            seen.add(lower)
+            result.append(lower)
+    return result
+
+
+async def update_user(
+    gen: str,
+    user_before: discord.User,
+    user_after: discord.User,
+    bot_guilds: Iterable[discord.Guild],
+    *,
+    redis: RedisClient,
+) -> None:
+    """Update member records and username sorted sets for all guilds when a User changes.
+
+    Returns early without touching Redis when the indexed name variants (username and
+    global_name) are unchanged — avatar-only changes don't need projection writes.
+
+    For each guild where the user is a member, writes the member key with after-state
+    data and ZADDs/ZREMs only the changed username variants.
+
+    Args:
+        gen: Current generation pointer value
+        user_before: User state before the update
+        user_after: User state after the update
+        bot_guilds: All guilds known to the bot
+        redis: Redis async client
+    """
+    old_variants = set(_user_global_variants(user_before))
+    new_variants = set(_user_global_variants(user_after))
+
+    if old_variants == new_variants:
+        return
+
+    uid = str(user_after.id)
+    added_variants = new_variants - old_variants
+    removed_variants = old_variants - new_variants
+
+    async with redis._client.pipeline(transaction=True) as pipe:
+        pipe.multi()
+        for guild in bot_guilds:
+            member = guild.get_member(user_after.id)
+            if member is None:
+                continue
+            guild_id = str(guild.id)
+            pipe.set(
+                CacheKeys.proj_member(gen, guild_id, uid),
+                json.dumps(_build_member_data(member)),
+            )
+            usernames_key = CacheKeys.proj_usernames(gen, guild_id)
+            for name_lower in added_variants:
+                pipe.zadd(usernames_key, {f"{name_lower}\x00{uid}": 0})
+            for name_lower in removed_variants:
                 pipe.zrem(usernames_key, f"{name_lower}\x00{uid}")
         await pipe.execute()
 
