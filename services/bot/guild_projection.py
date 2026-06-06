@@ -340,6 +340,8 @@ async def update_member(
     member_key = CacheKeys.proj_member(gen, guild_id, uid)
     usernames_key = CacheKeys.proj_usernames(gen, guild_id)
 
+    logger.info("Projection update_member: guild=%s uid=%s", guild_id, uid)
+
     async with redis._client.pipeline(transaction=True) as pipe:
         pipe.multi()
         pipe.set(member_key, json.dumps(_build_member_data(member_after)))
@@ -364,6 +366,8 @@ async def add_member(gen: str, member: discord.Member, *, redis: RedisClient) ->
     """
     guild_id = str(member.guild.id)
     uid = str(member.id)
+
+    logger.info("Projection add_member: guild=%s uid=%s", guild_id, uid)
 
     raw = await redis.get(CacheKeys.proj_user_guilds(gen, uid))
     current_guilds: list[str] = json.loads(raw) if raw else []
@@ -394,6 +398,8 @@ async def remove_member(gen: str, member: discord.Member, *, redis: RedisClient)
     """
     guild_id = str(member.guild.id)
     uid = str(member.id)
+
+    logger.info("Projection remove_member: guild=%s uid=%s", guild_id, uid)
 
     raw = await redis.get(CacheKeys.proj_user_guilds(gen, uid))
     current_guilds: list[str] = json.loads(raw) if raw else []
@@ -467,6 +473,8 @@ async def update_user(
         return
 
     uid = str(user_after.id)
+
+    logger.info("Projection update_user: uid=%s", uid)
     added_variants = new_variants - old_variants
     removed_variants = old_variants - new_variants
 
