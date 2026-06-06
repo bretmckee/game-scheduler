@@ -34,9 +34,9 @@ Replace the 60-second debouncing coalescing worker with per-event incremental Re
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Baseline Integration Tests for `repopulate_all`
+### [x] Phase 1: Baseline Integration Tests for `repopulate_all`
 
-- [ ] Task 1.1: Create baseline integration tests in `tests/integration/test_guild_projection_writes.py`
+- [x] Task 1.1: Create baseline integration tests in `tests/integration/test_guild_projection_writes.py`
   - Details: `.copilot-tracking/planning/details/20260606-01-incremental-projection-updates-details.md` (Lines 13-33)
 
 ### [ ] Phase 2: Incremental `on_member_update`
