@@ -766,6 +766,46 @@ async def test_resolve_user_friendly_mention_multiple_matches(resolver):
 
 
 @pytest.mark.asyncio
+async def test_resolve_user_friendly_mention_more_than_10_matches(resolver):
+    """Test _resolve_user_friendly_mention with >10 matches returns longer-prefix message."""
+    members = [
+        {
+            "uid": str(i),
+            "username": f"alice{i}",
+            "global_name": None,
+            "nick": None,
+            "roles": [],
+            "avatar_url": None,
+        }
+        for i in range(11)
+    ]
+    with (
+        patch(
+            "services.api.services.participant_resolver.cache_client.get_redis_client",
+            new_callable=AsyncMock,
+            return_value=AsyncMock(),
+        ),
+        patch(
+            "services.api.services.participant_resolver.member_projection.search_members_by_prefix",
+            new_callable=AsyncMock,
+            return_value=members,
+        ),
+    ):
+        participant, error = await resolver._resolve_user_friendly_mention(
+            guild_discord_id="999",
+            input_text="@bre",
+            mention_text="bre",
+        )
+
+    assert participant is None
+    assert error is not None
+    assert error["input"] == "@bre"
+    assert "more than 10" in error["reason"]
+    assert "longer prefix" in error["reason"]
+    assert error["suggestions"] == []
+
+
+@pytest.mark.asyncio
 async def test_resolve_user_friendly_mention_api_error(resolver):
     """Test _resolve_user_friendly_mention handles exception from search."""
     with (

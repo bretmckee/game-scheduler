@@ -39,6 +39,8 @@ from shared.models import user as user_model
 
 logger = logging.getLogger(__name__)
 
+_MAX_MENTION_SUGGESTIONS = 10
+
 
 class ValidationError(Exception):
     """Validation error for participant resolution."""
@@ -165,13 +167,25 @@ class ParticipantResolver:
                 )
 
             # Multiple matches - disambiguation needed
+            if len(members) > _MAX_MENTION_SUGGESTIONS:
+                return (
+                    None,
+                    {
+                        "input": input_text,
+                        "reason": (
+                            f"{input_text} matched more than {_MAX_MENTION_SUGGESTIONS}"
+                            " users — type a longer prefix"
+                        ),
+                        "suggestions": [],
+                    },
+                )
             suggestions: list[dict[str, str]] = [
                 {
                     "discordId": m["uid"],
                     "username": m["username"],
                     "displayName": (m.get("nick") or m.get("global_name") or m["username"]),
                 }
-                for m in members[:5]
+                for m in members
             ]
             return (
                 None,
