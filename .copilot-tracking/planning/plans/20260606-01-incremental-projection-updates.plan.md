@@ -39,18 +39,18 @@ Replace the 60-second debouncing coalescing worker with per-event incremental Re
 - [x] Task 1.1: Create baseline integration tests in `tests/integration/test_guild_projection_writes.py`
   - Details: `.copilot-tracking/planning/details/20260606-01-incremental-projection-updates-details.md` (Lines 13-33)
 
-### [ ] Phase 2: Incremental `on_member_update`
+### [x] Phase 2: Incremental `on_member_update`
 
-- [ ] Task 2.1: Add `update_member` function to `guild_projection.py` (TDD red→green)
+- [x] Task 2.1: Add `update_member` function to `guild_projection.py` (TDD red→green)
   - Details: `.copilot-tracking/planning/details/20260606-01-incremental-projection-updates-details.md` (Lines 37-57)
 
-- [ ] Task 2.2: Update `on_member_update` in `bot.py` to call `update_member`
+- [x] Task 2.2: Update `on_member_update` in `bot.py` to call `update_member`
   - Details: `.copilot-tracking/planning/details/20260606-01-incremental-projection-updates-details.md` (Lines 59-72)
 
-- [ ] Task 2.3: Delete `on_member_update` test from `TestMemberEventHandlers` in `test_bot_member_event_worker.py`
+- [x] Task 2.3: Delete `on_member_update` test from `TestMemberEventHandlers` in `test_bot_member_event_worker.py`
   - Details: `.copilot-tracking/planning/details/20260606-01-incremental-projection-updates-details.md` (Lines 74-79)
 
-- [ ] Task 2.4: Add integration tests for `update_member`
+- [x] Task 2.4: Add integration tests for `update_member`
   - Details: `.copilot-tracking/planning/details/20260606-01-incremental-projection-updates-details.md` (Lines 81-97)
 
 ### [ ] Phase 3: `on_user_update` Handler

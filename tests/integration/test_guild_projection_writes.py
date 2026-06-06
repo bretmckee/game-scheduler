@@ -191,3 +191,136 @@ async def test_repopulate_all_search_returns_member(
     matched = next(r for r in results if r["uid"] == "1001")
     assert matched["username"] == "alice"
     assert matched["global_name"] == "Alice Smith"
+
+
+@pytest.mark.asyncio
+async def test_member_update_role_change_updates_member_key(
+    redis: cache_module.RedisClient, two_guild_bot: MagicMock
+) -> None:
+    """update_member reflects new roles in proj:member; gen pointer is unchanged."""
+    await guild_projection.repopulate_all(bot=two_guild_bot, redis=redis)
+    gen = await redis.get(CacheKeys.proj_gen())
+    assert gen is not None
+
+    guild_id = "111"
+    uid = "1001"
+    before = _make_mock_member(
+        1001, "alice", global_name="Alice Smith", nick="ali", role_ids=[9001]
+    )
+    after = _make_mock_member(
+        1001, "alice", global_name="Alice Smith", nick="ali", role_ids=[9001, 9003]
+    )
+
+    guild = MagicMock()
+    guild.id = 111
+    before.guild = guild
+    after.guild = guild
+
+    await guild_projection.update_member(gen, before, after, redis=redis)
+
+    raw = await redis._client.get(CacheKeys.proj_member(gen, guild_id, uid))
+    assert raw is not None
+    data = json.loads(raw)
+    assert "9001" in data["roles"]
+    assert "9003" in data["roles"]
+    assert "9002" not in data["roles"]
+
+    new_gen = await redis.get(CacheKeys.proj_gen())
+    assert new_gen == gen
+
+
+@pytest.mark.asyncio
+async def test_member_update_nick_change_updates_sorted_set(
+    redis: cache_module.RedisClient, two_guild_bot: MagicMock
+) -> None:
+    """update_member adds new nick variant and removes old nick variant from sorted set."""
+    await guild_projection.repopulate_all(bot=two_guild_bot, redis=redis)
+    gen = await redis.get(CacheKeys.proj_gen())
+    assert gen is not None
+
+    guild = MagicMock()
+    guild.id = 111
+    before = _make_mock_member(
+        1001, "alice", global_name="Alice Smith", nick="ali", role_ids=[9001]
+    )
+    after = _make_mock_member(
+        1001, "alice", global_name="Alice Smith", nick="newali", role_ids=[9001]
+    )
+    before.guild = guild
+    after.guild = guild
+
+    await guild_projection.update_member(gen, before, after, redis=redis)
+
+    usernames_key = CacheKeys.proj_usernames(gen, "111")
+    entries_raw = await redis._client.zrangebylex(usernames_key, "-", "+")
+    entries = {e.rsplit("\x00", 1)[0] for e in entries_raw}
+
+    assert "newali" in entries
+    assert "ali" not in entries
+
+    new_gen = await redis.get(CacheKeys.proj_gen())
+    assert new_gen == gen
+
+
+@pytest.mark.asyncio
+async def test_member_update_no_name_change_skips_sorted_set(
+    redis: cache_module.RedisClient, two_guild_bot: MagicMock
+) -> None:
+    """Role-only change leaves the sorted set entries identical before and after."""
+    await guild_projection.repopulate_all(bot=two_guild_bot, redis=redis)
+    gen = await redis.get(CacheKeys.proj_gen())
+    assert gen is not None
+
+    usernames_key = CacheKeys.proj_usernames(gen, "111")
+    entries_before = set(await redis._client.zrangebylex(usernames_key, "-", "+"))
+
+    guild = MagicMock()
+    guild.id = 111
+    before = _make_mock_member(
+        1001, "alice", global_name="Alice Smith", nick="ali", role_ids=[9001]
+    )
+    after = _make_mock_member(
+        1001, "alice", global_name="Alice Smith", nick="ali", role_ids=[9001, 9003]
+    )
+    before.guild = guild
+    after.guild = guild
+
+    await guild_projection.update_member(gen, before, after, redis=redis)
+
+    entries_after = set(await redis._client.zrangebylex(usernames_key, "-", "+"))
+    assert entries_after == entries_before
+
+
+@pytest.mark.asyncio
+async def test_member_update_atomic_visibility(
+    redis: cache_module.RedisClient, two_guild_bot: MagicMock
+) -> None:
+    """After update_member, proj:member and proj:usernames are self-consistent."""
+    await guild_projection.repopulate_all(bot=two_guild_bot, redis=redis)
+    gen = await redis.get(CacheKeys.proj_gen())
+    assert gen is not None
+
+    guild = MagicMock()
+    guild.id = 111
+    uid = "1001"
+    before = _make_mock_member(
+        1001, "alice", global_name="Alice Smith", nick="ali", role_ids=[9001]
+    )
+    after = _make_mock_member(
+        1001, "alice", global_name="Alice Smith", nick="renamed", role_ids=[9002]
+    )
+    before.guild = guild
+    after.guild = guild
+
+    await guild_projection.update_member(gen, before, after, redis=redis)
+
+    raw = await redis._client.get(CacheKeys.proj_member(gen, "111", uid))
+    assert raw is not None
+    data = json.loads(raw)
+    assert data["nick"] == "renamed"
+
+    usernames_key = CacheKeys.proj_usernames(gen, "111")
+    entries_raw = await redis._client.zrangebylex(usernames_key, "-", "+")
+    entries = {e.rsplit("\x00", 1)[0] for e in entries_raw}
+    assert "renamed" in entries
+    assert "ali" not in entries

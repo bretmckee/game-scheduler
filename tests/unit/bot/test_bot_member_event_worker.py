@@ -226,20 +226,6 @@ class TestMemberEventHandlers:
         mock_counter.add.assert_called_once_with(1, {"reason": "member_add"})
         assert bot._member_event.is_set()
 
-    async def test_on_member_update_emits_counter_and_sets_event(self) -> None:
-        """on_member_update emits started{reason="member_update"} and sets the member event."""
-        bot = self._make_bot_with_event()
-        before = MagicMock()
-        after = MagicMock()
-
-        with patch(
-            "services.bot.bot.guild_projection.repopulation_started_counter"
-        ) as mock_counter:
-            await bot.on_member_update(before, after)
-
-        mock_counter.add.assert_called_once_with(1, {"reason": "member_update"})
-        assert bot._member_event.is_set()
-
     async def test_on_member_remove_emits_counter_and_sets_event(self) -> None:
         """on_member_remove emits started{reason="member_remove"} and sets the member event."""
         bot = self._make_bot_with_event()

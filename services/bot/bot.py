@@ -452,9 +452,13 @@ class GameSchedulerBot(commands.Bot):
         """Handle member added to guild event."""
         self._signal_repopulation("member_add")
 
-    async def on_member_update(self, _before: discord.Member, _after: discord.Member) -> None:
+    async def on_member_update(self, before: discord.Member, after: discord.Member) -> None:
         """Handle member profile update event."""
-        self._signal_repopulation("member_update")
+        redis = await get_redis_client()
+        gen = await redis.get(CacheKeys.proj_gen())
+        if gen is None:
+            return
+        await guild_projection.update_member(gen, before, after, redis=redis)
 
     async def on_member_remove(self, _member: discord.Member) -> None:
         """Handle member removed from guild event."""

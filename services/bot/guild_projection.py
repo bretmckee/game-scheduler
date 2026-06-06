@@ -311,6 +311,45 @@ async def write_guild_name(
     await redis.set(key, guild_name, ttl=None)
 
 
+async def update_member(
+    gen: str,
+    member_before: discord.Member,
+    member_after: discord.Member,
+    *,
+    redis: RedisClient,
+) -> None:
+    """Update a single member record in the current generation using an atomic pipeline.
+
+    Writes the member key with after-state data. If username variants changed,
+    ZADDs the new variants and ZREMs the dropped ones on the sorted set.
+    Does not change the generation pointer.
+
+    Args:
+        gen: Current generation pointer value
+        member_before: Member state before the update
+        member_after: Member state after the update
+        redis: Redis async client
+    """
+    guild_id = str(member_after.guild.id)
+    uid = str(member_after.id)
+
+    old_variants = set(_member_username_variants(member_before))
+    new_variants = set(_member_username_variants(member_after))
+
+    member_key = CacheKeys.proj_member(gen, guild_id, uid)
+    usernames_key = CacheKeys.proj_usernames(gen, guild_id)
+
+    async with redis._client.pipeline(transaction=True) as pipe:
+        pipe.multi()
+        pipe.set(member_key, json.dumps(_build_member_data(member_after)))
+        if old_variants != new_variants:
+            for name_lower in new_variants - old_variants:
+                pipe.zadd(usernames_key, {f"{name_lower}\x00{uid}": 0})
+            for name_lower in old_variants - new_variants:
+                pipe.zrem(usernames_key, f"{name_lower}\x00{uid}")
+        await pipe.execute()
+
+
 async def write_bot_last_seen(
     *,
     redis: RedisClient,
