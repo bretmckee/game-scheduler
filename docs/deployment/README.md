@@ -8,6 +8,7 @@ Documentation for deploying and operating Game Scheduler in production environme
 - **[Configuration](configuration.md)** - Runtime configuration and environment variables
 - **[Docker Guide](docker.md)** - Container deployment, port strategy, and build optimization
 - **[Version Management](version-management.md)** - Automatic versioning with setuptools-scm
+- **[Prod Testing with Oracle Cloud and Tailscale](prod-testing-with-oracle-tailscale.md)** - Test the production Caddy TLS stack when your primary IP is already in use
 
 ## Overview
 
@@ -77,6 +78,7 @@ Before deploying, you need:
    - Update `RABBITMQ_URL` with new password
 
 2. **Protect environment files**:
+
    ```bash
    chmod 600 config/env/env.prod.local
    ```
@@ -126,6 +128,7 @@ cp config/env/env.prod config/env/env.prod.local
 Game Scheduler uses `setuptools-scm` for automatic versioning from git tags. No manual version configuration required!
 
 **Access version information:**
+
 - API endpoint: `/api/v1/version`
 - Health endpoint: `/health`
 - Web interface: About page
@@ -137,6 +140,7 @@ See [Version Management Guide](version-management.md) for detailed information.
 Game Scheduler includes OpenTelemetry instrumentation for traces, metrics, and logs.
 
 **Grafana Cloud integration** (optional):
+
 - Configure `GRAFANA_CLOUD_*` environment variables
 - Grafana Alloy forwards telemetry to Grafana Cloud
 - Free tier: 50GB traces/logs, 10K active metrics
