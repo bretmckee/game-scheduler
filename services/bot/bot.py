@@ -118,7 +118,6 @@ class GameSchedulerBot(commands.Bot):
         self.event_publisher: BotEventPublisher | None = None
         self.api_cache = None
         self._sweep_task: asyncio.Task[None] | None = None
-        self._member_event: asyncio.Event = asyncio.Event()
 
         intents = discord.Intents(
             guilds=True, guild_messages=True, members=True, emojis_and_stickers=True
@@ -167,10 +166,6 @@ class GameSchedulerBot(commands.Bot):
         if not hasattr(self, "_projection_heartbeat_task"):
             self._projection_heartbeat_task = asyncio.create_task(self._projection_heartbeat())
             logger.info("Started projection heartbeat task")
-
-        if not hasattr(self, "_member_event_worker_task"):
-            self._member_event_worker_task = asyncio.create_task(self._member_event_worker())
-            logger.info("Started member event worker task")
 
     async def on_ready(self) -> None:
         """Handle bot ready event after successful Gateway connection."""
@@ -440,21 +435,6 @@ class GameSchedulerBot(commands.Bot):
         logger.info("Guild available: %s", guild.id)
         redis = await get_redis_client()
         await guild_projection.repopulate_all(bot=self, redis=redis)
-
-    def _signal_repopulation(self, reason: str) -> None:
-        """Emit telemetry and signal the coalescing worker to run a repopulation.
-
-        If a repopulation is already pending (event already set), the trigger is
-        counted as coalesced rather than starting a new cycle.
-        """
-        already_pending = self._member_event.is_set()
-        guild_projection.repopulation_started_counter.add(1, {"reason": reason})
-        if already_pending:
-            logger.info("Repopulation coalesced: reason=%s", reason)
-            guild_projection.repopulation_coalesced_counter.add(1, {"reason": reason})
-        else:
-            logger.info("Repopulation triggered: reason=%s", reason)
-        self._member_event.set()
 
     async def on_member_add(self, member: discord.Member) -> None:
         """Handle member added to guild event."""
@@ -884,26 +864,6 @@ class GameSchedulerBot(commands.Bot):
                 break
             except Exception as e:
                 logger.error("Error writing projection heartbeat: %s", e)
-
-    async def _member_event_worker(self) -> None:
-        """Debouncing worker that rebuilds the member projection after a quiet window.
-
-        Sleeps 60 seconds after waking so that any additional events that arrive
-        during that window are absorbed by the clear() before repopulate_all runs.
-        This prevents a second repopulation when Discord sends paired gateway events
-        (e.g. two on_member_update dispatches for a single logical change).
-        """
-        while True:
-            try:
-                await self._member_event.wait()
-                await asyncio.sleep(60)  # pragma: no cover — all tests mock asyncio.sleep
-                self._member_event.clear()
-                logger.info("Member event worker: running batched repopulation")
-                redis = await get_redis_client()
-                await guild_projection.repopulate_all(bot=self, redis=redis)
-            except asyncio.CancelledError:
-                logger.info("Member event worker cancelled")
-                return
 
     async def close(self) -> None:
         """Cleanup resources before bot shutdown."""

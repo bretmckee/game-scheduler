@@ -71,11 +71,6 @@ repopulation_members_written_gauge = meter.create_gauge(
     description="Number of members written in projection repopulation",
     unit="{member}",
 )
-repopulation_coalesced_counter = meter.create_counter(
-    name="bot.projection.repopulation.coalesced",
-    description="Number of repopulation triggers dropped because one was already pending",
-    unit="1",
-)
 
 
 async def _delete_old_generation(redis: RedisClient, prev_gen: str) -> None:

@@ -86,12 +86,12 @@ Replace the 60-second debouncing coalescing worker with per-event incremental Re
 - [x] Task 5.2: Add `on_guild_available` handler (TDD red→green)
   - Details: `.copilot-tracking/planning/details/20260606-01-incremental-projection-updates-details.md` (Lines 248-271)
 
-### [ ] Phase 6: Remove Coalescing Worker
+### [x] Phase 6: Remove Coalescing Worker
 
-- [ ] Task 6.1: Remove `_member_event_worker`, `_member_event`, `_signal_repopulation`, and `repopulation_coalesced_counter`
+- [x] Task 6.1: Remove `_member_event_worker`, `_member_event`, `_signal_repopulation`, and `repopulation_coalesced_counter`
   - Details: `.copilot-tracking/planning/details/20260606-01-incremental-projection-updates-details.md` (Lines 275-293)
 
-- [ ] Task 6.2: Delete `tests/unit/bot/test_bot_member_event_worker.py`
+- [x] Task 6.2: Delete `tests/unit/bot/test_bot_member_event_worker.py`
   - Details: `.copilot-tracking/planning/details/20260606-01-incremental-projection-updates-details.md` (Lines 295-308)
 
 ## Dependencies
