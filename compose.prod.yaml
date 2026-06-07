@@ -33,9 +33,9 @@ services:
       - caddy_config:/config
       - ${HOST_WORKSPACE_FOLDER:-.}/docker/Caddyfile.prod:/etc/caddy/Caddyfile:ro
     ports:
-      - '80:80'
-      - '443:443'
-      - '443:443/udp'
+      - '${BIND_IP:-0.0.0.0}:80:80'
+      - '${BIND_IP:-0.0.0.0}:443:443'
+      - '${BIND_IP:-0.0.0.0}:443:443/udp'
     depends_on:
       api:
         condition: service_healthy
