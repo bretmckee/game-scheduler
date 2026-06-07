@@ -108,6 +108,9 @@ def get_rate_limits() -> list[str]:
     return limits
 
 
+_JWT_PLACEHOLDER = "change-me-in-production"
+
+
 class APIConfig:
     """API service configuration from environment variables."""
 
@@ -139,7 +142,7 @@ class APIConfig:
         self.frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
         self.backend_url = os.getenv("BACKEND_URL", "http://localhost:8000")
 
-        self.jwt_secret = os.getenv("JWT_SECRET", "change-me-in-production")
+        self.jwt_secret = os.getenv("JWT_SECRET", _JWT_PLACEHOLDER)
         self.jwt_algorithm = "HS256"
         self.jwt_expiration_hours = int(os.getenv("JWT_EXPIRATION_HOURS", "24"))
 
@@ -150,6 +153,27 @@ class APIConfig:
 
         # Derive cookie domain for cross-subdomain sharing
         self.cookie_domain = _get_cookie_domain(self.frontend_url, self.backend_url)
+
+        self._validate()
+
+    def _validate(self) -> None:
+        """Raise ValueError for any missing or insecure required configuration."""
+        missing = []
+        if not self.discord_client_id:
+            missing.append("DISCORD_BOT_CLIENT_ID")
+        if not self.discord_client_secret:
+            missing.append("DISCORD_BOT_CLIENT_SECRET")
+        if not self.discord_bot_token:
+            missing.append("DISCORD_BOT_TOKEN")
+        if missing:
+            msg = f"Required environment variable(s) not set: {', '.join(missing)}"
+            raise ValueError(msg)
+        if self.jwt_secret == _JWT_PLACEHOLDER:
+            msg = (
+                "JWT_SECRET must be changed from the insecure default; "
+                "generate one with: openssl rand -base64 32"
+            )
+            raise ValueError(msg)
 
 
 _config_instance: APIConfig | None = None

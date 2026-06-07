@@ -32,7 +32,7 @@ from slowapi.util import get_remote_address
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.api.config import APIConfig
+from services.api.config import get_rate_limits
 from shared.database import get_db
 from shared.models.game_image import GameImage
 
@@ -41,7 +41,7 @@ router = APIRouter(prefix="/api/v1/public/images", tags=["public"])
 
 # Create limiter instance for decorators
 limiter = Limiter(key_func=get_remote_address)
-config = APIConfig()
+_rate_limits = get_rate_limits()
 
 
 def get_limiter(request: Request) -> Limiter:
@@ -51,7 +51,7 @@ def get_limiter(request: Request) -> Limiter:
 
 def _apply_rate_limits(func: Callable) -> Callable:
     """Apply all configured rate limits to an endpoint."""
-    for rate_limit in reversed(config.rate_limits):
+    for rate_limit in reversed(_rate_limits):
         func = limiter.limit(rate_limit)(func)
     return func
 

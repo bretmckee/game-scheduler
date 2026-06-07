@@ -26,6 +26,7 @@ Starts the FastAPI application with Uvicorn server.
 """
 
 import logging
+import os
 import sys
 
 import uvicorn
@@ -56,8 +57,7 @@ def setup_logging(log_level: str) -> None:
     suppress_noisy_loggers(getattr(logging, log_level.upper()))
 
 
-_config = get_api_config()
-setup_logging(_config.log_level)
+setup_logging(os.getenv("LOG_LEVEL", "INFO"))
 
 app = create_app()
 

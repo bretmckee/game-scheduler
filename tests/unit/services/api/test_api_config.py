@@ -38,13 +38,23 @@ def reset_config_singleton():
 
 
 def test_api_config_loads_defaults():
-    """Test that APIConfig loads default values when env vars not set."""
+    """Test that APIConfig raises when required env vars are not set."""
     with patch.dict(os.environ, {}, clear=True):
+        with pytest.raises(ValueError):
+            config.APIConfig()
+
+
+def test_api_config_loads_optional_defaults():
+    """Test that optional fields have correct defaults when required fields are set."""
+    required = {
+        "DISCORD_BOT_CLIENT_ID": "id",
+        "DISCORD_BOT_CLIENT_SECRET": "secret",
+        "DISCORD_BOT_TOKEN": "token",
+        "JWT_SECRET": "a-valid-jwt-secret",
+    }
+    with patch.dict(os.environ, required, clear=True):
         cfg = config.APIConfig()
 
-        assert cfg.discord_client_id == ""
-        assert cfg.discord_client_secret == ""
-        assert cfg.discord_bot_token == ""
         assert "postgresql+asyncpg://" in cfg.database_url
         assert cfg.redis_url == "redis://localhost:6379/0"
         assert cfg.api_host == "0.0.0.0"
@@ -96,22 +106,43 @@ def test_api_config_loads_from_environment():
 
 def test_get_api_config_returns_singleton():
     """Test that get_api_config returns the same instance on multiple calls."""
-    cfg1 = config.get_api_config()
-    cfg2 = config.get_api_config()
+    required = {
+        "DISCORD_BOT_CLIENT_ID": "id",
+        "DISCORD_BOT_CLIENT_SECRET": "secret",
+        "DISCORD_BOT_TOKEN": "token",
+        "JWT_SECRET": "a-valid-jwt-secret",
+    }
+    with patch.dict(os.environ, required, clear=True):
+        cfg1 = config.get_api_config()
+        cfg2 = config.get_api_config()
 
     assert cfg1 is cfg2
 
 
 def test_api_config_debug_mode_in_development():
     """Test that debug mode is enabled in development environment."""
-    with patch.dict(os.environ, {"ENVIRONMENT": "development"}, clear=True):
+    required = {
+        "DISCORD_BOT_CLIENT_ID": "id",
+        "DISCORD_BOT_CLIENT_SECRET": "secret",
+        "DISCORD_BOT_TOKEN": "token",
+        "JWT_SECRET": "a-valid-jwt-secret",
+        "ENVIRONMENT": "development",
+    }
+    with patch.dict(os.environ, required, clear=True):
         cfg = config.APIConfig()
         assert cfg.debug is True
 
 
 def test_api_config_debug_mode_in_production():
     """Test that debug mode is disabled in production environment."""
-    with patch.dict(os.environ, {"ENVIRONMENT": "production"}, clear=True):
+    required = {
+        "DISCORD_BOT_CLIENT_ID": "id",
+        "DISCORD_BOT_CLIENT_SECRET": "secret",
+        "DISCORD_BOT_TOKEN": "token",
+        "JWT_SECRET": "a-valid-jwt-secret",
+        "ENVIRONMENT": "production",
+    }
+    with patch.dict(os.environ, required, clear=True):
         cfg = config.APIConfig()
         assert cfg.debug is False
 
@@ -152,6 +183,10 @@ def test_get_cookie_domain_invalid_url():
 def test_api_config_cookie_domain_derived():
     """Test that APIConfig derives cookie_domain from URLs."""
     env_vars = {
+        "DISCORD_BOT_CLIENT_ID": "id",
+        "DISCORD_BOT_CLIENT_SECRET": "secret",
+        "DISCORD_BOT_TOKEN": "token",
+        "JWT_SECRET": "a-valid-jwt-secret",
         "FRONTEND_URL": "https://app.example.com",
         "BACKEND_URL": "https://api.example.com",
     }
@@ -163,9 +198,51 @@ def test_api_config_cookie_domain_derived():
 def test_api_config_cookie_domain_localhost():
     """Test that APIConfig sets cookie_domain to None for localhost."""
     env_vars = {
+        "DISCORD_BOT_CLIENT_ID": "id",
+        "DISCORD_BOT_CLIENT_SECRET": "secret",
+        "DISCORD_BOT_TOKEN": "token",
+        "JWT_SECRET": "a-valid-jwt-secret",
         "FRONTEND_URL": "http://localhost:3000",
         "BACKEND_URL": "http://localhost:8000",
     }
     with patch.dict(os.environ, env_vars, clear=True):
         cfg = config.APIConfig()
         assert cfg.cookie_domain is None
+
+
+def test_api_config_raises_on_missing_discord_client_id():
+    """Test that APIConfig raises ValueError when DISCORD_BOT_CLIENT_ID is not set."""
+    with patch.dict(os.environ, {}, clear=True):
+        with pytest.raises(ValueError, match="DISCORD_BOT_CLIENT_ID"):
+            config.APIConfig()
+
+
+def test_api_config_raises_on_missing_discord_client_secret():
+    """Test that APIConfig raises ValueError when DISCORD_BOT_CLIENT_SECRET is not set."""
+    with patch.dict(os.environ, {"DISCORD_BOT_CLIENT_ID": "set"}, clear=True):
+        with pytest.raises(ValueError, match="DISCORD_BOT_CLIENT_SECRET"):
+            config.APIConfig()
+
+
+def test_api_config_raises_on_missing_discord_bot_token():
+    """Test that APIConfig raises ValueError when DISCORD_BOT_TOKEN is not set."""
+    with patch.dict(
+        os.environ,
+        {"DISCORD_BOT_CLIENT_ID": "set", "DISCORD_BOT_CLIENT_SECRET": "set"},
+        clear=True,
+    ):
+        with pytest.raises(ValueError, match="DISCORD_BOT_TOKEN"):
+            config.APIConfig()
+
+
+def test_api_config_raises_on_insecure_jwt_secret():
+    """Test that APIConfig raises ValueError when JWT_SECRET is the known insecure default."""
+    insecure_env = {
+        "DISCORD_BOT_CLIENT_ID": "set",
+        "DISCORD_BOT_CLIENT_SECRET": "set",
+        "DISCORD_BOT_TOKEN": "set",
+        "JWT_SECRET": "change-me-in-production",
+    }
+    with patch.dict(os.environ, insecure_env, clear=True):
+        with pytest.raises(ValueError, match="JWT_SECRET"):
+            config.APIConfig()

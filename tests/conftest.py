@@ -92,6 +92,15 @@ logger = logging.getLogger(__name__)
 # from persisting after pytest exits
 os.environ["PYTEST_RUNNING"] = "1"
 
+# Provide sentinel values for required API config fields so modules that call
+# get_api_config() at import time (e.g. services.api.main) can be imported
+# without a real environment. Individual tests that care about specific values
+# override these via patch.dict(os.environ, ..., clear=True).
+os.environ.setdefault("DISCORD_BOT_CLIENT_ID", "test-client-id")
+os.environ.setdefault("DISCORD_BOT_CLIENT_SECRET", "test-client-secret")
+os.environ.setdefault("DISCORD_BOT_TOKEN", "test-bot-token")
+os.environ.setdefault("JWT_SECRET", "test-jwt-secret-for-unit-tests")
+
 
 # ============================================================================
 # Auto-use Fixtures (Apply to all tests)
