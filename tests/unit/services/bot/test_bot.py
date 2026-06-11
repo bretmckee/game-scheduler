@@ -242,7 +242,7 @@ class TestGameSchedulerBot:
 
     @pytest.mark.asyncio
     async def test_on_guild_join_event(self, bot_config: BotConfig) -> None:
-        """Test on_guild_join event handler syncs guild to database."""
+        """Test on_guild_join event handler syncs guild to database and repopulates projection."""
         bot = GameSchedulerBot(bot_config)
         mock_guild = MagicMock(spec=discord.Guild)
         mock_guild.name = "Test Guild"
@@ -255,6 +255,7 @@ class TestGameSchedulerBot:
         mock_db_session_cm.__aexit__ = AsyncMock(return_value=None)
 
         mock_sync_results = {"new_guilds": 1, "new_channels": 5}
+        mock_redis = AsyncMock()
 
         with (
             patch("services.bot.bot.logger") as mock_logger,
@@ -264,6 +265,12 @@ class TestGameSchedulerBot:
                 new_callable=AsyncMock,
                 return_value=mock_sync_results,
             ) as mock_sync,
+            patch(
+                "services.bot.bot.get_redis_client", new_callable=AsyncMock, return_value=mock_redis
+            ),
+            patch(
+                "services.bot.bot.guild_projection.repopulate_all", new_callable=AsyncMock
+            ) as mock_repopulate,
         ):
             await bot.on_guild_join(mock_guild)
 
@@ -272,10 +279,11 @@ class TestGameSchedulerBot:
             )
             mock_sync.assert_awaited_once_with(guild=mock_guild, db=mock_db)
             mock_db.commit.assert_awaited_once()
+            mock_repopulate.assert_awaited_once_with(bot=bot, redis=mock_redis)
 
     @pytest.mark.asyncio
     async def test_on_guild_join_sync_failure(self, bot_config: BotConfig) -> None:
-        """Test on_guild_join handles sync failures gracefully."""
+        """Test on_guild_join handles sync failures gracefully without repopulating."""
         bot = GameSchedulerBot(bot_config)
         mock_guild = MagicMock(spec=discord.Guild)
         mock_guild.name = "Test Guild"
@@ -294,15 +302,19 @@ class TestGameSchedulerBot:
                 new_callable=AsyncMock,
                 side_effect=Exception("Sync failed"),
             ),
+            patch(
+                "services.bot.bot.guild_projection.repopulate_all", new_callable=AsyncMock
+            ) as mock_repopulate,
         ):
             await bot.on_guild_join(mock_guild)
 
             mock_logger.error.assert_called_once()
             assert "failed" in mock_logger.error.call_args[0][0].lower()
+            mock_repopulate.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_on_guild_join_commit_failure(self, bot_config: BotConfig) -> None:
-        """Test on_guild_join handles database commit failures gracefully."""
+        """Test on_guild_join handles database commit failures gracefully without repopulating."""
         bot = GameSchedulerBot(bot_config)
         mock_guild = MagicMock(spec=discord.Guild)
         mock_guild.name = "Test Guild"
@@ -324,15 +336,19 @@ class TestGameSchedulerBot:
                 new_callable=AsyncMock,
                 return_value=mock_sync_results,
             ),
+            patch(
+                "services.bot.bot.guild_projection.repopulate_all", new_callable=AsyncMock
+            ) as mock_repopulate,
         ):
             await bot.on_guild_join(mock_guild)
 
             mock_logger.error.assert_called_once()
             assert "failed" in mock_logger.error.call_args[0][0].lower()
+            mock_repopulate.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_on_guild_join_empty_results(self, bot_config: BotConfig) -> None:
-        """Test on_guild_join handles empty sync results (guild already exists)."""
+        """Test on_guild_join still repopulates projection when guild already exists."""
         bot = GameSchedulerBot(bot_config)
         mock_guild = MagicMock(spec=discord.Guild)
         mock_guild.name = "Existing Guild"
@@ -345,6 +361,7 @@ class TestGameSchedulerBot:
         mock_db_session_cm.__aexit__ = AsyncMock(return_value=None)
 
         mock_sync_results = {"new_guilds": 0, "new_channels": 0}
+        mock_redis = AsyncMock()
 
         with (
             patch("services.bot.bot.logger") as mock_logger,
@@ -354,27 +371,45 @@ class TestGameSchedulerBot:
                 new_callable=AsyncMock,
                 return_value=mock_sync_results,
             ) as mock_sync,
+            patch(
+                "services.bot.bot.get_redis_client", new_callable=AsyncMock, return_value=mock_redis
+            ),
+            patch(
+                "services.bot.bot.guild_projection.repopulate_all", new_callable=AsyncMock
+            ) as mock_repopulate,
         ):
             await bot.on_guild_join(mock_guild)
 
             mock_sync.assert_awaited_once_with(guild=mock_guild, db=mock_db)
             mock_db.commit.assert_awaited_once()
             mock_logger.error.assert_not_called()
+            mock_repopulate.assert_awaited_once_with(bot=bot, redis=mock_redis)
 
     @pytest.mark.asyncio
     async def test_on_guild_remove_event(self, bot_config: BotConfig) -> None:
-        """Test on_guild_remove event handler logs guild information."""
+        """Test on_guild_remove logs guild information and repopulates projection."""
         bot = GameSchedulerBot(bot_config)
         mock_guild = MagicMock(spec=discord.Guild)
         mock_guild.name = "Test Guild"
         mock_guild.id = 987654321
 
-        with patch("services.bot.bot.logger") as mock_logger:
+        mock_redis = AsyncMock()
+
+        with (
+            patch("services.bot.bot.logger") as mock_logger,
+            patch(
+                "services.bot.bot.get_redis_client", new_callable=AsyncMock, return_value=mock_redis
+            ),
+            patch(
+                "services.bot.bot.guild_projection.repopulate_all", new_callable=AsyncMock
+            ) as mock_repopulate,
+        ):
             await bot.on_guild_remove(mock_guild)
 
             mock_logger.info.assert_called_once_with(
                 "Bot removed from guild: %s (ID: %s)", "Test Guild", 987654321
             )
+            mock_repopulate.assert_awaited_once_with(bot=bot, redis=mock_redis)
 
     @pytest.mark.asyncio
     async def test_close(self, bot_config: BotConfig) -> None:

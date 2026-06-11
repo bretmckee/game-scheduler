@@ -828,6 +828,9 @@ class GameSchedulerBot(commands.Bot):
                     results["new_guilds"],
                     results["new_channels"],
                 )
+
+                redis = await get_redis_client()
+                await guild_projection.repopulate_all(bot=self, redis=redis)
             except Exception as e:
                 logger.error("Failed to sync guild %s (ID: %s): %s", guild.name, guild.id, e)
 
@@ -846,6 +849,8 @@ class GameSchedulerBot(commands.Bot):
             },
         ):
             logger.info("Bot removed from guild: %s (ID: %s)", guild.name, guild.id)
+            redis = await get_redis_client()
+            await guild_projection.repopulate_all(bot=self, redis=redis)
 
     async def _projection_heartbeat(self) -> None:
         """Periodic task to write bot heartbeat to projection."""
