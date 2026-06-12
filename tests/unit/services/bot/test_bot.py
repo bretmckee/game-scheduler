@@ -265,6 +265,9 @@ class TestGameSchedulerBot:
                 new_callable=AsyncMock,
                 return_value=mock_sync_results,
             ) as mock_sync,
+            patch.object(
+                bot, "_rebuild_redis_from_gateway", new_callable=AsyncMock
+            ) as mock_rebuild,
             patch(
                 "services.bot.bot.get_redis_client", new_callable=AsyncMock, return_value=mock_redis
             ),
@@ -279,6 +282,7 @@ class TestGameSchedulerBot:
             )
             mock_sync.assert_awaited_once_with(guild=mock_guild, db=mock_db)
             mock_db.commit.assert_awaited_once()
+            mock_rebuild.assert_awaited_once()
             mock_repopulate.assert_awaited_once_with(bot=bot, redis=mock_redis)
 
     @pytest.mark.asyncio
@@ -302,6 +306,9 @@ class TestGameSchedulerBot:
                 new_callable=AsyncMock,
                 side_effect=Exception("Sync failed"),
             ),
+            patch.object(
+                bot, "_rebuild_redis_from_gateway", new_callable=AsyncMock
+            ) as mock_rebuild,
             patch(
                 "services.bot.bot.guild_projection.repopulate_all", new_callable=AsyncMock
             ) as mock_repopulate,
@@ -310,6 +317,7 @@ class TestGameSchedulerBot:
 
             mock_logger.error.assert_called_once()
             assert "failed" in mock_logger.error.call_args[0][0].lower()
+            mock_rebuild.assert_not_awaited()
             mock_repopulate.assert_not_awaited()
 
     @pytest.mark.asyncio
@@ -336,6 +344,9 @@ class TestGameSchedulerBot:
                 new_callable=AsyncMock,
                 return_value=mock_sync_results,
             ),
+            patch.object(
+                bot, "_rebuild_redis_from_gateway", new_callable=AsyncMock
+            ) as mock_rebuild,
             patch(
                 "services.bot.bot.guild_projection.repopulate_all", new_callable=AsyncMock
             ) as mock_repopulate,
@@ -344,6 +355,7 @@ class TestGameSchedulerBot:
 
             mock_logger.error.assert_called_once()
             assert "failed" in mock_logger.error.call_args[0][0].lower()
+            mock_rebuild.assert_not_awaited()
             mock_repopulate.assert_not_awaited()
 
     @pytest.mark.asyncio
@@ -371,6 +383,9 @@ class TestGameSchedulerBot:
                 new_callable=AsyncMock,
                 return_value=mock_sync_results,
             ) as mock_sync,
+            patch.object(
+                bot, "_rebuild_redis_from_gateway", new_callable=AsyncMock
+            ) as mock_rebuild,
             patch(
                 "services.bot.bot.get_redis_client", new_callable=AsyncMock, return_value=mock_redis
             ),
@@ -383,6 +398,7 @@ class TestGameSchedulerBot:
             mock_sync.assert_awaited_once_with(guild=mock_guild, db=mock_db)
             mock_db.commit.assert_awaited_once()
             mock_logger.error.assert_not_called()
+            mock_rebuild.assert_awaited_once()
             mock_repopulate.assert_awaited_once_with(bot=bot, redis=mock_redis)
 
     @pytest.mark.asyncio

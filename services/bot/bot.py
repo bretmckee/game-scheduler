@@ -829,6 +829,7 @@ class GameSchedulerBot(commands.Bot):
                     results["new_channels"],
                 )
 
+                await self._rebuild_redis_from_gateway()
                 redis = await get_redis_client()
                 await guild_projection.repopulate_all(bot=self, redis=redis)
             except Exception as e:
