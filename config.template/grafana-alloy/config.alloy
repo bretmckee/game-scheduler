@@ -208,7 +208,7 @@ otelcol.receiver.prometheus "postgres_metrics" {
 // High-cardinality options (client_list, per-key stats) disabled by default
 
 prometheus.exporter.redis "integrations_redis_exporter" {
-  redis_addr = "redis:6379"
+  redis_addr = format("redis://monitor:%s@redis:6379", env("REDIS_MONITOR_PASSWORD"))
 }
 
 prometheus.scrape "integrations_redis_exporter" {

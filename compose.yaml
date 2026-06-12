@@ -86,6 +86,7 @@ services:
       BOT_REDIS_PASSWORD: ${BOT_REDIS_PASSWORD}
       API_REDIS_PASSWORD: ${API_REDIS_PASSWORD}
       TEST_REDIS_PASSWORD: ${TEST_REDIS_PASSWORD}
+      REDIS_MONITOR_PASSWORD: ${REDIS_MONITOR_PASSWORD:-}
     volumes:
       - redis_data:/data
       - ./docker/redis-entrypoint.sh:/usr/local/bin/redis-entrypoint.sh:ro
@@ -418,6 +419,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-gamebot}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_password_change_in_prod}
       POSTGRES_DB: ${POSTGRES_DB:-game_scheduler}
+      REDIS_MONITOR_PASSWORD: ${REDIS_MONITOR_PASSWORD:-}
     command:
       run --server.http.listen-addr=0.0.0.0:12345
       --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy

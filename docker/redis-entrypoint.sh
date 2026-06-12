@@ -29,6 +29,7 @@ cat > /tmp/users.acl <<EOF
 user bot on >${BOT_REDIS_PASSWORD} %RW~proj:* %RW~bot:* %RW~discord:guild:* %RW~discord:guild_channels:* %RW~discord:channel:* %RW~discord:guild_roles:* %RW~discord:guild_emojis:* %RW~discord:global_rate_limit %RW~channel_rate_limit:* %RW~api:user_roles:* +@all -@admin -@dangerous +scan +del
 user api on >${API_REDIS_PASSWORD} %R~proj:* %R~bot:* %R~discord:guild:* %R~discord:guild_channels:* %R~discord:channel:* %R~discord:guild_roles:* %R~discord:guild_emojis:* %RW~discord:global_rate_limit %RW~channel_rate_limit:* %RW~api:* +@all -@admin -@dangerous +scan
 user test on >${TEST_REDIS_PASSWORD} ~* &* +@all -@admin
+user monitor on >${REDIS_MONITOR_PASSWORD} ~* +ping +info +client|setname +config|get +dbsize +select +time +latency|history +latency|latest +latency|reset +latency|histogram +slowlog|get +slowlog|len +memory|doctor +memory|malloc-stats +memory|purge +memory|stats +memory|usage +scan
 user default on nopass nocommands +ping
 EOF
 
