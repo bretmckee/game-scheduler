@@ -383,6 +383,9 @@ services:
     environment:
       BACKEND_URL: ${BACKEND_URL:-}
       LOG_LEVEL: ${FRONTEND_LOG_LEVEL:-info}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://grafana-alloy:4318
+      OTEL_METRICS_EXPORTER: otlp
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://grafana-alloy:4317
     volumes:
       - ${HOST_WORKSPACE_FOLDER:-.}/docker/Caddyfile.staging:/etc/caddy/Caddyfile:ro
     depends_on:
