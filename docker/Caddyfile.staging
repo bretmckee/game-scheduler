@@ -1,6 +1,10 @@
 {
+	admin off
 	log {
 		level {$LOG_LEVEL:info}
+	}
+	metrics {
+		otlp
 	}
 }
 
@@ -29,9 +33,13 @@
 
 	# API proxy with WebSocket upgrade support
 	handle /api/* {
+		tracing {
+			span api
+		}
 		reverse_proxy api:8000 {
 			header_up Host {host}
 			header_up X-Real-IP {remote_host}
+			header_up X-Trace-Id {http.vars.trace_id}
 			header_up Upgrade {http.request.header.Upgrade}
 			header_up Connection {http.request.header.Connection}
 		}
