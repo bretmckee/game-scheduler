@@ -156,10 +156,10 @@ def on_ready_env(bot, mock_redis):
 # ---------------------------------------------------------------------------
 
 
-async def test_on_ready_calls_rebuild_redis_from_gateway(bot, mock_redis, on_ready_env) -> None:
-    """on_ready calls _rebuild_redis_from_gateway to populate guild/channel/role cache."""
+async def test_on_ready_calls_rebuild_guild_channel_cache(bot, mock_redis, on_ready_env) -> None:
+    """on_ready calls _rebuild_guild_channel_cache to populate guild/channel/role cache."""
     with (
-        patch.object(bot, "_rebuild_redis_from_gateway", new_callable=AsyncMock) as mock_rebuild,
+        patch.object(bot, "_rebuild_guild_channel_cache", new_callable=AsyncMock) as mock_rebuild,
         patch("services.bot.bot.guild_projection.repopulate_all", new_callable=AsyncMock),
     ):
         await bot.on_ready()
@@ -168,7 +168,7 @@ async def test_on_ready_calls_rebuild_redis_from_gateway(bot, mock_redis, on_rea
 
 
 async def test_on_ready_calls_sync_guilds_from_gateway(bot, mock_redis, on_ready_env) -> None:
-    """on_ready calls sync_guilds_from_gateway after _rebuild_redis_from_gateway."""
+    """on_ready calls sync_guilds_from_gateway after _rebuild_guild_channel_cache."""
     with (
         patch("services.bot.bot.sync_guilds_from_gateway", new_callable=AsyncMock) as mock_sync,
         patch("services.bot.bot.guild_projection.repopulate_all", new_callable=AsyncMock),
@@ -277,7 +277,7 @@ async def test_on_ready_does_not_restart_announcement_loop(bot, mock_redis, on_r
 
 
 # ---------------------------------------------------------------------------
-# Content tests — verify _rebuild_redis_from_gateway writes correct payloads.
+# Content tests — verify _rebuild_guild_channel_cache writes correct payloads.
 # repopulate_all is patched out so its own writes don't interfere with
 # the set_json assertions below.
 # ---------------------------------------------------------------------------

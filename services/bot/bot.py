@@ -186,7 +186,7 @@ class GameSchedulerBot(commands.Bot):
                 self.loop.create_task(self.event_handlers.start_consuming())
                 logger.info("Started event consumer task")
 
-            await self._rebuild_redis_from_gateway()
+            await self._rebuild_guild_channel_cache()
 
             try:
                 async with get_db_session() as db:
@@ -264,7 +264,7 @@ class GameSchedulerBot(commands.Bot):
             for r in roles
         ]
 
-    async def _rebuild_redis_from_gateway(self) -> None:
+    async def _rebuild_guild_channel_cache(self) -> None:
         """Populate Redis from the in-memory gateway cache after a full reconnect.
 
         Writes guild, channel, and role data without any REST calls so the cache
@@ -829,7 +829,7 @@ class GameSchedulerBot(commands.Bot):
                     results["new_channels"],
                 )
 
-                await self._rebuild_redis_from_gateway()
+                await self._rebuild_guild_channel_cache()
                 redis = await get_redis_client()
                 await guild_projection.repopulate_all(bot=self, redis=redis)
             except Exception as e:

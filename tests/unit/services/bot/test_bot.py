@@ -156,7 +156,7 @@ class TestGameSchedulerBot:
                 with patch.object(type(bot), "guilds", new_callable=lambda: mock_guilds):
                     with (
                         patch.object(bot, "_start_test_server", new_callable=AsyncMock),
-                        patch.object(bot, "_rebuild_redis_from_gateway", new_callable=AsyncMock),
+                        patch.object(bot, "_rebuild_guild_channel_cache", new_callable=AsyncMock),
                         patch.object(bot, "_recover_pending_workers", new_callable=AsyncMock),
                         patch.object(bot, "_trigger_sweep", new_callable=AsyncMock),
                         patch(
@@ -266,7 +266,7 @@ class TestGameSchedulerBot:
                 return_value=mock_sync_results,
             ) as mock_sync,
             patch.object(
-                bot, "_rebuild_redis_from_gateway", new_callable=AsyncMock
+                bot, "_rebuild_guild_channel_cache", new_callable=AsyncMock
             ) as mock_rebuild,
             patch(
                 "services.bot.bot.get_redis_client", new_callable=AsyncMock, return_value=mock_redis
@@ -307,7 +307,7 @@ class TestGameSchedulerBot:
                 side_effect=Exception("Sync failed"),
             ),
             patch.object(
-                bot, "_rebuild_redis_from_gateway", new_callable=AsyncMock
+                bot, "_rebuild_guild_channel_cache", new_callable=AsyncMock
             ) as mock_rebuild,
             patch(
                 "services.bot.bot.guild_projection.repopulate_all", new_callable=AsyncMock
@@ -345,7 +345,7 @@ class TestGameSchedulerBot:
                 return_value=mock_sync_results,
             ),
             patch.object(
-                bot, "_rebuild_redis_from_gateway", new_callable=AsyncMock
+                bot, "_rebuild_guild_channel_cache", new_callable=AsyncMock
             ) as mock_rebuild,
             patch(
                 "services.bot.bot.guild_projection.repopulate_all", new_callable=AsyncMock
@@ -384,7 +384,7 @@ class TestGameSchedulerBot:
                 return_value=mock_sync_results,
             ) as mock_sync,
             patch.object(
-                bot, "_rebuild_redis_from_gateway", new_callable=AsyncMock
+                bot, "_rebuild_guild_channel_cache", new_callable=AsyncMock
             ) as mock_rebuild,
             patch(
                 "services.bot.bot.get_redis_client", new_callable=AsyncMock, return_value=mock_redis

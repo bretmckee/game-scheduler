@@ -21,7 +21,7 @@
 
 """E2E tests verifying gateway-driven Redis cache population at bot startup.
 
-Asserts that _rebuild_redis_from_gateway writes all four key families
+Asserts that _rebuild_guild_channel_cache writes all four key families
 (guild, guild_channels, channel, guild_roles) into Redis during on_ready,
 before any other e2e test runs.
 
