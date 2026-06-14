@@ -23,20 +23,22 @@
 
 import logging
 
-_NOISY_THIRD_PARTY_LOGGERS = [
-    "aiormq",
-    "aio_pika",
-    "pika",
-    "urllib3",
-]
+_NOISY_THIRD_PARTY_LOGGERS: dict[str, int] = {
+    "aiormq": logging.INFO,
+    "aio_pika": logging.INFO,
+    "pika": logging.WARNING,
+    "urllib3": logging.INFO,
+}
 
 
 def suppress_noisy_loggers(log_level: int) -> None:
-    """Set third-party infrastructure loggers to max(INFO, log_level).
+    """Set third-party infrastructure loggers to at least their configured floor.
 
-    Prevents chatty DEBUG output from AMQP and OTLP HTTP libraries from
-    drowning out application logs when a service runs at DEBUG level.
+    Each library has a minimum log level that prevents its routine operational
+    messages from drowning out application logs.  For example, pika emits ~14
+    INFO-level lines per connection lifecycle (connect, channel, close), so its
+    floor is WARNING.
     """
-    noise_floor = max(logging.INFO, log_level)
-    for name in _NOISY_THIRD_PARTY_LOGGERS:
-        logging.getLogger(name).setLevel(noise_floor)
+    for name, floor in _NOISY_THIRD_PARTY_LOGGERS.items():
+        effective_level = max(floor, log_level)
+        logging.getLogger(name).setLevel(effective_level)
