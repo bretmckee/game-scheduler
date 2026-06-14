@@ -1,0 +1,95 @@
+# Test environment overrides - use with --env-file config/env.test
+# Combines staging frontend (Caddy + production build) with dev-like networking.
+#
+# Usage: docker compose --env-file config/env.test up -d
+#
+# Testing configuration:
+# - Frontend: production build served by Caddy (Caddyfile.staging via compose.staging.yaml)
+# - Backend services: development builds with source volume mounts and hot-reload
+# - All ports exposed (app + infrastructure)
+# - Cloudflare tunnel with debug logging (uses dev tunnel token from env.test)
+# - Network created by Compose (not external — no pre-creation required)
+#
+# IMPORTANT: Source files must be world-readable (chmod o+r) for the container
+# user (UID 1000) to access volume-mounted code
+
+services:
+  api:
+    build:
+      target: development
+    volumes:
+      - ${HOST_WORKSPACE_FOLDER:-.}/shared:/app/shared:ro
+      - ${HOST_WORKSPACE_FOLDER:-.}/services/api:/app/services/api:ro
+    command: uvicorn services.api.main:app --host 0.0.0.0 --port 8000 --reload --log-level debug --access-log
+    ports:
+      - "${API_HOST_PORT:-8000}:8000"
+    environment:
+      LOG_LEVEL: DEBUG
+      PYTHONUNBUFFERED: "1"
+
+  bot:
+    build:
+      target: development
+    volumes:
+      - ${HOST_WORKSPACE_FOLDER:-.}/shared:/app/shared:ro
+      - ${HOST_WORKSPACE_FOLDER:-.}/services/bot:/app/services/bot:ro
+    environment:
+      LOG_LEVEL: DEBUG
+      PYTHONUNBUFFERED: "1"
+
+  scheduler:
+    build:
+      target: development
+    volumes:
+      - ${HOST_WORKSPACE_FOLDER:-.}/shared:/app/shared:ro
+      - ${HOST_WORKSPACE_FOLDER:-.}/services/scheduler:/app/services/scheduler:ro
+    environment:
+      LOG_LEVEL: DEBUG
+      PYTHONUNBUFFERED: "1"
+
+  frontend:
+    ports:
+      - "${FRONTEND_HOST_PORT:-3000}:80"
+
+  postgres:
+    ports:
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
+    command: [
+      "postgres",
+      "-c", "log_min_messages=debug1"
+    ]
+
+  rabbitmq:
+    ports:
+      - "${RABBITMQ_DATA_HOST_PORT:-5672}:5672"
+      - "${RABBITMQ_MGMT_HOST_PORT:-15672}:15672"
+    environment:
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: -rabbit log_levels [{connection,debug}]
+
+  redis:
+    ports:
+      - "${REDIS_HOST_PORT:-6379}:6379"
+
+  grafana-alloy:
+    ports:
+      - "${ALLOY_HOST_PORT:-12345}:12345"
+
+  init:
+    volumes:
+      - ${HOST_WORKSPACE_FOLDER:-.}/shared:/app/shared:ro
+      - ${HOST_WORKSPACE_FOLDER:-.}/services/init:/app/services/init:ro
+      - ${HOST_WORKSPACE_FOLDER:-.}/scripts:/app/scripts:ro
+      - ${HOST_WORKSPACE_FOLDER:-.}/alembic:/app/alembic:ro
+      - ${HOST_WORKSPACE_FOLDER:-.}/alembic.ini:/app/alembic.ini:ro
+      - ${HOST_WORKSPACE_FOLDER:-.}/docker/init-entrypoint.sh:/app/init-entrypoint.sh:ro
+    environment:
+      PYTHONUNBUFFERED: "1"
+
+  cloudflared:
+    command: tunnel --no-autoupdate --loglevel debug run
+
+networks:
+  app-network:
+    name: ${CONTAINER_PREFIX:-gamebot-test}-network
+    driver: bridge
+    external: false
