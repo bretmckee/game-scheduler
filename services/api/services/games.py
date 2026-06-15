@@ -930,6 +930,7 @@ class GameService:
             banner_image_id=source_game.banner_image_id,
             remind_host_rewards=source_game.remind_host_rewards,
             rewards=None,
+            recur_rule=source_game.recur_rule,
         )
         self.db.add(new_game)
         await increment_image_ref(self.db, source_game.thumbnail_id)

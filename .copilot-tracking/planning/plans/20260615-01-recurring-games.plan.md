@@ -39,18 +39,18 @@ Add recurring game support: when a game with a `recur_rule` (RFC 5545 RRULE stri
 
 ## Implementation Checklist
 
-### [ ] Phase 1: DB Migration + Model + API Schemas + Clone Propagation
+### [x] Phase 1: DB Migration + Model + API Schemas + Clone Propagation
 
-- [ ] Task 1.1: Generate Alembic migration for `recur_rule VARCHAR(200) NULL`
+- [x] Task 1.1: Generate Alembic migration for `recur_rule VARCHAR(200) NULL`
   - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 13-30)
 
-- [ ] Task 1.2: Add `recur_rule: Mapped[str | None]` to `GameSession` model
+- [x] Task 1.2: Add `recur_rule: Mapped[str | None]` to `GameSession` model
   - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 31-49)
 
-- [ ] Task 1.3: Add `recur_rule: str | None = None` to `GameCreateRequest`, `GameUpdateRequest`, `GameResponse`
+- [x] Task 1.3: Add `recur_rule: str | None = None` to `GameCreateRequest`, `GameUpdateRequest`, `GameResponse`
   - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 50-68)
 
-- [ ] Task 1.4: Copy `recur_rule` in `clone_game()` + write `test_clone_game_propagates_recur_rule`
+- [x] Task 1.4: Copy `recur_rule` in `clone_game()` + write `test_clone_game_propagates_recur_rule`
   - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 69-95)
 
 ### [ ] Phase 2: DM Format + `RecurrenceConfirmationView` Stubs + RED Unit Tests
