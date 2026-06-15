@@ -23,6 +23,8 @@
 
 from dataclasses import dataclass
 
+import pytest
+
 from shared.message_formats import DMFormats, DMPredicates
 
 # ---------------------------------------------------------------------------
@@ -339,3 +341,28 @@ def test_host_added_dropout_predicate_rejects_wrong_title():
 def test_host_added_dropout_predicate_rejects_none_content():
     predicate = DMPredicates.host_added_dropout("Epic Quest")
     assert predicate(_DM(None)) is False
+
+
+# ---------------------------------------------------------------------------
+# DMFormats.recurrence_confirmation (TDD RED)
+# ---------------------------------------------------------------------------
+
+_NEXT_AT_UNIX = 1800000000
+
+
+@pytest.mark.xfail(strict=True, reason="DMFormats.recurrence_confirmation not yet implemented")
+def test_recurrence_confirmation_contains_title():
+    msg = DMFormats.recurrence_confirmation("Epic Quest", _NEXT_AT_UNIX)
+    assert "Epic Quest" in msg
+
+
+@pytest.mark.xfail(strict=True, reason="DMFormats.recurrence_confirmation not yet implemented")
+def test_recurrence_confirmation_contains_discord_timestamp():
+    msg = DMFormats.recurrence_confirmation("Epic Quest", _NEXT_AT_UNIX)
+    assert f"<t:{_NEXT_AT_UNIX}:F>" in msg
+
+
+@pytest.mark.xfail(strict=True, reason="DMFormats.recurrence_confirmation not yet implemented")
+def test_recurrence_confirmation_mentions_confirmation_action():
+    msg = DMFormats.recurrence_confirmation("Epic Quest", _NEXT_AT_UNIX)
+    assert "confirm" in msg.lower()
