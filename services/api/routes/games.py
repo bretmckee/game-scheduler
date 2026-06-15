@@ -1140,4 +1140,5 @@ async def _build_game_response(
         remind_host_rewards=bool(game.remind_host_rewards),
         archive_channel_id=game.archive_channel_id,
         post_at=datetime_utils.format_datetime_as_utc(game.post_at) if game.post_at else None,
+        recur_rule=game.recur_rule,
     )

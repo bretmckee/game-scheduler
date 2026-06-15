@@ -469,6 +469,7 @@ class TestBuildGameResponse:
         game.rewards = None
         game.remind_host_rewards = False
         game.archive_channel_id = None
+        game.recur_rule = None
         game.guild = MagicMock()
         game.guild.guild_id = "guild_discord_123"
 

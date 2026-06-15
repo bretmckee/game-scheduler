@@ -103,6 +103,7 @@ class GameCreateRequest(BaseModel):
         None,
         description="When to post the Discord announcement. None or past = post immediately.",
     )
+    recur_rule: str | None = None
 
     @field_validator("signup_method")
     @classmethod
@@ -166,6 +167,7 @@ class GameUpdateRequest(BaseModel):
         False,
         description="If True, clear post_at and announce immediately if not yet announced.",
     )
+    recur_rule: str | None = None
 
     @field_validator("notify_role_ids")
     @classmethod
@@ -246,6 +248,7 @@ class GameResponse(BaseModel):
         description="Send host a DM reminder when completed with no rewards",
     )
     archive_channel_id: str | None = Field(None, description="Archive channel ID (UUID)")
+    recur_rule: str | None = Field(None, description="RFC 5545 RRULE string for recurring games")
 
     model_config = {"from_attributes": True}
 

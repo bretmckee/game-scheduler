@@ -39,8 +39,8 @@ from shared.models.participant_action_schedule import ParticipantActionSchedule
 from shared.models.signup_method import SignupMethod
 from shared.schemas import auth as auth_schemas
 
-SCHEDULED_AT = datetime.datetime(2026, 9, 1, 18, 0, 0)
-CLONE_AT = datetime.datetime(2026, 10, 1, 18, 0, 0)
+SCHEDULED_AT = datetime.datetime(2026, 9, 1, 18, 0, 0, tzinfo=datetime.UTC)
+CLONE_AT = datetime.datetime(2026, 10, 1, 18, 0, 0, tzinfo=datetime.UTC)
 
 
 @pytest.fixture
@@ -258,7 +258,7 @@ async def test_clone_game_no_carryover_creates_no_participants(
     assert len(participant_adds) == 0, "NO carryover must add no participants"
 
 
-DEADLINE = datetime.datetime(2027, 1, 1, 12, 0, 0)
+DEADLINE = datetime.datetime(2027, 1, 1, 12, 0, 0, tzinfo=datetime.UTC)
 
 
 @pytest.mark.asyncio
@@ -334,7 +334,7 @@ async def test_apply_deadline_carryover_creates_action_and_notification_schedule
     assert sched.participant_id == new_participant.id
     assert sched.game_id == new_game.id
     assert sched.action == "drop"
-    assert sched.action_time == DEADLINE
+    assert sched.action_time == DEADLINE.replace(tzinfo=None)
 
     assert len(notif_schedules) == 1, "Exactly one NotificationSchedule must be created"
     notif = notif_schedules[0]
@@ -547,3 +547,31 @@ async def test_clone_game_clones_cancelled_source_game(
     new_game_obj = add_calls[0][0][0]
     # New game must be SCHEDULED regardless of source status
     assert new_game_obj.status == game_model.GameStatus.SCHEDULED.value
+
+
+@pytest.mark.asyncio
+async def test_clone_game_propagates_recur_rule(
+    game_service, source_game, current_user, role_service
+):
+    """clone_game must copy recur_rule from source to the new game."""
+    source_game.recur_rule = "FREQ=WEEKLY;BYDAY=SA"
+    new_game = MagicMock(spec=game_model.GameSession)
+    new_game.id = "new-game-uuid"
+
+    with (
+        patch.object(game_service, "get_game", new=AsyncMock(side_effect=[source_game, new_game])),
+        patch("services.api.dependencies.permissions.can_manage_game", return_value=True),
+        patch.object(game_service, "_setup_game_schedules", new=AsyncMock()),
+        patch.object(game_service, "_publish_game_created", new=AsyncMock()),
+    ):
+        await game_service.clone_game(
+            source_game_id=source_game.id,
+            clone_data=_make_clone_request(),
+            current_user=current_user,
+            role_service=role_service,
+        )
+
+    add_calls = game_service.db.add.call_args_list
+    new_game_obj = add_calls[0][0][0]
+    assert isinstance(new_game_obj, game_model.GameSession)
+    assert new_game_obj.recur_rule == "FREQ=WEEKLY;BYDAY=SA"
