@@ -53,18 +53,18 @@ Add recurring game support: when a game with a `recur_rule` (RFC 5545 RRULE stri
 - [x] Task 1.4: Copy `recur_rule` in `clone_game()` + write `test_clone_game_propagates_recur_rule`
   - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 69-95)
 
-### [ ] Phase 2: DM Format + `RecurrenceConfirmationView` Stubs + RED Unit Tests
+### [x] Phase 2: DM Format + `RecurrenceConfirmationView` Stubs + RED Unit Tests
 
-- [ ] Task 2.1: Add `DMFormats.recurrence_confirmation` stub (`NotImplementedError`) to `shared/message_formats.py`
+- [x] Task 2.1: Add `DMFormats.recurrence_confirmation` stub (`NotImplementedError`) to `shared/message_formats.py`
   - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 98-116)
 
-- [ ] Task 2.2: Create `services/bot/views/recurrence_confirmation_view.py` with stub `RecurrenceConfirmationView`
+- [x] Task 2.2: Create `services/bot/views/recurrence_confirmation_view.py` with stub `RecurrenceConfirmationView`
   - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 117-140)
 
-- [ ] Task 2.3: Add xfail unit tests for `DMFormats.recurrence_confirmation` in `tests/unit/shared/test_message_formats.py`
+- [x] Task 2.3: Add xfail unit tests for `DMFormats.recurrence_confirmation` in `tests/unit/shared/test_message_formats.py`
   - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 141-157)
 
-- [ ] Task 2.4: Create `tests/unit/services/bot/views/test_recurrence_confirmation_view.py` with xfail tests
+- [x] Task 2.4: Create `tests/unit/services/bot/views/test_recurrence_confirmation_view.py` with xfail tests
   - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 158-176)
 
 ### [ ] Phase 3: DM Format + `RecurrenceConfirmationView` GREEN

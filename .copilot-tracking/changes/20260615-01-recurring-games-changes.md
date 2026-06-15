@@ -18,7 +18,15 @@
 
 ## Phase 2: DM Format + `RecurrenceConfirmationView` Stubs + RED Unit Tests
 
-_(not started)_
+### Added
+
+- `services/bot/views/recurrence_confirmation_view.py` — stub `RecurrenceConfirmationView` with `confirm` and `decline` raising `NotImplementedError`
+- `tests/unit/services/bot/views/test_recurrence_confirmation_view.py` — xfail unit tests for `confirm` (sets `post_at`, sends pg_notify) and `decline` (cancels game)
+
+### Modified
+
+- `shared/message_formats.py` — added `DMFormats.recurrence_confirmation(game_title, next_at_unix)` stub raising `NotImplementedError`
+- `tests/unit/shared/test_message_formats.py` — appended 3 xfail tests for `DMFormats.recurrence_confirmation` (title, timestamp, confirmation action); added `import pytest`
 
 ## Phase 3: DM Format + `RecurrenceConfirmationView` GREEN
 

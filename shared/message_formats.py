@@ -186,6 +186,10 @@ class DMFormats:
         )
 
     @staticmethod
+    def recurrence_confirmation(game_title: str, next_at_unix: int) -> str:
+        raise NotImplementedError
+
+    @staticmethod
     def rewards_reminder(game_title: str, edit_url: str) -> str:
         """
         Format rewards reminder DM sent to the host when a game completes with no rewards set.
