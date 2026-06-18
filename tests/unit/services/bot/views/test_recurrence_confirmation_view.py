@@ -54,7 +54,6 @@ def _make_db_ctx(mock_session):
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(strict=True, reason="RecurrenceConfirmationView.confirm not yet implemented")
 async def test_confirm_sets_post_at_to_now(game_id, mock_interaction):
     """Confirm callback sets game.post_at to approximately now."""
     game = MagicMock()
@@ -82,7 +81,6 @@ async def test_confirm_sets_post_at_to_now(game_id, mock_interaction):
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(strict=True, reason="RecurrenceConfirmationView.confirm not yet implemented")
 async def test_confirm_sends_pg_notify(game_id, mock_interaction):
     """Confirm callback sends NOTIFY game_announcement_changed after updating post_at."""
     game = MagicMock()
@@ -114,7 +112,6 @@ async def test_confirm_sends_pg_notify(game_id, mock_interaction):
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(strict=True, reason="RecurrenceConfirmationView.decline not yet implemented")
 async def test_decline_cancels_game(game_id, mock_interaction):
     """Decline callback sets game.status to CANCELLED."""
     game = MagicMock()
@@ -135,3 +132,27 @@ async def test_decline_cancels_game(game_id, mock_interaction):
         await view.decline(mock_interaction)
 
     assert game.status == GameStatus.CANCELLED.value
+
+
+@pytest.mark.asyncio
+async def test_confirm_button_dispatches_to_view_confirm(game_id, mock_interaction):
+    """_ConfirmButton.callback delegates to the parent view's confirm method."""
+    view = RecurrenceConfirmationView(game_id=game_id)
+    button = view.confirm_button
+
+    with patch.object(view, "confirm", new=AsyncMock()) as mock_confirm:
+        await button.callback(mock_interaction)
+
+    mock_confirm.assert_called_once_with(mock_interaction)
+
+
+@pytest.mark.asyncio
+async def test_decline_button_dispatches_to_view_decline(game_id, mock_interaction):
+    """_DeclineButton.callback delegates to the parent view's decline method."""
+    view = RecurrenceConfirmationView(game_id=game_id)
+    button = view.decline_button
+
+    with patch.object(view, "decline", new=AsyncMock()) as mock_decline:
+        await button.callback(mock_interaction)
+
+    mock_decline.assert_called_once_with(mock_interaction)
