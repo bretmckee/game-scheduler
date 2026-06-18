@@ -56,11 +56,32 @@
 
 ## Phase 6: Handler Modifications Stubs + RED Unit Tests
 
-_(not started)_
+### Added
+
+- `tests/unit/services/bot/events/test_handlers_recurrence.py` — 6 tests (3 xfail + 3 pass): recurrence clone trigger at COMPLETED, zombie cancel for unannounced clones, DM dispatch test for `_handle_recurrence_confirmation`
+
+### Modified
+
+- `services/bot/events/handlers.py` — added `_handle_recurrence_confirmation` stub raising `NotImplementedError` after `_handle_clone_confirmation`
 
 ## Phase 7: Handler Modifications GREEN
 
-_(not started)_
+### Added
+
+- `pyproject.toml` (dev deps) — added `types-python-dateutil` stub package to fix mypy `import-untyped` error
+
+### Modified
+
+- `services/bot/events/handlers.py`:
+  - Added top-level imports: `rrulestr` (dateutil), `GameService`, `DeferredEventPublisher`, `EventPublisher`, `RecurrenceConfirmationView`, `NotificationSchedule`
+  - `_handle_post_transition_actions` — added recurrence clone trigger: calls `_system_clone_for_recurrence` and `_schedule_recurrence_confirmation_notification` when `target_status=COMPLETED` and `game.recur_rule` is set
+  - `_handle_status_transition_due` — added zombie-clone cancel: if `target_status=IN_PROGRESS` and `game.message_id is None` and `game.recur_rule is not None`, calls `_cancel_unconfirmed_recurrence` and returns early
+  - `_handle_notification_due` — added `elif notification_type == "recurrence_confirmation"` dispatch branch
+  - Replaced `_handle_recurrence_confirmation` stub with full implementation: fetches game, builds `RecurrenceConfirmationView`, sends DM to host via `bot.get_user`
+  - Added `_schedule_recurrence_confirmation_notification(db, clone)` helper: inserts `NotificationSchedule` row with `notification_type="recurrence_confirmation"` at `now() + 60s`
+  - Added `_cancel_unconfirmed_recurrence(db, game)` helper: sets `game.status=CANCELLED` and commits
+- `tests/unit/services/bot/events/test_handlers_recurrence.py` — removed all 3 xfail markers; all 6 tests pass GREEN
+- `tests/unit/bot/events/test_handlers_misc.py` — added `game.recur_rule = None` to 3 existing `_handle_post_transition_actions` tests (required to prevent new recurrence branch firing on MagicMock games)
 
 ## Phase 8: Integration Tests
 

@@ -28,26 +28,31 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 import discord
+from dateutil.rrule import rrulestr
 from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from services.api.services.games import GameService
 from services.bot.config import get_config
 from services.bot.events.publisher import get_bot_publisher
 from services.bot.formatters.game_message import format_game_announcement
 from services.bot.handlers.participant_drop import handle_participant_drop_due
 from services.bot.utils.discord_format import get_member_display_info
 from services.bot.views.clone_confirmation_view import CloneConfirmationView
+from services.bot.views.recurrence_confirmation_view import RecurrenceConfirmationView
 from shared.cache.client import get_redis_client
 from shared.database import get_db_session
 from shared.message_formats import DMFormats
 from shared.messaging.consumer import EventConsumer
+from shared.messaging.deferred_publisher import DeferredEventPublisher
 from shared.messaging.events import (
     Event,
     EventType,
     NotificationDueEvent,
     NotificationSendDMEvent,
 )
+from shared.messaging.publisher import EventPublisher
 from shared.models import game as game_model
 from shared.models import participant as participant_model
 from shared.models import user as user_model
@@ -55,6 +60,7 @@ from shared.models.base import utc_now
 from shared.models.game import GameSession
 from shared.models.game_status_schedule import GameStatusSchedule
 from shared.models.message_refresh_queue import MessageRefreshQueue
+from shared.models.notification_schedule import NotificationSchedule
 from shared.models.participant import GameParticipant
 from shared.models.participant_action_schedule import ParticipantActionSchedule
 from shared.models.signup_method import SignupMethod
@@ -425,6 +431,8 @@ class EventHandlers:
             await self._handle_join_notification(notification_event)
         elif notification_event.notification_type == "clone_confirmation":
             await self._handle_clone_confirmation(notification_event)
+        elif notification_event.notification_type == "recurrence_confirmation":
+            await self._handle_recurrence_confirmation(notification_event)
         else:
             logger.error(
                 "Unknown notification type: %s for game %s",
@@ -846,6 +854,61 @@ class EventHandlers:
                 e,
             )
 
+    async def _handle_recurrence_confirmation(self, event: NotificationDueEvent) -> None:
+        """Handle recurrence_confirmation notification.
+
+        Sends host DM with confirm/decline buttons.
+        """
+        try:
+            async with get_db_session() as db:
+                game = await self._get_game_with_participants(db, str(event.game_id))
+                if not game or not game.host:
+                    logger.warning(
+                        "Game or host not found for recurrence_confirmation: %s",
+                        event.game_id,
+                    )
+                    return
+
+            view = RecurrenceConfirmationView(str(game.id))
+            message = DMFormats.recurrence_confirmation(
+                game.title,
+                int(game.scheduled_at.timestamp()),
+            )
+
+            try:
+                user = self.bot.get_user(int(game.host.discord_id))
+                if user is None:
+                    logger.warning(
+                        "Host %s not found in gateway cache; skipping recurrence_confirmation DM",
+                        game.host.discord_id,
+                    )
+                    return
+                await user.send(message, view=view)
+                logger.info(
+                    "✓ Sent recurrence_confirmation DM to host %s for game %s",
+                    game.host.discord_id,
+                    event.game_id,
+                )
+            except discord.Forbidden:
+                logger.warning(
+                    "Cannot send recurrence_confirmation DM to host %s: "
+                    "DMs disabled or bot blocked",
+                    game.host.discord_id,
+                )
+            except discord.HTTPException as e:
+                logger.exception(
+                    "Discord HTTP error sending recurrence_confirmation DM to %s: %s",
+                    game.host.discord_id,
+                    e,
+                )
+
+        except Exception as e:
+            logger.exception(
+                "Failed to handle recurrence_confirmation for game %s: %s",
+                event.game_id,
+                e,
+            )
+
     async def _send_dm(self, user_discord_id: str, message: str) -> bool:
         """
         Send DM to a Discord user with consistent error handling.
@@ -1144,6 +1207,14 @@ class EventHandlers:
                 if not self._is_transition_ready(game, game_id, transition_event.target_status):
                     return
 
+                if (
+                    transition_event.target_status == GameStatus.IN_PROGRESS.value
+                    and game.message_id is None
+                    and game.recur_rule is not None
+                ):
+                    await self._cancel_unconfirmed_recurrence(db, game)
+                    return
+
                 await self._transition_game_status(db, game, transition_event.target_status)
                 await self._schedule_archive_transition_if_needed(
                     db,
@@ -1250,10 +1321,48 @@ class EventHandlers:
             )
             await self._send_dm(game.host.discord_id, message)
 
+        if target_status == GameStatus.COMPLETED.value and game.recur_rule:
+            next_at = rrulestr(game.recur_rule, dtstart=game.scheduled_at).after(game.scheduled_at)
+            if next_at:
+                async with get_db_session() as db:
+                    event_publisher = DeferredEventPublisher(
+                        db=db, event_publisher=EventPublisher()
+                    )
+                    game_service = GameService(db, event_publisher)
+                    clone = await game_service._system_clone_for_recurrence(db, game, next_at)
+                    await self._schedule_recurrence_confirmation_notification(db, clone)
+                    await db.commit()
+                    logger.info(
+                        "Created recurrence clone %s for game %s, scheduled at %s",
+                        clone.id,
+                        game.id,
+                        next_at,
+                    )
+
         if target_status != GameStatus.ARCHIVED.value:
             return
 
         await self._archive_game_announcement(game)
+
+    async def _schedule_recurrence_confirmation_notification(
+        self, db: AsyncSession, clone: GameSession
+    ) -> None:
+        """Insert a NotificationSchedule row to trigger a host recurrence-confirmation DM."""
+        schedule = NotificationSchedule(
+            game_id=clone.id,
+            notification_type="recurrence_confirmation",
+            notification_time=utc_now() + timedelta(seconds=60),
+            sent=False,
+            game_scheduled_at=clone.scheduled_at,
+            reminder_minutes=None,
+        )
+        db.add(schedule)
+
+    async def _cancel_unconfirmed_recurrence(self, db: AsyncSession, game: GameSession) -> None:
+        """Cancel a recurrence clone that never received host confirmation."""
+        game.status = GameStatus.CANCELLED.value
+        await db.commit()
+        logger.info("Cancelled unconfirmed recurrence clone: game=%s", game.id)
 
     def _build_archive_content(self, game: GameSession) -> str | None:
         """Return space-separated player @mentions for archive post, or None."""
