@@ -30,11 +30,22 @@
 
 ## Phase 3: DM Format + `RecurrenceConfirmationView` GREEN
 
-_(not started)_
+### Modified
+
+- `shared/message_formats.py` — implemented `DMFormats.recurrence_confirmation` returning DM text with game title and Discord timestamp
+- `services/bot/views/recurrence_confirmation_view.py` — implemented full `RecurrenceConfirmationView` with Confirm/Decline buttons; confirm sets `post_at=now()` and sends pg_notify; decline sets `game.status=CANCELLED`
+- `tests/unit/shared/test_message_formats.py` — removed xfail markers from Phase 2 tests; added button-dispatch tests
+- `tests/unit/services/bot/views/test_recurrence_confirmation_view.py` — removed xfail markers from Phase 2 tests
 
 ## Phase 4: `_system_clone_for_recurrence` Stub + RED Unit Tests
 
-_(not started)_
+### Added
+
+- `tests/unit/services/test_system_clone_for_recurrence.py` — 6 xfail unit tests for `_system_clone_for_recurrence` (post_at=None, recur_rule copy, scheduled_at=next_at, confirmed player carryover, no \_publish_game_created, status schedules created)
+
+### Modified
+
+- `services/api/services/games.py` — added `_system_clone_for_recurrence` stub raising `NotImplementedError` after `clone_game`
 
 ## Phase 5: `_system_clone_for_recurrence` GREEN
 
