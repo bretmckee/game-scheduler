@@ -95,7 +95,6 @@ def game_service():
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(strict=True, reason="Phase 4 RED — not yet implemented")
 async def test_system_clone_sets_post_at_none(game_service, source_game):
     """Clone created by _system_clone_for_recurrence must have post_at=None."""
     with patch.object(game_service, "_create_game_status_schedules", new=AsyncMock()):
@@ -108,7 +107,6 @@ async def test_system_clone_sets_post_at_none(game_service, source_game):
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(strict=True, reason="Phase 4 RED — not yet implemented")
 async def test_system_clone_copies_recur_rule(game_service, source_game):
     """Clone must inherit recur_rule from source."""
     with patch.object(game_service, "_create_game_status_schedules", new=AsyncMock()):
@@ -121,7 +119,6 @@ async def test_system_clone_copies_recur_rule(game_service, source_game):
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(strict=True, reason="Phase 4 RED — not yet implemented")
 async def test_system_clone_sets_scheduled_at_to_next_at(game_service, source_game):
     """Clone scheduled_at must equal the provided next_at argument."""
     with patch.object(game_service, "_create_game_status_schedules", new=AsyncMock()):
@@ -134,7 +131,6 @@ async def test_system_clone_sets_scheduled_at_to_next_at(game_service, source_ga
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(strict=True, reason="Phase 4 RED — not yet implemented")
 async def test_system_clone_carries_over_confirmed_players(
     game_service, source_game, confirmed_player
 ):
@@ -151,7 +147,6 @@ async def test_system_clone_carries_over_confirmed_players(
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(strict=True, reason="Phase 4 RED — not yet implemented")
 async def test_system_clone_does_not_publish_game_created(game_service, source_game):
     """_publish_game_created must NOT be called (no Discord event at clone time)."""
     with (
@@ -164,7 +159,6 @@ async def test_system_clone_does_not_publish_game_created(game_service, source_g
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(strict=True, reason="Phase 4 RED — not yet implemented")
 async def test_system_clone_creates_status_schedules(game_service, source_game):
     """_create_game_status_schedules must be called for the new clone."""
     with patch.object(

@@ -86,12 +86,12 @@ Add recurring game support: when a game with a `recur_rule` (RFC 5545 RRULE stri
 - [x] Task 4.2: Create `tests/unit/services/test_system_clone_for_recurrence.py` with 6 xfail tests
   - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 260-281)
 
-### [ ] Phase 5: `_system_clone_for_recurrence` GREEN
+### [x] Phase 5: `_system_clone_for_recurrence` GREEN
 
-- [ ] Task 5.1: Implement `_system_clone_for_recurrence` — copy fields, `post_at=None`, carry over participants, call `_create_game_status_schedules`
+- [x] Task 5.1: Implement `_system_clone_for_recurrence` — copy fields, `post_at=None`, carry over participants, call `_create_game_status_schedules`
   - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 284-307)
 
-- [ ] Task 5.2: Remove xfail markers from Phase 4 tests; verify all pass
+- [x] Task 5.2: Remove xfail markers from Phase 4 tests; verify all pass
   - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 308-317)
 
 ### [ ] Phase 6: Handler Modifications Stubs + RED Unit Tests
