@@ -94,26 +94,26 @@ Add recurring game support: when a game with a `recur_rule` (RFC 5545 RRULE stri
 - [x] Task 5.2: Remove xfail markers from Phase 4 tests; verify all pass
   - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 308-317)
 
-### [ ] Phase 6: Handler Modifications Stubs + RED Unit Tests
+### [x] Phase 6: Handler Modifications Stubs + RED Unit Tests
 
-- [ ] Task 6.1: Add `_handle_recurrence_confirmation` stub to `EventHandlers` in `services/bot/events/handlers.py`
+- [x] Task 6.1: Add `_handle_recurrence_confirmation` stub to `EventHandlers` in `services/bot/events/handlers.py`
   - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 321-338)
 
-- [ ] Task 6.2: Create `tests/unit/services/bot/events/test_handlers_recurrence.py` with 6 xfail tests (trigger + zombie + dispatch)
+- [x] Task 6.2: Create `tests/unit/services/bot/events/test_handlers_recurrence.py` with 6 xfail tests (trigger + zombie + dispatch)
   - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 339-366)
 
-### [ ] Phase 7: Handler Modifications GREEN
+### [x] Phase 7: Handler Modifications GREEN
 
-- [ ] Task 7.1: Modify `_handle_post_transition_actions` to call `_system_clone_for_recurrence` at COMPLETED + schedule notification
+- [x] Task 7.1: Modify `_handle_post_transition_actions` to call `_system_clone_for_recurrence` at COMPLETED + schedule notification
   - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 370-398)
 
-- [ ] Task 7.2: Add zombie-clone cancel in `_handle_status_transition_due` (`message_id=None AND recur_rule IS NOT NULL` → CANCELLED)
+- [x] Task 7.2: Add zombie-clone cancel in `_handle_status_transition_due` (`message_id=None AND recur_rule IS NOT NULL` → CANCELLED)
   - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 399-423)
 
-- [ ] Task 7.3: Implement `_handle_recurrence_confirmation` + add `recurrence_confirmation` dispatch to `_handle_notification_due`
+- [x] Task 7.3: Implement `_handle_recurrence_confirmation` + add `recurrence_confirmation` dispatch to `_handle_notification_due`
   - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 424-454)
 
-- [ ] Task 7.4: Remove xfail markers from Phase 6 tests; verify all pass
+- [x] Task 7.4: Remove xfail markers from Phase 6 tests; verify all pass
   - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 455-465)
 
 ### [ ] Phase 8: Integration Tests (Retrofitting)

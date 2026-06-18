@@ -347,6 +347,7 @@ async def test_handle_post_transition_actions_sends_rewards_dm_on_completed(hand
     game = MagicMock()
     game.remind_host_rewards = True
     game.rewards = None
+    game.recur_rule = None
     game.title = "Test Game"
     game.id = str(uuid4())
     game.host = MagicMock()
@@ -373,6 +374,7 @@ async def test_handle_post_transition_actions_no_dm_when_rewards_set(handlers):
     game = MagicMock()
     game.remind_host_rewards = True
     game.rewards = "Gold coins for everyone"
+    game.recur_rule = None
     game.host = MagicMock()
 
     with patch.object(handlers, "_send_dm", new=AsyncMock()) as mock_dm:
@@ -386,6 +388,7 @@ async def test_handle_post_transition_actions_no_dm_when_flag_false(handlers):
     game = MagicMock()
     game.remind_host_rewards = False
     game.rewards = None
+    game.recur_rule = None
     game.host = MagicMock()
 
     with patch.object(handlers, "_send_dm", new=AsyncMock()) as mock_dm:

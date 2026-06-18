@@ -33,6 +33,19 @@ You WILL follow ALL project standards and conventions:
 
 **CRITICAL**: If ${input:phaseStop:true} is true, you WILL stop after each Phase for user review.
 **CRITICAL**: If ${input:taskStop:true} is true, you WILL stop after each Task for user review.
+**CRITICAL**: You WILL NOT commit changes unless the user explicitly tells you to commit. Completing a phase does NOT trigger a commit. Announce that the phase is complete and wait for the user to say "commit" or similar before running `git commit`.
+
+When the user does request a commit, use this format for phase commits:
+
+```
+feat: Phase N - {{description, including feature context if non-obvious}}
+
+- {{change bullet 1}}
+- {{change bullet 2}}
+
+Rationale: {{why this phase does what it does}}
+```
+
 **CRITICAL**: Before marking any Phase complete or committing its changes, you MUST verify ALL pre-commit gates pass:
 
 - `uv run pytest tests/unit` — Python unit tests
