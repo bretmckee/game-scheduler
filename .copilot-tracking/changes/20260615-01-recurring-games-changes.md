@@ -49,7 +49,10 @@
 
 ## Phase 5: `_system_clone_for_recurrence` GREEN
 
-_(not started)_
+### Modified
+
+- `services/api/services/games.py` — replaced `_system_clone_for_recurrence` stub with full implementation: copies all source fields, sets `post_at=None`/`message_id=None`/`status=SCHEDULED`, carries over confirmed participants via `partition_participants`, calls `_create_game_status_schedules`, does not call `_publish_game_created` or `_setup_game_schedules`
+- `tests/unit/services/test_system_clone_for_recurrence.py` — removed all 6 xfail markers; all tests pass GREEN
 
 ## Phase 6: Handler Modifications Stubs + RED Unit Tests
 
