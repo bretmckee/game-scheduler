@@ -67,15 +67,15 @@ Add recurring game support: when a game with a `recur_rule` (RFC 5545 RRULE stri
 - [x] Task 2.4: Create `tests/unit/services/bot/views/test_recurrence_confirmation_view.py` with xfail tests
   - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 158-176)
 
-### [ ] Phase 3: DM Format + `RecurrenceConfirmationView` GREEN
+### [x] Phase 3: DM Format + `RecurrenceConfirmationView` GREEN
 
-- [ ] Task 3.1: Implement `DMFormats.recurrence_confirmation` in `shared/message_formats.py`
+- [x] Task 3.1: Implement `DMFormats.recurrence_confirmation` in `shared/message_formats.py`
   - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 179-202)
 
-- [ ] Task 3.2: Implement full `RecurrenceConfirmationView` (Confirm/Decline buttons, NOTIFY, cancel)
+- [x] Task 3.2: Implement full `RecurrenceConfirmationView` (Confirm/Decline buttons, NOTIFY, cancel)
   - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 203-222)
 
-- [ ] Task 3.3: Remove xfail markers from Phase 2 tests; verify all pass
+- [x] Task 3.3: Remove xfail markers from Phase 2 tests; verify all pass
   - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 223-233)
 
 ### [ ] Phase 4: `_system_clone_for_recurrence` Stub + RED Unit Tests

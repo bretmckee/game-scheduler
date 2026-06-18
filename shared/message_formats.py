@@ -187,7 +187,12 @@ class DMFormats:
 
     @staticmethod
     def recurrence_confirmation(game_title: str, next_at_unix: int) -> str:
-        raise NotImplementedError
+        return (
+            f"🔁 **{game_title}** has ended! The next session is scheduled for "
+            f"<t:{next_at_unix}:F>.\n\n"
+            "Confirm to announce it to players, or decline to cancel it. "
+            "If you don't respond before the game starts, it will be automatically cancelled."
+        )
 
     @staticmethod
     def rewards_reminder(game_title: str, edit_url: str) -> str:
