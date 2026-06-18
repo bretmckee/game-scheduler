@@ -997,6 +997,14 @@ class GameService:
 
         return new_game
 
+    async def _system_clone_for_recurrence(
+        self,
+        db: AsyncSession,
+        source: game_model.GameSession,
+        next_at: datetime.datetime,
+    ) -> game_model.GameSession:
+        raise NotImplementedError
+
     def _add_participant_carryover_schedules(
         self,
         new_game: game_model.GameSession,
