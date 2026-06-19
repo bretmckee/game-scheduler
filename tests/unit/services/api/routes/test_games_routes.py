@@ -29,6 +29,7 @@ from fastapi import HTTPException
 from starlette import status as http_status
 
 from services.api.routes import games as games_routes
+from services.api.schemas.clone_game import CarryoverOption, CloneGameRequest
 from services.api.services import participant_resolver as resolver_module
 from services.api.services.display_names import DisplayNameResolver
 from shared.schemas import game as game_schemas
@@ -560,10 +561,17 @@ class TestCreateGameRoutePostAt:
         mock_game_service = MagicMock()
         mock_game_service.create_game = AsyncMock(return_value=mock_game)
 
-        with patch(
-            "services.api.routes.games._build_game_response",
-            new_callable=AsyncMock,
-            return_value=MagicMock(),
+        with (
+            patch(
+                "services.api.routes.games._build_game_response",
+                new_callable=AsyncMock,
+                return_value=MagicMock(),
+            ),
+            patch(
+                "services.api.dependencies.permissions.can_manage_game",
+                new_callable=AsyncMock,
+                return_value=False,
+            ),
         ):
             await games_routes.create_game(
                 template_id="template-123",
@@ -572,6 +580,7 @@ class TestCreateGameRoutePostAt:
                 post_at=post_at_str,
                 current_user=mock_current_user,
                 game_service=mock_game_service,
+                role_service=MagicMock(),
             )
 
         call_kwargs = mock_game_service.create_game.call_args.kwargs
@@ -636,6 +645,285 @@ class TestUpdateGameRoutePostAt:
         call_kwargs = mock_game_service.update_game.call_args.kwargs
         update_data = call_kwargs["update_data"]
         assert update_data.clear_post_at is True
+
+
+class TestCreateGameRouteRecurRule:
+    """Tests for create_game route recur_rule parameter handling."""
+
+    @pytest.mark.asyncio
+    async def test_create_game_route_passes_recur_rule_to_service(self):
+        """create_game route forwards recur_rule form field to GameCreateRequest."""
+        mock_current_user = MagicMock()
+        mock_current_user.user.id = "user-123"
+        mock_game = MagicMock()
+        mock_game_service = MagicMock()
+        mock_game_service.create_game = AsyncMock(return_value=mock_game)
+
+        with (
+            patch(
+                "services.api.routes.games._build_game_response",
+                new_callable=AsyncMock,
+                return_value=MagicMock(),
+            ),
+            patch(
+                "services.api.dependencies.permissions.can_manage_game",
+                new_callable=AsyncMock,
+                return_value=False,
+            ),
+        ):
+            await games_routes.create_game(
+                template_id="template-123",
+                title="Test Game",
+                scheduled_at="2026-07-01T18:00:00Z",
+                recur_rule="FREQ=WEEKLY;INTERVAL=1;BYDAY=TH",
+                current_user=mock_current_user,
+                game_service=mock_game_service,
+                role_service=MagicMock(),
+            )
+
+        game_data = mock_game_service.create_game.call_args.kwargs["game_data"]
+        assert game_data.recur_rule == "FREQ=WEEKLY;INTERVAL=1;BYDAY=TH"
+
+    @pytest.mark.asyncio
+    async def test_create_game_route_passes_can_manage_to_build_response(self):
+        """create_game route passes can_manage_game result to _build_game_response."""
+        mock_current_user = MagicMock()
+        mock_current_user.user.id = "user-123"
+        mock_game = MagicMock()
+        mock_game_service = MagicMock()
+        mock_game_service.create_game = AsyncMock(return_value=mock_game)
+        mock_game_service.db = MagicMock()
+        captured_kwargs: dict = {}
+
+        async def capture_build(game, **kwargs):
+            captured_kwargs.update(kwargs)
+            return MagicMock()
+
+        with (
+            patch(
+                "services.api.routes.games._build_game_response",
+                side_effect=capture_build,
+            ),
+            patch(
+                "services.api.dependencies.permissions.can_manage_game",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+        ):
+            await games_routes.create_game(
+                template_id="template-123",
+                title="Test Game",
+                scheduled_at="2026-07-01T18:00:00Z",
+                current_user=mock_current_user,
+                game_service=mock_game_service,
+                role_service=MagicMock(),
+            )
+
+        assert captured_kwargs.get("can_manage") is True
+
+    @pytest.mark.asyncio
+    async def test_create_game_route_can_manage_defaults_false_on_http_exception(self):
+        """create_game route uses can_manage=False when can_manage_game raises HTTPException."""
+        mock_current_user = MagicMock()
+        mock_game = MagicMock()
+        mock_game_service = MagicMock()
+        mock_game_service.create_game = AsyncMock(return_value=mock_game)
+        mock_game_service.db = MagicMock()
+        captured_kwargs: dict = {}
+
+        async def capture_build(game, **kwargs):
+            captured_kwargs.update(kwargs)
+            return MagicMock()
+
+        with (
+            patch(
+                "services.api.routes.games._build_game_response",
+                side_effect=capture_build,
+            ),
+            patch(
+                "services.api.dependencies.permissions.can_manage_game",
+                new_callable=AsyncMock,
+                side_effect=HTTPException(status_code=403, detail="forbidden"),
+            ),
+        ):
+            await games_routes.create_game(
+                template_id="template-123",
+                title="Test Game",
+                scheduled_at="2026-07-01T18:00:00Z",
+                current_user=mock_current_user,
+                game_service=mock_game_service,
+                role_service=MagicMock(),
+            )
+
+        assert captured_kwargs.get("can_manage") is False
+
+
+class TestUpdateGameRouteRecurRule:
+    """Tests for update_game route recur_rule parameter handling."""
+
+    @pytest.mark.asyncio
+    async def test_update_game_route_passes_recur_rule_to_service(self):
+        """update_game route forwards recur_rule form field to GameUpdateRequest."""
+        mock_current_user = MagicMock()
+        mock_game = MagicMock()
+        mock_game_service = MagicMock()
+        mock_game_service.update_game = AsyncMock(return_value=mock_game)
+
+        with patch(
+            "services.api.routes.games._build_game_response",
+            new_callable=AsyncMock,
+            return_value=MagicMock(),
+        ):
+            await games_routes.update_game(
+                game_id="game-123",
+                recur_rule="FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=15",
+                current_user=mock_current_user,
+                game_service=mock_game_service,
+                role_service=MagicMock(),
+            )
+
+        update_data = mock_game_service.update_game.call_args.kwargs["update_data"]
+        assert update_data.recur_rule == "FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=15"
+
+    @pytest.mark.asyncio
+    async def test_update_game_route_passes_empty_recur_rule_to_service(self):
+        """update_game route forwards empty recur_rule (clear) to GameUpdateRequest."""
+        mock_current_user = MagicMock()
+        mock_game = MagicMock()
+        mock_game_service = MagicMock()
+        mock_game_service.update_game = AsyncMock(return_value=mock_game)
+
+        with patch(
+            "services.api.routes.games._build_game_response",
+            new_callable=AsyncMock,
+            return_value=MagicMock(),
+        ):
+            await games_routes.update_game(
+                game_id="game-123",
+                recur_rule="",
+                current_user=mock_current_user,
+                game_service=mock_game_service,
+                role_service=MagicMock(),
+            )
+
+        update_data = mock_game_service.update_game.call_args.kwargs["update_data"]
+        assert update_data.recur_rule == ""
+
+    @pytest.mark.asyncio
+    async def test_update_game_route_passes_can_manage_to_build_response(self):
+        """update_game route passes can_manage_game result to _build_game_response."""
+        mock_current_user = MagicMock()
+        mock_game = MagicMock()
+        mock_game_service = MagicMock()
+        mock_game_service.update_game = AsyncMock(return_value=mock_game)
+        mock_game_service.db = MagicMock()
+        captured_kwargs: dict = {}
+
+        async def capture_build(game, **kwargs):
+            captured_kwargs.update(kwargs)
+            return MagicMock()
+
+        with (
+            patch(
+                "services.api.routes.games._build_game_response",
+                side_effect=capture_build,
+            ),
+            patch(
+                "services.api.dependencies.permissions.can_manage_game",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+        ):
+            await games_routes.update_game(
+                game_id="game-123",
+                current_user=mock_current_user,
+                game_service=mock_game_service,
+                role_service=MagicMock(),
+            )
+
+        assert captured_kwargs.get("can_manage") is True
+
+
+class TestCloneGameRouteCanManage:
+    """Tests for can_manage passthrough in clone_game route."""
+
+    @pytest.fixture
+    def clone_data(self):
+        return CloneGameRequest(
+            scheduled_at=datetime(2026, 7, 1, 20, 0, tzinfo=UTC),
+            player_carryover=CarryoverOption.NO,
+            waitlist_carryover=CarryoverOption.NO,
+        )
+
+    @pytest.mark.asyncio
+    async def test_clone_game_route_passes_can_manage_to_build_response(self, clone_data):
+        """clone_game route passes can_manage_game result to _build_game_response."""
+        mock_current_user = MagicMock()
+        mock_game = MagicMock()
+        mock_game_service = MagicMock()
+        mock_game_service.clone_game = AsyncMock(return_value=mock_game)
+        mock_game_service.db = MagicMock()
+        captured_kwargs: dict = {}
+
+        async def capture_build(game, **kwargs):
+            captured_kwargs.update(kwargs)
+            return MagicMock()
+
+        with (
+            patch(
+                "services.api.routes.games._build_game_response",
+                side_effect=capture_build,
+            ),
+            patch(
+                "services.api.dependencies.permissions.can_manage_game",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+        ):
+            await games_routes.clone_game(
+                game_id="game-123",
+                clone_data=clone_data,
+                current_user=mock_current_user,
+                game_service=mock_game_service,
+                role_service=MagicMock(),
+            )
+
+        assert captured_kwargs.get("can_manage") is True
+
+    @pytest.mark.asyncio
+    async def test_clone_game_route_can_manage_defaults_false_on_http_exception(self, clone_data):
+        """clone_game route uses can_manage=False when can_manage_game raises HTTPException."""
+        mock_current_user = MagicMock()
+        mock_game = MagicMock()
+        mock_game_service = MagicMock()
+        mock_game_service.clone_game = AsyncMock(return_value=mock_game)
+        mock_game_service.db = MagicMock()
+        captured_kwargs: dict = {}
+
+        async def capture_build(game, **kwargs):
+            captured_kwargs.update(kwargs)
+            return MagicMock()
+
+        with (
+            patch(
+                "services.api.routes.games._build_game_response",
+                side_effect=capture_build,
+            ),
+            patch(
+                "services.api.dependencies.permissions.can_manage_game",
+                new_callable=AsyncMock,
+                side_effect=HTTPException(status_code=403, detail="forbidden"),
+            ),
+        ):
+            await games_routes.clone_game(
+                game_id="game-123",
+                clone_data=clone_data,
+                current_user=mock_current_user,
+                game_service=mock_game_service,
+                role_service=MagicMock(),
+            )
+
+        assert captured_kwargs.get("can_manage") is False
 
 
 class TestListGamesPendingAnnouncementFilter:

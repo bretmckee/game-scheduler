@@ -63,6 +63,7 @@ class TestCreateGame:
                 scheduled_at="2026-06-01T20:00:00Z",
                 current_user=mock_current_user_unit,
                 game_service=mock_game_service,
+                role_service=MagicMock(),
             )
 
         assert exc_info.value.status_code == http_status.HTTP_422_UNPROCESSABLE_ENTITY
@@ -81,6 +82,7 @@ class TestCreateGame:
                 scheduled_at="2026-06-01T20:00:00Z",
                 current_user=mock_current_user_unit,
                 game_service=mock_game_service,
+                role_service=MagicMock(),
             )
 
         assert exc_info.value.status_code == http_status.HTTP_404_NOT_FOUND

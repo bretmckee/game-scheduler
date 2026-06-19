@@ -56,6 +56,61 @@ def test_update_simple_text_fields_updates_all_fields(game_service):
     assert game.where == "New Location"
 
 
+def test_update_simple_text_fields_sets_recur_rule(game_service):
+    """Test _update_simple_text_fields sets recur_rule when provided."""
+    game = game_model.GameSession(
+        id=str(uuid.uuid4()),
+        title="Test Game",
+        scheduled_at=datetime.datetime.now(UTC).replace(tzinfo=None),
+        status="SCHEDULED",
+        recur_rule=None,
+    )
+
+    update_data = game_schemas.GameUpdateRequest(
+        recur_rule="FREQ=WEEKLY;INTERVAL=1;BYDAY=TH",
+    )
+
+    game_service._update_simple_text_fields(game, update_data)
+
+    assert game.recur_rule == "FREQ=WEEKLY;INTERVAL=1;BYDAY=TH"
+
+
+def test_update_simple_text_fields_clears_recur_rule_on_empty_string(game_service):
+    """Test _update_simple_text_fields clears recur_rule to None when empty string sent."""
+    game = game_model.GameSession(
+        id=str(uuid.uuid4()),
+        title="Test Game",
+        scheduled_at=datetime.datetime.now(UTC).replace(tzinfo=None),
+        status="SCHEDULED",
+        recur_rule="FREQ=WEEKLY;INTERVAL=1;BYDAY=TH",
+    )
+
+    update_data = game_schemas.GameUpdateRequest(
+        recur_rule="",
+    )
+
+    game_service._update_simple_text_fields(game, update_data)
+
+    assert game.recur_rule is None
+
+
+def test_update_simple_text_fields_preserves_recur_rule_when_not_provided(game_service):
+    """Test _update_simple_text_fields leaves recur_rule unchanged when None (not sent)."""
+    game = game_model.GameSession(
+        id=str(uuid.uuid4()),
+        title="Test Game",
+        scheduled_at=datetime.datetime.now(UTC).replace(tzinfo=None),
+        status="SCHEDULED",
+        recur_rule="FREQ=WEEKLY;INTERVAL=1;BYDAY=TH",
+    )
+
+    update_data = game_schemas.GameUpdateRequest(title="New Title")
+
+    game_service._update_simple_text_fields(game, update_data)
+
+    assert game.recur_rule == "FREQ=WEEKLY;INTERVAL=1;BYDAY=TH"
+
+
 def test_update_simple_text_fields_skips_none_values(game_service):
     """Test _update_simple_text_fields skips fields with None values."""
     game = game_model.GameSession(
@@ -96,7 +151,9 @@ def test_update_scheduled_at_field_with_timezone_aware_datetime(game_service):
     # Create timezone-aware datetime (EST = UTC-5)
     est = datetime.timezone(datetime.timedelta(hours=-5))
     new_time = datetime.datetime(2026, 3, 15, 14, 30, 0, tzinfo=est)  # 2:30 PM EST
-    expected_utc = datetime.datetime(2026, 3, 15, 19, 30, 0)  # 7:30 PM UTC (naive)
+    expected_utc = datetime.datetime(2026, 3, 15, 19, 30, 0, tzinfo=UTC).replace(
+        tzinfo=None
+    )  # 7:30 PM UTC (naive)
 
     update_data = game_schemas.GameUpdateRequest(
         scheduled_at=new_time,
@@ -119,7 +176,9 @@ def test_update_scheduled_at_field_with_naive_datetime(game_service):
         status="SCHEDULED",
     )
 
-    new_time = datetime.datetime(2026, 3, 15, 19, 30, 0)  # Naive UTC
+    new_time = datetime.datetime(2026, 3, 15, 19, 30, 0, tzinfo=UTC).replace(
+        tzinfo=None
+    )  # Naive UTC
 
     update_data = game_schemas.GameUpdateRequest(
         scheduled_at=new_time,
@@ -280,7 +339,7 @@ def test_update_game_fields_integrates_all_helpers(game_service):
         where="Original Location",
         max_players=4,
         reminder_minutes=[60],
-        scheduled_at=datetime.datetime(2026, 1, 1, 12, 0, 0),
+        scheduled_at=datetime.datetime(2026, 1, 1, 12, 0, 0, tzinfo=UTC).replace(tzinfo=None),
         status="SCHEDULED",
     )
 
@@ -289,7 +348,7 @@ def test_update_game_fields_integrates_all_helpers(game_service):
         where="New Location",
         max_players=6,
         reminder_minutes=[120, 30],
-        scheduled_at=datetime.datetime(2026, 2, 1, 14, 0, 0),
+        scheduled_at=datetime.datetime(2026, 2, 1, 14, 0, 0, tzinfo=UTC).replace(tzinfo=None),
     )
 
     schedule_needs_update, status_schedule_needs_update = game_service._update_game_fields(
@@ -308,7 +367,9 @@ def test_update_game_fields_integrates_all_helpers(game_service):
     assert game.reminder_minutes == [120, 30]
 
     # Verify scheduled_at updated
-    assert game.scheduled_at == datetime.datetime(2026, 2, 1, 14, 0, 0)
+    assert game.scheduled_at == datetime.datetime(2026, 2, 1, 14, 0, 0, tzinfo=UTC).replace(
+        tzinfo=None
+    )
 
     # Verify return values correct (scheduled_at and reminder_minutes both trigger updates)
     assert schedule_needs_update is True
@@ -320,12 +381,12 @@ def test_update_game_fields_scheduled_at_affects_both_schedules(game_service):
     game = game_model.GameSession(
         id=str(uuid.uuid4()),
         title="Test Game",
-        scheduled_at=datetime.datetime(2026, 1, 1, 12, 0, 0),
+        scheduled_at=datetime.datetime(2026, 1, 1, 12, 0, 0, tzinfo=UTC).replace(tzinfo=None),
         status="SCHEDULED",
     )
 
     update_data = game_schemas.GameUpdateRequest(
-        scheduled_at=datetime.datetime(2026, 2, 1, 14, 0, 0),
+        scheduled_at=datetime.datetime(2026, 2, 1, 14, 0, 0, tzinfo=UTC).replace(tzinfo=None),
     )
 
     schedule_needs_update, status_schedule_needs_update = game_service._update_game_fields(
@@ -341,7 +402,7 @@ def test_update_game_fields_status_only_affects_status_schedule(game_service):
     game = game_model.GameSession(
         id=str(uuid.uuid4()),
         title="Test Game",
-        scheduled_at=datetime.datetime(2026, 1, 1, 12, 0, 0),
+        scheduled_at=datetime.datetime(2026, 1, 1, 12, 0, 0, tzinfo=UTC).replace(tzinfo=None),
         status="SCHEDULED",
     )
 
@@ -363,7 +424,7 @@ def test_update_game_fields_reminder_only_affects_notification_schedule(game_ser
         id=str(uuid.uuid4()),
         title="Test Game",
         reminder_minutes=[60],
-        scheduled_at=datetime.datetime(2026, 1, 1, 12, 0, 0),
+        scheduled_at=datetime.datetime(2026, 1, 1, 12, 0, 0, tzinfo=UTC).replace(tzinfo=None),
         status="SCHEDULED",
     )
 
