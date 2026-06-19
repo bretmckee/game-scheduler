@@ -5390,3 +5390,90 @@ async def test_update_game_publishes_updated_when_already_announced(
         )
 
     mock_publish_updated.assert_called_once_with(game)
+
+
+@pytest.mark.asyncio
+async def test_clear_post_at_sets_post_at_for_null_post_at_recurrence_clone(
+    game_service,
+    mock_db,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """update_game with clear_post_at=True on a post_at=NULL recurrence clone sets post_at to now.
+
+    Ensures the recurrence confirmation path via the API works correctly.
+    """
+    game, mock_result = _make_update_game_mock(
+        sample_guild, sample_channel, sample_user, post_at=None, message_id=None
+    )
+    game.recur_rule = "FREQ=WEEKLY;BYDAY=SA"
+    mock_db.execute.return_value = mock_result
+    mock_db.refresh = AsyncMock()
+
+    mock_setup = AsyncMock()
+    mock_publish_created = AsyncMock()
+    mock_publish_updated = AsyncMock()
+
+    mock_current_user = MagicMock()
+    mock_current_user.user.discord_id = sample_user.discord_id
+
+    before = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+    with (
+        patch("services.api.dependencies.permissions.can_manage_game", return_value=True),
+        patch.object(game_service, "_setup_game_schedules", new=mock_setup),
+        patch.object(game_service, "_publish_game_created", new=mock_publish_created),
+        patch.object(game_service, "_publish_game_updated", new=mock_publish_updated),
+    ):
+        result = await game_service.update_game(
+            game_id=game.id,
+            update_data=game_schemas.GameUpdateRequest(clear_post_at=True),
+            current_user=mock_current_user,
+            role_service=AsyncMock(),
+        )
+    after = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+
+    assert result.post_at is not None, "post_at must be set for recurrence clone after confirmation"
+    assert before <= result.post_at <= after, "post_at must be approximately now"
+    mock_setup.assert_called_once_with(game, [60, 15])
+    mock_publish_created.assert_called_once_with(game, sample_channel)
+    mock_publish_updated.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_clear_post_at_is_no_op_for_null_post_at_non_recurrence(
+    game_service,
+    mock_db,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """update_game with clear_post_at=True on a post_at=NULL non-recurrence game does nothing."""
+    game, mock_result = _make_update_game_mock(
+        sample_guild, sample_channel, sample_user, post_at=None, message_id=None
+    )
+    game.recur_rule = None
+    mock_db.execute.return_value = mock_result
+    mock_db.refresh = AsyncMock()
+
+    mock_setup = AsyncMock()
+    mock_publish_created = AsyncMock()
+
+    mock_current_user = MagicMock()
+    mock_current_user.user.discord_id = sample_user.discord_id
+
+    with (
+        patch("services.api.dependencies.permissions.can_manage_game", return_value=True),
+        patch.object(game_service, "_setup_game_schedules", new=mock_setup),
+        patch.object(game_service, "_publish_game_created", new=mock_publish_created),
+    ):
+        result = await game_service.update_game(
+            game_id=game.id,
+            update_data=game_schemas.GameUpdateRequest(clear_post_at=True),
+            current_user=mock_current_user,
+            role_service=AsyncMock(),
+        )
+
+    assert result.post_at is None, "post_at must remain None for non-recurrence game"
+    mock_setup.assert_not_called()
+    mock_publish_created.assert_not_called()

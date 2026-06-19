@@ -2200,9 +2200,17 @@ class GameService:
         # Detect promotions/demotions and notify affected users
         await self._detect_and_notify_transitions(game, old_partitioned)
 
-        # When clearing post_at on a not-yet-announced game, announce immediately
-        if update_data.clear_post_at and game.post_at is not None and game.message_id is None:
-            game.post_at = None
+        # When clearing post_at on a not-yet-announced game, announce immediately.
+        # Also handles recurrence clones where post_at=NULL but recur_rule is set.
+        if (
+            update_data.clear_post_at
+            and game.message_id is None
+            and (game.post_at is not None or game.recur_rule is not None)
+        ):
+            if game.post_at is None:
+                game.post_at = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+            else:
+                game.post_at = None
             reminder_minutes = (
                 game.reminder_minutes if game.reminder_minutes is not None else [60, 15]
             )
