@@ -560,6 +560,7 @@ class GameService:
                 if game_data.post_at is not None and game_data.post_at.tzinfo is not None
                 else game_data.post_at
             ),
+            recur_rule=game_data.recur_rule or None,
         )
 
     async def _setup_game_schedules(
@@ -1214,6 +1215,8 @@ class GameService:
             game.where = update_data.where
         if update_data.rewards is not None:
             game.rewards = update_data.rewards
+        if update_data.recur_rule is not None:
+            game.recur_rule = update_data.recur_rule or None
 
     def _update_scheduled_at_field(
         self,

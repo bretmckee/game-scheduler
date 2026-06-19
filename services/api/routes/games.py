@@ -396,11 +396,13 @@ async def create_game(
     host: Annotated[str | None, Form()] = None,
     remind_host_rewards: Annotated[bool | None, Form()] = None,
     post_at: Annotated[str | None, Form()] = None,
+    recur_rule: Annotated[str | None, Form()] = None,
     thumbnail: Annotated[UploadFile | None, File()] = None,
     image: Annotated[UploadFile | None, File()] = None,
     *,  # Force remaining parameters to be keyword-only
     current_user: Annotated[auth_schemas.CurrentUser, Depends(auth_deps.get_current_user)],
     game_service: Annotated[games_service.GameService, Depends(_get_game_service)],
+    role_service: _RoleServiceDep,
 ) -> game_schemas.GameResponse:
     """
     Create new game session.
@@ -440,6 +442,7 @@ async def create_game(
             host=host,
             remind_host_rewards=remind_host_rewards,
             post_at=post_at_datetime,
+            recur_rule=recur_rule or None,
         )
 
         # Validate and read thumbnail
@@ -485,7 +488,18 @@ async def create_game(
             image_mime_type=image_mime,
         )
 
-        return await _build_game_response(game)
+        try:
+            can_manage = await permissions_deps.can_manage_game(
+                game_host_id=game.host.discord_id,
+                guild_id=game.guild.guild_id,
+                current_user=current_user,
+                role_service=role_service,
+                db=game_service.db,
+            )
+        except HTTPException:
+            can_manage = False
+
+        return await _build_game_response(game, can_manage=can_manage)
 
     except (resolver_module.ValidationError, ValueError) as e:
         _handle_game_operation_errors(e, game_data)
@@ -651,6 +665,7 @@ async def update_game(
     archive_delay_seconds: Annotated[int | None, Form()] = None,
     post_at: Annotated[str | None, Form()] = None,
     clear_post_at: Annotated[bool, Form()] = False,
+    recur_rule: Annotated[str | None, Form()] = None,
     *,  # Force remaining parameters to be keyword-only
     current_user: Annotated[auth_schemas.CurrentUser, Depends(auth_deps.get_current_user)],
     game_service: Annotated[games_service.GameService, Depends(_get_game_service)],
@@ -707,6 +722,7 @@ async def update_game(
             archive_delay_seconds=archive_delay_seconds,
             post_at=post_at_datetime,
             clear_post_at=clear_post_at_parsed,
+            recur_rule=recur_rule,
         )
 
         # Process file uploads
@@ -727,7 +743,18 @@ async def update_game(
             image_mime_type=image_mime,
         )
 
-        return await _build_game_response(game)
+        try:
+            can_manage = await permissions_deps.can_manage_game(
+                game_host_id=game.host.discord_id,
+                guild_id=game.guild.guild_id,
+                current_user=current_user,
+                role_service=role_service,
+                db=game_service.db,
+            )
+        except HTTPException:
+            can_manage = False
+
+        return await _build_game_response(game, can_manage=can_manage)
 
     except (resolver_module.ValidationError, ValueError) as e:
         _handle_game_operation_errors(e, update_data)
@@ -791,7 +818,17 @@ async def clone_game(
         if "not found" in str(e).lower():
             raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail=str(e)) from None
         raise HTTPException(status_code=http_status.HTTP_403_FORBIDDEN, detail=str(e)) from None
-    return await _build_game_response(game)
+    try:
+        can_manage = await permissions_deps.can_manage_game(
+            game_host_id=game.host.discord_id,
+            guild_id=game.guild.guild_id,
+            current_user=current_user,
+            role_service=role_service,
+            db=game_service.db,
+        )
+    except HTTPException:
+        can_manage = False
+    return await _build_game_response(game, can_manage=can_manage)
 
 
 @router.post("/{game_id}/join", response_model=participant_schemas.ParticipantResponse)
