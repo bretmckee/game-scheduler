@@ -32,6 +32,7 @@ import ErrorIcon from '@mui/icons-material/Error';
 export interface ParticipantInput {
   id: string;
   mention: string;
+  resolvedMention?: string; // <@discordId> set after disambiguation; used for submission
   preFillPosition: number;
   isExplicitlyPositioned?: boolean; // Track if user explicitly moved/added this participant
   isReadOnly?: boolean; // Joined participants can't be edited, only reordered/removed
@@ -53,7 +54,14 @@ export const EditableParticipantList: FC<EditableParticipantListProps> = ({
   const handleMentionChange = (id: string, newMention: string) => {
     onChange(
       participants.map((p) =>
-        p.id === id ? { ...p, mention: newMention, validationStatus: 'unknown' as const } : p
+        p.id === id
+          ? {
+              ...p,
+              mention: newMention,
+              resolvedMention: undefined,
+              validationStatus: 'unknown' as const,
+            }
+          : p
       )
     );
   };

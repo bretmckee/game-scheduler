@@ -602,6 +602,79 @@ describe('CreateGame', () => {
       expect(formData.get('remind_host_rewards')).toBe('true');
     });
   });
+
+  it('uses resolvedMention (<@uid>) in submission after disambiguation', async () => {
+    const user = userEvent.setup();
+
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url === '/api/v1/guilds') {
+        return Promise.resolve({ data: { guilds: [mockGuild] } });
+      }
+      if (url === '/api/v1/guilds/1/templates') {
+        return Promise.resolve({ data: [mockTemplate] });
+      }
+      if (url.includes('/config')) {
+        return Promise.resolve({ status: StatusCodes.FORBIDDEN });
+      }
+      return Promise.resolve({ data: [] });
+    });
+
+    vi.mocked(apiClient.post)
+      .mockRejectedValueOnce({
+        response: {
+          status: StatusCodes.UNPROCESSABLE_ENTITY,
+          data: {
+            detail: {
+              error: 'invalid_mentions',
+              message: 'Multiple matches found',
+              invalid_mentions: [
+                {
+                  input: '@user',
+                  reason: 'Multiple matches found',
+                  suggestions: [
+                    { discordId: '123', username: 'user', displayName: 'User Display' },
+                  ],
+                },
+              ],
+              valid_participants: [],
+            },
+          },
+        },
+      })
+      .mockResolvedValueOnce({ data: { id: 'new-game-id' } });
+
+    renderWithAuth();
+
+    await waitFor(() => {
+      expect(screen.getByRole('textbox', { name: /game title/i })).toBeInTheDocument();
+    });
+
+    await user.clear(screen.getByRole('textbox', { name: /game title/i }));
+    await user.paste('Test Game');
+    await user.clear(screen.getByRole('textbox', { name: /description/i }));
+    await user.paste('Test Description');
+
+    await user.click(screen.getByRole('button', { name: /add participant/i }));
+    const participantInput = screen.getByPlaceholderText('@username or Discord user');
+    await user.clear(participantInput);
+    await user.type(participantInput, '@user');
+
+    await user.click(screen.getByRole('button', { name: /create game/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('@user (User Display)')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('@user (User Display)'));
+    await user.click(screen.getByRole('button', { name: /create game/i }));
+
+    await waitFor(() => {
+      expect(apiClient.post).toHaveBeenCalledTimes(2);
+    });
+
+    const secondCallFormData = vi.mocked(apiClient.post).mock.calls[1]![1] as FormData;
+    expect(secondCallFormData.get('initial_participants')).toBe('["<@123>"]');
+  });
 });
 
 describe('CreateGame with guildId route param', () => {

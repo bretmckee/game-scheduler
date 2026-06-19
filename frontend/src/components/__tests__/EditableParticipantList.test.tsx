@@ -103,3 +103,26 @@ describe('EditableParticipantList - open slot placeholders', () => {
     expect(onChange).toHaveBeenCalled();
   });
 });
+
+describe('EditableParticipantList - resolvedMention clearing', () => {
+  it('clears resolvedMention when the mention text is manually edited', () => {
+    const onChange = vi.fn();
+    const participant: ParticipantInput = {
+      id: 'p1',
+      mention: '@user',
+      preFillPosition: 1,
+      isExplicitlyPositioned: true,
+      validationStatus: 'valid',
+      resolvedMention: '<@123456>',
+    };
+    const { getByDisplayValue } = render(
+      <EditableParticipantList participants={[participant]} onChange={onChange} />
+    );
+    fireEvent.change(getByDisplayValue('@user'), { target: { value: '@user edited' } });
+    expect(onChange).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'p1', mention: '@user edited', resolvedMention: undefined }),
+      ])
+    );
+  });
+});
