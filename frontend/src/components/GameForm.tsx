@@ -50,6 +50,7 @@ import {
 } from './EditableParticipantList';
 import { DurationSelector } from './DurationSelector';
 import { ReminderSelector } from './ReminderSelector';
+import { RecurrenceSelector } from './RecurrenceSelector';
 import { useAuth } from '../hooks/useAuth';
 import { Time } from '../constants/time';
 import { UI } from '../constants/ui';
@@ -110,6 +111,7 @@ export interface GameFormData {
   removeImage: boolean;
   rewards: string;
   remindHostRewards: boolean;
+  recurRule: string | null;
 }
 
 interface GameFormProps {
@@ -292,6 +294,7 @@ export const GameForm: FC<GameFormProps> = ({
     removeImage: false,
     rewards: initialData?.rewards || '',
     remindHostRewards: initialData?.remind_host_rewards ?? false,
+    recurRule: initialData?.recur_rule ?? null,
   });
 
   // Update form when initialData changes (e.g., after async fetch in edit mode)
@@ -324,6 +327,7 @@ export const GameForm: FC<GameFormProps> = ({
         removeImage: false,
         rewards: initialData.rewards || '',
         remindHostRewards: initialData.remind_host_rewards ?? false,
+        recurRule: initialData.recur_rule ?? null,
       });
     }
   }, [initialData, resolvedDefaultSignupMethod]);
@@ -805,6 +809,14 @@ export const GameForm: FC<GameFormProps> = ({
                 helperText={reminderError || 'Select one or more reminder times'}
               />
             </Box>
+          </Box>
+
+          <Box sx={{ mt: 1, mb: 1 }}>
+            <RecurrenceSelector
+              scheduledAt={formData.scheduledAt}
+              value={formData.recurRule}
+              onChange={(rule) => setFormData((prev) => ({ ...prev, recurRule: rule }))}
+            />
           </Box>
 
           {canChangeChannel ? (

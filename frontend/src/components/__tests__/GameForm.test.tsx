@@ -19,7 +19,8 @@
 // SOFTWARE.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { GameForm } from '../GameForm';
 import { AuthContext } from '../../contexts/AuthContext';
 import type { Channel } from '../../types';
@@ -709,5 +710,42 @@ describe('GameForm - edit mode with non-HSWW participants', () => {
       (el) => el.getAttribute('placeholder') === '@username or Discord user'
     );
     expect(participantInputs).toHaveLength(2);
+  });
+});
+
+describe('GameForm - RecurrenceSelector Integration', () => {
+  const mockChannel = {
+    id: 'ch1',
+    channel_name: 'General',
+    guild_id: 'guild1',
+    channel_id: 'ch1',
+    is_active: true,
+    created_at: '2025-01-01T00:00:00Z',
+    updated_at: '2025-01-01T00:00:00Z',
+  };
+
+  it('updates recurRule when recurrence frequency is changed', async () => {
+    const user = userEvent.setup();
+    const mockOnSubmit = vi.fn();
+    const mockOnCancel = vi.fn();
+
+    renderWithAuth(
+      <GameForm
+        mode="create"
+        guildId="guild1"
+        channels={[mockChannel]}
+        onSubmit={mockOnSubmit}
+        onCancel={mockOnCancel}
+      />
+    );
+
+    const allComboboxes = screen.getAllByRole('combobox');
+    const recurrenceSelect = allComboboxes.find((el) => el.textContent === 'No recurrence');
+    expect(recurrenceSelect).toBeDefined();
+
+    await user.click(recurrenceSelect!);
+    await user.click(screen.getByText('Every N weeks'));
+
+    expect(screen.getByLabelText('Interval')).toBeInTheDocument();
   });
 });

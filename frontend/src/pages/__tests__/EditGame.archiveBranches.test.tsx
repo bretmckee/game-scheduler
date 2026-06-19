@@ -132,6 +132,7 @@ describe('EditGame - handleSaveAndArchive optional field branches', () => {
     removeImage: false,
     rewards: 'A shiny badge',
     remindHostRewards: false,
+    recurRule: null,
   };
 
   function setupMocks() {
