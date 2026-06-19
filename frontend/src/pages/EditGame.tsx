@@ -182,7 +182,7 @@ export const EditGame: FC = () => {
             };
           }
           return {
-            mention: p.mention.trim(),
+            mention: p.resolvedMention ?? p.mention.trim(),
             position: p.preFillPosition,
           };
         });

@@ -565,11 +565,15 @@ export const GameForm: FC<GameFormProps> = ({
   };
 
   const handleSuggestionClick = (originalInput: string, newUsername: string) => {
+    const error = validationErrors?.find((e) => e.input === originalInput);
+    const suggestion = error?.suggestions.find((s) => `@${s.username}` === newUsername);
+    const resolvedMention = suggestion ? `<@${suggestion.discordId}>` : undefined;
+    const displayMention = suggestion ? `@${suggestion.displayName}` : newUsername;
     setFormData((prev) => ({
       ...prev,
       participants: prev.participants.map((p) =>
         p.mention.trim() === originalInput.trim()
-          ? { ...p, mention: newUsername, validationStatus: 'unknown' as const }
+          ? { ...p, mention: displayMention, resolvedMention, validationStatus: 'unknown' as const }
           : p
       ),
       description: replaceMentionToken(prev.description, originalInput, newUsername),

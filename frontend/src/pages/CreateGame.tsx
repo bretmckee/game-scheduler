@@ -218,7 +218,7 @@ export const CreateGame: FC = () => {
       // Add initial participants as JSON array
       const participantsList = formData.participants
         .filter((p) => p.mention.trim())
-        .map((p) => p.mention.trim());
+        .map((p) => p.resolvedMention ?? p.mention.trim());
       if (participantsList.length > 0) {
         payload.append('initial_participants', JSON.stringify(participantsList));
       }
