@@ -124,9 +124,9 @@ Add recurring game support: when a game with a `recur_rule` (RFC 5545 RRULE stri
 - [x] Task 8.2: Create `tests/integration/test_recurrence_clone.py` with 4 integration tests; run suite
   - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 501-521)
 
-### [ ] Phase 9: E2E Tests (Retrofitting)
+### [x] Phase 9: E2E Tests (Retrofitting)
 
-- [ ] Task 9.1: Create `tests/e2e/test_recurring_game.py` with 2 e2e tests (confirm via API + zombie cancel); run suite
+- [x] Task 9.1: Create `tests/e2e/test_recurring_game.py` with 2 e2e tests (confirm via API + zombie cancel); run suite
   - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 524-554)
 
 ### [ ] Phase 10: Frontend `RecurrenceSelector`
