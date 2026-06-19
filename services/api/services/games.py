@@ -61,6 +61,7 @@ from shared.models.participant_action_schedule import ParticipantActionSchedule
 from shared.models.signup_method import SignupMethod
 from shared.schemas import auth as auth_schemas
 from shared.schemas import game as game_schemas
+from shared.services.game_schedules import clone_game_for_recurrence
 from shared.services.image_storage import (
     increment_image_ref,
     release_image,
@@ -1003,58 +1004,7 @@ class GameService:
         source: game_model.GameSession,
         next_at: datetime.datetime,
     ) -> game_model.GameSession:
-        next_at_naive = next_at.replace(tzinfo=None)
-        clone = game_model.GameSession(
-            id=game_model.generate_uuid(),
-            title=source.title,
-            description=source.description,
-            signup_instructions=source.signup_instructions,
-            scheduled_at=next_at_naive,
-            where=source.where,
-            template_id=source.template_id,
-            guild_id=source.guild_id,
-            channel_id=source.channel_id,
-            host_id=source.host_id,
-            max_players=source.max_players,
-            reminder_minutes=source.reminder_minutes,
-            expected_duration_minutes=source.expected_duration_minutes,
-            archive_delay_seconds=source.archive_delay_seconds,
-            archive_channel_id=source.archive_channel_id,
-            notify_role_ids=source.notify_role_ids,
-            allowed_player_role_ids=source.allowed_player_role_ids,
-            signup_method=source.signup_method,
-            recur_rule=source.recur_rule,
-            remind_host_rewards=source.remind_host_rewards,
-            thumbnail_id=source.thumbnail_id,
-            banner_image_id=source.banner_image_id,
-            status=game_model.GameStatus.SCHEDULED.value,
-            post_at=None,
-            message_id=None,
-            rewards=None,
-        )
-        db.add(clone)
-        await increment_image_ref(db, source.thumbnail_id)
-        await increment_image_ref(db, source.banner_image_id)
-        await db.flush()
-
-        partitioned = partition_participants(
-            source.participants,
-            source.max_players,
-            signup_method=source.signup_method,
-        )
-        for position, source_participant in enumerate(partitioned.confirmed, start=1):
-            db.add(
-                participant_model.GameParticipant(
-                    game_session_id=clone.id,
-                    user_id=source_participant.user_id,
-                    display_name=source_participant.display_name,
-                    position_type=source_participant.position_type,
-                    position=position,
-                )
-            )
-        await db.flush()
-        await self._create_game_status_schedules(clone, source.expected_duration_minutes)
-        return clone
+        return await clone_game_for_recurrence(db, source, next_at)
 
     def _add_participant_carryover_schedules(
         self,

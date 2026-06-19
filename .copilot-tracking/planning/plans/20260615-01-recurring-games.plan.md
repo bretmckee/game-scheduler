@@ -116,12 +116,12 @@ Add recurring game support: when a game with a `recur_rule` (RFC 5545 RRULE stri
 - [x] Task 7.4: Remove xfail markers from Phase 6 tests; verify all pass
   - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 455-465)
 
-### [ ] Phase 8: Integration Tests (Retrofitting)
+### [x] Phase 8: Integration Tests (Retrofitting)
 
-- [ ] Task 8.1: Fix `update_game` — handle `clear_post_at=true` when `post_at=NULL AND recur_rule IS NOT NULL`; write unit tests
+- [x] Task 8.1: Fix `update_game` — handle `clear_post_at=true` when `post_at=NULL AND recur_rule IS NOT NULL`; write unit tests
   - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 470-499)
 
-- [ ] Task 8.2: Create `tests/integration/test_recurrence_clone.py` with 4 integration tests; run suite
+- [x] Task 8.2: Create `tests/integration/test_recurrence_clone.py` with 4 integration tests; run suite
   - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 501-521)
 
 ### [ ] Phase 9: E2E Tests (Retrofitting)

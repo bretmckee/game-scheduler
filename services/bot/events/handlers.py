@@ -33,7 +33,6 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.api.services.games import GameService
 from services.bot.config import get_config
 from services.bot.events.publisher import get_bot_publisher
 from services.bot.formatters.game_message import format_game_announcement
@@ -45,14 +44,12 @@ from shared.cache.client import get_redis_client
 from shared.database import get_db_session
 from shared.message_formats import DMFormats
 from shared.messaging.consumer import EventConsumer
-from shared.messaging.deferred_publisher import DeferredEventPublisher
 from shared.messaging.events import (
     Event,
     EventType,
     NotificationDueEvent,
     NotificationSendDMEvent,
 )
-from shared.messaging.publisher import EventPublisher
 from shared.models import game as game_model
 from shared.models import participant as participant_model
 from shared.models import user as user_model
@@ -65,6 +62,7 @@ from shared.models.participant import GameParticipant
 from shared.models.participant_action_schedule import ParticipantActionSchedule
 from shared.models.signup_method import SignupMethod
 from shared.schemas.events import GameStatusTransitionDueEvent
+from shared.services.game_schedules import clone_game_for_recurrence
 from shared.utils.games import resolve_max_players
 from shared.utils.participant_sorting import partition_participants
 from shared.utils.status_transitions import GameStatus, is_valid_transition
@@ -1325,11 +1323,7 @@ class EventHandlers:
             next_at = rrulestr(game.recur_rule, dtstart=game.scheduled_at).after(game.scheduled_at)
             if next_at:
                 async with get_db_session() as db:
-                    event_publisher = DeferredEventPublisher(
-                        db=db, event_publisher=EventPublisher()
-                    )
-                    game_service = GameService(db, event_publisher)
-                    clone = await game_service._system_clone_for_recurrence(db, game, next_at)
+                    clone = await clone_game_for_recurrence(db, game, next_at)
                     await self._schedule_recurrence_confirmation_notification(db, clone)
                     await db.commit()
                     logger.info(

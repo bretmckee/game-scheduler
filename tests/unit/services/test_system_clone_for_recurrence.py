@@ -160,13 +160,11 @@ async def test_system_clone_does_not_publish_game_created(game_service, source_g
 
 @pytest.mark.asyncio
 async def test_system_clone_creates_status_schedules(game_service, source_game):
-    """_create_game_status_schedules must be called for the new clone."""
-    with patch.object(
-        game_service, "_create_game_status_schedules", new=AsyncMock()
-    ) as mock_schedules:
+    """_create_status_schedules must be called for the new clone."""
+    with patch("shared.services.game_schedules._create_status_schedules") as mock_schedules:
         await game_service._system_clone_for_recurrence(game_service.db, source_game, NEXT_AT)
 
     mock_schedules.assert_called_once()
     call_args = mock_schedules.call_args
-    assert isinstance(call_args[0][0], game_model.GameSession)
-    assert call_args[0][1] == source_game.expected_duration_minutes
+    assert isinstance(call_args[0][1], game_model.GameSession)
+    assert call_args[0][2] == source_game.expected_duration_minutes
