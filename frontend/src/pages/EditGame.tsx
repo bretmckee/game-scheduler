@@ -215,6 +215,12 @@ export const EditGame: FC = () => {
       payload.append('rewards', formData.rewards || '');
       payload.append('remind_host_rewards', formData.remindHostRewards ? 'true' : 'false');
 
+      if (formData.recurRule) {
+        payload.append('recur_rule', formData.recurRule);
+      } else {
+        payload.append('recur_rule', '');
+      }
+
       if (formData.clearPostAt) {
         payload.append('clear_post_at', 'true');
       } else if (formData.postAt) {

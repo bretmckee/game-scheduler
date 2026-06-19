@@ -886,3 +886,113 @@ describe('CreateGame - post_at scheduling field', () => {
     expect(screen.getByText(/Leave empty to post immediately/)).toBeInTheDocument();
   });
 });
+
+describe('CreateGame - recur_rule field', () => {
+  const mockUser: CurrentUser = {
+    id: 'id-123',
+    user_uuid: 'user-123',
+    username: 'testuser',
+    discordId: 'discord-123',
+    avatar: null,
+  };
+
+  const mockGuild: Guild = {
+    id: '1',
+    guild_name: 'Test Server',
+    created_at: '2025-01-01T00:00:00Z',
+    updated_at: '2025-01-01T00:00:00Z',
+  };
+
+  const mockTemplate: GameTemplate = {
+    id: 'template-1',
+    guild_id: '1',
+    name: 'Default Game',
+    description: 'Default game template',
+    channel_id: 'channel-1',
+    channel_name: 'general',
+    max_players: 8,
+    expected_duration_minutes: 120,
+    reminder_minutes: [60, 15],
+    where: null,
+    signup_instructions: null,
+    is_default: true,
+    order: 1,
+    notify_role_ids: null,
+    allowed_player_role_ids: null,
+    allowed_host_role_ids: null,
+    allowed_signup_methods: null,
+    default_signup_method: null,
+    archive_channel_id: null,
+    archive_channel_name: null,
+    archive_delay_seconds: null,
+    created_at: '2025-01-01T00:00:00Z',
+    updated_at: '2025-01-01T00:00:00Z',
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url === '/api/v1/guilds') {
+        return Promise.resolve({ data: { guilds: [mockGuild] } });
+      }
+      if (url === '/api/v1/guilds/1/templates') {
+        return Promise.resolve({ data: [mockTemplate] });
+      }
+      if (url.includes('/config')) {
+        return Promise.resolve({ status: 403 });
+      }
+      return Promise.resolve({ data: [] });
+    });
+  });
+
+  const renderWithAuth = () => {
+    const mockAuthValue = {
+      user: mockUser,
+      login: vi.fn(),
+      logout: vi.fn(),
+      refreshUser: vi.fn(),
+      loading: false,
+    };
+    return render(
+      <BrowserRouter>
+        <AuthContext.Provider value={mockAuthValue}>
+          <CreateGame />
+        </AuthContext.Provider>
+      </BrowserRouter>
+    );
+  };
+
+  it('sends recur_rule in FormData when recurrence is selected', async () => {
+    vi.mocked(apiClient.post).mockResolvedValue({ data: { id: 'new-game-id' } });
+    const user = userEvent.setup();
+    renderWithAuth();
+
+    await waitFor(() => {
+      expect(screen.getByRole('textbox', { name: /game title/i })).toBeInTheDocument();
+    });
+
+    const titleInput = screen.getByRole('textbox', { name: /game title/i });
+    await user.clear(titleInput);
+    await user.paste('Recurring Test Game');
+
+    const descriptionInput = screen.getByRole('textbox', { name: /description/i });
+    await user.clear(descriptionInput);
+    await user.paste('A recurring game');
+
+    const allComboboxes = screen.getAllByRole('combobox');
+    const recurrenceSelect = allComboboxes.find((el) => el.textContent === 'No recurrence');
+    expect(recurrenceSelect).toBeDefined();
+    await user.click(recurrenceSelect!);
+    await user.click(screen.getByText('Every N weeks'));
+
+    await user.click(screen.getByRole('button', { name: /create game/i }));
+
+    await waitFor(() => {
+      expect(apiClient.post).toHaveBeenCalled();
+    });
+
+    const postCall = vi.mocked(apiClient.post).mock.calls[0];
+    const formData = postCall![1] as FormData;
+    expect(formData.get('recur_rule')).toBeTruthy();
+  });
+});

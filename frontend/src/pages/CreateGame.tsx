@@ -233,6 +233,10 @@ export const CreateGame: FC = () => {
 
       payload.append('remind_host_rewards', formData.remindHostRewards ? 'true' : 'false');
 
+      if (formData.recurRule) {
+        payload.append('recur_rule', formData.recurRule);
+      }
+
       if (formData.postAt) {
         payload.append('post_at', formData.postAt.toISOString());
       }

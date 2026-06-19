@@ -694,3 +694,90 @@ describe('EditGame - post_at scheduling field', () => {
     expect(formData.get('post_at')).toBeNull();
   });
 });
+
+describe('EditGame - recur_rule field', () => {
+  const mockGameWithRecurrence: GameSession = {
+    id: 'game789',
+    title: 'Recurring Game',
+    description: 'A game that repeats weekly',
+    signup_instructions: null,
+    scheduled_at: '2099-12-01T18:00:00Z',
+    where: null,
+    max_players: 4,
+    guild_id: 'guild123',
+    guild_name: 'Test Server',
+    channel_id: 'channel123',
+    channel_name: 'Test Channel',
+    message_id: null,
+    host: {
+      id: 'host-participant-id',
+      game_session_id: 'game789',
+      user_id: 'user123',
+      discord_id: '123456789',
+      display_name: 'Test Host',
+      joined_at: '2025-01-01T00:00:00Z',
+      position_type: ParticipantType.SELF_ADDED,
+      position: 0,
+    },
+    reminder_minutes: [],
+    notify_role_ids: [],
+    expected_duration_minutes: null,
+    status: 'SCHEDULED',
+    signup_method: 'SELF_SIGNUP',
+    participant_count: 0,
+    participants: [],
+    created_at: '2025-01-01T00:00:00Z',
+    updated_at: '2025-01-01T00:00:00Z',
+    recur_rule: 'FREQ=WEEKLY;INTERVAL=2;BYDAY=MO',
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockParams.gameId = 'game789';
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url === '/api/v1/games/game789') {
+        return Promise.resolve({ data: mockGameWithRecurrence });
+      }
+      if (url === '/api/v1/guilds/guild123/channels') {
+        return Promise.resolve({ data: [] });
+      }
+      if (url === '/api/v1/guilds/guild123/roles') {
+        return Promise.resolve({ data: [] });
+      }
+      return Promise.resolve({ data: [] });
+    });
+  });
+
+  afterEach(() => {
+    mockParams.gameId = 'game123';
+  });
+
+  const renderWithAuth = () => {
+    return render(
+      <BrowserRouter>
+        <AuthContext.Provider value={mockAuthContextValue}>
+          <EditGame />
+        </AuthContext.Provider>
+      </BrowserRouter>
+    );
+  };
+
+  it('sends recur_rule in FormData when game has recurrence', async () => {
+    vi.mocked(apiClient.put).mockResolvedValueOnce({ data: mockGameWithRecurrence });
+    const user = userEvent.setup();
+    renderWithAuth();
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('Recurring Game')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Save Changes'));
+
+    await waitFor(() => {
+      expect(apiClient.put).toHaveBeenCalled();
+    });
+
+    const formData = vi.mocked(apiClient.put).mock.calls[0]![1] as FormData;
+    expect(formData.get('recur_rule')).toBe('FREQ=WEEKLY;INTERVAL=2;BYDAY=MO');
+  });
+});
