@@ -36,6 +36,7 @@ import {
   DialogActions,
   Avatar,
   IconButton,
+  Link,
 } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
 import { useParams, useNavigate } from 'react-router';
@@ -47,6 +48,26 @@ import { useAuth } from '../hooks/useAuth';
 import { canManageGame } from '../utils/permissions';
 import { Time } from '../constants/time';
 import { UI } from '../constants/ui';
+
+const isHttpUrl = (value: string): boolean => {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' || url.protocol === 'http:';
+  } catch {
+    return false;
+  }
+};
+
+const renderWhereValue = (value: string) => {
+  if (isHttpUrl(value)) {
+    return (
+      <Link href={value} target="_blank" rel="noopener noreferrer">
+        {value}
+      </Link>
+    );
+  }
+  return value;
+};
 
 export const GameDetails: FC = () => {
   const { gameId } = useParams<{ gameId: string }>();
@@ -319,7 +340,7 @@ export const GameDetails: FC = () => {
           </Box>
           {(game.where_display ?? game.where) && (
             <Typography variant="body1" paragraph sx={{ fontSize: '1.1rem' }}>
-              <strong>Where:</strong> {game.where_display ?? game.where}
+              <strong>Where:</strong> {renderWhereValue(game.where_display ?? game.where!)}
             </Typography>
           )}
           <Typography variant="body1" paragraph sx={{ fontSize: '1.1rem' }}>

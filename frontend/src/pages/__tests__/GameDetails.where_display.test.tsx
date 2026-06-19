@@ -136,4 +136,57 @@ describe('GameDetails - where_display', () => {
       expect(screen.getByText(/#regular-channel/)).toBeInTheDocument();
     });
   });
+
+  it('renders where as a clickable link when it is an https URL', async () => {
+    vi.mocked(apiClient.get).mockResolvedValue({
+      data: {
+        ...baseGame,
+        where: 'https://meet.example.com/game-room',
+        where_display: null,
+      },
+    });
+
+    renderGameDetails();
+
+    await waitFor(() => {
+      const link = screen.getByRole('link', { name: 'https://meet.example.com/game-room' });
+      expect(link).toHaveAttribute('href', 'https://meet.example.com/game-room');
+      expect(link).toHaveAttribute('target', '_blank');
+      expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    });
+  });
+
+  it('renders where_display as a clickable link when it is an https URL', async () => {
+    vi.mocked(apiClient.get).mockResolvedValue({
+      data: {
+        ...baseGame,
+        where: 'https://meet.example.com/game-room',
+        where_display: 'https://meet.example.com/game-room',
+      },
+    });
+
+    renderGameDetails();
+
+    await waitFor(() => {
+      const link = screen.getByRole('link', { name: 'https://meet.example.com/game-room' });
+      expect(link).toHaveAttribute('href', 'https://meet.example.com/game-room');
+    });
+  });
+
+  it('renders plain text where value without a link when not a URL', async () => {
+    vi.mocked(apiClient.get).mockResolvedValue({
+      data: {
+        ...baseGame,
+        where: 'Room 42 at the Library',
+        where_display: null,
+      },
+    });
+
+    renderGameDetails();
+
+    await waitFor(() => {
+      expect(screen.getByText(/Room 42 at the Library/)).toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: /Room 42/ })).not.toBeInTheDocument();
+    });
+  });
 });
