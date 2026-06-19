@@ -467,25 +467,55 @@ In `services/bot/events/handlers.py`, inject the zombie check before committing 
 
 ## Phase 8: Integration Tests (Retrofitting)
 
-### Task 8.1: Write integration tests for recurring game clone lifecycle
+### Task 8.1: Fix `update_game` — handle `clear_post_at=true` for `post_at=NULL` recurrence clones
+
+Fix the `clear_post_at` precondition in `update_game()` in `services/api/services/games.py` to also handle recurrence clones where `post_at=NULL AND recur_rule IS NOT NULL`, and write unit tests for the new branch.
+
+- **Files**:
+  - `services/api/services/games.py` — widen the `clear_post_at` precondition
+  - `tests/unit/services/` — add unit tests for the new branch (extend the existing `update_game` test file)
+- **Implementation**:
+  Change the precondition from:
+  ```python
+  if update_data.clear_post_at and game.post_at is not None and game.message_id is None:
+  ```
+  To:
+  ```python
+  if update_data.clear_post_at and game.message_id is None and (
+      game.post_at is not None or game.recur_rule is not None
+  ):
+      if game.post_at is None:
+          game.post_at = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+  ```
+- **Tests**:
+  - `test_clear_post_at_sets_post_at_for_null_post_at_recurrence_clone` — `PUT /{clone_id}` with `clear_post_at=true` on a clone with `post_at=NULL AND recur_rule IS NOT NULL` sets `post_at` to approximately now
+  - `test_clear_post_at_is_no_op_for_null_post_at_non_recurrence` — `PUT /{game_id}` with `clear_post_at=true` on a game with `post_at=NULL AND recur_rule=None` does not set `post_at` (unchanged behavior)
+- **Success**:
+  - New unit tests pass
+  - `uv run mypy services/api/services/games.py` passes
+- **Research References**:
+  - #file:../research/20260615-01-recurring-games-research.md — Addendum: Problem 3 and Revised Phase 8 Task 8.1
+- **Dependencies**:
+  - Phase 7 complete
+
+### Task 8.2: Write integration tests for recurring game clone lifecycle
 
 Create `tests/integration/test_recurrence_clone.py`. These test already-implemented code (retrofitting), so no `xfail` is needed.
 
 - **Files**:
   - `tests/integration/test_recurrence_clone.py` — new file
-- **Tests**:
+- **Tests** (4 tests — corrected from original 6; bot-dependent scenarios moved to e2e):
   - `test_recur_rule_stored_and_returned` — `POST /api/v1/games` with `recur_rule="FREQ=WEEKLY;BYDAY=SA"` → `GET /api/v1/games/{id}` returns `recur_rule` in response
-  - `test_recurrence_clone_created_with_null_post_at` — after injecting a COMPLETED status transition via direct DB update, a game with `recur_rule` gets a clone with `post_at=NULL` in the DB
-  - `test_recurrence_clone_invisible_to_players` — clone with `post_at=NULL` does NOT appear in `GET /api/v1/games` for a non-host player
-  - `test_recurrence_clone_visible_to_host` — clone appears in host's game list
-  - `test_clear_post_at_announces_recurrence_clone` — `PUT /{clone_id}` with `clear_post_at=true` updates `post_at` and the clone becomes visible to players
-  - `test_zombie_clone_cancelled_on_in_progress` — a clone with `post_at=NULL` and `recur_rule` set is cancelled when its IN_PROGRESS transition fires
+  - `test_recur_rule_propagated_through_clone_endpoint` — `POST /games/{id}/clone` on a game with `recur_rule`; verify response carries `recur_rule`
+  - `test_recurrence_clone_with_null_post_at_is_visible` — directly insert clone with `post_at=NULL`; verify both host AND a regular player can see it via `GET /api/v1/games` (clones with `post_at=NULL` are visible to all API users — only hidden from the announcement loop)
+  - `test_clear_post_at_announces_recurrence_clone` — directly insert clone with `post_at=NULL AND recur_rule IS NOT NULL`; call `PUT /{clone_id}` with `clear_post_at=true`; verify `post_at` is now set and `GAME_CREATED` is published to RabbitMQ (requires Task 8.1 fix)
+- **Note**: `test_recurrence_clone_invisible_to_players`, `test_recurrence_clone_visible_to_host`, and `test_zombie_clone_cancelled_on_in_progress` from the original plan are removed — they either tested false assumptions (`post_at=NULL` clones are visible to all API users) or required bot EventHandlers which do not run in integration tests (`BOT_SKIP_STARTUP=1`).
 - **Success**:
   - `scripts/run-integration-tests.sh tests/integration/test_recurrence_clone.py |& tee output-integration-recurrence.txt` — all PASSED
 - **Research References**:
-  - #file:../research/20260615-01-recurring-games-research.md (Lines 306-324) — full integration test list
+  - #file:../research/20260615-01-recurring-games-research.md — Addendum: Problem 1, Problem 2, and Revised Phase 8 task structure
 - **Dependencies**:
-  - All prior phases complete
+  - Task 8.1 complete; all prior phases complete
 
 ---
 
@@ -502,11 +532,10 @@ Create `tests/e2e/test_recurring_game.py`. These test already-implemented code (
     1. Create game with `recur_rule` set, scheduled 2 min from now with 1 min duration
     2. Wait for COMPLETED status via `wait_for_db_condition` (~3 min)
     3. Assert clone exists with `post_at=NULL, message_id=NULL`
-    4. Assert clone NOT visible to Player A (`GET /api/v1/games`)
-    5. Admin calls `PUT /{clone_id}` with `clear_post_at=true`
-    6. Wait for clone `message_id` to become non-NULL (`wait_for_game_message_id`, 60 s timeout)
-    7. Assert Discord message posted (`message_id` set)
-    8. Assert Player A can now see clone in `GET /api/v1/games`
+    4. Admin calls `PUT /{clone_id}` with `clear_post_at=true`
+    5. Wait for clone `message_id` to become non-NULL (`wait_for_game_message_id`, 60 s timeout)
+    6. Assert Discord message posted (`message_id` set)
+    7. Assert Player A can now see clone in `GET /api/v1/games`
   - `test_recurring_game_zombie_cancelled_when_unconfirmed`:
     1. Create game with `recur_rule` set, scheduled 2 min from now with 1 min duration
     2. Wait for COMPLETED → clone created with `post_at=NULL`

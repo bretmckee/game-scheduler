@@ -373,3 +373,76 @@ test_recurring_game_host_confirms_via_discord_button:
 - `test_recurring_game_zombie_cancelled_when_unconfirmed`: ~4-5 minutes
 - Use `@pytest.mark.timeout(360)` for both tests
 - Use `tee` output capture: `scripts/run-e2e-tests.sh |& tee output-e2e-recurrence.txt`
+
+---
+
+## Addendum: Phase 8/9 Plan Corrections (discovered 2026-06-18)
+
+Three errors in the original Phase 8 and Phase 9 test plan were found during implementation. The plan and details files have **not yet been updated** — they still reflect the original (incorrect) design. The corrections described below should be applied to those files before Phase 8 implementation begins.
+
+### Problem 1: Bot EventHandlers do not run in integration tests
+
+**Root cause**: `compose.int.yaml` sets `BOT_SKIP_STARTUP=1` on the bot container. In `services/bot/main.py`, this flag causes the bot to skip `create_bot()` entirely — it touches `/tmp/bot-ready` and then waits forever on a stop event. The `AnnouncementLoop` and all RabbitMQ consumers (`EventHandlers`) are only started inside `create_bot()`, so they are never running.
+
+**Impact**: Five of the six originally planned integration tests depended on the bot processing RabbitMQ messages (`_handle_post_transition_actions`, `_handle_status_transition_due`, `AnnouncementLoop`). None of those would ever pass at the integration level.
+
+**Fix**: Replace the 6 originally planned integration tests with 4 tests that are testable with the services that actually run (API + DB + scheduler + RabbitMQ queue inspection only). Move bot-dependent scenarios to Phase 9 (e2e), where `BOT_SKIP_STARTUP` is not set.
+
+### Problem 2: `post_at=NULL` does NOT hide clones from players
+
+**Root cause**: `_is_pending_announcement()` in `services/api/routes/games.py` is:
+
+```python
+return game.post_at is not None and game.post_at > now and game.message_id is None
+```
+
+With `post_at=NULL` this returns `False`, so `_is_pending_and_hidden()` also returns `False`. Recurrence clones with `post_at=NULL` are **visible to all players via the API immediately**.
+
+**Impact**: The planned tests `test_recurrence_clone_invisible_to_players` and `test_recurrence_clone_visible_to_host` were based on a false assumption about visibility. The first would fail, the second is redundant (both host and player can see the clone).
+
+**Design note**: `post_at=NULL` clones are invisible only to the announcement loop (which filters `WHERE post_at IS NOT NULL`), not to API consumers. Clones are visible to players but have no Discord message yet. This is by design — players can see them and join, but the Discord post is not created until the host confirms.
+
+**Fix**: Replace both tests with a single `test_recurrence_clone_with_null_post_at_is_visible` that asserts the clone IS visible to a regular player, documenting the actual behavior.
+
+### Problem 3: `clear_post_at=true` is a no-op for `post_at=NULL` clones
+
+**Root cause**: The announcement trigger in `update_game()` (services/api/services/games.py line 2204) has this precondition:
+
+```python
+if update_data.clear_post_at and game.post_at is not None and game.message_id is None:
+```
+
+The `game.post_at is not None` check fails for recurrence clones (which have `post_at=NULL`). The `clear_post_at=true` API call is silently ignored.
+
+**Impact**: The planned e2e test `test_recurring_game_host_confirms_via_api` step 5 (`PUT /{clone_id}` with `clear_post_at=true`) would do nothing. The test would then hang waiting for `message_id` to become non-NULL.
+
+**Fix**: Add Task 8.1 to Phase 8 — fix `update_game` to also handle the recurrence clone case:
+
+```python
+if update_data.clear_post_at and game.message_id is None and (
+    game.post_at is not None or game.recur_rule is not None
+):
+    # For post_at=NULL recurrence clones, set post_at to now to trigger announcement
+    if game.post_at is None:
+        game.post_at = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+    ...
+```
+
+This makes `PUT /{clone_id}` with `clear_post_at=true` the correct API-level confirmation path, equivalent to the Discord button callback in `RecurrenceConfirmationView._confirm_callback` (which also sets `post_at = datetime.now(UTC)`).
+
+### Revised Phase 8 task structure
+
+**Task 8.1** (new): Fix `update_game` — handle `clear_post_at=true` when `post_at=NULL AND recur_rule IS NOT NULL`; write unit tests for the new branch.
+
+**Task 8.2**: Write 4 integration tests in `tests/integration/test_recurrence_clone.py`:
+
+1. `test_recur_rule_stored_and_returned` — unchanged from original plan
+2. `test_recur_rule_propagated_through_clone_endpoint` — `POST /games/{id}/clone` on a game with `recur_rule`; verify response carries `recur_rule`
+3. `test_recurrence_clone_with_null_post_at_is_visible` — directly insert clone with `post_at=NULL`; verify both host and player can see it via API (replaces the two wrong visibility tests)
+4. `test_clear_post_at_announces_recurrence_clone` — directly insert clone with `post_at=NULL`; call `PUT /{clone_id}` with `clear_post_at=true`; verify GAME_CREATED is published to RabbitMQ (requires Task 8.1 fix)
+
+### Revised Phase 9 e2e test corrections
+
+`test_recurring_game_host_confirms_via_api` — **remove step 4** ("Assert clone NOT visible to Player A"). Step 4 is based on the false visibility assumption from Problem 2. Steps 1–3 and 5–8 are correct and remain. The test still provides full end-to-end coverage of: COMPLETED transition → clone creation → API confirmation → announcement loop → Discord message posted → clone visible.
+
+`test_recurring_game_zombie_cancelled_when_unconfirmed` — unchanged from original plan.
