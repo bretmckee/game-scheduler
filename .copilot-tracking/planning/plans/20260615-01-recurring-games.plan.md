@@ -118,24 +118,27 @@ Add recurring game support: when a game with a `recur_rule` (RFC 5545 RRULE stri
 
 ### [ ] Phase 8: Integration Tests (Retrofitting)
 
-- [ ] Task 8.1: Create `tests/integration/test_recurrence_clone.py` with 6 integration tests; run suite
-  - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 468-489)
+- [ ] Task 8.1: Fix `update_game` — handle `clear_post_at=true` when `post_at=NULL AND recur_rule IS NOT NULL`; write unit tests
+  - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 470-499)
+
+- [ ] Task 8.2: Create `tests/integration/test_recurrence_clone.py` with 4 integration tests; run suite
+  - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 501-521)
 
 ### [ ] Phase 9: E2E Tests (Retrofitting)
 
 - [ ] Task 9.1: Create `tests/e2e/test_recurring_game.py` with 2 e2e tests (confirm via API + zombie cancel); run suite
-  - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 492-524)
+  - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 524-554)
 
 ### [ ] Phase 10: Frontend `RecurrenceSelector`
 
 - [ ] Task 10.1: Write failing Vitest tests for `RecurrenceSelector` (RRULE computation, UI options)
-  - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 527-548)
+  - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 558-578)
 
 - [ ] Task 10.2: Implement `RecurrenceSelector.tsx` — frequency dropdown, interval stepper, RRULE builder
-  - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 549-579)
+  - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 580-609)
 
 - [ ] Task 10.3: Wire `RecurrenceSelector` into game create/edit forms; send `recur_rule` in request body
-  - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 580-604)
+  - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 611-635)
 
 ## Dependencies
 
