@@ -175,6 +175,8 @@ export const GameDetails: FC = () => {
         return 'default';
       case 'CANCELLED':
         return 'error';
+      case 'PENDING_CONFIRMATION':
+        return 'warning';
       default:
         return 'default';
     }
@@ -261,12 +263,23 @@ export const GameDetails: FC = () => {
           <Typography variant="h4" component="h1">
             {game.title}
           </Typography>
-          <Chip label={game.status} color={getStatusColor(game.status)} size="medium" />
+          <Chip
+            label={game.display_status ?? game.status}
+            color={getStatusColor(game.display_status ?? game.status)}
+            size="medium"
+          />
         </Box>
 
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}
+          </Alert>
+        )}
+
+        {game.display_status === 'PENDING_CONFIRMATION' && canEdit && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            This recurring game is awaiting confirmation. Check your Discord DMs to confirm or
+            cancel the next occurrence.
           </Alert>
         )}
 

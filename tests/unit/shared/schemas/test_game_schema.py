@@ -154,6 +154,7 @@ class TestGameResponsePostAt:
             created_at="2026-05-30T00:00:00+00:00",
             updated_at="2026-05-30T00:00:00+00:00",
             post_at=None,
+            display_status="SCHEDULED",
         )
         assert response.post_at is None
 
@@ -172,5 +173,6 @@ class TestGameResponsePostAt:
             created_at="2026-05-30T00:00:00+00:00",
             updated_at="2026-05-30T00:00:00+00:00",
             post_at="2026-05-31T12:00:00+00:00",
+            display_status="SCHEDULED",
         )
         assert response.post_at == "2026-05-31T12:00:00+00:00"

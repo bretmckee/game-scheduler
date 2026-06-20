@@ -108,6 +108,8 @@ export const GameCard: FC<GameCardProps> = ({ game, showActions = true, onGameUp
         return 'default';
       case 'CANCELLED':
         return 'error';
+      case 'PENDING_CONFIRMATION':
+        return 'warning';
       default:
         return 'default';
     }
@@ -170,7 +172,11 @@ export const GameCard: FC<GameCardProps> = ({ game, showActions = true, onGameUp
           <Typography variant="h6" component="div">
             {game.title}
           </Typography>
-          <Chip label={game.status} color={getStatusColor(game.status)} size="small" />
+          <Chip
+            label={game.display_status ?? game.status}
+            color={getStatusColor(game.display_status ?? game.status)}
+            size="small"
+          />
         </Box>
 
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>

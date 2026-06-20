@@ -309,3 +309,69 @@ describe('GameDetails - pending announcement badge', () => {
     expect(screen.queryByText(/Posting scheduled for/i)).not.toBeInTheDocument();
   });
 });
+
+describe('GameDetails - pending confirmation alert', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('shows pending confirmation alert when display_status is PENDING_CONFIRMATION and user can edit', async () => {
+    const pendingGame: GameSession = {
+      ...baseGame,
+      can_manage: true,
+      display_status: 'PENDING_CONFIRMATION',
+      recur_rule: 'FREQ=WEEKLY;BYDAY=SA',
+    };
+
+    vi.mocked(apiClient.get).mockResolvedValue({ data: pendingGame });
+
+    renderGameDetails();
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Game')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/This recurring game is awaiting confirmation/i)).toBeInTheDocument();
+  });
+
+  it('does not show pending confirmation alert when user cannot edit', async () => {
+    const pendingGame: GameSession = {
+      ...baseGame,
+      can_manage: false,
+      display_status: 'PENDING_CONFIRMATION',
+      recur_rule: 'FREQ=WEEKLY;BYDAY=SA',
+    };
+
+    vi.mocked(apiClient.get).mockResolvedValue({ data: pendingGame });
+
+    renderGameDetails();
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Game')).toBeInTheDocument();
+    });
+
+    expect(
+      screen.queryByText(/This recurring game is awaiting confirmation/i)
+    ).not.toBeInTheDocument();
+  });
+
+  it('does not show pending confirmation alert when display_status is SCHEDULED', async () => {
+    const scheduledGame: GameSession = {
+      ...baseGame,
+      can_manage: true,
+      display_status: 'SCHEDULED',
+    };
+
+    vi.mocked(apiClient.get).mockResolvedValue({ data: scheduledGame });
+
+    renderGameDetails();
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Game')).toBeInTheDocument();
+    });
+
+    expect(
+      screen.queryByText(/This recurring game is awaiting confirmation/i)
+    ).not.toBeInTheDocument();
+  });
+});
