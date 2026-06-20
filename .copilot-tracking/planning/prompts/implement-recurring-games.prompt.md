@@ -59,9 +59,10 @@ A phase is not done until all applicable gates are green. Writing tests and comm
 
 **TDD reminder**:
 
-- Phases 2 and 4 and 6 end with xfail tests committed and all gates green (RED phases)
-- Phases 3, 5, and 7 end with xfail markers removed and all tests passing (GREEN phases)
+- Phases 2, 4, 6, and 11 (Task 11.1) end with xfail tests committed and all gates green (RED phases)
+- Phases 3, 5, 7, and 11 (Task 11.2) end with xfail markers removed and all tests passing (GREEN phases)
 - Phase 1 and Phases 8–10 land implementation + tests together (no xfail needed — retrofitting or schema-only work)
+- Phase 11 Tasks 11.3 and 11.4 land frontend implementation + Vitest tests together (no xfail)
 
 **Zombie-prevention reminder** (Phase 7, Task 7.2):
 The zombie check belongs INSIDE the DB session block in `_handle_status_transition_due`, before calling `_transition_game_status`. The discriminator is `game.message_id is None AND game.recur_rule is not None`. Regular games without `recur_rule` are never affected regardless of `message_id`.
