@@ -9,10 +9,10 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, staging]
     tags: ['v*.*.*']
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, staging]
   workflow_dispatch:
 
 concurrency:
@@ -299,18 +299,62 @@ jobs:
         run: scripts/run-integration-tests.sh
 
       - name: Build remaining images for publish
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && github.repository == 'game-scheduler/game-scheduler'
+        if: >-
+          github.event_name == 'push' &&
+          (startsWith(github.ref, 'refs/tags/v') ||
+           github.ref == 'refs/heads/develop' ||
+           github.ref == 'refs/heads/staging') &&
+          github.repository == 'game-scheduler/game-scheduler'
         run: docker compose --env-file tests/integration/env.int build bot frontend backup
 
       - name: Log in to Container Registry
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && github.repository == 'game-scheduler/game-scheduler'
+        if: >-
+          github.event_name == 'push' &&
+          (startsWith(github.ref, 'refs/tags/v') ||
+           github.ref == 'refs/heads/develop' ||
+           github.ref == 'refs/heads/staging') &&
+          github.repository == 'game-scheduler/game-scheduler'
         uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Tag and push images
+      - name: Tag and push images (branch)
+        if: >-
+          github.event_name == 'push' &&
+          (github.ref == 'refs/heads/develop' ||
+           github.ref == 'refs/heads/staging') &&
+          github.repository == 'game-scheduler/game-scheduler'
+        env:
+          REGISTRY: ${{ env.REGISTRY }}
+          IMAGE_NAME: ${{ github.repository }}
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
+            BRANCH_TAG="latest"
+          else
+            BRANCH_TAG="staging"
+          fi
+
+          PAIRS=(
+            "api:game-scheduler-api"
+            "bot:game-scheduler-bot"
+            "scheduler:game-scheduler-scheduler"
+            "frontend:game-scheduler-frontend"
+            "init:game-scheduler-init"
+            "retry-daemon:game-scheduler-retry-daemon"
+            "backup:game-scheduler-backup"
+          )
+
+          for pair in "${PAIRS[@]}"; do
+            service="${pair%%:*}"
+            local_image="${pair#*:}:latest"
+            remote_base="${REGISTRY}/${IMAGE_NAME}-${service}"
+            docker tag "$local_image" "${remote_base}:${BRANCH_TAG}"
+            docker push "${remote_base}:${BRANCH_TAG}"
+          done
+
+      - name: Tag and push images (release)
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && github.repository == 'game-scheduler/game-scheduler'
         env:
           REGISTRY: ${{ env.REGISTRY }}
@@ -322,7 +366,6 @@ jobs:
           MINOR="${VERSION#*.}"; MINOR="${MINOR%%.*}"
 
           TAGS=("$VERSION" "$MAJOR.$MINOR" "$MAJOR")
-          [[ "$REF_NAME" != *-* ]] && TAGS+=("latest")
 
           # service name → local compose image name
           PAIRS=(
