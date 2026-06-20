@@ -81,7 +81,7 @@ class RecurrenceConfirmationView(View):
         async with get_db_session() as db:
             result = await db.execute(select(GameSession).where(GameSession.id == self.game_id))
             game = result.scalar_one()
-            game.post_at = datetime.now(UTC)
+            game.post_at = datetime.now(UTC).replace(tzinfo=None)
             await db.execute(text("SELECT pg_notify('game_announcement_changed', '')"))
             await db.commit()
             logger.info("Recurrence confirmed: set post_at for game %s", self.game_id)

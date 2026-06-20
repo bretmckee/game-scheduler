@@ -130,6 +130,9 @@ def on_ready_env(bot, mock_redis):
         stack.enter_context(patch.object(bot, "_recover_pending_workers", new_callable=AsyncMock))
         stack.enter_context(patch.object(bot, "_trigger_sweep", new_callable=AsyncMock))
         stack.enter_context(patch.object(bot, "_sweep_orphaned_embeds", new_callable=AsyncMock))
+        stack.enter_context(
+            patch.object(bot, "_restore_recurrence_confirmation_views", new_callable=AsyncMock)
+        )
         stack.enter_context(patch("services.bot.bot.tracer"))
         stack.enter_context(patch("services.bot.bot.os.getenv", return_value=None))
         stack.enter_context(
@@ -200,6 +203,16 @@ async def test_on_ready_calls_sweep_orphaned_embeds(bot, mock_redis, on_ready_en
         await bot.on_ready()
 
     bot._sweep_orphaned_embeds.assert_awaited_once()
+
+
+async def test_on_ready_calls_restore_recurrence_confirmation_views(
+    bot, mock_redis, on_ready_env
+) -> None:
+    """on_ready calls _restore_recurrence_confirmation_views to re-register persistent views."""
+    with patch("services.bot.bot.guild_projection.repopulate_all", new_callable=AsyncMock):
+        await bot.on_ready()
+
+    bot._restore_recurrence_confirmation_views.assert_awaited_once()
 
 
 async def test_on_ready_calls_repopulate_all(bot, mock_redis, on_ready_env) -> None:
@@ -393,6 +406,9 @@ async def test_on_ready_excludes_non_postable_channels_from_guild_channels_key(
         stack.enter_context(patch.object(bot, "_recover_pending_workers", new_callable=AsyncMock))
         stack.enter_context(patch.object(bot, "_trigger_sweep", new_callable=AsyncMock))
         stack.enter_context(patch.object(bot, "_sweep_orphaned_embeds", new_callable=AsyncMock))
+        stack.enter_context(
+            patch.object(bot, "_restore_recurrence_confirmation_views", new_callable=AsyncMock)
+        )
         stack.enter_context(patch("services.bot.bot.tracer"))
         stack.enter_context(patch("services.bot.bot.os.getenv", return_value=None))
         stack.enter_context(
@@ -441,3 +457,100 @@ async def test_on_ready_writes_guild_emojis_key(bot, mock_redis, on_ready_env) -
         [{"id": "9001", "name": "wave", "animated": False}],
         CacheTTL.DISCORD_GUILD_EMOJIS,
     )
+
+
+# ---------------------------------------------------------------------------
+# Direct tests for _restore_recurrence_confirmation_views
+# ---------------------------------------------------------------------------
+
+
+def _make_db_ctx(mock_session):
+    ctx = MagicMock()
+    ctx.__aenter__ = AsyncMock(return_value=mock_session)
+    ctx.__aexit__ = AsyncMock(return_value=False)
+    return ctx
+
+
+def _make_recurrence_view_module():
+    """Return a mock sys.modules entry to avoid circular-import in test context."""
+    mock_cls = MagicMock()
+    mock_module = MagicMock()
+    mock_module.RecurrenceConfirmationView = mock_cls
+    return mock_module, mock_cls
+
+
+@pytest.mark.asyncio
+async def test_restore_recurrence_confirmation_views_registers_pending_games(bot) -> None:
+    """Calls add_view once per pending game, instantiating the view with the correct game_id."""
+    game_ids = ["aaa-111", "bbb-222"]
+
+    mock_session = AsyncMock()
+    scalars_result = MagicMock()
+    scalars_result.all = MagicMock(return_value=game_ids)
+    result = MagicMock()
+    result.scalars = MagicMock(return_value=scalars_result)
+    mock_session.execute = AsyncMock(return_value=result)
+
+    bot.add_view = MagicMock()
+    mock_module, mock_cls = _make_recurrence_view_module()
+
+    with (
+        patch("services.bot.bot.get_db_session", return_value=_make_db_ctx(mock_session)),
+        patch.dict(
+            "sys.modules",
+            {"services.bot.views.recurrence_confirmation_view": mock_module},
+        ),
+    ):
+        await bot._restore_recurrence_confirmation_views()
+
+    assert mock_cls.call_count == 2
+    instantiated_with = {c.args[0] for c in mock_cls.call_args_list}
+    assert instantiated_with == set(game_ids)
+    assert bot.add_view.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_restore_recurrence_confirmation_views_no_pending_games(bot) -> None:
+    """Does not call add_view when there are no pending recurrence confirmations."""
+    mock_session = AsyncMock()
+    scalars_result = MagicMock()
+    scalars_result.all = MagicMock(return_value=[])
+    result = MagicMock()
+    result.scalars = MagicMock(return_value=scalars_result)
+    mock_session.execute = AsyncMock(return_value=result)
+
+    bot.add_view = MagicMock()
+    mock_module, mock_cls = _make_recurrence_view_module()
+
+    with (
+        patch("services.bot.bot.get_db_session", return_value=_make_db_ctx(mock_session)),
+        patch.dict(
+            "sys.modules",
+            {"services.bot.views.recurrence_confirmation_view": mock_module},
+        ),
+    ):
+        await bot._restore_recurrence_confirmation_views()
+
+    bot.add_view.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_restore_recurrence_confirmation_views_db_error_handled(bot) -> None:
+    """Logs and returns gracefully when the DB query raises an exception."""
+    ctx = MagicMock()
+    ctx.__aenter__ = AsyncMock(side_effect=RuntimeError("db down"))
+    ctx.__aexit__ = AsyncMock(return_value=False)
+
+    bot.add_view = MagicMock()
+    mock_module, _ = _make_recurrence_view_module()
+
+    with (
+        patch("services.bot.bot.get_db_session", return_value=ctx),
+        patch.dict(
+            "sys.modules",
+            {"services.bot.views.recurrence_confirmation_view": mock_module},
+        ),
+    ):
+        await bot._restore_recurrence_confirmation_views()
+
+    bot.add_view.assert_not_called()

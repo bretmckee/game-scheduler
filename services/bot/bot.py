@@ -203,6 +203,7 @@ class GameSchedulerBot(commands.Bot):
             await self._recover_pending_workers()
             await self._trigger_sweep("on_ready")
             await self._sweep_orphaned_embeds()
+            await self._restore_recurrence_confirmation_views()
 
             if not hasattr(self, "_refresh_listener_started"):
                 self._refresh_listener_started = True
@@ -759,6 +760,40 @@ class GameSchedulerBot(commands.Bot):
                         await message.delete()
             except Exception as e:
                 logger.exception("Orphaned embed sweep: error checking game %s: %s", game_id, e)
+
+    async def _restore_recurrence_confirmation_views(self) -> None:
+        """Re-register RecurrenceConfirmationView for games awaiting host confirmation.
+
+        After a restart, in-memory views are lost. This queries for SCHEDULED
+        games with recur_rule set and post_at NULL (awaiting confirmation) and
+        re-registers a persistent view for each so button interactions are routed
+        correctly.
+        """
+        from services.bot.views.recurrence_confirmation_view import (  # noqa: PLC0415
+            RecurrenceConfirmationView,
+        )
+
+        try:
+            async with get_db_session() as db:
+                result = await db.execute(
+                    select(GameSession.id).where(
+                        GameSession.status == GameStatus.SCHEDULED.value,
+                        GameSession.recur_rule.is_not(None),
+                        GameSession.post_at.is_(None),
+                        GameSession.message_id.is_(None),
+                    )
+                )
+                pending_ids = result.scalars().all()
+        except Exception as e:
+            logger.exception("Failed to query pending recurrence confirmations: %s", e)
+            return
+
+        for game_id in pending_ids:
+            self.add_view(RecurrenceConfirmationView(str(game_id)))
+            logger.info("Re-registered RecurrenceConfirmationView for game %s", game_id)
+
+        if pending_ids:
+            logger.info("Restored %d pending recurrence confirmation view(s)", len(pending_ids))
 
     async def on_interaction(self, interaction: discord.Interaction) -> None:
         """
