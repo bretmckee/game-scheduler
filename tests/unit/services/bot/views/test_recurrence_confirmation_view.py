@@ -43,6 +43,8 @@ def mock_interaction():
     interaction.response.defer = AsyncMock()
     interaction.followup = AsyncMock()
     interaction.followup.send = AsyncMock()
+    interaction.message = AsyncMock()
+    interaction.message.delete = AsyncMock()
     return interaction
 
 
@@ -132,6 +134,52 @@ async def test_decline_cancels_game(game_id, mock_interaction):
         await view.decline(mock_interaction)
 
     assert game.status == GameStatus.CANCELLED.value
+
+
+@pytest.mark.asyncio
+async def test_confirm_deletes_dm_message(game_id, mock_interaction):
+    """Confirm callback deletes the original DM after processing."""
+    game = MagicMock()
+    game.post_at = None
+
+    mock_session = AsyncMock()
+    result = MagicMock()
+    result.scalar_one = MagicMock(return_value=game)
+    mock_session.execute = AsyncMock(return_value=result)
+    mock_session.commit = AsyncMock()
+
+    with patch(
+        "services.bot.views.recurrence_confirmation_view.get_db_session",
+        return_value=_make_db_ctx(mock_session),
+        create=True,
+    ):
+        view = RecurrenceConfirmationView(game_id=game_id)
+        await view.confirm(mock_interaction)
+
+    mock_interaction.message.delete.assert_called_once_with()  # assert-not-weak: no args passed
+
+
+@pytest.mark.asyncio
+async def test_decline_deletes_dm_message(game_id, mock_interaction):
+    """Decline callback deletes the original DM after processing."""
+    game = MagicMock()
+    game.status = GameStatus.SCHEDULED.value
+
+    mock_session = AsyncMock()
+    result = MagicMock()
+    result.scalar_one = MagicMock(return_value=game)
+    mock_session.execute = AsyncMock(return_value=result)
+    mock_session.commit = AsyncMock()
+
+    with patch(
+        "services.bot.views.recurrence_confirmation_view.get_db_session",
+        return_value=_make_db_ctx(mock_session),
+        create=True,
+    ):
+        view = RecurrenceConfirmationView(game_id=game_id)
+        await view.decline(mock_interaction)
+
+    mock_interaction.message.delete.assert_called_once_with()  # assert-not-weak: no args passed
 
 
 @pytest.mark.asyncio
