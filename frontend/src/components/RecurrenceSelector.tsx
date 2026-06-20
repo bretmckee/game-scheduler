@@ -27,6 +27,7 @@ import {
   SelectChangeEvent,
   TextField,
   Box,
+  Typography,
 } from '@mui/material';
 
 export interface RecurrenceSelectorProps {
@@ -36,17 +37,61 @@ export interface RecurrenceSelectorProps {
 }
 
 const DAY_ABBRS = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
+const FULL_DAY_NAMES = [
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+];
 const DAYS_PER_WEEK = 7;
 const MAX_ORDINAL_BEFORE_LAST = 5;
 const MAX_INTERVAL_WEEKLY = 8;
 const MAX_INTERVAL_MONTHLY = 12;
+const ORDINAL_MOD_100 = 100;
+const ORDINAL_MOD_10 = 10;
+const ORDINAL_TEEN_LOW = 11;
+const ORDINAL_TEEN_HIGH = 13;
+const ORDINAL_RD = 3;
+
+function ordinalLabel(n: number): string {
+  if (n === -1) return 'last';
+  const mod100 = n % ORDINAL_MOD_100;
+  const mod10 = n % ORDINAL_MOD_10;
+  if (mod100 >= ORDINAL_TEEN_LOW && mod100 <= ORDINAL_TEEN_HIGH) return `${n}th`;
+  if (mod10 === 1) return `${n}st`;
+  if (mod10 === 2) return `${n}nd`;
+  if (mod10 === ORDINAL_RD) return `${n}rd`;
+  return `${n}th`;
+}
+
+function weekdayOccurrence(date: Date): string {
+  const rawOrd = Math.ceil(date.getDate() / DAYS_PER_WEEK);
+  const ord = rawOrd >= MAX_ORDINAL_BEFORE_LAST ? -1 : rawOrd;
+  return `${ordinalLabel(ord)} ${FULL_DAY_NAMES[date.getDay()]}`;
+}
+
+function frequencyDescription(frequency: string, date: Date): string {
+  if (frequency === 'weekly') return `on ${FULL_DAY_NAMES[date.getDay()]}`;
+  if (frequency === 'monthly_weekday') return `on the ${weekdayOccurrence(date)}`;
+  if (frequency === 'monthly_date') return `on the ${ordinalLabel(date.getDate())}`;
+  return '';
+}
 
 const FREQUENCY_OPTIONS = [
   { label: 'No recurrence', value: 'none' },
-  { label: 'Every N weeks', value: 'weekly' },
-  { label: 'Every N months on same date', value: 'monthly_date' },
-  { label: 'Every N months on same weekday', value: 'monthly_weekday' },
+  { label: 'Weekly', value: 'weekly' },
+  { label: 'Monthly (date)', value: 'monthly_date' },
+  { label: 'Monthly (weekday)', value: 'monthly_weekday' },
 ];
+
+const FREQUENCY_UNIT: Record<string, [string, string]> = {
+  weekly: ['week', 'weeks'],
+  monthly_date: ['month', 'months'],
+  monthly_weekday: ['month', 'months'],
+};
 
 function computeRrule(
   frequency: string,
@@ -113,10 +158,11 @@ export function RecurrenceSelector({ scheduledAt, value, onChange }: RecurrenceS
   };
 
   const maxInterval = frequency === 'weekly' ? MAX_INTERVAL_WEEKLY : MAX_INTERVAL_MONTHLY;
+  const unitWord = FREQUENCY_UNIT[frequency]?.[parseInt(intervalStr, 10) === 1 ? 0 : 1] ?? '';
 
   return (
-    <Box>
-      <FormControl fullWidth>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <FormControl sx={{ minWidth: 160 }}>
         <InputLabel>Recurrence</InputLabel>
         <Select value={frequency} onChange={handleFrequencyChange} label="Recurrence">
           {FREQUENCY_OPTIONS.map((option) => (
@@ -128,15 +174,22 @@ export function RecurrenceSelector({ scheduledAt, value, onChange }: RecurrenceS
       </FormControl>
 
       {frequency !== 'none' && (
-        <TextField
-          label="Interval"
-          type="number"
-          value={intervalStr}
-          onChange={handleIntervalChange}
-          inputProps={{ min: 1, max: maxInterval }}
-          sx={{ mt: 2 }}
-          fullWidth
-        />
+        <>
+          <Typography variant="body1">every</Typography>
+          <TextField
+            type="number"
+            value={intervalStr}
+            onChange={handleIntervalChange}
+            inputProps={{ min: 1, max: maxInterval, 'aria-label': 'Interval' }}
+            sx={{ width: 80 }}
+          />
+          <Typography variant="body1">{unitWord}</Typography>
+          {scheduledAt && (
+            <Typography variant="body1" sx={{ whiteSpace: 'nowrap' }}>
+              {frequencyDescription(frequency, scheduledAt)}
+            </Typography>
+          )}
+        </>
       )}
     </Box>
   );

@@ -744,7 +744,7 @@ describe('GameForm - RecurrenceSelector Integration', () => {
     expect(recurrenceSelect).toBeDefined();
 
     await user.click(recurrenceSelect!);
-    await user.click(screen.getByText('Every N weeks'));
+    await user.click(screen.getByText('Weekly'));
 
     expect(screen.getByLabelText('Interval')).toBeInTheDocument();
   });

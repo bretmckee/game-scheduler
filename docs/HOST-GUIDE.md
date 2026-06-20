@@ -107,6 +107,65 @@ You can attach images to your game announcement:
    - All your form data is preserved - no need to re-enter everything
 3. Once validation passes, the game is created and announced in Discord
 
+## Recurring Games
+
+### Setting Up Recurrence
+
+When creating or editing a game, the **Recurrence** selector lets you schedule a game to repeat automatically after each session completes.
+
+Select a frequency from the dropdown:
+
+- **Weekly** — repeats every N weeks on the same day of the week
+  (e.g., _every 2 weeks on Saturday_)
+- **Monthly (date)** — repeats every N months on the same day of the month
+  (e.g., _every 1 month on the 15th_)
+- **Monthly (weekday)** — repeats every N months on the same weekday occurrence
+  (e.g., _every 1 month on the 3rd Thursday_)
+
+The day, date, or weekday occurrence is derived automatically from the game's scheduled time —
+you only set how many weeks or months between sessions.
+
+Leave the dropdown on **No recurrence** for one-off games.
+
+### Confirmation Flow
+
+When a recurring game completes, the bot automatically schedules the next occurrence and sends
+you a direct message with **Confirm** and **Decline** buttons:
+
+- **Confirm** — the clone is announced in the game's Discord channel exactly as a new game would be,
+  with the recurrence rule carried forward so the cycle continues
+- **Decline** — the clone is deleted; no announcement is made and the recurrence stops
+
+The clone is not visible to players until you confirm it, so you have full control over whether
+the series continues each cycle.
+
+### Edge Cases and Known Limitations
+
+**Monthly (date) on the 29th, 30th, or 31st**
+
+If the game is scheduled on a day that does not exist in every month, the recurrence library
+skips any month that is too short. For example:
+
+- 31st of the month: January, March, May, July, August, October, December recur; all other months are skipped
+- 30th of the month: all months recur except February
+- 29th of the month: all months recur except February in non-leap years
+
+If uninterrupted monthly recurrence matters, use **Monthly (weekday)** instead, which always
+has a valid occurrence.
+
+**Monthly (weekday) on the 5th occurrence**
+
+Not every month has a 5th Tuesday (or 5th of any weekday). When the game falls on a 5th
+weekday occurrence, the recurrence rule is stored as _last_ rather than _5th_, so the series
+never skips a month. In a month with only four occurrences the game lands on the 4th; in a
+month with five it lands on the 5th. The date shifts by up to one week depending on the month.
+
+**Daylight saving time**
+
+Game times are stored in UTC. A weekly game at 7:00 pm US Eastern (23:00 UTC) during summer
+will appear at 6:00 pm Eastern after clocks fall back in autumn, and shift back again in spring.
+The host confirmation step is a natural point to notice and correct any unwanted drift.
+
 ## Step 4: Manage Your Games
 
 ### Viewing Your Games
