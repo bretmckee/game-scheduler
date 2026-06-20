@@ -813,6 +813,7 @@ export const GameForm: FC<GameFormProps> = ({
 
           <Box sx={{ mt: 1, mb: 1 }}>
             <RecurrenceSelector
+              key={initialData?.recur_rule ?? 'none'}
               scheduledAt={formData.scheduledAt}
               value={formData.recurRule}
               onChange={(rule) => setFormData((prev) => ({ ...prev, recurRule: rule }))}
@@ -1071,7 +1072,7 @@ export const GameForm: FC<GameFormProps> = ({
                           : errorDetail?.message || 'Failed to save and archive. Please try again.';
                       setError(errorMessage);
                     } finally {
-                      setLoading(false);
+                      startTransition(() => setLoading(false));
                     }
                   }}
                 >

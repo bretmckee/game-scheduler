@@ -90,14 +90,6 @@ export function RecurrenceSelector({ scheduledAt, value, onChange }: RecurrenceS
     if (!value) return '1';
     return (parseRrule(value)?.interval ?? 1).toString();
   });
-  const [prevValue, setPrevValue] = useState(value);
-
-  if (prevValue !== value) {
-    setPrevValue(value);
-    const newFreq = value ? (parseRrule(value)?.frequency ?? 'none') : 'none';
-    if (newFreq !== frequency) setFrequency(newFreq);
-    setIntervalStr(value ? (parseRrule(value)?.interval ?? 1).toString() : '1');
-  }
 
   const handleFrequencyChange = (event: SelectChangeEvent) => {
     const freq = event.target.value;

@@ -205,18 +205,19 @@ describe('RecurrenceSelector', () => {
     expect(screen.getByRole('combobox')).toHaveTextContent('No recurrence');
   });
 
-  it('syncs to new value when prop changes', () => {
+  it('syncs to new value when remounted with a new key', () => {
     const onChange = vi.fn();
     const scheduledAt = new Date(2026, 0, 3);
 
     const { rerender } = render(
-      <RecurrenceSelector scheduledAt={scheduledAt} value={null} onChange={onChange} />
+      <RecurrenceSelector key="none" scheduledAt={scheduledAt} value={null} onChange={onChange} />
     );
 
     expect(screen.getByRole('combobox')).toHaveTextContent('No recurrence');
 
     rerender(
       <RecurrenceSelector
+        key="FREQ=WEEKLY;INTERVAL=2;BYDAY=SA"
         scheduledAt={scheduledAt}
         value="FREQ=WEEKLY;INTERVAL=2;BYDAY=SA"
         onChange={onChange}
