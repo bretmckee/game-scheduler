@@ -18,7 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import { FC, useState, useEffect } from 'react';
+import { FC, useState, useEffect, startTransition } from 'react';
 import {
   Typography,
   Box,
@@ -623,7 +623,7 @@ export const GameForm: FC<GameFormProps> = ({
         setError(errorMessage);
       }
     } finally {
-      setLoading(false);
+      startTransition(() => setLoading(false));
     }
   };
 
