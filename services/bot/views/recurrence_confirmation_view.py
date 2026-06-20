@@ -89,6 +89,7 @@ class RecurrenceConfirmationView(View):
         await interaction.followup.send(
             "✅ Next session confirmed and will be announced!", ephemeral=True
         )
+        await interaction.message.delete()
 
     async def decline(self, interaction: discord.Interaction) -> None:
         """Handle decline — cancels the cloned game immediately."""
@@ -102,3 +103,4 @@ class RecurrenceConfirmationView(View):
             logger.info("Recurrence declined: cancelled game %s", self.game_id)
 
         await interaction.followup.send("❌ Next session cancelled.", ephemeral=True)
+        await interaction.message.delete()
