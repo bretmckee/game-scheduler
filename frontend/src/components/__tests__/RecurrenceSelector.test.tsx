@@ -42,9 +42,10 @@ describe('RecurrenceSelector', () => {
 
     const select = screen.getByRole('combobox');
     await user.click(select);
-    await user.click(screen.getByText('Every N weeks'));
+    await user.click(screen.getByText('Weekly'));
 
     expect(screen.getByRole('spinbutton')).toBeInTheDocument();
+    expect(screen.getByText('on Saturday')).toBeInTheDocument();
   });
 
   it('shows interval field when monthly date selected', async () => {
@@ -56,7 +57,7 @@ describe('RecurrenceSelector', () => {
 
     const select = screen.getByRole('combobox');
     await user.click(select);
-    await user.click(screen.getByText('Every N months on same date'));
+    await user.click(screen.getByText('Monthly (date)'));
 
     expect(screen.getByRole('spinbutton')).toBeInTheDocument();
   });
@@ -70,9 +71,52 @@ describe('RecurrenceSelector', () => {
 
     const select = screen.getByRole('combobox');
     await user.click(select);
-    await user.click(screen.getByText('Every N months on same weekday'));
+    await user.click(screen.getByText('Monthly (weekday)'));
 
     expect(screen.getByRole('spinbutton')).toBeInTheDocument();
+    expect(screen.getByText('on the 1st Friday')).toBeInTheDocument();
+  });
+
+  it('shows weekday description for last-week dates', async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    const scheduledAt = new Date(2026, 0, 30); // 5th Friday → "last Friday"
+
+    render(<RecurrenceSelector scheduledAt={scheduledAt} value={null} onChange={onChange} />);
+
+    const select = screen.getByRole('combobox');
+    await user.click(select);
+    await user.click(screen.getByText('Monthly (weekday)'));
+
+    expect(screen.getByText('on the last Friday')).toBeInTheDocument();
+  });
+
+  it('does not show weekday description for weekly frequency', async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    const scheduledAt = new Date(2026, 0, 3); // Saturday
+
+    render(<RecurrenceSelector scheduledAt={scheduledAt} value={null} onChange={onChange} />);
+
+    const select = screen.getByRole('combobox');
+    await user.click(select);
+    await user.click(screen.getByText('Weekly'));
+
+    expect(screen.queryByText(/on the/)).not.toBeInTheDocument();
+  });
+
+  it('shows date description when monthly date selected', async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    const scheduledAt = new Date(2026, 0, 15);
+
+    render(<RecurrenceSelector scheduledAt={scheduledAt} value={null} onChange={onChange} />);
+
+    const select = screen.getByRole('combobox');
+    await user.click(select);
+    await user.click(screen.getByText('Monthly (date)'));
+
+    expect(screen.getByText('on the 15th')).toBeInTheDocument();
   });
 
   it('computes weekly rrule correctly', async () => {
@@ -84,7 +128,7 @@ describe('RecurrenceSelector', () => {
 
     const select = screen.getByRole('combobox');
     await user.click(select);
-    await user.click(screen.getByText('Every N weeks'));
+    await user.click(screen.getByText('Weekly'));
 
     const intervalInput = screen.getByRole('spinbutton');
     await user.clear(intervalInput);
@@ -102,7 +146,7 @@ describe('RecurrenceSelector', () => {
 
     const select = screen.getByRole('combobox');
     await user.click(select);
-    await user.click(screen.getByText('Every N months on same date'));
+    await user.click(screen.getByText('Monthly (date)'));
 
     expect(onChange).toHaveBeenLastCalledWith('FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=15');
   });
@@ -116,7 +160,7 @@ describe('RecurrenceSelector', () => {
 
     const select = screen.getByRole('combobox');
     await user.click(select);
-    await user.click(screen.getByText('Every N months on same weekday'));
+    await user.click(screen.getByText('Monthly (weekday)'));
 
     const intervalInput = screen.getByRole('spinbutton');
     await user.clear(intervalInput);
@@ -134,7 +178,7 @@ describe('RecurrenceSelector', () => {
 
     const select = screen.getByRole('combobox');
     await user.click(select);
-    await user.click(screen.getByText('Every N weeks'));
+    await user.click(screen.getByText('Weekly'));
 
     await user.click(select);
     await user.click(screen.getByText('No recurrence'));
@@ -154,7 +198,7 @@ describe('RecurrenceSelector', () => {
       />
     );
 
-    expect(screen.getByRole('combobox')).toHaveTextContent('Every N weeks');
+    expect(screen.getByRole('combobox')).toHaveTextContent('Weekly');
     expect(screen.getByRole('spinbutton')).toHaveValue(2);
   });
 
@@ -170,7 +214,7 @@ describe('RecurrenceSelector', () => {
       />
     );
 
-    expect(screen.getByRole('combobox')).toHaveTextContent('Every N months on same date');
+    expect(screen.getByRole('combobox')).toHaveTextContent('Monthly (date)');
     expect(screen.getByRole('spinbutton')).toHaveValue(3);
   });
 
@@ -186,7 +230,7 @@ describe('RecurrenceSelector', () => {
       />
     );
 
-    expect(screen.getByRole('combobox')).toHaveTextContent('Every N months on same weekday');
+    expect(screen.getByRole('combobox')).toHaveTextContent('Monthly (weekday)');
     expect(screen.getByRole('spinbutton')).toHaveValue(1);
   });
 
@@ -224,7 +268,7 @@ describe('RecurrenceSelector', () => {
       />
     );
 
-    expect(screen.getByRole('combobox')).toHaveTextContent('Every N weeks');
+    expect(screen.getByRole('combobox')).toHaveTextContent('Weekly');
     expect(screen.getByRole('spinbutton')).toHaveValue(2);
   });
 });
