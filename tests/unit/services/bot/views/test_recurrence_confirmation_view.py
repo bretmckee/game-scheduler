@@ -65,7 +65,7 @@ async def test_confirm_sets_post_at_to_now(game_id, mock_interaction):
     mock_session.execute = AsyncMock(return_value=result)
     mock_session.commit = AsyncMock()
 
-    before = datetime.now(UTC)
+    before = datetime.now(UTC).replace(tzinfo=None)
 
     with patch(
         "services.bot.views.recurrence_confirmation_view.get_db_session",
@@ -75,7 +75,7 @@ async def test_confirm_sets_post_at_to_now(game_id, mock_interaction):
         view = RecurrenceConfirmationView(game_id=game_id)
         await view.confirm(mock_interaction)
 
-    after = datetime.now(UTC)
+    after = datetime.now(UTC).replace(tzinfo=None)
     assert game.post_at is not None
     assert before <= game.post_at <= after
 
