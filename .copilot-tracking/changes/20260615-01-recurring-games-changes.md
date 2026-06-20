@@ -93,4 +93,21 @@ _(not started)_
 
 ## Phase 10: Frontend `RecurrenceSelector`
 
-_(not started)_
+_(completed in prior session — see RecurrenceSelector component and related tests)_
+
+## Phase 11: Pending Confirmation UI
+
+### Added
+
+- `tests/unit/services/api/test_games_display_status.py` — 7 unit tests for `display_status` computation via `_build_game_response`; written as xfail (Task 11.1), then xfail markers removed after implementation (Task 11.2)
+
+### Modified
+
+- `shared/schemas/game.py` — added `display_status: str` required field to `GameResponse` with description
+- `services/api/routes/games.py` — `_build_game_response` now computes and passes `display_status`; returns `"PENDING_CONFIRMATION"` when `status == "SCHEDULED"`, `recur_rule is not None`, `post_at is None`, and `message_id is None`; otherwise passes through `game.status`
+- `tests/unit/shared/schemas/test_game_schema.py` — added `display_status="SCHEDULED"` to both `GameResponse` instantiations that were now missing the required field
+- `frontend/src/types/index.ts` — added `display_status?: string` to `GameSession` interface
+- `frontend/src/components/GameCard.tsx` — added `"PENDING_CONFIRMATION": "warning"` case to `getStatusColor()`; chip label and color now use `game.display_status ?? game.status`
+- `frontend/src/components/__tests__/GameCard.test.tsx` — added `GameCard display_status chip` describe block with 2 tests: warning chip for `PENDING_CONFIRMATION`, fallback to `status` when `display_status` absent
+- `frontend/src/pages/GameDetails.tsx` — added `"PENDING_CONFIRMATION": "warning"` to `getStatusColor()`; chip uses `game.display_status ?? game.status`; renders MUI `Alert severity="info"` when `display_status === "PENDING_CONFIRMATION"` and `canEdit`
+- `frontend/src/pages/__tests__/GameDetails.test.tsx` — added `GameDetails - pending confirmation alert` describe block with 3 tests: alert shown when editable, alert absent when not editable, alert absent when `display_status === "SCHEDULED"`

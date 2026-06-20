@@ -1178,4 +1178,14 @@ async def _build_game_response(
         archive_channel_id=game.archive_channel_id,
         post_at=datetime_utils.format_datetime_as_utc(game.post_at) if game.post_at else None,
         recur_rule=game.recur_rule,
+        display_status=(
+            "PENDING_CONFIRMATION"
+            if (
+                game.status == "SCHEDULED"
+                and game.recur_rule is not None
+                and game.post_at is None
+                and game.message_id is None
+            )
+            else game.status
+        ),
     )

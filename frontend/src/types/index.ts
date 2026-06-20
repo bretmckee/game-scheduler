@@ -125,6 +125,7 @@ export interface GameSession {
   archive_channel_id?: string | null;
   where_display?: string | null;
   recur_rule?: string | null;
+  display_status?: string;
 }
 
 export interface Participant {

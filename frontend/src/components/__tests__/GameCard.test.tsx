@@ -469,3 +469,38 @@ describe('GameCard - Join/Leave Functionality', () => {
     });
   });
 });
+
+describe('GameCard display_status chip', () => {
+  it('renders a warning-colored chip when display_status is PENDING_CONFIRMATION', () => {
+    const game: GameSession = { ...mockGame, display_status: 'PENDING_CONFIRMATION' };
+
+    const { container } = render(
+      <AuthContext.Provider value={mockAuthContext}>
+        <MemoryRouter>
+          <GameCard game={game} />
+        </MemoryRouter>
+      </AuthContext.Provider>
+    );
+
+    const chip = screen.getByText('PENDING_CONFIRMATION');
+    expect(chip).toBeInTheDocument();
+    // MUI renders the color as a class on the chip root
+    const chipEl = chip.closest('.MuiChip-root');
+    expect(chipEl?.className).toMatch(/MuiChip-colorWarning/);
+    expect(container).toBeTruthy();
+  });
+
+  it('falls back to status field when display_status is absent', () => {
+    const game: GameSession = { ...mockGame, status: 'SCHEDULED', display_status: undefined };
+
+    render(
+      <AuthContext.Provider value={mockAuthContext}>
+        <MemoryRouter>
+          <GameCard game={game} />
+        </MemoryRouter>
+      </AuthContext.Provider>
+    );
+
+    expect(screen.getByText('SCHEDULED')).toBeInTheDocument();
+  });
+});

@@ -446,3 +446,100 @@ This makes `PUT /{clone_id}` with `clear_post_at=true` the correct API-level con
 `test_recurring_game_host_confirms_via_api` — **remove step 4** ("Assert clone NOT visible to Player A"). Step 4 is based on the false visibility assumption from Problem 2. Steps 1–3 and 5–8 are correct and remain. The test still provides full end-to-end coverage of: COMPLETED transition → clone creation → API confirmation → announcement loop → Discord message posted → clone visible.
 
 `test_recurring_game_zombie_cancelled_when_unconfirmed` — unchanged from original plan.
+
+---
+
+## Addendum: Pending Confirmation UI (researched 2026-06-20)
+
+### Problem
+
+When a recurring game clone is created (status=`SCHEDULED`, `recur_rule` set, `post_at=NULL`,
+`message_id=NULL`) it appears in the web UI with a plain "SCHEDULED" status chip. Hosts have
+no visual indication that the game is awaiting their confirmation, and no way to cancel from
+the web UI.
+
+### Identifying the State
+
+A game is "pending recurrence confirmation" when all four conditions hold:
+
+```
+status == "SCHEDULED"
+recur_rule IS NOT NULL
+post_at IS NULL
+message_id IS NULL
+```
+
+This is distinct from:
+
+- **Regular scheduled game**: `recur_rule IS NULL` — plain SCHEDULED, no action needed
+- **Pending posting**: `post_at IS NOT NULL AND message_id IS NULL` — deferred announcement already confirmed, waiting for the announcement loop
+
+### Recommended Approach
+
+#### Backend — `display_status` virtual field
+
+Add a computed `display_status: str` field to `GameResponse` (no DB migration required).
+The field is set in the route layer when building the response:
+
+```python
+is_pending_confirmation = (
+    game.status == "SCHEDULED"
+    and game.recur_rule is not None
+    and game.post_at is None
+    and game.message_id is None
+)
+display_status = "PENDING_CONFIRMATION" if is_pending_confirmation else game.status
+```
+
+All existing logic continues to use the real `status` field. `display_status` is a
+presentation hint only.
+
+#### Frontend — `GameSession` type
+
+Add `display_status?: string` to the `GameSession` interface in `frontend/src/types/index.ts`.
+
+#### `getStatusColor()` in `GameCard` and `GameDetails`
+
+Map `"PENDING_CONFIRMATION"` → `"warning"` (MUI amber), keeping it visually distinct from
+the blue "SCHEDULED" chip and the existing yellow "Pending posting" chip.
+
+#### `GameCard`
+
+Replace `game.status` with `game.display_status ?? game.status` in the chip label.
+The "Pending posting" chip (`post_at && !message_id`) is unaffected because it fires on a
+different condition.
+
+#### `GameDetails`
+
+- Status chip uses `display_status`
+- When `display_status === 'PENDING_CONFIRMATION'` and `canEdit`: render an info `Alert`:
+  _"This recurring game is awaiting confirmation. Check your Discord DMs to confirm or cancel the next occurrence."_
+- **No Confirm button on the web UI** — confirmation must go through the Discord DM
+- The existing **Cancel Game** button and dialog remain unchanged; they already call
+  `DELETE /api/v1/games/{id}` which sets `status=CANCELLED`
+
+#### Why no web Confirm button?
+
+Confirming via web would need to set `post_at=now()` and trigger `NOTIFY
+game_announcement_changed` (equivalent to the Discord button). That part already works via
+`PUT /api/v1/games/{id}` with `clear_post_at=true`. However, when the host confirms via web
+there is no way to delete the Discord DM (the DM message ID is not stored in the DB). This
+would leave the confirmation buttons active in the host's DMs — confusing and potentially
+harmful if clicked after the fact.
+
+Accepting web-cancel-only avoids this problem entirely: if the host cancels via web, the DM
+remains but clicking its buttons on a `CANCELLED` game is harmless (the announcement loop
+filters `WHERE status = 'SCHEDULED'`).
+
+#### Scope
+
+| Layer | Files changed |
+|---|---|
+| Backend schema | `shared/schemas/game.py` — add `display_status: str` |
+| Backend route | `services/api/routes/games.py` — compute and populate `display_status` |
+| Frontend type | `frontend/src/types/index.ts` — add `display_status?: string` |
+| Frontend card | `frontend/src/components/GameCard.tsx` — use `display_status`, add color mapping |
+| Frontend details | `frontend/src/pages/GameDetails.tsx` — use `display_status`, add pending alert |
+| Tests | Unit tests for schema/route; frontend component tests for new chip/alert |
+
+No DB migration, no new API endpoint, no new pg_notify channel required.

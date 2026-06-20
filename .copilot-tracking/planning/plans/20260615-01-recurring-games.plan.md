@@ -140,18 +140,18 @@ Add recurring game support: when a game with a `recur_rule` (RFC 5545 RRULE stri
 - [ ] Task 10.3: Wire `RecurrenceSelector` into game create/edit forms; send `recur_rule` in request body
   - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 611-635)
 
-### [ ] Phase 11: Pending Confirmation UI
+### [x] Phase 11: Pending Confirmation UI
 
-- [ ] Task 11.1: Write RED xfail unit tests for `display_status` computation
+- [x] Task 11.1: Write RED xfail unit tests for `display_status` computation
   - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 635-654)
 
-- [ ] Task 11.2: Implement `display_status: str` in `GameResponse` schema + compute in route layer; remove xfail markers
+- [x] Task 11.2: Implement `display_status: str` in `GameResponse` schema + compute in route layer; remove xfail markers
   - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 656-684)
 
-- [ ] Task 11.3: Add `display_status?: string` to frontend `GameSession` type + update `GameCard` chip label and color + Vitest tests
+- [x] Task 11.3: Add `display_status?: string` to frontend `GameSession` type + update `GameCard` chip label and color + Vitest tests
   - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 686-707)
 
-- [ ] Task 11.4: Update `GameDetails` with pending confirmation alert + Vitest tests
+- [x] Task 11.4: Update `GameDetails` with pending confirmation alert + Vitest tests
   - Details: .copilot-tracking/planning/details/20260615-01-recurring-games-details.md (Lines 709-731)
 
 ## Dependencies

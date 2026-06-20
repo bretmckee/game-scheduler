@@ -249,6 +249,10 @@ class GameResponse(BaseModel):
     )
     archive_channel_id: str | None = Field(None, description="Archive channel ID (UUID)")
     recur_rule: str | None = Field(None, description="RFC 5545 RRULE string for recurring games")
+    display_status: str = Field(
+        ...,
+        description="Effective display status; PENDING_CONFIRMATION for unconfirmed clones",
+    )
 
     model_config = {"from_attributes": True}
 
