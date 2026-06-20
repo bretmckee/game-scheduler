@@ -630,6 +630,110 @@ Integrate the new component into the game creation and edit forms, sending `recu
 
 ---
 
+## Phase 11: Pending Confirmation UI
+
+### Task 11.1: Write RED unit tests for `display_status` computation
+
+Write xfail unit tests for the `display_status` virtual field before any implementation.
+
+- **Files**:
+  - `tests/unit/services/api/test_games_display_status.py` — new test file
+- **Tests**:
+  - `test_display_status_is_pending_confirmation_when_scheduled_with_recur_rule_and_null_post_at_and_null_message_id`
+  - `test_display_status_is_scheduled_for_regular_game_without_recur_rule`
+  - `test_display_status_is_scheduled_when_post_at_is_set`
+  - `test_display_status_is_scheduled_when_message_id_is_set`
+  - `test_display_status_passes_through_non_scheduled_statuses` (CANCELLED, IN_PROGRESS, COMPLETED)
+- **Implementation**: All tests marked `@pytest.mark.xfail(strict=True)`
+- **Success**:
+  - `uv run pytest tests/unit/services/api/test_games_display_status.py -v` — all xfail
+  - `uv run mypy shared/ services/` — passes
+- **Research References**:
+  - #file:../research/20260615-01-recurring-games-research.md (Lines 452-496) — pending confirmation state definition and `display_status` computation
+- **Dependencies**:
+  - Phase 10 complete
+
+### Task 11.2: Implement `display_status` in schema + route layer
+
+Add `display_status: str` to `GameResponse` and compute it in the route layer when building responses.
+
+- **Files**:
+  - `services/api/schemas/game.py` — add `display_status: str` field to `GameResponse`
+  - `services/api/routes/games.py` — compute and set `display_status` when constructing `GameResponse`
+- **Implementation**:
+
+  ```python
+  # In GameResponse schema:
+  display_status: str
+
+  # In route layer (wherever GameResponse is built from a GameSession):
+  is_pending_confirmation = (
+      game.status == "SCHEDULED"
+      and game.recur_rule is not None
+      and game.post_at is None
+      and game.message_id is None
+  )
+  display_status = "PENDING_CONFIRMATION" if is_pending_confirmation else game.status
+  ```
+
+- **Success**:
+  - `uv run pytest tests/unit/services/api/test_games_display_status.py -v` — all PASSED (xfail markers removed)
+  - `uv run mypy shared/ services/` — no errors
+  - `GET /api/v1/games/{id}` for a clone with `post_at=NULL, message_id=NULL, recur_rule IS NOT NULL` returns `"display_status": "PENDING_CONFIRMATION"`
+- **Research References**:
+  - #file:../research/20260615-01-recurring-games-research.md (Lines 477-496) — backend schema and route computation design
+- **Dependencies**:
+  - Task 11.1 complete
+
+### Task 11.3: Update frontend `GameSession` type + `GameCard` chip and color
+
+Add `display_status` to the TypeScript type and update `GameCard` to use it for chip label and color.
+
+- **Files**:
+  - `frontend/src/types/index.ts` — add `display_status?: string` to `GameSession` interface
+  - `frontend/src/components/GameCard.tsx` — use `display_status`, add `"PENDING_CONFIRMATION"` → `"warning"` color mapping
+- **Implementation**:
+  - Add `display_status?: string` to `GameSession` in `frontend/src/types/index.ts`
+  - In `getStatusColor()` (or equivalent color mapping): `case "PENDING_CONFIRMATION": return "warning"`
+  - In chip label: replace `game.status` with `game.display_status ?? game.status`
+  - The "Pending posting" chip (`post_at && !message_id`) is unaffected — different condition
+- **Tests**:
+  - Vitest test: `GameCard` with `display_status="PENDING_CONFIRMATION"` renders warning-colored chip
+  - Vitest test: `GameCard` with no `display_status` falls back to `status` field
+- **Success**:
+  - `cd frontend && npm run test -- --reporter=verbose GameCard` — all tests pass
+  - `cd frontend && npm run build` — no TypeScript errors
+- **Research References**:
+  - #file:../research/20260615-01-recurring-games-research.md (Lines 497-511) — frontend type and `GameCard` chip design
+- **Dependencies**:
+  - Task 11.2 complete
+
+### Task 11.4: Update `GameDetails` with pending confirmation alert
+
+Show an informational MUI `Alert` in `GameDetails` when `display_status === "PENDING_CONFIRMATION"` and the viewer has edit access.
+
+- **Files**:
+  - `frontend/src/pages/GameDetails.tsx` — update status chip to use `display_status`; add `Alert` for pending confirmation
+- **Implementation**:
+  - Status chip: use `game.display_status ?? game.status` for label and color (same pattern as `GameCard`)
+  - When `display_status === "PENDING_CONFIRMATION"` and `canEdit`: render MUI `Alert` with `severity="info"`:
+    _"This recurring game is awaiting confirmation. Check your Discord DMs to confirm or cancel the next occurrence."_
+  - No Confirm button on the web UI — host must use Discord DM (rationale: no stored DM message ID to delete after confirmation)
+  - Existing Cancel Game button and dialog remain unchanged
+- **Tests**:
+  - Vitest test: when `display_status="PENDING_CONFIRMATION"` and user can edit → `Alert` is rendered
+  - Vitest test: when `display_status="PENDING_CONFIRMATION"` and user cannot edit → no `Alert`
+  - Vitest test: when `display_status="SCHEDULED"` → no `Alert`
+- **Success**:
+  - `cd frontend && npm run test -- --reporter=verbose GameDetails` — all tests pass
+  - `cd frontend && npm run build` — no TypeScript errors
+- **Research References**:
+  - #file:../research/20260615-01-recurring-games-research.md (Lines 512-533) — `GameDetails` alert design and rationale for no web Confirm button
+- **Dependencies**:
+  - Task 11.3 complete
+
+---
+
 ## Dependencies
 
 - `python-dateutil` ≥ 2.9.0 (already installed as transitive dep of `icalendar~=6.0.0`)
