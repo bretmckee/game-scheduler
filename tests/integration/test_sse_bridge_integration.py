@@ -22,7 +22,7 @@
 """Integration tests for SSE bridge infrastructure.
 
 Validates SSE bridge infrastructure without Discord complexity, covering:
-1. RabbitMQ message delivery to SSE clients
+1. PostgreSQL NOTIFY delivery to SSE clients
 2. Guild authorization filtering (server-side)
 3. Concurrent connection handling
 
@@ -33,16 +33,14 @@ across web and Discord interfaces.
 import asyncio
 import json
 import logging
-import os
 from uuid import uuid4
 
-import aio_pika
+import asyncpg
 import httpx
 import pytest
 
 from services.api.services.sse_bridge import get_sse_bridge
-from shared.messaging.events import Event, EventType
-from shared.messaging.publisher import EventPublisher
+from shared.database import BASE_DATABASE_URL
 from tests.shared.auth_helpers import cleanup_test_session, create_test_session
 
 pytestmark = pytest.mark.integration
@@ -55,29 +53,22 @@ TEST_BOT_DISCORD_ID_B = "test_bot_b_987654321"
 
 
 @pytest.fixture
-async def rabbitmq_publisher():
+async def pg_notify_publisher():
     """
-    EventPublisher for integration tests with isolated connection.
+    Fixture that sends pg_notify('game_updated_sse', ...) to trigger SSE events.
 
-    Creates a dedicated RabbitMQ connection for this test without touching
-    the global singleton, ensuring hermetic test isolation.
+    Mimics what GameService._publish_game_updated does so SSE bridge
+    integration tests are independent of the full API stack.
     """
-    loop = asyncio.get_running_loop()
-    rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://guest:guest@rabbitmq:5672/")
+    conn = await asyncpg.connect(BASE_DATABASE_URL)
 
-    test_connection = await aio_pika.connect_robust(
-        rabbitmq_url, timeout=60, heartbeat=60, loop=loop
-    )
+    async def publish(game_id: str, guild_uuid: str) -> None:
+        payload = json.dumps({"game_id": game_id, "guild_id": guild_uuid})
+        await conn.execute("SELECT pg_notify('game_updated_sse', $1)", payload)
 
-    publisher = EventPublisher(connection=test_connection)
-    await publisher.connect()
+    yield publish
 
-    yield publisher
-
-    await publisher.close()
-
-    if test_connection and not test_connection.is_closed:
-        await test_connection.close()
+    await conn.close()
 
 
 @pytest.fixture
@@ -165,11 +156,11 @@ async def create_authenticated_client_factory(api_base_url, create_user, seed_re
 
 
 @pytest.mark.asyncio
-async def test_sse_receives_rabbitmq_game_updated_events(
+async def test_sse_receives_pg_notify_game_updated_events(
     authenticated_client_guild_a,
-    rabbitmq_publisher,
+    pg_notify_publisher,
 ):
-    """SSE client receives game.updated events published to RabbitMQ."""
+    """SSE client receives game_updated events triggered by pg_notify."""
     client, guild_a = authenticated_client_guild_a
     test_game_id = str(uuid4())
 
@@ -180,17 +171,8 @@ async def test_sse_receives_rabbitmq_game_updated_events(
     ) as response:
         assert response.status_code == 200
 
-        # Publish game.updated event to RabbitMQ
-        await rabbitmq_publisher.publish(
-            event=Event(
-                event_type=EventType.GAME_UPDATED,
-                data={
-                    "game_id": test_game_id,
-                    "guild_id": guild_a["id"],
-                },
-            ),
-            routing_key=f"game.updated.{guild_a['guild_id']}",
-        )
+        # Publish via pg_notify instead of RabbitMQ
+        await pg_notify_publisher(test_game_id, guild_a["id"])
 
         # Read SSE stream with timeout
         received_event = None
@@ -237,7 +219,7 @@ async def _consume_sse_events(
 async def test_sse_filters_events_by_guild_membership(
     authenticated_client_guild_a,
     authenticated_client_guild_b,
-    rabbitmq_publisher,
+    pg_notify_publisher,
 ):
     """SSE clients only receive events for guilds they're authorized to access."""
     client_a, guild_a = authenticated_client_guild_a
@@ -253,25 +235,13 @@ async def test_sse_filters_events_by_guild_membership(
     # Wait for connections to establish
     await asyncio.sleep(0.5)
 
-    # Publish event for Guild A
+    # Publish event for Guild A via pg_notify
     game_id_a = str(uuid4())
-    await rabbitmq_publisher.publish(
-        event=Event(
-            event_type=EventType.GAME_UPDATED,
-            data={"game_id": game_id_a, "guild_id": guild_a["id"]},
-        ),
-        routing_key=f"game.updated.{guild_a['guild_id']}",
-    )
+    await pg_notify_publisher(game_id_a, guild_a["id"])
 
-    # Publish event for Guild B
+    # Publish event for Guild B via pg_notify
     game_id_b = str(uuid4())
-    await rabbitmq_publisher.publish(
-        event=Event(
-            event_type=EventType.GAME_UPDATED,
-            data={"game_id": game_id_b, "guild_id": guild_b["id"]},
-        ),
-        routing_key=f"game.updated.{guild_b['guild_id']}",
-    )
+    await pg_notify_publisher(game_id_b, guild_b["id"])
 
     # Wait for event processing
     await asyncio.sleep(2.0)
@@ -325,7 +295,7 @@ async def _consume_sse_single_event(
 async def test_sse_broadcasts_to_multiple_clients(
     create_authenticated_client_factory,
     create_guild,
-    rabbitmq_publisher,
+    pg_notify_publisher,
 ):
     """SSE bridge broadcasts events to all authorized concurrent connections."""
     # Configure short keepalive interval for faster test execution
@@ -350,16 +320,7 @@ async def test_sse_broadcasts_to_multiple_clients(
     await asyncio.gather(*[event.wait() for event in ready_events])
 
     test_game_id = str(uuid4())
-    await rabbitmq_publisher.publish(
-        event=Event(
-            event_type=EventType.GAME_UPDATED,
-            data={
-                "game_id": test_game_id,
-                "guild_id": guild["id"],
-            },
-        ),
-        routing_key=f"game.updated.{guild['guild_id']}",
-    )
+    await pg_notify_publisher(test_game_id, guild["id"])
 
     await asyncio.wait(consumer_tasks, timeout=5.0)
 

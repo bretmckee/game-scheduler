@@ -22,7 +22,7 @@
 """
 SSE bridge service for real-time game updates.
 
-Consumes game update events from RabbitMQ and broadcasts them to
+Listens for game_updated_sse notifications via asyncpg and broadcasts them to
 authorized SSE connections with server-side guild filtering.
 """
 
@@ -30,14 +30,14 @@ import asyncio
 import json
 import logging
 
+import asyncpg
 from sqlalchemy import select
 
 from services.api.auth import tokens
+from services.api.config import get_api_config
 from shared.cache import client as cache_client
 from shared.cache import projection as member_projection
 from shared.database import get_bypass_db_session
-from shared.messaging.consumer import EventConsumer
-from shared.messaging.events import Event, EventType
 from shared.models.guild import GuildConfiguration
 
 logger = logging.getLogger(__name__)
@@ -45,16 +45,18 @@ logger = logging.getLogger(__name__)
 
 class SSEGameUpdateBridge:
     """
-    Bridges RabbitMQ game events to SSE connections.
+    Bridges PostgreSQL NOTIFY game events to SSE connections.
 
     Maintains active SSE connections and filters events based on
     user's guild memberships to prevent information disclosure.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, db_url: str) -> None:
         """Initialize SSE bridge with empty connection registry."""
         self.connections: dict[str, tuple[asyncio.Queue, str, str]] = {}
-        self.consumer: EventConsumer | None = None
+        self._db_url = db_url
+        self._conn: asyncpg.Connection | None = None
+        self._active_broadcasts: set[asyncio.Task] = set()
         self.keepalive_interval_seconds: int = 30
 
     def set_keepalive_interval(self, seconds: int) -> None:
@@ -70,27 +72,48 @@ class SSEGameUpdateBridge:
         self.keepalive_interval_seconds = seconds
 
     async def start_consuming(self) -> None:
-        """
-        Start consuming RabbitMQ events.
-
-        Connects to web_sse_events queue and subscribes to game.updated.#
-        routing keys using wildcard pattern to match guild-specific events.
-        """
-        self.consumer = EventConsumer(queue_name="web_sse_events")
-        await self.consumer.connect()
-
-        await self.consumer.bind("game.updated.#")
-
-        self.consumer.register_handler(EventType.GAME_UPDATED, self._broadcast_to_clients)
-
-        await self.consumer.start_consuming()
+        """Open an asyncpg connection and listen on game_updated_sse until cancelled."""
+        db_url = self._db_url.replace("postgresql+asyncpg://", "postgresql://")
+        conn: asyncpg.Connection | None = None
+        try:
+            conn = await asyncpg.connect(db_url)
+            self._conn = conn
+            await conn.add_listener("game_updated_sse", self._on_notify)
+            await asyncio.get_event_loop().create_future()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("SSE bridge LISTEN loop failed")
+        finally:
+            if conn is not None:
+                await conn.close()
+                self._conn = None
 
     async def stop_consuming(self) -> None:
-        """Stop consuming RabbitMQ events and close connection."""
-        if self.consumer:
-            await self.consumer.close()
-            self.consumer = None
+        """Close the asyncpg LISTEN connection."""
+        if self._conn is not None:
+            await self._conn.close()
+            self._conn = None
             logger.info("SSE bridge stopped consuming")
+
+    def _on_notify(
+        self,
+        _conn: asyncpg.Connection,
+        _pid: int,
+        _channel: str,
+        payload: str,
+    ) -> None:
+        """Handle pg_notify delivery — parse JSON and schedule async broadcast."""
+        if not payload:
+            return
+        try:
+            data = json.loads(payload)
+        except json.JSONDecodeError:
+            logger.warning("SSE bridge received invalid JSON payload: %s", payload)
+            return
+        task = asyncio.create_task(self._broadcast_to_clients(data))
+        self._active_broadcasts.add(task)
+        task.add_done_callback(self._active_broadcasts.discard)
 
     async def _send_to_connection(
         self,
@@ -136,21 +159,21 @@ class SSEGameUpdateBridge:
 
         return False
 
-    async def _broadcast_to_clients(self, event: Event) -> None:
+    async def _broadcast_to_clients(self, data: dict) -> None:
         """
-        Broadcast game update event to authorized SSE connections.
+        Broadcast game update to authorized SSE connections.
 
         Checks each connection's guild membership via cached get_user_guilds()
         and only sends events to users who are members of the event's guild.
 
         Args:
-            event: Game update event with guild_id (UUID) in data
+            data: Parsed pg_notify payload with game_id and guild_id (UUID).
         """
-        logger.info("SSE bridge received event: %s", event.data)
+        logger.info("SSE bridge received event: %s", data)
 
-        guild_uuid = event.data.get("guild_id")
+        guild_uuid = data.get("guild_id")
         if not guild_uuid:
-            logger.warning("Game update event missing guild_id: %s", event.data.get("game_id"))
+            logger.warning("Game update event missing guild_id: %s", data.get("game_id"))
             return
 
         # Look up Discord snowflake ID from UUID using BYPASSRLS session
@@ -164,7 +187,7 @@ class SSEGameUpdateBridge:
             logger.warning("Guild UUID not found in database: %s", guild_uuid)
             return
 
-        game_id = event.data.get("game_id")
+        game_id = data.get("game_id")
         message = json.dumps({
             "type": "game_updated",
             "game_id": str(game_id),
@@ -201,5 +224,5 @@ def get_sse_bridge() -> SSEGameUpdateBridge:
     """Get or create SSE bridge singleton."""
     global _sse_bridge  # noqa: PLW0603
     if _sse_bridge is None:
-        _sse_bridge = SSEGameUpdateBridge()
+        _sse_bridge = SSEGameUpdateBridge(get_api_config().database_url)
     return _sse_bridge

@@ -29,13 +29,131 @@ from uuid import uuid4
 import pytest
 
 from services.api.services.sse_bridge import SSEGameUpdateBridge, get_sse_bridge
-from shared.messaging.events import Event, EventType
+
+_TEST_DB_URL = "postgresql+asyncpg://test:test@localhost/test_db"
 
 
 @pytest.fixture
 def sse_bridge():
     """Create SSE bridge instance for testing."""
-    return SSEGameUpdateBridge()
+    return SSEGameUpdateBridge(_TEST_DB_URL)
+
+
+# ---------------------------------------------------------------------------
+# Phase 4 xfail tests (RED) — asyncpg LISTEN migration
+# ---------------------------------------------------------------------------
+
+
+def test_bridge_accepts_db_url():
+    """SSEGameUpdateBridge.__init__ accepts a db_url positional argument."""
+    bridge = SSEGameUpdateBridge(_TEST_DB_URL)
+    assert bridge._db_url == _TEST_DB_URL
+
+
+@pytest.mark.asyncio
+async def test_start_consuming_uses_asyncpg_listen():
+    """start_consuming opens asyncpg connection and listens on game_updated_sse."""
+    bridge = SSEGameUpdateBridge(_TEST_DB_URL)
+    mock_conn = AsyncMock()
+    mock_conn.add_listener = AsyncMock()
+
+    with patch("asyncpg.connect", return_value=mock_conn) as mock_connect:
+        task = asyncio.create_task(bridge.start_consuming())
+        await asyncio.sleep(0)
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+    mock_connect.assert_called_once()
+    called_url = mock_connect.call_args[0][0]
+    assert "postgresql://" in called_url and "+asyncpg" not in called_url
+    mock_conn.add_listener.assert_called_once_with("game_updated_sse", bridge._on_notify)
+
+
+@pytest.mark.asyncio
+async def test_start_consuming_handles_connect_error():
+    """start_consuming logs exception and exits cleanly when asyncpg.connect fails."""
+    bridge = SSEGameUpdateBridge(_TEST_DB_URL)
+
+    with patch("asyncpg.connect", side_effect=OSError("connection refused")):
+        await bridge.start_consuming()
+
+    assert bridge._conn is None
+
+
+def test_on_notify_ignores_invalid_json():
+    """_on_notify drops payloads that are not valid JSON."""
+    bridge = SSEGameUpdateBridge(_TEST_DB_URL)
+    with patch.object(bridge, "_broadcast_to_clients") as mock_broadcast:
+        bridge._on_notify(None, 0, "game_updated_sse", "not-json{{{")
+    mock_broadcast.assert_not_called()
+
+
+def test_on_notify_schedules_broadcast():
+    """_on_notify parses JSON payload and schedules _broadcast_to_clients."""
+    bridge = SSEGameUpdateBridge(_TEST_DB_URL)
+    payload = json.dumps({"game_id": "g1", "guild_id": "guild1"})
+
+    with patch.object(bridge, "_broadcast_to_clients") as mock_broadcast:
+        loop = asyncio.new_event_loop()
+        try:
+            loop.run_until_complete(_run_on_notify(bridge, payload))
+        finally:
+            loop.close()
+
+    mock_broadcast.assert_called_once_with({"game_id": "g1", "guild_id": "guild1"})
+
+
+async def _run_on_notify(bridge: SSEGameUpdateBridge, payload: str) -> None:
+    bridge._on_notify(None, 0, "game_updated_sse", payload)
+    await asyncio.sleep(0)
+
+
+def test_on_notify_ignores_empty_payload():
+    """_on_notify silently drops empty payload."""
+    bridge = SSEGameUpdateBridge(_TEST_DB_URL)
+    with patch.object(bridge, "_broadcast_to_clients") as mock_broadcast:
+        bridge._on_notify(None, 0, "game_updated_sse", "")
+    mock_broadcast.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_broadcast_to_clients_accepts_dict():
+    """_broadcast_to_clients accepts a dict payload from pg_notify."""
+    bridge = SSEGameUpdateBridge(_TEST_DB_URL)
+    client_queue: asyncio.Queue = asyncio.Queue()
+    bridge.connections["c1"] = (client_queue, "session", "user123")
+
+    mock_result = Mock()
+    mock_result.scalar_one_or_none.return_value = "123456789"
+    mock_db = AsyncMock()
+    mock_db.execute = AsyncMock(return_value=mock_result)
+    mock_db.__aenter__ = AsyncMock(return_value=mock_db)
+    mock_db.__aexit__ = AsyncMock()
+
+    mock_redis = AsyncMock()
+    with (
+        patch(
+            "services.api.services.sse_bridge.get_bypass_db_session",
+            return_value=mock_db,
+        ),
+        patch("services.api.services.sse_bridge.tokens.get_user_tokens") as mock_tokens,
+        patch(
+            "services.api.services.sse_bridge.cache_client.get_redis_client",
+            return_value=mock_redis,
+        ),
+        patch(
+            "services.api.services.sse_bridge.member_projection.get_user_guilds",
+            new=AsyncMock(return_value=["123456789"]),
+        ),
+    ):
+        mock_tokens.return_value = {"access_token": "token"}
+        await bridge._broadcast_to_clients({"game_id": str(uuid4()), "guild_id": "guild-uuid-1"})
+
+    assert not client_queue.empty()
+    mock_tokens.assert_called()
 
 
 @pytest.fixture
@@ -52,15 +170,11 @@ def mock_db_session():
 
 @pytest.fixture
 def mock_event():
-    """Create mock game.updated event."""
-    return Event(
-        event_type=EventType.GAME_UPDATED,
-        data={
-            "game_id": str(uuid4()),
-            "guild_id": "123456789",
-            "action": "player_joined",
-        },
-    )
+    """Create mock game.updated event as dict (pg_notify payload)."""
+    return {
+        "game_id": str(uuid4()),
+        "guild_id": "123456789",
+    }
 
 
 @pytest.mark.asyncio
@@ -196,12 +310,12 @@ async def test_broadcast_handles_full_queue(sse_bridge, mock_event, mock_db_sess
 @pytest.mark.asyncio
 async def test_broadcast_handles_missing_guild_id(sse_bridge):
     """Test that events without guild_id are skipped."""
-    event = Event(event_type=EventType.GAME_UPDATED, data={"game_id": str(uuid4())})
+    data = {"game_id": str(uuid4())}
 
     client_queue = asyncio.Queue()
     sse_bridge.connections["client1"] = (client_queue, "session", "discord123")
 
-    await sse_bridge._broadcast_to_clients(event)
+    await sse_bridge._broadcast_to_clients(data)
 
     assert client_queue.empty()
 
@@ -232,45 +346,24 @@ async def test_broadcast_handles_api_errors(sse_bridge, mock_event, mock_db_sess
 
 
 @pytest.mark.asyncio
-async def test_start_consuming_initializes_consumer(sse_bridge):
-    """Test that start_consuming sets up RabbitMQ consumer."""
-    mock_consumer = Mock()
-    mock_consumer.connect = AsyncMock()
-    mock_consumer.bind = AsyncMock()
-    mock_consumer.start_consuming = AsyncMock()
-
-    with patch("services.api.services.sse_bridge.EventConsumer") as mock_consumer_class:
-        mock_consumer_class.return_value = mock_consumer
-
-        await sse_bridge.start_consuming()
-
-        assert sse_bridge.consumer is not None
-        mock_consumer_class.assert_called_once_with(queue_name="web_sse_events")
-        mock_consumer.connect.assert_called_once_with()
-        mock_consumer.bind.assert_called_once_with("game.updated.#")
-        mock_consumer.start_consuming.assert_called_once_with()
-
-
-@pytest.mark.asyncio
-async def test_stop_consuming_closes_consumer(sse_bridge):
-    """Test that stop_consuming closes RabbitMQ connection."""
-    mock_consumer = Mock()
-    mock_consumer.close = AsyncMock()
-
-    sse_bridge.consumer = mock_consumer
+async def test_stop_consuming_closes_asyncpg_conn(sse_bridge):
+    """stop_consuming closes the asyncpg connection and clears _conn."""
+    mock_conn = AsyncMock()
+    mock_conn.close = AsyncMock()
+    sse_bridge._conn = mock_conn
 
     await sse_bridge.stop_consuming()
 
-    mock_consumer.close.assert_called_once()
-    assert sse_bridge.consumer is None
+    mock_conn.close.assert_called_once()
+    assert sse_bridge._conn is None
 
 
 @pytest.mark.asyncio
-async def test_stop_consuming_handles_no_consumer(sse_bridge):
-    """Test that stop_consuming works when no consumer exists."""
-    sse_bridge.consumer = None
+async def test_stop_consuming_handles_no_conn(sse_bridge):
+    """stop_consuming works when no connection exists."""
+    sse_bridge._conn = None
     await sse_bridge.stop_consuming()
-    assert sse_bridge.consumer is None
+    assert sse_bridge._conn is None
 
 
 def test_get_sse_bridge_returns_singleton():
