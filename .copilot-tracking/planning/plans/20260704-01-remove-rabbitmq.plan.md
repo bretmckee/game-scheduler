@@ -46,12 +46,12 @@ Replace all RabbitMQ message flows with PostgreSQL LISTEN/NOTIFY + a new `bot_ac
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Add `BotActionQueue` Model + Alembic Migration
+### [x] Phase 1: Add `BotActionQueue` Model + Alembic Migration
 
-- [ ] Task 1.1: Write xfail TDD tests for `BotActionQueue` model attributes and constraints (RED)
+- [x] Task 1.1: Write xfail TDD tests for `BotActionQueue` model attributes and constraints (RED)
   - Details: .copilot-tracking/planning/details/20260704-01-remove-rabbitmq-details.md (Lines 13-28)
 
-- [ ] Task 1.2: Implement SQLAlchemy model, export from `shared/models/__init__.py`, create Alembic migration with table + index + INSERT trigger + NOTIFY (GREEN)
+- [x] Task 1.2: Implement SQLAlchemy model, export from `shared/models/__init__.py`, create Alembic migration with table + index + INSERT trigger + NOTIFY (GREEN)
   - Details: .copilot-tracking/planning/details/20260704-01-remove-rabbitmq-details.md (Lines 29-46)
 
 ### [ ] Phase 2: Add `cancel_game` Service + Update `GameService._delete_game_internal`

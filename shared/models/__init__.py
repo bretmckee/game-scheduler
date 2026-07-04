@@ -23,6 +23,7 @@
 
 from .backup_metadata import BackupMetadata
 from .base import Base
+from .bot_action_queue import BotActionQueue
 from .channel import ChannelConfiguration
 from .game import GameSession, GameStatus
 from .game_image import GameImage
@@ -39,6 +40,7 @@ from .user import User
 __all__ = [
     "BackupMetadata",
     "Base",
+    "BotActionQueue",
     "ChannelConfiguration",
     "GameImage",
     "GameParticipant",
