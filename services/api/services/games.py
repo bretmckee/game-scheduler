@@ -25,6 +25,7 @@ Handles game CRUD operations, participant management, and event publishing.
 """
 
 import datetime
+import json
 import logging
 import uuid
 from collections.abc import Sequence
@@ -32,6 +33,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from sqlalchemy import func, text
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -45,8 +47,6 @@ from services.api.services import participant_resolver as resolver_module
 from services.api.services.notification_schedule import schedule_join_notification
 from shared.discord import client as discord_client_module
 from shared.message_formats import DMFormats
-from shared.messaging import deferred_publisher as messaging_deferred_publisher
-from shared.messaging import events as messaging_events
 from shared.models import channel as channel_model
 from shared.models import game as game_model
 from shared.models import game_status_schedule as game_status_schedule_model
@@ -56,6 +56,8 @@ from shared.models import participant as participant_model
 from shared.models import template as template_model
 from shared.models import user as user_model
 from shared.models.base import utc_now
+from shared.models.bot_action_queue import BotActionQueue
+from shared.models.message_refresh_queue import MessageRefreshQueue
 from shared.models.participant import ParticipantType
 from shared.models.participant_action_schedule import ParticipantActionSchedule
 from shared.models.signup_method import SignupMethod
@@ -121,25 +123,12 @@ class GameService:
     def __init__(
         self,
         db: AsyncSession,
-        event_publisher: messaging_deferred_publisher.DeferredEventPublisher,
         discord_client: discord_client_module.DiscordAPIClient | None = None,
         participant_resolver: resolver_module.ParticipantResolver | None = None,
         channel_resolver: channel_resolver_module.ChannelResolver | None = None,
         emoji_resolver: emoji_resolver_module.EmojiResolver | None = None,
     ) -> None:
-        """
-        Initialize game service.
-
-        Args:
-            db: Database session
-            event_publisher: Deferred RabbitMQ event publisher
-            discord_client: Discord API client
-            participant_resolver: Participant resolver service
-            channel_resolver: Channel resolver service
-            emoji_resolver: Emoji resolver service
-        """
         self.db = db
-        self.event_publisher = event_publisher
         self.discord_client = discord_client
         self.participant_resolver = participant_resolver
         self.channel_resolver = channel_resolver
@@ -1915,24 +1904,21 @@ class GameService:
 
             message = DMFormats.waitlist_demotion(game.title, jump_url=jump_url)
 
-            notification_event = messaging_events.NotificationSendDMEvent(
-                user_id=discord_id,
-                game_id=uuid.UUID(game.id),
-                game_title=game.title,
-                game_time_unix=scheduled_at_unix,
-                notification_type="waitlist_demotion",
-                message=message,
+            self.db.add(
+                BotActionQueue(
+                    action_type="send_dm",
+                    game_id=game.id,
+                    discord_id=discord_id,
+                    payload={
+                        "notification_type": "waitlist_demotion",
+                        "game_title": game.title,
+                        "game_time_unix": scheduled_at_unix,
+                        "message": message,
+                    },
+                )
             )
-
-            event = messaging_events.Event(
-                event_type=messaging_events.EventType.NOTIFICATION_SEND_DM,
-                data=notification_event.model_dump(mode="json"),
-            )
-
-            self.event_publisher.publish_deferred(event=event)
-
             logger.info(
-                "Deferred demotion notification for user %s in game %s",
+                "Enqueued send_dm (demotion) for user %s in game %s",
                 discord_id,
                 game.id,
             )
@@ -2234,16 +2220,16 @@ class GameService:
         """
         Delete a game without auth checks.
 
-        Releases image references, deletes the game row, and publishes the
-        cancellation event. Used by both ``delete_game`` (after auth) and the
-        RabbitMQ ``EMBED_DELETED`` consumer which bypasses HTTP auth.
+        Releases image references, deletes the game row, and enqueues the
+        cancellation action in bot_action_queue. Used by both ``delete_game``
+        (after auth) and the bot embed-deletion handler which bypasses HTTP auth.
 
         Does not commit. Caller must commit transaction.
 
         Args:
             game: Game session model instance to delete
         """
-        await cancel_game_service(self.db, game, self.event_publisher)
+        await cancel_game_service(self.db, game)
 
     async def join_game(
         self,
@@ -2454,108 +2440,84 @@ class GameService:
                 if game.message_id
                 else None
             )
-            event = messaging_events.Event(
-                event_type=messaging_events.EventType.NOTIFICATION_SEND_DM,
-                data=messaging_events.NotificationSendDMEvent(
-                    user_id=host_discord_id,
-                    game_id=uuid.UUID(game.id),
-                    game_title=game.title,
-                    game_time_unix=scheduled_unix,
-                    notification_type="host_added_dropout",
-                    message=DMFormats.host_added_dropout(
-                        player_mention=f"<@{user.discord_id}>",
-                        game_title=game.title,
-                        game_time_unix=scheduled_unix,
-                        jump_url=jump_url,
-                    ),
-                ).model_dump(),
+            message = DMFormats.host_added_dropout(
+                player_mention=f"<@{user.discord_id}>",
+                game_title=game.title,
+                game_time_unix=scheduled_unix,
+                jump_url=jump_url,
             )
-            self.event_publisher.publish_deferred(event=event)
+            self.db.add(
+                BotActionQueue(
+                    action_type="send_dm",
+                    game_id=game.id,
+                    discord_id=host_discord_id,
+                    payload={
+                        "notification_type": "host_added_dropout",
+                        "game_title": game.title,
+                        "game_time_unix": scheduled_unix,
+                        "message": message,
+                    },
+                )
+            )
 
     async def _publish_game_created(
         self,
         game: game_model.GameSession,
         channel_config: channel_model.ChannelConfiguration,
     ) -> None:
-        """Publish game.created event to RabbitMQ."""
-        event_data = messaging_events.GameCreatedEvent(
-            game_id=uuid.UUID(game.id),
-            title=game.title,
-            guild_id=game.guild_id,
-            channel_id=channel_config.channel_id,
-            host_id=game.host_id,
-            scheduled_at=game.scheduled_at,
-            max_players=game.max_players,
-            notify_role_ids=game.notify_role_ids,
-            signup_method=game.signup_method,
+        """Enqueue a game_created action in bot_action_queue."""
+        self.db.add(
+            BotActionQueue(
+                action_type="game_created",
+                game_id=game.id,
+                channel_id=channel_config.channel_id,
+            )
         )
-
-        event = messaging_events.Event(
-            event_type=messaging_events.EventType.GAME_CREATED,
-            data=event_data.model_dump(mode="json"),
-        )
-
-        self.event_publisher.publish_deferred(event=event)
-
-        logger.info("Deferred game.created event for game %s", game.id)
+        logger.info("Enqueued game_created action for game %s", game.id)
 
     async def _publish_game_updated(self, game: game_model.GameSession) -> None:
-        """Publish game.updated event to RabbitMQ."""
-        event = messaging_events.Event(
-            event_type=messaging_events.EventType.GAME_UPDATED,
-            data={
-                "game_id": game.id,
-                "guild_id": game.guild_id,
-                "message_id": game.message_id or "",
-                "channel_id": game.channel.channel_id,
-            },
+        """Upsert a message_refresh_queue row and notify SSE clients via pg_notify."""
+        channel_id = game.channel.channel_id
+        stmt = (
+            pg_insert(MessageRefreshQueue)
+            .values(game_id=game.id, channel_id=channel_id)
+            .on_conflict_do_update(
+                index_elements=["channel_id", "game_id"],
+                set_={"enqueued_at": func.now()},
+            )
         )
+        await self.db.execute(stmt)
 
-        routing_key = f"game.updated.{game.guild_id}"
-        self.event_publisher.publish_deferred(event=event, routing_key=routing_key)
-
-        logger.info("Deferred game.updated event for game %s", game.id)
-
-    async def _publish_game_cancelled(self, game: game_model.GameSession) -> None:
-        """Publish game.cancelled event to RabbitMQ."""
-        event = messaging_events.Event(
-            event_type=messaging_events.EventType.GAME_CANCELLED,
-            data={
-                "game_id": game.id,
-                "message_id": game.message_id or "",
-                "channel_id": game.channel.channel_id,
-            },
+        payload = json.dumps({"game_id": game.id, "guild_id": game.guild_id})
+        await self.db.execute(
+            text("SELECT pg_notify('game_updated_sse', :payload)").bindparams(payload=payload)
         )
-
-        self.event_publisher.publish_deferred(event=event)
-
-        logger.info("Deferred game.cancelled event for game %s", game.id)
+        logger.info("Queued message refresh and notified SSE for game %s", game.id)
 
     async def _publish_player_removed(
         self,
         game: game_model.GameSession,
         participant: participant_model.GameParticipant,
     ) -> None:
-        """Publish game.player_removed event to RabbitMQ."""
-        event = messaging_events.Event(
-            event_type=messaging_events.EventType.PLAYER_REMOVED,
-            data={
-                "game_id": game.id,
-                "participant_id": participant.id,
-                "user_id": participant.user_id,
-                "discord_id": participant.user.discord_id if participant.user else None,
-                "display_name": participant.display_name,
-                "message_id": game.message_id or "",
-                "channel_id": game.channel.channel_id,
-                "game_title": game.title,
-                "game_scheduled_at": (game.scheduled_at.isoformat() if game.scheduled_at else None),
-            },
+        """Enqueue a player_removed action in bot_action_queue."""
+        self.db.add(
+            BotActionQueue(
+                action_type="player_removed",
+                game_id=game.id,
+                discord_id=participant.user.discord_id if participant.user else None,
+                message_id=game.message_id or "",
+                channel_id=game.channel.channel_id,
+                payload={
+                    "display_name": participant.display_name,
+                    "game_title": game.title,
+                    "game_scheduled_at": (
+                        game.scheduled_at.isoformat() if game.scheduled_at else None
+                    ),
+                },
+            )
         )
-
-        self.event_publisher.publish_deferred(event=event)
-
         logger.info(
-            "Deferred game.player_removed event for participant %s from game %s",
+            "Enqueued player_removed action for participant %s from game %s",
             participant.id,
             game.id,
         )
@@ -2614,24 +2576,21 @@ class GameService:
 
         message = DMFormats.promotion(game.title, scheduled_at_unix, jump_url=jump_url)
 
-        notification_event = messaging_events.NotificationSendDMEvent(
-            user_id=discord_id,
-            game_id=uuid.UUID(game.id),
-            game_title=game.title,
-            game_time_unix=scheduled_at_unix,
-            notification_type="waitlist_promotion",
-            message=message,
+        self.db.add(
+            BotActionQueue(
+                action_type="send_dm",
+                game_id=game.id,
+                discord_id=discord_id,
+                payload={
+                    "notification_type": "waitlist_promotion",
+                    "game_title": game.title,
+                    "game_time_unix": scheduled_at_unix,
+                    "message": message,
+                },
+            )
         )
-
-        event = messaging_events.Event(
-            event_type=messaging_events.EventType.NOTIFICATION_SEND_DM,
-            data=notification_event.model_dump(mode="json"),
-        )
-
-        self.event_publisher.publish_deferred(event=event)
-
         logger.info(
-            "Deferred promotion notification for user %s in game %s",
+            "Enqueued send_dm (promotion) for user %s in game %s",
             discord_id,
             game.id,
         )

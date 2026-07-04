@@ -55,8 +55,6 @@ from shared.discord.client import (
     fetch_guild_name_safe,
     get_guild_channels_safe,
 )
-from shared.messaging import deferred_publisher as messaging_deferred_publisher
-from shared.messaging import publisher as messaging_publisher
 from shared.models import game as game_model
 from shared.models.participant import GameParticipant, ParticipantType
 from shared.schemas import auth as auth_schemas
@@ -106,11 +104,6 @@ async def _get_game_service(
     db: AsyncSession = Depends(database.get_db_with_user_guilds()),
 ) -> games_service.GameService:
     """Get game service instance with dependencies (RLS context already set by db dependency)."""
-    base_publisher = messaging_publisher.EventPublisher()
-    deferred_publisher = messaging_deferred_publisher.DeferredEventPublisher(
-        db=db,
-        event_publisher=base_publisher,
-    )
     discord_client = get_discord_client()
     participant_resolver = resolver_module.ParticipantResolver()
     channel_resolver = channel_resolver_module.ChannelResolver(discord_client)
@@ -118,7 +111,6 @@ async def _get_game_service(
 
     return games_service.GameService(
         db=db,
-        event_publisher=deferred_publisher,
         discord_client=discord_client,
         participant_resolver=participant_resolver,
         channel_resolver=channel_resolver,

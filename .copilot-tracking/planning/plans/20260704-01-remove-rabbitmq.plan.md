@@ -62,12 +62,12 @@ Replace all RabbitMQ message flows with PostgreSQL LISTEN/NOTIFY + a new `bot_ac
 - [x] Task 2.2: Implement `cancel_game`; update `GameService._delete_game_internal` as thin wrapper; update tests (GREEN)
   - Details: .copilot-tracking/planning/details/20260704-01-remove-rabbitmq-details.md (Lines 64-82)
 
-### [ ] Phase 3: Migrate API to Bot Flows (Flows 1-4) + SSE NOTIFY
+### [x] Phase 3: Migrate API to Bot Flows (Flows 1-4) + SSE NOTIFY
 
-- [ ] Task 3.1: Write xfail TDD tests for all updated `GameService` publish methods using `BotActionQueue` inserts and `pg_notify` (RED)
+- [x] Task 3.1: Write xfail TDD tests for all updated `GameService` publish methods using `BotActionQueue` inserts and `pg_notify` (RED)
   - Details: .copilot-tracking/planning/details/20260704-01-remove-rabbitmq-details.md (Lines 85-99)
 
-- [ ] Task 3.2: Remove `DeferredEventPublisher` from `GameService`; replace all `publish_deferred()` calls; update API route; update all tests (GREEN)
+- [x] Task 3.2: Remove `DeferredEventPublisher` from `GameService`; replace all `publish_deferred()` calls; update API route; update all tests (GREEN)
   - Details: .copilot-tracking/planning/details/20260704-01-remove-rabbitmq-details.md (Lines 100-118)
 
 ### [ ] Phase 4: Replace SSE Bridge Consumer (Flow 8)

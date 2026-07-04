@@ -25,8 +25,7 @@ import logging
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.messaging.deferred_publisher import DeferredEventPublisher
-from shared.messaging.events import Event, EventType
+from shared.models.bot_action_queue import BotActionQueue
 from shared.models.game import GameSession
 from shared.services.image_storage import release_image
 
@@ -36,7 +35,7 @@ logger = logging.getLogger(__name__)
 async def cancel_game(
     db: AsyncSession,
     game: GameSession,
-    event_publisher: DeferredEventPublisher | None = None,
+    enqueue_cancellation: bool = True,
 ) -> None:
     """
     Cancel a game: release image refs, delete the row, and optionally enqueue notification.
@@ -47,28 +46,28 @@ async def cancel_game(
     Args:
         db: Async database session (caller must commit).
         game: Game session to cancel.
-        event_publisher: Optional DeferredEventPublisher. When provided, a
-            GAME_CANCELLED event is queued for publishing after the transaction
-            commits so the bot can clean up the Discord message.
+        enqueue_cancellation: When True (default), inserts a 'game_cancelled' row
+            into bot_action_queue so the bot deletes the Discord embed. Pass False
+            when the Discord message is already gone (e.g. bot-initiated cancel).
     """
     message_id = game.message_id or ""
     # Use the Discord snowflake channel_id (from the relationship) so the bot can
     # locate the correct Discord channel to delete the embed from.
     channel_discord_id = game.channel.channel_id if game.channel else ""
+    game_id = game.id
 
     await release_image(db, game.thumbnail_id)
     await release_image(db, game.banner_image_id)
 
     await db.delete(game)
 
-    if event_publisher is not None:
-        event = Event(
-            event_type=EventType.GAME_CANCELLED,
-            data={
-                "game_id": game.id,
-                "message_id": message_id,
-                "channel_id": channel_discord_id,
-            },
+    if enqueue_cancellation:
+        db.add(
+            BotActionQueue(
+                action_type="game_cancelled",
+                game_id=game_id,
+                message_id=message_id,
+                channel_id=channel_discord_id,
+            )
         )
-        event_publisher.publish_deferred(event=event)
-        logger.info("Deferred game.cancelled event for game %s", game.id)
+        logger.info("Enqueued game_cancelled action for game %s", game_id)

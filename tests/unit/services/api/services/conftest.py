@@ -27,7 +27,6 @@ test_games_image_upload.py, test_update_game_fields_helpers.py).
 
 Fixtures Provided:
 - mock_db: AsyncMock of AsyncSession for database operations
-- mock_event_publisher: AsyncMock of DeferredEventPublisher for event publishing
 - mock_discord_client: MagicMock of DiscordClient for Discord API operations
 - mock_participant_resolver: AsyncMock of participant resolver functions
 - game_service: Configured GameService instance with all mocks
@@ -56,7 +55,6 @@ from services.api.services import channel_resolver as channel_resolver_module
 from services.api.services import games as games_service
 from services.api.services import participant_resolver as resolver_module
 from shared.discord import client as discord_client_module
-from shared.messaging import deferred_publisher as messaging_deferred_publisher
 from shared.models import channel as channel_model
 from shared.models import guild as guild_model
 from shared.models import user as user_model
@@ -77,14 +75,6 @@ def mock_bypass_db_session(mock_db):
         async_cm.__aexit__.return_value = None
         mock.return_value = async_cm
         yield mock
-
-
-@pytest.fixture
-def mock_event_publisher():
-    """Mock deferred event publisher for game events."""
-    publisher = AsyncMock(spec=messaging_deferred_publisher.DeferredEventPublisher)
-    publisher.publish_deferred = MagicMock()
-    return publisher
 
 
 @pytest.fixture
@@ -110,7 +100,6 @@ def mock_channel_resolver():
 @pytest.fixture
 def game_service(
     mock_db,
-    mock_event_publisher,
     mock_discord_client,
     mock_participant_resolver,
     mock_channel_resolver,
@@ -118,7 +107,6 @@ def game_service(
     """Game service instance with mocked dependencies."""
     return games_service.GameService(
         db=mock_db,
-        event_publisher=mock_event_publisher,
         discord_client=mock_discord_client,
         participant_resolver=mock_participant_resolver,
         channel_resolver=mock_channel_resolver,

@@ -29,8 +29,6 @@ Tests that:
 - Non-host users receive 403 Forbidden
 """
 
-import json
-import time
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -40,7 +38,6 @@ from shared.messaging.infrastructure import QUEUE_BOT_EVENTS
 from shared.models import GameStatus
 from shared.models.participant import ParticipantType
 from shared.utils.discord_tokens import extract_bot_discord_id
-from tests.integration.conftest import consume_one_message
 
 pytestmark = pytest.mark.integration
 
@@ -194,7 +191,6 @@ def test_clone_game_endpoint_non_host_receives_403(
 
 def test_clone_game_endpoint_publishes_game_created_event(
     admin_db_sync,
-    rabbitmq_channel,
     create_user,
     create_guild,
     create_channel,
@@ -203,7 +199,7 @@ def test_clone_game_endpoint_publishes_game_created_event(
     seed_redis_cache,
     create_authenticated_client,
 ):
-    """POST /{game_id}/clone must publish a GAME_CREATED event to RabbitMQ."""
+    """POST /{game_id}/clone must enqueue a game_created row in bot_action_queue."""
     env = _setup_environment(
         create_user, create_guild, create_channel, create_template, seed_redis_cache
     )
@@ -215,8 +211,6 @@ def test_clone_game_endpoint_publishes_game_created_event(
         host_id=env["user"]["id"],
         title="Source Game For Event Test",
     )
-
-    rabbitmq_channel.queue_purge(QUEUE_BOT_EVENTS)
 
     clone_at = (datetime.now(UTC) + timedelta(days=14)).isoformat()
 
@@ -231,17 +225,17 @@ def test_clone_game_endpoint_publishes_game_created_event(
 
     assert response.status_code == 201, f"Expected 201, got {response.status_code}: {response.text}"
 
-    time.sleep(0.5)
-    method, _properties, body = consume_one_message(rabbitmq_channel, QUEUE_BOT_EVENTS, timeout=5)
+    cloned_game_id = response.json()["id"]
+    bot_row = admin_db_sync.execute(
+        text(
+            "SELECT action_type, game_id FROM bot_action_queue "
+            "WHERE action_type = 'game_created' AND game_id = :game_id"
+        ),
+        {"game_id": cloned_game_id},
+    ).fetchone()
 
-    assert method is not None, "No message found in bot_events queue"
-    assert body is not None, "RabbitMQ message body is None"
-
-    message = json.loads(body)
-    assert "data" in message, "Message missing 'data' field"
-    assert str(message["data"]["game_id"]) == response.json()["id"], (
-        "RabbitMQ message must reference the new cloned game ID"
-    )
+    assert bot_row is not None, "No game_created row found in bot_action_queue"
+    assert bot_row[1] == cloned_game_id, "bot_action_queue must reference the new cloned game ID"
 
 
 def test_clone_game_endpoint_yes_carryover_copies_new_game_participants(

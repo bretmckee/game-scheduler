@@ -82,16 +82,12 @@ def game_service():
     db.flush = AsyncMock()
     db.add = MagicMock()
 
-    event_publisher = MagicMock()
-    event_publisher.publish_deferred = MagicMock()
-
     discord_client = AsyncMock()
     participant_resolver = AsyncMock()
     channel_resolver = AsyncMock()
 
     return GameService(
         db=db,
-        event_publisher=event_publisher,
         discord_client=discord_client,
         participant_resolver=participant_resolver,
         channel_resolver=channel_resolver,

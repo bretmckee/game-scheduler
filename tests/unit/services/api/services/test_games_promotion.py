@@ -28,7 +28,7 @@ from uuid import uuid4
 
 import pytest
 
-from shared.messaging.events import EventType
+from shared.models.bot_action_queue import BotActionQueue
 from shared.models.game import GameSession
 from shared.models.participant import GameParticipant, ParticipantType
 from shared.models.user import User
@@ -94,9 +94,7 @@ def create_placeholder(game_id: str, display_name: str, joined_at: datetime):
 
 
 @pytest.mark.asyncio
-async def test_promotion_when_max_players_increased(
-    game_service, sample_game, mock_event_publisher, mock_db
-):
+async def test_promotion_when_max_players_increased(game_service, sample_game, mock_db):
     """Test promotion notification when max_players is increased."""
     # Setup: 5 confirmed + 2 overflow participants
     base_time = datetime.now(UTC).replace(tzinfo=None)
@@ -133,30 +131,23 @@ async def test_promotion_when_max_players_increased(
                 role_service=mock_role_service,
             )
 
-    # Verify promotion notifications were published
-    publish_calls = mock_event_publisher.publish_deferred.call_args_list
-
-    # Find notification events
-    notification_calls = [
-        call
-        for call in publish_calls
-        if call[1]["event"].event_type == EventType.NOTIFICATION_SEND_DM
+    # Verify promotion notifications were enqueued
+    added = [c.args[0] for c in mock_db.add.call_args_list]
+    send_dm_rows = [
+        r for r in added if isinstance(r, BotActionQueue) and r.action_type == "send_dm"
     ]
 
-    assert len(notification_calls) == 2, "Should send 2 promotion notifications"
+    assert len(send_dm_rows) == 2, "Should send 2 promotion notifications"
 
     # Verify notification content
-    for call in notification_calls:
-        event_data = call[1]["event"].data
-        assert event_data["notification_type"] == "waitlist_promotion"
-        assert "You've been moved from the waitlist" in event_data["message"]
-        assert event_data["game_title"] == sample_game.title
+    for row in send_dm_rows:
+        assert row.payload["notification_type"] == "waitlist_promotion"
+        assert "You've been moved from the waitlist" in row.payload["message"]
+        assert row.payload["game_title"] == sample_game.title
 
 
 @pytest.mark.asyncio
-async def test_promotion_when_participant_removed(
-    game_service, sample_game, mock_event_publisher, mock_db
-):
+async def test_promotion_when_participant_removed(game_service, sample_game, mock_db):
     """Test promotion notification when a confirmed participant is removed."""
     # Setup: 5 confirmed + 1 overflow participant
     base_time = datetime.now(UTC).replace(tzinfo=None)
@@ -282,34 +273,26 @@ async def test_promotion_when_participant_removed(
                 traceback.print_exc()
                 raise
 
-    # Verify promotion notification was published
-    publish_calls = mock_event_publisher.publish_deferred.call_args_list
+    # Verify promotion notification was enqueued
+    added = [c.args[0] for c in mock_db.add.call_args_list]
 
-    # Debug: print all publish calls
-    print(f"\nTotal publish calls: {len(publish_calls)}")
-    for i, call in enumerate(publish_calls):
-        event = call[1]["event"]
-        print(f"Call {i}: event_type={event.event_type}, data={event.data}")
+    # Debug: print all BotActionQueue rows added
+    bot_rows = [r for r in added if isinstance(r, BotActionQueue)]
+    print(f"\nTotal BotActionQueue rows added: {len(bot_rows)}")
+    for r in bot_rows:
+        print(f"  action_type={r.action_type}, discord_id={r.discord_id}")
 
-    notification_calls = [
-        call
-        for call in publish_calls
-        if call[1]["event"].event_type == EventType.NOTIFICATION_SEND_DM
-    ]
+    send_dm_rows = [r for r in bot_rows if r.action_type == "send_dm"]
 
-    assert len(notification_calls) == 1, (
-        f"Should send 1 promotion notification, got {len(notification_calls)}"
-    )
+    assert len(send_dm_rows) == 1, f"Should send 1 promotion notification, got {len(send_dm_rows)}"
 
-    event_data = notification_calls[0][1]["event"].data
-    assert event_data["notification_type"] == "waitlist_promotion"
-    assert event_data["user_id"] == overflow_participant.user.discord_id
+    row = send_dm_rows[0]
+    assert row.payload["notification_type"] == "waitlist_promotion"
+    assert row.discord_id == overflow_participant.user.discord_id
 
 
 @pytest.mark.asyncio
-async def test_no_promotion_when_no_overflow(
-    game_service, sample_game, mock_event_publisher, mock_db
-):
+async def test_no_promotion_when_no_overflow(game_service, sample_game, mock_db):
     """Test that no promotion notifications are sent when there's no overflow."""
     # Setup: Only 3 confirmed participants (under max_players=5)
     base_time = datetime.now(UTC).replace(tzinfo=None)
@@ -341,22 +324,17 @@ async def test_no_promotion_when_no_overflow(
                 role_service=mock_role_service,
             )
 
-    # Verify no promotion notifications were published
-    publish_calls = mock_event_publisher.publish_deferred.call_args_list
-
-    notification_calls = [
-        call
-        for call in publish_calls
-        if call[1]["event"].event_type == EventType.NOTIFICATION_SEND_DM
+    # Verify no promotion notifications were enqueued
+    added = [c.args[0] for c in mock_db.add.call_args_list]
+    send_dm_rows = [
+        r for r in added if isinstance(r, BotActionQueue) and r.action_type == "send_dm"
     ]
 
-    assert len(notification_calls) == 0, "Should not send promotion notifications"
+    assert len(send_dm_rows) == 0, "Should not send promotion notifications"
 
 
 @pytest.mark.asyncio
-async def test_promotion_when_placeholder_removed(
-    game_service, sample_game, mock_event_publisher, mock_db
-):
+async def test_promotion_when_placeholder_removed(game_service, sample_game, mock_db):
     """Test promotion notification when a placeholder is removed from confirmed slot."""
     # Setup: Game with max_players=2, participants=[Placeholder1, User1, User2]
     # User1 and User2 are in overflow because Placeholder1 occupies a confirmed slot
@@ -432,27 +410,22 @@ async def test_promotion_when_placeholder_removed(
                 role_service=mock_role_service,
             )
 
-    # Verify promotion notification was published for user2
-    publish_calls = mock_event_publisher.publish_deferred.call_args_list
-
-    notification_calls = [
-        call
-        for call in publish_calls
-        if call[1]["event"].event_type == EventType.NOTIFICATION_SEND_DM
+    # Verify promotion notification was enqueued for user2
+    added = [c.args[0] for c in mock_db.add.call_args_list]
+    send_dm_rows = [
+        r for r in added if isinstance(r, BotActionQueue) and r.action_type == "send_dm"
     ]
 
-    assert len(notification_calls) == 1, (
-        f"Should send 1 promotion notification, got {len(notification_calls)}"
-    )
+    assert len(send_dm_rows) == 1, f"Should send 1 promotion notification, got {len(send_dm_rows)}"
 
-    event_data = notification_calls[0][1]["event"].data
-    assert event_data["notification_type"] == "waitlist_promotion"
-    assert event_data["user_id"] == user2.user.discord_id
+    row = send_dm_rows[0]
+    assert row.payload["notification_type"] == "waitlist_promotion"
+    assert row.discord_id == user2.user.discord_id
 
 
 @pytest.mark.asyncio
 async def test_promotion_with_max_players_increase_and_placeholders(
-    game_service, sample_game, mock_event_publisher, mock_db
+    game_service, sample_game, mock_db
 ):
     """Test promotion notification when max_players increased with placeholders in confirmed."""
     # Setup: Game with max_players=1, participants=[Placeholder1, User1]
@@ -487,28 +460,21 @@ async def test_promotion_with_max_players_increase_and_placeholders(
                 role_service=mock_role_service,
             )
 
-    # Verify promotion notification was published for user1
-    publish_calls = mock_event_publisher.publish_deferred.call_args_list
-
-    notification_calls = [
-        call
-        for call in publish_calls
-        if call[1]["event"].event_type == EventType.NOTIFICATION_SEND_DM
+    # Verify promotion notification was enqueued for user1
+    added = [c.args[0] for c in mock_db.add.call_args_list]
+    send_dm_rows = [
+        r for r in added if isinstance(r, BotActionQueue) and r.action_type == "send_dm"
     ]
 
-    assert len(notification_calls) == 1, (
-        f"Should send 1 promotion notification, got {len(notification_calls)}"
-    )
+    assert len(send_dm_rows) == 1, f"Should send 1 promotion notification, got {len(send_dm_rows)}"
 
-    event_data = notification_calls[0][1]["event"].data
-    assert event_data["notification_type"] == "waitlist_promotion"
-    assert event_data["user_id"] == user1.user.discord_id
+    row = send_dm_rows[0]
+    assert row.payload["notification_type"] == "waitlist_promotion"
+    assert row.discord_id == user1.user.discord_id
 
 
 @pytest.mark.asyncio
-async def test_promotion_multiple_placeholders_removed(
-    game_service, sample_game, mock_event_publisher, mock_db
-):
+async def test_promotion_multiple_placeholders_removed(game_service, sample_game, mock_db):
     """Test promotion notifications when multiple placeholders are removed."""
     # Setup: Game with max_players=3, participants=[P1, P2, User1, User2]
     # User1 and User2 are in overflow because placeholders occupy 2 of 3 confirmed slots
@@ -584,21 +550,16 @@ async def test_promotion_multiple_placeholders_removed(
             )
 
     # Check first removal promoted user2
-    first_removal_calls = mock_event_publisher.publish_deferred.call_args_list
-
-    first_notification_calls = [
-        call
-        for call in first_removal_calls
-        if call[1]["event"].event_type == EventType.NOTIFICATION_SEND_DM
+    added_first = [c.args[0] for c in mock_db.add.call_args_list]
+    first_send_dm_rows = [
+        r for r in added_first if isinstance(r, BotActionQueue) and r.action_type == "send_dm"
     ]
 
-    assert len(first_notification_calls) == 1, "First removal should promote user2"
-
-    first_event_data = first_notification_calls[0][1]["event"].data
-    assert first_event_data["user_id"] == user2.user.discord_id
+    assert len(first_send_dm_rows) == 1, "First removal should promote user2"
+    assert first_send_dm_rows[0].discord_id == user2.user.discord_id
 
     # Reset mock for second removal
-    mock_event_publisher.reset_mock()
+    mock_db.add.reset_mock()
 
     # Mock execute to return second placeholder
     mock_result.scalar_one_or_none = MagicMock(return_value=placeholder2)
@@ -653,25 +614,20 @@ async def test_promotion_multiple_placeholders_removed(
             )
 
     # Check second removal did not send additional promotions (user1 already confirmed)
-    second_removal_calls = mock_event_publisher.publish_deferred.call_args_list
-
-    second_notification_calls = [
-        call
-        for call in second_removal_calls
-        if call[1]["event"].event_type == EventType.NOTIFICATION_SEND_DM
+    added_second = [c.args[0] for c in mock_db.add.call_args_list]
+    second_send_dm_rows = [
+        r for r in added_second if isinstance(r, BotActionQueue) and r.action_type == "send_dm"
     ]
 
     # User1 was already in confirmed position (position 1 out of 3) after first removal
     # so no promotion notification needed
-    assert len(second_notification_calls) == 0, (
+    assert len(second_send_dm_rows) == 0, (
         "Second removal should not promote anyone (user1 already confirmed)"
     )
 
 
 @pytest.mark.asyncio
-async def test_no_promotion_when_max_players_reduced(
-    game_service, sample_game, mock_event_publisher, mock_db
-):
+async def test_no_promotion_when_max_players_reduced(game_service, sample_game, mock_db):
     """Reducing max_players sends demotion DM to demoted user but no promotion DM."""
     base_time = datetime.now(UTC).replace(tzinfo=None)
 
@@ -698,29 +654,25 @@ async def test_no_promotion_when_max_players_reduced(
                 role_service=mock_role_service,
             )
 
-    publish_calls = mock_event_publisher.publish_deferred.call_args_list
-    dm_calls = [
-        call
-        for call in publish_calls
-        if call[1]["event"].event_type == EventType.NOTIFICATION_SEND_DM
+    added = [c.args[0] for c in mock_db.add.call_args_list]
+    send_dm_rows = [
+        r for r in added if isinstance(r, BotActionQueue) and r.action_type == "send_dm"
     ]
 
-    promotion_calls = [
-        c for c in dm_calls if c[1]["event"].data.get("notification_type") == "waitlist_promotion"
+    promotion_rows = [
+        r for r in send_dm_rows if r.payload.get("notification_type") == "waitlist_promotion"
     ]
-    demotion_calls = [
-        c for c in dm_calls if c[1]["event"].data.get("notification_type") == "waitlist_demotion"
+    demotion_rows = [
+        r for r in send_dm_rows if r.payload.get("notification_type") == "waitlist_demotion"
     ]
 
-    assert len(promotion_calls) == 0, "Should not promote anyone when reducing max_players"
-    assert len(demotion_calls) == 1, "Should send one demotion DM to the demoted user"
-    assert user2.user.discord_id == demotion_calls[0][1]["event"].data["user_id"]
+    assert len(promotion_rows) == 0, "Should not promote anyone when reducing max_players"
+    assert len(demotion_rows) == 1, "Should send one demotion DM to the demoted user"
+    assert user2.user.discord_id == demotion_rows[0].discord_id
 
 
 @pytest.mark.asyncio
-async def test_promotion_notification_no_message_id(
-    game_service, sample_game, mock_event_publisher, mock_db
-):
+async def test_promotion_notification_no_message_id(game_service, sample_game, mock_db):
     """Test promotion notification is still sent when game has no message_id."""
     base_time = datetime.now(UTC).replace(tzinfo=None)
     participants = [
@@ -750,22 +702,17 @@ async def test_promotion_notification_no_message_id(
                 role_service=mock_role_service,
             )
 
-    publish_calls = mock_event_publisher.publish_deferred.call_args_list
-    notification_calls = [
-        call
-        for call in publish_calls
-        if call[1]["event"].event_type == EventType.NOTIFICATION_SEND_DM
+    added = [c.args[0] for c in mock_db.add.call_args_list]
+    send_dm_rows = [
+        r for r in added if isinstance(r, BotActionQueue) and r.action_type == "send_dm"
     ]
 
-    assert len(notification_calls) == 1
-    event_data = notification_calls[0][1]["event"].data
-    assert "discord.com" not in event_data["message"]
+    assert len(send_dm_rows) == 1
+    assert "discord.com" not in send_dm_rows[0].payload["message"]
 
 
 @pytest.mark.asyncio
-async def test_detect_transitions_notifies_demoted_users(
-    game_service, sample_game, mock_event_publisher, mock_db
-):
+async def test_detect_transitions_notifies_demoted_users(game_service, sample_game, mock_db):
     """_detect_and_notify_transitions calls _notify_demoted_users for demoted users."""
     base_time = datetime.now(UTC).replace(tzinfo=None)
 
@@ -785,9 +732,7 @@ async def test_detect_transitions_notifies_demoted_users(
 
 
 @pytest.mark.asyncio
-async def test_detect_transitions_sends_demotion_dm(
-    game_service, sample_game, mock_event_publisher, mock_db
-):
+async def test_detect_transitions_sends_demotion_dm(game_service, sample_game, mock_db):
     """Demotion DM uses waitlist_demotion notification_type and contains 'waitlist'."""
     base_time = datetime.now(UTC).replace(tzinfo=None)
 
@@ -800,15 +745,13 @@ async def test_detect_transitions_sends_demotion_dm(
 
     await game_service._detect_and_notify_transitions(sample_game, old_partitioned)
 
-    publish_calls = mock_event_publisher.publish_deferred.call_args_list
-    dm_calls = [
-        call
-        for call in publish_calls
-        if call[1]["event"].event_type == EventType.NOTIFICATION_SEND_DM
+    added = [c.args[0] for c in mock_db.add.call_args_list]
+    send_dm_rows = [
+        r for r in added if isinstance(r, BotActionQueue) and r.action_type == "send_dm"
     ]
-    assert len(dm_calls) == 1
-    event_data = dm_calls[0][1]["event"].data
-    assert event_data["notification_type"] == "waitlist_demotion"
-    assert "waitlist" in event_data["message"].lower()
-    assert event_data["user_id"] == demoted_user.user.discord_id
-    assert "waitlist" in event_data["message"].lower()
+    assert len(send_dm_rows) == 1
+    row = send_dm_rows[0]
+    assert row.payload["notification_type"] == "waitlist_demotion"
+    assert "waitlist" in row.payload["message"].lower()
+    assert row.discord_id == demoted_user.user.discord_id
+    assert "waitlist" in row.payload["message"].lower()

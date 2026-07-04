@@ -52,12 +52,11 @@ def embed_deleted_event(mock_game):
 
 @pytest.mark.asyncio
 async def test_handle_embed_deleted_cancels_game(mock_game, embed_deleted_event):
-    """Test that receiving EMBED_DELETED calls _delete_game_internal on the game."""
+    """Test that receiving EMBED_DELETED cancels the game with enqueue_cancellation=False."""
     consumer = EmbedDeletionConsumer()
 
     mock_game_service = AsyncMock()
     mock_game_service.get_game = AsyncMock(return_value=mock_game)
-    mock_game_service._delete_game_internal = AsyncMock()
 
     mock_db = AsyncMock()
     mock_db.__aenter__ = AsyncMock(return_value=mock_db)
@@ -73,11 +72,15 @@ async def test_handle_embed_deleted_cancels_game(mock_game, embed_deleted_event)
             "services.api.services.embed_deletion_consumer.GameService",
             return_value=mock_game_service,
         ),
+        patch(
+            "services.api.services.embed_deletion_consumer.cancel_game",
+            new_callable=AsyncMock,
+        ) as mock_cancel_game,
     ):
         await consumer._handle_embed_deleted(embed_deleted_event)
 
     mock_game_service.get_game.assert_awaited_once_with(mock_game.id)
-    mock_game_service._delete_game_internal.assert_awaited_once_with(mock_game)
+    mock_cancel_game.assert_awaited_once_with(mock_db, mock_game, enqueue_cancellation=False)
     mock_db.commit.assert_awaited_once()
 
 

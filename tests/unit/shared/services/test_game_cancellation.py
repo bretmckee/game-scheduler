@@ -25,6 +25,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from shared.models.bot_action_queue import BotActionQueue
 from shared.services.game_cancellation import cancel_game
 
 
@@ -49,6 +50,7 @@ def _make_game(
 def mock_db() -> MagicMock:
     db = MagicMock()
     db.delete = AsyncMock()
+    db.add = MagicMock()
     return db
 
 
@@ -86,47 +88,49 @@ class TestCancelGame:
         mock_db.delete.assert_called_once_with(game)
 
     @pytest.mark.asyncio
-    async def test_publishes_game_cancelled_when_publisher_provided(
-        self, mock_db: MagicMock
-    ) -> None:
-        """Calls publisher.publish_deferred with GAME_CANCELLED when publisher is given."""
+    async def test_enqueues_bot_action_queue_row_by_default(self, mock_db: MagicMock) -> None:
+        """Adds a BotActionQueue row with action_type='game_cancelled' by default."""
         game = _make_game(message_id="msg-123", channel_discord_id="111222333444555666")
-        publisher = MagicMock()
         with patch("shared.services.game_cancellation.release_image", new_callable=AsyncMock):
-            await cancel_game(mock_db, game, event_publisher=publisher)
-        publisher.publish_deferred.assert_called_once()
-        call_kwargs = publisher.publish_deferred.call_args[1]
-        event = call_kwargs["event"]
-        assert event.event_type.value == "game.cancelled"
-        assert event.data["channel_id"] == "111222333444555666"
+            await cancel_game(mock_db, game)
+        added = [c.args[0] for c in mock_db.add.call_args_list]
+        bot_rows = [r for r in added if isinstance(r, BotActionQueue)]
+        assert len(bot_rows) == 1
+        row = bot_rows[0]
+        assert row.action_type == "game_cancelled"
+        assert row.channel_id == "111222333444555666"
+        assert row.message_id == "msg-123"
+        assert row.game_id == "game-uuid-1"
 
     @pytest.mark.asyncio
-    async def test_does_not_publish_when_no_publisher(self, mock_db: MagicMock) -> None:
-        """Does not attempt any publish when event_publisher is None."""
+    async def test_does_not_enqueue_when_enqueue_cancellation_false(
+        self, mock_db: MagicMock
+    ) -> None:
+        """Does not add any BotActionQueue row when enqueue_cancellation=False."""
         game = _make_game()
         with patch("shared.services.game_cancellation.release_image", new_callable=AsyncMock):
-            await cancel_game(mock_db, game, event_publisher=None)
-        mock_db.delete.assert_called_once_with(game)
+            await cancel_game(mock_db, game, enqueue_cancellation=False)
+        added = [c.args[0] for c in mock_db.add.call_args_list]
+        bot_rows = [r for r in added if isinstance(r, BotActionQueue)]
+        assert len(bot_rows) == 0
 
     @pytest.mark.asyncio
     async def test_captures_message_id_before_deletion(self, mock_db: MagicMock) -> None:
-        """Captures message_id from game object before db.delete is called."""
+        """Captures message_id and channel_id from game object before db.delete is called."""
         game = _make_game(message_id="stored-msg-id", channel_discord_id="111222333444555666")
-        publisher = MagicMock()
-        captured_message_ids: list[str] = []
+        captured: list[str] = []
 
         async def fake_delete(obj: MagicMock) -> None:
             obj.message_id = "DELETED"
+            obj.channel = None
 
         mock_db.delete = AsyncMock(side_effect=fake_delete)
 
-        def capture_publish(**kwargs: object) -> None:
-            event = kwargs["event"]
-            captured_message_ids.append(event.data.get("message_id", ""))
-
-        publisher.publish_deferred = MagicMock(side_effect=capture_publish)
-
         with patch("shared.services.game_cancellation.release_image", new_callable=AsyncMock):
-            await cancel_game(mock_db, game, event_publisher=publisher)
+            await cancel_game(mock_db, game, enqueue_cancellation=True)
 
-        assert "stored-msg-id" in captured_message_ids
+        added = [c.args[0] for c in mock_db.add.call_args_list]
+        bot_rows = [r for r in added if isinstance(r, BotActionQueue)]
+        assert len(bot_rows) == 1
+        captured.append(bot_rows[0].message_id or "")
+        assert "stored-msg-id" in captured

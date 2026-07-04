@@ -33,13 +33,13 @@ from services.api.services.games import (
     DEFAULT_GAME_DURATION_MINUTES,
     GameMediaAttachments,
 )
-from shared.messaging.events import EventType
 from shared.models import channel as channel_model
 from shared.models import game as game_model
 from shared.models import game_status_schedule as game_status_schedule_model
 from shared.models import participant as participant_model
 from shared.models import template as template_model
 from shared.models import user as user_model
+from shared.models.bot_action_queue import BotActionQueue
 from shared.models.participant import ParticipantType
 from shared.models.signup_method import SignupMethod
 from shared.schemas import game as game_schemas
@@ -1459,7 +1459,6 @@ async def test_create_game_status_schedules_with_custom_duration(
 async def test_create_game_without_participants(
     game_service,
     mock_db,
-    mock_event_publisher,
     mock_participant_resolver,
     mock_role_service,
     sample_game_data,
@@ -1503,16 +1502,16 @@ async def test_create_game_without_participants(
     assert game.title == "Test Game"
     assert game.host_id == sample_user.id
     mock_db.add.assert_called()
-    mock_event_publisher.publish_deferred.assert_called_once()
-    event_arg = mock_event_publisher.publish_deferred.call_args[1]["event"]
-    assert event_arg.event_type == EventType.GAME_CREATED
+    added = [c.args[0] for c in mock_db.add.call_args_list]
+    bot_action_rows = [r for r in added if isinstance(r, BotActionQueue)]
+    assert len(bot_action_rows) == 1
+    assert bot_action_rows[0].action_type == "game_created"
 
 
 @pytest.mark.asyncio
 async def test_create_game_with_where_field(
     game_service,
     mock_db,
-    mock_event_publisher,
     mock_participant_resolver,
     mock_channel_resolver,
     mock_role_service,
@@ -1575,7 +1574,6 @@ async def test_create_game_with_where_field(
 async def test_create_game_with_valid_channel_mention(
     game_service,
     mock_db,
-    mock_event_publisher,
     mock_participant_resolver,
     mock_channel_resolver,
     mock_role_service,
@@ -1642,7 +1640,6 @@ async def test_create_game_with_valid_channel_mention(
 async def test_create_game_with_invalid_channel_raises_validation_error(
     game_service,
     mock_db,
-    mock_event_publisher,
     mock_participant_resolver,
     mock_channel_resolver,
     mock_role_service,
@@ -1714,7 +1711,6 @@ async def test_create_game_with_invalid_channel_raises_validation_error(
 async def test_create_game_with_ambiguous_channel_raises_validation_error(
     game_service,
     mock_db,
-    mock_event_publisher,
     mock_participant_resolver,
     mock_channel_resolver,
     mock_role_service,
@@ -1786,7 +1782,6 @@ async def test_create_game_with_ambiguous_channel_raises_validation_error(
 async def test_create_game_with_plain_text_location_unchanged(
     game_service,
     mock_db,
-    mock_event_publisher,
     mock_participant_resolver,
     mock_channel_resolver,
     mock_role_service,
@@ -2421,9 +2416,9 @@ async def test_join_game_success(
     channel_result = MagicMock()
     channel_result.scalar_one_or_none.return_value = sample_channel
 
-    # Mock the second count query in _publish_game_updated
-    count_result2 = MagicMock()
-    count_result2.scalar.return_value = 1
+    # Mock game reload after join (get_game uses scalar_one_or_none)
+    game_result2 = MagicMock()
+    game_result2.scalar_one_or_none.return_value = mock_game
 
     mock_db.execute = AsyncMock(
         side_effect=[
@@ -2432,7 +2427,9 @@ async def test_join_game_success(
             count_result,
             guild_result,
             channel_result,
-            count_result2,
+            game_result2,  # get_game reload after participant added
+            MagicMock(),  # _publish_game_updated: pg_insert into message_refresh_queue
+            MagicMock(),  # _publish_game_updated: pg_notify
         ]
     )
     mock_db.add = MagicMock()
@@ -2548,7 +2545,7 @@ async def test_leave_game_success(game_service, mock_db, sample_user):
         guild_id=str(uuid.uuid4()),
     )
     mock_game = game_model.GameSession(
-        id=game_id, title="Title", guild_id=uuid.uuid4(), channel_id=channel_id
+        id=game_id, title="Title", guild_id=str(uuid.uuid4()), channel_id=channel_id
     )
     mock_game.channel = mock_channel
     mock_participant = participant_model.GameParticipant(
@@ -2559,27 +2556,20 @@ async def test_leave_game_success(game_service, mock_db, sample_user):
     )
     mock_game.participants = [mock_participant]
 
-    game_result = MagicMock()
-    game_result.scalar_one_or_none.return_value = mock_game
     user_result = MagicMock()
     user_result.scalar_one_or_none.return_value = sample_user
     participant_result = MagicMock()
     participant_result.scalar_one_or_none.return_value = mock_participant
-    count_result = MagicMock()
-    count_result.scalar.return_value = 0
-    guild_result = MagicMock()
-    guild_result.scalar_one_or_none.return_value = None
-    channel_result = MagicMock()
-    channel_result.scalar_one_or_none.return_value = None
+
+    # Mock get_game so it doesn't consume db.execute slots
+    game_service.get_game = AsyncMock(return_value=mock_game)
 
     mock_db.execute = AsyncMock(
         side_effect=[
-            game_result,
             user_result,
             participant_result,
-            count_result,
-            guild_result,
-            channel_result,
+            MagicMock(),  # _publish_game_updated: pg_insert message_refresh_queue
+            MagicMock(),  # _publish_game_updated: pg_notify
         ]
     )
     mock_db.delete = AsyncMock()
@@ -2992,7 +2982,6 @@ async def test_update_status_schedules_updates_existing_schedules(game_service, 
 async def test_create_game_creates_status_schedules(
     game_service,
     mock_db,
-    mock_event_publisher,
     mock_participant_resolver,
     mock_role_service,
     sample_template,
@@ -3090,7 +3079,6 @@ async def test_create_game_creates_status_schedules(
 async def test_create_game_with_empty_host_defaults_to_current_user(
     game_service,
     mock_db,
-    mock_event_publisher,
     mock_participant_resolver,
     mock_role_service,
     sample_template,
@@ -3206,7 +3194,6 @@ async def test_create_game_regular_user_cannot_override_host(
 async def test_create_game_bot_manager_can_override_host(
     game_service,
     mock_db,
-    mock_event_publisher,
     mock_participant_resolver,
     mock_role_service,
     sample_template,
@@ -3448,7 +3435,6 @@ async def test_create_game_bot_manager_host_without_permissions_fails(
 async def test_create_game_bot_manager_empty_host_uses_self(
     game_service,
     mock_db,
-    mock_event_publisher,
     mock_participant_resolver,
     mock_role_service,
     sample_template,
@@ -4514,7 +4500,6 @@ async def test_delete_game_internal_releases_images_and_publishes(
 async def test_create_game_resolves_channel_mention_in_description(
     game_service,
     mock_db,
-    mock_event_publisher,
     mock_participant_resolver,
     mock_channel_resolver,
     mock_role_service,
@@ -4576,7 +4561,6 @@ async def test_create_game_resolves_channel_mention_in_description(
 async def test_create_game_with_invalid_channel_in_description_raises_validation_error(
     game_service,
     mock_db,
-    mock_event_publisher,
     mock_participant_resolver,
     mock_channel_resolver,
     mock_role_service,
@@ -4635,7 +4619,6 @@ async def test_create_game_with_invalid_channel_in_description_raises_validation
 async def test_create_game_resolves_channel_mention_in_signup_instructions(
     game_service,
     mock_db,
-    mock_event_publisher,
     mock_participant_resolver,
     mock_channel_resolver,
     mock_role_service,
@@ -4699,7 +4682,6 @@ async def test_create_game_resolves_channel_mention_in_signup_instructions(
 async def test_create_game_with_invalid_channel_in_signup_instructions_raises_validation_error(
     game_service,
     mock_db,
-    mock_event_publisher,
     mock_participant_resolver,
     mock_channel_resolver,
     mock_role_service,
@@ -4874,7 +4856,6 @@ async def test_update_game_resolves_channel_mention_in_signup_instructions(
 async def test_create_game_resolves_at_mention_in_description(
     game_service,
     mock_db,
-    mock_event_publisher,
     mock_participant_resolver,
     mock_role_service,
     sample_template,
@@ -4935,7 +4916,6 @@ async def test_create_game_resolves_at_mention_in_description(
 async def test_create_game_resolves_at_mention_in_signup_instructions(
     game_service,
     mock_db,
-    mock_event_publisher,
     mock_participant_resolver,
     mock_role_service,
     sample_template,
@@ -4998,7 +4978,6 @@ async def test_create_game_resolves_at_mention_in_signup_instructions(
 async def test_create_game_with_invalid_at_mention_in_description_raises_validation_error(
     game_service,
     mock_db,
-    mock_event_publisher,
     mock_participant_resolver,
     mock_role_service,
     sample_template,

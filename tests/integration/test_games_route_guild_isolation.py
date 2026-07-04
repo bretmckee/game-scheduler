@@ -35,7 +35,6 @@ import pytest
 from sqlalchemy import text
 
 from services.api.services.games import GameService
-from shared.messaging.publisher import EventPublisher
 from shared.models import GameStatus
 from shared.models.game import GameSession
 
@@ -93,7 +92,6 @@ async def test_get_game_with_different_database_sessions(
 
     service = GameService(
         db=db_session,
-        event_publisher=EventPublisher(),
         discord_client=MagicMock(),
         participant_resolver=MagicMock(),
         channel_resolver=MagicMock(),
@@ -134,7 +132,6 @@ async def test_list_games_filters_by_guild_when_specified(admin_db, test_game_en
 
     service = GameService(
         db=admin_db,
-        event_publisher=EventPublisher(),
         discord_client=MagicMock(),
         participant_resolver=MagicMock(),
         channel_resolver=MagicMock(),
@@ -167,7 +164,6 @@ async def test_list_games_with_channel_filter(admin_db, test_game_environment):
 
     service = GameService(
         db=admin_db,
-        event_publisher=EventPublisher(),
         discord_client=MagicMock(),
         participant_resolver=MagicMock(),
         channel_resolver=MagicMock(),
@@ -206,7 +202,6 @@ async def test_list_games_with_status_filter(admin_db, test_environment):
 
     service = GameService(
         db=admin_db,
-        event_publisher=EventPublisher(),
         discord_client=MagicMock(),
         participant_resolver=MagicMock(),
         channel_resolver=MagicMock(),
@@ -253,7 +248,6 @@ async def test_list_games_pagination(admin_db, test_environment, create_template
 
     service = GameService(
         db=admin_db,
-        event_publisher=EventPublisher(),
         discord_client=MagicMock(),
         participant_resolver=MagicMock(),
         channel_resolver=MagicMock(),
@@ -289,7 +283,6 @@ async def test_guild_isolation_in_list_games(admin_db, test_game_environment):
 
     service = GameService(
         db=admin_db,
-        event_publisher=EventPublisher(),
         discord_client=MagicMock(),
         participant_resolver=MagicMock(),
         channel_resolver=MagicMock(),

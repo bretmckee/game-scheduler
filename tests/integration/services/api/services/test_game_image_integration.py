@@ -107,7 +107,6 @@ def valid_jpeg_data() -> bytes:
 async def test_create_game_with_thumbnail_stores_image(
     admin_db: AsyncSession,
     mock_discord_api_client,
-    mock_event_publisher,
     mock_participant_resolver,
     create_guild,
     create_channel,
@@ -135,7 +134,6 @@ async def test_create_game_with_thumbnail_stores_image(
 
     service = GameService(
         db=admin_db,
-        event_publisher=mock_event_publisher,
         discord_client=mock_discord_api_client,
         participant_resolver=mock_participant_resolver,
         channel_resolver=MagicMock(),
@@ -174,7 +172,6 @@ async def test_create_game_with_thumbnail_stores_image(
 async def test_create_game_with_both_images_stores_both(
     admin_db: AsyncSession,
     mock_discord_api_client,
-    mock_event_publisher,
     mock_participant_resolver,
     create_guild,
     create_channel,
@@ -199,7 +196,6 @@ async def test_create_game_with_both_images_stores_both(
 
     service = GameService(
         db=admin_db,
-        event_publisher=mock_event_publisher,
         discord_client=mock_discord_api_client,
         participant_resolver=mock_participant_resolver,
         channel_resolver=MagicMock(),
@@ -245,7 +241,6 @@ async def test_create_game_with_both_images_stores_both(
 async def test_create_two_games_same_image_deduplicates(
     admin_db: AsyncSession,
     mock_discord_api_client,
-    mock_event_publisher,
     mock_participant_resolver,
     create_guild,
     create_channel,
@@ -269,7 +264,6 @@ async def test_create_two_games_same_image_deduplicates(
 
     service = GameService(
         db=admin_db,
-        event_publisher=mock_event_publisher,
         discord_client=mock_discord_api_client,
         participant_resolver=mock_participant_resolver,
         channel_resolver=MagicMock(),
@@ -322,7 +316,6 @@ async def test_create_two_games_same_image_deduplicates(
 async def test_update_game_replaces_thumbnail(
     admin_db: AsyncSession,
     mock_discord_api_client,
-    mock_event_publisher,
     mock_participant_resolver,
     mock_role_service,
     create_guild,
@@ -351,7 +344,6 @@ async def test_update_game_replaces_thumbnail(
 
     service = GameService(
         db=admin_db,
-        event_publisher=mock_event_publisher,
         discord_client=mock_discord_api_client,
         participant_resolver=mock_participant_resolver,
         channel_resolver=MagicMock(),
@@ -417,7 +409,6 @@ async def test_update_game_replaces_thumbnail(
 async def test_delete_game_releases_images(
     admin_db: AsyncSession,
     mock_discord_api_client,
-    mock_event_publisher,
     mock_participant_resolver,
     mock_role_service,
     create_guild,
@@ -445,7 +436,6 @@ async def test_delete_game_releases_images(
 
     service = GameService(
         db=admin_db,
-        event_publisher=mock_event_publisher,
         discord_client=mock_discord_api_client,
         participant_resolver=mock_participant_resolver,
         channel_resolver=MagicMock(),
@@ -497,7 +487,6 @@ async def test_delete_game_releases_images(
 async def test_delete_shared_image_keeps_image_until_all_refs_gone(
     admin_db: AsyncSession,
     mock_discord_api_client,
-    mock_event_publisher,
     mock_participant_resolver,
     mock_role_service,
     create_guild,
@@ -525,7 +514,6 @@ async def test_delete_shared_image_keeps_image_until_all_refs_gone(
 
     service = GameService(
         db=admin_db,
-        event_publisher=mock_event_publisher,
         discord_client=mock_discord_api_client,
         participant_resolver=mock_participant_resolver,
         channel_resolver=MagicMock(),
@@ -605,7 +593,6 @@ async def test_delete_shared_image_keeps_image_until_all_refs_gone(
 async def test_clone_game_increments_image_refcounts(
     admin_db: AsyncSession,
     mock_discord_api_client,
-    mock_event_publisher,
     mock_participant_resolver,
     mock_role_service,
     create_guild,
@@ -634,7 +621,6 @@ async def test_clone_game_increments_image_refcounts(
 
     service = GameService(
         db=admin_db,
-        event_publisher=mock_event_publisher,
         discord_client=mock_discord_api_client,
         participant_resolver=mock_participant_resolver,
         channel_resolver=MagicMock(),
@@ -732,7 +718,6 @@ async def test_clone_game_increments_image_refcounts(
 async def test_delete_game_removes_row_from_db(
     admin_db: AsyncSession,
     mock_discord_api_client,
-    mock_event_publisher,
     mock_participant_resolver,
     mock_role_service,
     create_guild,
@@ -759,7 +744,6 @@ async def test_delete_game_removes_row_from_db(
 
     service = GameService(
         db=admin_db,
-        event_publisher=mock_event_publisher,
         discord_client=mock_discord_api_client,
         participant_resolver=mock_participant_resolver,
         channel_resolver=MagicMock(),
@@ -802,7 +786,6 @@ async def test_delete_game_removes_row_from_db(
 async def test_delete_game_cascades_participants_gone(
     admin_db: AsyncSession,
     mock_discord_api_client,
-    mock_event_publisher,
     mock_participant_resolver,
     mock_role_service,
     create_guild,
@@ -829,7 +812,6 @@ async def test_delete_game_cascades_participants_gone(
 
     service = GameService(
         db=admin_db,
-        event_publisher=mock_event_publisher,
         discord_client=mock_discord_api_client,
         participant_resolver=mock_participant_resolver,
         channel_resolver=MagicMock(),
@@ -875,7 +857,6 @@ async def test_delete_game_with_participant_succeeds(
     admin_db: AsyncSession,
     app_db: AsyncSession,
     mock_discord_api_client,
-    mock_event_publisher,
     mock_participant_resolver,
     mock_role_service,
     create_guild,
@@ -907,7 +888,6 @@ async def test_delete_game_with_participant_succeeds(
 
     setup_service = GameService(
         db=admin_db,
-        event_publisher=mock_event_publisher,
         discord_client=mock_discord_api_client,
         participant_resolver=mock_participant_resolver,
         channel_resolver=MagicMock(),
@@ -952,7 +932,6 @@ async def test_delete_game_with_participant_succeeds(
     )
     app_service = GameService(
         db=app_db,
-        event_publisher=mock_event_publisher,
         discord_client=mock_discord_api_client,
         participant_resolver=mock_participant_resolver,
         channel_resolver=MagicMock(),
@@ -978,7 +957,6 @@ async def test_delete_game_with_participant_succeeds(
 async def test_delete_game_no_images_succeeds(
     admin_db: AsyncSession,
     mock_discord_api_client,
-    mock_event_publisher,
     mock_participant_resolver,
     mock_role_service,
     create_guild,
@@ -1005,7 +983,6 @@ async def test_delete_game_no_images_succeeds(
 
     service = GameService(
         db=admin_db,
-        event_publisher=mock_event_publisher,
         discord_client=mock_discord_api_client,
         participant_resolver=mock_participant_resolver,
         channel_resolver=MagicMock(),
@@ -1051,7 +1028,6 @@ async def test_delete_game_no_images_succeeds(
 async def test_delete_game_shared_image_persists(
     admin_db: AsyncSession,
     mock_discord_api_client,
-    mock_event_publisher,
     mock_participant_resolver,
     mock_role_service,
     create_guild,
@@ -1079,7 +1055,6 @@ async def test_delete_game_shared_image_persists(
 
     service = GameService(
         db=admin_db,
-        event_publisher=mock_event_publisher,
         discord_client=mock_discord_api_client,
         participant_resolver=mock_participant_resolver,
         channel_resolver=MagicMock(),
@@ -1138,7 +1113,6 @@ async def test_delete_game_shared_image_persists(
 async def test_delete_game_status_schedules_removed(
     admin_db: AsyncSession,
     mock_discord_api_client,
-    mock_event_publisher,
     mock_participant_resolver,
     mock_role_service,
     create_guild,
@@ -1165,7 +1139,6 @@ async def test_delete_game_status_schedules_removed(
 
     service = GameService(
         db=admin_db,
-        event_publisher=mock_event_publisher,
         discord_client=mock_discord_api_client,
         participant_resolver=mock_participant_resolver,
         channel_resolver=MagicMock(),

@@ -41,9 +41,9 @@ from services.api.schemas.clone_game import CarryoverOption, CloneGameRequest
 from services.api.services import emoji_resolver as emoji_resolver_module
 from services.api.services import participant_resolver as resolver_module
 from services.api.services.games import GameService
-from shared.messaging import events as messaging_events
 from shared.models import game as game_model
 from shared.models import participant as participant_model
+from shared.models.bot_action_queue import BotActionQueue
 from shared.models.participant import ParticipantType
 
 # ---------------------------------------------------------------------------
@@ -62,7 +62,6 @@ def game_service(mock_db):
     """GameService wired with fully-mocked dependencies."""
     return GameService(
         db=mock_db,
-        event_publisher=AsyncMock(),
         discord_client=AsyncMock(),
         participant_resolver=AsyncMock(),
         channel_resolver=AsyncMock(),
@@ -305,8 +304,7 @@ class TestLeaveGame:
         game.title = "Test Game"
         game.message_id = None
         game_service.get_game = AsyncMock(return_value=game)
-        mock_publish = MagicMock()
-        game_service.event_publisher.publish_deferred = mock_publish
+        mock_db.add = MagicMock()
 
         mock_user = MagicMock()
         mock_user.id = "user-uuid"
@@ -319,28 +317,27 @@ class TestLeaveGame:
         mock_db.execute.side_effect = [
             _make_db_scalar_result(mock_user),
             _make_db_scalar_result(mock_participant),
+            MagicMock(),  # _publish_game_updated: pg_insert message_refresh_queue
+            MagicMock(),  # _publish_game_updated: pg_notify
         ]
         mock_db.delete = AsyncMock()
 
         await game_service.leave_game(game.id, "user123")
 
-        notification_calls = [
-            c
-            for c in mock_publish.call_args_list
-            if c.kwargs.get("event")
-            and c.kwargs["event"].event_type == messaging_events.EventType.NOTIFICATION_SEND_DM
+        added = [c.args[0] for c in mock_db.add.call_args_list]
+        send_dm_rows = [
+            r for r in added if isinstance(r, BotActionQueue) and r.action_type == "send_dm"
         ]
-        assert len(notification_calls) == 1
-        event_data = notification_calls[0].kwargs["event"].data
-        assert event_data["user_id"] == "host-discord-id"
-        assert event_data["notification_type"] == "host_added_dropout"
+        assert len(send_dm_rows) == 1
+        row = send_dm_rows[0]
+        assert row.discord_id == "host-discord-id"
+        assert row.payload["notification_type"] == "host_added_dropout"
 
     @pytest.mark.asyncio
     async def test_non_host_added_leave_does_not_publish_notification(self, game_service, mock_db):
         game = _make_game()
         game_service.get_game = AsyncMock(return_value=game)
-        mock_publish = MagicMock()
-        game_service.event_publisher.publish_deferred = mock_publish
+        mock_db.add = MagicMock()
 
         mock_user = MagicMock()
         mock_user.id = "user-uuid"
@@ -353,18 +350,18 @@ class TestLeaveGame:
         mock_db.execute.side_effect = [
             _make_db_scalar_result(mock_user),
             _make_db_scalar_result(mock_participant),
+            MagicMock(),  # _publish_game_updated: pg_insert message_refresh_queue
+            MagicMock(),  # _publish_game_updated: pg_notify
         ]
         mock_db.delete = AsyncMock()
 
         await game_service.leave_game(game.id, "user123")
 
-        notification_calls = [
-            c
-            for c in mock_publish.call_args_list
-            if c.kwargs.get("event")
-            and c.kwargs["event"].event_type == messaging_events.EventType.NOTIFICATION_SEND_DM
+        added = [c.args[0] for c in mock_db.add.call_args_list]
+        send_dm_rows = [
+            r for r in added if isinstance(r, BotActionQueue) and r.action_type == "send_dm"
         ]
-        assert len(notification_calls) == 0
+        assert len(send_dm_rows) == 0
 
 
 # ---------------------------------------------------------------------------
@@ -930,3 +927,138 @@ async def test_emoji_in_title_resolved_on_update(game_service) -> None:
     mock_emoji_resolver.resolve_emoji_mentions.assert_called_once_with(
         "Updated :test:", "discord-guild-1"
     )
+
+
+# ---------------------------------------------------------------------------
+# TestPublishMethods — Phase 3 (RED)
+# ---------------------------------------------------------------------------
+
+
+class TestPublishGameCreated:
+    """_publish_game_created inserts a BotActionQueue row."""
+
+    @pytest.mark.asyncio
+    async def test_inserts_bot_action_queue_row(self, game_service, mock_db) -> None:
+        """_publish_game_created adds a BotActionQueue row with action_type='game_created'."""
+        game = _make_game()
+        channel_config = MagicMock()
+        channel_config.channel_id = "111222333444555666"
+
+        mock_db.add = MagicMock()
+
+        await game_service._publish_game_created(game, channel_config)
+
+        added = [c.args[0] for c in mock_db.add.call_args_list]
+        bot_action_rows = [r for r in added if isinstance(r, BotActionQueue)]
+        assert len(bot_action_rows) == 1
+        row = bot_action_rows[0]
+        assert row.action_type == "game_created"
+        assert row.game_id == game.id
+        assert row.channel_id == channel_config.channel_id
+
+    @pytest.mark.asyncio
+    async def test_does_not_call_event_publisher(self, game_service, mock_db) -> None:
+        """_publish_game_created no longer calls event_publisher.publish_deferred."""
+        game = _make_game()
+        channel_config = MagicMock()
+        channel_config.channel_id = "111222333444555666"
+        mock_db.add = MagicMock()
+
+        await game_service._publish_game_created(game, channel_config)
+
+        assert not hasattr(game_service, "event_publisher"), (
+            "GameService should not have event_publisher after Phase 3"
+        )
+
+
+class TestPublishGameUpdated:
+    """_publish_game_updated inserts a MessageRefreshQueue row and sends pg_notify."""
+
+    @pytest.mark.asyncio
+    async def test_inserts_message_refresh_queue_row(self, game_service, mock_db) -> None:
+        """_publish_game_updated executes an upsert into message_refresh_queue."""
+        game = _make_game()
+        game.message_id = "999000111222333444"
+        game.channel.channel_id = "555666777888999000"
+
+        mock_db.execute = AsyncMock()
+
+        await game_service._publish_game_updated(game)
+
+        assert mock_db.execute.called, "db.execute should be called for the upsert + pg_notify"
+        all_stmts = [str(call.args[0]) for call in mock_db.execute.call_args_list]
+        assert any("message_refresh_queue" in s for s in all_stmts), (
+            "Expected an INSERT into message_refresh_queue"
+        )
+
+    @pytest.mark.asyncio
+    async def test_sends_pg_notify(self, game_service, mock_db) -> None:
+        """_publish_game_updated calls pg_notify('game_updated_sse', ...)."""
+        game = _make_game()
+        game.message_id = "999000111222333444"
+        game.channel.channel_id = "555666777888999000"
+
+        mock_db.execute = AsyncMock()
+
+        await game_service._publish_game_updated(game)
+
+        all_stmts = [str(call.args[0]) for call in mock_db.execute.call_args_list]
+        assert any("game_updated_sse" in s or "pg_notify" in s for s in all_stmts), (
+            "Expected a pg_notify('game_updated_sse', ...) call"
+        )
+
+
+class TestPublishPlayerRemoved:
+    """_publish_player_removed inserts a BotActionQueue row."""
+
+    @pytest.mark.asyncio
+    async def test_inserts_bot_action_queue_row(self, game_service, mock_db) -> None:
+        """_publish_player_removed adds a BotActionQueue row with action_type='player_removed'."""
+        game = _make_game()
+        game.message_id = "111222333444555666"
+        game.channel.channel_id = "777888999000111222"
+
+        participant = MagicMock(spec=participant_model.GameParticipant)
+        participant.user = MagicMock()
+        participant.user.discord_id = "discord-user-123"
+        participant.display_name = "TestPlayer"
+
+        mock_db.add = MagicMock()
+
+        await game_service._publish_player_removed(game, participant)
+
+        added = [c.args[0] for c in mock_db.add.call_args_list]
+        bot_action_rows = [r for r in added if isinstance(r, BotActionQueue)]
+        assert len(bot_action_rows) == 1
+        row = bot_action_rows[0]
+        assert row.action_type == "player_removed"
+        assert row.game_id == game.id
+        assert row.discord_id == "discord-user-123"
+
+
+class TestNotifyDemotedUsers:
+    """_notify_demoted_users inserts BotActionQueue rows with action_type='send_dm'."""
+
+    @pytest.mark.asyncio
+    async def test_inserts_bot_action_queue_row_per_demoted_user(
+        self, game_service, mock_db
+    ) -> None:
+        """_notify_demoted_users adds a BotActionQueue send_dm row for each demoted user."""
+        game = _make_game()
+        game.message_id = "111222333444555666"
+        game.channel.channel_id = "777888999000111222"
+
+        mock_db.add = MagicMock()
+
+        await game_service._notify_demoted_users(
+            game=game,
+            demoted_discord_ids={"discord-user-1", "discord-user-2"},
+        )
+
+        added = [c.args[0] for c in mock_db.add.call_args_list]
+        bot_action_rows = [r for r in added if isinstance(r, BotActionQueue)]
+        assert len(bot_action_rows) == 2
+        action_types = {r.action_type for r in bot_action_rows}
+        assert action_types == {"send_dm"}
+        discord_ids = {r.discord_id for r in bot_action_rows}
+        assert discord_ids == {"discord-user-1", "discord-user-2"}

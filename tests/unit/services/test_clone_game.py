@@ -127,7 +127,6 @@ def game_service():
 
     return GameService(
         db=db,
-        event_publisher=event_publisher,
         discord_client=AsyncMock(),
         participant_resolver=AsyncMock(),
         channel_resolver=AsyncMock(),

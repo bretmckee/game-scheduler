@@ -33,15 +33,55 @@ Replace all RabbitMQ message flows with PostgreSQL LISTEN/NOTIFY + a new `bot_ac
 
 ### Removed
 
----
+## Phase 3: Migrate API to Bot Flows (Flows 1-4) + SSE NOTIFY
 
-## Phase 8: Remove Dead Messaging Infrastructure
+### Added
+
+- `tests/unit/api/services/test_games.py` — new `TestPublishGameCreated`, `TestPublishGameUpdated`, `TestPublishPlayerRemoved`, `TestNotifyDemotedUsers` test classes verifying BotActionQueue inserts and pg_notify behavior
+
+### Modified
+
+- `shared/services/game_cancellation.py` — replaced `event_publisher: DeferredEventPublisher | None` parameter with `enqueue_cancellation: bool = True`; now inserts `BotActionQueue(action_type='game_cancelled', ...)` directly instead of calling `publish_deferred`
+- `tests/unit/shared/services/test_game_cancellation.py` — updated tests to use new `enqueue_cancellation` parameter and check `db.add` for `BotActionQueue` rows
+- `services/api/services/games.py` — removed `event_publisher` from `GameService.__init__`; added `json`, `pg_insert`, `BotActionQueue`, `MessageRefreshQueue` imports; replaced `_publish_game_created` with BotActionQueue insert; replaced `_publish_game_updated` with MessageRefreshQueue upsert + pg_notify; replaced `_publish_player_removed` with BotActionQueue insert; replaced `_notify_demoted_users` with BotActionQueue inserts; replaced `_publish_promotion_notification` with BotActionQueue insert; replaced inline `host_added_dropout` publish in `leave_game` with BotActionQueue insert; removed dead `_publish_game_cancelled` method; updated `_delete_game_internal` to call `cancel_game_service(db, game)` without publisher
+- `services/api/routes/games.py` — removed `DeferredEventPublisher` and `EventPublisher` imports and instantiation from `_get_game_service`; removed `event_publisher` from `GameService(...)` constructor call
+- `services/api/services/embed_deletion_consumer.py` — removed dead `DeferredEventPublisher`/`EventPublisher` usage from `GameService` instantiation (file itself remains; deleted in Phase 5)
+- `tests/unit/services/api/services/conftest.py` — removed `mock_event_publisher` fixture and its import; removed `event_publisher` from `game_service` fixture
+- `tests/unit/services/api/services/test_games_service.py` — replaced `publish_deferred` assertion with BotActionQueue `db.add` assertion; removed `EventType` import; added `BotActionQueue` import; updated `test_join_game_success` and `test_leave_game_success` to add pg_notify/upsert execute mocks; removed all `mock_event_publisher` fixture parameters
+- `tests/unit/services/api/services/test_games_promotion.py` — replaced all `mock_event_publisher.publish_deferred.call_args_list` assertions with `mock_db.add.call_args_list` BotActionQueue checks; replaced `mock_event_publisher.reset_mock()` with `mock_db.add.reset_mock()`; removed `EventType` import; removed `mock_event_publisher` from all test signatures
+- `tests/unit/api/services/test_games.py` — updated `game_service` fixture to remove `event_publisher`; updated leave_game tests to check BotActionQueue rows; updated execute side_effect lists to include pg_notify/upsert calls
+- `tests/unit/services/test_game_service_persist_and_publish.py` — removed `event_publisher` from `game_service` fixture
+- `tests/unit/services/test_clone_game.py` — removed `event_publisher` from `game_service` fixture
+- `tests/unit/services/test_system_clone_for_recurrence.py` — removed `event_publisher` from `game_service` fixture
 
 ### Removed
 
 ---
 
-## Phase 9: Docker, Config, and Dependency Cleanup
+- `tests/integration/test_games_route_guild_isolation.py` — removed `EventPublisher` import and `event_publisher=EventPublisher()` from all `GameService` constructor calls
+- `tests/integration/services/api/services/test_game_image_integration.py` — removed `mock_event_publisher` from all test function signatures and `event_publisher=mock_event_publisher` from all `GameService` constructor calls
+- `tests/integration/test_embed_deletion_consumer.py` — updated to check `bot_action_queue` table (zero rows, since the Discord message is already gone) instead of RabbitMQ queue; removed `rabbitmq_channel` fixture dependency
+- `tests/integration/test_game_signup_methods.py` — updated three tests to check `bot_action_queue` DB rows instead of RabbitMQ queues
+- `tests/integration/test_clone_game_endpoint.py` — updated `test_clone_game_endpoint_publishes_game_created_event` to check `bot_action_queue` DB row
+- `tests/integration/test_recurrence_clone.py` — updated `test_clear_post_at_announces_recurrence_clone` to check `bot_action_queue` DB row
+- `tests/unit/services/api/services/test_embed_deletion_consumer.py` — updated `test_handle_embed_deleted_cancels_game` to check that `cancel_game` is called with `enqueue_cancellation=False`
+
+### Removed
+
+---
+
+## Known State After Phase 3
+
+E2E tests are failing because:
+
+- The API now sends `game_created`/`game_cancelled`/etc. actions to `bot_action_queue` (DB)
+- The bot still only listens to RabbitMQ for these events (not yet updated)
+- Phase 5 implements the bot's `BotActionListener` that processes `bot_action_queue` rows
+- E2E tests will pass again once Phases 5-8 are complete
+
+---
+
+## Phase 8: Remove Dead Messaging Infrastructure
 
 ### Modified
 

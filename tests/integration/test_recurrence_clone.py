@@ -31,8 +31,6 @@ Covered scenarios:
    and publishes GAME_CREATED to RabbitMQ
 """
 
-import asyncio
-import json
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -40,9 +38,7 @@ import httpx
 import pytest
 from sqlalchemy import text
 
-from shared.messaging.infrastructure import QUEUE_BOT_EVENTS
 from shared.utils.discord_tokens import extract_bot_discord_id
-from tests.integration.conftest import consume_one_message
 from tests.shared.auth_helpers import cleanup_test_session, create_test_session
 
 pytestmark = pytest.mark.integration
@@ -303,7 +299,6 @@ async def test_recurrence_clone_with_null_post_at_is_visible(
 @pytest.mark.asyncio
 async def test_clear_post_at_announces_recurrence_clone(
     admin_db_sync,
-    rabbitmq_channel,
     create_user,
     create_guild,
     create_channel,
@@ -311,7 +306,7 @@ async def test_clear_post_at_announces_recurrence_clone(
     api_base_url,
 ):
     """PUT /{clone_id} with clear_post_at=true on a post_at=NULL recurrence clone sets post_at
-    and publishes GAME_CREATED to RabbitMQ."""
+    and enqueues a game_created row in bot_action_queue."""
     guild = create_guild(
         discord_guild_id="610111111111111104",
         bot_manager_roles=[BOT_MANAGER_ROLE_ID],
@@ -337,7 +332,6 @@ async def test_clear_post_at_announces_recurrence_clone(
     )
     session_token, _ = await create_test_session(HOST_DISCORD_TOKEN, HOST_DISCORD_ID)
 
-    rabbitmq_channel.queue_purge(QUEUE_BOT_EVENTS)
     before = datetime.now(UTC).replace(tzinfo=None)
 
     try:
@@ -367,16 +361,17 @@ async def test_clear_post_at_announces_recurrence_clone(
             f"post_at={data['post_at']!r} must be approximately now"
         )
 
-        await asyncio.sleep(0.5)
-        method, _properties, body = consume_one_message(
-            rabbitmq_channel, QUEUE_BOT_EVENTS, timeout=5
-        )
+        bot_row = admin_db_sync.execute(
+            text(
+                "SELECT action_type, game_id FROM bot_action_queue "
+                "WHERE action_type = 'game_created' AND game_id = :game_id"
+            ),
+            {"game_id": clone_id},
+        ).fetchone()
 
-        assert method is not None, "GAME_CREATED must be published to bot_events queue"
-        assert body is not None, "RabbitMQ message body must not be None"
-        message = json.loads(body)
-        assert str(message["data"]["game_id"]) == clone_id, (
-            "GAME_CREATED must reference the recurrence clone game ID"
+        assert bot_row is not None, "GAME_CREATED must be enqueued in bot_action_queue"
+        assert bot_row[1] == clone_id, (
+            "bot_action_queue must reference the recurrence clone game ID"
         )
     finally:
         await cleanup_test_session(session_token)

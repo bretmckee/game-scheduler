@@ -31,9 +31,8 @@ import logging
 from services.api.services.games import GameService
 from shared.database import get_bypass_db_session
 from shared.messaging.consumer import EventConsumer
-from shared.messaging.deferred_publisher import DeferredEventPublisher
 from shared.messaging.events import Event, EventType
-from shared.messaging.publisher import EventPublisher
+from shared.services.game_cancellation import cancel_game
 from shared.utils.status_transitions import GameStatus
 
 logger = logging.getLogger(__name__)
@@ -88,9 +87,7 @@ class EmbedDeletionConsumer:
             return
 
         async with get_bypass_db_session() as db:
-            base_publisher = EventPublisher()
-            publisher = DeferredEventPublisher(db=db, event_publisher=base_publisher)
-            game_service = GameService(db=db, event_publisher=publisher)
+            game_service = GameService(db=db)
 
             game = await game_service.get_game(str(game_id))
             if game is None:
@@ -101,7 +98,8 @@ class EmbedDeletionConsumer:
                 logger.info("EMBED_DELETED: game %s is already ARCHIVED, skipping", game_id)
                 return
 
-            await game_service._delete_game_internal(game)
+            # Discord message is already gone; no bot notification needed.
+            await cancel_game(db, game, enqueue_cancellation=False)
             await db.commit()
 
         logger.info("EMBED_DELETED: cancelled game %s", game_id)

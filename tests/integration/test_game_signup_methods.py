@@ -29,18 +29,16 @@ Uses fake Discord credentials since integration tests don't connect to Discord.
 """
 
 import json
-import time
 import uuid as _uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import text
 
-from shared.messaging.infrastructure import QUEUE_BOT_EVENTS, QUEUE_NOTIFICATION
+from shared.messaging.infrastructure import QUEUE_BOT_EVENTS
 from shared.models.participant import ParticipantType
 from shared.models.signup_method import SignupMethod
 from shared.utils.discord_tokens import extract_bot_discord_id
-from tests.integration.conftest import consume_one_message
 
 pytestmark = pytest.mark.integration
 
@@ -97,7 +95,6 @@ def _create_test_template(
 
 def test_api_creates_game_with_explicit_signup_method_in_rabbitmq_message(
     admin_db_sync,
-    rabbitmq_channel,
     create_user,
     create_guild,
     create_channel,
@@ -106,9 +103,9 @@ def test_api_creates_game_with_explicit_signup_method_in_rabbitmq_message(
     create_authenticated_client,
 ):
     """
-    Verify API game creation with explicit signup method produces correct RabbitMQ message.
+    Verify API game creation with explicit signup method produces correct bot_action_queue row.
 
-    Flow: HTTP POST → API (authenticated) → Database → RabbitMQ → Bot Queue
+    Flow: HTTP POST → API (authenticated) → Database → bot_action_queue → Bot
     Validates that signup_method flows through entire stack including HTTP layer.
     """
     test_user = _create_test_user(create_user)
@@ -116,8 +113,6 @@ def test_api_creates_game_with_explicit_signup_method_in_rabbitmq_message(
         create_guild, create_channel, create_template, seed_redis_cache, test_user
     )
     authenticated_client = create_authenticated_client(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
-
-    rabbitmq_channel.queue_purge(QUEUE_BOT_EVENTS)
 
     scheduled_at = (datetime.now(UTC) + timedelta(days=1)).isoformat()
 
@@ -144,22 +139,20 @@ def test_api_creates_game_with_explicit_signup_method_in_rabbitmq_message(
     assert result is not None, "Game not found in database"
     assert result[0] == SignupMethod.SELF_SIGNUP.value
 
-    # Verify RabbitMQ message
-    time.sleep(0.5)
-    method, properties, body = consume_one_message(rabbitmq_channel, QUEUE_BOT_EVENTS, timeout=5)
-
-    assert method is not None, "No message found in bot_events queue"
-    assert body is not None, "Message body is None"
-    message = json.loads(body)
-
-    assert "data" in message, "Message missing 'data' field"
-    assert "signup_method" in message["data"], "Message missing 'signup_method' in event data"
-    assert message["data"]["signup_method"] == SignupMethod.SELF_SIGNUP.value
+    # Verify bot_action_queue row was enqueued for the bot
+    bot_row = admin_db_sync.execute(
+        text(
+            "SELECT action_type, game_id FROM bot_action_queue "
+            "WHERE action_type = 'game_created' AND game_id = :game_id"
+        ),
+        {"game_id": game_id},
+    ).fetchone()
+    assert bot_row is not None, "No game_created row found in bot_action_queue"
+    assert bot_row[1] == game_id
 
 
 def test_api_uses_template_default_signup_method_when_not_specified(
     admin_db_sync,
-    rabbitmq_channel,
     create_user,
     create_guild,
     create_channel,
@@ -177,8 +170,6 @@ def test_api_uses_template_default_signup_method_when_not_specified(
         create_guild, create_channel, create_template, seed_redis_cache, test_user
     )
     authenticated_client = create_authenticated_client(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
-
-    rabbitmq_channel.queue_purge(QUEUE_BOT_EVENTS)
 
     scheduled_at = (datetime.now(UTC) + timedelta(days=1)).isoformat()
 
@@ -204,14 +195,15 @@ def test_api_uses_template_default_signup_method_when_not_specified(
     ).fetchone()
     assert result[0] == SignupMethod.HOST_SELECTED.value
 
-    # Verify RabbitMQ message
-    time.sleep(0.5)
-    method, properties, body = consume_one_message(rabbitmq_channel, QUEUE_BOT_EVENTS, timeout=5)
-
-    assert method is not None
-    assert body is not None, "Message body is None"
-    message = json.loads(body)
-    assert message["data"]["signup_method"] == SignupMethod.HOST_SELECTED.value
+    # Verify bot_action_queue row was enqueued
+    bot_row = admin_db_sync.execute(
+        text(
+            "SELECT action_type FROM bot_action_queue "
+            "WHERE action_type = 'game_created' AND game_id = :game_id"
+        ),
+        {"game_id": game_id},
+    ).fetchone()
+    assert bot_row is not None, "No game_created row found in bot_action_queue"
 
 
 def _create_waitlist_template(
@@ -388,7 +380,6 @@ def test_update_prefilled_upserts_self_added_participant(
 
 def test_demotion_notification_published_when_participant_demoted(
     admin_db_sync,
-    rabbitmq_channel,
     create_user,
     create_guild,
     create_channel,
@@ -397,19 +388,16 @@ def test_demotion_notification_published_when_participant_demoted(
     create_authenticated_client,
 ):
     """
-    Verify demotion notification is published to QUEUE_NOTIFICATION when max_players is reduced.
+    Verify demotion notification is enqueued in bot_action_queue when max_players is reduced.
 
-    Flow: create game (max_players=2) → add 2 SELF_ADDED participants → PUT max_players=1
-    → assert waitlist_demotion event published to notification queue.
+    Flow: create game (max_players=2) → add 2 HOST_ADDED participants → PUT max_players=1
+    → assert waitlist_demotion send_dm row in bot_action_queue.
     """
     test_user = _create_test_user(create_user)
     test_template = _create_waitlist_template(
         create_guild, create_channel, create_template, seed_redis_cache, test_user
     )
     authenticated_client = create_authenticated_client(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
-
-    rabbitmq_channel.queue_purge(QUEUE_BOT_EVENTS)
-    rabbitmq_channel.queue_purge(QUEUE_NOTIFICATION)
 
     scheduled_at = (datetime.now(UTC) + timedelta(days=1)).isoformat()
 
@@ -435,32 +423,30 @@ def test_demotion_notification_published_when_participant_demoted(
         admin_db_sync, game_id, user_b["id"], position=2, position_type=ParticipantType.HOST_ADDED
     )
 
-    rabbitmq_channel.queue_purge(QUEUE_NOTIFICATION)
-
     update_response = authenticated_client.put(
         f"/api/v1/games/{game_id}",
         data={"max_players": "1"},
     )
     assert update_response.status_code == 200, f"Update error: {update_response.text}"
 
-    time.sleep(0.5)
-    method, properties, body = consume_one_message(rabbitmq_channel, QUEUE_NOTIFICATION, timeout=5)
+    # Verify demotion send_dm row in bot_action_queue
+    demotion_rows = admin_db_sync.execute(
+        text(
+            "SELECT action_type, discord_id, payload FROM bot_action_queue "
+            "WHERE action_type = 'send_dm' AND game_id = :game_id"
+        ),
+        {"game_id": game_id},
+    ).fetchall()
 
-    assert method is not None, "No demotion notification found in notification_queue"
-    assert body is not None, "Notification message body is None"
-    message = json.loads(body)
-
-    assert message.get("event_type") == "notification.send_dm", (
-        f"Expected notification.send_dm but got {message.get('event_type')}"
-    )
-    assert message.get("data", {}).get("notification_type") == "waitlist_demotion", (
-        f"Expected waitlist_demotion but got {message.get('data', {}).get('notification_type')}"
+    assert len(demotion_rows) >= 1, "No demotion notification found in bot_action_queue"
+    payloads = [row[2] for row in demotion_rows]
+    assert any(p.get("notification_type") == "waitlist_demotion" for p in payloads), (
+        f"Expected waitlist_demotion but got: {payloads}"
     )
 
 
 def test_api_creates_host_selected_game_with_initial_participants(
     admin_db_sync,
-    rabbitmq_channel,
     create_user,
     create_guild,
     create_channel,
@@ -479,8 +465,6 @@ def test_api_creates_host_selected_game_with_initial_participants(
         create_guild, create_channel, create_template, seed_redis_cache, test_user
     )
     authenticated_client = create_authenticated_client(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
-
-    rabbitmq_channel.queue_purge(QUEUE_BOT_EVENTS)
 
     scheduled_at = (datetime.now(UTC) + timedelta(days=1)).isoformat()
 
@@ -524,11 +508,12 @@ def test_api_creates_host_selected_game_with_initial_participants(
             "Player Two",
         ], f"Unexpected participant: {result[2]}"
 
-    # Verify RabbitMQ message has correct signup_method
-    time.sleep(0.5)
-    method, properties, body = consume_one_message(rabbitmq_channel, QUEUE_BOT_EVENTS, timeout=5)
-
-    assert method is not None
-    assert body is not None, "Message body is None"
-    message = json.loads(body)
-    assert message["data"]["signup_method"] == SignupMethod.HOST_SELECTED.value
+    # Verify bot_action_queue row was enqueued for the bot
+    bot_row = admin_db_sync.execute(
+        text(
+            "SELECT action_type FROM bot_action_queue "
+            "WHERE action_type = 'game_created' AND game_id = :game_id"
+        ),
+        {"game_id": game_id},
+    ).fetchone()
+    assert bot_row is not None, "No game_created row found in bot_action_queue"
