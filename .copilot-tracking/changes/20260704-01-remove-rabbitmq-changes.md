@@ -20,6 +20,21 @@ Replace all RabbitMQ message flows with PostgreSQL LISTEN/NOTIFY + a new `bot_ac
 
 ---
 
+## Phase 2: Add `cancel_game` Service + Update `GameService._delete_game_internal`
+
+### Added
+
+- `shared/services/game_cancellation.py` — `cancel_game(db, game, event_publisher=None)` releases image refs, deletes game row, optionally enqueues GAME_CANCELLED event
+- `tests/unit/shared/services/test_game_cancellation.py` — 6 unit tests for `cancel_game`
+
+### Modified
+
+- `services/api/services/games.py` — `_delete_game_internal` delegates to `cancel_game` as thin wrapper
+
+### Removed
+
+---
+
 ## Phase 8: Remove Dead Messaging Infrastructure
 
 ### Removed

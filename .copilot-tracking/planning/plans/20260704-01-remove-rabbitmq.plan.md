@@ -54,12 +54,12 @@ Replace all RabbitMQ message flows with PostgreSQL LISTEN/NOTIFY + a new `bot_ac
 - [x] Task 1.2: Implement SQLAlchemy model, export from `shared/models/__init__.py`, create Alembic migration with table + index + INSERT trigger + NOTIFY (GREEN)
   - Details: .copilot-tracking/planning/details/20260704-01-remove-rabbitmq-details.md (Lines 29-46)
 
-### [ ] Phase 2: Add `cancel_game` Service + Update `GameService._delete_game_internal`
+### [x] Phase 2: Add `cancel_game` Service + Update `GameService._delete_game_internal`
 
-- [ ] Task 2.1: Write xfail TDD tests for `cancel_game(db, game, event_publisher=None)` in `shared/services/game_cancellation.py` (RED)
+- [x] Task 2.1: Write xfail TDD tests for `cancel_game(db, game, event_publisher=None)` in `shared/services/game_cancellation.py` (RED)
   - Details: .copilot-tracking/planning/details/20260704-01-remove-rabbitmq-details.md (Lines 49-63)
 
-- [ ] Task 2.2: Implement `cancel_game`; update `GameService._delete_game_internal` as thin wrapper; update tests (GREEN)
+- [x] Task 2.2: Implement `cancel_game`; update `GameService._delete_game_internal` as thin wrapper; update tests (GREEN)
   - Details: .copilot-tracking/planning/details/20260704-01-remove-rabbitmq-details.md (Lines 64-82)
 
 ### [ ] Phase 3: Migrate API to Bot Flows (Flows 1-4) + SSE NOTIFY

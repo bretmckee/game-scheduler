@@ -61,6 +61,7 @@ from shared.models.participant_action_schedule import ParticipantActionSchedule
 from shared.models.signup_method import SignupMethod
 from shared.schemas import auth as auth_schemas
 from shared.schemas import game as game_schemas
+from shared.services.game_cancellation import cancel_game as cancel_game_service
 from shared.services.game_schedules import clone_game_for_recurrence
 from shared.services.image_storage import (
     increment_image_ref,
@@ -2242,15 +2243,7 @@ class GameService:
         Args:
             game: Game session model instance to delete
         """
-        # Release image references (decrements count, deletes if zero)
-        await release_image(self.db, game.thumbnail_id)
-        await release_image(self.db, game.banner_image_id)
-
-        # Delete the game row — DB CASCADE removes related schedules and participants
-        await self.db.delete(game)
-
-        # Publish game.cancelled event
-        await self._publish_game_cancelled(game)
+        await cancel_game_service(self.db, game, self.event_publisher)
 
     async def join_game(
         self,

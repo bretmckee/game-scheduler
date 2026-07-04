@@ -4501,7 +4501,9 @@ async def test_delete_game_internal_releases_images_and_publishes(
     mock_game.guild = sample_guild
     mock_game.channel = mock_channel
 
-    with patch("services.api.services.games.release_image", new_callable=AsyncMock) as mock_release:
+    with patch(
+        "shared.services.game_cancellation.release_image", new_callable=AsyncMock
+    ) as mock_release:
         await game_service._delete_game_internal(mock_game)
 
     assert mock_release.call_count == 2
