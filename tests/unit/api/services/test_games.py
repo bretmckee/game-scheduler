@@ -634,9 +634,9 @@ class TestApplyDeadlineCarryover:
         clone_data = CloneGameRequest(
             player_carryover=CarryoverOption.YES_WITH_DEADLINE,
             waitlist_carryover=CarryoverOption.YES,
-            scheduled_at=datetime.datetime(2026, 7, 1, 20, 0, tzinfo=datetime.UTC),
+            scheduled_at=datetime.datetime(3026, 7, 1, 20, 0, tzinfo=datetime.UTC),
             max_players=4,
-            player_deadline=datetime.datetime(2026, 6, 25, 20, 0, tzinfo=datetime.UTC),
+            player_deadline=datetime.datetime(3026, 6, 25, 20, 0, tzinfo=datetime.UTC),
         )
 
         # Empty players list triggers "not source_participants" → continue
