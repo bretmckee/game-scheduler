@@ -145,14 +145,14 @@ async def test_run_sweep_worker_increments_messages_checked_counter(
     mock_channel = AsyncMock(spec=discord.TextChannel)
     mock_channel.fetch_message = AsyncMock(return_value=MagicMock())
 
-    mock_publisher = AsyncMock()
     mock_checked = MagicMock()
 
     with (
         patch.object(bot, "get_channel", return_value=mock_channel),
         patch("services.bot.bot.sweep_messages_checked_counter", mock_checked),
+        patch.object(bot, "_cancel_missing_embed", new_callable=AsyncMock),
     ):
-        await bot._run_sweep_worker(queue, mock_redis, mock_publisher)
+        await bot._run_sweep_worker(queue, mock_redis)
 
     mock_checked.add.assert_called_once_with(1)
 
@@ -175,13 +175,13 @@ async def test_run_sweep_worker_increments_deletions_detected_counter(
         side_effect=discord.NotFound(mock_response, "Unknown Message")
     )
 
-    mock_publisher = AsyncMock()
     mock_deletions = MagicMock()
 
     with (
         patch.object(bot, "get_channel", return_value=mock_channel),
         patch("services.bot.bot.sweep_deletions_detected_counter", mock_deletions),
+        patch.object(bot, "_cancel_missing_embed", new_callable=AsyncMock),
     ):
-        await bot._run_sweep_worker(queue, mock_redis, mock_publisher)
+        await bot._run_sweep_worker(queue, mock_redis)
 
     mock_deletions.add.assert_called_once_with(1)

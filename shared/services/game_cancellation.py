@@ -50,11 +50,8 @@ async def cancel_game(
             into bot_action_queue so the bot deletes the Discord embed. Pass False
             when the Discord message is already gone (e.g. bot-initiated cancel).
     """
-    message_id = game.message_id or ""
-    # Use the Discord snowflake channel_id (from the relationship) so the bot can
-    # locate the correct Discord channel to delete the embed from.
-    channel_discord_id = game.channel.channel_id if game.channel else ""
     game_id = game.id
+    message_id = game.message_id or ""
 
     await release_image(db, game.thumbnail_id)
     await release_image(db, game.banner_image_id)
@@ -62,6 +59,8 @@ async def cancel_game(
     await db.delete(game)
 
     if enqueue_cancellation:
+        # Access channel relationship only when needed for the bot notification.
+        channel_discord_id = game.channel.channel_id if game.channel else ""
         db.add(
             BotActionQueue(
                 action_type="game_cancelled",

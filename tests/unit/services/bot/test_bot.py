@@ -560,21 +560,21 @@ class TestGameSchedulerBot:
         assert mock_handlers._channel_workers["channel-1"] is new_task
 
     @pytest.mark.asyncio
-    async def test_on_raw_message_delete_game_found_publishes(self, bot_config: BotConfig) -> None:
-        """When deleted message matches a game embed, EMBED_DELETED is published."""
+    async def test_on_raw_message_delete_game_found_cancels_directly(
+        self, bot_config: BotConfig
+    ) -> None:
+        """When deleted message matches an active game embed, cancel_game is called directly."""
         bot = GameSchedulerBot(bot_config)
-
-        mock_publisher = AsyncMock()
-        mock_publisher.publish_embed_deleted = AsyncMock()
-        bot.event_publisher = mock_publisher
 
         mock_game = MagicMock()
         mock_game.id = "550e8400-e29b-41d4-a716-446655440000"
+        mock_game.status = "SCHEDULED"
 
         mock_db = AsyncMock()
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = mock_game
         mock_db.execute = AsyncMock(return_value=mock_result)
+        mock_db.commit = AsyncMock()
         mock_db_ctx = MagicMock()
         mock_db_ctx.__aenter__ = AsyncMock(return_value=mock_db)
         mock_db_ctx.__aexit__ = AsyncMock(return_value=None)
@@ -584,14 +584,14 @@ class TestGameSchedulerBot:
         payload.channel_id = 987654321
         payload.guild_id = 111222333
 
-        with patch("services.bot.bot.get_bypass_db_session", return_value=mock_db_ctx):
+        with (
+            patch("services.bot.bot.get_bypass_db_session", return_value=mock_db_ctx),
+            patch("services.bot.bot.cancel_game", new_callable=AsyncMock) as mock_cancel,
+        ):
             await bot.on_raw_message_delete(payload)
 
-        mock_publisher.publish_embed_deleted.assert_awaited_once_with(
-            game_id=str(mock_game.id),
-            channel_id="987654321",
-            message_id="123456789",
-        )
+        mock_cancel.assert_awaited_once_with(mock_db, mock_game, enqueue_cancellation=False)
+        mock_db.commit.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_on_raw_message_delete_no_game_no_publish(self, bot_config: BotConfig) -> None:
@@ -621,15 +621,11 @@ class TestGameSchedulerBot:
         mock_publisher.publish_embed_deleted.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_sweep_deleted_embeds_publishes_for_missing_messages(
+    async def test_sweep_deleted_embeds_cancels_for_missing_messages(
         self, bot_config: BotConfig
     ) -> None:
-        """Games whose embed posts return 404 generate an EMBED_DELETED event."""
+        """Games whose embed posts return 404 are cancelled directly via cancel_game."""
         bot = GameSchedulerBot(bot_config)
-
-        mock_publisher = AsyncMock()
-        mock_publisher.publish_embed_deleted = AsyncMock()
-        bot.event_publisher = mock_publisher
 
         mock_game = MagicMock()
         mock_game.id = "550e8400-e29b-41d4-a716-446655440001"
@@ -643,6 +639,7 @@ class TestGameSchedulerBot:
         mock_result = MagicMock()
         mock_result.scalars.return_value = mock_scalars
         mock_db.execute = AsyncMock(return_value=mock_result)
+        mock_db.commit = AsyncMock()
         mock_db_ctx = MagicMock()
         mock_db_ctx.__aenter__ = AsyncMock(return_value=mock_db)
         mock_db_ctx.__aexit__ = AsyncMock(return_value=None)
@@ -659,26 +656,19 @@ class TestGameSchedulerBot:
             patch(
                 "services.bot.bot.get_redis_client", new_callable=AsyncMock, return_value=mock_redis
             ),
+            patch("services.bot.bot.cancel_game", new_callable=AsyncMock) as mock_cancel,
         ):
             bot.get_channel = MagicMock(return_value=mock_channel)
             await bot._sweep_deleted_embeds("on_ready")
 
-        mock_publisher.publish_embed_deleted.assert_awaited_once_with(
-            game_id=str(mock_game.id),
-            channel_id=mock_game.channel.channel_id,
-            message_id=mock_game.message_id,
-        )
+        mock_cancel.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_sweep_deleted_embeds_skips_existing_messages(
         self, bot_config: BotConfig
     ) -> None:
-        """Games whose embed posts still exist do not generate an EMBED_DELETED event."""
+        """Games whose embed posts still exist are not cancelled."""
         bot = GameSchedulerBot(bot_config)
-
-        mock_publisher = AsyncMock()
-        mock_publisher.publish_embed_deleted = AsyncMock()
-        bot.event_publisher = mock_publisher
 
         mock_game = MagicMock()
         mock_game.id = "550e8400-e29b-41d4-a716-446655440002"
@@ -709,20 +699,17 @@ class TestGameSchedulerBot:
             patch(
                 "services.bot.bot.get_redis_client", new_callable=AsyncMock, return_value=mock_redis
             ),
+            patch("services.bot.bot.cancel_game", new_callable=AsyncMock) as mock_cancel,
         ):
             bot.get_channel = MagicMock(return_value=mock_channel)
             await bot._sweep_deleted_embeds("on_ready")
 
-        mock_publisher.publish_embed_deleted.assert_not_awaited()
+        mock_cancel.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_sweep_deleted_embeds_no_games(self, bot_config: BotConfig) -> None:
         """When no games have a message_id, the sweep completes without Discord calls."""
         bot = GameSchedulerBot(bot_config)
-
-        mock_publisher = AsyncMock()
-        mock_publisher.publish_embed_deleted = AsyncMock()
-        bot.event_publisher = mock_publisher
 
         mock_db = AsyncMock()
         mock_scalars = MagicMock()
@@ -734,21 +721,13 @@ class TestGameSchedulerBot:
         mock_db_ctx.__aenter__ = AsyncMock(return_value=mock_db)
         mock_db_ctx.__aexit__ = AsyncMock(return_value=None)
 
-        with patch("services.bot.bot.get_bypass_db_session", return_value=mock_db_ctx):
+        with (
+            patch("services.bot.bot.get_bypass_db_session", return_value=mock_db_ctx),
+            patch("services.bot.bot.cancel_game", new_callable=AsyncMock) as mock_cancel,
+        ):
             await bot._sweep_deleted_embeds("on_ready")
 
-        mock_publisher.publish_embed_deleted.assert_not_awaited()
-
-    @pytest.mark.asyncio
-    async def test_sweep_deleted_embeds_no_publisher_skips(self, bot_config: BotConfig) -> None:
-        """Sweep exits early when no event publisher is configured."""
-        bot = GameSchedulerBot(bot_config)
-        bot.event_publisher = None
-
-        with patch("services.bot.bot.get_bypass_db_session") as mock_db:
-            await bot._sweep_deleted_embeds("on_ready")
-
-        mock_db.assert_not_called()
+        mock_cancel.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_on_raw_message_delete_exception_is_caught(self, bot_config: BotConfig) -> None:
@@ -769,11 +748,94 @@ class TestGameSchedulerBot:
             assert True  # exception was caught and did not propagate
 
     @pytest.mark.asyncio
+    async def test_on_raw_message_delete_archived_game_is_skipped(
+        self, bot_config: BotConfig
+    ) -> None:
+        """Deleting an ARCHIVED game's embed does not trigger cancellation."""
+        bot = GameSchedulerBot(bot_config)
+
+        mock_game = MagicMock()
+        mock_game.id = "550e8400-e29b-41d4-a716-446655440099"
+        mock_game.status = "ARCHIVED"
+
+        mock_db = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = mock_game
+        mock_db.execute = AsyncMock(return_value=mock_result)
+        mock_db_ctx = MagicMock()
+        mock_db_ctx.__aenter__ = AsyncMock(return_value=mock_db)
+        mock_db_ctx.__aexit__ = AsyncMock(return_value=None)
+
+        payload = MagicMock(spec=discord.RawMessageDeleteEvent)
+        payload.message_id = 123456789
+        payload.channel_id = 987654321
+        payload.guild_id = 111222333
+
+        with (
+            patch("services.bot.bot.get_bypass_db_session", return_value=mock_db_ctx),
+            patch("services.bot.bot.cancel_game", new_callable=AsyncMock) as mock_cancel,
+        ):
+            await bot.on_raw_message_delete(payload)
+
+        mock_cancel.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_cancel_missing_embed_game_not_found_is_skipped(
+        self, bot_config: BotConfig
+    ) -> None:
+        """_cancel_missing_embed skips silently when game is not found in DB."""
+        bot = GameSchedulerBot(bot_config)
+
+        mock_db = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_db.execute = AsyncMock(return_value=mock_result)
+        mock_db.commit = AsyncMock()
+        mock_db_ctx = MagicMock()
+        mock_db_ctx.__aenter__ = AsyncMock(return_value=mock_db)
+        mock_db_ctx.__aexit__ = AsyncMock(return_value=None)
+
+        with (
+            patch("services.bot.bot.get_bypass_db_session", return_value=mock_db_ctx),
+            patch("services.bot.bot.cancel_game", new_callable=AsyncMock) as mock_cancel,
+        ):
+            await bot._cancel_missing_embed("game-id-123")
+
+        mock_cancel.assert_not_awaited()
+        mock_db.commit.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_cancel_missing_embed_cancels_when_game_found(
+        self, bot_config: BotConfig
+    ) -> None:
+        """_cancel_missing_embed calls cancel_game and commits when game exists."""
+        bot = GameSchedulerBot(bot_config)
+
+        mock_game = MagicMock()
+        mock_game.id = "game-id-456"
+
+        mock_db = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = mock_game
+        mock_db.execute = AsyncMock(return_value=mock_result)
+        mock_db.commit = AsyncMock()
+        mock_db_ctx = MagicMock()
+        mock_db_ctx.__aenter__ = AsyncMock(return_value=mock_db)
+        mock_db_ctx.__aexit__ = AsyncMock(return_value=None)
+
+        with (
+            patch("services.bot.bot.get_bypass_db_session", return_value=mock_db_ctx),
+            patch("services.bot.bot.cancel_game", new_callable=AsyncMock) as mock_cancel,
+        ):
+            await bot._cancel_missing_embed("game-id-456")
+
+        mock_cancel.assert_awaited_once_with(mock_db, mock_game, enqueue_cancellation=False)
+        mock_db.commit.assert_awaited_once()
+
+    @pytest.mark.asyncio
     async def test_sweep_deleted_embeds_db_exception_is_caught(self, bot_config: BotConfig) -> None:
         """A DB error during the sweep query is caught; the sweep exits without raising."""
         bot = GameSchedulerBot(bot_config)
-        mock_publisher = AsyncMock()
-        bot.event_publisher = mock_publisher
 
         mock_db_ctx = MagicMock()
         mock_db_ctx.__aenter__ = AsyncMock(side_effect=RuntimeError("db down"))
@@ -790,9 +852,6 @@ class TestGameSchedulerBot:
         """Worker skips and logs warning when get_channel returns None."""
         bot = GameSchedulerBot(bot_config)
 
-        mock_publisher = AsyncMock()
-        mock_publisher.publish_embed_deleted = AsyncMock()
-
         mock_redis = AsyncMock()
         mock_redis.claim_global_and_channel_slot = AsyncMock(return_value=0)
 
@@ -802,18 +861,16 @@ class TestGameSchedulerBot:
         bot.get_channel = MagicMock(return_value=None)
         bot.fetch_channel = AsyncMock()
 
-        await bot._run_sweep_worker(queue, mock_redis, mock_publisher)
+        with patch.object(bot, "_cancel_missing_embed", new_callable=AsyncMock) as mock_cancel:
+            await bot._run_sweep_worker(queue, mock_redis)
 
         bot.fetch_channel.assert_not_awaited()
-        mock_publisher.publish_embed_deleted.assert_not_awaited()
+        mock_cancel.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_run_sweep_worker_non_text_channel_skips(self, bot_config: BotConfig) -> None:
-        """Worker skips and does not publish when the channel is not a TextChannel."""
+        """Worker skips and does not cancel when the channel is not a TextChannel."""
         bot = GameSchedulerBot(bot_config)
-
-        mock_publisher = AsyncMock()
-        mock_publisher.publish_embed_deleted = AsyncMock()
 
         mock_redis = AsyncMock()
         mock_redis.claim_global_and_channel_slot = AsyncMock(return_value=0)
@@ -825,9 +882,10 @@ class TestGameSchedulerBot:
 
         bot.get_channel = MagicMock(return_value=non_text_channel)
 
-        await bot._run_sweep_worker(queue, mock_redis, mock_publisher)
+        with patch.object(bot, "_cancel_missing_embed", new_callable=AsyncMock) as mock_cancel:
+            await bot._run_sweep_worker(queue, mock_redis)
 
-        mock_publisher.publish_embed_deleted.assert_not_awaited()
+        mock_cancel.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_run_sweep_worker_general_exception_is_caught(
@@ -835,9 +893,6 @@ class TestGameSchedulerBot:
     ) -> None:
         """A non-NotFound exception from fetch_message is caught and logged."""
         bot = GameSchedulerBot(bot_config)
-
-        mock_publisher = AsyncMock()
-        mock_publisher.publish_embed_deleted = AsyncMock()
 
         mock_redis = AsyncMock()
         mock_redis.claim_global_and_channel_slot = AsyncMock(return_value=0)
@@ -851,9 +906,10 @@ class TestGameSchedulerBot:
 
         bot.get_channel = MagicMock(return_value=mock_channel)
 
-        await bot._run_sweep_worker(queue, mock_redis, mock_publisher)  # must not raise
+        with patch.object(bot, "_cancel_missing_embed", new_callable=AsyncMock) as mock_cancel:
+            await bot._run_sweep_worker(queue, mock_redis)  # must not raise
 
-        mock_publisher.publish_embed_deleted.assert_not_awaited()
+        mock_cancel.assert_not_awaited()
 
 
 class TestCreateBot:

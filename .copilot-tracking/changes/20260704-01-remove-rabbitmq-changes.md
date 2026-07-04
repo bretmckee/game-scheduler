@@ -81,6 +81,31 @@ E2E tests are failing because:
 
 ---
 
+## Phase 5: Bot Embed Deletion Handler + Bot Action Queue Consumer
+
+### Added
+
+- `services/bot/bot_action_listener.py` — `BotActionListener` class with asyncpg `LISTEN bot_action_queue_changed`; drains `bot_action_queue` rows on NOTIFY; dispatches each row to the appropriate `EventHandlers` handler method; deletes row within the same transaction (crash safety)
+- `tests/unit/bot/test_bot_action_listener.py` — unit tests for `BotActionListener` covering all action-type dispatches, drain/spawn logic, and start() lifecycle
+
+### Modified
+
+- `services/bot/bot.py` — added `BotActionListener` import; registered `BotActionListener` task in `on_ready`; updated `on_raw_message_delete` to call `cancel_game(db, game, enqueue_cancellation=False)` directly (no RabbitMQ); updated `_sweep_deleted_embeds` to remove publisher guard; updated `_run_sweep_worker` to remove `publisher` param and call new `_cancel_missing_embed`; added `_cancel_missing_embed` method; added `cancel_game` import
+- `shared/services/game_cancellation.py` — moved `game.channel` access inside the `if enqueue_cancellation:` block to avoid lazy-loading errors when called from the bot (where channel is not eagerly loaded)
+- `services/bot/events/publisher.py` — deleted `publish_embed_deleted` method (now dead)
+- `services/api/app.py` — removed `EmbedDeletionConsumer` import and startup/shutdown lifecycle
+- `tests/unit/services/bot/test_bot.py` — updated embed deletion tests to verify `cancel_game` called directly; updated sweep tests to verify `cancel_game` called; removed `publisher` param from `_run_sweep_worker` call sites; removed `test_sweep_deleted_embeds_no_publisher_skips` (guard removed)
+- `tests/unit/bot/test_sweep_metrics.py` — removed `mock_publisher` from `_run_sweep_worker` calls; added `_cancel_missing_embed` patch
+- `tests/unit/services/bot/events/test_publisher.py` — deleted `test_publish_embed_deleted` (method deleted)
+
+### Removed
+
+- `services/api/services/embed_deletion_consumer.py` — deleted; bot handles embed deletion directly
+- `tests/unit/services/api/services/test_embed_deletion_consumer.py` — deleted (unit tests for deleted module)
+- `tests/integration/test_embed_deletion_consumer.py` — deleted (integration tests for deleted module)
+
+---
+
 ## Phase 8: Remove Dead Messaging Infrastructure
 
 ### Modified

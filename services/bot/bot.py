@@ -40,6 +40,7 @@ from sqlalchemy.orm import joinedload
 
 from services.bot import guild_projection
 from services.bot.announcement_loop import AnnouncementLoop
+from services.bot.bot_action_listener import BotActionListener
 from services.bot.config import BotConfig
 from services.bot.guild_sync import sync_guilds_from_gateway, sync_single_guild_from_gateway
 from services.bot.message_refresh_listener import MessageRefreshListener
@@ -51,6 +52,7 @@ from shared.models.backup_metadata import BackupMetadata
 from shared.models.channel import ChannelConfiguration
 from shared.models.game import GameSession
 from shared.models.message_refresh_queue import MessageRefreshQueue
+from shared.services.game_cancellation import cancel_game
 from shared.utils.status_transitions import GameStatus
 
 if TYPE_CHECKING:
@@ -214,6 +216,16 @@ class GameSchedulerBot(commands.Bot):
                     ).start()
                 )
                 logger.info("Started message refresh listener task")
+
+            if not hasattr(self, "_action_listener_started"):
+                self._action_listener_started = True
+                self._action_listener_task = asyncio.create_task(
+                    BotActionListener(
+                        self.config.database_url,
+                        self.event_handlers,
+                    ).start()
+                )
+                logger.info("Started bot action listener task")
 
             if not hasattr(self, "_announcement_loop_started"):
                 self._announcement_loop_started = True
@@ -473,7 +485,8 @@ class GameSchedulerBot(commands.Bot):
         """Handle raw message delete event to detect embed deletions.
 
         Looks up the deleted message in game_sessions. If a game embed is found,
-        publishes EMBED_DELETED to RabbitMQ for the API service to cancel the game.
+        cancels the game directly without enqueuing a bot notification (the Discord
+        message is already gone).
         """
         message_id = str(payload.message_id)
         try:
@@ -483,16 +496,21 @@ class GameSchedulerBot(commands.Bot):
                 )
                 game = result.scalar_one_or_none()
 
-            if game is None:
-                logger.debug("Message %s deleted but not a game embed, ignoring", message_id)
-                return
+                if game is None:
+                    logger.debug("Message %s deleted but not a game embed, ignoring", message_id)
+                    return
 
-            if self.event_publisher:
-                await self.event_publisher.publish_embed_deleted(
-                    game_id=str(game.id),
-                    channel_id=str(payload.channel_id),
-                    message_id=message_id,
-                )
+                if game.status in (GameStatus.ARCHIVED, GameStatus.COMPLETED):
+                    logger.debug(
+                        "Message %s deleted for %s game %s, ignoring",
+                        message_id,
+                        game.status,
+                        game.id,
+                    )
+                    return
+
+                await cancel_game(db, game, enqueue_cancellation=False)
+                await db.commit()
         except Exception as e:
             logger.exception("Error handling message delete for message %s: %s", message_id, e)
 
@@ -576,16 +594,11 @@ class GameSchedulerBot(commands.Bot):
         """Check for embed posts deleted while the bot was offline.
 
         Queries all game sessions with a message_id, then fetches each Discord
-        message to see if it still exists. For each 404, publishes EMBED_DELETED
-        so the API service cancels the game automatically.
+        message to see if it still exists. For each 404, cancels the game directly.
 
         ~60 concurrent workers keep the global rate-limit bucket saturated while
         individual per-channel sleeps avoid per-channel bursts.
         """
-        if not self.event_publisher:
-            logger.warning("Skipping embed deletion sweep: no event publisher")
-            return
-
         sweep_started_counter.add(1, {"reason": reason})
         start_time = time.time()
 
@@ -626,9 +639,7 @@ class GameSchedulerBot(commands.Bot):
 
         redis = await get_redis_client()
         num_workers = min(60, queue.qsize())
-        workers = [
-            self._run_sweep_worker(queue, redis, self.event_publisher) for _ in range(num_workers)
-        ]
+        workers = [self._run_sweep_worker(queue, redis) for _ in range(num_workers)]
         await asyncio.gather(*workers)
         sweep_duration_histogram.record(time.time() - start_time, {"reason": reason})
         logger.info("Embed deletion sweep complete")
@@ -637,12 +648,11 @@ class GameSchedulerBot(commands.Bot):
         self,
         queue: "asyncio.PriorityQueue[tuple]",
         redis: RedisClient,
-        publisher: "BotEventPublisher",
     ) -> None:
         """Process one worker loop for the embed deletion sweep.
 
-        Claims rate-limit slots, fetches Discord messages, and publishes
-        EMBED_DELETED for any message that returns 404.
+        Claims rate-limit slots, fetches Discord messages, and cancels any
+        game whose Discord embed returns 404.
         """
         while True:
             try:
@@ -668,17 +678,27 @@ class GameSchedulerBot(commands.Bot):
                 sweep_messages_checked_counter.add(1)
             except discord.NotFound:
                 sweep_deletions_detected_counter.add(1)
-                await publisher.publish_embed_deleted(
-                    game_id=game_id,
-                    channel_id=channel_id,
-                    message_id=message_id,
-                )
+                await self._cancel_missing_embed(game_id)
             except Exception:
                 logger.exception(
                     "Sweep: error checking message %s for game %s",
                     message_id,
                     game_id,
                 )
+
+    async def _cancel_missing_embed(self, game_id: str) -> None:
+        """Cancel a game whose Discord embed was not found during the sweep."""
+        try:
+            async with get_bypass_db_session() as db:
+                result = await db.execute(select(GameSession).where(GameSession.id == game_id))
+                game = result.scalar_one_or_none()
+                if game is None:
+                    logger.info("Sweep: game %s not found in DB, skipping cancel", game_id)
+                    return
+                await cancel_game(db, game, enqueue_cancellation=False)
+                await db.commit()
+        except Exception:
+            logger.exception("Sweep: failed to cancel game %s", game_id)
 
     @staticmethod
     def _extract_game_id(message: discord.Message) -> str | None:
