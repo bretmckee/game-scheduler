@@ -505,6 +505,23 @@ async def create_game(
         _handle_game_operation_errors(e, game_data)
 
 
+def _collect_hosts_by_guild(
+    games: list,
+) -> defaultdict[str, list[str]]:
+    """Return guild_discord_id → unique host_discord_ids mapping for batch display-name fetch."""
+    hosts_by_guild: defaultdict[str, list[str]] = defaultdict(list)
+    for game in games:
+        guild_discord_id = game.guild.guild_id if game.guild else None
+        host_discord_id = game.host.discord_id if game.host else None
+        if (
+            guild_discord_id
+            and host_discord_id
+            and host_discord_id not in hosts_by_guild[guild_discord_id]
+        ):
+            hosts_by_guild[guild_discord_id].append(host_discord_id)
+    return hosts_by_guild
+
+
 @router.get("", response_model=game_schemas.GameListResponse)
 async def list_games(
     guild_id: Annotated[str | None, Query(description="Filter by guild UUID")] = None,
@@ -561,16 +578,7 @@ async def list_games(
         authorized_games.append(game)
 
     # Batch-fetch host display names grouped by guild — one API call per guild, hosts deduplicated.
-    hosts_by_guild: defaultdict[str, list[str]] = defaultdict(list)
-    for game in authorized_games:
-        guild_discord_id = game.guild.guild_id if game.guild else None
-        host_discord_id = game.host.discord_id if game.host else None
-        if (
-            guild_discord_id
-            and host_discord_id
-            and host_discord_id not in hosts_by_guild[guild_discord_id]
-        ):
-            hosts_by_guild[guild_discord_id].append(host_discord_id)
+    hosts_by_guild = _collect_hosts_by_guild(authorized_games)
 
     prefetched_display_data: dict[str, dict[str, str | None]] = {}
     if hosts_by_guild:

@@ -112,6 +112,38 @@ class ChannelResolver:
                 resolved = resolved.replace(full_url, f"<#{url_channel_id}>", 1)
         return resolved, errors
 
+    def _resolve_single_hash_match(
+        self,
+        resolved: str,
+        channel_name: str,
+        matching_channels: list[dict],
+        text_channels: list[dict],
+    ) -> tuple[str, dict | None]:
+        """Resolve one #channel_name match. Returns (updated_resolved, error_or_None)."""
+        if len(matching_channels) == 1:
+            resolved = resolved.replace(f"#{channel_name}", f"<#{matching_channels[0]['id']}>", 1)
+            return resolved, None
+        if len(matching_channels) > 1:
+            error = {
+                "type": "ambiguous",
+                "input": f"#{channel_name}",
+                "reason": f"Multiple channels match '#{channel_name}'",
+                "suggestions": [{"id": ch["id"], "name": ch["name"]} for ch in matching_channels],
+            }
+            return resolved, error
+        if channel_name.isdigit():
+            return resolved, None
+        similar_channels = [
+            ch for ch in text_channels if channel_name.lower() in ch["name"].lower()
+        ][:5]
+        error = {
+            "type": "not_found",
+            "input": f"#{channel_name}",
+            "reason": f"Channel '#{channel_name}' not found",
+            "suggestions": [{"id": ch["id"], "name": ch["name"]} for ch in similar_channels],
+        }
+        return resolved, error
+
     def _resolve_hash_mentions(
         self,
         resolved: str,
@@ -124,38 +156,11 @@ class ChannelResolver:
             matching_channels = [
                 ch for ch in text_channels if ch["name"].lower() == channel_name.lower()
             ]
-
-            if len(matching_channels) == 1:
-                resolved = resolved.replace(
-                    f"#{channel_name}",
-                    f"<#{matching_channels[0]['id']}>",
-                    1,
-                )
-            elif len(matching_channels) > 1:
-                errors.append({
-                    "type": "ambiguous",
-                    "input": f"#{channel_name}",
-                    "reason": f"Multiple channels match '#{channel_name}'",
-                    "suggestions": [
-                        {"id": ch["id"], "name": ch["name"]} for ch in matching_channels
-                    ],
-                })
-            else:
-                # Pure integers (e.g. #1, #42) are likely list markers, not channel
-                # references. Pass them through unchanged rather than erroring.
-                if channel_name.isdigit():
-                    continue
-                similar_channels = [
-                    ch for ch in text_channels if channel_name.lower() in ch["name"].lower()
-                ][:5]
-                errors.append({
-                    "type": "not_found",
-                    "input": f"#{channel_name}",
-                    "reason": f"Channel '#{channel_name}' not found",
-                    "suggestions": [
-                        {"id": ch["id"], "name": ch["name"]} for ch in similar_channels
-                    ],
-                })
+            resolved, error = self._resolve_single_hash_match(
+                resolved, channel_name, matching_channels, text_channels
+            )
+            if error is not None:
+                errors.append(error)
         return resolved, errors
 
     def _check_snowflake_tokens(

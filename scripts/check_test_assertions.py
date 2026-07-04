@@ -150,6 +150,41 @@ def _is_patch_call(context_expr: ast.expr) -> bool:
     return False
 
 
+def _attr_chain_root(node: ast.expr) -> str | None:
+    """Return the root Name id of an attribute chain, or None."""
+    while isinstance(node, ast.Attribute):
+        node = node.value
+    return node.id if isinstance(node, ast.Name) else None
+
+
+def _alias_has_assert_call(
+    func_node: ast.FunctionDef | ast.AsyncFunctionDef,
+    alias: str,
+) -> bool:
+    """Return True if alias has any assert_* method call in func_node."""
+    return any(
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr.startswith("assert_")
+        and _attr_chain_root(node.func.value) == alias
+        for node in ast.walk(func_node)
+    )
+
+
+def _alias_has_attr_verification(
+    func_node: ast.FunctionDef | ast.AsyncFunctionDef,
+    alias: str,
+) -> bool:
+    """Return True if alias has any mock verification attribute access in func_node."""
+    return any(
+        isinstance(node, ast.Attribute)
+        and node.attr in _MOCK_VERIFICATION_ATTRS
+        and isinstance(node.value, ast.Name)
+        and node.value.id == alias
+        for node in ast.walk(func_node)
+    )
+
+
 def get_unasserted_named_mocks(
     func_node: ast.FunctionDef | ast.AsyncFunctionDef,
 ) -> list[str]:
@@ -164,31 +199,12 @@ def get_unasserted_named_mocks(
         and _is_patch_call(item.context_expr)
     ]
 
-    def _root_name(node: ast.expr) -> str | None:
-        """Return the root Name id of an attribute chain, or None."""
-        while isinstance(node, ast.Attribute):
-            node = node.value
-        return node.id if isinstance(node, ast.Name) else None
-
-    unasserted = []
-    for alias in aliases:
-        has_assert_call = any(
-            isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Attribute)
-            and node.func.attr.startswith("assert_")
-            and _root_name(node.func.value) == alias
-            for node in ast.walk(func_node)
-        )
-        has_attr_verification = any(
-            isinstance(node, ast.Attribute)
-            and node.attr in _MOCK_VERIFICATION_ATTRS
-            and isinstance(node.value, ast.Name)
-            and node.value.id == alias
-            for node in ast.walk(func_node)
-        )
-        if not (has_assert_call or has_attr_verification):
-            unasserted.append(alias)
-    return unasserted
+    return [
+        alias
+        for alias in aliases
+        if not _alias_has_assert_call(func_node, alias)
+        and not _alias_has_attr_verification(func_node, alias)
+    ]
 
 
 def _receiver_method_name(call_node: ast.Call) -> str | None:

@@ -1051,6 +1051,24 @@ class GameService:
 
         return True
 
+    def _process_carryover_group(
+        self,
+        new_game: game_model.GameSession,
+        source_participants: list[participant_model.GameParticipant],
+        deadline: datetime.datetime,
+        new_participant_by_user: dict[str, participant_model.GameParticipant],
+    ) -> bool:
+        """Apply carryover schedules for one group. Returns True if any record was added."""
+        deadline_naive = (
+            deadline.astimezone(datetime.UTC).replace(tzinfo=None) if deadline.tzinfo else deadline
+        )
+        need_notify = False
+        for source_participant in source_participants:
+            need_notify |= self._add_participant_carryover_schedules(
+                new_game, source_participant, new_participant_by_user, deadline_naive
+            )
+        return need_notify
+
     async def _apply_deadline_carryover(
         self,
         new_game: game_model.GameSession,
@@ -1083,31 +1101,19 @@ class GameService:
             p.user_id: p for p in new_game.participants
         }
 
-        need_notify = False
-
         groups: list[tuple[list[participant_model.GameParticipant], datetime.datetime | None]] = []
         if player_with_deadline:
             groups.append((players_to_carry, clone_data.player_deadline))
         if waitlist_with_deadline:
             groups.append((waitlist_to_carry, clone_data.waitlist_deadline))
 
+        need_notify = False
         for source_participants, deadline in groups:
-            if not deadline or not source_participants:
-                continue
-
-            deadline_naive = (
-                deadline.astimezone(datetime.UTC).replace(tzinfo=None)
-                if deadline.tzinfo
-                else deadline
-            )
-
-            for source_participant in source_participants:
-                need_notify |= self._add_participant_carryover_schedules(
-                    new_game,
-                    source_participant,
-                    new_participant_by_user,
-                    deadline_naive,
+            if deadline and source_participants:
+                need_notify |= self._process_carryover_group(
+                    new_game, source_participants, deadline, new_participant_by_user
                 )
+
         if need_notify:
             await self.db.flush()
             await self.db.execute(

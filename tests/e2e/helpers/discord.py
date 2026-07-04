@@ -373,6 +373,18 @@ class DiscordTestHelper:
                         f"Participant line {i} should start with '{i}.': {line}"
                     )
 
+    def _check_waitlist_numbering(
+        self,
+        waitlisted_field_value: str,
+        participants_value: str,
+    ) -> None:
+        """Assert waitlist lines are numbered sequentially after the confirmed player list."""
+        participant_count = len([line for line in participants_value.split("\n") if line.strip()])
+        waitlist_lines = waitlisted_field_value.split("\n")
+        for i, line in enumerate(waitlist_lines, start=participant_count + 1):
+            if line.strip():
+                assert line.startswith(f"{i}."), f"Waitlist line should start with '{i}.': {line}"
+
     def _verify_waitlist_field(
         self,
         field_map: dict[str, str],
@@ -380,25 +392,16 @@ class DiscordTestHelper:
         verify_numbered_participants: bool,
     ) -> None:
         """Verify waitlist field and numbering if present."""
-        waitlisted_field_name = None
-        waitlisted_field_value = None
-        for name, value in field_map.items():
-            if "Waitlisted" in name:
-                waitlisted_field_name = name
-                waitlisted_field_value = value
-                break
-
-        if waitlisted_field_name and waitlisted_field_value and waitlisted_field_value != "None":
-            if verify_numbered_participants:
-                participant_count = len([
-                    line for line in participants_value.split("\n") if line.strip()
-                ])
-                waitlist_lines = waitlisted_field_value.split("\n")
-                for i, line in enumerate(waitlist_lines, start=participant_count + 1):
-                    if line.strip():
-                        assert line.startswith(f"{i}."), (
-                            f"Waitlist line should start with '{i}.': {line}"
-                        )
+        waitlisted_field_value = next(
+            (value for name, value in field_map.items() if "Waitlisted" in name),
+            None,
+        )
+        if (
+            waitlisted_field_value
+            and waitlisted_field_value != "None"
+            and verify_numbered_participants
+        ):
+            self._check_waitlist_numbering(waitlisted_field_value, participants_value)
 
     def _verify_links_field(self, field_map: dict[str, str], expected_game_id: int | None) -> None:
         """Verify Links field contains calendar URL if game_id provided."""
