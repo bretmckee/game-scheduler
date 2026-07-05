@@ -250,9 +250,64 @@ Verify no remaining imports of `shared/messaging/` anywhere in `services/` or `s
 
 ---
 
-## Phase 9: Docker, Config, and Dependency Cleanup
+## Phase 9: Add Missing Integration and E2E Tests
 
-### Task 9.1: Remove RabbitMQ from compose files, config templates, and Python dependencies
+### Task 9.1: Add integration tests for Flows 2, 3, 4, and 9
+
+Add new integration tests covering the four flows that currently lack real-DB integration coverage.
+
+- **Flow 2 (`GAME_CANCELLED`)**: Call `DELETE /api/v1/games/{id}` via `create_authenticated_client`; assert a `bot_action_queue` row exists with `action_type='game_cancelled'` and correct `game_id`. Pattern identical to the GAME_CREATED test in `test_game_signup_methods.py`.
+
+- **Flow 3 (`PLAYER_REMOVED`)**: Create a game, insert a participant directly via `admin_db_sync`, call `PUT /api/v1/games/{id}` with `removed_participant_ids`; assert a `bot_action_queue` row with `action_type='player_removed'`.
+
+- **Flow 4 (`NOTIFICATION_SEND_DM`)**: Create a game with `max_players=1`, add one confirmed participant and one waitlist participant, remove the confirmed participant via `PUT /api/v1/games/{id}` with `removed_participant_ids` to trigger `_detect_and_notify_transitions`; assert a `bot_action_queue` row with `action_type='send_dm'`.
+
+- **Flow 9 (`EMBED_DELETED`)**: Call `cancel_game(db, game)` (no `event_publisher` argument) directly against a real async DB session; assert the game row is deleted and no `bot_action_queue` row is created. Pattern matches `test_participant_drop_event.py` direct-handler style.
+
+These tests cover already-implemented code — no TDD RED phase required; write passing tests directly.
+
+- **Files**:
+  - `tests/integration/test_game_cancellation_queue.py` — new: Flow 2 bot_action_queue assertion
+  - `tests/integration/test_player_removed_queue.py` — new: Flows 3 and 4 bot_action_queue assertions
+  - `tests/integration/test_embed_deletion_integration.py` — new: Flow 9 real-DB cancel_game test
+- **Success**:
+  - All new integration tests pass
+  - `scripts/run-integration-tests.sh |& tee output-integration.txt` shows new tests PASSED
+- **Research References**:
+  - #file:../research/20260408-02-remove-rabbitmq-research.md (Lines 313-327) — coverage matrix identifying gaps
+  - #file:../research/20260408-02-remove-rabbitmq-research.md (Lines 328-374) — missing test descriptions and patterns per flow
+- **Dependencies**:
+  - Phase 8 (migration complete; cancel_game and bot_action_queue inserts are live)
+
+### Task 9.2: Add integration and e2e tests for Flow 10 SSE delivery
+
+Add tests verifying that `pg_notify('game_updated_sse', ...)` fires from bot handler paths and that the SSE endpoint delivers the event to a connected client.
+
+- **Integration**: Add a test that calls `handle_join_game` (or similar bot handler) then opens an asyncpg `LISTEN game_updated_sse` connection and asserts the notification fires. Reuse producer/consumer machinery from `test_sse_bridge_integration.py`.
+
+- **E2E**: Add a test that opens `authenticated_admin_client.stream("GET", "/api/v1/sse/game-updates")` in a background task, calls `POST /api/v1/games/{id}/join`, and asserts a `game_updated` SSE event is received. Use `asyncio.create_task` + `asyncio.wait` pattern from `test_sse_bridge_integration.py`. Override the stream timeout: `timeout=httpx.Timeout(connect=10.0, read=30.0)`.
+
+These tests cover already-implemented code — no TDD RED phase required.
+
+- **Files**:
+  - `tests/integration/test_game_updated_sse_bot.py` — new: pg_notify fires after bot join handler
+  - `tests/e2e/test_game_updated_sse_e2e.py` — new: SSE event delivered after API join action
+- **Success**:
+  - Integration test passes: asyncpg listener receives `game_updated_sse` notification
+  - E2E test passes: SSE client receives `game_updated` event after `POST /api/v1/games/{id}/join`
+  - `scripts/run-integration-tests.sh |& tee output-integration.txt` shows new tests PASSED
+  - `scripts/run-e2e-tests.sh |& tee output-e2e.txt` shows new test PASSED
+- **Research References**:
+  - #file:../research/20260408-02-remove-rabbitmq-research.md (Lines 360-374) — Flow 10 SSE integration and e2e patterns
+  - #file:../research/20260408-02-remove-rabbitmq-research.md (Lines 375-383) — notes on coverage gaps
+- **Dependencies**:
+  - Task 9.1
+
+---
+
+## Phase 10: Docker, Config, and Dependency Cleanup
+
+### Task 10.1: Remove RabbitMQ from compose files, config templates, and Python dependencies
 
 Remove the `rabbitmq` service block from all compose files. Remove the `retry` service blocks from all compose files. Remove `RABBITMQ_URL`, `RABBITMQ_HOST`, `RABBITMQ_DEFAULT_USER`, `RABBITMQ_DEFAULT_PASS` from all env template files. Remove `aio-pika`, `pika`, and `opentelemetry-instrumentation-aio-pika` from `pyproject.toml`. Remove RabbitMQ instrumentation setup from `shared/telemetry.py`. Run `uv sync` to update the lockfile. Delete `docker/retry.Dockerfile`. Remove RabbitMQ readiness-wait logic from bot/api entrypoints if present.
 

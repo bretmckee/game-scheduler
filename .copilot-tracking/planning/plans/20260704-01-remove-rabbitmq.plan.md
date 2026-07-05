@@ -98,10 +98,18 @@ Replace all RabbitMQ message flows with PostgreSQL LISTEN/NOTIFY + a new `bot_ac
 - [x] Task 8.1: Verify all callers migrated; delete `shared/messaging/`, `services/retry/`, dead `BotEventPublisher` file; delete corresponding tests
   - Details: .copilot-tracking/planning/details/20260704-01-remove-rabbitmq-details.md (Lines 231-252)
 
-### [ ] Phase 9: Docker, Config, and Dependency Cleanup
+### [ ] Phase 9: Add Missing Integration and E2E Tests
 
-- [ ] Task 9.1: Remove `rabbitmq` + `retry` from all compose files; remove RabbitMQ env vars; remove `aio-pika`, `pika`, OTel aio-pika from `pyproject.toml`; run `uv sync`; clean entrypoints and Dockerfiles
-  - Details: .copilot-tracking/planning/details/20260704-01-remove-rabbitmq-details.md (Lines 255-277)
+- [ ] Task 9.1: Add integration tests for Flows 2 (GAME_CANCELLED), 3 (PLAYER_REMOVED), 4 (NOTIFICATION_SEND_DM), and 9 (EMBED_DELETED) asserting correct `bot_action_queue` rows and DB state
+  - Details: .copilot-tracking/planning/details/20260704-01-remove-rabbitmq-details.md (Lines 255-280)
+
+- [ ] Task 9.2: Add integration test verifying `pg_notify('game_updated_sse', ...)` fires after a bot join handler call, and add e2e test verifying SSE event delivery after `POST /api/v1/games/{id}/join`
+  - Details: .copilot-tracking/planning/details/20260704-01-remove-rabbitmq-details.md (Lines 282-306)
+
+### [ ] Phase 10: Docker, Config, and Dependency Cleanup
+
+- [ ] Task 10.1: Remove `rabbitmq` + `retry` from all compose files; remove RabbitMQ env vars; remove `aio-pika`, `pika`, OTel aio-pika from `pyproject.toml`; run `uv sync`; clean entrypoints and Dockerfiles
+  - Details: .copilot-tracking/planning/details/20260704-01-remove-rabbitmq-details.md (Lines 310-344)
 
 ## Dependencies
 

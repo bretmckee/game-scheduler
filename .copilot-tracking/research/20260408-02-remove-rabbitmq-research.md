@@ -302,3 +302,82 @@ within the same transaction. Bot reads these from the queue row — game row is 
   - `services/retry/` directory deleted
   - `services/api/services/embed_deletion_consumer.py` deleted
   - `shared/services/game_cancellation.py` exists and is used by both API and bot
+
+---
+
+## Addendum: Test Coverage Analysis (2026-07-05)
+
+Post-migration analysis of which flows have integration and e2e test coverage,
+and which tests remain to be added.
+
+### Coverage by Flow
+
+| Flow                                              | Integration                                                                                                                                   | E2E                                                                                                  |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| 1 `GAME_CREATED`                                  | ✅ `test_game_signup_methods` — asserts `bot_action_queue` row `game_created`; `test_clone_game_endpoint`, `test_recurrence_clone` also cover | ✅ `test_game_announcement`; precondition in most other tests                                        |
+| 2 `GAME_CANCELLED`                                | ❌                                                                                                                                            | ✅ `test_game_cancellation`                                                                          |
+| 3 `PLAYER_REMOVED`                                | ❌                                                                                                                                            | ✅ `test_player_removal`                                                                             |
+| 4 `NOTIFICATION_SEND_DM`                          | ❌                                                                                                                                            | ✅ `test_waitlist_promotion` (promotion); `test_host_added_dropout_notification` (demotion)          |
+| 5 `NOTIFICATION_DUE`                              | ✅ `test_notification_daemon` — `bot_action_queue` row `notification_due`; `test_clone_confirmation_notification`                             | ✅ `test_game_reminder`; `test_join_notification`                                                    |
+| 6 `GAME_STATUS_TRANSITION_DUE`                    | ✅ `test_status_transitions` — `bot_action_queue` row `status_transition_due`                                                                 | ✅ `test_game_status_transitions`                                                                    |
+| 7 `PARTICIPANT_DROP_DUE`                          | ✅ `test_participant_action_daemon` — `bot_action_queue` row `participant_drop_due`; `test_participant_drop_event`                            | ✅ `test_clone_game_e2e`                                                                             |
+| 8 `GAME_UPDATED` (API→SSE)                        | ✅ `test_sse_bridge_integration` — mock producer sends `pg_notify('game_updated_sse', ...)`; verifies SSE delivery and guild filtering        | ⚠️ Side-effect only in `test_game_update`, `test_user_join` (Discord embed verified, not SSE stream) |
+| 9 `EMBED_DELETED`                                 | ❌ (unit tests exist: `test_bot.py` mocks `cancel_game`; `test_game_cancellation.py` mocks DB — but no real-DB integration test)              | ✅ `test_embed_deletion` — real-time `on_message_delete` and sweep paths                             |
+| 10 `GAME_UPDATED` (bot-initiated join/leave/drop) | ⚠️ `test_join_game`, `test_leave_game` verify `message_refresh_queue` insert but not `pg_notify('game_updated_sse', ...)`                     | ❌ No dedicated test for SSE delivery from bot handler path                                          |
+
+### Missing Tests and Effort Estimates
+
+All missing integration tests follow the same pattern established in
+`test_game_signup_methods.py` and `test_participant_drop_event.py`.
+All missing e2e SSE work reuses patterns from `test_sse_bridge_integration.py`
+and the `authenticated_admin_client` fixture (already `httpx.AsyncClient`).
+
+**Flow 2 (`GAME_CANCELLED`) — integration — Easy**
+
+`DELETE /api/v1/games/{id}` via `create_authenticated_client` → assert
+`bot_action_queue` has row with `action_type = 'game_cancelled'` and correct `game_id`.
+Identical structure to the GAME_CREATED test, different HTTP verb.
+
+**Flow 3 (`PLAYER_REMOVED`) — integration — Easy–Moderate**
+
+`POST /api/v1/games`, insert participant directly via `admin_db_sync`,
+`PUT /api/v1/games/{id}` with `removed_participant_ids` → assert
+`bot_action_queue` row with `action_type = 'player_removed'`.
+
+**Flow 4 (`NOTIFICATION_SEND_DM`) — integration — Moderate**
+
+Requires a full-game + waitlist game state to trigger `_detect_and_notify_transitions`:
+create game at `max_players=1`, add one confirmed participant plus one waitlist participant,
+then remove the confirmed participant to trigger promotion. Same `bot_action_queue` assertion.
+
+**Flow 9 (`EMBED_DELETED`) — integration — Easy**
+
+Call `cancel_game(db, game, enqueue_cancellation=False)` directly against a real DB session
+(same direct-handler pattern as `test_participant_drop_event.py`) → assert game row deleted.
+No `bot_action_queue` row expected (`enqueue_cancellation=False`).
+
+**Flow 10 SSE delivery — integration or e2e — Moderate**
+
+Two complementary approaches:
+
+- _Integration_: extend `test_join_game.py` or add a sibling test that calls `handle_join_game`
+  then opens a `pg_notify` listener (asyncpg) and verifies the notify fires. Reuses
+  `test_sse_bridge_integration.py` producer/consumer machinery.
+
+- _E2E_: open `authenticated_admin_client.stream("GET", "/api/v1/sse/game-updates")` in a
+  background task, POST `/api/v1/games/{id}/join`, assert `game_updated` event received.
+  API join and Discord-button join both call the same underlying `pg_notify` — testing via
+  API is sufficient. Main complexity is the async orchestration (`asyncio.create_task` +
+  `asyncio.wait`) already demonstrated in `test_sse_bridge_integration.py`.
+  The `timeout=10.0` on `authenticated_admin_client` must be overridden for the stream call
+  (pass `timeout=httpx.Timeout(connect=10.0, read=30.0)` to `stream()`).
+
+### Notes
+
+- Flows 2, 3, 4 lack integration tests because they were API-triggered flows with no scheduler
+  daemon to test in isolation; the bot processing side was only verifiable e2e.
+  With `bot_action_queue` the producer side is now trivially checkable in integration.
+- Flow 9 has adequate unit coverage but no real-DB integration coverage.
+- Flow 8 SSE is tested integration-only with a mock producer; no e2e test verifies that a real
+  API action actually delivers an SSE event to a connected client.
+- Flow 10 SSE is the only flow where both integration and e2e gaps exist simultaneously.
