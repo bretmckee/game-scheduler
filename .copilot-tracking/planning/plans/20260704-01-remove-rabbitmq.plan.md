@@ -93,9 +93,9 @@ Replace all RabbitMQ message flows with PostgreSQL LISTEN/NOTIFY + a new `bot_ac
 - [x] Task 7.1: Write xfail tests then replace `BotEventPublisher.publish_game_updated()` in `join_game.py`, `leave_game.py`, `participant_drop.py` with direct inserts + `pg_notify`; delete `publish_game_updated` (TDD)
   - Details: .copilot-tracking/planning/details/20260704-01-remove-rabbitmq-details.md (Lines 205-228)
 
-### [ ] Phase 8: Remove Dead Messaging Infrastructure
+### [x] Phase 8: Remove Dead Messaging Infrastructure
 
-- [ ] Task 8.1: Verify all callers migrated; delete `shared/messaging/`, `services/retry/`, dead `BotEventPublisher` file; delete corresponding tests
+- [x] Task 8.1: Verify all callers migrated; delete `shared/messaging/`, `services/retry/`, dead `BotEventPublisher` file; delete corresponding tests
   - Details: .copilot-tracking/planning/details/20260704-01-remove-rabbitmq-details.md (Lines 231-252)
 
 ### [ ] Phase 9: Docker, Config, and Dependency Cleanup

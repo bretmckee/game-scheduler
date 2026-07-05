@@ -21,24 +21,21 @@
 
 """Shared fixtures for integration tests."""
 
-import contextlib
 import os
 from datetime import UTC, datetime
 
 import httpx
-import pika
 import pytest
 
 from shared.cache import client as cache_module
 from shared.cache.keys import CacheKeys
 from shared.data_access.guild_isolation import clear_current_guild_ids
 from shared.database import engine
-from shared.messaging.config import close_rabbitmq_connection
 
 
 @pytest.fixture(scope="module")
 def rabbitmq_url():
-    """Get RabbitMQ URL from environment."""
+    """Get RabbitMQ URL from environment (kept for backward compatibility)."""
     return os.getenv("RABBITMQ_URL", "amqp://guest:guest@rabbitmq:5672/")
 
 
@@ -53,52 +50,6 @@ async def async_client(api_base_url):
     client = httpx.AsyncClient(base_url=api_base_url, timeout=30.0)
     yield client
     await client.aclose()
-
-
-@pytest.fixture
-def rabbitmq_connection(rabbitmq_url):
-    """Create RabbitMQ connection for test setup/assertions."""
-    connection = pika.BlockingConnection(pika.URLParameters(rabbitmq_url))
-    yield connection
-    connection.close()
-
-
-@pytest.fixture
-def rabbitmq_channel(rabbitmq_connection):
-    """Create RabbitMQ channel for test operations."""
-    channel = rabbitmq_connection.channel()
-    yield channel
-    channel.close()
-
-
-# ============================================================================
-# RabbitMQ Helper Functions
-# ============================================================================
-
-
-def get_queue_message_count(channel, queue_name):
-    """Get number of messages in queue."""
-    result = channel.queue_declare(queue=queue_name, durable=True, passive=True)
-    return result.method.message_count
-
-
-def consume_one_message(channel, queue_name, timeout=5):
-    """Consume one message from queue with timeout."""
-    for method, properties, body in channel.consume(
-        queue_name, auto_ack=False, inactivity_timeout=timeout
-    ):
-        if method is None:
-            return None, None, None
-        channel.basic_ack(method.delivery_tag)
-        channel.cancel()
-        return method, properties, body
-    return None, None, None
-
-
-def purge_queue(channel, queue_name):
-    """Purge all messages from a queue."""
-    with contextlib.suppress(Exception):
-        channel.queue_purge(queue_name)
 
 
 @pytest.fixture(autouse=True)
@@ -170,14 +121,7 @@ async def cleanup_db_engine():
     await engine.dispose()
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
 async def reset_rabbitmq_connection():
-    """
-    Reset global RabbitMQ connection singleton between integration tests.
-
-    Mirrors the pattern used by reset_redis_singleton. Prevents aiormq
-    from holding a reference to a closed event loop across tests when
-    asyncio_default_fixture_loop_scope is "function".
-    """
-    yield
-    await close_rabbitmq_connection()
+    """No-op fixture kept for backward compatibility."""
+    return

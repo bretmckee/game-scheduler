@@ -159,4 +159,52 @@ E2E tests are failing because:
 
 ### Modified
 
+- `shared/schemas/events.py` — added `NotificationDueEvent` and `NotificationSendDMEvent` types (moved from deleted `shared/messaging/events.py`)
+- `services/bot/events/handlers.py` — removed `EventConsumer`, `Event`, `EventType`, `get_bot_publisher` imports; removed `start_consuming`, `stop_consuming`, `_process_event` dead methods; removed `self.consumer` and `self._handlers` fields; updated `_handle_clone_confirmation` to call `CloneConfirmationView` without `publisher`; updated import to use `shared.schemas.events` for `NotificationDueEvent`, `NotificationSendDMEvent`
+- `services/bot/views/clone_confirmation_view.py` — removed `BotEventPublisher` import and `publisher` parameter from `__init__`
+- `services/bot/handlers/button_handler.py` — removed `BotEventPublisher` import and `publisher` parameter from `__init__`
+- `services/bot/bot.py` — removed `BotEventPublisher` import and `self.event_publisher` field; removed publisher creation/connect in `setup_hook`; removed `start_consuming` call from `on_ready`; removed `stop_consuming`/`disconnect` from `close()`; `ButtonHandler()` called without publisher
+- `services/bot/events/__init__.py` — removed `BotEventPublisher` import and export
+- `shared/database.py` — removed `publish_deferred_events_after_commit` and `clear_deferred_events_after_rollback` SQLAlchemy event listeners; removed unused `asyncio` and `event` imports
+- `services/init/main.py` — removed `initialize_rabbitmq` import and call; updated phase count from 5 to 4
+- `tests/unit/services/bot/events/test_handlers_clone.py` — removed `get_bot_publisher` patches; updated `CloneConfirmationView` assertion to remove `publisher=ANY`; updated import to `shared.schemas.events`
+- `tests/unit/services/bot/events/test_handlers_join_notification.py` — updated `NotificationDueEvent` import to `shared.schemas.events`
+- `tests/unit/services/bot/events/test_handlers_lifecycle_events.py` — updated `NotificationDueEvent` import to `shared.schemas.events`
+- `tests/unit/bot/events/test_handlers_misc.py` — removed `get_bot_publisher` patches from clone confirmation tests; updated `NotificationDueEvent` import
+- `tests/unit/bot/views/test_clone_confirmation_view.py` — removed `BotEventPublisher` import and `mock_publisher` fixture; removed `publisher` from test signatures
+- `tests/unit/bot/events/test_handlers_game_events.py` — removed `Event, EventType` import; removed `_process_event` tests (method deleted)
+- `tests/unit/bot/handlers/test_participant_drop_handler.py` — removed `EventType` import; removed `test_participant_drop_due_is_registered_in_event_handlers` test
+- `tests/unit/services/bot/test_bot.py` — removed `BotEventPublisher` patches from setup_hook tests; deleted `test_setup_hook_publisher_initialization_failure`; updated `test_on_raw_message_delete_no_game_no_publish` to assert `cancel_game` not called
+- `tests/unit/bot/test_bot_events.py`, `test_bot_reconnect_repopulation.py`, `test_guild_projection_incremental.py`, `test_sweep_orphaned_embeds.py`, `test_test_server.py`, `test_trigger_sweep.py`, `test_bot_ready.py`, `test_sweep_metrics.py` — removed `instance.event_publisher` assignments from bot fixture functions
+- `tests/unit/services/init/test_main_roles_only.py` — removed `initialize_rabbitmq` patches from all 4 tests
+
 ### Removed
+
+- `shared/messaging/` — deleted entire directory (AMQP publisher/consumer infrastructure)
+- `services/retry/` — deleted entire directory (AMQP retry daemon)
+- `services/bot/events/publisher.py` — deleted `BotEventPublisher` class (all callers migrated)
+- `services/init/rabbitmq.py` — deleted RabbitMQ queue initialization script
+- `services/scheduler/services/notification_service.py` — deleted dead code (replaced by Phase 6 `event_builders.py`)
+- `tests/unit/shared/messaging/` — deleted test directory for deleted module
+- `tests/unit/services/retry/` — deleted test directory for deleted retry service
+- `tests/unit/services/bot/events/test_handlers_init.py` — deleted tests for removed `start_consuming`/`stop_consuming` methods
+- `tests/unit/services/bot/events/test_publisher.py` — deleted tests for deleted `BotEventPublisher`
+- `tests/unit/services/scheduler/test_notification_service.py` — deleted tests for deleted module
+- `tests/unit/shared/test_database_deferred_publishing.py` — deleted tests for removed deferred publishing listeners
+
+### Additional cleanup for integration/e2e test collection
+
+- `compose.int.yaml` — overrode `retry-daemon` with alpine stub; removed `retry-daemon` from `system-ready.depends_on`
+- `compose.e2e.yaml` — added `retry-daemon` alpine stub; removed `retry-daemon` from `system-ready.depends_on`
+- `tests/integration/conftest.py` — removed `pika` import, `close_rabbitmq_connection` import, `rabbitmq_connection`/`rabbitmq_channel` fixtures, `get_queue_message_count`/`consume_one_message`/`purge_queue` helpers, and `reset_rabbitmq_connection` autouse fixture
+- `tests/integration/test_button_handler.py` — removed `BotEventPublisher` import and `mock_publisher` fixture; updated `ButtonHandler()` call to remove publisher
+- `tests/integration/test_clone_game_endpoint.py` — removed `QUEUE_BOT_EVENTS` import and `rabbitmq_channel.queue_purge()` calls
+- `tests/integration/test_game_signup_methods.py` — removed `QUEUE_BOT_EVENTS` import, `rabbitmq_channel` fixture params, and `queue_purge` calls
+- `services/init/main.py` — removed `initialize_rabbitmq` import and call; reduced phase count from 5 to 4
+- `tests/unit/services/init/test_main_roles_only.py` — removed `initialize_rabbitmq` patches from all 4 tests
+- `services/init/rabbitmq.py` — deleted RabbitMQ queue initialization script
+
+### Deleted (integration test cleanup)
+
+- `tests/integration/test_retry_daemon_integration.py` — deleted integration tests for deleted retry daemon
+- `tests/integration/test_rabbitmq_infrastructure.py` — deleted tests for removed RabbitMQ queue infrastructure

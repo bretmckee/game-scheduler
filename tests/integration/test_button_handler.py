@@ -34,7 +34,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from sqlalchemy import text
 
-from services.bot.events.publisher import BotEventPublisher
 from services.bot.handlers.button_handler import ButtonHandler
 from shared.database import BotAsyncSessionLocal, bot_engine
 from shared.utils.status_transitions import GameStatus
@@ -62,15 +61,8 @@ def _make_interaction(custom_id: str | None, discord_user_id: str) -> MagicMock:
 
 
 @pytest.fixture
-def mock_publisher() -> MagicMock:
-    publisher = MagicMock(spec=BotEventPublisher)
-    publisher.publish_game_updated = AsyncMock()
-    return publisher
-
-
-@pytest.fixture
-def handler(mock_publisher: MagicMock) -> ButtonHandler:
-    return ButtonHandler(publisher=mock_publisher)
+def handler() -> ButtonHandler:
+    return ButtonHandler()
 
 
 @pytest.fixture(autouse=True)

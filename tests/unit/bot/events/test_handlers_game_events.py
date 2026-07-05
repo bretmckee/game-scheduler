@@ -32,7 +32,6 @@ import discord
 import pytest
 
 from services.bot.events.handlers import EventHandlers
-from shared.messaging.events import Event, EventType
 
 
 @pytest.fixture
@@ -52,40 +51,6 @@ def _db_ctx(mock_db=None):
     ctx.__aenter__ = AsyncMock(return_value=mock_db)
     ctx.__aexit__ = AsyncMock(return_value=False)
     return mock_db, ctx
-
-
-# ---------------------------------------------------------------------------
-# _process_event
-# ---------------------------------------------------------------------------
-
-
-async def test_process_event_no_handler_registered(handlers):
-    """Unknown event type logs warning and returns without raising."""
-    event = MagicMock(spec=Event)
-    event.event_type = EventType.GAME_STARTED  # not in _handlers
-    await handlers._process_event(event)
-    assert True  # unknown event type handled without raising
-
-
-async def test_process_event_dispatches_to_handler(handlers):
-    """Registered handler is invoked with event data."""
-    mock_handler = AsyncMock()
-    handlers._handlers[EventType.GAME_CREATED] = mock_handler
-    event = MagicMock(spec=Event)
-    event.event_type = EventType.GAME_CREATED
-    event.data = {"game_id": str(uuid4())}
-    await handlers._process_event(event)
-    mock_handler.assert_called_once_with(event.data)
-
-
-async def test_process_event_handler_exception_is_reraised(handlers):
-    """Exception raised by handler is logged and propagated."""
-    handlers._handlers[EventType.GAME_CREATED] = AsyncMock(side_effect=RuntimeError("boom"))
-    event = MagicMock(spec=Event)
-    event.event_type = EventType.GAME_CREATED
-    event.data = {}
-    with pytest.raises(RuntimeError):
-        await handlers._process_event(event)
 
 
 # ---------------------------------------------------------------------------

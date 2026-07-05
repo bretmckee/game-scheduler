@@ -33,7 +33,6 @@ import discord
 from discord.ui import View
 from sqlalchemy import select, text
 
-from services.bot.events.publisher import BotEventPublisher
 from services.bot.handlers.participant_drop import handle_participant_drop_due
 from shared.database import get_db_session
 from shared.models.participant_action_schedule import ParticipantActionSchedule
@@ -62,7 +61,6 @@ class CloneConfirmationView(View):
         schedule_id: ParticipantActionSchedule row to delete on confirm
         game_id: Game session UUID
         participant_id: GameParticipant UUID for the drop handler
-        publisher: Bot event publisher
     """
 
     def __init__(
@@ -70,7 +68,6 @@ class CloneConfirmationView(View):
         schedule_id: str,
         game_id: str,
         participant_id: str,
-        publisher: BotEventPublisher,
     ) -> None:
         """Initialise the view with confirm and decline button stubs.
 
@@ -78,13 +75,11 @@ class CloneConfirmationView(View):
             schedule_id: ParticipantActionSchedule UUID to remove on confirm
             game_id: Game session UUID
             participant_id: GameParticipant UUID
-            publisher: Bot event publisher for GAME_UPDATED notifications
         """
         super().__init__(timeout=None)
         self.schedule_id = schedule_id
         self.game_id = game_id
         self.participant_id = participant_id
-        self.publisher = publisher
 
         self.confirm_button = _ConfirmButton(
             style=discord.ButtonStyle.success,

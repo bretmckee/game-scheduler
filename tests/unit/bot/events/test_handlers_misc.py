@@ -33,7 +33,7 @@ import discord
 import pytest
 
 from services.bot.events.handlers import EventHandlers
-from shared.messaging.events import NotificationDueEvent
+from shared.schemas.events import NotificationDueEvent
 from shared.utils.status_transitions import GameStatus
 
 
@@ -127,7 +127,6 @@ async def test_clone_confirmation_discord_forbidden(handlers):
             new=AsyncMock(return_value=(mock_game, mock_participant)),
         ),
         patch("services.bot.events.handlers.get_db_session", return_value=ctx),
-        patch("services.bot.events.handlers.get_bot_publisher"),
         patch("services.bot.events.handlers.CloneConfirmationView"),
         patch("services.bot.events.handlers.DMFormats"),
     ):
@@ -161,7 +160,6 @@ async def test_clone_confirmation_discord_http_exception(handlers):
             new=AsyncMock(return_value=(mock_game, mock_participant)),
         ),
         patch("services.bot.events.handlers.get_db_session", return_value=ctx),
-        patch("services.bot.events.handlers.get_bot_publisher"),
         patch("services.bot.events.handlers.CloneConfirmationView"),
         patch("services.bot.events.handlers.DMFormats"),
     ):

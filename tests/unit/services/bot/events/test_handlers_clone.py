@@ -22,12 +22,12 @@
 """Unit tests for EventHandlers clone confirmation methods."""
 
 from datetime import UTC, datetime
-from unittest.mock import ANY, AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
 
-from shared.messaging.events import NotificationDueEvent
+from shared.schemas.events import NotificationDueEvent
 
 
 @pytest.mark.asyncio
@@ -66,7 +66,6 @@ async def test_handle_clone_confirmation_sends_dm_with_view(event_handlers, mock
             new_callable=AsyncMock,
             return_value=(sample_game, participant),
         ),
-        patch("services.bot.events.handlers.get_bot_publisher"),
         patch("services.bot.events.handlers.CloneConfirmationView") as mock_view_cls,
         patch("services.bot.events.handlers.DMFormats") as mock_fmt,
     ):
@@ -81,7 +80,6 @@ async def test_handle_clone_confirmation_sends_dm_with_view(event_handlers, mock
         schedule_id=schedule.id,
         game_id=str(sample_game.id),
         participant_id=participant_id,
-        publisher=ANY,
     )
     mock_user.send.assert_awaited_once()
     send_kwargs = mock_user.send.call_args
@@ -201,7 +199,6 @@ async def test_handle_clone_confirmation_user_not_in_cache(event_handlers, mock_
             new_callable=AsyncMock,
             return_value=(sample_game, participant),
         ),
-        patch("services.bot.events.handlers.get_bot_publisher"),
         patch("services.bot.events.handlers.CloneConfirmationView"),
         patch("services.bot.events.handlers.DMFormats") as mock_fmt,
     ):

@@ -32,7 +32,7 @@ import discord
 import pytest
 
 from services.bot.events.handlers import EventHandlers
-from shared.messaging.events import NotificationDueEvent
+from shared.schemas.events import NotificationDueEvent
 
 
 @pytest.fixture

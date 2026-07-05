@@ -79,15 +79,8 @@ class TestGameSchedulerBot:
         bot_config.environment = "development"
         bot = GameSchedulerBot(bot_config)
 
-        mock_publisher = MagicMock()
-        mock_publisher.connect = AsyncMock()
-
         with (
             patch("services.bot.commands.setup_commands", new_callable=AsyncMock),
-            patch(
-                "services.bot.events.publisher.BotEventPublisher",
-                return_value=mock_publisher,
-            ),
             patch("services.bot.handlers.ButtonHandler"),
         ):
             with patch("services.bot.events.handlers.EventHandlers"):
@@ -102,15 +95,8 @@ class TestGameSchedulerBot:
         bot_config.environment = "production"
         bot = GameSchedulerBot(bot_config)
 
-        mock_publisher = MagicMock()
-        mock_publisher.connect = AsyncMock()
-
         with (
             patch("services.bot.commands.setup_commands", new_callable=AsyncMock),
-            patch(
-                "services.bot.events.publisher.BotEventPublisher",
-                return_value=mock_publisher,
-            ),
             patch("services.bot.handlers.ButtonHandler"),
         ):
             with patch("services.bot.events.handlers.EventHandlers"):
@@ -118,21 +104,6 @@ class TestGameSchedulerBot:
                     await bot.setup_hook()
 
                     mock_sync.assert_not_awaited()
-
-    @pytest.mark.asyncio
-    async def test_setup_hook_publisher_initialization_failure(self, bot_config: BotConfig) -> None:
-        """Test setup_hook raises RuntimeError when event publisher fails to initialize."""
-        bot = GameSchedulerBot(bot_config)
-
-        with (
-            patch("services.bot.commands.setup_commands", new_callable=AsyncMock),
-            patch(
-                "services.bot.events.publisher.BotEventPublisher",
-                return_value=None,
-            ),
-            pytest.raises(RuntimeError, match="Failed to initialize event publisher"),
-        ):
-            await bot.setup_hook()
 
     @pytest.mark.asyncio
     async def test_on_ready_event(self, bot_config: BotConfig) -> None:
@@ -179,15 +150,8 @@ class TestGameSchedulerBot:
         bot_config.environment = "production"
         bot = GameSchedulerBot(bot_config)
 
-        mock_publisher = MagicMock()
-        mock_publisher.connect = AsyncMock()
-
         with (
             patch("services.bot.commands.setup_commands", new_callable=AsyncMock),
-            patch(
-                "services.bot.events.publisher.BotEventPublisher",
-                return_value=mock_publisher,
-            ),
             patch("services.bot.handlers.ButtonHandler"),
             patch("services.bot.events.handlers.EventHandlers"),
             patch.object(bot.tree, "sync", new_callable=AsyncMock),
@@ -595,12 +559,8 @@ class TestGameSchedulerBot:
 
     @pytest.mark.asyncio
     async def test_on_raw_message_delete_no_game_no_publish(self, bot_config: BotConfig) -> None:
-        """When deleted message matches no game embed, no event is published."""
+        """When deleted message matches no game embed, no action is taken."""
         bot = GameSchedulerBot(bot_config)
-
-        mock_publisher = AsyncMock()
-        mock_publisher.publish_embed_deleted = AsyncMock()
-        bot.event_publisher = mock_publisher
 
         mock_db = AsyncMock()
         mock_result = MagicMock()
@@ -615,10 +575,13 @@ class TestGameSchedulerBot:
         payload.channel_id = 987654321
         payload.guild_id = 111222333
 
-        with patch("services.bot.bot.get_bypass_db_session", return_value=mock_db_ctx):
+        with (
+            patch("services.bot.bot.get_bypass_db_session", return_value=mock_db_ctx),
+            patch("services.bot.bot.cancel_game", new_callable=AsyncMock) as mock_cancel,
+        ):
             await bot.on_raw_message_delete(payload)
 
-        mock_publisher.publish_embed_deleted.assert_not_awaited()
+        mock_cancel.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_sweep_deleted_embeds_cancels_for_missing_messages(

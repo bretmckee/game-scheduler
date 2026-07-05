@@ -28,9 +28,6 @@ Coordinates all initialization steps for the application environment:
 2. Create database users for RLS enforcement
 3. Run database migrations
 4. Verify database schema
-5. Initialize RabbitMQ infrastructure
-
-All steps are instrumented with OpenTelemetry for observability.
 """
 
 import logging
@@ -47,7 +44,6 @@ from opentelemetry import trace
 
 from services.init.database_users import create_database_users
 from services.init.migrations import run_migrations
-from services.init.rabbitmq import initialize_rabbitmq
 from services.init.verify_schema import verify_schema
 from services.init.wait_postgres import wait_for_postgres
 from shared.telemetry import flush_telemetry, init_telemetry
@@ -123,22 +119,18 @@ def main() -> int:
             _log_phase(2, 5, "Database users configured", completed=True)
 
             if os.getenv("INIT_ROLES_ONLY"):
-                logger.info("INIT_ROLES_ONLY set — skipping migrations, schema check, and RabbitMQ")
+                logger.info("INIT_ROLES_ONLY set — skipping migrations and schema check")
                 span.set_status(trace.Status(trace.StatusCode.OK))
                 _complete_initialization(start_time)
                 return 0
 
-            _log_phase(3, 5, "Running database migrations...")
+            _log_phase(3, 4, "Running database migrations...")
             run_migrations()
-            _log_phase(3, 5, "Migrations complete", completed=True)
+            _log_phase(3, 4, "Migrations complete", completed=True)
 
-            _log_phase(4, 5, "Verifying database schema...")
+            _log_phase(4, 4, "Verifying database schema...")
             verify_schema()
-            _log_phase(4, 5, "Schema verified", completed=True)
-
-            _log_phase(5, 5, "Initializing RabbitMQ infrastructure...")
-            initialize_rabbitmq()
-            _log_phase(5, 5, "RabbitMQ infrastructure ready", completed=True)
+            _log_phase(4, 4, "Schema verified", completed=True)
 
             logger.info("Finalizing initialization...")
             span.set_status(trace.Status(trace.StatusCode.OK))

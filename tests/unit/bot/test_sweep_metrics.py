@@ -41,7 +41,6 @@ def bot() -> GameSchedulerBot:
         instance.config = cfg
         instance.button_handler = None
         instance.event_handlers = None
-        instance.event_publisher = AsyncMock()
         instance.api_cache = None
         instance._sweep_task = None
     return instance

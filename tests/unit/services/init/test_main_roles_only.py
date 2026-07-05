@@ -33,7 +33,6 @@ class TestMainWithInitRolesOnly:
     @patch("services.init.main.flush_telemetry")
     @patch("services.init.main.trace")
     @patch("services.init.main._complete_initialization")
-    @patch("services.init.main.initialize_rabbitmq")
     @patch("services.init.main.verify_schema")
     @patch("services.init.main.run_migrations")
     @patch("services.init.main.create_database_users")
@@ -47,7 +46,6 @@ class TestMainWithInitRolesOnly:
         mock_create_users,
         mock_migrations,
         mock_verify,
-        mock_rabbitmq,
         mock_complete,
         mock_trace,
         mock_flush,
@@ -73,12 +71,10 @@ class TestMainWithInitRolesOnly:
         mock_complete.assert_called_once_with(ANY)
         mock_migrations.assert_not_called()
         mock_verify.assert_not_called()
-        mock_rabbitmq.assert_not_called()
 
     @patch("services.init.main.flush_telemetry")
     @patch("services.init.main.trace")
     @patch("services.init.main._complete_initialization")
-    @patch("services.init.main.initialize_rabbitmq")
     @patch("services.init.main.verify_schema")
     @patch("services.init.main.run_migrations")
     @patch("services.init.main.create_database_users")
@@ -94,7 +90,6 @@ class TestMainWithInitRolesOnly:
         mock_create_users,
         mock_migrations,
         mock_verify,
-        mock_rabbitmq,
         mock_complete,
         mock_trace,
         mock_flush,
@@ -116,31 +111,29 @@ class TestMainWithInitRolesOnly:
 
 
 class TestMainWithoutInitRolesOnly:
-    """Tests verifying all five phases run when INIT_ROLES_ONLY is absent."""
+    """Tests verifying all phases run when INIT_ROLES_ONLY is absent."""
 
     @patch("services.init.main.flush_telemetry")
     @patch("services.init.main.trace")
     @patch("services.init.main._complete_initialization")
-    @patch("services.init.main.initialize_rabbitmq")
     @patch("services.init.main.verify_schema")
     @patch("services.init.main.run_migrations")
     @patch("services.init.main.create_database_users")
     @patch("services.init.main.wait_for_postgres")
     @patch("services.init.main._initialize_telemetry_and_logging")
     @patch.dict("os.environ", {}, clear=False)
-    def test_all_five_phases_run_when_flag_absent(
+    def test_all_phases_run_when_flag_absent(
         self,
         mock_init_telemetry,
         mock_wait,
         mock_create_users,
         mock_migrations,
         mock_verify,
-        mock_rabbitmq,
         mock_complete,
         mock_trace,
         mock_flush,
     ):
-        """When INIT_ROLES_ONLY is not set, all five phases execute."""
+        """When INIT_ROLES_ONLY is not set, all phases execute."""
         os.environ.pop("INIT_ROLES_ONLY", None)
 
         mock_tracer = Mock()
@@ -162,32 +155,28 @@ class TestMainWithoutInitRolesOnly:
         mock_migrations.assert_called_once_with()
         # assert-not-weak: verify_schema() has no parameters
         mock_verify.assert_called_once_with()
-        # assert-not-weak: initialize_rabbitmq() has no parameters
-        mock_rabbitmq.assert_called_once_with()
 
     @patch("services.init.main.flush_telemetry")
     @patch("services.init.main.trace")
     @patch("services.init.main._complete_initialization")
-    @patch("services.init.main.initialize_rabbitmq")
     @patch("services.init.main.verify_schema")
     @patch("services.init.main.run_migrations")
     @patch("services.init.main.create_database_users")
     @patch("services.init.main.wait_for_postgres")
     @patch("services.init.main._initialize_telemetry_and_logging")
     @patch.dict("os.environ", {"INIT_ROLES_ONLY": ""})
-    def test_all_five_phases_run_when_flag_empty(
+    def test_all_phases_run_when_flag_empty(
         self,
         mock_init_telemetry,
         mock_wait,
         mock_create_users,
         mock_migrations,
         mock_verify,
-        mock_rabbitmq,
         mock_complete,
         mock_trace,
         mock_flush,
     ):
-        """When INIT_ROLES_ONLY is set to empty string, all five phases execute."""
+        """When INIT_ROLES_ONLY is set to empty string, all phases execute."""
         mock_tracer = Mock()
         mock_span = Mock()
         mock_span.__enter__ = Mock(return_value=mock_span)
@@ -207,5 +196,3 @@ class TestMainWithoutInitRolesOnly:
         mock_migrations.assert_called_once_with()
         # assert-not-weak: verify_schema() has no parameters
         mock_verify.assert_called_once_with()
-        # assert-not-weak: initialize_rabbitmq() has no parameters
-        mock_rabbitmq.assert_called_once_with()

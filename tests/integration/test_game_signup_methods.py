@@ -35,7 +35,6 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlalchemy import text
 
-from shared.messaging.infrastructure import QUEUE_BOT_EVENTS
 from shared.models.participant import ParticipantType
 from shared.models.signup_method import SignupMethod
 from shared.utils.discord_tokens import extract_bot_discord_id
@@ -273,7 +272,6 @@ def _insert_user_participant(
 
 def test_host_selected_with_waitlist_signup_method_db_roundtrip(
     admin_db_sync,
-    rabbitmq_channel,
     create_user,
     create_guild,
     create_channel,
@@ -291,8 +289,6 @@ def test_host_selected_with_waitlist_signup_method_db_roundtrip(
         create_guild, create_channel, create_template, seed_redis_cache, test_user
     )
     authenticated_client = create_authenticated_client(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
-
-    rabbitmq_channel.queue_purge(QUEUE_BOT_EVENTS)
 
     scheduled_at = (datetime.now(UTC) + timedelta(days=1)).isoformat()
 
@@ -321,7 +317,6 @@ def test_host_selected_with_waitlist_signup_method_db_roundtrip(
 
 def test_update_prefilled_upserts_self_added_participant(
     admin_db_sync,
-    rabbitmq_channel,
     create_user,
     create_guild,
     create_channel,
@@ -341,8 +336,6 @@ def test_update_prefilled_upserts_self_added_participant(
         create_guild, create_channel, create_template, seed_redis_cache, test_user
     )
     authenticated_client = create_authenticated_client(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
-
-    rabbitmq_channel.queue_purge(QUEUE_BOT_EVENTS)
 
     scheduled_at = (datetime.now(UTC) + timedelta(days=1)).isoformat()
 

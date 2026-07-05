@@ -27,9 +27,9 @@ from uuid import uuid4
 
 import pytest
 
-from shared.messaging.events import NotificationDueEvent
 from shared.models.signup_method import SignupMethod
 from shared.models.user import User
+from shared.schemas.events import NotificationDueEvent
 
 
 @pytest.mark.asyncio

@@ -54,3 +54,22 @@ class ParticipantDropDueEvent(BaseModel):
 
     game_id: UUID
     participant_id: str
+
+
+class NotificationDueEvent(BaseModel):
+    """Payload for game.notification_due event."""
+
+    game_id: UUID
+    notification_type: str
+    participant_id: str | None = None
+
+
+class NotificationSendDMEvent(BaseModel):
+    """Payload for notification.send_dm event."""
+
+    user_id: str
+    game_id: UUID
+    game_title: str
+    game_time_unix: int
+    notification_type: str
+    message: str

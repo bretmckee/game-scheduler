@@ -57,7 +57,6 @@ from shared.utils.status_transitions import GameStatus
 
 if TYPE_CHECKING:
     from services.bot.events.handlers import EventHandlers
-    from services.bot.events.publisher import BotEventPublisher
     from services.bot.handlers import ButtonHandler
 
 logger = logging.getLogger(__name__)
@@ -103,8 +102,7 @@ class GameSchedulerBot(commands.Bot):
     Attributes:
         config: Bot configuration with Discord credentials and service URLs
         button_handler: Handler for button interactions
-        event_handlers: Handler for RabbitMQ events
-        event_publisher: Publisher for bot events
+        event_handlers: Handler for bot events
     """
 
     def __init__(self, config: BotConfig) -> None:
@@ -117,7 +115,6 @@ class GameSchedulerBot(commands.Bot):
         self.config = config
         self.button_handler: ButtonHandler | None = None
         self.event_handlers: EventHandlers | None = None
-        self.event_publisher: BotEventPublisher | None = None
         self.api_cache = None
         self._sweep_task: asyncio.Task[None] | None = None
 
@@ -138,25 +135,15 @@ class GameSchedulerBot(commands.Bot):
 
         from services.bot.commands import setup_commands  # noqa: PLC0415 - lazy load
         from services.bot.events.handlers import EventHandlers  # noqa: PLC0415
-        from services.bot.events.publisher import BotEventPublisher  # noqa: PLC0415
         from services.bot.handlers import ButtonHandler  # noqa: PLC0415
 
         await setup_commands(self)
         logger.info("Commands registered successfully")
 
-        # Initialize event publisher
-        self.event_publisher = BotEventPublisher()
-        if self.event_publisher is None:
-            msg = "Failed to initialize event publisher"
-            raise RuntimeError(msg)
-        await self.event_publisher.connect()
-        logger.info("Event publisher connected")
-
-        # Initialize button handler with publisher
-        self.button_handler = ButtonHandler(self.event_publisher)
+        self.button_handler = ButtonHandler()
         logger.info("Button handler initialized")
 
-        # Initialize event handlers for consuming messages
+        # Initialize event handlers
         self.event_handlers = EventHandlers(self)
         logger.info("Event handlers initialized")
 
@@ -182,11 +169,6 @@ class GameSchedulerBot(commands.Bot):
             logger.info("Bot connected as %s (ID: %s)", self.user, self.user.id)
             logger.info("Connected to %s guilds", len(self.guilds))
             logger.info("Bot is ready to receive events")
-
-            if self.event_handlers and not hasattr(self, "_event_consumer_started"):
-                self._event_consumer_started = True
-                self.loop.create_task(self.event_handlers.start_consuming())
-                logger.info("Started event consumer task")
 
             await self._rebuild_guild_channel_cache()
 
@@ -929,12 +911,6 @@ class GameSchedulerBot(commands.Bot):
     async def close(self) -> None:
         """Cleanup resources before bot shutdown."""
         logger.info("Shutting down bot")
-
-        if self.event_handlers:
-            await self.event_handlers.stop_consuming()
-
-        if self.event_publisher:
-            await self.event_publisher.disconnect()
 
         await super().close()
 

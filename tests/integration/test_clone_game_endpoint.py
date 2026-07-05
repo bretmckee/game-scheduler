@@ -34,7 +34,6 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlalchemy import text
 
-from shared.messaging.infrastructure import QUEUE_BOT_EVENTS
 from shared.models import GameStatus
 from shared.models.participant import ParticipantType
 from shared.utils.discord_tokens import extract_bot_discord_id
@@ -87,7 +86,6 @@ def _setup_environment(
 
 def test_clone_game_endpoint_returns_201_with_new_game(
     admin_db_sync,
-    rabbitmq_channel,
     create_user,
     create_guild,
     create_channel,
@@ -108,8 +106,6 @@ def test_clone_game_endpoint_returns_201_with_new_game(
         host_id=env["user"]["id"],
         title="Source Game For Clone Test",
     )
-
-    rabbitmq_channel.queue_purge(QUEUE_BOT_EVENTS)
 
     clone_at = (datetime.now(UTC) + timedelta(days=14)).isoformat()
 
@@ -240,7 +236,6 @@ def test_clone_game_endpoint_publishes_game_created_event(
 
 def test_clone_game_endpoint_yes_carryover_copies_new_game_participants(
     admin_db_sync,
-    rabbitmq_channel,
     create_user,
     create_guild,
     create_channel,
@@ -281,8 +276,6 @@ def test_clone_game_endpoint_yes_carryover_copies_new_game_participants(
     )
     admin_db_sync.commit()
 
-    rabbitmq_channel.queue_purge(QUEUE_BOT_EVENTS)
-
     clone_at = (datetime.now(UTC) + timedelta(days=14)).isoformat()
 
     response = authenticated_client.post(
@@ -313,7 +306,6 @@ def test_clone_game_endpoint_yes_carryover_copies_new_game_participants(
 
 def test_clone_game_endpoint_yes_with_deadline_creates_action_and_notification_schedules(
     admin_db_sync,
-    rabbitmq_channel,
     create_user,
     create_guild,
     create_channel,
@@ -354,8 +346,6 @@ def test_clone_game_endpoint_yes_with_deadline_creates_action_and_notification_s
         },
     )
     admin_db_sync.commit()
-
-    rabbitmq_channel.queue_purge(QUEUE_BOT_EVENTS)
 
     deadline = (datetime.now(UTC) + timedelta(days=1)).isoformat()
     clone_at = (datetime.now(UTC) + timedelta(days=14)).isoformat()

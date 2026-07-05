@@ -31,10 +31,8 @@ from uuid import uuid4
 import discord
 import pytest
 
-from services.bot.events.handlers import EventHandlers
 from services.bot.handlers.participant_drop import handle_participant_drop_due
 from shared.message_formats import DMFormats
-from shared.messaging.events import EventType
 from shared.models import GameStatus
 from shared.models.game import GameSession
 from shared.models.notification_schedule import NotificationSchedule
@@ -245,21 +243,6 @@ async def test_handler_sends_removal_dm_when_welcome_already_sent(
         await handle_participant_drop_due(drop_event_data, mock_bot)
 
     mock_bot.get_user.assert_called_once_with(int(PARTICIPANT_DISCORD_ID))
-
-
-def test_participant_drop_due_is_registered_in_event_handlers():
-    """EventHandlers must register PARTICIPANT_DROP_DUE or events are silently dropped.
-
-    This test guards against the class of bug where a handler function exists but is
-    never wired into start_consuming, which cannot be caught by direct-call handler tests.
-    """
-    bot = MagicMock(spec=discord.Client)
-    handlers = EventHandlers(bot)
-
-    assert EventType.PARTICIPANT_DROP_DUE in handlers._handlers, (
-        "PARTICIPANT_DROP_DUE must be in EventHandlers._handlers — "
-        "also verify it is passed to consumer.register_handler in start_consuming"
-    )
 
 
 # ---------------------------------------------------------------------------

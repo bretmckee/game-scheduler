@@ -19,13 +19,13 @@
 # SOFTWARE.
 
 
-"""Event handlers for consuming RabbitMQ messages in bot service."""
+"""Event handlers for bot service."""
 
 import asyncio
 import logging
 import uuid
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import discord
 from dateutil.rrule import rrulestr
@@ -34,7 +34,6 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.bot.config import get_config
-from services.bot.events.publisher import get_bot_publisher
 from services.bot.formatters.game_message import format_game_announcement
 from services.bot.handlers.participant_drop import handle_participant_drop_due
 from services.bot.utils.discord_format import get_member_display_info
@@ -43,13 +42,6 @@ from services.bot.views.recurrence_confirmation_view import RecurrenceConfirmati
 from shared.cache.client import get_redis_client
 from shared.database import get_db_session
 from shared.message_formats import DMFormats
-from shared.messaging.consumer import EventConsumer
-from shared.messaging.events import (
-    Event,
-    EventType,
-    NotificationDueEvent,
-    NotificationSendDMEvent,
-)
 from shared.models import game as game_model
 from shared.models import participant as participant_model
 from shared.models import user as user_model
@@ -61,7 +53,11 @@ from shared.models.notification_schedule import NotificationSchedule
 from shared.models.participant import GameParticipant
 from shared.models.participant_action_schedule import ParticipantActionSchedule
 from shared.models.signup_method import SignupMethod
-from shared.schemas.events import GameStatusTransitionDueEvent
+from shared.schemas.events import (
+    GameStatusTransitionDueEvent,
+    NotificationDueEvent,
+    NotificationSendDMEvent,
+)
 from shared.services.game_schedules import clone_game_for_recurrence
 from shared.utils.games import resolve_max_players
 from shared.utils.participant_sorting import partition_participants
@@ -70,19 +66,11 @@ from shared.utils.status_transitions import GameStatus, is_valid_transition
 _HTTP_TOO_MANY_REQUESTS = 429
 _MAX_EDIT_ATTEMPTS = 3
 
-if TYPE_CHECKING:
-    from collections.abc import Callable
-
 logger = logging.getLogger(__name__)
 
 
 class EventHandlers:
-    """
-    Handle incoming events from RabbitMQ for bot service.
-
-    Processes game updates, notifications, and other events that require
-    Discord bot actions.
-    """
+    """Handle bot events dispatched from bot_action_queue."""
 
     def __init__(self, bot: discord.Client) -> None:
         """
@@ -92,94 +80,8 @@ class EventHandlers:
             bot: Discord bot client instance
         """
         self.bot = bot
-        self.consumer: EventConsumer | None = None
-        self._handlers: dict[EventType, Callable] = {
-            EventType.GAME_UPDATED: self._handle_game_updated,
-            EventType.NOTIFICATION_DUE: self._handle_notification_due,
-            EventType.GAME_STATUS_TRANSITION_DUE: self._handle_status_transition_due,
-            EventType.NOTIFICATION_SEND_DM: self._handle_send_notification,
-            EventType.GAME_CREATED: self._handle_game_created,
-            EventType.PARTICIPANT_DROP_DUE: self._handle_participant_drop_due,
-            EventType.PLAYER_REMOVED: self._handle_player_removed,
-            EventType.GAME_CANCELLED: self._handle_game_cancelled,
-        }
         # Per-channel workers driven by the DB queue; keyed by discord_channel_id
         self._channel_workers: dict[str, asyncio.Task[Any]] = {}
-
-    async def start_consuming(self, queue_name: str = "bot_events") -> None:
-        """
-        Start consuming events from RabbitMQ queue.
-
-        Args:
-            queue_name: Name of the queue to consume from
-        """
-        self.consumer = EventConsumer(queue_name=queue_name)
-        await self.consumer.connect()
-
-        # Bind to relevant routing keys
-        await self.consumer.bind("game.#")
-        await self.consumer.bind("notification.*")
-        await self.consumer.bind("guild.#")
-
-        # Register handlers
-        self.consumer.register_handler(
-            EventType.GAME_UPDATED, lambda e: self._handle_game_updated(e.data)
-        )
-        self.consumer.register_handler(
-            EventType.NOTIFICATION_DUE,
-            lambda e: self._handle_notification_due(e.data),
-        )
-        self.consumer.register_handler(
-            EventType.NOTIFICATION_SEND_DM,
-            lambda e: self._handle_send_notification(e.data),
-        )
-        self.consumer.register_handler(
-            EventType.GAME_CREATED, lambda e: self._handle_game_created(e.data)
-        )
-        self.consumer.register_handler(
-            EventType.PLAYER_REMOVED, lambda e: self._handle_player_removed(e.data)
-        )
-        self.consumer.register_handler(
-            EventType.PARTICIPANT_DROP_DUE,
-            lambda e: self._handle_participant_drop_due(e.data),
-        )
-        self.consumer.register_handler(
-            EventType.GAME_STATUS_TRANSITION_DUE,
-            lambda e: self._handle_status_transition_due(e.data),
-        )
-        self.consumer.register_handler(
-            EventType.GAME_CANCELLED, lambda e: self._handle_game_cancelled(e.data)
-        )
-
-        logger.info("Started consuming events from queue: %s", queue_name)
-
-        await self.consumer.start_consuming()
-
-    async def stop_consuming(self) -> None:
-        """Stop consuming events and close connection."""
-        if self.consumer:
-            await self.consumer.close()
-            logger.info("Stopped consuming events")
-
-    async def _process_event(self, event: Event) -> None:
-        """
-        Process incoming event by routing to appropriate handler.
-
-        Args:
-            event: Event to process
-        """
-        handler = self._handlers.get(event.event_type)
-
-        if handler is None:
-            logger.warning("No handler registered for event type: %s", event.event_type)
-            return
-
-        try:
-            await handler(event.data)
-            logger.debug("Successfully processed event: %s", event.event_type)
-        except Exception as e:
-            logger.exception("Error processing event %s: %s", event.event_type, e)
-            raise
 
     async def _validate_game_created_event(
         self, game_id: str | None, channel_id: str | None
@@ -806,12 +708,10 @@ class EventHandlers:
                     await self._send_join_notification_dm(participant, message, str(event.game_id))
                     return
 
-            publisher = get_bot_publisher()
             view = CloneConfirmationView(
                 schedule_id=schedule.id,
                 game_id=str(event.game_id),
                 participant_id=str(event.participant_id),
-                publisher=publisher,
             )
             message = DMFormats.clone_confirmation(
                 game.title,

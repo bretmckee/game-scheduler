@@ -27,7 +27,6 @@ from uuid import uuid4
 import discord
 import pytest
 
-from services.bot.events.publisher import BotEventPublisher
 from services.bot.views.clone_confirmation_view import CloneConfirmationView
 from shared.models.game import GameSession
 from shared.models.participant import GameParticipant
@@ -51,19 +50,11 @@ def participant_id():
 
 
 @pytest.fixture
-def mock_publisher():
-    publisher = MagicMock(spec=BotEventPublisher)
-    publisher.publish_game_updated = AsyncMock()
-    return publisher
-
-
-@pytest.fixture
-async def view(schedule_id, game_id, participant_id, mock_publisher):
+async def view(schedule_id, game_id, participant_id):
     return CloneConfirmationView(
         schedule_id=schedule_id,
         game_id=game_id,
         participant_id=participant_id,
-        publisher=mock_publisher,
     )
 
 
@@ -148,9 +139,7 @@ async def test_confirm_button_sends_pg_notify(view, mock_interaction, schedule_i
 
 
 @pytest.mark.asyncio
-async def test_decline_button_calls_drop_handler(
-    view, mock_interaction, game_id, participant_id, mock_publisher
-):
+async def test_decline_button_calls_drop_handler(view, mock_interaction, game_id, participant_id):
     """Decline callback must invoke handle_participant_drop_due with correct data."""
     with patch(
         "services.bot.views.clone_confirmation_view.handle_participant_drop_due",
@@ -167,7 +156,7 @@ async def test_decline_button_calls_drop_handler(
 
 @pytest.mark.asyncio
 async def test_decline_path_removes_participant_and_publishes_game_updated(
-    view, mock_interaction, game_id, participant_id, mock_publisher
+    view, mock_interaction, game_id, participant_id
 ):
     """Full decline path: decline → drop handler → participant deleted → SSE notify executed."""
     mock_game = MagicMock(spec=GameSession)

@@ -53,13 +53,13 @@ services:
       PYTEST_RUNNING: "1"
 
   retry-daemon:
-    volumes:
-      - ./coverage:/app/coverage:rw
-    environment:
-      COVERAGE_PROCESS_START: /app/pyproject.toml
-      COVERAGE_FILE: /app/coverage/retry.integration
-      LOG_LEVEL: DEBUG
-      PYTEST_RUNNING: "1"
+    image: alpine:latest
+    command: sh -c "echo 'Retry daemon removed' && sleep infinity"
+    volumes: !reset []
+    environment: !reset {}
+    depends_on: !reset {}
+    healthcheck:
+      disable: true
 
   postgres:
     command: [
@@ -86,8 +86,6 @@ services:
         condition: service_healthy
       api:
         condition: service_healthy
-      retry-daemon:
-        condition: service_started
       scheduler:
         condition: service_started
       fake-discord:
