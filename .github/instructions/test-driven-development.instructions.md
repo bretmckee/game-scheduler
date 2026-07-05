@@ -7,11 +7,11 @@ applyTo: '**/*.py,**/*.ts,**/*.tsx,**/*.js,**/*.jsx'
 
 TDD applies to writing **new production code and enhancing existing production code**. Writing the failing test first forces a clear definition of the required interface and behavior before any implementation decisions are made. The RED phase — seeing the test fail — proves the test is actually capable of detecting the regression it guards against, preventing false-confidence tests that always pass regardless of implementation. Tests written this way become executable documentation of intended behavior from day one.
 
-| Scenario                            | Stub?                       | `xfail`? | Why                                             |
-| ----------------------------------- | --------------------------- | -------- | ----------------------------------------------- |
-| New feature                         | Yes (`NotImplementedError`) | Yes      | Implementation doesn't exist yet                |
-| Bug fix                             | No                          | Yes      | Correct behavior not yet achieved               |
-| Retrofitting tests for correct code | No                          | No       | Code is already correct; tests pass immediately |
+| Scenario                            | Stub?                       | `xfail`? | Why                                                                                                            |
+| ----------------------------------- | --------------------------- | -------- | -------------------------------------------------------------------------------------------------------------- |
+| New feature                         | Yes (`NotImplementedError`) | Yes      | Implementation doesn't exist yet                                                                               |
+| Bug fix                             | No                          | Yes      | Correct behavior not yet achieved                                                                              |
+| Retrofitting tests for correct code | No                          | No       | No stub or xfail needed; assertions still required — "tests pass immediately" means the assertions are correct |
 
 ## Applicability
 
@@ -28,7 +28,7 @@ TDD applies to writing **new production code and enhancing existing production c
 - ❌ **YAML/JSON configuration files** (no unit tests)
 - ❌ **SQL migration scripts** (use integration tests instead)
 - ❌ **Infrastructure-as-Code** without test frameworks
-- ❌ **Writing tests for already-correct code** (retrofitting coverage at any level — unit, integration, or e2e): the correct behavior already exists, so there is no stub to create and no xfail marker needed; tests should pass immediately. Note: a bug fix is **not** this case — see [TDD for Bug Fixes](#tdd-for-bug-fixes) below.
+- ❌ **Writing tests for already-correct code** (retrofitting coverage at any level — unit, integration, or e2e): the correct behavior already exists, so there is no stub to create and no xfail marker needed; tests should pass immediately. **Assertions are still required** — "tests pass immediately" means the assertions are correct, not that assertions are unnecessary. A test that runs the function without asserting anything also passes immediately, and is worthless. Note: a bug fix is **not** this case — see [TDD for Bug Fixes](#tdd-for-bug-fixes) below.
 
 **For non-testable file types:** Create and verify functionality through integration tests, manual testing, or other appropriate validation methods.
 
@@ -144,6 +144,8 @@ describe('calculateGameCapacity', () => {
 - `npm test -- test_game_capacity` (TypeScript - shows test as expected failure)
 
 **Key Point:** Tests contain REAL assertions for the desired behavior, just marked as expected failures. Tests are NOT modified after implementation - only the xfail marker is removed.
+
+**What makes an assertion "real":** It must be specific enough to catch wrong return values. `assert result == 3` is real because returning `None`, `0`, or `4` would fail it. `assert result is not None` is not real — any non-None value passes, masking wrong results.
 
 **❌ WRONG - Do NOT write tests that assert `NotImplementedError` is raised:**
 

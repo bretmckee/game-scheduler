@@ -5,6 +5,16 @@ applyTo: '**/test_*.py'
 
 # Unit Test Quality Standards
 
+## When Generating Test Code: Start With the Assertions
+
+When writing a test, the first question is not "how do I call this function?" — it is "what assertions would prove this function is working correctly?"
+
+The assertions are the test. Setup, mocks, and fixtures are scaffolding. A test body that calls a function but asserts nothing is not a test — it proves only that no exception was raised.
+
+**Before writing any test body:** identify the concrete behavior to verify. Write or plan your assertions first, then write the setup around them.
+
+Coverage measures which lines were executed, not whether behavior was verified. Missing coverage is evidence of untested paths. Present coverage says nothing about test quality.
+
 ## Core Principle: Tests Must Be Falsifiable
 
 A unit test is only valuable if a wrong implementation would cause it to fail. A test that passes regardless of what the code does provides false confidence and is worse than no test — it teaches the coverage tool that a branch is "covered" while hiding real bugs.
