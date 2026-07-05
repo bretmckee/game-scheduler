@@ -21,30 +21,24 @@
 
 """Integration tests for handle_participant_drop_due against a real database.
 
-Verifies that the handler deletes the target participant record and publishes
-GAME_UPDATED to RabbitMQ when called with valid event data.
+Verifies that the handler deletes the target participant record and upserts
+a message_refresh_queue row when called with valid event data.
 
 Note: These tests call the handler directly (not via RabbitMQ dispatch) because
 the bot container is not part of the integration environment — it requires a real
 Discord token. Event dispatch registration is verified separately in unit tests.
 """
 
-import json
-import os
 import uuid
 from unittest.mock import AsyncMock, MagicMock
 
-import aio_pika
 import discord
 import pytest
 from sqlalchemy import text
 
-from services.bot.events.publisher import BotEventPublisher
 from services.bot.handlers.participant_drop import handle_participant_drop_due
 from shared.database import bot_engine
-from shared.messaging.publisher import EventPublisher
 from shared.models.participant import ParticipantType
-from tests.integration.conftest import consume_one_message, get_queue_message_count
 
 pytestmark = pytest.mark.integration
 
@@ -78,42 +72,15 @@ async def _cleanup_engines():
     await bot_engine.dispose()
 
 
-@pytest.fixture
-def game_updated_queue(rabbitmq_channel):
-    """Temporary queue bound to game.updated.* for verifying GAME_UPDATED publications."""
-    result = rabbitmq_channel.queue_declare(queue="", exclusive=True, auto_delete=True)
-    queue_name = result.method.queue
-    rabbitmq_channel.queue_bind(
-        exchange="game_scheduler", queue=queue_name, routing_key="game.updated.#"
-    )
-    return queue_name
-
-
-@pytest.fixture
-async def real_publisher():
-    """BotEventPublisher backed by a fresh per-test aio_pika connection."""
-    rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://guest:guest@rabbitmq:5672/")
-    connection = await aio_pika.connect_robust(rabbitmq_url)
-    ep = EventPublisher(connection=connection)
-    publisher = BotEventPublisher(publisher=ep)
-    await publisher.connect()
-    yield publisher
-    await publisher.disconnect()
-    await connection.close()
-
-
 @pytest.mark.asyncio
 async def test_handler_removes_participant_from_db(
     admin_db_sync,
-    rabbitmq_channel,
-    real_publisher,
-    game_updated_queue,
     create_user,
     create_guild,
     create_channel,
     create_game,
 ):
-    """handle_participant_drop_due must delete the participant row and publish GAME_UPDATED."""
+    """handle_participant_drop_due deletes the participant row and upserts message_refresh_queue."""
     guild = create_guild(discord_guild_id="333000000000000001")
     channel = create_channel(guild_id=guild["id"], discord_channel_id="333000000000000002")
     host = create_user(discord_user_id="333000000000000003")
@@ -138,7 +105,7 @@ async def test_handler_removes_participant_from_db(
 
     data = {"game_id": game["id"], "participant_id": participant_id}
 
-    await handle_participant_drop_due(data, mock_bot, real_publisher)
+    await handle_participant_drop_due(data, mock_bot)
 
     rows_after = admin_db_sync.execute(
         text("SELECT id FROM game_participants WHERE id = :id"),
@@ -146,26 +113,22 @@ async def test_handler_removes_participant_from_db(
     ).fetchall()
     assert len(rows_after) == 0, "Participant must be deleted after the handler runs"
 
-    message_count = get_queue_message_count(rabbitmq_channel, game_updated_queue)
-    assert message_count == 1, "Handler must publish GAME_UPDATED to RabbitMQ"
-
-    _, _, body = consume_one_message(rabbitmq_channel, game_updated_queue)
-    payload = json.loads(body)
-    assert payload["data"]["game_id"] == game["id"]
+    mrq_row = admin_db_sync.execute(
+        text("SELECT game_id FROM message_refresh_queue WHERE game_id = :game_id"),
+        {"game_id": game["id"]},
+    ).fetchone()
+    assert mrq_row is not None, "message_refresh_queue row must exist after the handler runs"
 
 
 @pytest.mark.asyncio
 async def test_handler_is_idempotent_when_participant_missing(
     admin_db_sync,
-    rabbitmq_channel,
-    real_publisher,
-    game_updated_queue,
     create_user,
     create_guild,
     create_channel,
     create_game,
 ):
-    """handle_participant_drop_due must not raise or publish when participant is already gone."""
+    """handle_participant_drop_due must not raise or upsert when participant is already gone."""
     guild = create_guild(discord_guild_id="334000000000000001")
     channel = create_channel(guild_id=guild["id"], discord_channel_id="334000000000000002")
     host = create_user(discord_user_id="334000000000000003")
@@ -184,7 +147,10 @@ async def test_handler_is_idempotent_when_participant_missing(
 
     data = {"game_id": game["id"], "participant_id": missing_participant_id}
 
-    await handle_participant_drop_due(data, mock_bot, real_publisher)
+    await handle_participant_drop_due(data, mock_bot)
 
-    message_count = get_queue_message_count(rabbitmq_channel, game_updated_queue)
-    assert message_count == 0, "No GAME_UPDATED must be published when participant was not found"
+    mrq_rows = admin_db_sync.execute(
+        text("SELECT game_id FROM message_refresh_queue WHERE game_id = :game_id"),
+        {"game_id": game["id"]},
+    ).fetchall()
+    assert len(mrq_rows) == 0, "No message_refresh_queue row when participant was not found"

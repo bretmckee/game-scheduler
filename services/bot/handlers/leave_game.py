@@ -29,12 +29,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from services.bot.events.publisher import BotEventPublisher
 from services.bot.handlers.utils import (
     get_participant_count,
     send_deferred_response,
     send_error_message,
     send_success_message,
+    upsert_message_refresh_and_notify,
 )
 from shared.database import get_db_session
 from shared.message_formats import DMFormats
@@ -46,18 +46,15 @@ from shared.models.user import User
 logger = logging.getLogger(__name__)
 
 
-async def handle_leave_game(
-    interaction: discord.Interaction, game_id: str, publisher: BotEventPublisher
-) -> None:
+async def handle_leave_game(interaction: discord.Interaction, game_id: str) -> None:
     """Handle leave game button interaction.
 
     Args:
         interaction: Discord interaction from button click
         game_id: Game session ID from custom_id
-        publisher: Bot event publisher
 
-    Validates user is participant, publishes event to RabbitMQ,
-    and sends confirmation message.
+    Validates user is participant, upserts a message_refresh_queue row,
+    and sends a pg_notify for SSE clients.
     """
     await send_deferred_response(interaction)
 
@@ -92,15 +89,10 @@ async def handle_leave_game(
         # Capture position_type before deletion to avoid session expiry issues
         position_type = participant.position_type
 
-        # Delete participant from database
+        # Delete participant and upsert message refresh notification atomically
         await db.delete(participant)
+        await upsert_message_refresh_and_notify(db, game_id, game.channel.channel_id, game.guild_id)
         await db.commit()
-
-        await publisher.publish_game_updated(
-            game_id=game_id,
-            guild_id=game.guild_id,
-            updated_fields={"participants": True},
-        )
 
     if not join_not_sent:
         await send_success_message(interaction, f"❌ You've left **{game.title}**")

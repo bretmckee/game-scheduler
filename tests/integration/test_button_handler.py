@@ -114,7 +114,7 @@ def _patch_leave_db():
 
 @pytest.mark.asyncio
 async def test_join_game_custom_id_creates_participant(
-    handler, mock_publisher, test_game, create_user, admin_db_sync
+    handler, test_game, create_user, admin_db_sync
 ) -> None:
     """join_game_ prefix dispatches to handle_join_game; participant row is created."""
     player = create_user(discord_user_id=JOIN_DISCORD_ID)
@@ -132,14 +132,16 @@ async def test_join_game_custom_id_creates_participant(
         {"game_id": game["id"], "user_id": player["id"]},
     ).fetchall()
     assert len(rows) == 1, "Participant must be created via join_game_ dispatch"
-    mock_publisher.publish_game_updated.assert_awaited_once_with(
-        game_id=game["id"], guild_id=game["guild_id"], updated_fields={"participants": True}
-    )
+    mrq_row = admin_db_sync.execute(
+        text("SELECT game_id FROM message_refresh_queue WHERE game_id = :game_id"),
+        {"game_id": game["id"]},
+    ).fetchone()
+    assert mrq_row is not None, "message_refresh_queue row must exist after join"
 
 
 @pytest.mark.asyncio
 async def test_leave_game_custom_id_removes_participant(
-    handler, mock_publisher, test_game, create_user, admin_db_sync
+    handler, test_game, create_user, admin_db_sync
 ) -> None:
     """leave_game_ prefix dispatches to handle_leave_game; participant row is deleted."""
     player = create_user(discord_user_id=LEAVE_DISCORD_ID)
@@ -172,9 +174,11 @@ async def test_leave_game_custom_id_removes_participant(
         text("SELECT id FROM game_participants WHERE id = :id"), {"id": participant_id}
     ).fetchall()
     assert len(rows) == 0, "Participant must be deleted via leave_game_ dispatch"
-    mock_publisher.publish_game_updated.assert_awaited_once_with(
-        game_id=game["id"], guild_id=game["guild_id"], updated_fields={"participants": True}
-    )
+    mrq_row = admin_db_sync.execute(
+        text("SELECT game_id FROM message_refresh_queue WHERE game_id = :game_id"),
+        {"game_id": game["id"]},
+    ).fetchone()
+    assert mrq_row is not None, "message_refresh_queue row must exist after leave"
 
 
 # -- Pure-logic guard tests (no DB; cover early-return branches) ---------------

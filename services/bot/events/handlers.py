@@ -1118,8 +1118,7 @@ class EventHandlers:
 
     async def _handle_participant_drop_due(self, data: dict[str, Any]) -> None:
         """Handle game.participant_drop_due by dropping participant and sending removal DM."""
-        publisher = get_bot_publisher()
-        await handle_participant_drop_due(data, self.bot, publisher)
+        await handle_participant_drop_due(data, self.bot)
 
     def _validate_cancellation_event_data(
         self, data: dict[str, Any]

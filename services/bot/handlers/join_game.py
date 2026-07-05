@@ -32,11 +32,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from services.bot.auth.role_checker import RoleChecker
-from services.bot.events.publisher import BotEventPublisher
 from services.bot.handlers.utils import (
     get_participant_count,
     send_deferred_response,
     send_error_message,
+    upsert_message_refresh_and_notify,
 )
 from shared.database import get_db_session
 from shared.models.base import utc_now
@@ -50,18 +50,15 @@ from shared.utils.participant_sorting import resolve_role_position
 logger = logging.getLogger(__name__)
 
 
-async def handle_join_game(
-    interaction: discord.Interaction, game_id: str, publisher: BotEventPublisher
-) -> None:
+async def handle_join_game(interaction: discord.Interaction, game_id: str) -> None:
     """Handle join game button interaction.
 
     Args:
         interaction: Discord interaction from button click
         game_id: Game session ID from custom_id
-        publisher: Bot event publisher
 
-    Validates user can join game, publishes event to RabbitMQ,
-    and sends confirmation message.
+    Validates user can join game, upserts a message_refresh_queue row,
+    and sends a pg_notify for SSE clients.
     """
     await send_deferred_response(interaction)
 
@@ -113,13 +110,11 @@ async def handle_join_game(
             reminder_minutes=None,
         )
         db.add(schedule)
-        await db.commit()
 
-        await publisher.publish_game_updated(
-            game_id=game_id,
-            guild_id=game.guild_id,
-            updated_fields={"participants": True},
+        await upsert_message_refresh_and_notify(
+            db, str(game_id), game.channel.channel_id, game.guild_id
         )
+        await db.commit()
 
     logger.info(
         "User %s joined game %s (%s/%s)",
@@ -150,6 +145,7 @@ async def _validate_join_game(db: AsyncSession, game_id: uuid.UUID, user_discord
         select(GameSession)
         .options(selectinload(GameSession.template))
         .options(selectinload(GameSession.guild))
+        .options(selectinload(GameSession.channel))
         .where(GameSession.id == str(game_id))
     )
     game = result_game.scalar_one_or_none()

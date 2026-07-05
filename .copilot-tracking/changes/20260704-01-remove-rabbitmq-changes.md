@@ -125,6 +125,36 @@ E2E tests are failing because:
 
 ---
 
+## Phase 7: Migrate Bot Join/Leave/Drop Handlers (Flow 10)
+
+### Added
+
+- `tests/unit/bot/handlers/test_join_game_handler.py` — new unit tests for `handle_join_game` verifying `MessageRefreshQueue` upsert and `pg_notify` execute calls (no publisher)
+
+### Modified
+
+- `services/bot/handlers/join_game.py` — removed `publisher` parameter; added `selectinload(GameSession.channel)` to the session query; replaced `publisher.publish_game_updated(...)` with direct `db.execute(pg_insert(MessageRefreshQueue)...)` upsert and `db.execute(text("SELECT pg_notify(...)"))` call
+- `services/bot/handlers/leave_game.py` — removed `publisher` parameter; replaced `publisher.publish_game_updated(...)` with direct `MessageRefreshQueue` upsert + `pg_notify` execute calls
+- `services/bot/handlers/participant_drop.py` — removed `publisher` parameter; added `selectinload(GameSession.channel)` to the query; moved notify logic inside the existing `async with db.begin()` block as direct upsert + `pg_notify` execute calls
+- `services/bot/events/publisher.py` — deleted `publish_game_updated` method (no longer called anywhere)
+- `services/bot/handlers/button_handler.py` — removed `publisher` argument from `handle_join_game` and `handle_leave_game` call sites
+- `services/bot/events/handlers.py` — removed `publisher` argument from `participant_drop` call in `_handle_participant_drop_due`
+- `services/bot/views/clone_confirmation_view.py` — removed `publisher` argument from `participant_drop` call
+- `tests/unit/bot/handlers/test_leave_game_handler.py` — removed `mock_publisher` fixture and parameter; updated `db.execute` side-effect lists to include MRQ upsert and `pg_notify` calls; replaced `publish_game_updated.assert_awaited_once_with` with execute-call string assertions
+- `tests/unit/bot/handlers/test_participant_drop_handler.py` — removed `mock_publisher` fixture and parameter; updated `db.execute` side-effect lists; replaced publisher assertions with execute-call string assertions
+- `tests/unit/bot/events/test_handlers_lifecycle_events.py` — removed `publisher` argument from `participant_drop` mock call in `_handle_participant_drop_due` test
+- `tests/unit/services/bot/handlers/test_participant_drop.py` — removed `publisher` argument from `participant_drop` call
+- `tests/unit/bot/views/test_clone_confirmation_view.py` — removed `publisher` argument from `participant_drop` call; removed `test_publish_game_updated` test assertion
+- `tests/unit/services/bot/events/test_publisher.py` — removed `test_publish_game_updated` test (method deleted)
+- `tests/integration/test_join_game.py` — replaced `publish_game_updated` RabbitMQ assertions with `message_refresh_queue` DB row checks
+- `tests/integration/test_leave_game.py` — replaced `publish_game_updated` RabbitMQ assertions with `message_refresh_queue` DB row checks
+- `tests/integration/test_participant_drop_event.py` — replaced RabbitMQ/publisher assertions with `message_refresh_queue` DB row checks; removed `rabbitmq_channel` fixture dependencies
+- `tests/integration/test_button_handler.py` — replaced `mock_publisher.publish_game_updated.assert_awaited_once_with(...)` assertions with `message_refresh_queue` DB row checks; removed unused `mock_publisher` from test signatures
+
+### Removed
+
+---
+
 ## Phase 8: Remove Dead Messaging Infrastructure
 
 ### Modified

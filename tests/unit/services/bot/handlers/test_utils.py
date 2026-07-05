@@ -32,6 +32,7 @@ from services.bot.handlers.utils import (
     send_deferred_response,
     send_error_message,
     send_success_message,
+    upsert_message_refresh_and_notify,
 )
 from shared.models.participant import GameParticipant
 
@@ -214,3 +215,39 @@ class TestSendSuccessMessage:
             assert warning_args[0] == "Cannot send DM to user %s: %s"
             assert warning_args[1] == 123456789
             assert isinstance(warning_args[2], discord.Forbidden)
+
+
+class TestUpsertMessageRefreshAndNotify:
+    """Tests for upsert_message_refresh_and_notify helper."""
+
+    @pytest.mark.asyncio
+    async def test_executes_upsert_and_notify(self):
+        """Two db.execute calls are made: one upsert, one pg_notify."""
+        mock_db = AsyncMock()
+        mock_db.execute = AsyncMock(side_effect=[MagicMock(), MagicMock()])
+
+        await upsert_message_refresh_and_notify(mock_db, "game-id", "channel-id", "guild-id")
+
+        assert mock_db.execute.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_upsert_targets_message_refresh_queue(self):
+        """First execute call is for the message_refresh_queue upsert."""
+        mock_db = AsyncMock()
+        mock_db.execute = AsyncMock(side_effect=[MagicMock(), MagicMock()])
+
+        await upsert_message_refresh_and_notify(mock_db, "game-id", "channel-id", "guild-id")
+
+        upsert_call = mock_db.execute.call_args_list[0]
+        assert "message_refresh_queue" in str(upsert_call.args[0]).lower()
+
+    @pytest.mark.asyncio
+    async def test_notify_targets_game_updated_sse_channel(self):
+        """Second execute call emits pg_notify on game_updated_sse."""
+        mock_db = AsyncMock()
+        mock_db.execute = AsyncMock(side_effect=[MagicMock(), MagicMock()])
+
+        await upsert_message_refresh_and_notify(mock_db, "game-id", "channel-id", "guild-id")
+
+        notify_call = mock_db.execute.call_args_list[1]
+        assert "game_updated_sse" in str(notify_call.args[0])

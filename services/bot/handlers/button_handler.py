@@ -65,10 +65,10 @@ class ButtonHandler:
         try:
             if custom_id.startswith("join_game_"):
                 game_id = custom_id.replace("join_game_", "")
-                await handle_join_game(interaction, game_id, self.publisher)
+                await handle_join_game(interaction, game_id)
             elif custom_id.startswith("leave_game_"):
                 game_id = custom_id.replace("leave_game_", "")
-                await handle_leave_game(interaction, game_id, self.publisher)
+                await handle_leave_game(interaction, game_id)
             else:
                 logger.warning("Unknown button action: %s", custom_id)
 

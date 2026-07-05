@@ -23,7 +23,6 @@
 
 import logging
 from datetime import datetime
-from typing import Any
 from uuid import UUID
 
 from shared.messaging.events import (
@@ -108,32 +107,6 @@ class BotEventPublisher:
             guild_id,
             channel_id,
         )
-
-    async def publish_game_updated(
-        self, game_id: str, guild_id: str, updated_fields: dict[str, Any]
-    ) -> None:
-        """
-        Publish game updated event.
-
-        Args:
-            game_id: UUID of the game session
-            guild_id: Discord guild ID
-            updated_fields: Dictionary of updated field names and values
-        """
-        event = Event(
-            event_type=EventType.GAME_UPDATED,
-            data={
-                "game_id": game_id,
-                "guild_id": guild_id,
-                "updated_fields": updated_fields,
-            },
-        )
-
-        routing_key = f"game.updated.{guild_id}"
-        await self.publisher.publish(event=event, routing_key=routing_key)
-
-        fields_list = list(updated_fields.keys())
-        logger.info("Published game_updated event: game=%s, fields=%s", game_id, fields_list)
 
 
 # Global publisher instance

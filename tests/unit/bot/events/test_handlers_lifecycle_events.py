@@ -243,17 +243,13 @@ async def test_player_removed_exception_is_caught(handlers):
 
 
 async def test_participant_drop_due_delegates_to_handler(handlers):
-    """Delegates to handle_participant_drop_due with bot and publisher."""
+    """Delegates to handle_participant_drop_due with bot (no publisher)."""
     data = {"game_id": str(uuid4()), "participant_id": str(uuid4())}
-    mock_publisher = MagicMock()
-    with (
-        patch("services.bot.events.handlers.get_bot_publisher", return_value=mock_publisher),
-        patch(
-            "services.bot.events.handlers.handle_participant_drop_due", new=AsyncMock()
-        ) as mock_drop,
-    ):
+    with patch(
+        "services.bot.events.handlers.handle_participant_drop_due", new=AsyncMock()
+    ) as mock_drop:
         await handlers._handle_participant_drop_due(data)
-    mock_drop.assert_called_once_with(data, handlers.bot, mock_publisher)
+    mock_drop.assert_called_once_with(data, handlers.bot)
 
 
 # ---------------------------------------------------------------------------

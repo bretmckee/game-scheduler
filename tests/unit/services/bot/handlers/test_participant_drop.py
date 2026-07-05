@@ -35,6 +35,9 @@ def _make_participant(discord_id: str = "123456789", game_title: str = "Test Gam
     game = MagicMock()
     game.title = game_title
     game.guild_id = "guild_1"
+    channel = MagicMock()
+    channel.channel_id = "discord-channel-test"
+    game.channel = channel
 
     participant = MagicMock()
     participant.user = user
@@ -63,6 +66,8 @@ class TestHandleParticipantDropDue:
         db.execute.side_effect = [
             MagicMock(**{"scalar_one_or_none.return_value": participant}),
             MagicMock(**{"scalar_one_or_none.return_value": None}),
+            MagicMock(),  # upsert result
+            MagicMock(),  # pg_notify result
         ]
 
         mock_user = MagicMock()
@@ -72,15 +77,10 @@ class TestHandleParticipantDropDue:
         bot.get_user = MagicMock(return_value=mock_user)
         bot.fetch_user = AsyncMock()
 
-        publisher = MagicMock()
-        publisher.publish_game_updated = AsyncMock()
-
         with patch("services.bot.handlers.participant_drop.get_bypass_db_session") as mock_ctx:
             mock_ctx.return_value.__aenter__ = AsyncMock(return_value=db)
             mock_ctx.return_value.__aexit__ = AsyncMock(return_value=False)
-            await handle_participant_drop_due(
-                {"game_id": "g1", "participant_id": "p1"}, bot, publisher
-            )
+            await handle_participant_drop_due({"game_id": "g1", "participant_id": "p1"}, bot)
 
         bot.get_user.assert_called_once_with(111222333)
         bot.fetch_user.assert_not_awaited()

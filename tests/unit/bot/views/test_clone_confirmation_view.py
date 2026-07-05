@@ -169,11 +169,14 @@ async def test_decline_button_calls_drop_handler(
 async def test_decline_path_removes_participant_and_publishes_game_updated(
     view, mock_interaction, game_id, participant_id, mock_publisher
 ):
-    """Full decline path: decline → drop handler → participant deleted → GAME_UPDATED published."""
+    """Full decline path: decline → drop handler → participant deleted → SSE notify executed."""
     mock_game = MagicMock(spec=GameSession)
     mock_game.id = game_id
     mock_game.title = "Drop Test Game"
     mock_game.guild_id = "guild-db-uuid-test"
+    channel = MagicMock()
+    channel.channel_id = "discord-channel-test"
+    mock_game.channel = channel
 
     mock_participant = MagicMock(spec=GameParticipant)
     mock_participant.id = participant_id
@@ -184,9 +187,16 @@ async def test_decline_path_removes_participant_and_publishes_game_updated(
     mock_db = AsyncMock()
     mock_db.delete = AsyncMock()
     mock_db.commit = AsyncMock()
-    db_result = MagicMock()
-    db_result.scalar_one_or_none = MagicMock(return_value=mock_participant)
-    mock_db.execute = AsyncMock(return_value=db_result)
+
+    participant_result = MagicMock()
+    participant_result.scalar_one_or_none = MagicMock(return_value=mock_participant)
+    notif_result = MagicMock()
+    notif_result.scalar_one_or_none = MagicMock(return_value=None)
+    upsert_result = MagicMock()
+    notify_result = MagicMock()
+    mock_db.execute = AsyncMock(
+        side_effect=[participant_result, notif_result, upsert_result, notify_result]
+    )
 
     drop_db_ctx = MagicMock()
     drop_db_ctx.__aenter__ = AsyncMock(return_value=mock_db)
@@ -204,6 +214,7 @@ async def test_decline_path_removes_participant_and_publishes_game_updated(
 
     mock_db.delete.assert_called_once_with(mock_participant)
     mock_db.commit.assert_called_once()
-    mock_publisher.publish_game_updated.assert_awaited_once_with(
-        game_id=game_id, guild_id="guild-db-uuid-test", updated_fields={"participants": True}
-    )
+    notify_calls = [
+        call for call in mock_db.execute.call_args_list if "game_updated_sse" in str(call.args[0])
+    ]
+    assert len(notify_calls) >= 1, "Expected pg_notify('game_updated_sse', ...) call"

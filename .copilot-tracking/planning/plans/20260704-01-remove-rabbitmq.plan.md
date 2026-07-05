@@ -88,9 +88,9 @@ Replace all RabbitMQ message flows with PostgreSQL LISTEN/NOTIFY + a new `bot_ac
 - [x] Task 6.1: Write xfail tests then replace `SyncEventPublisher` in scheduler with `BotActionQueue` inserts; remove `rabbitmq_url` from scheduler config (TDD)
   - Details: .copilot-tracking/planning/details/20260704-01-remove-rabbitmq-details.md (Lines 184-202)
 
-### [ ] Phase 7: Migrate Bot Join/Leave/Drop Handlers (Flow 10)
+### [x] Phase 7: Migrate Bot Join/Leave/Drop Handlers (Flow 10)
 
-- [ ] Task 7.1: Write xfail tests then replace `BotEventPublisher.publish_game_updated()` in `join_game.py`, `leave_game.py`, `participant_drop.py` with direct inserts + `pg_notify`; delete `publish_game_updated` (TDD)
+- [x] Task 7.1: Write xfail tests then replace `BotEventPublisher.publish_game_updated()` in `join_game.py`, `leave_game.py`, `participant_drop.py` with direct inserts + `pg_notify`; delete `publish_game_updated` (TDD)
   - Details: .copilot-tracking/planning/details/20260704-01-remove-rabbitmq-details.md (Lines 205-228)
 
 ### [ ] Phase 8: Remove Dead Messaging Infrastructure

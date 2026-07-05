@@ -33,7 +33,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from sqlalchemy import text
 
-from services.bot.events.publisher import BotEventPublisher
 from services.bot.handlers.leave_game import handle_leave_game
 from shared.database import BotAsyncSessionLocal, bot_engine
 from shared.message_formats import DMPredicates
@@ -63,13 +62,6 @@ def _patch_db():
         return BotAsyncSessionLocal()
 
     return patch("services.bot.handlers.leave_game.get_db_session", side_effect=_bypass)
-
-
-@pytest.fixture
-def mock_publisher() -> MagicMock:
-    publisher = MagicMock(spec=BotEventPublisher)
-    publisher.publish_game_updated = AsyncMock()
-    return publisher
 
 
 @pytest.fixture(autouse=True)
@@ -115,38 +107,34 @@ def _insert_participant(admin_db_sync, game_id: str, user_id: str) -> str:
 
 
 @pytest.mark.asyncio
-async def test_invalid_uuid_returns_error_without_touching_db(
-    test_game, mock_publisher, admin_db_sync
-) -> None:
+async def test_invalid_uuid_returns_error_without_touching_db(test_game, admin_db_sync) -> None:
     """An unparseable game_id sends an error DM and makes no DB changes."""
     interaction = _make_interaction(PLAYER_DISCORD_ID)
     rows_before = admin_db_sync.execute(text("SELECT COUNT(*) FROM game_participants")).scalar()
 
     with _patch_db():
-        await handle_leave_game(interaction, "not-a-uuid", mock_publisher)
+        await handle_leave_game(interaction, "not-a-uuid")
 
     rows_after = admin_db_sync.execute(text("SELECT COUNT(*) FROM game_participants")).scalar()
     assert rows_after == rows_before
-    mock_publisher.publish_game_updated.assert_not_called()
     interaction.user.send.assert_called_once()
     assert "Invalid game ID" in interaction.user.send.call_args.kwargs["content"]
 
 
 @pytest.mark.asyncio
-async def test_game_not_found_sends_error(test_game, mock_publisher) -> None:
+async def test_game_not_found_sends_error(test_game) -> None:
     """A valid UUID with no matching game sends the 'Game not found' error."""
     interaction = _make_interaction(PLAYER_DISCORD_ID)
 
     with _patch_db():
-        await handle_leave_game(interaction, str(uuid.uuid4()), mock_publisher)
+        await handle_leave_game(interaction, str(uuid.uuid4()))
 
-    mock_publisher.publish_game_updated.assert_not_called()
     interaction.user.send.assert_called_once()
     assert "Game not found" in interaction.user.send.call_args.kwargs["content"]
 
 
 @pytest.mark.asyncio
-async def test_completed_game_sends_error(test_game, mock_publisher, admin_db_sync) -> None:
+async def test_completed_game_sends_error(test_game, admin_db_sync) -> None:
     """Attempting to leave a completed game sends the appropriate error."""
     guild = test_game["guild"]
     channel = test_game["channel"]
@@ -180,47 +168,42 @@ async def test_completed_game_sends_error(test_game, mock_publisher, admin_db_sy
     interaction = _make_interaction(PLAYER_DISCORD_ID)
 
     with _patch_db():
-        await handle_leave_game(interaction, completed_game_id, mock_publisher)
+        await handle_leave_game(interaction, completed_game_id)
 
-    mock_publisher.publish_game_updated.assert_not_called()
     interaction.user.send.assert_called_once()
     assert "Cannot leave a completed game" in interaction.user.send.call_args.kwargs["content"]
 
 
 @pytest.mark.asyncio
-async def test_user_not_in_db_returns_silently(test_game, mock_publisher) -> None:
+async def test_user_not_in_db_returns_silently(test_game) -> None:
     """User with no DB record returns without error message or event."""
     interaction = _make_interaction("699000000000000001")
     game = test_game["game"]
 
     with _patch_db():
-        await handle_leave_game(interaction, game["id"], mock_publisher)
+        await handle_leave_game(interaction, game["id"])
 
-    mock_publisher.publish_game_updated.assert_not_called()
     interaction.user.send.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_user_not_participant_returns_silently(
-    test_game, mock_publisher, create_user
-) -> None:
+async def test_user_not_participant_returns_silently(test_game, create_user) -> None:
     """User exists but has no participant row; returns without error or event."""
     create_user(discord_user_id=PLAYER_DISCORD_ID)
     game = test_game["game"]
     interaction = _make_interaction(PLAYER_DISCORD_ID)
 
     with _patch_db():
-        await handle_leave_game(interaction, game["id"], mock_publisher)
+        await handle_leave_game(interaction, game["id"])
 
-    mock_publisher.publish_game_updated.assert_not_called()
     interaction.user.send.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_successful_leave_deletes_participant_and_publishes_event(
-    test_game, mock_publisher, create_user, admin_db_sync
+    test_game, create_user, admin_db_sync
 ) -> None:
-    """Happy path: participant row deleted and GAME_UPDATED published."""
+    """Happy path: participant row deleted and message_refresh_queue row upserted."""
     player = create_user(discord_user_id=PLAYER_DISCORD_ID)
     game = test_game["game"]
     participant_id = _insert_participant(admin_db_sync, game["id"], player["id"])
@@ -233,26 +216,25 @@ async def test_successful_leave_deletes_participant_and_publishes_event(
     interaction = _make_interaction(PLAYER_DISCORD_ID)
 
     with _patch_db():
-        await handle_leave_game(interaction, game["id"], mock_publisher)
+        await handle_leave_game(interaction, game["id"])
 
     rows_after = admin_db_sync.execute(
         text("SELECT id FROM game_participants WHERE id = :id"), {"id": participant_id}
     ).fetchall()
     assert len(rows_after) == 0, "Participant must be deleted after leave"
 
-    mock_publisher.publish_game_updated.assert_called_once()
-    call_kwargs = mock_publisher.publish_game_updated.call_args.kwargs
-    assert call_kwargs["game_id"] == game["id"]
-    assert call_kwargs["guild_id"] == test_game["guild"]["id"]
+    mrq_row = admin_db_sync.execute(
+        text("SELECT game_id FROM message_refresh_queue WHERE game_id = :game_id"),
+        {"game_id": game["id"]},
+    ).fetchone()
+    assert mrq_row is not None, "message_refresh_queue row must exist after successful leave"
 
     interaction.user.send.assert_called_once()
     assert "You've left" in interaction.user.send.call_args.kwargs["content"]
 
 
 @pytest.mark.asyncio
-async def test_host_added_leave_sends_dm_to_host(
-    test_game, mock_publisher, create_user, admin_db_sync
-) -> None:
+async def test_host_added_leave_sends_dm_to_host(test_game, create_user, admin_db_sync) -> None:
     """When a HOST_ADDED participant leaves, the host receives a DM."""
     player = create_user(discord_user_id=PLAYER_DISCORD_ID)
     host = test_game["host"]
@@ -283,7 +265,7 @@ async def test_host_added_leave_sends_dm_to_host(
     interaction.client.get_user = MagicMock(return_value=host_dm_mock)
 
     with _patch_db():
-        await handle_leave_game(interaction, game["id"], mock_publisher)
+        await handle_leave_game(interaction, game["id"])
 
     interaction.client.get_user.assert_called_once_with(int(host["discord_id"]))
     host_dm_mock.send.assert_called_once()

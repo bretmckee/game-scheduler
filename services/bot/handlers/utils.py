@@ -21,13 +21,16 @@
 
 """Utilities for interaction handling."""
 
+import json
 import logging
 import uuid
 
 import discord
-from sqlalchemy import select
+from sqlalchemy import func, select, text
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from shared.models.message_refresh_queue import MessageRefreshQueue
 from shared.models.participant import GameParticipant
 
 logger = logging.getLogger(__name__)
@@ -92,3 +95,29 @@ async def send_success_message(interaction: discord.Interaction, message: str) -
         await interaction.user.send(content=message)
     except (discord.Forbidden, discord.HTTPException) as e:
         logger.warning("Cannot send DM to user %s: %s", interaction.user.id, e)
+
+
+async def upsert_message_refresh_and_notify(
+    db: AsyncSession, game_id: str, channel_id: str, guild_id: str
+) -> None:
+    """Upsert a message_refresh_queue row and emit a pg_notify for SSE clients.
+
+    Args:
+        db: Database session (must be inside an active transaction)
+        game_id: Game session ID string
+        channel_id: Discord channel ID string
+        guild_id: Guild DB UUID string
+    """
+    stmt = (
+        pg_insert(MessageRefreshQueue)
+        .values(game_id=game_id, channel_id=channel_id)
+        .on_conflict_do_update(
+            index_elements=["channel_id", "game_id"],
+            set_={"enqueued_at": func.now()},
+        )
+    )
+    await db.execute(stmt)
+    payload = json.dumps({"game_id": game_id, "guild_id": guild_id})
+    await db.execute(
+        text("SELECT pg_notify('game_updated_sse', :payload)").bindparams(payload=payload)
+    )

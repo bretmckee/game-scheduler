@@ -37,7 +37,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from sqlalchemy import text
 
-from services.bot.events.publisher import BotEventPublisher
 from services.bot.handlers.join_game import handle_join_game
 from shared.database import BotAsyncSessionLocal, bot_engine
 from shared.utils.status_transitions import GameStatus
@@ -72,13 +71,6 @@ def _patch_db():
     return patch("services.bot.handlers.join_game.get_db_session", side_effect=_bypass)
 
 
-@pytest.fixture
-def mock_publisher() -> MagicMock:
-    publisher = MagicMock(spec=BotEventPublisher)
-    publisher.publish_game_updated = AsyncMock()
-    return publisher
-
-
 @pytest.fixture(autouse=True)
 async def _cleanup_engines():
     """Dispose bot engine pool after each test for clean event loop state."""
@@ -104,39 +96,35 @@ def test_game(create_guild, create_channel, create_user, create_game):
 
 
 @pytest.mark.asyncio
-async def test_invalid_uuid_returns_error_without_touching_db(
-    test_game, mock_publisher, admin_db_sync
-) -> None:
+async def test_invalid_uuid_returns_error_without_touching_db(test_game, admin_db_sync) -> None:
     """An unparseable game_id sends an error DM and makes no DB changes."""
     interaction = _make_interaction(JOINER_DISCORD_ID)
     rows_before = admin_db_sync.execute(text("SELECT COUNT(*) FROM game_participants")).scalar()
 
     with _patch_db():
-        await handle_join_game(interaction, "not-a-uuid", mock_publisher)
+        await handle_join_game(interaction, "not-a-uuid")
 
     rows_after = admin_db_sync.execute(text("SELECT COUNT(*) FROM game_participants")).scalar()
     assert rows_after == rows_before
-    mock_publisher.publish_game_updated.assert_not_called()
     interaction.user.send.assert_called_once()
     assert "Invalid game ID" in interaction.user.send.call_args.kwargs["content"]
 
 
 @pytest.mark.asyncio
-async def test_game_not_found_sends_error(test_game, mock_publisher) -> None:
+async def test_game_not_found_sends_error(test_game) -> None:
     """A valid UUID with no matching game sends the 'Game not found' error."""
     interaction = _make_interaction(JOINER_DISCORD_ID)
     missing_id = str(uuid.uuid4())
 
     with _patch_db():
-        await handle_join_game(interaction, missing_id, mock_publisher)
+        await handle_join_game(interaction, missing_id)
 
-    mock_publisher.publish_game_updated.assert_not_called()
     interaction.user.send.assert_called_once()
     assert "Game not found" in interaction.user.send.call_args.kwargs["content"]
 
 
 @pytest.mark.asyncio
-async def test_non_scheduled_game_sends_error(test_game, mock_publisher, admin_db_sync) -> None:
+async def test_non_scheduled_game_sends_error(test_game, admin_db_sync) -> None:
     """A game that is not SCHEDULED returns the appropriate error."""
     guild = test_game["guild"]
     channel = test_game["channel"]
@@ -169,16 +157,15 @@ async def test_non_scheduled_game_sends_error(test_game, mock_publisher, admin_d
     interaction = _make_interaction(JOINER_DISCORD_ID)
 
     with _patch_db():
-        await handle_join_game(interaction, completed_game_id, mock_publisher)
+        await handle_join_game(interaction, completed_game_id)
 
-    mock_publisher.publish_game_updated.assert_not_called()
     interaction.user.send.assert_called_once()
     assert "already started or is completed" in interaction.user.send.call_args.kwargs["content"]
 
 
 @pytest.mark.asyncio
 async def test_successful_join_existing_user_creates_participant(
-    test_game, mock_publisher, create_user, admin_db_sync
+    test_game, create_user, admin_db_sync
 ) -> None:
     """Happy path: existing user joins a SCHEDULED game; participant row created."""
     player = create_user(discord_user_id=JOINER_DISCORD_ID)
@@ -186,7 +173,7 @@ async def test_successful_join_existing_user_creates_participant(
     interaction = _make_interaction(JOINER_DISCORD_ID)
 
     with _patch_db():
-        await handle_join_game(interaction, game["id"], mock_publisher)
+        await handle_join_game(interaction, game["id"])
 
     rows = admin_db_sync.execute(
         text(
@@ -197,16 +184,15 @@ async def test_successful_join_existing_user_creates_participant(
     ).fetchall()
     assert len(rows) == 1, "Participant row must be created after join"
 
-    mock_publisher.publish_game_updated.assert_called_once()
-    call_kwargs = mock_publisher.publish_game_updated.call_args.kwargs
-    assert call_kwargs["game_id"] == game["id"]
-    assert call_kwargs["guild_id"] == test_game["guild"]["id"]
+    mrq_row = admin_db_sync.execute(
+        text("SELECT game_id FROM message_refresh_queue WHERE game_id = :game_id"),
+        {"game_id": game["id"]},
+    ).fetchone()
+    assert mrq_row is not None, "message_refresh_queue row must exist after successful join"
 
 
 @pytest.mark.asyncio
-async def test_successful_join_creates_new_user_when_not_in_db(
-    test_game, mock_publisher, admin_db_sync
-) -> None:
+async def test_successful_join_creates_new_user_when_not_in_db(test_game, admin_db_sync) -> None:
     """Handler creates a new User row for a Discord user that has no DB record yet."""
     game = test_game["game"]
     interaction = _make_interaction(NEW_USER_DISCORD_ID)
@@ -219,7 +205,7 @@ async def test_successful_join_creates_new_user_when_not_in_db(
     assert len(existing) == 0, "Precondition: user must not exist before join"
 
     with _patch_db():
-        await handle_join_game(interaction, game["id"], mock_publisher)
+        await handle_join_game(interaction, game["id"])
 
     new_users = admin_db_sync.execute(
         text("SELECT id FROM users WHERE discord_id = :discord_id"),
@@ -233,16 +219,16 @@ async def test_successful_join_creates_new_user_when_not_in_db(
     ).fetchall()
     assert len(participants) == 1, "Participant row must be created"
 
-    mock_publisher.publish_game_updated.assert_awaited_once_with(
-        game_id=game["id"],
-        guild_id=test_game["guild"]["id"],
-        updated_fields={"participants": True},
-    )
+    mrq_row = admin_db_sync.execute(
+        text("SELECT game_id FROM message_refresh_queue WHERE game_id = :game_id"),
+        {"game_id": game["id"]},
+    ).fetchone()
+    assert mrq_row is not None, "message_refresh_queue row must exist after successful join"
 
 
 @pytest.mark.asyncio
 async def test_duplicate_join_does_not_create_second_participant(
-    test_game, mock_publisher, create_user, admin_db_sync
+    test_game, create_user, admin_db_sync
 ) -> None:
     """IntegrityError on duplicate join is swallowed; only one participant row exists."""
     player = create_user(discord_user_id=JOINER_DISCORD_ID)
@@ -250,14 +236,13 @@ async def test_duplicate_join_does_not_create_second_participant(
     interaction = _make_interaction(JOINER_DISCORD_ID)
 
     with _patch_db():
-        await handle_join_game(interaction, game["id"], mock_publisher)
+        await handle_join_game(interaction, game["id"])
 
-    # Reset call count then attempt duplicate join
-    mock_publisher.publish_game_updated.reset_mock()
+    # Attempt duplicate join
     interaction2 = _make_interaction(JOINER_DISCORD_ID)
 
     with _patch_db():
-        await handle_join_game(interaction2, game["id"], mock_publisher)
+        await handle_join_game(interaction2, game["id"])
 
     rows = admin_db_sync.execute(
         text(
@@ -267,4 +252,3 @@ async def test_duplicate_join_does_not_create_second_participant(
         {"game_id": game["id"], "user_id": player["id"]},
     ).fetchall()
     assert len(rows) == 1, "Duplicate join must not create a second participant row"
-    mock_publisher.publish_game_updated.assert_not_called()

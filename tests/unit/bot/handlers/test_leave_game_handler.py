@@ -29,7 +29,6 @@ from uuid import uuid4
 import discord
 import pytest
 
-from services.bot.events.publisher import BotEventPublisher
 from services.bot.handlers.leave_game import handle_leave_game
 from shared.message_formats import DMPredicates
 from shared.models.game import GameSession
@@ -84,18 +83,11 @@ def mock_interaction():
     return interaction
 
 
-@pytest.fixture
-def mock_publisher():
-    publisher = MagicMock(spec=BotEventPublisher)
-    publisher.publish_game_updated = AsyncMock()
-    return publisher
-
-
 def _make_mock_db(mock_participant, mock_game, unsent_notification=None):
     """Build a mock DB session for leave_game handler tests.
 
     _validate_leave_game runs 3 queries (game, user, participant + count).
-    The leave handler then runs 1 notification query.
+    The leave handler then runs 1 notification query + 2 for upsert and pg_notify.
     """
     mock_db = AsyncMock()
     mock_db.delete = AsyncMock()
@@ -119,6 +111,7 @@ def _make_mock_db(mock_participant, mock_game, unsent_notification=None):
     notif_result.scalar_one_or_none = MagicMock(return_value=unsent_notification)
 
     upsert_result = MagicMock()
+    notify_result = MagicMock()
 
     mock_db.execute = AsyncMock(
         side_effect=[
@@ -128,6 +121,7 @@ def _make_mock_db(mock_participant, mock_game, unsent_notification=None):
             count_result,
             notif_result,
             upsert_result,
+            notify_result,
         ]
     )
     return mock_db
@@ -142,13 +136,13 @@ def _patch_db(mock_db):
 
 @pytest.mark.asyncio
 async def test_leave_sends_dm_when_join_was_already_sent(
-    mock_game, mock_participant, mock_interaction, mock_publisher, game_id
+    mock_game, mock_participant, mock_interaction, game_id
 ):
     """Leave DM is sent when no unsent join notification exists (join DM was delivered)."""
     mock_db = _make_mock_db(mock_participant, mock_game, unsent_notification=None)
 
     with _patch_db(mock_db):
-        await handle_leave_game(mock_interaction, game_id, mock_publisher)
+        await handle_leave_game(mock_interaction, game_id)
 
     mock_interaction.user.send.assert_called_once()
     sent_content = (
@@ -160,7 +154,7 @@ async def test_leave_sends_dm_when_join_was_already_sent(
 
 @pytest.mark.asyncio
 async def test_leave_suppresses_dm_when_join_not_yet_sent(
-    mock_game, mock_participant, mock_interaction, mock_publisher, game_id
+    mock_game, mock_participant, mock_interaction, game_id
 ):
     """No leave DM is sent when an unsent join notification still exists."""
     unsent = MagicMock(spec=NotificationSchedule)
@@ -168,14 +162,14 @@ async def test_leave_suppresses_dm_when_join_not_yet_sent(
     mock_db = _make_mock_db(mock_participant, mock_game, unsent_notification=unsent)
 
     with _patch_db(mock_db):
-        await handle_leave_game(mock_interaction, game_id, mock_publisher)
+        await handle_leave_game(mock_interaction, game_id)
 
     mock_interaction.user.send.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_leave_deletes_participant_regardless_of_notification(
-    mock_game, mock_participant, mock_interaction, mock_publisher, game_id
+    mock_game, mock_participant, mock_interaction, game_id
 ):
     """Participant is always deleted even when the leave DM is suppressed."""
     unsent = MagicMock(spec=NotificationSchedule)
@@ -183,27 +177,28 @@ async def test_leave_deletes_participant_regardless_of_notification(
     mock_db = _make_mock_db(mock_participant, mock_game, unsent_notification=unsent)
 
     with _patch_db(mock_db):
-        await handle_leave_game(mock_interaction, game_id, mock_publisher)
+        await handle_leave_game(mock_interaction, game_id)
 
     mock_db.delete.assert_called_once_with(mock_participant)
     assert mock_db.commit.call_count == 1
 
 
 @pytest.mark.asyncio
-async def test_leave_publishes_game_updated_regardless_of_notification(
-    mock_game, mock_participant, mock_interaction, mock_publisher, game_id
+async def test_leave_notifies_sse_regardless_of_notification(
+    mock_game, mock_participant, mock_interaction, game_id
 ):
-    """GAME_UPDATED is always published even when the leave DM is suppressed."""
+    """MRQ upsert and pg_notify are always executed even when leave DM is suppressed."""
     unsent = MagicMock(spec=NotificationSchedule)
     unsent.sent = False
     mock_db = _make_mock_db(mock_participant, mock_game, unsent_notification=unsent)
 
     with _patch_db(mock_db):
-        await handle_leave_game(mock_interaction, game_id, mock_publisher)
+        await handle_leave_game(mock_interaction, game_id)
 
-    mock_publisher.publish_game_updated.assert_awaited_once_with(
-        game_id=game_id, guild_id="guild-db-uuid-42", updated_fields={"participants": True}
-    )
+    notify_calls = [
+        call for call in mock_db.execute.call_args_list if "game_updated_sse" in str(call.args[0])
+    ]
+    assert len(notify_calls) >= 1, "Expected pg_notify('game_updated_sse', ...) call"
 
 
 # ---------------------------------------------------------------------------
@@ -284,6 +279,7 @@ def _make_host_added_mock_db(participant: MagicMock, game: MagicMock) -> MagicMo
     notif_result.scalar_one_or_none = MagicMock(return_value=None)
 
     upsert_result = MagicMock()
+    notify_result = MagicMock()
 
     mock_db.execute = AsyncMock(
         side_effect=[
@@ -293,6 +289,7 @@ def _make_host_added_mock_db(participant: MagicMock, game: MagicMock) -> MagicMo
             count_result,
             notif_result,
             upsert_result,
+            notify_result,
         ]
     )
     return mock_db
@@ -309,13 +306,10 @@ async def test_host_added_leave_sends_dm_to_host(game_id, participant_db_id):
     mock_host_user.send = AsyncMock()
     interaction.client.get_user.return_value = mock_host_user
 
-    publisher = MagicMock(spec=BotEventPublisher)
-    publisher.publish_game_updated = AsyncMock()
-
     mock_db = _make_host_added_mock_db(participant, game)
 
     with _patch_db(mock_db):
-        await handle_leave_game(interaction, game_id, publisher)
+        await handle_leave_game(interaction, game_id)
 
     mock_host_user.send.assert_awaited_once()
     sent_content = mock_host_user.send.call_args.args[0]
@@ -333,13 +327,11 @@ async def test_non_host_added_leave_does_not_send_host_dm(game_id, participant_d
     participant.position_type = ParticipantType.SELF_ADDED
 
     interaction = _make_host_added_interaction()
-    publisher = MagicMock(spec=BotEventPublisher)
-    publisher.publish_game_updated = AsyncMock()
 
     mock_db = _make_host_added_mock_db(participant, game)
 
     with _patch_db(mock_db):
-        await handle_leave_game(interaction, game_id, publisher)
+        await handle_leave_game(interaction, game_id)
 
     interaction.client.get_user.assert_not_called()
 
@@ -353,12 +345,55 @@ async def test_host_added_leave_no_dm_when_host_not_in_cache(game_id, participan
 
     interaction.client.get_user.return_value = None
 
-    publisher = MagicMock(spec=BotEventPublisher)
-    publisher.publish_game_updated = AsyncMock()
-
     mock_db = _make_host_added_mock_db(participant, game)
 
     with _patch_db(mock_db):
-        await handle_leave_game(interaction, game_id, publisher)
+        await handle_leave_game(interaction, game_id)
 
-    publisher.publish_game_updated.assert_awaited_once()
+    notify_calls = [
+        call for call in mock_db.execute.call_args_list if "game_updated_sse" in str(call.args[0])
+    ]
+    assert len(notify_calls) >= 1, (
+        "Expected pg_notify('game_updated_sse', ...) even when host not in cache"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Phase 7 TDD — xfail tests for direct DB operations (no publisher)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_leave_game_executes_message_refresh_upsert(
+    mock_game, mock_participant, mock_interaction, game_id
+):
+    """After leave, db.execute is called for the MessageRefreshQueue upsert (no publisher)."""
+    mock_db = _make_mock_db(mock_participant, mock_game)
+
+    with _patch_db(mock_db):
+        await handle_leave_game(mock_interaction, game_id)
+
+    upsert_calls = [
+        call
+        for call in mock_db.execute.call_args_list
+        if "message_refresh_queue" in str(call.args[0]).lower()
+    ]
+    assert len(upsert_calls) >= 1, "Expected db.execute call for MessageRefreshQueue upsert"
+
+
+@pytest.mark.asyncio
+async def test_leave_game_executes_pg_notify(
+    mock_game, mock_participant, mock_interaction, game_id
+):
+    """After leave, db.execute is called with pg_notify('game_updated_sse', ...) (no publisher)."""
+    mock_db = _make_mock_db(mock_participant, mock_game)
+
+    with _patch_db(mock_db):
+        await handle_leave_game(mock_interaction, game_id)
+
+    notify_calls = [
+        call for call in mock_db.execute.call_args_list if "game_updated_sse" in str(call.args[0])
+    ]
+    assert len(notify_calls) >= 1, (
+        "Expected db.execute call with pg_notify('game_updated_sse', ...)"
+    )

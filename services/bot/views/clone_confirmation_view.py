@@ -134,7 +134,6 @@ class CloneConfirmationView(View):
         await handle_participant_drop_due(
             data={"game_id": self.game_id, "participant_id": self.participant_id},
             bot=interaction.client,
-            publisher=self.publisher,
         )
         logger.info(
             "Declined clone spot: dropped participant %s from game %s",

@@ -28,9 +28,10 @@ import discord
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from services.bot.events.publisher import BotEventPublisher
+from services.bot.handlers.utils import upsert_message_refresh_and_notify
 from shared.database import get_bypass_db_session
 from shared.message_formats import DMFormats
+from shared.models.game import GameSession
 from shared.models.notification_schedule import NotificationSchedule
 from shared.models.participant import GameParticipant
 
@@ -40,7 +41,6 @@ logger = logging.getLogger(__name__)
 async def handle_participant_drop_due(
     data: dict[str, Any],
     bot: discord.Client,
-    publisher: BotEventPublisher,
 ) -> None:
     """
     Handle game.participant_drop_due event by removing the participant and
@@ -49,7 +49,6 @@ async def handle_participant_drop_due(
     Args:
         data: Event payload containing game_id and participant_id
         bot: Discord bot client for sending DMs
-        publisher: Bot event publisher for GAME_UPDATED notification
     """
     game_id = data.get("game_id")
     participant_id = data.get("participant_id")
@@ -63,7 +62,7 @@ async def handle_participant_drop_due(
             select(GameParticipant)
             .options(
                 selectinload(GameParticipant.user),
-                selectinload(GameParticipant.game),
+                selectinload(GameParticipant.game).selectinload(GameSession.channel),
             )
             .where(GameParticipant.id == participant_id)
         )
@@ -75,6 +74,7 @@ async def handle_participant_drop_due(
 
         game_title = participant.game.title
         guild_id = participant.game.guild_id
+        channel_id = participant.game.channel.channel_id
         discord_id = participant.user.discord_id if participant.user else None
 
         notif_result = await db.execute(
@@ -86,6 +86,9 @@ async def handle_participant_drop_due(
         welcome_not_sent = notif_result.scalar_one_or_none() is not None
 
         await db.delete(participant)
+
+        # Upsert message refresh and notify SSE atomically with the delete
+        await upsert_message_refresh_and_notify(db, game_id, channel_id, guild_id)
         await db.commit()
 
     logger.info("Dropped participant %s from game %s", participant_id, game_id)
@@ -99,9 +102,3 @@ async def handle_participant_drop_due(
             await user.send(DMFormats.removal(game_title))
         except Exception:
             logger.warning("Failed to send removal DM to user %s", discord_id, exc_info=True)
-
-    await publisher.publish_game_updated(
-        game_id=game_id,
-        guild_id=guild_id,
-        updated_fields={"participants": True},
-    )
