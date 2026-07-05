@@ -33,23 +33,23 @@ from uuid import uuid4
 import pytest
 
 from services.scheduler.generic_scheduler_daemon import SchedulerDaemon
-from shared.messaging.events import Event, EventType
 from shared.models import NotificationSchedule
+from shared.models.bot_action_queue import BotActionQueue
 
 
 @pytest.fixture
 def mock_event_builder():
-    """Mock event builder function that returns proper (Event, TTL) tuples."""
+    """Mock event builder that returns a BotActionQueue row."""
 
     def builder(record):
-        event = Event(
-            event_type=EventType.NOTIFICATION_DUE,
-            data={
-                "game_id": str(record.game_id),
-                "reminder_minutes": record.reminder_minutes,
+        return BotActionQueue(
+            action_type="notification_due",
+            game_id=str(record.game_id),
+            payload={
+                "notification_type": "reminder",
+                "participant_id": None,
             },
         )
-        return event, None
 
     return builder
 
@@ -60,7 +60,6 @@ def daemon(mock_event_builder):
     return SchedulerDaemon(
         service_name="test",
         database_url="postgresql://test:test@localhost/test",
-        rabbitmq_url="amqp://test:test@localhost/",
         notify_channel="test_channel",
         model_class=NotificationSchedule,
         time_field="notification_time",
@@ -78,7 +77,6 @@ class TestSchedulerDaemonInitialization:
         daemon = SchedulerDaemon(
             service_name="test",
             database_url="postgresql://user:pass@host/db",
-            rabbitmq_url="amqp://user:pass@host/",
             notify_channel="my_channel",
             model_class=NotificationSchedule,
             time_field="notification_time",
@@ -88,7 +86,6 @@ class TestSchedulerDaemonInitialization:
         )
 
         assert daemon.database_url == "postgresql://user:pass@host/db"
-        assert daemon.rabbitmq_url == "amqp://user:pass@host/"
         assert daemon.notify_channel == "my_channel"
         assert daemon.model_class == NotificationSchedule
         assert daemon.time_field == "notification_time"
@@ -99,7 +96,6 @@ class TestSchedulerDaemonInitialization:
     def test_init_resources_start_as_none(self, daemon):
         """Daemon initializes with no active connections."""
         assert daemon.listener is None
-        assert daemon.publisher is None
         assert daemon.db is None
 
 
@@ -107,18 +103,15 @@ class TestSchedulerDaemonConnect:
     """Test connection establishment."""
 
     @patch("services.scheduler.generic_scheduler_daemon.PostgresNotificationListener")
-    @patch("services.scheduler.generic_scheduler_daemon.SyncEventPublisher")
     @patch("services.scheduler.generic_scheduler_daemon.SyncSessionLocal")
-    def test_connect_establishes_all_connections_correctly(
-        self, mock_session_local, mock_publisher_class, mock_listener_class, daemon
+    def test_connect_establishes_postgres_listener_and_db(
+        self, mock_session_local, mock_listener_class, daemon
     ):
-        """connect() establishes PostgreSQL listener, RabbitMQ publisher, and DB session."""
+        """connect() establishes PostgreSQL listener and DB session."""
         mock_listener = MagicMock()
-        mock_publisher = MagicMock()
         mock_db = MagicMock()
 
         mock_listener_class.return_value = mock_listener
-        mock_publisher_class.return_value = mock_publisher
         mock_session_local.return_value = mock_db
 
         daemon.connect()
@@ -129,19 +122,12 @@ class TestSchedulerDaemonConnect:
         mock_listener.connect.assert_called_once_with()
         mock_listener.listen.assert_called_once_with("test_channel")
 
-        # Verify RabbitMQ publisher setup
-        # assert-not-weak: SyncEventPublisher() passed no args; exchange_name uses default
-        mock_publisher_class.assert_called_once_with()
-        # assert-not-weak: SyncEventPublisher.connect() has no parameters
-        mock_publisher.connect.assert_called_once_with()
-
         # Verify database session created
         # assert-not-weak: SyncSessionLocal() is a sessionmaker called with no arguments
         mock_session_local.assert_called_once_with()
 
         # Verify connections stored
         assert daemon.listener == mock_listener
-        assert daemon.publisher == mock_publisher
         assert daemon.db == mock_db
 
     @patch("services.scheduler.generic_scheduler_daemon.PostgresNotificationListener")
@@ -150,21 +136,6 @@ class TestSchedulerDaemonConnect:
         mock_listener_class.side_effect = Exception("PostgreSQL connection refused")
 
         with pytest.raises(Exception, match="PostgreSQL connection refused"):
-            daemon.connect()
-
-    @patch("services.scheduler.generic_scheduler_daemon.PostgresNotificationListener")
-    @patch("services.scheduler.generic_scheduler_daemon.SyncEventPublisher")
-    def test_connect_raises_when_rabbitmq_connection_fails(
-        self, mock_publisher_class, mock_listener_class, daemon
-    ):
-        """connect() propagates exception when RabbitMQ connection fails."""
-        mock_listener = MagicMock()
-        mock_listener_class.return_value = mock_listener
-        mock_publisher = MagicMock()
-        mock_publisher.connect.side_effect = Exception("RabbitMQ connection refused")
-        mock_publisher_class.return_value = mock_publisher
-
-        with pytest.raises(Exception, match="RabbitMQ connection refused"):
             daemon.connect()
 
 
@@ -277,40 +248,35 @@ class TestSchedulerDaemonProcessItem:
     """Test _process_item event publishing and marking."""
 
     def test_process_item_raises_when_not_initialized(self, daemon):
-        """_process_item raises RuntimeError when publisher or db is None."""
-        daemon.publisher = None
+        """_process_item raises RuntimeError when db is None."""
         daemon.db = None
         mock_item = MagicMock()
 
         with pytest.raises(RuntimeError, match="Daemon not properly initialized"):
             daemon._process_item(mock_item)
 
-    def test_process_item_builds_event_publishes_and_marks_processed(self, daemon):
-        """_process_item builds event, publishes it, marks item processed, and commits."""
+    def test_process_item_adds_bot_action_marks_processed_and_commits(self, daemon):
+        """_process_item adds BotActionQueue row, marks item processed, and commits."""
         mock_db = MagicMock()
-        mock_publisher = MagicMock()
         daemon.db = mock_db
-        daemon.publisher = mock_publisher
 
         item_id = str(uuid4())
         game_id = str(uuid4())
         mock_item = MagicMock()
         mock_item.id = item_id
         mock_item.game_id = game_id
-        mock_item.reminder_minutes = 60
         mock_item.sent = False
 
-        # Mock the DB query to return the mock_item so _mark_item_processed can set its field
         mock_db.query.return_value.filter_by.return_value.first.return_value = mock_item
 
         daemon._process_item(mock_item)
 
-        # Verify event published
-        mock_publisher.publish.assert_called_once()
-        call_args = mock_publisher.publish.call_args
-        assert call_args[1]["event"].event_type == EventType.NOTIFICATION_DUE
-        assert game_id in str(call_args[1]["event"].data)
-        assert call_args[1]["expiration_ms"] is None
+        # Verify BotActionQueue row added
+        mock_db.add.assert_called_once()
+        added_row = mock_db.add.call_args[0][0]
+        assert isinstance(added_row, BotActionQueue)
+        assert added_row.action_type == "notification_due"
+        assert added_row.game_id == game_id
 
         # Verify item marked as processed
         assert mock_item.sent is True
@@ -318,32 +284,10 @@ class TestSchedulerDaemonProcessItem:
         # Verify committed
         mock_db.commit.assert_called_once()
 
-    def test_process_item_rolls_back_on_publish_failure(self, daemon):
-        """_process_item rolls back transaction when publishing fails."""
-        mock_db = MagicMock()
-        mock_publisher = MagicMock()
-        daemon.db = mock_db
-        daemon.publisher = mock_publisher
-
-        mock_publisher.publish.side_effect = Exception("RabbitMQ unavailable")
-
-        mock_item = MagicMock()
-        mock_item.id = str(uuid4())
-        mock_item.game_id = str(uuid4())
-        mock_item.reminder_minutes = 60
-
-        daemon._process_item(mock_item)
-
-        # Should rollback, not commit
-        mock_db.rollback.assert_called_once()
-        mock_db.commit.assert_not_called()
-
     def test_process_item_rolls_back_on_event_builder_failure(self, daemon):
         """_process_item rolls back when event_builder raises exception."""
         mock_db = MagicMock()
-        mock_publisher = MagicMock()
         daemon.db = mock_db
-        daemon.publisher = mock_publisher
         daemon.event_builder = Mock(side_effect=Exception("Builder failed"))
 
         mock_item = MagicMock()
@@ -354,22 +298,20 @@ class TestSchedulerDaemonProcessItem:
         # Should rollback, not commit
         mock_db.rollback.assert_called_once()
         mock_db.commit.assert_not_called()
-        # Should not attempt to publish
-        mock_publisher.publish.assert_not_called()
+        # Should not attempt to add anything
+        mock_db.add.assert_not_called()
 
     def test_process_item_rolls_back_on_commit_failure(self, daemon):
         """_process_item rolls back when commit fails."""
         mock_db = MagicMock()
-        mock_publisher = MagicMock()
         daemon.db = mock_db
-        daemon.publisher = mock_publisher
 
         mock_db.commit.side_effect = Exception("Commit failed")
 
         mock_item = MagicMock()
         mock_item.id = str(uuid4())
         mock_item.game_id = str(uuid4())
-        mock_item.reminder_minutes = 60
+        mock_item.sent = False
 
         daemon._process_item(mock_item)
 
@@ -620,45 +562,38 @@ class TestSchedulerDaemonRun:
 class TestSchedulerDaemonCleanup:
     """Test cleanup logic."""
 
-    def test_cleanup_closes_all_connections(self, daemon):
-        """_cleanup closes listener, publisher, and db connections."""
+    def test_cleanup_closes_listener_and_db(self, daemon):
+        """_cleanup closes listener and db connections."""
         mock_listener = MagicMock()
-        mock_publisher = MagicMock()
         mock_db = MagicMock()
 
         daemon.listener = mock_listener
-        daemon.publisher = mock_publisher
         daemon.db = mock_db
 
         daemon._cleanup()
 
         mock_listener.close.assert_called_once()
-        mock_publisher.close.assert_called_once()
         mock_db.close.assert_called_once()
 
     def test_cleanup_handles_none_connections_gracefully(self, daemon):
         """_cleanup doesn't fail when connections are None."""
         daemon.listener = None
-        daemon.publisher = None
         daemon.db = None
 
         # Should not raise
         daemon._cleanup()
 
         assert daemon.listener is None
-        assert daemon.publisher is None
         assert daemon.db is None
 
     def test_cleanup_continues_if_close_raises(self, daemon):
         """_cleanup continues closing other connections if one fails."""
         mock_listener = MagicMock()
-        mock_publisher = MagicMock()
         mock_db = MagicMock()
 
         mock_listener.close.side_effect = Exception("Close failed")
 
         daemon.listener = mock_listener
-        daemon.publisher = mock_publisher
         daemon.db = mock_db
 
         # Should not raise, should continue
@@ -666,137 +601,21 @@ class TestSchedulerDaemonCleanup:
 
         # All close() should be attempted
         mock_listener.close.assert_called_once()
-        mock_publisher.close.assert_called_once()
-        mock_db.close.assert_called_once()
-
-    def test_cleanup_continues_if_publisher_close_raises(self, daemon):
-        """_cleanup continues when publisher close raises."""
-        mock_listener = MagicMock()
-        mock_publisher = MagicMock()
-        mock_db = MagicMock()
-        mock_publisher.close.side_effect = Exception("Publisher close failed")
-
-        daemon.listener = mock_listener
-        daemon.publisher = mock_publisher
-        daemon.db = mock_db
-
-        daemon._cleanup()
-
-        mock_listener.close.assert_called_once()
-        mock_publisher.close.assert_called_once()
         mock_db.close.assert_called_once()
 
     def test_cleanup_continues_if_db_close_raises(self, daemon):
         """_cleanup completes gracefully when database close raises."""
         mock_listener = MagicMock()
-        mock_publisher = MagicMock()
         mock_db = MagicMock()
         mock_db.close.side_effect = Exception("DB close failed")
 
         daemon.listener = mock_listener
-        daemon.publisher = mock_publisher
         daemon.db = mock_db
 
         daemon._cleanup()
 
         mock_listener.close.assert_called_once()
-        mock_publisher.close.assert_called_once()
         mock_db.close.assert_called_once()
-
-
-class TestSchedulerDaemonTupleHandling:
-    """Test daemon handling of event builder tuple returns."""
-
-    def test_process_item_handles_tuple_return_with_ttl(self, daemon):
-        """_process_item correctly unpacks tuple with TTL and passes to publisher."""
-        mock_db = MagicMock()
-        mock_publisher = MagicMock()
-        daemon.db = mock_db
-        daemon.publisher = mock_publisher
-
-        ttl_value = 30000
-
-        def builder_with_ttl(record):
-            event = Event(
-                event_type=EventType.NOTIFICATION_DUE,
-                data={"game_id": str(record.game_id)},
-            )
-            return event, ttl_value
-
-        daemon.event_builder = builder_with_ttl
-
-        item_id = str(uuid4())
-        mock_item = MagicMock()
-        mock_item.id = item_id
-        mock_item.game_id = str(uuid4())
-        mock_item.sent = False
-
-        mock_db.query.return_value.filter_by.return_value.first.return_value = mock_item
-
-        daemon._process_item(mock_item)
-
-        mock_publisher.publish.assert_called_once()
-        call_args = mock_publisher.publish.call_args
-        assert call_args[1]["expiration_ms"] == ttl_value
-
-    def test_process_item_handles_tuple_return_with_none_ttl(self, daemon):
-        """_process_item correctly unpacks tuple with None TTL."""
-        mock_db = MagicMock()
-        mock_publisher = MagicMock()
-        daemon.db = mock_db
-        daemon.publisher = mock_publisher
-
-        def builder_no_ttl(record):
-            event = Event(
-                event_type=EventType.GAME_STATUS_TRANSITION_DUE,
-                data={"game_id": str(record.game_id)},
-            )
-            return event, None
-
-        daemon.event_builder = builder_no_ttl
-
-        item_id = str(uuid4())
-        mock_item = MagicMock()
-        mock_item.id = item_id
-        mock_item.game_id = str(uuid4())
-        mock_item.sent = False
-
-        mock_db.query.return_value.filter_by.return_value.first.return_value = mock_item
-
-        daemon._process_item(mock_item)
-
-        mock_publisher.publish.assert_called_once()
-        call_args = mock_publisher.publish.call_args
-        assert call_args[1]["expiration_ms"] is None
-
-    def test_process_item_handles_legacy_single_event_return(self, daemon):
-        """_process_item handles legacy event builders returning just Event."""
-        mock_db = MagicMock()
-        mock_publisher = MagicMock()
-        daemon.db = mock_db
-        daemon.publisher = mock_publisher
-
-        def legacy_builder(record):
-            return Event(
-                event_type=EventType.NOTIFICATION_DUE,
-                data={"game_id": str(record.game_id)},
-            )
-
-        daemon.event_builder = legacy_builder
-
-        item_id = str(uuid4())
-        mock_item = MagicMock()
-        mock_item.id = item_id
-        mock_item.game_id = str(uuid4())
-        mock_item.sent = False
-
-        mock_db.query.return_value.filter_by.return_value.first.return_value = mock_item
-
-        daemon._process_item(mock_item)
-
-        mock_publisher.publish.assert_called_once()
-        call_args = mock_publisher.publish.call_args
-        assert call_args[1]["expiration_ms"] is None
 
 
 class TestSchedulerDaemonServiceName:
@@ -814,14 +633,11 @@ class TestSchedulerDaemonServiceName:
     def test_process_item_span_includes_service_name_attribute(self, daemon):
         """_process_item OTel span attributes include scheduler.service_name."""
         mock_db = MagicMock()
-        mock_publisher = MagicMock()
         daemon.db = mock_db
-        daemon.publisher = mock_publisher
 
         mock_item = MagicMock()
         mock_item.id = str(uuid4())
         mock_item.game_id = str(uuid4())
-        mock_item.reminder_minutes = 60
         mock_item.sent = False
         mock_db.query.return_value.filter_by.return_value.first.return_value = mock_item
 

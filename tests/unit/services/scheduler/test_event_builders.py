@@ -28,16 +28,16 @@ from services.scheduler.event_builders import (
     build_notification_event,
     build_status_transition_event,
 )
-from shared.messaging.events import EventType
 from shared.models import GameStatus, GameStatusSchedule, NotificationSchedule
 from shared.models.base import utc_now
+from shared.models.bot_action_queue import BotActionQueue
 
 
 class TestBuildNotificationEvent:
     """Test build_notification_event function."""
 
-    def test_returns_tuple_with_event_and_ttl(self):
-        """Function returns tuple of (Event, TTL)."""
+    def test_returns_bot_action_queue_instance(self):
+        """build_notification_event returns a BotActionQueue row."""
         notification = NotificationSchedule(
             id=str(uuid4()),
             game_id=str(uuid4()),
@@ -50,68 +50,10 @@ class TestBuildNotificationEvent:
 
         result = build_notification_event(notification)
 
-        assert isinstance(result, tuple)
-        assert len(result) == 2
+        assert isinstance(result, BotActionQueue)
 
-    def test_event_has_correct_type_and_data_for_reminder(self):
-        """Event has NOTIFICATION_DUE type and correct payload for reminder."""
-        game_id = str(uuid4())
-        notification = NotificationSchedule(
-            id=str(uuid4()),
-            game_id=game_id,
-            notification_type="reminder",
-            participant_id=None,
-            reminder_minutes=60,
-            notification_time=utc_now() + timedelta(minutes=60),
-            game_scheduled_at=utc_now() + timedelta(hours=2),
-            sent=False,
-        )
-
-        event, _ = build_notification_event(notification)
-
-        assert event.event_type == EventType.NOTIFICATION_DUE
-        assert str(event.data["game_id"]) == game_id
-        assert event.data["notification_type"] == "reminder"
-        assert event.data["participant_id"] is None
-
-    def test_ttl_calculated_from_game_scheduled_at(self):
-        """TTL is calculated as milliseconds until game starts."""
-        future_time = utc_now() + timedelta(hours=2)
-        notification = NotificationSchedule(
-            id=str(uuid4()),
-            game_id=str(uuid4()),
-            notification_type="reminder",
-            reminder_minutes=60,
-            notification_time=utc_now() + timedelta(minutes=60),
-            game_scheduled_at=future_time,
-            sent=False,
-        )
-
-        _, ttl = build_notification_event(notification)
-
-        assert ttl is not None
-        expected_seconds = (future_time - utc_now()).total_seconds()
-        expected_ms = int(expected_seconds * 1000)
-        assert abs(ttl - expected_ms) < 1000
-
-    def test_minimum_ttl_for_imminent_games(self):
-        """TTL is minimum 60 seconds for games starting soon."""
-        notification = NotificationSchedule(
-            id=str(uuid4()),
-            game_id=str(uuid4()),
-            notification_type="reminder",
-            reminder_minutes=60,
-            notification_time=utc_now(),
-            game_scheduled_at=utc_now() + timedelta(seconds=30),
-            sent=False,
-        )
-
-        _, ttl = build_notification_event(notification)
-
-        assert ttl == 60000
-
-    def test_none_ttl_when_no_scheduled_time(self):
-        """TTL is None when game has no scheduled_at time."""
+    def test_notification_due_action_type(self):
+        """Row has action_type='notification_due'."""
         notification = NotificationSchedule(
             id=str(uuid4()),
             game_id=str(uuid4()),
@@ -122,39 +64,70 @@ class TestBuildNotificationEvent:
             sent=False,
         )
 
-        _, ttl = build_notification_event(notification)
+        result = build_notification_event(notification)
 
-        assert ttl is None
+        assert result.action_type == "notification_due"
 
-    def test_event_has_correct_type_and_data_for_join_notification(self):
-        """Event has NOTIFICATION_DUE type and correct payload for join notification."""
+    def test_game_id_stored_on_row(self):
+        """Row game_id matches the notification's game_id."""
         game_id = str(uuid4())
-        participant_id = str(uuid4())
         notification = NotificationSchedule(
             id=str(uuid4()),
             game_id=game_id,
+            notification_type="reminder",
+            reminder_minutes=60,
+            notification_time=utc_now() + timedelta(minutes=60),
+            game_scheduled_at=None,
+            sent=False,
+        )
+
+        result = build_notification_event(notification)
+
+        assert result.game_id == game_id
+
+    def test_payload_contains_notification_type_for_reminder(self):
+        """Payload stores notification_type='reminder' and participant_id=None."""
+        notification = NotificationSchedule(
+            id=str(uuid4()),
+            game_id=str(uuid4()),
+            notification_type="reminder",
+            participant_id=None,
+            reminder_minutes=60,
+            notification_time=utc_now() + timedelta(minutes=60),
+            game_scheduled_at=None,
+            sent=False,
+        )
+
+        result = build_notification_event(notification)
+
+        assert result.payload["notification_type"] == "reminder"
+        assert result.payload["participant_id"] is None
+
+    def test_payload_contains_participant_id_for_join_notification(self):
+        """Payload stores participant_id for join_notification type."""
+        participant_id = str(uuid4())
+        notification = NotificationSchedule(
+            id=str(uuid4()),
+            game_id=str(uuid4()),
             notification_type="join_notification",
             participant_id=participant_id,
             reminder_minutes=None,
             notification_time=utc_now() + timedelta(seconds=60),
-            game_scheduled_at=utc_now() + timedelta(hours=2),
+            game_scheduled_at=None,
             sent=False,
         )
 
-        event, ttl = build_notification_event(notification)
+        result = build_notification_event(notification)
 
-        assert event.event_type == EventType.NOTIFICATION_DUE
-        assert str(event.data["game_id"]) == game_id
-        assert event.data["notification_type"] == "join_notification"
-        assert event.data["participant_id"] == participant_id
-        assert ttl is not None
+        assert result.payload["notification_type"] == "join_notification"
+        assert result.payload["participant_id"] == participant_id
 
 
 class TestBuildStatusTransitionEvent:
     """Test build_status_transition_event function."""
 
-    def test_returns_tuple_with_event_and_none(self):
-        """Function returns tuple of (Event, None) - no TTL."""
+    def test_returns_bot_action_queue_instance(self):
+        """build_status_transition_event returns a BotActionQueue row."""
         transition = GameStatusSchedule(
             id=str(uuid4()),
             game_id=str(uuid4()),
@@ -165,12 +138,24 @@ class TestBuildStatusTransitionEvent:
 
         result = build_status_transition_event(transition)
 
-        assert isinstance(result, tuple)
-        assert len(result) == 2
-        assert result[1] is None
+        assert isinstance(result, BotActionQueue)
 
-    def test_event_has_correct_type_and_data(self):
-        """Event has GAME_STATUS_TRANSITION_DUE type and correct payload."""
+    def test_status_transition_due_action_type(self):
+        """Row has action_type='status_transition_due'."""
+        transition = GameStatusSchedule(
+            id=str(uuid4()),
+            game_id=str(uuid4()),
+            target_status=GameStatus.IN_PROGRESS.value,
+            transition_time=utc_now(),
+            executed=False,
+        )
+
+        result = build_status_transition_event(transition)
+
+        assert result.action_type == "status_transition_due"
+
+    def test_game_id_and_payload_fields(self):
+        """Row stores game_id and payload with target_status and transition_time ISO string."""
         game_id = str(uuid4())
         transition_time = utc_now()
         transition = GameStatusSchedule(
@@ -181,23 +166,8 @@ class TestBuildStatusTransitionEvent:
             executed=False,
         )
 
-        event, _ = build_status_transition_event(transition)
+        result = build_status_transition_event(transition)
 
-        assert event.event_type == EventType.GAME_STATUS_TRANSITION_DUE
-        assert str(event.data["game_id"]) == game_id
-        assert event.data["target_status"] == GameStatus.COMPLETED.value
-        assert event.data["transition_time"] == transition_time
-
-    def test_always_returns_none_ttl(self):
-        """Status transitions always have None TTL (never expire)."""
-        transition = GameStatusSchedule(
-            id=str(uuid4()),
-            game_id=str(uuid4()),
-            target_status=GameStatus.CANCELLED.value,
-            transition_time=utc_now() - timedelta(hours=1),
-            executed=False,
-        )
-
-        _, ttl = build_status_transition_event(transition)
-
-        assert ttl is None
+        assert result.game_id == game_id
+        assert result.payload["target_status"] == GameStatus.COMPLETED.value
+        assert result.payload["transition_time"] == transition_time.isoformat()

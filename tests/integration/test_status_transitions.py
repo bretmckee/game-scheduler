@@ -33,20 +33,16 @@ import pytest
 from sqlalchemy import text
 
 from services.scheduler.postgres_listener import PostgresNotificationListener
-from shared.messaging.infrastructure import QUEUE_BOT_EVENTS
-from tests.integration.conftest import get_queue_message_count
 from tests.shared.polling import wait_for_db_condition_sync
 
 pytestmark = pytest.mark.integration
 
 
 @pytest.fixture
-def purge_bot_events_queue(rabbitmq_channel):
-    """Purge bot_events queue before and after test to prevent cross-test pollution."""
-    rabbitmq_channel.queue_purge(QUEUE_BOT_EVENTS)
+def purge_bot_events_queue():
+    """Give the daemon a moment to process any remaining messages."""
     yield
-    time.sleep(0.5)  # Let daemon process any remaining messages
-    rabbitmq_channel.queue_purge(QUEUE_BOT_EVENTS)
+    time.sleep(0.5)
 
 
 class TestPostgresListenerIntegration:
@@ -110,7 +106,6 @@ class TestStatusTransitionDaemonIntegration:
         admin_db_sync,
         purge_bot_events_queue,
         test_game_environment,
-        rabbitmq_channel,
     ):
         """Test that the running scheduler service processes due transitions."""
         env = test_game_environment()
@@ -147,15 +142,23 @@ class TestStatusTransitionDaemonIntegration:
 
         assert result[0] is True, "Transition should be marked as executed"
 
-        message_count = get_queue_message_count(rabbitmq_channel, QUEUE_BOT_EVENTS)
-        assert message_count == 1, "Should have published 1 status transition event"
+        bot_row = wait_for_db_condition_sync(
+            admin_db_sync,
+            "SELECT action_type FROM bot_action_queue "
+            "WHERE action_type = 'status_transition_due' AND game_id = :game_id",
+            {"game_id": env["game"]["id"]},
+            lambda row: True,
+            timeout=5,
+            interval=0.5,
+            description="status_transition_due action enqueued in bot_action_queue",
+        )
+        assert bot_row is not None, "Should have enqueued 1 status_transition_due action"
 
     def test_daemon_waits_for_future_transition(
         self,
         admin_db_sync,
         purge_bot_events_queue,
         test_game_environment,
-        rabbitmq_channel,
     ):
         """Test that running daemon doesn't process future transitions."""
         env = test_game_environment()
@@ -189,5 +192,11 @@ class TestStatusTransitionDaemonIntegration:
 
         assert result[0] is False, "Future transition should not be processed"
 
-        message_count = get_queue_message_count(rabbitmq_channel, QUEUE_BOT_EVENTS)
-        assert message_count == 0, "Should have no messages for future transition"
+        bot_row = admin_db_sync.execute(
+            text(
+                "SELECT action_type FROM bot_action_queue "
+                "WHERE action_type = 'status_transition_due' AND game_id = :game_id"
+            ),
+            {"game_id": env["game"]["id"]},
+        ).fetchone()
+        assert bot_row is None, "Should have no bot_action_queue rows for future transition"

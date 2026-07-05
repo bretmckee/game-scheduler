@@ -83,9 +83,9 @@ Replace all RabbitMQ message flows with PostgreSQL LISTEN/NOTIFY + a new `bot_ac
 - [x] Task 5.2: Write xfail tests then migrate `on_raw_message_delete` to call `cancel_game` directly; delete `EmbedDeletionConsumer`; remove `publish_embed_deleted` (TDD)
   - Details: .copilot-tracking/planning/details/20260704-01-remove-rabbitmq-details.md (Lines 159-181)
 
-### [ ] Phase 6: Migrate Scheduler Flows (Flows 5-7)
+### [x] Phase 6: Migrate Scheduler Flows (Flows 5-7)
 
-- [ ] Task 6.1: Write xfail tests then replace `SyncEventPublisher` in scheduler with `BotActionQueue` inserts; remove `rabbitmq_url` from scheduler config (TDD)
+- [x] Task 6.1: Write xfail tests then replace `SyncEventPublisher` in scheduler with `BotActionQueue` inserts; remove `rabbitmq_url` from scheduler config (TDD)
   - Details: .copilot-tracking/planning/details/20260704-01-remove-rabbitmq-details.md (Lines 184-202)
 
 ### [ ] Phase 7: Migrate Bot Join/Leave/Drop Handlers (Flow 10)

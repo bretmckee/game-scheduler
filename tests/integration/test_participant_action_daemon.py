@@ -22,11 +22,10 @@
 """Integration tests for participant action scheduler service.
 
 Verifies that the scheduler container picks up overdue
-ParticipantActionSchedule records, marks them as processed, and publishes
-PARTICIPANT_DROP_DUE events to the bot_events RabbitMQ queue.
+ParticipantActionSchedule records, marks them as processed, and enqueues
+PARTICIPANT_DROP_DUE actions in the bot_action_queue table.
 """
 
-import json
 import time
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
@@ -34,24 +33,18 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import text
 
-from shared.messaging.infrastructure import QUEUE_BOT_EVENTS
 from shared.models.participant import ParticipantType
-from tests.integration.conftest import consume_one_message, get_queue_message_count
 from tests.shared.polling import wait_for_db_condition_sync
 
 pytestmark = pytest.mark.integration
 
 
 @pytest.fixture
-def clean_bot_events_queue(rabbitmq_channel):
-    """Purge the bot events queue before and after the test."""
+def clean_bot_events_queue():
+    """Give the daemon a moment to process any remaining actions."""
     time.sleep(0.5)
-    rabbitmq_channel.queue_purge(QUEUE_BOT_EVENTS)
-
     yield
-
     time.sleep(0.5)
-    rabbitmq_channel.queue_purge(QUEUE_BOT_EVENTS)
 
 
 def _insert_participant(admin_db_sync, game_id: str, user_id: str) -> str:
@@ -87,7 +80,6 @@ class TestParticipantActionDaemonIntegration:
         self,
         admin_db_sync,
         clean_bot_events_queue,
-        rabbitmq_channel,
         test_game_environment,
     ):
         """Running scheduler service marks overdue records processed and publishes event."""
@@ -135,22 +127,24 @@ class TestParticipantActionDaemonIntegration:
         )
         assert result[0] is True, "ParticipantActionSchedule record should be marked as processed"
 
-        message_count = get_queue_message_count(rabbitmq_channel, QUEUE_BOT_EVENTS)
-        assert message_count == 1, "Should have published 1 PARTICIPANT_DROP_DUE event"
-
-        _method, _properties, body = consume_one_message(
-            rabbitmq_channel, QUEUE_BOT_EVENTS, timeout=5
+        bot_row = wait_for_db_condition_sync(
+            admin_db_sync,
+            "SELECT payload FROM bot_action_queue "
+            "WHERE action_type = 'participant_drop_due' AND game_id = :game_id",
+            {"game_id": game_id},
+            lambda row: True,
+            timeout=5,
+            interval=0.5,
+            description="participant_drop_due action enqueued in bot_action_queue",
         )
-        assert body is not None, "RabbitMQ message body should not be None"
-        message = json.loads(body)
-        assert message["data"]["game_id"] == game_id
-        assert message["data"]["participant_id"] == participant_id
+        assert bot_row is not None, "Should have enqueued 1 PARTICIPANT_DROP_DUE action"
+        payload = bot_row[0]
+        assert payload["participant_id"] == participant_id
 
     def test_daemon_waits_for_future_action(
         self,
         admin_db_sync,
         clean_bot_events_queue,
-        rabbitmq_channel,
         test_game_environment,
     ):
         """Running daemon does not process future-dated ParticipantActionSchedule records."""
@@ -191,5 +185,11 @@ class TestParticipantActionDaemonIntegration:
 
         assert result[0] is False, "Future action should not be processed"
 
-        message_count = get_queue_message_count(rabbitmq_channel, QUEUE_BOT_EVENTS)
-        assert message_count == 0, "Should have no messages for future action"
+        bot_row = admin_db_sync.execute(
+            text(
+                "SELECT action_type FROM bot_action_queue "
+                "WHERE action_type = 'participant_drop_due' AND game_id = :game_id"
+            ),
+            {"game_id": game_id},
+        ).fetchone()
+        assert bot_row is None, "Should have no bot_action_queue rows for future action"

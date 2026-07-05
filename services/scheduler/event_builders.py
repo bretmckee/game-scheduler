@@ -20,92 +20,58 @@
 
 
 """
-Event builder functions for generic scheduler daemon.
+Event builder functions for scheduler daemon.
 
-Each builder function constructs an Event object from a schedule
-model instance for publishing to RabbitMQ.
+Each builder function constructs a BotActionQueue row from a schedule
+model instance for insertion into the bot_action_queue table.
 """
 
 import logging
-from uuid import UUID
 
-from shared.messaging.events import Event, EventType, NotificationDueEvent
 from shared.models import GameStatusSchedule, NotificationSchedule
-from shared.models.base import utc_now
-from shared.schemas.events import GameStatusTransitionDueEvent
-from shared.utils.time_constants import MILLISECONDS_PER_SECOND, SECONDS_PER_MINUTE
+from shared.models.bot_action_queue import BotActionQueue
 
 logger = logging.getLogger(__name__)
 
 
-def build_notification_event(
-    notification: NotificationSchedule,
-) -> tuple[Event, int | None]:
+def build_notification_event(notification: NotificationSchedule) -> BotActionQueue:
     """
-    Build NOTIFICATION_DUE event from notification schedule with per-message TTL.
+    Build a BotActionQueue row for a NOTIFICATION_DUE action.
 
     Args:
         notification: NotificationSchedule record
 
     Returns:
-        Tuple of (Event, expiration_ms) where expiration_ms is milliseconds
-        until game starts. If game has no scheduled_at or already started,
-        returns minimal TTL.
+        BotActionQueue instance with action_type="notification_due"
     """
-    event_data = NotificationDueEvent(
-        game_id=UUID(notification.game_id),
-        notification_type=notification.notification_type,
-        participant_id=notification.participant_id,
+    return BotActionQueue(
+        action_type="notification_due",
+        game_id=str(notification.game_id),
+        payload={
+            "notification_type": notification.notification_type,
+            "participant_id": notification.participant_id,
+        },
     )
 
-    event = Event(
-        event_type=EventType.NOTIFICATION_DUE,
-        data=event_data.model_dump(),
-    )
 
-    expiration_ms = None
-    if notification.game_scheduled_at:
-        time_until_game = (notification.game_scheduled_at - utc_now()).total_seconds()
-
-        if time_until_game > SECONDS_PER_MINUTE:
-            expiration_ms = int(time_until_game * MILLISECONDS_PER_SECOND)
-            logger.debug(
-                "Notification TTL: %.0fs until game starts (game_id=%s)",
-                time_until_game,
-                notification.game_id,
-            )
-        else:
-            expiration_ms = SECONDS_PER_MINUTE * MILLISECONDS_PER_SECOND
-            logger.warning(
-                "Game already started or starting soon, setting minimal TTL (game_id=%s)",
-                notification.game_id,
-            )
-
-    return event, expiration_ms
-
-
-def build_status_transition_event(transition: GameStatusSchedule) -> tuple[Event, None]:
+def build_status_transition_event(transition: GameStatusSchedule) -> BotActionQueue:
     """
-    Build GAME_STATUS_TRANSITION_DUE event from status schedule.
+    Build a BotActionQueue row for a GAME_STATUS_TRANSITION_DUE action.
 
-    Status transitions never expire - they must eventually succeed to
+    Status transitions never expire — they must eventually succeed to
     maintain database consistency.
 
     Args:
         transition: GameStatusSchedule record
 
     Returns:
-        Tuple of (Event, None) - status transitions have no TTL
+        BotActionQueue instance with action_type="status_transition_due"
     """
-    event_data = GameStatusTransitionDueEvent(
-        game_id=UUID(transition.game_id),
-        target_status=transition.target_status,
-        transition_time=transition.transition_time,
+    return BotActionQueue(
+        action_type="status_transition_due",
+        game_id=str(transition.game_id),
+        payload={
+            "target_status": transition.target_status,
+            "transition_time": transition.transition_time.isoformat(),
+        },
     )
-
-    event = Event(
-        event_type=EventType.GAME_STATUS_TRANSITION_DUE,
-        data=event_data.model_dump(),
-    )
-
-    return event, None

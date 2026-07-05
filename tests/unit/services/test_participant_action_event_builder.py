@@ -26,34 +26,42 @@ from unittest.mock import MagicMock
 from services.scheduler.participant_action_event_builder import (
     build_participant_action_event,
 )
-from shared.messaging.events import EventType
+from shared.models.bot_action_queue import BotActionQueue
 
 
 class TestBuildParticipantActionEvent:
-    def test_returns_participant_drop_due_event_type(self):
+    def test_returns_bot_action_queue_instance(self):
         record = MagicMock()
         record.game_id = "game-abc"
         record.participant_id = "participant-xyz"
 
-        event, ttl = build_participant_action_event(record)
+        result = build_participant_action_event(record)
 
-        assert event.event_type == EventType.PARTICIPANT_DROP_DUE
+        assert isinstance(result, BotActionQueue)
 
-    def test_event_data_contains_game_and_participant_ids(self):
+    def test_participant_drop_due_action_type(self):
         record = MagicMock()
         record.game_id = "game-abc"
         record.participant_id = "participant-xyz"
 
-        event, _ = build_participant_action_event(record)
+        result = build_participant_action_event(record)
 
-        assert event.data["game_id"] == "game-abc"
-        assert event.data["participant_id"] == "participant-xyz"
+        assert result.action_type == "participant_drop_due"
 
-    def test_ttl_is_none(self):
+    def test_game_id_stored_on_row(self):
         record = MagicMock()
         record.game_id = "game-abc"
         record.participant_id = "participant-xyz"
 
-        _, ttl = build_participant_action_event(record)
+        result = build_participant_action_event(record)
 
-        assert ttl is None
+        assert result.game_id == "game-abc"
+
+    def test_payload_contains_participant_id(self):
+        record = MagicMock()
+        record.game_id = "game-abc"
+        record.participant_id = "participant-xyz"
+
+        result = build_participant_action_event(record)
+
+        assert result.payload["participant_id"] == "participant-xyz"

@@ -22,7 +22,7 @@
 """Integration tests for notification scheduler service with PostgreSQL LISTEN/NOTIFY.
 
 These tests are designed to run in Docker with docker-compose where all
-services (PostgreSQL, RabbitMQ) are available.
+services (PostgreSQL) are available.
 """
 
 import time
@@ -33,23 +33,17 @@ import pytest
 from sqlalchemy import text
 
 from services.scheduler.postgres_listener import PostgresNotificationListener
-from shared.messaging.infrastructure import QUEUE_BOT_EVENTS
-from tests.integration.conftest import get_queue_message_count
 from tests.shared.polling import wait_for_db_condition_sync
 
 pytestmark = pytest.mark.integration
 
 
 @pytest.fixture
-def clean_notification_schedule(rabbitmq_channel):
-    """Clean RabbitMQ queue before and after test, with daemon processing time."""
-    time.sleep(0.5)  # Let daemon process any remaining notifications
-    rabbitmq_channel.queue_purge(QUEUE_BOT_EVENTS)
-
+def clean_notification_schedule():
+    """Give the daemon a moment to process any remaining notifications."""
+    time.sleep(0.5)
     yield
-
-    time.sleep(0.5)  # Let daemon process cleanup
-    rabbitmq_channel.queue_purge(QUEUE_BOT_EVENTS)
+    time.sleep(0.5)
 
 
 class TestPostgresListenerIntegration:
@@ -162,7 +156,6 @@ class TestNotificationDaemonIntegration:
         self,
         admin_db_sync,
         clean_notification_schedule,
-        rabbitmq_channel,
         test_game_environment,
     ):
         """Test that the running scheduler service processes due notifications."""
@@ -204,14 +197,22 @@ class TestNotificationDaemonIntegration:
 
         assert result[0] is True, "Notification should be marked as sent"
 
-        message_count = get_queue_message_count(rabbitmq_channel, QUEUE_BOT_EVENTS)
-        assert message_count == 1, "Should have published 1 notification event"
+        bot_row = wait_for_db_condition_sync(
+            admin_db_sync,
+            "SELECT action_type FROM bot_action_queue "
+            "WHERE action_type = 'notification_due' AND game_id = :game_id",
+            {"game_id": env["game"]["id"]},
+            lambda row: True,
+            timeout=5,
+            interval=0.5,
+            description="notification_due action enqueued in bot_action_queue",
+        )
+        assert bot_row is not None, "Should have enqueued 1 notification_due action"
 
     def test_daemon_waits_for_future_notification(
         self,
         admin_db_sync,
         clean_notification_schedule,
-        rabbitmq_channel,
         test_game_environment,
     ):
         """Test that running daemon doesn't process future notifications."""
@@ -250,5 +251,11 @@ class TestNotificationDaemonIntegration:
 
         assert result[0] is False, "Future notification should not be processed"
 
-        message_count = get_queue_message_count(rabbitmq_channel, QUEUE_BOT_EVENTS)
-        assert message_count == 0, "Should have no messages for future notification"
+        bot_row = admin_db_sync.execute(
+            text(
+                "SELECT action_type FROM bot_action_queue "
+                "WHERE action_type = 'notification_due' AND game_id = :game_id"
+            ),
+            {"game_id": env["game"]["id"]},
+        ).fetchone()
+        assert bot_row is None, "Should have no bot_action_queue rows for future notification"

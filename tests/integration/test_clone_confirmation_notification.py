@@ -22,11 +22,10 @@
 """Integration tests for clone_confirmation notification scheduler processing.
 
 Verifies that the scheduler service picks up clone_confirmation records,
-marks them as sent, and publishes a NOTIFICATION_DUE event to RabbitMQ with
-the correct notification_type in the payload.
+marks them as sent, and enqueues a notification_due action in bot_action_queue
+with the correct notification_type in the payload.
 """
 
-import json
 import time
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
@@ -34,24 +33,18 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import text
 
-from shared.messaging.infrastructure import QUEUE_BOT_EVENTS
 from shared.models.participant import ParticipantType
-from tests.integration.conftest import consume_one_message, get_queue_message_count
 from tests.shared.polling import wait_for_db_condition_sync
 
 pytestmark = pytest.mark.integration
 
 
 @pytest.fixture
-def clean_notifications_queue(rabbitmq_channel):
-    """Purge the bot events queue before and after the test."""
+def clean_notifications_queue():
+    """Give the daemon a moment to process any remaining notifications."""
     time.sleep(0.5)
-    rabbitmq_channel.queue_purge(QUEUE_BOT_EVENTS)
-
     yield
-
     time.sleep(0.5)
-    rabbitmq_channel.queue_purge(QUEUE_BOT_EVENTS)
 
 
 def _insert_participant(admin_db_sync, game_id: str, user_id: str) -> str:
@@ -82,10 +75,13 @@ class TestCloneConfirmationNotificationDaemon:
         self,
         admin_db_sync,
         clean_notifications_queue,
-        rabbitmq_channel,
         test_game_environment,
     ):
-        """Notification daemon marks clone_confirmation records sent and publishes to RabbitMQ."""
+        """Notification daemon marks clone_confirmation records sent and enqueues
+        in bot_action_queue.
+
+        Verifies action_type, notification_type, and participant_id in the payload.
+        """
         env = test_game_environment()
         game_id = env["game"]["id"]
         user_id = env["user"]["id"]
@@ -131,13 +127,17 @@ class TestCloneConfirmationNotificationDaemon:
         )
         assert result[0] is True, "clone_confirmation notification should be marked as sent"
 
-        message_count = get_queue_message_count(rabbitmq_channel, QUEUE_BOT_EVENTS)
-        assert message_count == 1, "Should have published 1 clone_confirmation notification event"
-
-        _method, _properties, body = consume_one_message(
-            rabbitmq_channel, QUEUE_BOT_EVENTS, timeout=5
+        bot_row = wait_for_db_condition_sync(
+            admin_db_sync,
+            "SELECT payload FROM bot_action_queue "
+            "WHERE action_type = 'notification_due' AND game_id = :game_id",
+            {"game_id": game_id},
+            lambda row: True,
+            timeout=5,
+            interval=0.5,
+            description="notification_due action enqueued in bot_action_queue",
         )
-        assert body is not None, "RabbitMQ message body should not be None"
-        message = json.loads(body)
-        assert message["data"]["notification_type"] == "clone_confirmation"
-        assert message["data"]["participant_id"] == participant_id
+        assert bot_row is not None, "Should have enqueued 1 notification_due action"
+        payload = bot_row[0]
+        assert payload["notification_type"] == "clone_confirmation"
+        assert payload["participant_id"] == participant_id

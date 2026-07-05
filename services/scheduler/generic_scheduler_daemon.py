@@ -34,7 +34,6 @@ from typing import TYPE_CHECKING, Any
 from opentelemetry import trace
 
 from shared.database import SyncSessionLocal
-from shared.messaging.sync_publisher import SyncEventPublisher
 from shared.models.base import utc_now
 
 from .postgres_listener import PostgresNotificationListener
@@ -59,7 +58,6 @@ class SchedulerDaemon:
         self,
         service_name: str,
         database_url: str,
-        rabbitmq_url: str,
         notify_channel: str,
         model_class: type,
         time_field: str,
@@ -73,17 +71,15 @@ class SchedulerDaemon:
         Args:
             service_name: Logical name of this scheduler instance (used in logs and OTel)
             database_url: PostgreSQL connection string (psycopg2 format)
-            rabbitmq_url: RabbitMQ connection string
             notify_channel: PostgreSQL LISTEN channel name
             model_class: SQLAlchemy model class for schedule records
             time_field: Name of datetime field for scheduled time
             status_field: Name of boolean field indicating processed status
-            event_builder: Function to build Event from schedule record
+            event_builder: Function to build BotActionQueue row from schedule record
             max_timeout: Maximum seconds to wait between checks (default: 15 min)
         """
         self._service_name = service_name
         self.database_url = database_url
-        self.rabbitmq_url = rabbitmq_url
         self.notify_channel = notify_channel
         self.model_class = model_class
         self.time_field = time_field
@@ -92,17 +88,13 @@ class SchedulerDaemon:
         self.max_timeout = max_timeout
 
         self.listener: PostgresNotificationListener | None = None
-        self.publisher: SyncEventPublisher | None = None
         self.db: Session | None = None
 
     def connect(self) -> None:
-        """Establish connections to PostgreSQL and RabbitMQ."""
+        """Establish connections to PostgreSQL."""
         self.listener = PostgresNotificationListener(self.database_url)
         self.listener.connect()
         self.listener.listen(self.notify_channel)
-
-        self.publisher = SyncEventPublisher()
-        self.publisher.connect()
 
         self.db = SyncSessionLocal()
 
@@ -223,12 +215,16 @@ class SchedulerDaemon:
 
     def _process_item(self, item: Any) -> None:  # noqa: ANN401
         """
-        Process a scheduled item by building event, publishing, and marking processed.
+        Process a scheduled item by building a BotActionQueue row,
+        inserting it, and marking the schedule record as processed.
+
+        Both operations commit in the same transaction — crash safety
+        is provided by Postgres atomicity.
 
         Args:
             item: Schedule record to process
         """
-        if self.publisher is None or self.db is None:
+        if self.db is None:
             msg = "Daemon not properly initialized"
             raise RuntimeError(msg)
 
@@ -242,18 +238,9 @@ class SchedulerDaemon:
             },
         ):
             try:
-                result = self.event_builder(item)
+                bot_action = self.event_builder(item)
 
-                if isinstance(result, tuple):
-                    event, expiration_ms = result
-                else:
-                    event, expiration_ms = result, None
-
-                self.publisher.publish(
-                    event=event,
-                    expiration_ms=expiration_ms,
-                )
-
+                self.db.add(bot_action)
                 self._mark_item_processed(item.id)
                 self.db.commit()
 
@@ -275,12 +262,6 @@ class SchedulerDaemon:
                 self.listener.close()
             except Exception as e:
                 logger.error("Error closing listener: %s", e)
-
-        if self.publisher:
-            try:
-                self.publisher.close()
-            except Exception as e:
-                logger.error("Error closing publisher: %s", e)
 
         if self.db:
             try:

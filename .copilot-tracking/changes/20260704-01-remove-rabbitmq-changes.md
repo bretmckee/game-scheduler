@@ -106,6 +106,25 @@ E2E tests are failing because:
 
 ---
 
+## Phase 6: Migrate Scheduler Flows (Flows 5-7)
+
+### Modified
+
+- `services/scheduler/event_builders.py` — replaced `SyncEventPublisher.publish()` calls with `BotActionQueue(...)` construction; `build_notification_event` and `build_status_transition_event` now return `BotActionQueue` instances
+- `services/scheduler/participant_action_event_builder.py` — replaced publisher call with `BotActionQueue(action_type="participant_drop_due", ...)` construction
+- `services/scheduler/generic_scheduler_daemon.py` — removed `rabbitmq_url` constructor parameter and `SyncEventPublisher` import; `__init__` no longer stores `rabbitmq_url`; `connect()` no longer creates publisher; `_process_item` now calls `db.add(event)` instead of `publisher.publish(event)`; `_cleanup()` no longer calls `publisher.close()`
+- `tests/unit/services/scheduler/test_event_builders.py` — updated assertions to verify `BotActionQueue` instances are returned with correct `action_type` and `payload` fields
+- `tests/unit/services/test_participant_action_event_builder.py` — updated assertions to verify `BotActionQueue` instance is returned with correct `action_type` and `payload`
+- `tests/unit/services/scheduler/test_generic_scheduler_daemon.py` — removed `rabbitmq_url` from all constructor calls; updated `_process_item` tests to assert `db.add(event)` instead of `publisher.publish(event)`; removed publisher cleanup tests
+- `tests/integration/test_notification_daemon.py` — replaced `get_queue_message_count(rabbitmq_channel, QUEUE_BOT_EVENTS)` assertions with `bot_action_queue` DB queries; removed `rabbitmq_channel` fixture from impacted test methods; updated `clean_notification_schedule` fixture to remove RabbitMQ dependency
+- `tests/integration/test_participant_action_daemon.py` — replaced RabbitMQ assertions with `bot_action_queue` DB queries checking `action_type='participant_drop_due'` and `payload.participant_id`; removed `rabbitmq_channel` fixture; removed `json`, `QUEUE_BOT_EVENTS`, `consume_one_message`, `get_queue_message_count` imports; updated `clean_bot_events_queue` fixture
+- `tests/integration/test_status_transitions.py` — replaced `get_queue_message_count` assertions with `bot_action_queue` DB queries; removed `rabbitmq_channel` fixture; updated `purge_bot_events_queue` fixture to remove RabbitMQ dependency
+- `tests/integration/test_clone_confirmation_notification.py` — replaced RabbitMQ assertions with `bot_action_queue` DB queries checking `payload.notification_type` and `payload.participant_id`; removed `rabbitmq_channel` fixture; removed `json`, `QUEUE_BOT_EVENTS`, `consume_one_message`, `get_queue_message_count` imports; updated `clean_notifications_queue` fixture
+
+### Removed
+
+---
+
 ## Phase 8: Remove Dead Messaging Infrastructure
 
 ### Modified

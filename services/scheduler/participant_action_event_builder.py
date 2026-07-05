@@ -21,27 +21,26 @@
 
 """Event builder for participant action scheduler daemon."""
 
-from shared.messaging.events import Event, EventType
+from shared.models.bot_action_queue import BotActionQueue
 from shared.models.participant_action_schedule import ParticipantActionSchedule
 
 
 def build_participant_action_event(
     record: ParticipantActionSchedule,
-) -> tuple[Event, None]:
+) -> BotActionQueue:
     """
-    Build PARTICIPANT_DROP_DUE event from a ParticipantActionSchedule record.
+    Build a BotActionQueue row for a PARTICIPANT_DROP_DUE action.
 
     Args:
         record: ParticipantActionSchedule record with a pending "drop" action
 
     Returns:
-        Tuple of (Event, None) — participant drop events have no TTL
+        BotActionQueue instance with action_type="participant_drop_due"
     """
-    event = Event(
-        event_type=EventType.PARTICIPANT_DROP_DUE,
-        data={
-            "game_id": record.game_id,
+    return BotActionQueue(
+        action_type="participant_drop_due",
+        game_id=str(record.game_id),
+        payload={
             "participant_id": record.participant_id,
         },
     )
-    return (event, None)

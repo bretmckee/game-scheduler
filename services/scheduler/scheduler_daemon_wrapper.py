@@ -59,15 +59,12 @@ def main() -> None:
 
     init_telemetry("scheduler-daemon")
 
-    rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://guest:guest@rabbitmq:5672/")
-
     shutdown_flag = register_shutdown_signals()
 
     daemons = [
         SchedulerDaemon(
             service_name="notification",
             database_url=BASE_DATABASE_URL,
-            rabbitmq_url=rabbitmq_url,
             notify_channel="notification_schedule_changed",
             model_class=NotificationSchedule,
             time_field="notification_time",
@@ -77,7 +74,6 @@ def main() -> None:
         SchedulerDaemon(
             service_name="status-transition",
             database_url=BASE_DATABASE_URL,
-            rabbitmq_url=rabbitmq_url,
             notify_channel="game_status_schedule_changed",
             model_class=GameStatusSchedule,
             time_field="transition_time",
@@ -87,7 +83,6 @@ def main() -> None:
         SchedulerDaemon(
             service_name="participant-action",
             database_url=BASE_DATABASE_URL,
-            rabbitmq_url=rabbitmq_url,
             notify_channel="participant_action_schedule_changed",
             model_class=ParticipantActionSchedule,
             time_field="action_time",
