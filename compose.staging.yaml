@@ -34,10 +34,6 @@ services:
     depends_on:
       api:
         condition: service_healthy
-      scheduler:
-        condition: service_healthy
-      retry-daemon:
-        condition: service_healthy
     environment:
       LOG_LEVEL: debug
     volumes:
@@ -48,10 +44,6 @@ services:
       "postgres",
       "-c", "log_min_messages=debug1"
     ]
-
-  rabbitmq:
-    environment:
-      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: -rabbit log_levels [{connection,debug}]
 
 networks:
   app-network:

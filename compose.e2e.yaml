@@ -88,19 +88,6 @@ services:
       "-c", "log_min_messages=debug1"
     ]
 
-  rabbitmq:
-    environment:
-      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: -rabbit log_levels [{connection,debug}]
-
-  retry-daemon:
-    image: alpine:latest
-    command: sh -c "echo 'Retry daemon removed' && sleep infinity"
-    volumes: !reset []
-    environment: !reset {}
-    depends_on: !reset {}
-    healthcheck:
-      disable: true
-
   system-ready:
     image: alpine:latest
     container_name: ${CONTAINER_PREFIX:-gamebot-e2e}-system-ready
@@ -109,8 +96,6 @@ services:
       init:
         condition: service_healthy
       postgres:
-        condition: service_healthy
-      rabbitmq:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -146,7 +131,6 @@ services:
       PYTEST_RUNNING: "1"
       DATABASE_URL: ${DATABASE_URL}
       ADMIN_DATABASE_URL: ${ADMIN_DATABASE_URL}
-      RABBITMQ_URL: ${RABBITMQ_URL}
       REDIS_URL: ${TEST_REDIS_URL:-redis://redis:6379/0}
       BACKEND_URL: http://api:8000
       DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN}
@@ -223,12 +207,6 @@ services:
 volumes:
   postgres_data:
     name: ${CONTAINER_PREFIX:-gamebot-e2e}-postgres-data
-    driver: local
-    driver_opts:
-      type: tmpfs
-      device: tmpfs
-  rabbitmq_data:
-    name: ${CONTAINER_PREFIX:-gamebot-e2e}-rabbitmq-data
     driver: local
     driver_opts:
       type: tmpfs

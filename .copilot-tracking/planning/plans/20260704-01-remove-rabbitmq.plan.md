@@ -106,9 +106,9 @@ Replace all RabbitMQ message flows with PostgreSQL LISTEN/NOTIFY + a new `bot_ac
 - [x] Task 9.2: Add integration test verifying `pg_notify('game_updated_sse', ...)` fires after a bot join handler call, and add e2e test verifying SSE event delivery after `POST /api/v1/games/{id}/join`
   - Details: .copilot-tracking/planning/details/20260704-01-remove-rabbitmq-details.md (Lines 282-306)
 
-### [ ] Phase 10: Docker, Config, and Dependency Cleanup
+### [x] Phase 10: Docker, Config, and Dependency Cleanup
 
-- [ ] Task 10.1: Remove `rabbitmq` + `retry` from all compose files; remove RabbitMQ env vars; remove `aio-pika`, `pika`, OTel aio-pika from `pyproject.toml`; run `uv sync`; clean entrypoints and Dockerfiles
+- [x] Task 10.1: Remove `rabbitmq` + `retry` from all compose files; remove RabbitMQ env vars; remove `aio-pika`, `pika`, OTel aio-pika from `pyproject.toml`; run `uv sync`; clean entrypoints and Dockerfiles
   - Details: .copilot-tracking/planning/details/20260704-01-remove-rabbitmq-details.md (Lines 310-344)
 
 ## Dependencies

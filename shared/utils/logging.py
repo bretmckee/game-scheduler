@@ -24,9 +24,6 @@
 import logging
 
 _NOISY_THIRD_PARTY_LOGGERS: dict[str, int] = {
-    "aiormq": logging.INFO,
-    "aio_pika": logging.INFO,
-    "pika": logging.WARNING,
     "urllib3": logging.INFO,
 }
 
@@ -35,9 +32,7 @@ def suppress_noisy_loggers(log_level: int) -> None:
     """Set third-party infrastructure loggers to at least their configured floor.
 
     Each library has a minimum log level that prevents its routine operational
-    messages from drowning out application logs.  For example, pika emits ~14
-    INFO-level lines per connection lifecycle (connect, channel, close), so its
-    floor is WARNING.
+    messages from drowning out application logs.
     """
     for name, floor in _NOISY_THIRD_PARTY_LOGGERS.items():
         effective_level = max(floor, log_level)

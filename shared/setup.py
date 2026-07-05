@@ -33,7 +33,6 @@ setup(
         "sqlalchemy>=2.0.0",
         "pydantic>=2.0.0",
         "asyncpg>=0.29.0",
-        "aio-pika>=9.0.0",
         "redis>=5.0.0",
     ],
     extras_require={

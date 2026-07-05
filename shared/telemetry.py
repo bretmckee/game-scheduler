@@ -39,7 +39,6 @@ from opentelemetry.exporter.otlp.proto.http._log_exporter import (
 )
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.instrumentation.aio_pika import AioPikaInstrumentor
 from opentelemetry.instrumentation.asyncpg import AsyncPGInstrumentor
 from opentelemetry.instrumentation.redis import RedisInstrumentor
 from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
@@ -63,8 +62,7 @@ def init_telemetry(service_name: str, views: list[View] | None = None) -> None:
     Initialize OpenTelemetry instrumentation for a Python service.
 
     Configures distributed tracing, metrics collection, and log correlation
-    with automatic instrumentation for FastAPI, SQLAlchemy, asyncpg, Redis,
-    and aio-pika.
+    with automatic instrumentation for FastAPI, SQLAlchemy, asyncpg, and Redis.
 
     Args:
         service_name: Name of the service for telemetry identification
@@ -129,10 +127,9 @@ def init_telemetry(service_name: str, views: list[View] | None = None) -> None:
     SQLAlchemyInstrumentor().instrument()
     AsyncPGInstrumentor().instrument()
     RedisInstrumentor().instrument()
-    AioPikaInstrumentor().instrument()
 
     logger.info(
-        "OpenTelemetry instrumentation enabled for %s (SQLAlchemy, asyncpg, Redis, aio-pika)",
+        "OpenTelemetry instrumentation enabled for %s (SQLAlchemy, asyncpg, Redis)",
         service_name,
     )
     # FastAPI instrumentation happens via middleware, initialized when app is created

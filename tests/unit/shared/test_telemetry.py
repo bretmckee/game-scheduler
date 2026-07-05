@@ -69,7 +69,6 @@ class TestInitTelemetry:
             patch("shared.telemetry.SQLAlchemyInstrumentor"),
             patch("shared.telemetry.AsyncPGInstrumentor"),
             patch("shared.telemetry.RedisInstrumentor"),
-            patch("shared.telemetry.AioPikaInstrumentor"),
             patch("shared.telemetry.logging.getLogger"),
         ):
             init_telemetry("test-service")
@@ -96,7 +95,6 @@ class TestInitTelemetry:
             patch("shared.telemetry.SQLAlchemyInstrumentor"),
             patch("shared.telemetry.AsyncPGInstrumentor"),
             patch("shared.telemetry.RedisInstrumentor"),
-            patch("shared.telemetry.AioPikaInstrumentor"),
             patch("shared.telemetry.logging.getLogger"),
         ):
             init_telemetry("test-service")
@@ -127,7 +125,6 @@ class TestInitTelemetry:
             patch("shared.telemetry.SQLAlchemyInstrumentor"),
             patch("shared.telemetry.AsyncPGInstrumentor"),
             patch("shared.telemetry.RedisInstrumentor"),
-            patch("shared.telemetry.AioPikaInstrumentor"),
             patch("shared.telemetry.logging.getLogger"),
         ):
             init_telemetry("test-service")
@@ -160,7 +157,6 @@ class TestInitTelemetry:
             patch("shared.telemetry.SQLAlchemyInstrumentor"),
             patch("shared.telemetry.AsyncPGInstrumentor"),
             patch("shared.telemetry.RedisInstrumentor"),
-            patch("shared.telemetry.AioPikaInstrumentor"),
         ):
             init_telemetry("test-service", views=[mock_view])
 
@@ -193,7 +189,6 @@ class TestInitTelemetry:
             patch("shared.telemetry.SQLAlchemyInstrumentor"),
             patch("shared.telemetry.AsyncPGInstrumentor"),
             patch("shared.telemetry.RedisInstrumentor"),
-            patch("shared.telemetry.AioPikaInstrumentor"),
         ):
             init_telemetry("test-service")
 
@@ -208,7 +203,6 @@ class TestInitTelemetry:
         mock_sqlalchemy = MagicMock()
         mock_asyncpg = MagicMock()
         mock_redis = MagicMock()
-        mock_aiopika = MagicMock()
 
         with (
             patch("shared.telemetry.TracerProvider"),
@@ -225,14 +219,12 @@ class TestInitTelemetry:
             patch("shared.telemetry.SQLAlchemyInstrumentor", return_value=mock_sqlalchemy),
             patch("shared.telemetry.AsyncPGInstrumentor", return_value=mock_asyncpg),
             patch("shared.telemetry.RedisInstrumentor", return_value=mock_redis),
-            patch("shared.telemetry.AioPikaInstrumentor", return_value=mock_aiopika),
         ):
             init_telemetry("test-service")
 
             mock_sqlalchemy.instrument.assert_called_once_with()
             mock_asyncpg.instrument.assert_called_once_with()
             mock_redis.instrument.assert_called_once_with()
-            mock_aiopika.instrument.assert_called_once_with()
 
 
 class TestFlushTelemetry:

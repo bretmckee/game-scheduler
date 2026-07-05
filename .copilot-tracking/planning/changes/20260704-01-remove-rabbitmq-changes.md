@@ -29,6 +29,39 @@
 - Removed `DeferredEventPublisher` / `EventPublisher` creation from `routes/games.py`
 - Updated all affected unit and integration tests
 
+## Phase 10: Docker, Config, and Dependency Cleanup ✅
+
+- Removed `rabbitmq` service block from [compose.yaml](compose.yaml)
+- Removed `retry-daemon` service block from [compose.yaml](compose.yaml)
+- Removed `RABBITMQ_URL` env var from `init`, `bot`, `api`, `scheduler` services in [compose.yaml](compose.yaml)
+- Removed `rabbitmq` from `init` `depends_on` in [compose.yaml](compose.yaml)
+- Removed `rabbitmq_data` volume from [compose.yaml](compose.yaml)
+- Removed `rabbitmq` override section from [compose.override.yaml](compose.override.yaml)
+- Removed `rabbitmq` override section from [compose.test.yaml](compose.test.yaml)
+- Removed `rabbitmq` override section and `retry-daemon` stub from [compose.int.yaml](compose.int.yaml)
+- Removed `rabbitmq` from `system-ready` depends_on in [compose.int.yaml](compose.int.yaml)
+- Removed `RABBITMQ_*` env vars from `integration-tests` in [compose.int.yaml](compose.int.yaml)
+- Removed `rabbitmq_data` volume from [compose.int.yaml](compose.int.yaml)
+- Removed `rabbitmq` override section and `retry-daemon` stub from [compose.e2e.yaml](compose.e2e.yaml)
+- Removed `rabbitmq` from `system-ready` depends_on in [compose.e2e.yaml](compose.e2e.yaml)
+- Removed `RABBITMQ_URL` from `e2e-tests` environment in [compose.e2e.yaml](compose.e2e.yaml)
+- Removed `rabbitmq_data` volume from [compose.e2e.yaml](compose.e2e.yaml)
+- Removed `retry-daemon` from `frontend` depends_on in [compose.prod.yaml](compose.prod.yaml)
+- Removed `rabbitmq` override section from [compose.staging.yaml](compose.staging.yaml)
+- Removed RabbitMQ configuration section from [config.template/env.template](config.template/env.template)
+- Removed retry daemon config vars from [config.template/env.template](config.template/env.template)
+- Removed RabbitMQ port vars from [config.template/env.template](config.template/env.template)
+- Deleted `config.template/rabbitmq/` directory (RabbitMQ config files)
+- Removed `aio-pika`, `pika`, `opentelemetry-instrumentation-aio-pika` from [pyproject.toml](pyproject.toml)
+- Removed `pika.data` DeprecationWarning filter from [pyproject.toml](pyproject.toml)
+- Updated integration marker description in [pyproject.toml](pyproject.toml)
+- Removed `AioPikaInstrumentor` import and usage from [shared/telemetry.py](shared/telemetry.py)
+- Updated telemetry docstring and log message in [shared/telemetry.py](shared/telemetry.py)
+- Removed `AioPikaInstrumentor` mocks from [tests/unit/shared/test_telemetry.py](tests/unit/shared/test_telemetry.py)
+- Deleted [docker/retry.Dockerfile](docker/retry.Dockerfile)
+- Ran `uv sync` — uninstalled aio-pika, aiormq, pamqp, pika, opentelemetry-instrumentation-aio-pika
+- All 2420 unit tests pass; mypy clean; all 6 Docker images build; 318 integration tests pass; 98 e2e tests pass
+
 ## Phase 4: Replace SSE Bridge Consumer (Flow 8) ✅
 
 - Migrated `SSEGameUpdateBridge` from `EventConsumer` (RabbitMQ) to asyncpg `LISTEN game_updated_sse`

@@ -3,7 +3,6 @@
 #
 # Usage:
 #   Run all tests: ./scripts/run-integration-tests.sh
-#   Run specific test: ./scripts/run-integration-tests.sh tests/integration/test_retry_daemon.py -v
 #
 # Integration test configuration:
 # - LOG_LEVEL: DEBUG for all services
@@ -52,24 +51,11 @@ services:
       LOG_LEVEL: DEBUG
       PYTEST_RUNNING: "1"
 
-  retry-daemon:
-    image: alpine:latest
-    command: sh -c "echo 'Retry daemon removed' && sleep infinity"
-    volumes: !reset []
-    environment: !reset {}
-    depends_on: !reset {}
-    healthcheck:
-      disable: true
-
   postgres:
     command: [
       "postgres",
       "-c", "log_min_messages=debug1"
     ]
-
-  rabbitmq:
-    environment:
-      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: -rabbit log_levels [{connection,debug}]
 
   system-ready:
     image: alpine:latest
@@ -79,8 +65,6 @@ services:
       init:
         condition: service_healthy
       postgres:
-        condition: service_healthy
-      rabbitmq:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -112,10 +96,6 @@ services:
       COVERAGE_FILE: /app/coverage/runner.integration
       PYTEST_RUNNING: "1"
       DATABASE_URL: ${DATABASE_URL}
-      RABBITMQ_URL: ${RABBITMQ_URL}
-      RABBITMQ_HOST: rabbitmq
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
       REDIS_URL: ${TEST_REDIS_URL:-redis://redis:6379/0}
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
       TEST_ENVIRONMENT: ${TEST_ENVIRONMENT}
@@ -169,12 +149,6 @@ services:
 volumes:
   postgres_data:
     name: ${CONTAINER_PREFIX:-gamebot-integration}-postgres-data
-    driver: local
-    driver_opts:
-      type: tmpfs
-      device: tmpfs
-  rabbitmq_data:
-    name: ${CONTAINER_PREFIX:-gamebot-integration}-rabbitmq-data
     driver: local
     driver_opts:
       type: tmpfs

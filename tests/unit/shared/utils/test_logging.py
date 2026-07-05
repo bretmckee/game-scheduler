@@ -33,7 +33,7 @@ def _mock_loggers(names: list[str]) -> dict[str, MagicMock]:
     return {name: MagicMock() for name in names}
 
 
-_LIBRARY_NAMES = ["aiormq", "aio_pika", "pika", "urllib3"]
+_LIBRARY_NAMES = ["urllib3"]
 
 
 @pytest.fixture
@@ -55,19 +55,6 @@ def patched_get_logger(mock_loggers):
 
 
 class TestSuppressNoisyLoggers:
-    def test_debug_level_uses_info_floor_for_amqp_libraries(self, patched_get_logger):
-        """At DEBUG, aiormq and aio_pika are clamped to their INFO floor."""
-        suppress_noisy_loggers(logging.DEBUG)
-
-        patched_get_logger["aiormq"].setLevel.assert_called_once_with(logging.INFO)
-        patched_get_logger["aio_pika"].setLevel.assert_called_once_with(logging.INFO)
-
-    def test_debug_level_uses_warning_floor_for_pika(self, patched_get_logger):
-        """At DEBUG, pika is clamped to its WARNING floor (higher than INFO)."""
-        suppress_noisy_loggers(logging.DEBUG)
-
-        patched_get_logger["pika"].setLevel.assert_called_once_with(logging.WARNING)
-
     def test_debug_level_uses_info_floor_for_urllib3(self, patched_get_logger):
         """At DEBUG, urllib3 is clamped to its INFO floor."""
         suppress_noisy_loggers(logging.DEBUG)
@@ -85,12 +72,4 @@ class TestSuppressNoisyLoggers:
         """At WARNING, INFO-floor libraries are raised to WARNING."""
         suppress_noisy_loggers(logging.WARNING)
 
-        patched_get_logger["aiormq"].setLevel.assert_called_once_with(logging.WARNING)
-        patched_get_logger["aio_pika"].setLevel.assert_called_once_with(logging.WARNING)
         patched_get_logger["urllib3"].setLevel.assert_called_once_with(logging.WARNING)
-
-    def test_warning_level_keeps_pika_at_warning(self, patched_get_logger):
-        """At WARNING, pika stays at WARNING (floor == log_level)."""
-        suppress_noisy_loggers(logging.WARNING)
-
-        patched_get_logger["pika"].setLevel.assert_called_once_with(logging.WARNING)
