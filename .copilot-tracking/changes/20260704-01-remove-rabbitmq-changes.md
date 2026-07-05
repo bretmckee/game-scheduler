@@ -198,6 +198,23 @@ E2E tests are failing because:
 - `compose.e2e.yaml` — added `retry-daemon` alpine stub; removed `retry-daemon` from `system-ready.depends_on`
 - `tests/integration/conftest.py` — removed `pika` import, `close_rabbitmq_connection` import, `rabbitmq_connection`/`rabbitmq_channel` fixtures, `get_queue_message_count`/`consume_one_message`/`purge_queue` helpers, and `reset_rabbitmq_connection` autouse fixture
 - `tests/integration/test_button_handler.py` — removed `BotEventPublisher` import and `mock_publisher` fixture; updated `ButtonHandler()` call to remove publisher
+
+---
+
+## Phase 9: Add Missing Integration and E2E Tests
+
+### Added
+
+- `tests/integration/test_game_cancellation_queue.py` — Flow 2: `DELETE /api/v1/games/{id}` asserts `bot_action_queue` row with `action_type='game_cancelled'`
+- `tests/integration/test_player_removed_queue.py` — Flow 3: PUT with `removed_participant_ids` asserts `bot_action_queue` row with `action_type='player_removed'`; Flow 4: removing the confirmed player from a HOST_SELECTED_WITH_WAITLIST game asserts `send_dm` promotion row
+- `tests/integration/test_embed_deletion_integration.py` — Flow 9: `cancel_game(db, game, enqueue_cancellation=False)` against a real DB session asserts game deleted and no `bot_action_queue` row
+- `tests/integration/test_game_updated_sse_bot.py` — Flow 10 integration: `handle_join_game` fires `pg_notify('game_updated_sse', ...)`, verified via asyncpg LISTEN
+- `tests/e2e/test_game_updated_sse_e2e.py` — Flow 10 e2e: `POST /api/v1/games/{id}/join` delivers `game_updated` SSE event to a connected client
+
+### Notes
+
+- Fixed `httpx.Timeout` constructor usage: `httpx.Timeout(timeout=30.0, connect=10.0)` is required; `httpx.Timeout(connect=10.0, read=30.0)` raises `ValueError`
+- Integration suite: 318 passed (5 new); E2E suite: 98 passed (1 new)
 - `tests/integration/test_clone_game_endpoint.py` — removed `QUEUE_BOT_EVENTS` import and `rabbitmq_channel.queue_purge()` calls
 - `tests/integration/test_game_signup_methods.py` — removed `QUEUE_BOT_EVENTS` import, `rabbitmq_channel` fixture params, and `queue_purge` calls
 - `services/init/main.py` — removed `initialize_rabbitmq` import and call; reduced phase count from 5 to 4
