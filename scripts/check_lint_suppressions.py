@@ -90,14 +90,16 @@ def _parse_diff_lines(stdout: str) -> list[tuple[str, int, str]]:
 def _get_added_lines(compare_branch: str | None = None) -> list[tuple[str, int, str]]:
     """Return (filename, lineno, text) for every added line in the diff.
 
-    When compare_branch is provided (CI mode), diffs compare_branch...HEAD.
-    Otherwise diffs the staged index (pre-commit mode).
+    When compare_branch is provided or BASE_REF env var is set (CI mode),
+    diffs that ref..HEAD. Otherwise diffs the staged index (pre-commit mode).
     """
     git = shutil.which("git")
     if git is None:
         return []
+    if compare_branch is None:
+        compare_branch = os.environ.get("BASE_REF")
     if compare_branch is not None:
-        cmd = [git, "diff", f"{compare_branch}...HEAD", "--unified=0"]
+        cmd = [git, "diff", f"{compare_branch}..HEAD", "--unified=0"]
     else:
         cmd = [git, "diff", "--cached", "--unified=0"]
     result = subprocess.run(  # noqa: S603 - Hardcoded args, shell=False, no user input

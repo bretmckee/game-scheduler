@@ -1,6 +1,6 @@
 ---
-description: "REST API Authorization Patterns and Security Guidelines"
-applyTo: "services/api/routes/*.py,services/api/dependencies/permissions.py"
+description: 'REST API Authorization Patterns and Security Guidelines'
+applyTo: 'services/api/routes/*.py,services/api/dependencies/permissions.py'
 ---
 
 # REST API Authorization Patterns

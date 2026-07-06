@@ -25,6 +25,7 @@ Designed for pre-commit hook use.
 """
 
 import json
+import os
 import re
 import shutil
 import subprocess  # noqa: S404 - Used safely with shell=False
@@ -111,8 +112,8 @@ def get_changed_line_ranges(compare_branch: str | None = None) -> dict[str, set[
     """
     Get the specific line numbers changed in the diff.
 
-    When compare_branch is provided (CI mode), diffs compare_branch...HEAD.
-    Otherwise diffs the staged index (pre-commit mode).
+    When compare_branch is provided or BASE_REF env var is set (CI mode),
+    diffs that ref..HEAD. Otherwise diffs the staged index (pre-commit mode).
 
     Returns: Dict mapping file paths to sets of changed line numbers.
     """
@@ -121,8 +122,11 @@ def get_changed_line_ranges(compare_branch: str | None = None) -> dict[str, set[
         msg = "git executable not found in PATH"
         raise RuntimeError(msg)
 
+    if compare_branch is None:
+        compare_branch = os.environ.get("BASE_REF")
+
     if compare_branch is not None:
-        diff_args = [git_path, "diff", f"{compare_branch}...HEAD", "--unified=0"]
+        diff_args = [git_path, "diff", f"{compare_branch}..HEAD", "--unified=0"]
     else:
         diff_args = [git_path, "diff", "--cached", "--unified=0"]
 

@@ -1,6 +1,6 @@
 ---
-description: "FastAPI transaction management patterns and service layer conventions"
-applyTo: "services/api/routes/*.py,services/api/services/*.py"
+description: 'FastAPI transaction management patterns and service layer conventions'
+applyTo: 'services/api/routes/*.py,services/api/services/*.py'
 ---
 
 # FastAPI Transaction Management Patterns
@@ -14,6 +14,7 @@ applyTo: "services/api/routes/*.py,services/api/services/*.py"
 ### Route Handlers MUST
 
 1. **Use dependency injection for database sessions:**
+
    ```python
    from fastapi import Depends
    from sqlalchemy.ext.asyncio import AsyncSession
@@ -38,6 +39,7 @@ applyTo: "services/api/routes/*.py,services/api/services/*.py"
 ### Service Functions MUST
 
 1. **Include transaction expectation in docstring:**
+
    ```python
    async def create_item(db: AsyncSession, data: dict) -> Item:
        """

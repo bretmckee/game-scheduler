@@ -1,6 +1,6 @@
 ---
-description: "Guidelines for GitHub Copilot to write comments to achieve self-explanatory code with less comments. Examples are in JavaScript but it should work on any language that has comments."
-applyTo: "**"
+description: 'Guidelines for GitHub Copilot to write comments to achieve self-explanatory code with less comments. Examples are in JavaScript but it should work on any language that has comments.'
+applyTo: '**'
 ---
 
 # Self-explanatory Code Commenting Instructions
@@ -104,12 +104,7 @@ Before writing a comment, ask:
  * @param {number} compoundFrequency - How many times per year interest compounds (default: 1)
  * @returns {number} Final amount after compound interest
  */
-function calculateCompoundInterest(
-  principal,
-  rate,
-  time,
-  compoundFrequency = 1
-) {
+function calculateCompoundInterest(principal, rate, time, compoundFrequency = 1) {
   // ... implementation
 }
 ```

@@ -30,9 +30,9 @@ import tomllib
 from pathlib import Path
 
 try:
-    import jedi as _jedi  # type: ignore[import-untyped]
+    import jedi as _jedi
 except ImportError:
-    _jedi = None  # type: ignore[assignment]
+    _jedi = None
 
 _ASSERT_PREFIXES = ("assert_",)
 _WEAK_ASSERT_MARKER = "# assert-not-weak"
@@ -251,7 +251,7 @@ def _patch_target_from_item(item: ast.withitem) -> tuple[str, str] | None:
         and isinstance(expr.args[0], ast.Constant)
     ):
         return None
-    return item.optional_vars.id, expr.args[0].value
+    return item.optional_vars.id, str(expr.args[0].value)
 
 
 def _collect_patch_aliases(
