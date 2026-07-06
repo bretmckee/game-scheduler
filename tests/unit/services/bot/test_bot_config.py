@@ -54,7 +54,6 @@ class TestBotConfig:
                 config.database_url
                 == "postgresql+asyncpg://postgres:postgres@localhost:5432/game_scheduler"
             )
-            assert config.rabbitmq_url == "amqp://guest:guest@localhost:5672/"
             assert config.redis_url == "redis://localhost:6379/0"
             assert config.log_level == "INFO"
             assert config.environment == "development"
@@ -65,14 +64,12 @@ class TestBotConfig:
             discord_bot_token="test_token",
             discord_bot_client_id="123456789",
             database_url="postgresql+asyncpg://custom:pass@db:5432/custom_db",
-            rabbitmq_url="amqp://user:pass@rabbitmq:5672/",
             redis_url="redis://redis:6379/1",
             log_level="DEBUG",
             environment="production",
         )
 
         assert config.database_url == "postgresql+asyncpg://custom:pass@db:5432/custom_db"
-        assert config.rabbitmq_url == "amqp://user:pass@rabbitmq:5672/"
         assert config.redis_url == "redis://redis:6379/1"
         assert config.log_level == "DEBUG"
         assert config.environment == "production"

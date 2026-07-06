@@ -131,7 +131,6 @@ class APIConfig:
         )
 
         self.redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-        self.rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
 
         self.api_host = os.getenv(
             "API_HOST",

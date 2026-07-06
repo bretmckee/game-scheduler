@@ -33,7 +33,6 @@ class BotConfig(BaseSettings):
         discord_bot_token: Discord bot authentication token
         discord_bot_client_id: Discord application ID for OAuth2
         database_url: PostgreSQL connection string with asyncpg driver
-        rabbitmq_url: RabbitMQ AMQP connection string
         redis_url: Redis connection string
         log_level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
         environment: Environment name (development, staging, production)
@@ -57,11 +56,6 @@ class BotConfig(BaseSettings):
     database_url: str = Field(
         default="postgresql+asyncpg://postgres:postgres@localhost:5432/game_scheduler",
         description="PostgreSQL connection URL",
-    )
-
-    rabbitmq_url: str = Field(
-        default="amqp://guest:guest@localhost:5672/",
-        description="RabbitMQ connection URL",
     )
 
     redis_url: str = Field(

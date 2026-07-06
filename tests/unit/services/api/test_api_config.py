@@ -75,7 +75,6 @@ def test_api_config_loads_from_environment():
         "DISCORD_BOT_TOKEN": "test_token",
         "DATABASE_URL": "postgresql+asyncpg://test:test@testhost:5432/testdb",
         "REDIS_URL": "redis://testhost:6379/1",
-        "RABBITMQ_URL": "amqp://test:test@testhost:5672/",
         "API_HOST": "127.0.0.1",
         "API_PORT": "9000",
         "FRONTEND_URL": "http://example.com:3000",
@@ -93,7 +92,6 @@ def test_api_config_loads_from_environment():
         assert cfg.discord_bot_token == "test_token"
         assert cfg.database_url == "postgresql+asyncpg://test:test@testhost:5432/testdb"
         assert cfg.redis_url == "redis://testhost:6379/1"
-        assert cfg.rabbitmq_url == "amqp://test:test@testhost:5672/"
         assert cfg.api_host == "127.0.0.1"
         assert cfg.api_port == 9000
         assert cfg.frontend_url == "http://example.com:3000"
