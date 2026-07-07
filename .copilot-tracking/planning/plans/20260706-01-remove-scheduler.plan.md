@@ -59,12 +59,12 @@ Replace the standalone scheduler container with `SchedulerLoop` asyncio tasks ru
 - [x] Task 2.2: Create `tests/unit/services/bot/test_scheduler_loop.py` with xfail tests
   - Details: .copilot-tracking/planning/details/20260706-01-remove-scheduler-details.md (Lines 117-167)
 
-### [ ] Phase 3: GREEN — Implement SchedulerLoop
+### [x] Phase 3: GREEN — Implement SchedulerLoop
 
-- [ ] Task 3.1: Implement `SchedulerLoop` and lift xfail markers
+- [x] Task 3.1: Implement `SchedulerLoop` and lift xfail markers
   - Details: .copilot-tracking/planning/details/20260706-01-remove-scheduler-details.md (Lines 170-199)
 
-- [ ] Task 3.2: Create `tests/integration/test_scheduler_loop.py`
+- [x] Task 3.2: Create `tests/integration/test_scheduler_loop.py`
   - Details: .copilot-tracking/planning/details/20260706-01-remove-scheduler-details.md (Lines 200-234)
 
 ### [ ] Phase 4: Wire SchedulerLoop into bot.py

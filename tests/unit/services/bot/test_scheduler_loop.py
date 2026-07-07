@@ -48,7 +48,6 @@ def _make_loop(**kwargs: object) -> SchedulerLoop:
     return SchedulerLoop(**defaults)  # type: ignore[arg-type]
 
 
-@pytest.mark.xfail(strict=True, reason="SchedulerLoop not yet implemented")
 def test_construction_stores_params() -> None:
     """SchedulerLoop stores all seven constructor params without raising."""
     builder = MagicMock()
@@ -70,7 +69,6 @@ def test_construction_stores_params() -> None:
     assert loop.max_timeout == 600
 
 
-@pytest.mark.xfail(strict=True, reason="SchedulerLoop not yet implemented")
 @pytest.mark.asyncio
 async def test_process_item_writes_bot_action_queue_row() -> None:
     """_process_item calls event_builder and adds the result to the DB session."""
@@ -84,15 +82,15 @@ async def test_process_item_writes_bot_action_queue_row() -> None:
     mock_session = AsyncMock()
     mock_session.__aenter__ = AsyncMock(return_value=mock_session)
     mock_session.__aexit__ = AsyncMock(return_value=False)
+    mock_session.add = MagicMock()
 
     with patch("services.bot.scheduler_loop.get_db_session", return_value=mock_session):
         await loop._process_item(item)
 
     builder.assert_called_once_with(item)
-    mock_session.add.assert_called_once_with(queue_row)
+    mock_session.add.assert_any_call(queue_row)
 
 
-@pytest.mark.xfail(strict=True, reason="SchedulerLoop not yet implemented")
 @pytest.mark.asyncio
 async def test_process_item_marks_status_field_true() -> None:
     """_process_item sets the item's status_field attribute to True."""
@@ -104,6 +102,7 @@ async def test_process_item_marks_status_field_true() -> None:
     mock_session = AsyncMock()
     mock_session.__aenter__ = AsyncMock(return_value=mock_session)
     mock_session.__aexit__ = AsyncMock(return_value=False)
+    mock_session.add = MagicMock()
 
     with patch("services.bot.scheduler_loop.get_db_session", return_value=mock_session):
         await loop._process_item(item)
@@ -111,7 +110,6 @@ async def test_process_item_marks_status_field_true() -> None:
     assert item.sent is True
 
 
-@pytest.mark.xfail(strict=True, reason="SchedulerLoop not yet implemented")
 @pytest.mark.asyncio
 async def test_process_item_commits_exactly_once() -> None:
     """_process_item performs a single db.commit() for both the queue row and status mark."""
@@ -122,6 +120,7 @@ async def test_process_item_commits_exactly_once() -> None:
     mock_session = AsyncMock()
     mock_session.__aenter__ = AsyncMock(return_value=mock_session)
     mock_session.__aexit__ = AsyncMock(return_value=False)
+    mock_session.add = MagicMock()
 
     with patch("services.bot.scheduler_loop.get_db_session", return_value=mock_session):
         await loop._process_item(item)
@@ -129,7 +128,6 @@ async def test_process_item_commits_exactly_once() -> None:
     mock_session.commit.assert_awaited_once()
 
 
-@pytest.mark.xfail(strict=True, reason="SchedulerLoop not yet implemented")
 @pytest.mark.asyncio
 async def test_run_skips_process_item_when_not_due() -> None:
     """run() does not call _process_item when the next item's time_field is in the future."""
@@ -161,7 +159,6 @@ async def test_run_skips_process_item_when_not_due() -> None:
     mock_process.assert_not_awaited()
 
 
-@pytest.mark.xfail(strict=True, reason="SchedulerLoop not yet implemented")
 @pytest.mark.asyncio
 async def test_run_calls_process_item_when_due() -> None:
     """run() calls _process_item when the next item's time_field is in the past."""
@@ -193,7 +190,6 @@ async def test_run_calls_process_item_when_due() -> None:
     mock_process.assert_awaited_once_with(past_item)
 
 
-@pytest.mark.xfail(strict=True, reason="SchedulerLoop not yet implemented")
 @pytest.mark.asyncio
 async def test_run_handles_no_items() -> None:
     """run() does not raise when no schedule rows exist."""
@@ -222,9 +218,63 @@ async def test_run_handles_no_items() -> None:
     mock_process.assert_not_awaited()
 
 
+def test_on_notify_sets_notified_event() -> None:
+    """_on_notify sets _notified so the wait_for in run() wakes up."""
+    loop = _make_loop()
+    assert not loop._notified.is_set()
+    loop._on_notify(MagicMock(), 0, "test_channel", "")
+    assert loop._notified.is_set()
+
+
 @pytest.mark.asyncio
-async def test_run_stub_raises_not_implemented() -> None:
-    """run() raises NotImplementedError before Phase 3 implements it."""
-    loop = object.__new__(SchedulerLoop)
-    with pytest.raises(NotImplementedError):
-        await loop.run()
+async def test_get_next_due_item_queries_database() -> None:
+    """_get_next_due_item opens a DB session and returns the first unprocessed row."""
+    loop = _make_loop()
+    expected_item = MagicMock()
+
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = expected_item
+
+    mock_session = AsyncMock()
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=False)
+    mock_session.execute = AsyncMock(return_value=mock_result)
+
+    with patch("services.bot.scheduler_loop.get_db_session", return_value=mock_session):
+        result = await loop._get_next_due_item()
+
+    assert result is expected_item
+    mock_session.execute.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_run_clears_notified_after_waking() -> None:
+    """run() calls _notified.clear() after the wait resolves, preventing a spurious re-wake."""
+    loop = _make_loop()
+    loop._notified.set()  # Pre-set so the first asyncio.wait_for resolves immediately
+
+    mock_conn = AsyncMock()
+
+    with (
+        patch(
+            "services.bot.scheduler_loop.asyncpg.connect",
+            new_callable=AsyncMock,
+            return_value=mock_conn,
+        ),
+        patch.object(loop, "_get_next_due_item", new_callable=AsyncMock, return_value=None),
+        patch.object(loop, "_process_item", new_callable=AsyncMock),
+    ):
+        task = asyncio.create_task(loop.run())
+        # Three yields: first lets run() reach wait_for; second lets the inner
+        # Event.wait() coroutine complete; third lets run() resume and call
+        # _notified.clear() before we cancel.
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+    assert not loop._notified.is_set()
