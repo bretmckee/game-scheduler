@@ -23,10 +23,10 @@
 
 from unittest.mock import MagicMock
 
-from services.scheduler.participant_action_event_builder import (
+from shared.models.bot_action_queue import BotActionQueue
+from shared.services.participant_action_event_builder import (
     build_participant_action_event,
 )
-from shared.models.bot_action_queue import BotActionQueue
 
 
 class TestBuildParticipantActionEvent:

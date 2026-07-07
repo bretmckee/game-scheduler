@@ -83,8 +83,6 @@ COPY shared/ ./shared/
 COPY services/__init__.py ./services/__init__.py
 COPY services/scheduler/generic_scheduler_daemon.py ./services/scheduler/generic_scheduler_daemon.py
 COPY services/scheduler/daemon_runner.py ./services/scheduler/daemon_runner.py
-COPY services/scheduler/event_builders.py ./services/scheduler/event_builders.py
-COPY services/scheduler/participant_action_event_builder.py ./services/scheduler/participant_action_event_builder.py
 COPY services/scheduler/scheduler_daemon_wrapper.py ./services/scheduler/scheduler_daemon_wrapper.py
 COPY services/scheduler/postgres_listener.py ./services/scheduler/postgres_listener.py
 COPY services/scheduler/__init__.py ./services/scheduler/__init__.py

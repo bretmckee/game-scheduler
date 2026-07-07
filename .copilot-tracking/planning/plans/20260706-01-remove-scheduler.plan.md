@@ -40,15 +40,15 @@ Replace the standalone scheduler container with `SchedulerLoop` asyncio tasks ru
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Move event builders to shared/
+### [x] Phase 1: Move event builders to shared/
 
-- [ ] Task 1.1: Create `shared/services/event_builders.py`
+- [x] Task 1.1: Create `shared/services/event_builders.py`
   - Details: .copilot-tracking/planning/details/20260706-01-remove-scheduler-details.md (Lines 17-46)
 
-- [ ] Task 1.2: Create `shared/services/participant_action_event_builder.py`
+- [x] Task 1.2: Create `shared/services/participant_action_event_builder.py`
   - Details: .copilot-tracking/planning/details/20260706-01-remove-scheduler-details.md (Lines 47-64)
 
-- [ ] Task 1.3: Update `scheduler_daemon_wrapper.py` and unit tests; delete originals
+- [x] Task 1.3: Update `scheduler_daemon_wrapper.py` and unit tests; delete originals
   - Details: .copilot-tracking/planning/details/20260706-01-remove-scheduler-details.md (Lines 65-89)
 
 ### [ ] Phase 2: RED — SchedulerLoop stub + xfail unit tests

@@ -24,13 +24,13 @@
 from datetime import timedelta
 from uuid import uuid4
 
-from services.scheduler.event_builders import (
-    build_notification_event,
-    build_status_transition_event,
-)
 from shared.models import GameStatus, GameStatusSchedule, NotificationSchedule
 from shared.models.base import utc_now
 from shared.models.bot_action_queue import BotActionQueue
+from shared.services.event_builders import (
+    build_notification_event,
+    build_status_transition_event,
+)
 
 
 class TestBuildNotificationEvent:

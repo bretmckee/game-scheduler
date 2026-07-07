@@ -31,13 +31,13 @@ from shared.models import (
     NotificationSchedule,
     ParticipantActionSchedule,
 )
+from shared.services.event_builders import build_notification_event, build_status_transition_event
+from shared.services.participant_action_event_builder import build_participant_action_event
 from shared.telemetry import flush_telemetry, init_telemetry
 from shared.utils.logging import suppress_noisy_loggers
 
 from .daemon_runner import register_shutdown_signals
-from .event_builders import build_notification_event, build_status_transition_event
 from .generic_scheduler_daemon import SchedulerDaemon
-from .participant_action_event_builder import build_participant_action_event
 
 logger = logging.getLogger(__name__)
 
