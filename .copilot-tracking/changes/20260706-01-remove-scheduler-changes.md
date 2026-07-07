@@ -30,3 +30,12 @@ In Progress
 
 - `services/scheduler/event_builders.py` — deleted after moving to `shared/services/`
 - `services/scheduler/participant_action_event_builder.py` — deleted after moving to `shared/services/`
+
+---
+
+## Phase 2: RED — SchedulerLoop stub + xfail unit tests
+
+### Added
+
+- `services/bot/scheduler_loop.py` — minimal stub with `SchedulerLoop.__init__` and `run()` both raising `NotImplementedError`; satisfies imports without providing any behaviour
+- `tests/unit/services/bot/test_scheduler_loop.py` — 7 xfail tests covering construction, `_process_item` (writes queue row, marks status field, commits once), and `run` (skips when not due, calls `_process_item` when due, handles no items)
