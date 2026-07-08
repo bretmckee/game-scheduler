@@ -122,6 +122,9 @@ class TestGameSchedulerBot:
         mock_redis._client.scan = AsyncMock(return_value=(0, []))
         mock_redis._client.delete = AsyncMock()
 
+        mock_sl_instance = MagicMock()
+        mock_sl_instance.run = AsyncMock()
+
         with patch("services.bot.bot.logger") as mock_logger:
             with patch.object(type(bot), "user", new_callable=lambda: mock_user):
                 with patch.object(type(bot), "guilds", new_callable=lambda: mock_guilds):
@@ -136,6 +139,7 @@ class TestGameSchedulerBot:
                             return_value=mock_redis,
                         ),
                         patch("services.bot.bot.Path") as mock_path,
+                        patch("services.bot.bot.SchedulerLoop", return_value=mock_sl_instance),
                     ):
                         await bot.on_ready()
 
@@ -873,6 +877,98 @@ class TestGameSchedulerBot:
             await bot._run_sweep_worker(queue, mock_redis)  # must not raise
 
         mock_cancel.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_on_ready_starts_scheduler_loop_tasks(self, bot_config: BotConfig) -> None:
+        """on_ready creates exactly three SchedulerLoop tasks with correct channel names."""
+        bot = GameSchedulerBot(bot_config)
+        mock_user = MagicMock()
+        mock_user.id = 123456789
+        mock_guilds: list = []
+
+        mock_redis = AsyncMock()
+
+        mock_listener_instance = MagicMock()
+        mock_listener_instance.start = AsyncMock()
+
+        mock_loop_instance = MagicMock()
+        mock_loop_instance.run = AsyncMock()
+
+        with (
+            patch.object(type(bot), "user", new_callable=lambda: mock_user),
+            patch.object(type(bot), "guilds", new_callable=lambda: mock_guilds),
+            patch.object(bot, "_rebuild_guild_channel_cache", new_callable=AsyncMock),
+            patch.object(bot, "_recover_pending_workers", new_callable=AsyncMock),
+            patch.object(bot, "_trigger_sweep", new_callable=AsyncMock),
+            patch.object(bot, "_sweep_orphaned_embeds", new_callable=AsyncMock),
+            patch.object(bot, "_restore_recurrence_confirmation_views", new_callable=AsyncMock),
+            patch.object(bot, "_start_test_server", new_callable=AsyncMock),
+            patch("services.bot.bot.get_db_session", side_effect=RuntimeError("no db")),
+            patch(
+                "services.bot.bot.get_redis_client",
+                new_callable=AsyncMock,
+                return_value=mock_redis,
+            ),
+            patch("services.bot.bot.guild_projection.repopulate_all", new_callable=AsyncMock),
+            patch("services.bot.bot.Path"),
+            patch("services.bot.bot.MessageRefreshListener", return_value=mock_listener_instance),
+            patch("services.bot.bot.BotActionListener", return_value=mock_listener_instance),
+            patch("services.bot.bot.AnnouncementLoop", return_value=mock_listener_instance),
+            patch("services.bot.bot.SchedulerLoop", return_value=mock_loop_instance) as mock_sl,
+        ):
+            await bot.on_ready()
+
+        assert mock_sl.call_count == 3
+        channels = [call.kwargs["notify_channel"] for call in mock_sl.call_args_list]
+        assert "notification_schedule_changed" in channels
+        assert "game_status_schedule_changed" in channels
+        assert "participant_action_schedule_changed" in channels
+
+    @pytest.mark.asyncio
+    async def test_on_ready_scheduler_loop_tasks_started_once(self, bot_config: BotConfig) -> None:
+        """Calling on_ready twice does not start additional SchedulerLoop tasks."""
+        bot = GameSchedulerBot(bot_config)
+        mock_user = MagicMock()
+        mock_user.id = 123456789
+        mock_guilds: list = []
+
+        mock_redis = AsyncMock()
+
+        mock_listener_instance = MagicMock()
+        mock_listener_instance.start = AsyncMock()
+
+        mock_loop_instance = MagicMock()
+        mock_loop_instance.run = AsyncMock()
+
+        with (
+            patch.object(type(bot), "user", new_callable=lambda: mock_user),
+            patch.object(type(bot), "guilds", new_callable=lambda: mock_guilds),
+            patch.object(bot, "_rebuild_guild_channel_cache", new_callable=AsyncMock),
+            patch.object(bot, "_recover_pending_workers", new_callable=AsyncMock),
+            patch.object(bot, "_trigger_sweep", new_callable=AsyncMock),
+            patch.object(bot, "_sweep_orphaned_embeds", new_callable=AsyncMock),
+            patch.object(bot, "_restore_recurrence_confirmation_views", new_callable=AsyncMock),
+            patch.object(bot, "_start_test_server", new_callable=AsyncMock),
+            patch("services.bot.bot.get_db_session", side_effect=RuntimeError("no db")),
+            patch(
+                "services.bot.bot.get_redis_client",
+                new_callable=AsyncMock,
+                return_value=mock_redis,
+            ),
+            patch("services.bot.bot.guild_projection.repopulate_all", new_callable=AsyncMock),
+            patch("services.bot.bot.Path"),
+            patch("services.bot.bot.MessageRefreshListener", return_value=mock_listener_instance),
+            patch("services.bot.bot.BotActionListener", return_value=mock_listener_instance),
+            patch("services.bot.bot.AnnouncementLoop", return_value=mock_listener_instance),
+            patch("services.bot.bot.SchedulerLoop", return_value=mock_loop_instance) as mock_sl,
+        ):
+            await bot.on_ready()
+            first_call_count = mock_sl.call_count
+            await bot.on_ready()
+            second_call_count = mock_sl.call_count
+
+        assert first_call_count == 3
+        assert second_call_count == 3
 
 
 class TestCreateBot:

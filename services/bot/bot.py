@@ -44,6 +44,7 @@ from services.bot.bot_action_listener import BotActionListener
 from services.bot.config import BotConfig
 from services.bot.guild_sync import sync_guilds_from_gateway, sync_single_guild_from_gateway
 from services.bot.message_refresh_listener import MessageRefreshListener
+from services.bot.scheduler_loop import SchedulerLoop
 from shared.cache.client import RedisClient, get_redis_client
 from shared.cache.keys import CacheKeys
 from shared.cache.ttl import CacheTTL
@@ -51,8 +52,13 @@ from shared.database import get_bypass_db_session, get_db_session
 from shared.models.backup_metadata import BackupMetadata
 from shared.models.channel import ChannelConfiguration
 from shared.models.game import GameSession
+from shared.models.game_status_schedule import GameStatusSchedule
 from shared.models.message_refresh_queue import MessageRefreshQueue
+from shared.models.notification_schedule import NotificationSchedule
+from shared.models.participant_action_schedule import ParticipantActionSchedule
+from shared.services.event_builders import build_notification_event, build_status_transition_event
 from shared.services.game_cancellation import cancel_game
+from shared.services.participant_action_event_builder import build_participant_action_event
 from shared.utils.status_transitions import GameStatus
 
 if TYPE_CHECKING:
@@ -215,6 +221,40 @@ class GameSchedulerBot(commands.Bot):
                     AnnouncementLoop(self.config.database_url, self).start()
                 )
                 logger.info("Started announcement loop task")
+
+            if not hasattr(self, "_scheduler_loops_started"):
+                self._scheduler_loops_started = True
+                self._notification_scheduler_task = asyncio.create_task(
+                    SchedulerLoop(
+                        db_url=self.config.database_url,
+                        notify_channel="notification_schedule_changed",
+                        model_class=NotificationSchedule,
+                        time_field="notification_time",
+                        status_field="sent",
+                        event_builder=build_notification_event,
+                    ).run()
+                )
+                self._game_status_scheduler_task = asyncio.create_task(
+                    SchedulerLoop(
+                        db_url=self.config.database_url,
+                        notify_channel="game_status_schedule_changed",
+                        model_class=GameStatusSchedule,
+                        time_field="transition_time",
+                        status_field="executed",
+                        event_builder=build_status_transition_event,
+                    ).run()
+                )
+                self._participant_action_scheduler_task = asyncio.create_task(
+                    SchedulerLoop(
+                        db_url=self.config.database_url,
+                        notify_channel="participant_action_schedule_changed",
+                        model_class=ParticipantActionSchedule,
+                        time_field="action_time",
+                        status_field="processed",
+                        event_builder=build_participant_action_event,
+                    ).run()
+                )
+                logger.info("Started scheduler loop tasks")
 
             # Populate member projection from gateway
 

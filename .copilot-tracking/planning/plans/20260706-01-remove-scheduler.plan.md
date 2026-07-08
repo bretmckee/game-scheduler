@@ -67,12 +67,12 @@ Replace the standalone scheduler container with `SchedulerLoop` asyncio tasks ru
 - [x] Task 3.2: Create `tests/integration/test_scheduler_loop.py`
   - Details: .copilot-tracking/planning/details/20260706-01-remove-scheduler-details.md (Lines 200-234)
 
-### [ ] Phase 4: Wire SchedulerLoop into bot.py
+### [x] Phase 4: Wire SchedulerLoop into bot.py
 
-- [ ] Task 4.1: Import and start three `SchedulerLoop` tasks in `bot.py` `on_ready`
+- [x] Task 4.1: Import and start three `SchedulerLoop` tasks in `bot.py` `on_ready`
   - Details: .copilot-tracking/planning/details/20260706-01-remove-scheduler-details.md (Lines 237-297)
 
-- [ ] Task 4.2: Add unit tests for SchedulerLoop wiring in `test_bot.py`
+- [x] Task 4.2: Add unit tests for SchedulerLoop wiring in `test_bot.py`
   - Details: .copilot-tracking/planning/details/20260706-01-remove-scheduler-details.md (Lines 298-314)
 
 ### [ ] Phase 5: Delete scheduler service

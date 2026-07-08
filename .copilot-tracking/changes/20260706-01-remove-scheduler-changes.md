@@ -59,3 +59,16 @@ In Progress
 ### Added
 
 - `tests/integration/test_scheduler_loop.py` — three integration tests exercising SchedulerLoop against real PostgreSQL: `test_notification_schedule_due_item_enqueued`, `test_status_transition_due_item_enqueued`, `test_participant_action_due_item_enqueued`
+
+---
+
+## Phase 4: Wire SchedulerLoop into bot.py
+
+### Modified
+
+- `services/bot/bot.py` — added imports and three `SchedulerLoop` create_task calls in `on_ready`:
+  - New imports: `SchedulerLoop`, `GameStatusSchedule`, `NotificationSchedule`, `ParticipantActionSchedule`, `build_notification_event`, `build_status_transition_event`, `build_participant_action_event`
+  - `_scheduler_loops_started` guard block after `_announcement_loop_started` starts three `SchedulerLoop` tasks for `notification_schedule_changed`, `game_status_schedule_changed`, and `participant_action_schedule_changed` channels
+- `tests/unit/services/bot/test_bot.py` — added two tests for SchedulerLoop wiring:
+  - `test_on_ready_starts_scheduler_loop_tasks` — verifies `SchedulerLoop` is instantiated exactly three times with correct `notify_channel` values on first `on_ready` call
+  - `test_on_ready_scheduler_loop_tasks_started_once` — verifies a second `on_ready` call does not create additional `SchedulerLoop` instances
