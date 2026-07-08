@@ -74,12 +74,14 @@ or
 Click on a trace and inspect span attributes:
 
 **Expected on `discord.on_interaction` span:**
+
 - `discord.interaction_type` = "application_command"
 - `discord.user_id` = <Discord user ID>
 - `discord.channel_id` = <Discord channel ID>
 - `discord.guild_id` = <Discord guild/server ID>
 
 **Expected on `discord.command.*` span:**
+
 - `discord.command` = "list-games" or "my-games"
 - `discord.user_id` = <Discord user ID>
 - `discord.guild_id` = <Discord guild/server ID>
@@ -130,6 +132,7 @@ Expand the trace to see child spans:
 **Symptoms:** No "OpenTelemetry initialized" messages in logs
 
 **Solution:**
+
 1. Verify `shared/telemetry.py` is accessible in bot container
 2. Check for import errors: `docker logs gamebot-bot | grep -i error`
 3. Rebuild bot container: `docker compose build bot`
@@ -139,6 +142,7 @@ Expand the trace to see child spans:
 **Symptoms:** Bot logs show initialization, but no traces in Grafana Cloud
 
 **Solution:**
+
 1. Verify bot has OTEL_EXPORTER_OTLP_ENDPOINT set correctly:
    ```bash
    docker exec gamebot-bot env | grep OTEL
@@ -154,6 +158,7 @@ Expand the trace to see child spans:
 **Symptoms:** Traces exist but missing `discord.user_id`, etc.
 
 **Solution:**
+
 1. Verify span attributes are set in bot code
 2. Check for AttributeError in logs
 3. Ensure attributes are strings (convert IDs with `str()`)
@@ -163,6 +168,7 @@ Expand the trace to see child spans:
 **Symptoms:** Command spans exist but no child database spans
 
 **Solution:**
+
 1. Verify SQLAlchemy/asyncpg instrumentation is initialized
 2. Check bot logs for instrumentation errors
 3. Ensure commands actually query the database (some may return empty results)
@@ -170,6 +176,7 @@ Expand the trace to see child spans:
 ## Next Steps
 
 After successful verification:
+
 - Proceed to Phase 6: Daemon Services Instrumentation
 - Monitor bot traces during normal operations
 - Look for opportunities to add custom span attributes for business logic

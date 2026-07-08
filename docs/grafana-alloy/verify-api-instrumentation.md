@@ -19,6 +19,7 @@ Grafana Cloud uses **different instance IDs for different services**. The most c
 - **OTLP Gateway (application metrics):** Use OTLP instance ID (NOT Prometheus ID!)
 
 To find your OTLP instance ID:
+
 1. In Grafana Cloud, go to **Connections** → **OTLP**
 2. Copy the authorization header
 3. Decode the base64 string - the instance ID is after the colon in the decoded value
@@ -71,7 +72,7 @@ curl http://localhost:8000/health
 **Expected output:**
 
 ```json
-{"status":"healthy","service":"api"}
+{ "status": "healthy", "service": "api" }
 ```
 
 ## Step 5: Check Alloy Logs for Errors
@@ -106,8 +107,8 @@ docker logs gamebot-grafana-alloy --since 2m 2>&1 | grep -i "otlphttp"
 
 4. Set time range to **Last 15 minutes**
 
-4. Select time range: **Last 15 minutes**
-5. Click **Run Query**
+5. Select time range: **Last 15 minutes**
+6. Click **Run Query**
 
 **Expected results:**
 
@@ -210,6 +211,7 @@ curl http://localhost:8000/health
    - The instance ID is the number after the colon
 
 2. Update `grafana-alloy/config.alloy`:
+
    ```alloy
    otelcol.auth.basic "grafana_cloud_otlp" {
      username = "<your_otlp_instance_id>"  // NOT the Prometheus ID!
@@ -218,6 +220,7 @@ curl http://localhost:8000/health
    ```
 
 3. Restart Alloy:
+
    ```bash
    docker compose restart grafana-alloy
    ```
@@ -299,6 +302,7 @@ All of the following should be true:
 ## Verification Results (2025-12-09)
 
 ### Authentication Fix
+
 **Issue:** Metrics failing with HTTP 401 Unauthenticated errors
 **Root Cause:** Used Prometheus instance ID instead of OTLP gateway instance ID
 **Solution:** Updated `grafana-alloy/config.alloy` to use correct instance ID in `otelcol.auth.basic`
@@ -311,6 +315,7 @@ otelcol.auth.basic "grafana_cloud_otlp" {
 ```
 
 ### Test Results
+
 - ✅ **Traces:** Successfully flowing to Grafana Cloud Tempo (verified with service.name="api-service")
 - ✅ **Metrics:** Authentication fixed, no more 401 errors in Alloy logs
 - ✅ **Logs:** Flowing to Grafana Cloud with trace context
@@ -318,14 +323,18 @@ otelcol.auth.basic "grafana_cloud_otlp" {
 - ✅ Alloy logs confirm successful OTLP HTTP requests to gateway
 
 ### Instance ID Reference
+
 Different Grafana Cloud services use different instance IDs:
+
 - **Tempo (traces):** 1413606
 - **Prometheus (metrics via remote_write):** (7-digit ID from Prometheus connection)
 - **Loki (logs):** 1419296
 - **OTLP Gateway (metrics via OTLP/HTTP):** (7-digit ID from OTLP endpoint) ← Critical for Phase 4
 
 ### Verification Queries
+
 Access metrics in Grafana Cloud:
+
 ```promql
 # HTTP request duration histogram
 http_server_duration_bucket{service_name="api-service"}
