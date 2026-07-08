@@ -8,7 +8,7 @@ Replace the standalone scheduler container with `SchedulerLoop` asyncio tasks ru
 
 ## Status
 
-In Progress
+Complete
 
 ---
 
@@ -59,6 +59,33 @@ In Progress
 ### Added
 
 - `tests/integration/test_scheduler_loop.py` — three integration tests exercising SchedulerLoop against real PostgreSQL: `test_notification_schedule_due_item_enqueued`, `test_status_transition_due_item_enqueued`, `test_participant_action_due_item_enqueued`
+
+---
+
+## Phase 5: Delete scheduler service
+
+### Added
+
+- `tests/shared/sync_pg_listener.py` — copy of `services/scheduler/postgres_listener.py`; `PostgresNotificationListener` now lives here for integration test use
+
+### Modified
+
+- `tests/integration/test_message_refresh_queue.py` — updated import from `services.scheduler.postgres_listener` to `tests.shared.sync_pg_listener`
+- `compose.yaml` — removed entire `scheduler:` service stanza
+- `compose.int.yaml` — removed `scheduler:` service stanza; removed `scheduler: condition: service_started` from `system-ready` depends_on
+- `compose.e2e.yaml` — removed `scheduler:` service stanza; removed `scheduler: condition: service_started` from `system-ready` depends_on
+- `compose.prod.yaml` — removed `scheduler:` service stanza
+- `compose.staging.yaml` — removed `scheduler:` service stanza
+
+### Removed
+
+- `tests/unit/services/scheduler/` — entire directory deleted (7 test files + `__init__.py`)
+- `tests/integration/test_notification_daemon.py` — deleted (scheduler-container-specific)
+- `tests/integration/test_status_transitions.py` — deleted (scheduler-container-specific)
+- `tests/integration/test_participant_action_daemon.py` — deleted (scheduler-container-specific)
+- `tests/integration/test_clone_confirmation_notification.py` — deleted (scheduler-container-specific)
+- `services/scheduler/` — entire directory deleted
+- `docker/scheduler.Dockerfile` — deleted
 
 ---
 

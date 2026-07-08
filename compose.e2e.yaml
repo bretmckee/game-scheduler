@@ -71,17 +71,6 @@ services:
       DISCORD_BOT_CLIENT_ID: ${DISCORD_BOT_CLIENT_ID}
       PYTEST_RUNNING: "1"
 
-  scheduler:
-    build:
-      target: production
-    volumes:
-      - ./coverage:/app/coverage:rw
-    environment:
-      COVERAGE_PROCESS_START: /app/pyproject.toml
-      COVERAGE_FILE: /app/coverage/scheduler.e2e
-      LOG_LEVEL: DEBUG
-      PYTEST_RUNNING: "1"
-
   postgres:
     command: [
       "postgres",
@@ -103,8 +92,6 @@ services:
         condition: service_healthy
       bot:
         condition: service_healthy
-      scheduler:
-        condition: service_started
       cloudflared:
         condition: service_started
         required: false

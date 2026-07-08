@@ -34,7 +34,7 @@ import pytest
 from sqlalchemy import text
 
 from services.bot.message_refresh_listener import MessageRefreshListener
-from services.scheduler.postgres_listener import PostgresNotificationListener
+from tests.shared.sync_pg_listener import PostgresNotificationListener
 
 pytestmark = pytest.mark.integration
 

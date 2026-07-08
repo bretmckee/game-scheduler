@@ -75,18 +75,18 @@ Replace the standalone scheduler container with `SchedulerLoop` asyncio tasks ru
 - [x] Task 4.2: Add unit tests for SchedulerLoop wiring in `test_bot.py`
   - Details: .copilot-tracking/planning/details/20260706-01-remove-scheduler-details.md (Lines 298-314)
 
-### [ ] Phase 5: Delete scheduler service
+### [x] Phase 5: Delete scheduler service
 
-- [ ] Task 5.1: Move `PostgresNotificationListener` to `tests/shared/sync_pg_listener.py`
+- [x] Task 5.1: Move `PostgresNotificationListener` to `tests/shared/sync_pg_listener.py`
   - Details: .copilot-tracking/planning/details/20260706-01-remove-scheduler-details.md (Lines 317-340)
 
-- [ ] Task 5.2: Delete scheduler unit tests and integration tests that test the scheduler container
+- [x] Task 5.2: Delete scheduler unit tests and integration tests that test the scheduler container
   - Details: .copilot-tracking/planning/details/20260706-01-remove-scheduler-details.md (Lines 341-371)
 
-- [ ] Task 5.3: Delete `services/scheduler/` directory
+- [x] Task 5.3: Delete `services/scheduler/` directory
   - Details: .copilot-tracking/planning/details/20260706-01-remove-scheduler-details.md (Lines 372-388)
 
-- [ ] Task 5.4: Remove `scheduler` from all compose files and delete `scheduler.Dockerfile`
+- [x] Task 5.4: Remove `scheduler` from all compose files and delete `scheduler.Dockerfile`
   - Details: .copilot-tracking/planning/details/20260706-01-remove-scheduler-details.md (Lines 389-434)
 
 ## Dependencies

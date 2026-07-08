@@ -22,12 +22,6 @@ services:
     environment:
       LOG_LEVEL: DEBUG
 
-  scheduler:
-    build:
-      target: production
-    environment:
-      LOG_LEVEL: DEBUG
-
   frontend:
     build:
       target: production

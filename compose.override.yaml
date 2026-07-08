@@ -38,16 +38,6 @@ services:
       LOG_LEVEL: DEBUG
       PYTHONUNBUFFERED: "1"
 
-  scheduler:
-    build:
-      target: development
-    volumes:
-      - ${HOST_WORKSPACE_FOLDER:-.}/shared:/app/shared:ro
-      - ${HOST_WORKSPACE_FOLDER:-.}/services/scheduler:/app/services/scheduler:ro
-    environment:
-      LOG_LEVEL: DEBUG
-      PYTHONUNBUFFERED: "1"
-
   frontend:
     build:
       target: development

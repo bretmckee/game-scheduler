@@ -18,10 +18,6 @@ services:
     build:
       target: production
 
-  scheduler:
-    build:
-      target: production
-
   frontend:
     build:
       target: production
