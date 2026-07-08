@@ -4,21 +4,24 @@ This document describes the microservices architecture of the Game Scheduler sys
 
 ## Overview
 
-Game Scheduler uses a microservices architecture with event-driven communication through RabbitMQ and database-backed scheduling with PostgreSQL LISTEN/NOTIFY for real-time wake-ups.
+Game Scheduler uses a microservices architecture with all inter-service communication handled through PostgreSQL — no external message broker. The API and bot communicate via a `bot_action_queue` database table; scheduling runs as asyncio tasks inside the bot; and real-time frontend updates flow through PostgreSQL LISTEN/NOTIFY.
 
 ### Core Services
 
 - **API Service** - FastAPI REST API for web dashboard and game management
-- **Bot Service** - Discord.py Gateway client handling Discord interactions and notifications
-- **Notification Daemon** - Database-backed scheduler for game reminders
-- **Status Transition Daemon** - Database-backed scheduler for game status updates
+- **Bot Service** - Discord.py Gateway client handling Discord interactions, notifications, and scheduling
 - **Init Service** - One-time database migrations and seed data
 
 ### Infrastructure
 
-- **PostgreSQL** - Primary data store with Row-Level Security for multi-tenant isolation
-- **RabbitMQ** - Message broker for asynchronous inter-service communication
+- **PostgreSQL** - Primary data store with Row-Level Security for multi-tenant isolation, and LISTEN/NOTIFY for all event signalling
 - **Valkey (Redis)** - Caching layer and session storage
+
+### Supporting Services
+
+- **Grafana Alloy** - OpenTelemetry collector forwarding traces, metrics, and logs to Grafana Cloud
+- **Cloudflare Tunnel** - Production reverse proxy (no exposed ports)
+- **Backup** - Scheduled database backups to S3
 
 ### External Services
 
@@ -29,319 +32,204 @@ Game Scheduler uses a microservices architecture with event-driven communication
 
 ```mermaid
 graph TB
-    %% External Services
+    %% External
     Discord[Discord API<br/>External Service]
+    Frontend[Frontend<br/>React SPA]
 
     %% Core Services
     API[API Service<br/>FastAPI REST]
-    Bot[Bot Service<br/>discord.py Gateway]
-    NotifDaemon[Notification Daemon<br/>Scheduler]
-    StatusDaemon[Status Transition Daemon<br/>Scheduler]
+    Bot[Bot Service<br/>discord.py Gateway<br/>+ SchedulerLoop tasks]
     Init[Init Service<br/>One-time Setup]
 
     %% Infrastructure
     PG[(PostgreSQL<br/>Database)]
-    RMQ[RabbitMQ<br/>Event Broker]
     Redis[(Valkey/Redis<br/>Cache)]
 
-    %% Frontend
-    Frontend[Frontend<br/>React SPA]
+    %% Supporting
+    Alloy[Grafana Alloy<br/>OTel Collector]
 
-    %% Infrastructure connections
-    API -->|SQL Queries| PG
-    Bot -->|SQL Queries| PG
-    NotifDaemon -->|SQL Queries| PG
-    StatusDaemon -->|SQL Queries| PG
+    %% DB access
+    API -->|SQL / SQLAlchemy| PG
+    Bot -->|SQL / asyncpg + SQLAlchemy| PG
     Init -->|Migrations & Seeds| PG
-
     API -->|Cache| Redis
     Bot -->|Cache| Redis
 
-    %% Event flow from API
-    API -->|GAME_CREATED| RMQ
-    API -->|GAME_UPDATED| RMQ
-    API -->|GAME_CANCELLED| RMQ
-    API -->|PLAYER_REMOVED| RMQ
-    API -->|NOTIFICATION_SEND_DM| RMQ
+    %% API → Bot via queue
+    API -->|INSERT bot_action_queue| PG
+    PG -.->|NOTIFY bot_action_queue_changed| Bot
 
-    %% Event flow from Daemons
-    NotifDaemon -->|NOTIFICATION_DUE| RMQ
-    StatusDaemon -->|GAME_STATUS_TRANSITION_DUE| RMQ
+    %% Scheduling inside bot
+    PG -.->|NOTIFY notification_schedule_changed| Bot
+    PG -.->|NOTIFY game_status_schedule_changed| Bot
+    PG -.->|NOTIFY participant_action_schedule_changed| Bot
 
-    %% Bot consumes all events
-    RMQ -->|All Events| Bot
+    %% SSE
+    API -->|pg_notify game_updated_sse| PG
+    PG -.->|NOTIFY game_updated_sse| API
+    API -->|SSE stream| Frontend
 
-    %% Bot to Discord
+    %% Discord
     Bot <-->|Gateway WebSocket| Discord
-
-    %% Frontend connections
     Frontend -->|HTTP REST| API
-    Frontend -->|OAuth Redirect| API
 
-    %% Daemon polling patterns
-    PG -.->|LISTEN/NOTIFY<br/>notification_schedule| NotifDaemon
-    PG -.->|LISTEN/NOTIFY<br/>game_status_schedule| StatusDaemon
+    %% Observability
+    API -->|OTLP| Alloy
+    Bot -->|OTLP| Alloy
 
-    %% Styling
     classDef service fill:#90EE90,stroke:#333,stroke-width:2px,color:#000
     classDef infrastructure fill:#87CEEB,stroke:#333,stroke-width:2px,color:#000
     classDef external fill:#DDA0DD,stroke:#333,stroke-width:2px,color:#000
+    classDef supporting fill:#FFD700,stroke:#333,stroke-width:2px,color:#000
 
-    class API,Bot,NotifDaemon,StatusDaemon service
-    class PG,RMQ,Redis infrastructure
+    class API,Bot,Init service
+    class PG,Redis infrastructure
     class Discord,Frontend external
+    class Alloy supporting
 ```
 
-## Event Communication Patterns
+## Communication Patterns
 
-The system uses three primary communication patterns:
+The system uses three internal communication patterns, all routed through PostgreSQL.
 
-1. **Immediate API Events** - Real-time events published by API when users take actions
-2. **Scheduled Notification Events** - Time-based events from notification daemon
-3. **Scheduled Status Events** - Time-based game status transitions
+### 1. API → Bot: BotActionQueue
 
-### Event Flow Sequence
+When API route handlers need the bot to take a Discord action (post a message, send a DM, etc.), they insert a row into the `bot_action_queue` table. A PostgreSQL trigger fires `NOTIFY bot_action_queue_changed` on each insert.
+
+**Flow:**
 
 ```mermaid
 sequenceDiagram
-    autonumber
-
     participant User
-    participant Frontend
     participant API
-    participant RMQ as RabbitMQ
-    participant Bot
-    participant NotifD as Notification<br/>Daemon
-    participant StatusD as Status<br/>Daemon
     participant DB as PostgreSQL
+    participant Bot
     participant Discord
 
-    %% Game Creation Flow
-    note right of User: Game Creation
-    User->>Frontend: Create Game
-    Frontend->>API: POST /games
-    API->>DB: Insert game_sessions
-    API->>DB: Insert notification_schedule
-    API->>DB: Insert game_status_schedule
-    API->>RMQ: Publish GAME_CREATED
-    RMQ->>Bot: Consume GAME_CREATED
+    User->>API: POST /games
+    API->>DB: INSERT game_sessions
+    API->>DB: INSERT bot_action_queue (action_type=game_created)
+    Note over DB: trigger fires NOTIFY bot_action_queue_changed
+    DB-->>Bot: NOTIFY bot_action_queue_changed
+    Bot->>DB: SELECT * FROM bot_action_queue ORDER BY enqueued_at
+    Bot->>DB: DELETE bot_action_queue row (same transaction)
     Bot->>Discord: Post announcement message
     Discord-->>Bot: message_id
-    Bot->>DB: Update game.message_id
-
-    %% Game Update Flow
-    note right of User: Game Update
-    User->>API: PUT /games/{id}
-    API->>DB: Update game_sessions
-    API->>RMQ: Publish GAME_UPDATED
-    RMQ->>Bot: Consume GAME_UPDATED
-    Bot->>Discord: Edit message
-
-    %% Game Cancellation Flow
-    note right of User: Game Cancellation
-    User->>API: DELETE /games/{id}
-    API->>DB: Update game.status = CANCELLED
-    API->>RMQ: Publish GAME_CANCELLED
-    RMQ->>Bot: Consume GAME_CANCELLED
-    Bot->>Discord: Update/Delete message
-
-    %% Player Removal Flow
-    note right of User: Player Removal
-    User->>API: DELETE /games/{id}/participants/{user_id}
-    API->>DB: Delete participant
-    API->>RMQ: Publish PLAYER_REMOVED
-    RMQ->>Bot: Consume PLAYER_REMOVED
-    Bot->>Discord: Send DM to removed user
-    Bot->>Discord: Edit game message
-
-    %% Notification Daemon Flow - Reminders
-    note right of NotifD: Game Reminders
-    DB-->>NotifD: NOTIFY notification_schedule_changed
-    NotifD->>DB: Query due reminders
-    NotifD->>RMQ: Publish NOTIFICATION_DUE (type=reminder)
-    RMQ->>Bot: Consume NOTIFICATION_DUE
-    Bot->>DB: Load game + participants
-    Bot->>Discord: Send DM to each participant
-
-    %% Notification Daemon Flow - Join Notification
-    note right of NotifD: Join Notifications
-    NotifD->>DB: Query due join_notifications
-    NotifD->>RMQ: Publish NOTIFICATION_DUE (type=join_notification)
-    RMQ->>Bot: Consume NOTIFICATION_DUE
-    Bot->>Discord: Send signup instructions DM
-
-    %% Waitlist Promotion Flow
-    note right of API: Waitlist Promotion
-    API->>DB: Detect promotion (participant moves to active)
-    API->>RMQ: Publish NOTIFICATION_SEND_DM
-    RMQ->>Bot: Consume NOTIFICATION_SEND_DM
-    Bot->>Discord: Send promotion DM
-
-    %% Status Transition Flow
-    note right of StatusD: Status Transitions
-    DB-->>StatusD: NOTIFY game_status_schedule_changed
-    StatusD->>DB: Query due transitions
-    StatusD->>RMQ: Publish GAME_STATUS_TRANSITION_DUE
-    RMQ->>Bot: Consume GAME_STATUS_TRANSITION_DUE
-    Bot->>DB: Update game.status
-    Bot->>Discord: Edit message with new status
+    Bot->>DB: UPDATE game_sessions SET message_id
 ```
 
-## Event Type Reference
+**Key properties:**
 
-### Immediate API Events
+- The queue insert happens in the same transaction as the game data write — no race conditions
+- Each row is deleted within the same transaction as its dispatch; a bot restart simply re-drains any rows that were not yet committed as deleted
+- Dispatch failures are logged and the row is still deleted (no infinite retry loops)
+- `BotActionListener` holds a persistent asyncpg connection and also drains the queue on startup to catch any rows written before it connected
 
-Events published by the API service when users take actions:
+**Action types:**
 
-| Event Type | Trigger | Publisher | Bot Action |
-|------------|---------|-----------|------------|
-| `GAME_CREATED` | POST /games | API | Post announcement to Discord channel |
-| `GAME_UPDATED` | PUT /games/{id} | API | Edit Discord announcement message |
-| `GAME_CANCELLED` | DELETE /games/{id} | API | Update or delete Discord message |
-| `PLAYER_REMOVED` | DELETE /games/{id}/participants | API | Send DM to removed player, update message |
-| `NOTIFICATION_SEND_DM` | Waitlist promotion detected | API | Send promotion notification DM |
+| `action_type`       | Trigger                       | Bot action                                                |
+| ------------------- | ----------------------------- | --------------------------------------------------------- |
+| `game_created`      | POST /games                   | Post announcement to Discord channel                      |
+| `game_cancelled`    | Game cancelled via API        | Update/delete Discord message                             |
+| `player_removed`    | Player removed by host        | Send DM + edit Discord message                            |
+| `send_dm`           | Waitlist promotion detected   | Send promotion notification DM                            |
+| Scheduler-generated | Schedule item due (see below) | Send reminder DM / status transition / participant action |
 
-### Scheduled Notification Events
+### 2. Scheduling: SchedulerLoop Tasks Inside the Bot
 
-Events published by the notification daemon at scheduled times:
-
-| Event Type | Trigger | Publisher | Bot Action |
-|------------|---------|-----------|------------|
-| `NOTIFICATION_DUE` (reminder) | Game reminder time reached | Notification Daemon | Send reminder DM to all participants |
-| `NOTIFICATION_DUE` (join_notification) | Delayed join notification time | Notification Daemon | Send signup instructions DM to new participant |
-
-### Scheduled Status Events
-
-Events published by the status transition daemon at scheduled times:
-
-| Event Type | Trigger | Publisher | Bot Action |
-|------------|---------|-----------|------------|
-| `GAME_STATUS_TRANSITION_DUE` | Game start or completion time | Status Daemon | Update game status in database and Discord message |
-
-## Database-Driven Scheduling
-
-The system uses PostgreSQL LISTEN/NOTIFY for efficient, event-driven scheduling:
-
-### Architecture Pattern
+There is no separate scheduler microservice. Three `SchedulerLoop` asyncio tasks start inside the bot process during `on_ready`. Each loop watches one schedule table via PostgreSQL LISTEN/NOTIFY and writes to `bot_action_queue` when an item comes due.
 
 ```mermaid
 graph LR
     subgraph "PostgreSQL LISTEN/NOTIFY"
-        NS[notification_schedule<br/>table]
-        SS[game_status_schedule<br/>table]
+        NS[notification_schedule]
+        GS[game_status_schedule]
+        PA[participant_action_schedule]
 
-        NS -->|INSERT/UPDATE| N1[NOTIFY<br/>notification_schedule_changed]
-        SS -->|INSERT/UPDATE| N2[NOTIFY<br/>game_status_schedule_changed]
+        NS -->|INSERT/UPDATE trigger| N1[NOTIFY notification_schedule_changed]
+        GS -->|INSERT/UPDATE trigger| N2[NOTIFY game_status_schedule_changed]
+        PA -->|INSERT/UPDATE trigger| N3[NOTIFY participant_action_schedule_changed]
     end
 
-    subgraph "Daemons"
-        ND[Notification Daemon]
-        SD[Status Daemon]
+    subgraph "Bot Service — SchedulerLoop asyncio tasks"
+        L1[notification loop]
+        L2[game_status loop]
+        L3[participant_action loop]
 
-        N1 -.->|LISTEN| ND
-        N2 -.->|LISTEN| SD
+        N1 -.->|LISTEN| L1
+        N2 -.->|LISTEN| L2
+        N3 -.->|LISTEN| L3
     end
 
-    ND -->|Wake up immediately| Query1[Query MIN<br/>notification_time]
-    SD -->|Wake up immediately| Query2[Query MIN<br/>transition_time]
+    L1 -->|INSERT bot_action_queue| BAQ[bot_action_queue]
+    L2 -->|INSERT bot_action_queue| BAQ
+    L3 -->|INSERT bot_action_queue| BAQ
+    BAQ -->|NOTIFY| BAL[BotActionListener]
+    BAL -->|dispatch| Discord[Discord API]
 ```
 
-### Key Features
+**Scheduling loop behavior:**
 
-**Event-Driven Wake-ups**:
-- PostgreSQL triggers send NOTIFY when schedules change
-- Daemons LISTEN on channels and wake immediately
-- Sub-10 second latency for schedule changes
+- On NOTIFY (or startup), the loop queries `MIN(time_field) WHERE processed = false`
+- If the next item is due, it writes a `bot_action_queue` row and marks the item processed in a single transaction
+- Otherwise it sleeps until that item's time, waking immediately if another NOTIFY arrives
+- Maximum sleep cap of 900 seconds prevents starvation if NOTIFY is missed
 
-**MIN() Query Pattern**:
-- Daemons query for next due event using `MIN(notification_time)`
-- Optimized with partial indexes on pending notifications
-- O(1) query performance regardless of total scheduled events
+**Key properties (unchanged from the prior standalone daemon):**
 
-**Unlimited Scheduling Windows**:
-- All state persisted in database
-- Supports scheduling weeks/months in advance
-- Self-healing: single MIN() query resumes processing after restart
+- All state persisted in database — restarts simply re-query for the next due item
+- Partial indexes on `(time_field) WHERE processed = false` keep the MIN() query O(1)
+- Sub-10 second latency for schedule changes (NOTIFY wakes the loop immediately)
 
-**Zero Data Loss**:
-- No in-memory state; all schedules in database
-- Restarts simply re-query for next due event
-- No race conditions or lost notifications
+### 3. SSE: Real-time Frontend Updates
 
-See [deferred-events.md](deferred-events.md) for implementation details.
+The API pushes game state changes to connected frontend clients via Server-Sent Events. The same PostgreSQL LISTEN/NOTIFY mechanism is used to fan out updates within the API process.
+
+```
+API route handler
+  → writes game update to DB
+  → calls pg_notify('game_updated_sse', json_payload)
+
+SSEGameUpdateBridge (asyncpg connection in API process)
+  ← NOTIFY game_updated_sse
+  → broadcasts payload to all authorized SSE client connections
+     (filtered by guild membership server-side)
+```
 
 ## Service Responsibilities
 
 ### API Service
 
-**Primary Responsibilities**:
+**Primary responsibilities:**
+
 - REST API for web dashboard
 - OAuth2 authentication with Discord
-- Game CRUD operations
-- Participant management
+- Game CRUD operations and participant management
 - Authorization checks (guild membership, host permissions)
+- Inserting `bot_action_queue` rows for bot actions
+- Calling `pg_notify('game_updated_sse', ...)` for real-time frontend updates
 
-**Database Access**:
-- All CRUD operations through SQLAlchemy ORM
+**Database access:**
+
+- CRUD operations through SQLAlchemy ORM
 - Transaction management in service layer
 - Row-Level Security enforced via `SET LOCAL rls.guild_id`
 
-**Event Publishing**:
-- Publishes immediate events (GAME_CREATED, GAME_UPDATED, etc.)
-- Uses RabbitMQ for all inter-service communication
-- No direct Discord API calls
-
 ### Bot Service
 
-**Primary Responsibilities**:
+**Primary responsibilities:**
+
 - Discord Gateway connection (WebSocket)
 - Button interaction handling (join/leave game)
 - Sending Discord messages (announcements, DMs)
-- Consuming all RabbitMQ events
+- Draining `bot_action_queue` via `BotActionListener`
+- Running `SchedulerLoop` asyncio tasks for notifications, status transitions, and participant actions
 
-**Database Access**:
-- Read-only queries for displaying game data
-- Updates for message_id storage and participant actions
-- Bypasses RLS with special `bypassrls_bot` database user
+**Database access:**
 
-**Event Consumption**:
-- Consumes all events from RabbitMQ
-- Translates events to Discord API calls
-- Maintains persistent Gateway connection
-
-### Notification Daemon
-
-**Primary Responsibilities**:
-- Schedule game reminder notifications
-- Monitor `notification_schedule` table for due reminders
-- Publish NOTIFICATION_DUE events to RabbitMQ
-
-**Database Access**:
-- Queries `notification_schedule` for due notifications
-- Updates notification status after publishing
-- Uses LISTEN/NOTIFY for immediate schedule updates
-
-**Scheduling Pattern**:
-- Generic scheduler daemon with notification-specific configuration
-- Query: `SELECT MIN(notification_time) WHERE processed = false`
-- Partial index on `(notification_time) WHERE processed = false`
-
-### Status Transition Daemon
-
-**Primary Responsibilities**:
-- Schedule game status transitions (SCHEDULED → ACTIVE → COMPLETED)
-- Monitor `game_status_schedule` table for due transitions
-- Publish GAME_STATUS_TRANSITION_DUE events to RabbitMQ
-
-**Database Access**:
-- Queries `game_status_schedule` for due transitions
-- Updates transition status after publishing
-- Uses LISTEN/NOTIFY for immediate schedule updates
-
-**Scheduling Pattern**:
-- Generic scheduler daemon with status-specific configuration
-- Query: `SELECT MIN(transition_time) WHERE processed = false`
-- Partial index on `(transition_time) WHERE processed = false`
+- Reads game/participant data via SQLAlchemy sessions
+- Writes via `BotActionQueue` model and schedule status updates
+- Uses a dedicated `gamebot_bot` database user with appropriate permissions
 
 ## Security Architecture
 
@@ -349,99 +237,46 @@ See [deferred-events.md](deferred-events.md) for implementation details.
 
 The system uses PostgreSQL Row-Level Security for multi-tenant guild isolation:
 
-**Per-Request Guild Context**:
+**Per-request guild context:**
+
 ```sql
 SET LOCAL rls.guild_id = '<discord_guild_id>';
 ```
 
-**RLS Policies**:
-- All tables with `guild_id` column have RLS policies
-- Queries automatically filtered to current guild
-- Prevents cross-guild data access
-- Enforced at database level (defense in depth)
+RLS policies automatically filter all queries to the current guild, preventing cross-guild data access. This is enforced at the database level regardless of application-level authorization.
 
-**Special Users**:
-- `bypassrls_bot` - Bot service bypasses RLS for cross-guild operations
-- Regular services use standard postgres user with RLS enforced
+**Special users:**
 
-See [production-readiness.md](production-readiness.md) for RLS implementation details.
+- `gamebot_app` — API service; RLS enforced
+- `gamebot_bot` — Bot service; has permissions for cross-guild schedule reads
+- `gamebot_admin` — Init service and migrations; bypasses RLS
+
+See [production-readiness.md](production-readiness.md) for RLS policy details.
 
 ### API Authorization
 
-**Three-Level Authorization**:
+Three-level authorization on every protected endpoint:
 
-1. **Authentication** - Discord OAuth2 validates user identity
-2. **Guild Membership** - User must be member of guild being accessed
-3. **Role-Based Access** - Host permissions checked for game management
-
-**Permission Middleware**:
-- `verify_guild_membership` - Ensures user in guild
-- `verify_host_permission` - Checks bot manager roles or MANAGE_GUILD permission
-- RLS enforced via database session variable
-
-See [SETUP.md](SETUP.md) for API authorization patterns.
-
-## Scalability Considerations
-
-### Current Design
-
-**Single Instance Per Service**:
-- API, Bot, Notification Daemon, Status Daemon each run single instance
-- Suitable for small-to-medium Discord communities
-- Simple deployment and debugging
-
-**Database Bottleneck**:
-- PostgreSQL is primary scalability constraint
-- All services query central database
-- Connection pooling minimizes overhead
-
-### Future Scaling Options
-
-**Horizontal Scaling**:
-- API service can scale horizontally (stateless)
-- Bot service requires single instance (Gateway connection)
-- Daemons could use distributed locks for multiple instances
-
-**Caching Optimization**:
-- Valkey (Redis) caches guild data and Discord user info
-- Reduces database queries for frequently accessed data
-- Cache invalidation on updates
-
-**Database Optimization**:
-- Partial indexes on scheduling tables
-- Row-Level Security with efficient policies
-- Connection pooling across services
+1. **Authentication** — Discord OAuth2 validates user identity
+2. **Guild membership** — User must be a member of the guild being accessed
+3. **Role-based access** — Host permissions checked for game management operations
 
 ## Monitoring and Observability
 
-### OpenTelemetry Integration
+All services are instrumented with OpenTelemetry via `shared/telemetry.py`:
 
-All services instrumented with OpenTelemetry:
+- **Traces** — Distributed tracing across API and bot requests
+- **Metrics** — Request rates, latencies, database query performance
+- **Logs** — Structured JSON logs with trace ID correlation
 
-**Metrics Collection**:
-- Service health and uptime
-- Request rates and latencies
-- Database query performance
-- RabbitMQ message throughput
-
-**Log Aggregation**:
-- Structured JSON logging
-- Trace IDs for request correlation
-- Automatic log collection by Grafana Alloy
-
-**Tracing**:
-- Distributed tracing across services
-- RabbitMQ message flow tracking
-- Database query traces
-
-See [Grafana Alloy configuration](../../config/grafana-alloy/) for details.
+Grafana Alloy collects OTLP telemetry from all services and also scrapes PostgreSQL and Redis infrastructure metrics, forwarding everything to Grafana Cloud.
 
 ## Related Documentation
 
 - [Database Schema](database.md) - Entity-relationship diagrams and RLS policies
 - [OAuth Flow](oauth-flow.md) - Discord authentication sequence
 - [Transaction Management](transaction-management.md) - Service layer patterns
-- [Deferred Events](deferred-events.md) - Event-driven scheduling implementation
 - [Production Readiness](production-readiness.md) - Multi-tenant security with RLS
+- [Public Image Architecture](public-image-architecture.md) - Image serving and deduplication
 - [Docker Compose Dependencies](compose-dependencies.md) - Service startup orchestration
 - [Testing Guide](TESTING.md) - Integration and E2E test coverage

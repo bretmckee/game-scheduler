@@ -39,19 +39,18 @@ The project includes a VS Code Dev Container with all tools pre-installed. This 
 
    ```bash
    # Inside dev container terminal
-   docker compose up postgres redis rabbitmq -d
+   docker compose up postgres redis -d
    ```
 
 5. **Run services** (choose one):
 
    ```bash
    # Option A: Run in containers
-   docker compose up api bot notification-daemon status-transition-daemon -d
+   docker compose up api bot -d
 
    # Option B: Run locally in dev container for debugging
    cd services/api && uvicorn main:app --reload
    cd services/bot && python -m bot.main
-   cd services/scheduler && python -m notification_daemon_wrapper
    ```
 
 ### Dev Container Features
@@ -166,7 +165,7 @@ docker compose -f compose.yaml -f compose.staging.yaml --env-file config/env.dev
 
 The development environment uses Docker Compose with volume mounts for instant code changes:
 
-- **Python services** (API, bot, daemons): Source files mounted from `services/` and `shared/`
+- **Python services** (API, bot): Source files mounted from `services/` and `shared/`
   - API uses `uvicorn --reload` for auto-restart on changes
   - Bot and daemons use `python -m` with watch mode
 
@@ -174,8 +173,8 @@ The development environment uses Docker Compose with volume mounts for instant c
   - Vite dev server with hot module replacement (HMR)
   - Changes appear instantly in browser at http://localhost:3000
 
-- **Infrastructure**: PostgreSQL, RabbitMQ, Redis, Grafana Alloy
-  - Persistent data volumes for database and message broker
+- **Infrastructure**: PostgreSQL, Redis, Grafana Alloy
+  - Persistent data volumes for database
   - Management UIs exposed for debugging
 
 ### File Permissions
@@ -194,7 +193,6 @@ Development containers run as non-root user (UID 1000) for security.
 - **Frontend**: http://localhost:3000
 - **API**: http://localhost:8000
 - **API Docs (Swagger)**: http://localhost:8000/docs
-- **RabbitMQ Management**: http://localhost:15672 (guest/guest)
 - **Grafana**: http://localhost:3001 (admin/admin)
 
 ### Monitoring Logs
@@ -206,8 +204,6 @@ docker compose logs -f
 # View specific service logs
 docker compose logs -f api
 docker compose logs -f bot
-docker compose logs -f notification-daemon
-docker compose logs -f status-transition-daemon
 
 # Restart specific service
 docker compose restart api
@@ -247,7 +243,7 @@ Start infrastructure and individual services as needed:
 
 ```bash
 # Start infrastructure only
-docker compose up -d postgres rabbitmq redis
+docker compose up -d postgres redis
 
 # Run database migrations
 docker compose run --rm api alembic upgrade head
@@ -257,12 +253,6 @@ docker compose up -d api
 
 # Start Discord bot only
 docker compose up -d bot
-
-# Start notification daemon only
-docker compose up -d notification-daemon
-
-# Start status transition daemon only
-docker compose up -d status-transition-daemon
 ```
 
 ## Pre-commit Hooks

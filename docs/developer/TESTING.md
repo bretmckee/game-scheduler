@@ -47,7 +47,7 @@ The project uses three complementary testing levels:
 | Test Type       | Speed           | External Deps    | Coverage Focus                             |
 | --------------- | --------------- | ---------------- | ------------------------------------------ |
 | **Unit**        | Fast (seconds)  | None             | Business logic, edge cases, error handling |
-| **Integration** | Medium (30-60s) | Docker           | Database, RabbitMQ, daemon scheduling      |
+| **Integration** | Medium (30-60s) | Docker           | Database, bot action queue, scheduling     |
 | **End-to-End**  | Slow (8-12 min) | Docker + Discord | Complete flows with Discord API            |
 
 **Testing Philosophy:**
@@ -118,7 +118,7 @@ Common unit test fixtures are defined in `tests/conftest.py`:
 
 - Test one thing per test function
 - Use descriptive test names (`test_create_game_with_invalid_max_players`)
-- Mock external dependencies (database, Discord API, RabbitMQ)
+- Mock external dependencies (database, Discord API)
 - Test edge cases and error conditions
 - Use parametrized tests for similar scenarios
 
@@ -133,7 +133,7 @@ Common unit test fixtures are defined in `tests/conftest.py`:
 
 ### Overview
 
-Integration tests verify that services work correctly with real infrastructure (PostgreSQL, RabbitMQ, Redis) but without requiring Discord.
+Integration tests verify that services work correctly with real infrastructure (PostgreSQL, Redis) but without requiring Discord.
 
 ### Running Integration Tests
 
@@ -151,20 +151,25 @@ docker compose --env-file config/env/env.int run --rm integration-tests \
 Integration tests use isolated Docker environment:
 
 - **Database**: `game_scheduler_integration` (port 5434)
-- **RabbitMQ**: Dedicated instance (port 5674)
 - **Redis**: Dedicated instance (port 6381)
 - **Network**: `gamebot-integration-network`
 - **Containers**: Prefixed with `gamebot-integration-`
 
 ### What Integration Tests Verify
 
-**Notification Daemon**:
+**Scheduling (SchedulerLoop)**:
 
 - PostgreSQL LISTEN/NOTIFY triggers work correctly
 - Notification schedules populated on game creation
-- MIN() query pattern finds next due notification
-- RabbitMQ events published when notifications due
-- Daemon wakes immediately on database NOTIFY
+- MIN() query pattern finds next due item
+- SchedulerLoop wakes immediately on database NOTIFY
+- BotActionQueue rows written when items come due
+
+**BotActionQueue**:
+
+- Queue rows inserted correctly on API actions
+- BotActionListener processes rows in order
+- Row deletion within dispatch transaction
 
 **Database Operations**:
 
@@ -173,23 +178,16 @@ Integration tests use isolated Docker environment:
 - Status transition scheduling
 - Row-Level Security (RLS) enforcement
 
-**Message Broker**:
-
-- RabbitMQ event publishing
-- Event consumption patterns
-- Queue durability and acknowledgment
-
 ### Test Structure
 
 ```python
-# tests/integration/test_notification_daemon.py
+# tests/integration/test_scheduler_loop.py
 import pytest
 from datetime import datetime, UTC, timedelta
 
 @pytest.mark.asyncio
-async def test_notification_daemon_processes_due_reminders(
+async def test_scheduler_loop_processes_due_reminders(
     db_session,
-    rabbitmq_connection
 ):
     # Create game with imminent reminder
     scheduled_at = datetime.now(UTC) + timedelta(minutes=2)
@@ -199,12 +197,13 @@ async def test_notification_daemon_processes_due_reminders(
         reminder_minutes=[1]
     )
 
-    # Wait for daemon to process
-    await asyncio.sleep(70)  # Past reminder time + daemon poll interval
+    # Wait for scheduler loop to process
+    await asyncio.sleep(70)  # Past reminder time + loop poll interval
 
-    # Verify event published to RabbitMQ
-    messages = await consume_rabbitmq_messages(rabbitmq_connection)
-    assert any(m.type == "NOTIFICATION_DUE" for m in messages)
+    # Verify BotActionQueue row was created
+    row = await get_bot_action_queue_row(db_session, game.id)
+    assert row is not None
+    assert row.action_type == "send_dm"
 ```
 
 ### Environment Configuration
@@ -218,7 +217,6 @@ POSTGRES_USER=gamebot_integration
 POSTGRES_PASSWORD=integration_password
 POSTGRES_DB=game_scheduler_integration
 DATABASE_URL=postgresql://gamebot_integration:integration_password@postgres:5432/game_scheduler_integration
-RABBITMQ_URL=amqp://gamebot_integration:integration_password@rabbitmq:5672/
 TEST_ENVIRONMENT=true
 ```
 
@@ -230,11 +228,11 @@ E2E tests verify the complete system flow from API calls through Discord message
 
 ### Test Flow Examples
 
-1. **Game Creation** → API publishes GAME_CREATED → Bot posts to Discord channel
-2. **Game Update** → API publishes GAME_UPDATED → Bot edits Discord message
+1. **Game Creation** → API inserts bot_action_queue row → Bot posts to Discord channel
+2. **Game Update** → API writes directly to DB → Bot reads and edits Discord message
 3. **User Joins** → API updates participants → Bot refreshes Discord message
-4. **Reminders** → Daemon publishes NOTIFICATION_DUE → Bot sends DMs
-5. **Status Transitions** → Daemon publishes transition event → Bot updates status
+4. **Reminders** → SchedulerLoop writes bot_action_queue row → Bot sends DMs
+5. **Status Transitions** → SchedulerLoop writes bot_action_queue row → Bot updates status
 
 ### Prerequisites: Discord Test Environment
 
@@ -401,7 +399,7 @@ docker compose --env-file config/env/env.e2e run --rm e2e-tests \
 
 - **Quick tests** (2-5 seconds): Game creation, updates, cancellation
 - **Medium tests** (10-30 seconds): Participant joins, waitlist promotion
-- **Long tests** (2-5 minutes): Reminders, status transitions (wait for daemon polling)
+- **Long tests** (2-5 minutes): Reminders, status transitions (wait for scheduler loop polling)
 
 **Full test suite**: ~8-12 minutes (includes real-time waits for daemon polling)
 
@@ -552,7 +550,6 @@ for elapsed in range(0, 150, 5):
 E2E tests use completely isolated Docker environment:
 
 - **Database**: `game_scheduler_e2e` (port 5433)
-- **RabbitMQ**: Dedicated instance (port 5673)
 - **Redis**: Dedicated instance (port 6380)
 - **Network**: `gamebot-e2e-network`
 - **Containers**: Prefixed with `gamebot-e2e-`
@@ -728,7 +725,7 @@ GET session:your_session_token
 **Integration Tests (`compose.int.yaml`):**
 
 - Overrides for integration test environment
-- Postgres, RabbitMQ, Redis only (no bot)
+- Postgres, Redis, fake-discord (no live bot)
 - Separate ports to avoid conflicts
 
 **E2E Tests (`compose.e2e.yaml`):**
@@ -1055,11 +1052,9 @@ jobs:
 
 **Solutions:**
 
-- Check RabbitMQ running: `docker ps | grep rabbitmq`
 - Verify bot service started: `docker logs gamebot-e2e-bot`
 - Check bot logs for errors
 - Ensure bot has **Send Messages** and **Embed Links** permissions
-- Verify RabbitMQ events publishing (check management UI)
 
 #### Tests timeout waiting for DMs
 
@@ -1067,8 +1062,7 @@ jobs:
 
 **Solutions:**
 
-- Check notification daemon running: `docker ps | grep notification-daemon`
-- Verify daemon logs: `docker logs gamebot-e2e-notification-daemon`
+- Check bot logs for scheduler loop errors: `docker logs gamebot-e2e-bot`
 - Check notification_schedule table populated
 - Ensure game scheduled time hasn't passed
 - Verify user ID matches Discord account

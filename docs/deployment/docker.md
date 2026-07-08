@@ -22,7 +22,7 @@ Services communicate via internal Docker network (`app-network`) by default. Por
 
 **NO ports exposed to host**
 
-- Infrastructure services (postgres, rabbitmq, valkey) expose no ports
+- Infrastructure services (postgres, valkey) expose no ports
 - Observability services (grafana-alloy) expose no ports
 - All services communicate via internal Docker network
 
@@ -32,7 +32,6 @@ Services communicate via internal Docker network (`app-network`) by default. Por
 
 - Frontend: `localhost:3000` (configurable via `FRONTEND_HOST_PORT`)
 - API: `localhost:8000` (configurable via `API_HOST_PORT`)
-- RabbitMQ Management UI: `localhost:15672` (configurable via `RABBITMQ_MGMT_HOST_PORT`)
 
 #### Test (`compose.e2e.yaml`, `compose.int.yaml`)
 
@@ -52,32 +51,34 @@ Services communicate via internal Docker network (`app-network`) by default. Por
 
 Define these in your `.env` file to customize port mappings:
 
-| Variable | Default | Environments | Description |
-|----------|---------|--------------|-------------|
-| `API_HOST_PORT` | `8000` | dev, test | API port on host |
-| `FRONTEND_HOST_PORT` | `3000` | dev, test | Frontend port on host |
-| `RABBITMQ_MGMT_HOST_PORT` | `15672` | dev only | RabbitMQ management UI port |
+| Variable             | Default | Environments | Description           |
+| -------------------- | ------- | ------------ | --------------------- |
+| `API_HOST_PORT`      | `8000`  | dev, test    | API port on host      |
+| `FRONTEND_HOST_PORT` | `3000`  | dev, test    | Frontend port on host |
 
 ### Benefits
 
 **Security:**
+
 - Minimized attack surface (infrastructure services not accessible from host)
 - Production environment has zero exposed ports
 - Reduced risk of unauthorized access
 
 **Port Conflicts:**
+
 - Multiple environments (dev, test, production) can run simultaneously
 - No conflicts between environments
 - Each environment exposes only the ports it needs
 
 **Debugging:**
+
 - `docker exec` provides secure, direct access to infrastructure services
 - No need to expose ports for debugging
 - Management UIs available in development when needed
 
 ## Debugging Infrastructure Services
 
-Infrastructure service ports (postgres, valkey, rabbitmq data) are NOT exposed to host in any environment.
+Infrastructure service ports (postgres, valkey) are NOT exposed to host in any environment.
 
 ### PostgreSQL
 
@@ -111,34 +112,6 @@ docker compose exec redis valkey-cli MONITOR
 docker compose exec redis valkey-cli FLUSHALL
 ```
 
-### RabbitMQ
-
-#### CLI Management
-
-```bash
-# Check status
-docker compose exec rabbitmq rabbitmqctl status
-
-# List queues
-docker compose exec rabbitmq rabbitmqctl list_queues
-
-# List exchanges
-docker compose exec rabbitmq rabbitmqctl list_exchanges
-
-# List connections
-docker compose exec rabbitmq rabbitmqctl list_connections
-
-# Purge specific queue (caution: data loss!)
-docker compose exec rabbitmq rabbitmqctl purge_queue bot_events.dlq
-```
-
-#### Management UI (Development Only)
-
-Access http://localhost:15672 in browser
-
-- **Username**: Value of `RABBITMQ_DEFAULT_USER` (default: `gamebot`)
-- **Password**: Value of `RABBITMQ_DEFAULT_PASS` (default: `dev_password_change_in_prod`)
-
 ## Build Cache Optimization
 
 BuildKit cache mounts eliminate duplicate package downloads across services and dramatically reduce build times.
@@ -146,11 +119,13 @@ BuildKit cache mounts eliminate duplicate package downloads across services and 
 ### How It Works
 
 **Cache Mount Behavior:**
+
 - **Persistent**: Cache survives across builds and rebuilds
 - **Configurable Sharing**: Choose between `private` (parallel) or `locked` (serialized) modes
 - **Automatic**: BuildKit manages cache size and eviction
 
 **Cache Locations:**
+
 - `/var/cache/apt` - Downloaded .deb files
 - `/var/lib/apt` - Package metadata
 - `/root/.cache/pip` - pip cache
@@ -169,11 +144,13 @@ CACHE_SHARING_MODE=locked docker compose build
 ```
 
 **Private Mode (default):**
+
 - ✅ Parallel builds work without waiting
 - ✅ Best for good network bandwidth
 - ⚠️ Uses more disk space (separate cache per service)
 
 **Locked Mode:**
+
 - ✅ Minimal disk usage (shared cache)
 - ✅ Best for limited network bandwidth
 - ⚠️ Services wait for cache access (serialized builds)
@@ -181,12 +158,14 @@ CACHE_SHARING_MODE=locked docker compose build
 ### Expected Benefits
 
 **Before cache mounts:**
+
 - Each service independently downloads packages (~11.4s per service)
 - Total ~45+ seconds wasted across services in parallel builds
 - No cache sharing between services
 - Python packages downloaded separately for each service
 
 **After cache mounts:**
+
 - First build: Downloads packages once, stores in persistent cache
 - Subsequent builds: Reuses cached packages across ALL services
 - Only downloads new or changed packages
@@ -213,11 +192,13 @@ time docker compose build api
 ### Cache Maintenance
 
 **Clearing cache mounts:**
+
 ```bash
 docker builder prune --filter type=exec.cachemount
 ```
 
 **Monitoring cache size:**
+
 ```bash
 docker system df -v
 ```
@@ -244,6 +225,7 @@ docker compose up
 ```
 
 setuptools-scm automatically:
+
 - Reads git tags
 - Counts commits since last tag
 - Adds commit hash
@@ -252,10 +234,12 @@ setuptools-scm automatically:
 ### Accessing Version Information
 
 **API endpoints:**
+
 - Version endpoint: `/api/v1/version`
 - Health endpoint: `/health`
 
 **Example response:**
+
 ```json
 {
   "service": "api",
@@ -266,6 +250,7 @@ setuptools-scm automatically:
 ```
 
 **Web interface:**
+
 - Navigate to About page in top navigation
 - Displays version, copyright, and license information
 
@@ -285,6 +270,7 @@ git push origin v1.0.0
 ```
 
 **Version format:**
+
 - Clean tag: `1.0.0`
 - Development: `1.0.1.dev5+gd128f6a` (5 commits after v1.0.0)
 - Dirty: `1.0.1.dev5+gd128f6a.d20251227` (with uncommitted changes)
@@ -292,14 +278,17 @@ git push origin v1.0.0
 ### Troubleshooting Version Management
 
 **Version shows "0.0.0+unknown":**
+
 - **Cause**: No git tags in repository
 - **Solution**: Create first tag: `git tag v0.1.0`
 
 **Version shows "dev-unknown":**
+
 - **Cause**: Package not installed (running without Docker)
 - **Solution**: Expected in development. Build with Docker for proper version.
 
 **Git mount fails in Docker:**
+
 - **Cause**: .git directory not accessible or BuildKit not enabled
 - **Solution**: Ensure Docker BuildKit is enabled: `export DOCKER_BUILDKIT=1`
 
@@ -313,10 +302,6 @@ Services send telemetry to Grafana Alloy via internal Docker network:
 - **OTLP HTTP**: `grafana-alloy:4318`
 
 Alloy forwards telemetry to Grafana Cloud. No external port exposure needed.
-
-### RabbitMQ Prometheus Metrics
-
-Alloy scrapes RabbitMQ Prometheus metrics internally from `rabbitmq:15692`. Metrics port not exposed to host.
 
 ## Common Docker Operations
 
@@ -413,8 +398,6 @@ If you previously accessed infrastructure services directly via localhost:
 
 - **PostgreSQL** (`localhost:5432`) → Use `docker compose exec postgres psql -U gamebot -d game_scheduler`
 - **Valkey** (`localhost:6379`) → Use `docker compose exec redis valkey-cli`
-- **RabbitMQ** (`localhost:5672`) → Services use `rabbitmq:5672` internally
-- **RabbitMQ Management** (`localhost:15672`) → Available in development mode only
 
 ## See Also
 

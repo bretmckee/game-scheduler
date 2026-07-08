@@ -74,8 +74,6 @@ Before deploying, you need:
 
 1. **Change default passwords** in environment file:
    - `POSTGRES_PASSWORD`
-   - `RABBITMQ_DEFAULT_PASS`
-   - Update `RABBITMQ_URL` with new password
 
 2. **Protect environment files**:
 
@@ -95,7 +93,7 @@ Before deploying, you need:
 5. **Network isolation**:
    - Production deployment exposes NO ports to host
    - All external access via reverse proxy
-   - Infrastructure services (postgres, rabbitmq, redis) never exposed
+   - Infrastructure services (postgres, redis) never exposed
 
 ### Security Best Practices
 

@@ -51,7 +51,6 @@ The default values match the service container names used in CI:
 ```
 DATABASE_URL=postgresql://postgres:postgres@postgres:5432/test_db
 REDIS_URL=redis://redis:6379
-RABBITMQ_URL=amqp://test:test@rabbitmq:5672/
 ```
 
 **Note**: The service uses Valkey (BSD-3-Clause licensed, Redis-compatible) but retains the `redis://` URL scheme and service name for backward compatibility.
@@ -69,6 +68,7 @@ act -l
 ```
 
 This shows the CI/CD pipeline jobs:
+
 - `unit-tests` - Run unit tests (multiple Python versions)
 - `integration-tests` - Run integration tests with service containers
 - `e2e-tests` - Run end-to-end tests
@@ -95,7 +95,7 @@ Run integration tests (requires service containers):
 act -j integration-tests
 ```
 
-This starts PostgreSQL, Valkey (Redis-compatible cache), and RabbitMQ containers, runs database migrations, and executes integration tests.
+This starts PostgreSQL and Valkey (Redis-compatible cache) containers, runs database migrations, and executes integration tests.
 
 #### End-to-End Tests
 
@@ -162,11 +162,13 @@ This project uses a **path consistency approach** for Docker-in-Docker scenarios
 3. **Nested Bind Mounts**: Workflows can create their own bind mounts (e.g., for integration test services) and the host Docker daemon correctly resolves the paths
 
 This approach eliminates the need for special workarounds like:
+
 - Environment variables for path translation (`HOST_WORKSPACE_FOLDER`)
 - Symlinks to map container paths to host paths
 - Custom `--directory` flags in act configuration
 
 **Benefits**:
+
 - Simpler configuration with fewer special cases
 - Nested containers can bind mount workspace paths correctly
 - Integration tests with service containers work seamlessly
@@ -251,7 +253,7 @@ If you see errors like "chdir to cwd: failed: no such file or directory", this i
 Integration tests may fail if service containers can't bind to required ports:
 
 ```bash
-docker ps -a | grep -E 'postgres|redis|rabbitmq'
+docker ps -a | grep -E 'postgres|redis'
 ```
 
 Stop and remove conflicting containers:
@@ -274,6 +276,7 @@ docker container prune -f
 The `--reuse` flag (enabled in `.actrc`) keeps containers running between executions, significantly speeding up subsequent runs.
 
 **Note**: Container reuse can cause issues with matrix strategy jobs (jobs that run multiple times with different parameters). If you experience container naming conflicts or reuse problems, either:
+
 - Remove the `--reuse` flag from `.actrc` temporarily
 - Simplify workflows to avoid matrix strategies during local testing
 

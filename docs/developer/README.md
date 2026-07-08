@@ -14,12 +14,9 @@ Welcome to the Game Scheduler developer documentation. This guide covers everyth
 
 Overview:
 
-- Discord Bot Service - Gateway interactions and notifications
+- Discord Bot Service - Gateway interactions, notifications, and scheduling
 - Web API Service - FastAPI REST API for dashboard
-- Notification Daemon - Event-driven game reminders
-- Status Transition Daemon - Event-driven status updates
-- PostgreSQL - Primary data store with LISTEN/NOTIFY
-- RabbitMQ - Message broker for inter-service communication
+- PostgreSQL - Primary data store with LISTEN/NOTIFY for all event signalling
 - Redis - Caching and session storage
 
 **[Database Schema](database.md)** - Entity-relationship diagrams, Row-Level Security (RLS), and guild isolation
@@ -27,8 +24,6 @@ Overview:
 **[OAuth Flow](oauth-flow.md)** - Discord OAuth2 authentication sequence and token management
 
 **[Transaction Management](transaction-management.md)** - Service layer patterns, transaction scoping, and consistency
-
-**[Deferred Event Publishing](deferred-events.md)** - Event-driven architecture for notifications and status transitions
 
 **[Production Readiness: Guild Isolation](production-readiness.md)** - Multi-tenant security with Row-Level Security
 
@@ -43,7 +38,7 @@ Overview:
 Test types:
 
 - **Unit Tests** - Fast, isolated component tests
-- **Integration Tests** - Service integration with database/message broker
+- **Integration Tests** - Service integration with database and bot action queue
 - **End-to-End Tests** - Full system tests with Discord bot interactions
 
 Quick commands:
