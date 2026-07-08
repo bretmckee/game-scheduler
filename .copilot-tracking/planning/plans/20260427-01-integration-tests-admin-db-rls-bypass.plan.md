@@ -41,9 +41,9 @@ production HTTP routes enforce.
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Convert GameService Instances to Use app_db with RLS Context
+### [x] Phase 1: Convert GameService Instances to Use app_db with RLS Context
 
-- [ ] Task 1.1: Convert all 12 `GameService(db=admin_db, ...)` operation calls to use `app_db` with guild RLS context in `test_game_image_integration.py`
+- [x] Task 1.1: Convert all 12 `GameService(db=admin_db, ...)` operation calls to use `app_db` with guild RLS context in `test_game_image_integration.py`
   - Details: .copilot-tracking/planning/details/20260427-01-integration-tests-admin-db-rls-bypass-details.md (Lines 11-78)
 
 ## Dependencies

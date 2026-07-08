@@ -106,6 +106,7 @@ def valid_jpeg_data() -> bytes:
 @pytest.mark.asyncio
 async def test_create_game_with_thumbnail_stores_image(
     admin_db: AsyncSession,
+    app_db: AsyncSession,
     mock_discord_api_client,
     mock_participant_resolver,
     create_guild,
@@ -132,8 +133,12 @@ async def test_create_game_with_thumbnail_stores_image(
 
     # Mock Discord API to return empty roles (user can host without special roles)
 
+    await app_db.execute(
+        text("SELECT set_config('app.current_guild_ids', :guild_ids, false)"),
+        {"guild_ids": guild["id"]},
+    )
     service = GameService(
-        db=admin_db,
+        db=app_db,
         discord_client=mock_discord_api_client,
         participant_resolver=mock_participant_resolver,
         channel_resolver=MagicMock(),
@@ -152,7 +157,7 @@ async def test_create_game_with_thumbnail_stores_image(
         thumbnail_data=valid_png_data,
         thumbnail_mime_type="image/png",
     )
-    await admin_db.commit()
+    await app_db.commit()
 
     # Game should have thumbnail_id set
     assert game.thumbnail_id is not None
@@ -171,6 +176,7 @@ async def test_create_game_with_thumbnail_stores_image(
 @pytest.mark.asyncio
 async def test_create_game_with_both_images_stores_both(
     admin_db: AsyncSession,
+    app_db: AsyncSession,
     mock_discord_api_client,
     mock_participant_resolver,
     create_guild,
@@ -194,8 +200,12 @@ async def test_create_game_with_both_images_stores_both(
         user_roles=[],
     )
 
+    await app_db.execute(
+        text("SELECT set_config('app.current_guild_ids', :guild_ids, false)"),
+        {"guild_ids": guild["id"]},
+    )
     service = GameService(
-        db=admin_db,
+        db=app_db,
         discord_client=mock_discord_api_client,
         participant_resolver=mock_participant_resolver,
         channel_resolver=MagicMock(),
@@ -216,7 +226,7 @@ async def test_create_game_with_both_images_stores_both(
         image_data=valid_jpeg_data,
         image_mime_type="image/jpeg",
     )
-    await admin_db.commit()
+    await app_db.commit()
 
     assert game.thumbnail_id is not None
     assert game.banner_image_id is not None
@@ -240,6 +250,7 @@ async def test_create_game_with_both_images_stores_both(
 @pytest.mark.asyncio
 async def test_create_two_games_same_image_deduplicates(
     admin_db: AsyncSession,
+    app_db: AsyncSession,
     mock_discord_api_client,
     mock_participant_resolver,
     create_guild,
@@ -262,8 +273,12 @@ async def test_create_two_games_same_image_deduplicates(
         user_roles=[],
     )
 
+    await app_db.execute(
+        text("SELECT set_config('app.current_guild_ids', :guild_ids, false)"),
+        {"guild_ids": guild["id"]},
+    )
     service = GameService(
-        db=admin_db,
+        db=app_db,
         discord_client=mock_discord_api_client,
         participant_resolver=mock_participant_resolver,
         channel_resolver=MagicMock(),
@@ -283,7 +298,7 @@ async def test_create_two_games_same_image_deduplicates(
         thumbnail_data=valid_png_data,
         thumbnail_mime_type="image/png",
     )
-    await admin_db.commit()
+    await app_db.commit()
 
     image_id = game1.thumbnail_id
 
@@ -301,7 +316,7 @@ async def test_create_two_games_same_image_deduplicates(
         thumbnail_data=valid_png_data,
         thumbnail_mime_type="image/png",
     )
-    await admin_db.commit()
+    await app_db.commit()
 
     # Both games should reference the SAME image
     assert game2.thumbnail_id == image_id
@@ -315,6 +330,7 @@ async def test_create_two_games_same_image_deduplicates(
 @pytest.mark.asyncio
 async def test_update_game_replaces_thumbnail(
     admin_db: AsyncSession,
+    app_db: AsyncSession,
     mock_discord_api_client,
     mock_participant_resolver,
     mock_role_service,
@@ -342,8 +358,12 @@ async def test_update_game_replaces_thumbnail(
         session_access_token="valid-test-token",
     )
 
+    await app_db.execute(
+        text("SELECT set_config('app.current_guild_ids', :guild_ids, false)"),
+        {"guild_ids": guild["id"]},
+    )
     service = GameService(
-        db=admin_db,
+        db=app_db,
         discord_client=mock_discord_api_client,
         participant_resolver=mock_participant_resolver,
         channel_resolver=MagicMock(),
@@ -363,7 +383,7 @@ async def test_update_game_replaces_thumbnail(
         thumbnail_data=valid_png_data,
         thumbnail_mime_type="image/png",
     )
-    await admin_db.commit()
+    await app_db.commit()
 
     old_thumbnail_id = game.thumbnail_id
 
@@ -388,7 +408,7 @@ async def test_update_game_replaces_thumbnail(
         thumbnail_data=valid_jpeg_data,
         thumbnail_mime_type="image/jpeg",
     )
-    await admin_db.commit()
+    await app_db.commit()
 
     # New thumbnail should be different
     assert game.thumbnail_id != old_thumbnail_id
@@ -408,6 +428,7 @@ async def test_update_game_replaces_thumbnail(
 @pytest.mark.asyncio
 async def test_delete_game_releases_images(
     admin_db: AsyncSession,
+    app_db: AsyncSession,
     mock_discord_api_client,
     mock_participant_resolver,
     mock_role_service,
@@ -434,8 +455,12 @@ async def test_delete_game_releases_images(
         session_access_token="valid-test-token",
     )
 
+    await app_db.execute(
+        text("SELECT set_config('app.current_guild_ids', :guild_ids, false)"),
+        {"guild_ids": guild["id"]},
+    )
     service = GameService(
-        db=admin_db,
+        db=app_db,
         discord_client=mock_discord_api_client,
         participant_resolver=mock_participant_resolver,
         channel_resolver=MagicMock(),
@@ -455,7 +480,7 @@ async def test_delete_game_releases_images(
         thumbnail_data=valid_png_data,
         thumbnail_mime_type="image/png",
     )
-    await admin_db.commit()
+    await app_db.commit()
 
     thumbnail_id = game.thumbnail_id
 
@@ -475,7 +500,7 @@ async def test_delete_game_releases_images(
         current_user=current_user,
         role_service=mock_role_service,
     )
-    await admin_db.commit()
+    await app_db.commit()
 
     # Image should be deleted (no more references)
     result = await admin_db.execute(select(GameImage).where(GameImage.id == thumbnail_id))
@@ -486,6 +511,7 @@ async def test_delete_game_releases_images(
 @pytest.mark.asyncio
 async def test_delete_shared_image_keeps_image_until_all_refs_gone(
     admin_db: AsyncSession,
+    app_db: AsyncSession,
     mock_discord_api_client,
     mock_participant_resolver,
     mock_role_service,
@@ -512,8 +538,12 @@ async def test_delete_shared_image_keeps_image_until_all_refs_gone(
         session_access_token="valid-test-token",
     )
 
+    await app_db.execute(
+        text("SELECT set_config('app.current_guild_ids', :guild_ids, false)"),
+        {"guild_ids": guild["id"]},
+    )
     service = GameService(
-        db=admin_db,
+        db=app_db,
         discord_client=mock_discord_api_client,
         participant_resolver=mock_participant_resolver,
         channel_resolver=MagicMock(),
@@ -533,7 +563,7 @@ async def test_delete_shared_image_keeps_image_until_all_refs_gone(
         thumbnail_data=valid_png_data,
         thumbnail_mime_type="image/png",
     )
-    await admin_db.commit()
+    await app_db.commit()
 
     image_id = game1.thumbnail_id
 
@@ -550,7 +580,7 @@ async def test_delete_shared_image_keeps_image_until_all_refs_gone(
         thumbnail_data=valid_png_data,
         thumbnail_mime_type="image/png",
     )
-    await admin_db.commit()
+    await app_db.commit()
 
     # Get user model from database
     user_result = await admin_db.execute(select(User).where(User.id == user["id"]))
@@ -568,7 +598,7 @@ async def test_delete_shared_image_keeps_image_until_all_refs_gone(
         current_user=current_user,
         role_service=mock_role_service,
     )
-    await admin_db.commit()
+    await app_db.commit()
 
     # Image should STILL exist (game2 references it)
     result = await admin_db.execute(select(GameImage).where(GameImage.id == image_id))
@@ -581,7 +611,7 @@ async def test_delete_shared_image_keeps_image_until_all_refs_gone(
         current_user=current_user,
         role_service=mock_role_service,
     )
-    await admin_db.commit()
+    await app_db.commit()
 
     # NOW image should be deleted
     result = await admin_db.execute(select(GameImage).where(GameImage.id == image_id))
@@ -592,6 +622,7 @@ async def test_delete_shared_image_keeps_image_until_all_refs_gone(
 @pytest.mark.asyncio
 async def test_clone_game_increments_image_refcounts(
     admin_db: AsyncSession,
+    app_db: AsyncSession,
     mock_discord_api_client,
     mock_participant_resolver,
     mock_role_service,
@@ -619,8 +650,12 @@ async def test_clone_game_increments_image_refcounts(
         session_access_token="valid-test-token",
     )
 
+    await app_db.execute(
+        text("SELECT set_config('app.current_guild_ids', :guild_ids, false)"),
+        {"guild_ids": guild["id"]},
+    )
     service = GameService(
-        db=admin_db,
+        db=app_db,
         discord_client=mock_discord_api_client,
         participant_resolver=mock_participant_resolver,
         channel_resolver=MagicMock(),
@@ -641,7 +676,7 @@ async def test_clone_game_increments_image_refcounts(
         image_data=valid_jpeg_data,
         image_mime_type="image/jpeg",
     )
-    await admin_db.commit()
+    await app_db.commit()
 
     thumbnail_id = source_game.thumbnail_id
     banner_id = source_game.banner_image_id
@@ -675,7 +710,7 @@ async def test_clone_game_increments_image_refcounts(
         current_user=current_user,
         role_service=mock_role_service,
     )
-    await admin_db.commit()
+    await app_db.commit()
 
     # Clone should reference the same images
     assert cloned_game.thumbnail_id == thumbnail_id
@@ -693,7 +728,7 @@ async def test_clone_game_increments_image_refcounts(
         current_user=current_user,
         role_service=mock_role_service,
     )
-    await admin_db.commit()
+    await app_db.commit()
 
     thumb_result = await admin_db.execute(select(GameImage).where(GameImage.id == thumbnail_id))
     assert thumb_result.scalar_one().reference_count == 1
@@ -706,7 +741,7 @@ async def test_clone_game_increments_image_refcounts(
         current_user=current_user,
         role_service=mock_role_service,
     )
-    await admin_db.commit()
+    await app_db.commit()
 
     thumb_result = await admin_db.execute(select(GameImage).where(GameImage.id == thumbnail_id))
     assert thumb_result.scalar_one_or_none() is None
@@ -717,6 +752,7 @@ async def test_clone_game_increments_image_refcounts(
 @pytest.mark.asyncio
 async def test_delete_game_removes_row_from_db(
     admin_db: AsyncSession,
+    app_db: AsyncSession,
     mock_discord_api_client,
     mock_participant_resolver,
     mock_role_service,
@@ -742,8 +778,12 @@ async def test_delete_game_removes_row_from_db(
         session_access_token="valid-test-token",
     )
 
+    await app_db.execute(
+        text("SELECT set_config('app.current_guild_ids', :guild_ids, false)"),
+        {"guild_ids": guild["id"]},
+    )
     service = GameService(
-        db=admin_db,
+        db=app_db,
         discord_client=mock_discord_api_client,
         participant_resolver=mock_participant_resolver,
         channel_resolver=MagicMock(),
@@ -760,7 +800,7 @@ async def test_delete_game_removes_row_from_db(
         game_data=game_data,
         host_user_id=user["id"],
     )
-    await admin_db.commit()
+    await app_db.commit()
     game_id = game.id
 
     user_result = await admin_db.execute(select(User).where(User.id == user["id"]))
@@ -776,7 +816,7 @@ async def test_delete_game_removes_row_from_db(
         current_user=current_user,
         role_service=mock_role_service,
     )
-    await admin_db.commit()
+    await app_db.commit()
 
     result = await admin_db.execute(select(GameSession).where(GameSession.id == game_id))
     assert result.scalar_one_or_none() is None, "Game row should be absent after delete_game()"
@@ -785,6 +825,7 @@ async def test_delete_game_removes_row_from_db(
 @pytest.mark.asyncio
 async def test_delete_game_cascades_participants_gone(
     admin_db: AsyncSession,
+    app_db: AsyncSession,
     mock_discord_api_client,
     mock_participant_resolver,
     mock_role_service,
@@ -810,8 +851,12 @@ async def test_delete_game_cascades_participants_gone(
         session_access_token="valid-test-token",
     )
 
+    await app_db.execute(
+        text("SELECT set_config('app.current_guild_ids', :guild_ids, false)"),
+        {"guild_ids": guild["id"]},
+    )
     service = GameService(
-        db=admin_db,
+        db=app_db,
         discord_client=mock_discord_api_client,
         participant_resolver=mock_participant_resolver,
         channel_resolver=MagicMock(),
@@ -828,7 +873,7 @@ async def test_delete_game_cascades_participants_gone(
         game_data=game_data,
         host_user_id=user["id"],
     )
-    await admin_db.commit()
+    await app_db.commit()
     game_id = game.id
 
     user_result = await admin_db.execute(select(User).where(User.id == user["id"]))
@@ -844,7 +889,7 @@ async def test_delete_game_cascades_participants_gone(
         current_user=current_user,
         role_service=mock_role_service,
     )
-    await admin_db.commit()
+    await app_db.commit()
 
     participants = await admin_db.execute(
         select(GameParticipant).where(GameParticipant.game_session_id == game_id)
@@ -956,6 +1001,7 @@ async def test_delete_game_with_participant_succeeds(
 @pytest.mark.asyncio
 async def test_delete_game_no_images_succeeds(
     admin_db: AsyncSession,
+    app_db: AsyncSession,
     mock_discord_api_client,
     mock_participant_resolver,
     mock_role_service,
@@ -981,8 +1027,12 @@ async def test_delete_game_no_images_succeeds(
         session_access_token="valid-test-token",
     )
 
+    await app_db.execute(
+        text("SELECT set_config('app.current_guild_ids', :guild_ids, false)"),
+        {"guild_ids": guild["id"]},
+    )
     service = GameService(
-        db=admin_db,
+        db=app_db,
         discord_client=mock_discord_api_client,
         participant_resolver=mock_participant_resolver,
         channel_resolver=MagicMock(),
@@ -999,7 +1049,7 @@ async def test_delete_game_no_images_succeeds(
         game_data=game_data,
         host_user_id=user["id"],
     )
-    await admin_db.commit()
+    await app_db.commit()
 
     assert game.thumbnail_id is None
     assert game.banner_image_id is None
@@ -1018,7 +1068,7 @@ async def test_delete_game_no_images_succeeds(
         current_user=current_user,
         role_service=mock_role_service,
     )
-    await admin_db.commit()
+    await app_db.commit()
 
     result = await admin_db.execute(select(GameSession).where(GameSession.id == game_id))
     assert result.scalar_one_or_none() is None
@@ -1027,6 +1077,7 @@ async def test_delete_game_no_images_succeeds(
 @pytest.mark.asyncio
 async def test_delete_game_shared_image_persists(
     admin_db: AsyncSession,
+    app_db: AsyncSession,
     mock_discord_api_client,
     mock_participant_resolver,
     mock_role_service,
@@ -1053,8 +1104,12 @@ async def test_delete_game_shared_image_persists(
         session_access_token="valid-test-token",
     )
 
+    await app_db.execute(
+        text("SELECT set_config('app.current_guild_ids', :guild_ids, false)"),
+        {"guild_ids": guild["id"]},
+    )
     service = GameService(
-        db=admin_db,
+        db=app_db,
         discord_client=mock_discord_api_client,
         participant_resolver=mock_participant_resolver,
         channel_resolver=MagicMock(),
@@ -1071,7 +1126,7 @@ async def test_delete_game_shared_image_persists(
         thumbnail_data=valid_png_data,
         thumbnail_mime_type="image/png",
     )
-    await admin_db.commit()
+    await app_db.commit()
     shared_image_id = game1.thumbnail_id
 
     await service.create_game(
@@ -1085,7 +1140,7 @@ async def test_delete_game_shared_image_persists(
         thumbnail_data=valid_png_data,
         thumbnail_mime_type="image/png",
     )
-    await admin_db.commit()
+    await app_db.commit()
 
     user_result = await admin_db.execute(select(User).where(User.id == user["id"]))
     user_model = user_result.scalar_one()
@@ -1100,7 +1155,7 @@ async def test_delete_game_shared_image_persists(
         current_user=current_user,
         role_service=mock_role_service,
     )
-    await admin_db.commit()
+    await app_db.commit()
 
     result = await admin_db.execute(select(GameImage).where(GameImage.id == shared_image_id))
     image = result.scalar_one()
@@ -1112,6 +1167,7 @@ async def test_delete_game_shared_image_persists(
 @pytest.mark.asyncio
 async def test_delete_game_status_schedules_removed(
     admin_db: AsyncSession,
+    app_db: AsyncSession,
     mock_discord_api_client,
     mock_participant_resolver,
     mock_role_service,
@@ -1137,8 +1193,12 @@ async def test_delete_game_status_schedules_removed(
         session_access_token="valid-test-token",
     )
 
+    await app_db.execute(
+        text("SELECT set_config('app.current_guild_ids', :guild_ids, false)"),
+        {"guild_ids": guild["id"]},
+    )
     service = GameService(
-        db=admin_db,
+        db=app_db,
         discord_client=mock_discord_api_client,
         participant_resolver=mock_participant_resolver,
         channel_resolver=MagicMock(),
@@ -1155,7 +1215,7 @@ async def test_delete_game_status_schedules_removed(
         game_data=game_data,
         host_user_id=user["id"],
     )
-    await admin_db.commit()
+    await app_db.commit()
     game_id = game.id
 
     user_result = await admin_db.execute(select(User).where(User.id == user["id"]))
@@ -1171,7 +1231,7 @@ async def test_delete_game_status_schedules_removed(
         current_user=current_user,
         role_service=mock_role_service,
     )
-    await admin_db.commit()
+    await app_db.commit()
 
     schedules = await admin_db.execute(
         select(GameStatusSchedule).where(GameStatusSchedule.game_id == game_id)

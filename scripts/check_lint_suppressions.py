@@ -99,7 +99,7 @@ def _get_added_lines(compare_branch: str | None = None) -> list[tuple[str, int, 
     if compare_branch is None:
         compare_branch = os.environ.get("BASE_REF")
     if compare_branch is not None:
-        cmd = [git, "diff", f"{compare_branch}..HEAD", "--unified=0"]
+        cmd = [git, "diff", f"{compare_branch}...HEAD", "--unified=0"]
     else:
         cmd = [git, "diff", "--cached", "--unified=0"]
     result = subprocess.run(  # noqa: S603 - Hardcoded args, shell=False, no user input

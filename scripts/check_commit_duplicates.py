@@ -126,7 +126,7 @@ def get_changed_line_ranges(compare_branch: str | None = None) -> dict[str, set[
         compare_branch = os.environ.get("BASE_REF")
 
     if compare_branch is not None:
-        diff_args = [git_path, "diff", f"{compare_branch}..HEAD", "--unified=0"]
+        diff_args = [git_path, "diff", f"{compare_branch}...HEAD", "--unified=0"]
     else:
         diff_args = [git_path, "diff", "--cached", "--unified=0"]
 
