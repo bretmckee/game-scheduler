@@ -143,6 +143,7 @@ failed = true
     "SIM102",   # Nested if statements in test helpers
     "SIM105",   # try-except-pass patterns
     "SIM108",   # Ternary operator simplification
+    "DTZ001",  # Naive datetime() in tests — intentional for testing UTC-handling functions
     "SIM117",   # Nested with statements in test mocks
     "PT011",    # pytest.raises without match parameter
     "PT012",    # pytest.raises with multiple statements

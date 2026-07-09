@@ -35,8 +35,7 @@ validate_copyright = check_copyright.validate_copyright
 def temp_files():
     """Create temporary files for testing."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir_path = Path(tmpdir)
-        yield tmpdir_path
+        yield Path(tmpdir)
 
 
 @pytest.fixture
