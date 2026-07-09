@@ -206,7 +206,7 @@ repos:
       # Python cognitive complexity
       - id: complexipy
         name: complexipy cognitive complexity check
-        entry: uv run complexipy .
+        entry: uv run complexipy
         language: system
         types: [python]
         pass_filenames: false

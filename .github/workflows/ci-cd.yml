@@ -127,7 +127,7 @@ jobs:
 
       - name: Complexipy cognitive complexity
         if: steps.changed.outputs.has_py == 'true'
-        run: uv run complexipy .
+        run: uv run complexipy
 
       - name: Lizard TypeScript complexity
         if: steps.changed.outputs.has_ts == 'true'
