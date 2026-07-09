@@ -124,6 +124,7 @@ max-statements = 50
 max-complexity-allowed = 15
 paths = ["services", "shared", "scripts"]
 exclude = []
+failed = true
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = [
