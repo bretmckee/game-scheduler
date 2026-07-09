@@ -55,11 +55,7 @@ def main() -> int:
         return 1
 
     changed_files = result.stdout.strip().split()
-    py_files = [
-        f
-        for f in changed_files
-        if _PY_SOURCE_PATTERN.match(f) and "__pycache__" not in f
-    ]
+    py_files = [f for f in changed_files if _PY_SOURCE_PATTERN.match(f) and "__pycache__" not in f]
 
     if not py_files:
         return 0

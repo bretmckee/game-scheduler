@@ -55,11 +55,7 @@ def main() -> int:
         return 1
 
     changed_files = result.stdout.strip().split()
-    ts_files = [
-        f
-        for f in changed_files
-        if _TS_SOURCE_PATTERN.match(f) and ".test." not in f
-    ]
+    ts_files = [f for f in changed_files if _TS_SOURCE_PATTERN.match(f) and ".test." not in f]
 
     if not ts_files:
         return 0
