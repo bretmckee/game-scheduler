@@ -73,12 +73,8 @@ jobs:
           else
             BASE="${{ github.event.before }}"
           fi
-          PY=$(git diff --name-only --diff-filter=d "$BASE" HEAD -- '*.py' | tr '\n' ' ')
           TS=$(git diff --name-only --diff-filter=d "$BASE" HEAD -- '*.ts' '*.tsx' | tr '\n' ' ')
           FE=$(git diff --name-only --diff-filter=d "$BASE" HEAD -- 'frontend/' | tr '\n' ' ')
-          echo "py_files=${PY}" >> "$GITHUB_OUTPUT"
-          echo "has_py=$([ -n "${PY}" ] && echo 'true' || echo 'false')" >> "$GITHUB_OUTPUT"
-          echo "ts_files=${TS}" >> "$GITHUB_OUTPUT"
           echo "has_ts=$([ -n "${TS}" ] && echo 'true' || echo 'false')" >> "$GITHUB_OUTPUT"
           echo "has_frontend=$([ -n "${FE}" ] && echo 'true' || echo 'false')" >> "$GITHUB_OUTPUT"
 
@@ -90,19 +86,15 @@ jobs:
           git diff --exit-code
 
       - name: Python compilation check
-        if: steps.changed.outputs.has_py == 'true'
         run: uv run python -m compileall -q services shared tests
 
       - name: Ruff format check
-        if: steps.changed.outputs.has_py == 'true'
-        run: uv run ruff format --check ${{ steps.changed.outputs.py_files }}
+        run: uv run ruff format --check .
 
       - name: Ruff lint
-        if: steps.changed.outputs.has_py == 'true'
-        run: uv run ruff check ${{ steps.changed.outputs.py_files }}
+        run: uv run ruff check .
 
       - name: Mypy type check
-        if: steps.changed.outputs.has_py == 'true'
         run: uv run mypy shared/ services/
 
       - name: Install frontend dependencies
@@ -126,7 +118,6 @@ jobs:
         run: npm run type-check
 
       - name: Complexipy cognitive complexity
-        if: steps.changed.outputs.has_py == 'true'
         run: uv run complexipy
 
       - name: Lizard TypeScript complexity
