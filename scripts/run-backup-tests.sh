@@ -133,7 +133,7 @@ echo "==> Phase 3: stopping application services for restore"
 RESTORE_SRC="${BACKUP_DEST}/slot-0.dump.gz"
 
 docker compose --progress quiet --env-file "$ENV_FILE" \
-  stop api bot scheduler retry-daemon
+  stop api bot
 
 echo "==> Phase 3: restoring from ${RESTORE_SRC}"
 

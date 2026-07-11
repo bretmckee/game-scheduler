@@ -330,10 +330,8 @@ jobs:
           PAIRS=(
             "api:game-scheduler-api"
             "bot:game-scheduler-bot"
-            "scheduler:game-scheduler-scheduler"
             "frontend:game-scheduler-frontend"
             "init:game-scheduler-init"
-            "retry-daemon:game-scheduler-retry-daemon"
             "backup:game-scheduler-backup"
           )
 
@@ -362,10 +360,8 @@ jobs:
           PAIRS=(
             "api:game-scheduler-api"
             "bot:game-scheduler-bot"
-            "scheduler:game-scheduler-scheduler"
             "frontend:game-scheduler-frontend"
             "init:game-scheduler-init"
-            "retry-daemon:game-scheduler-retry-daemon"
             "backup:game-scheduler-backup"
           )
 
