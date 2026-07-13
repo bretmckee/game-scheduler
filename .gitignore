@@ -32,6 +32,9 @@ ENV/
 *.swo
 *~
 
+# Claude Code local settings (personal, machine-specific)
+.claude/settings.local.json
+
 # Environment variables
 .env*
 env/
