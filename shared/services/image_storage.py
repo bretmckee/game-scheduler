@@ -27,9 +27,11 @@ counting and deduplication based on SHA256 content hash.
 """
 
 import hashlib
+import io
 import logging
 from uuid import UUID
 
+from PIL import Image, ImageSequence
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -37,10 +39,88 @@ from shared.models.game_image import GameImage
 
 logger = logging.getLogger(__name__)
 
+# Discord's embed image proxy silently fails to scale images whose longest side
+# exceeds roughly this many pixels, falling back to rendering the raw image at
+# native resolution clipped to the viewport instead of a scaled preview.
+MAX_IMAGE_DIMENSION = 4096
+
+
+def _resize_frame(frame: Image.Image, size: tuple[int, int], *, is_gif: bool) -> Image.Image:
+    """Resize a single frame, converting to a mode Pillow can re-encode as GIF."""
+    if is_gif:
+        frame = frame.convert("RGBA")
+    return frame.resize(size, Image.Resampling.LANCZOS)
+
+
+def _downscale_if_oversized(image_data: bytes, mime_type: str) -> bytes:
+    """
+    Downscale image bytes to fit within MAX_IMAGE_DIMENSION, preserving aspect ratio.
+
+    Animated images (e.g. GIF) are resized frame-by-frame so the animation is
+    preserved. Images already within the limit are returned unchanged. Data that
+    Pillow cannot decode is returned unchanged rather than raising, since it has
+    already passed content-type validation upstream.
+
+    Args:
+        image_data: Raw image bytes
+        mime_type: MIME type of the image (e.g. "image/png")
+
+    Returns:
+        Original bytes, or re-encoded downscaled bytes if the image was oversized
+    """
+    try:
+        with Image.open(io.BytesIO(image_data)) as img:
+            if img.width <= MAX_IMAGE_DIMENSION and img.height <= MAX_IMAGE_DIMENSION:
+                return image_data
+
+            ratio = min(MAX_IMAGE_DIMENSION / img.width, MAX_IMAGE_DIMENSION / img.height)
+            new_size = (max(1, round(img.width * ratio)), max(1, round(img.height * ratio)))
+            save_format = img.format or "PNG"
+            is_gif = save_format == "GIF"
+
+            frames = [
+                _resize_frame(frame.copy(), new_size, is_gif=is_gif)
+                for frame in ImageSequence.Iterator(img)
+            ]
+
+            buf = io.BytesIO()
+            if len(frames) > 1:
+                frames[0].save(
+                    buf,
+                    format=save_format,
+                    save_all=True,
+                    append_images=frames[1:],
+                    duration=img.info.get("duration", 100),
+                    loop=img.info.get("loop", 0),
+                )
+            else:
+                single = frames[0]
+                if save_format == "JPEG" and single.mode != "RGB":
+                    single = single.convert("RGB")
+                single.save(buf, format=save_format)
+
+            logger.info(
+                "Downscaled oversized image from %sx%s to %sx%s (format=%s)",
+                img.width,
+                img.height,
+                new_size[0],
+                new_size[1],
+                save_format,
+            )
+            return buf.getvalue()
+    except (OSError, SyntaxError):
+        logger.warning(
+            "Could not decode image data (mime=%s) for oversize check; storing as-is", mime_type
+        )
+        return image_data
+
 
 async def store_image(db: AsyncSession, image_data: bytes, mime_type: str) -> UUID:
     """
     Store image with automatic deduplication via SHA256 hash.
+
+    Images larger than MAX_IMAGE_DIMENSION on either side are downscaled first,
+    since Discord's embed proxy fails to render oversized images at all.
 
     If an image with the same content already exists, increments its
     reference count and returns the existing image ID. Otherwise, creates
@@ -56,6 +136,7 @@ async def store_image(db: AsyncSession, image_data: bytes, mime_type: str) -> UU
     Returns:
         Image ID (UUID) - existing or newly created
     """
+    image_data = _downscale_if_oversized(image_data, mime_type)
     content_hash = hashlib.sha256(image_data).hexdigest()
     logger.info(
         "store_image called: hash=%s... mime=%s size=%s",

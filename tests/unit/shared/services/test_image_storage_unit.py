@@ -22,14 +22,34 @@
 """Unit tests for image_storage module."""
 
 import hashlib
+import io
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID
 
 import pytest
+from PIL import Image
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.models.game_image import GameImage
 from shared.services import image_storage
+
+
+def _make_image_bytes(width: int, height: int, image_format: str = "PNG") -> bytes:
+    """Create real encoded image bytes of the given size for resize testing."""
+    buf = io.BytesIO()
+    Image.new("RGB", (width, height), color="red").save(buf, format=image_format)
+    return buf.getvalue()
+
+
+def _make_animated_gif_bytes(width: int, height: int, num_frames: int = 3) -> bytes:
+    """Create a real animated GIF with the given size and frame count."""
+    frames = [
+        Image.new("RGB", (width, height), color=("red", "green", "blue")[i % 3])
+        for i in range(num_frames)
+    ]
+    buf = io.BytesIO()
+    frames[0].save(buf, format="GIF", save_all=True, append_images=frames[1:], duration=100, loop=0)
+    return buf.getvalue()
 
 
 @pytest.fixture
@@ -268,6 +288,76 @@ async def test_increment_image_ref_increments_count(mock_session):
 
     assert image.reference_count == 2
     mock_session.flush.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_store_image_downscales_oversized_image(mock_session):
+    """Test that an image larger than Discord's render ceiling is downscaled before storing."""
+    oversized = _make_image_bytes(5000, 3000, image_format="PNG")
+
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none = MagicMock(return_value=None)
+    mock_session.execute = AsyncMock(return_value=mock_result)
+
+    async def capture_flush():
+        added_image = mock_session.add.call_args[0][0]
+        added_image.id = UUID("00000000-0000-0000-0000-000000000003")
+
+    mock_session.flush = AsyncMock(side_effect=capture_flush)
+
+    await image_storage.store_image(mock_session, oversized, "image/png")
+
+    stored_image = mock_session.add.call_args[0][0]
+    with Image.open(io.BytesIO(stored_image.image_data)) as img:
+        assert img.width <= image_storage.MAX_IMAGE_DIMENSION
+        assert img.height <= image_storage.MAX_IMAGE_DIMENSION
+        # Aspect ratio (5000:3000 == 5:3) must be preserved
+        assert abs(img.width / img.height - 5000 / 3000) < 0.01
+
+
+@pytest.mark.asyncio
+async def test_store_image_leaves_normal_sized_image_unchanged(mock_session):
+    """Test that an image within Discord's render ceiling is stored byte-for-byte."""
+    normal = _make_image_bytes(800, 600, image_format="PNG")
+
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none = MagicMock(return_value=None)
+    mock_session.execute = AsyncMock(return_value=mock_result)
+
+    async def capture_flush():
+        added_image = mock_session.add.call_args[0][0]
+        added_image.id = UUID("00000000-0000-0000-0000-000000000004")
+
+    mock_session.flush = AsyncMock(side_effect=capture_flush)
+
+    await image_storage.store_image(mock_session, normal, "image/png")
+
+    stored_image = mock_session.add.call_args[0][0]
+    assert stored_image.image_data == normal
+
+
+@pytest.mark.asyncio
+async def test_store_image_downscales_animated_gif_preserving_frames(mock_session):
+    """Test that an oversized animated GIF is downscaled without losing its frames."""
+    oversized_gif = _make_animated_gif_bytes(5000, 3000, num_frames=3)
+
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none = MagicMock(return_value=None)
+    mock_session.execute = AsyncMock(return_value=mock_result)
+
+    async def capture_flush():
+        added_image = mock_session.add.call_args[0][0]
+        added_image.id = UUID("00000000-0000-0000-0000-000000000005")
+
+    mock_session.flush = AsyncMock(side_effect=capture_flush)
+
+    await image_storage.store_image(mock_session, oversized_gif, "image/gif")
+
+    stored_image = mock_session.add.call_args[0][0]
+    with Image.open(io.BytesIO(stored_image.image_data)) as img:
+        assert img.width <= image_storage.MAX_IMAGE_DIMENSION
+        assert img.height <= image_storage.MAX_IMAGE_DIMENSION
+        assert img.n_frames == 3
 
 
 @pytest.mark.asyncio

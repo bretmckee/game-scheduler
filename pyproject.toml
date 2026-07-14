@@ -39,6 +39,7 @@ dependencies = [
     "python-jose[cryptography]~=3.3.0",
     # Utilities
     "icalendar~=6.0.0",
+    "Pillow~=11.1.0",
     # Observability
     "opentelemetry-api~=1.29.0",
     "opentelemetry-sdk~=1.29.0",
