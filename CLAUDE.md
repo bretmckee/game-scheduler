@@ -100,6 +100,11 @@ This file indexes the instruction files in `.github/instructions/`. Each entry i
 **Path:** `.github/instructions/github-actions-ci-cd-best-practices.instructions.md`
 **When to use:** Working on CI/CD workflows, GitHub Actions configuration, or automation.
 
+### Grafana Observability Debugging
+
+**Path:** `.github/instructions/grafana-observability-debugging.instructions.md`
+**When to use:** Querying logs/metrics/traces via the `grafana` MCP server, or investigating a production incident. Covers the three separate Grafana Cloud stacks (dev/staging/prod), how to verify which one is connected, and log label gotchas specific to this project.
+
 ---
 
 ## Frontend & Web
