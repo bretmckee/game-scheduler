@@ -45,18 +45,18 @@ Fix the bug where a confirmed participant voluntarily leaving a game (via the AP
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Extract shared waitlist transition detection
+### [x] Phase 1: Extract shared waitlist transition detection
 
-- [ ] Task 1.1: Create `detect_and_notify_transitions` stub in `shared/services/waitlist_transitions.py`
+- [x] Task 1.1: Create `detect_and_notify_transitions` stub in `shared/services/waitlist_transitions.py`
   - Details: .copilot-tracking/planning/details/20260714-01-waitlist-promotion-notification-gap-details.md (Lines 15-40)
 
-- [ ] Task 1.2: Write unit tests with real assertions marked `xfail`
+- [x] Task 1.2: Write unit tests with real assertions marked `xfail`
   - Details: .copilot-tracking/planning/details/20260714-01-waitlist-promotion-notification-gap-details.md (Lines 42-70)
 
-- [ ] Task 1.3: Implement and remove `xfail` markers
+- [x] Task 1.3: Implement and remove `xfail` markers
   - Details: .copilot-tracking/planning/details/20260714-01-waitlist-promotion-notification-gap-details.md (Lines 72-90)
 
-- [ ] Task 1.4: Refactor and add edge-case tests
+- [x] Task 1.4: Refactor and add edge-case tests
   - Details: .copilot-tracking/planning/details/20260714-01-waitlist-promotion-notification-gap-details.md (Lines 92-104)
 
 ### [ ] Phase 2: Refactor `update_game` to use the shared transition function
