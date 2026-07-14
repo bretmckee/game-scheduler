@@ -1034,31 +1034,3 @@ class TestPublishPlayerRemoved:
         assert row.action_type == "player_removed"
         assert row.game_id == game.id
         assert row.discord_id == "discord-user-123"
-
-
-class TestNotifyDemotedUsers:
-    """_notify_demoted_users inserts BotActionQueue rows with action_type='send_dm'."""
-
-    @pytest.mark.asyncio
-    async def test_inserts_bot_action_queue_row_per_demoted_user(
-        self, game_service, mock_db
-    ) -> None:
-        """_notify_demoted_users adds a BotActionQueue send_dm row for each demoted user."""
-        game = _make_game()
-        game.message_id = "111222333444555666"
-        game.channel.channel_id = "777888999000111222"
-
-        mock_db.add = MagicMock()
-
-        await game_service._notify_demoted_users(
-            game=game,
-            demoted_discord_ids={"discord-user-1", "discord-user-2"},
-        )
-
-        added = [c.args[0] for c in mock_db.add.call_args_list]
-        bot_action_rows = [r for r in added if isinstance(r, BotActionQueue)]
-        assert len(bot_action_rows) == 2
-        action_types = {r.action_type for r in bot_action_rows}
-        assert action_types == {"send_dm"}
-        discord_ids = {r.discord_id for r in bot_action_rows}
-        assert discord_ids == {"discord-user-1", "discord-user-2"}

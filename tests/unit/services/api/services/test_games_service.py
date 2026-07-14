@@ -4095,7 +4095,7 @@ async def test_process_game_update_schedules_neither(game_service, mock_db):
 
 
 @pytest.mark.asyncio
-async def test_detect_and_notify_promotions_with_promotions(game_service):
+async def test_detect_and_notify_promotions_with_promotions(game_service, mock_db):
     """Test detecting and notifying promoted users."""
     user1 = user_model.User(id=str(uuid.uuid4()), discord_id="user1")
     user2 = user_model.User(id=str(uuid.uuid4()), discord_id="user2")
@@ -4135,20 +4135,25 @@ async def test_detect_and_notify_promotions_with_promotions(game_service):
     game = game_model.GameSession(
         id="game1",
         max_players=3,
+        scheduled_at=datetime.datetime.now(UTC),
         participants=old_participants,
     )
 
-    with patch.object(game_service, "_notify_promoted_users", new=AsyncMock()) as mock_notify:
-        await game_service._detect_and_notify_transitions(game, old_partitioned)
+    mock_db.add = MagicMock()
 
-        mock_notify.assert_called_once()
-        call_args = mock_notify.call_args
-        assert call_args[1]["game"] == game
-        assert "user3" in call_args[1]["promoted_discord_ids"]
+    await game_service._detect_and_notify_transitions(game, old_partitioned)
+
+    added = [c.args[0] for c in mock_db.add.call_args_list]
+    send_dm_rows = [
+        r for r in added if isinstance(r, BotActionQueue) and r.action_type == "send_dm"
+    ]
+    assert len(send_dm_rows) == 1
+    assert send_dm_rows[0].discord_id == "user3"
+    assert send_dm_rows[0].payload["notification_type"] == "waitlist_promotion"
 
 
 @pytest.mark.asyncio
-async def test_detect_and_notify_promotions_no_promotions(game_service):
+async def test_detect_and_notify_promotions_no_promotions(game_service, mock_db):
     """Test with no promotions detected."""
     user1 = user_model.User(id=str(uuid.uuid4()), discord_id="user1")
     user2 = user_model.User(id=str(uuid.uuid4()), discord_id="user2")
@@ -4180,10 +4185,11 @@ async def test_detect_and_notify_promotions_no_promotions(game_service):
         participants=old_participants,
     )
 
-    with patch.object(game_service, "_notify_promoted_users", new=AsyncMock()) as mock_notify:
-        await game_service._detect_and_notify_transitions(game, old_partitioned)
+    mock_db.add = MagicMock()
 
-        mock_notify.assert_not_called()
+    await game_service._detect_and_notify_transitions(game, old_partitioned)
+
+    mock_db.add.assert_not_called()
 
 
 # ==============================================================================

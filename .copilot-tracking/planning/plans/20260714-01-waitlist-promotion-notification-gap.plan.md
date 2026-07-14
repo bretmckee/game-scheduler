@@ -59,12 +59,12 @@ Fix the bug where a confirmed participant voluntarily leaving a game (via the AP
 - [x] Task 1.4: Refactor and add edge-case tests
   - Details: .copilot-tracking/planning/details/20260714-01-waitlist-promotion-notification-gap-details.md (Lines 92-104)
 
-### [ ] Phase 2: Refactor `update_game` to use the shared transition function
+### [x] Phase 2: Refactor `update_game` to use the shared transition function
 
-- [ ] Task 2.1: Delegate `GameService` promotion/demotion methods to the shared function and delete the now-dead private methods
+- [x] Task 2.1: Delegate `GameService` promotion/demotion methods to the shared function and delete the now-dead private methods
   - Details: .copilot-tracking/planning/details/20260714-01-waitlist-promotion-notification-gap-details.md (Lines 108-130)
 
-- [ ] Task 2.2: Verify no regression in existing promotion/demotion tests
+- [x] Task 2.2: Verify no regression in existing promotion/demotion tests
   - Details: .copilot-tracking/planning/details/20260714-01-waitlist-promotion-notification-gap-details.md (Lines 132-144)
 
 ### [ ] Phase 3: Create shared leave-game core

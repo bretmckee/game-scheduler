@@ -63,6 +63,7 @@ from shared.models.participant_action_schedule import ParticipantActionSchedule
 from shared.models.signup_method import SignupMethod
 from shared.schemas import auth as auth_schemas
 from shared.schemas import game as game_schemas
+from shared.services import waitlist_transitions
 from shared.services.game_cancellation import cancel_game as cancel_game_service
 from shared.services.game_schedules import clone_game_for_recurrence
 from shared.services.image_storage import (
@@ -1847,81 +1848,7 @@ class GameService:
             game: Updated game session
             old_partitioned: Partitioned participants before update
         """
-        new_max_players = resolve_max_players(game.max_players)
-        new_partitioned = partition_participants(
-            game.participants, new_max_players, signup_method=game.signup_method
-        )
-        promoted_discord_ids = new_partitioned.cleared_waitlist(old_partitioned)
-        demoted_discord_ids = new_partitioned.entered_waitlist(old_partitioned)
-
-        if promoted_discord_ids:
-            await self._notify_promoted_users(
-                game=game,
-                promoted_discord_ids=promoted_discord_ids,
-            )
-
-        if demoted_discord_ids:
-            await self._notify_demoted_users(
-                game=game,
-                demoted_discord_ids=demoted_discord_ids,
-            )
-
-    async def _notify_demoted_users(
-        self,
-        game: game_model.GameSession,
-        demoted_discord_ids: set[str],
-    ) -> None:
-        """
-        Send demotion notifications to users moved from confirmed to the waitlist.
-
-        Args:
-            game: Game session after updates applied
-            demoted_discord_ids: Set of Discord IDs of demoted users
-        """
-        if not demoted_discord_ids:
-            return
-
-        logger.info(
-            "Notifying %s demoted users for game %s: %s",
-            len(demoted_discord_ids),
-            game.id,
-            demoted_discord_ids,
-        )
-
-        for discord_id in demoted_discord_ids:
-            scheduled_at_unix = int(game.scheduled_at.timestamp())
-
-            jump_url = None
-            if game.message_id and game.guild and game.channel:
-                jump_url = (
-                    f"https://discord.com/channels/"
-                    f"{game.guild.guild_id}/{game.channel.channel_id}/{game.message_id}"
-                )
-            else:
-                logger.warning(
-                    "Cannot build jump URL for demotion notification on game %s", game.id
-                )
-
-            message = DMFormats.waitlist_demotion(game.title, jump_url=jump_url)
-
-            self.db.add(
-                BotActionQueue(
-                    action_type="send_dm",
-                    game_id=game.id,
-                    discord_id=discord_id,
-                    payload={
-                        "notification_type": "waitlist_demotion",
-                        "game_title": game.title,
-                        "game_time_unix": scheduled_at_unix,
-                        "message": message,
-                    },
-                )
-            )
-            logger.info(
-                "Enqueued send_dm (demotion) for user %s in game %s",
-                discord_id,
-                game.id,
-            )
+        await waitlist_transitions.detect_and_notify_transitions(self.db, game, old_partitioned)
 
     async def _resolve_channel_mentions_for_update(
         self,
@@ -2519,78 +2446,5 @@ class GameService:
         logger.info(
             "Enqueued player_removed action for participant %s from game %s",
             participant.id,
-            game.id,
-        )
-
-    async def _notify_promoted_users(
-        self,
-        game: game_model.GameSession,
-        promoted_discord_ids: set[str],
-    ) -> None:
-        """
-        Send promotion notifications to users who cleared the waitlist.
-
-        Args:
-            game: Game session after updates applied
-            promoted_discord_ids: Set of Discord IDs of promoted users
-        """
-        if not promoted_discord_ids:
-            return
-
-        logger.info(
-            "Notifying %s promoted users for game %s: %s",
-            len(promoted_discord_ids),
-            game.id,
-            promoted_discord_ids,
-        )
-
-        # Send notification to each promoted user
-        for discord_id in promoted_discord_ids:
-            await self._publish_promotion_notification(
-                game=game,
-                discord_id=discord_id,
-            )
-
-    async def _publish_promotion_notification(
-        self,
-        game: game_model.GameSession,
-        discord_id: str,
-    ) -> None:
-        """
-        Publish promotion notification for a user moved from overflow to confirmed.
-
-        Args:
-            game: Game session
-            discord_id: Discord ID of promoted user
-        """
-        scheduled_at_unix = int(game.scheduled_at.timestamp())
-
-        jump_url = None
-        if game.message_id and game.guild and game.channel:
-            jump_url = (
-                f"https://discord.com/channels/"
-                f"{game.guild.guild_id}/{game.channel.channel_id}/{game.message_id}"
-            )
-        else:
-            logger.warning("Cannot build jump URL for promotion notification on game %s", game.id)
-
-        message = DMFormats.promotion(game.title, scheduled_at_unix, jump_url=jump_url)
-
-        self.db.add(
-            BotActionQueue(
-                action_type="send_dm",
-                game_id=game.id,
-                discord_id=discord_id,
-                payload={
-                    "notification_type": "waitlist_promotion",
-                    "game_title": game.title,
-                    "game_time_unix": scheduled_at_unix,
-                    "message": message,
-                },
-            )
-        )
-        logger.info(
-            "Enqueued send_dm (promotion) for user %s in game %s",
-            discord_id,
             game.id,
         )

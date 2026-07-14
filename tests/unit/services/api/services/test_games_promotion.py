@@ -220,31 +220,7 @@ async def test_promotion_when_participant_removed(game_service, sample_game, moc
         print(f"Participant discord_ids: {[p.user.discord_id for p in fresh_game.participants]}")
         return fresh_game
 
-    # Mock get_game to return fresh game with updated participants
-    original_notify_promotions = game_service._notify_promoted_users
-    notify_calls_list = []
-
-    async def track_notify_promotions(game, promoted_discord_ids):
-        notify_calls_list.append({
-            "game_id": game.id,
-            "promoted_discord_ids": promoted_discord_ids,
-            "current_participants": [p.user.discord_id for p in game.participants if p.user],
-        })
-        print("\n_notify_promoted_users called!")
-        print(f"  promoted_discord_ids: {promoted_discord_ids}")
-        print(f"  current participants: {[p.user.discord_id for p in game.participants if p.user]}")
-        result = await original_notify_promotions(game, promoted_discord_ids)
-        print("  _notify_promoted_users completed")
-        return result
-
-    with (
-        patch.object(
-            game_service,
-            "_notify_promoted_users",
-            side_effect=track_notify_promotions,
-        ),
-        patch.object(game_service, "get_game", side_effect=get_game_side_effect),
-    ):
+    with patch.object(game_service, "get_game", side_effect=get_game_side_effect):
         # Mock authorization check
         mock_role_service = AsyncMock()
         mock_current_user = MagicMock()
@@ -709,26 +685,6 @@ async def test_promotion_notification_no_message_id(game_service, sample_game, m
 
     assert len(send_dm_rows) == 1
     assert "discord.com" not in send_dm_rows[0].payload["message"]
-
-
-@pytest.mark.asyncio
-async def test_detect_transitions_notifies_demoted_users(game_service, sample_game, mock_db):
-    """_detect_and_notify_transitions calls _notify_demoted_users for demoted users."""
-    base_time = datetime.now(UTC).replace(tzinfo=None)
-
-    demoted_user = create_participant(sample_game.id, str(uuid4()), "demoted_user", base_time)
-    other_user = create_participant(sample_game.id, str(uuid4()), "other_user", base_time)
-    sample_game.max_players = 1
-
-    old_partitioned = partition_participants([demoted_user, other_user], max_players=2)
-    sample_game.participants = [demoted_user, other_user]
-
-    notify_mock = AsyncMock()
-    with patch.object(game_service, "_notify_demoted_users", notify_mock):
-        await game_service._detect_and_notify_transitions(sample_game, old_partitioned)
-
-    notify_mock.assert_called_once()
-    assert other_user.user.discord_id in notify_mock.call_args[1]["demoted_discord_ids"]
 
 
 @pytest.mark.asyncio
