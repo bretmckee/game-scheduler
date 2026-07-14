@@ -67,18 +67,18 @@ Fix the bug where a confirmed participant voluntarily leaving a game (via the AP
 - [x] Task 2.2: Verify no regression in existing promotion/demotion tests
   - Details: .copilot-tracking/planning/details/20260714-01-waitlist-promotion-notification-gap-details.md (Lines 132-144)
 
-### [ ] Phase 3: Create shared leave-game core
+### [x] Phase 3: Create shared leave-game core
 
-- [ ] Task 3.1: Create `leave_game_and_notify` stub in `shared/services/leave_game.py`
+- [x] Task 3.1: Create `leave_game_and_notify` stub in `shared/services/leave_game.py`
   - Details: .copilot-tracking/planning/details/20260714-01-waitlist-promotion-notification-gap-details.md (Lines 148-172)
 
-- [ ] Task 3.2: Write unit tests with real assertions marked `xfail`
+- [x] Task 3.2: Write unit tests with real assertions marked `xfail`
   - Details: .copilot-tracking/planning/details/20260714-01-waitlist-promotion-notification-gap-details.md (Lines 174-202)
 
-- [ ] Task 3.3: Implement and remove `xfail` markers
+- [x] Task 3.3: Implement and remove `xfail` markers
   - Details: .copilot-tracking/planning/details/20260714-01-waitlist-promotion-notification-gap-details.md (Lines 204-222)
 
-- [ ] Task 3.4: Refactor and add edge-case tests
+- [x] Task 3.4: Refactor and add edge-case tests
   - Details: .copilot-tracking/planning/details/20260714-01-waitlist-promotion-notification-gap-details.md (Lines 224-236)
 
 ### [ ] Phase 4: Wire the API leave path (bug fix)
