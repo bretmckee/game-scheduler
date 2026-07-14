@@ -277,27 +277,6 @@ class TestLeaveGame:
             await game_service.leave_game(game.id, "unknown-discord-id")
 
     @pytest.mark.asyncio
-    async def test_reload_failure_after_leave_raises_error(self, game_service, mock_db):
-        """Raises ValueError when game cannot be reloaded after leaving."""
-        game = _make_game()
-        # First call returns valid game; second call (after leave) returns None
-        game_service.get_game = AsyncMock(side_effect=[game, None])
-
-        mock_user = MagicMock()
-        mock_user.id = "user-uuid"
-        mock_user.discord_id = "user123"
-        mock_participant = MagicMock()
-        mock_participant.id = "participant-uuid"
-        mock_db.execute.side_effect = [
-            _make_db_scalar_result(mock_user),  # user query
-            _make_db_scalar_result(mock_participant),  # participant query
-        ]
-        mock_db.delete = AsyncMock()
-
-        with pytest.raises(ValueError, match="Failed to reload game after leave"):
-            await game_service.leave_game(game.id, "user123")
-
-    @pytest.mark.asyncio
     async def test_host_added_leave_publishes_notification_send_dm(self, game_service, mock_db):
         game = _make_game()
         game.id = str(uuid.uuid4())

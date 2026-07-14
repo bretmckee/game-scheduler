@@ -48,3 +48,26 @@
 - `uv run pytest tests/unit/shared/services/test_leave_game_shared.py -v` — all 6 xfailed before implementation, all 6 passed after
 - `uv run pytest tests/unit` — 2351 passed (net +6 vs. Phase 2's 2345)
 - `uv run mypy shared/ services/` — no issues
+
+---
+
+## Phase 4: Wire the API leave path (bug fix)
+
+### Added
+
+- `tests/integration/test_leave_game_promotion.py` — New regression test `test_confirmed_leave_via_api_promotes_waitlisted_participant`: creates a `HOST_SELECTED_WITH_WAITLIST` game (`max_players=1`), inserts a confirmed + a waitlisted participant, has the confirmed participant call `POST /api/v1/games/{id}/leave` as themselves, and asserts a `waitlist_promotion` `send_dm` row targets the waitlisted user. Written `xfail(strict=True)` first, confirmed `xfailed` (proving the gap), then the marker removed after the fix landed.
+
+### Modified
+
+- `services/api/services/games.py` — `leave_game` now delegates the delete + promotion/demotion-detect-and-notify + host-added-dropout core to `leave_game_and_notify(self.db, game, participant)` instead of its previous inline `db.delete` + `HOST_ADDED` block; added `from shared.services.leave_game import leave_game_and_notify` import; removed the now-unused `DMFormats` import. This is the actual bug fix — `leave_game` now calls promotion detection, which it never did before.
+- `tests/unit/api/services/test_games.py` — removed `TestLeaveGame::test_reload_failure_after_leave_raises_error`. That test asserted a `"Failed to reload game after leave"` `ValueError` raised when a second `self.get_game(game_id)` call returned `None`; that reload mechanism no longer exists — `leave_game_and_notify` reloads via `db.refresh(game, ["participants"])` per Task 3.3's design, not a second `get_game` call, so this failure path is now unreachable dead-code testing (same category as Phase 2's removed tests). The plan's Task 4.2 detail asserted this test would "still pass unmodified," which turned out to be inconsistent with Task 3.3's own already-implemented reload strategy.
+
+### Verified
+
+- `scripts/run-integration-tests.sh tests/integration/test_leave_game_promotion.py tests/integration/test_leave_game.py tests/integration/test_player_removed_queue.py tests/integration/test_games_crud.py` — 28 passed
+- `uv run pytest tests/unit` — 2350 passed (net -1 vs. Phase 3's 2351: one obsolete test removed, see above)
+- `uv run mypy shared/ services/` — no issues
+
+### Notes
+
+- The new integration test needed `seed_redis_cache(...)` for the _leaving_ participant (not just the bot-manager account already seeded by `_make_context`) — RLS (`get_db_with_user_guilds()`) resolves the acting user's guild membership from the Redis member-projection cache, and an unseeded user resolves to an empty guild list, making the game invisible ("Game not found" 404) even though it exists. That `seed_redis_cache` call must also come _before_ any `create_authenticated_client(...)` call in the test: that factory creates and closes its own asyncio event loop, and `seed_redis_cache`'s sync wrapper reuses `asyncio.get_event_loop()` — calling it afterward hits a closed loop (`RuntimeError: Event loop is closed`).

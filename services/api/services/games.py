@@ -46,7 +46,6 @@ from services.api.services import notification_schedule as notification_schedule
 from services.api.services import participant_resolver as resolver_module
 from services.api.services.notification_schedule import schedule_join_notification
 from shared.discord import client as discord_client_module
-from shared.message_formats import DMFormats
 from shared.models import channel as channel_model
 from shared.models import game as game_model
 from shared.models import game_status_schedule as game_status_schedule_model
@@ -71,6 +70,7 @@ from shared.services.image_storage import (
     release_image,
     store_image,
 )
+from shared.services.leave_game import leave_game_and_notify
 from shared.utils.games import resolve_max_players
 from shared.utils.participant_sorting import (
     PartitionedParticipants,
@@ -2342,50 +2342,10 @@ class GameService:
 
         logger.info("Found participant: id=%s, deleting...", participant.id)
 
-        # Capture before delete to avoid session expiry
-        position_type = participant.position_type
-        host_discord_id = game.host.discord_id if game.host else None
-
-        # Remove participant
-        await self.db.delete(participant)
-        logger.info("Participant deleted")
-
-        # Reload game with relationships for event publishing
-        game = await self.get_game(game_id)
-        if game is None:
-            msg = "Failed to reload game after leave"
-            raise ValueError(msg)
+        game = await leave_game_and_notify(self.db, game, participant)
 
         # Publish game.updated event
         await self._publish_game_updated(game)
-
-        if position_type == ParticipantType.HOST_ADDED and host_discord_id:
-            scheduled_unix = int(game.scheduled_at.timestamp())
-            jump_url = (
-                f"https://discord.com/channels/{game.guild.guild_id}/"
-                f"{game.channel.channel_id}/{game.message_id}"
-                if game.message_id
-                else None
-            )
-            message = DMFormats.host_added_dropout(
-                player_mention=f"<@{user.discord_id}>",
-                game_title=game.title,
-                game_time_unix=scheduled_unix,
-                jump_url=jump_url,
-            )
-            self.db.add(
-                BotActionQueue(
-                    action_type="send_dm",
-                    game_id=game.id,
-                    discord_id=host_discord_id,
-                    payload={
-                        "notification_type": "host_added_dropout",
-                        "game_title": game.title,
-                        "game_time_unix": scheduled_unix,
-                        "message": message,
-                    },
-                )
-            )
 
     async def _publish_game_created(
         self,

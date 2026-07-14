@@ -81,12 +81,12 @@ Fix the bug where a confirmed participant voluntarily leaving a game (via the AP
 - [x] Task 3.4: Refactor and add edge-case tests
   - Details: .copilot-tracking/planning/details/20260714-01-waitlist-promotion-notification-gap-details.md (Lines 224-236)
 
-### [ ] Phase 4: Wire the API leave path (bug fix)
+### [x] Phase 4: Wire the API leave path (bug fix)
 
-- [ ] Task 4.1: Write `xfail` regression test proving the gap
+- [x] Task 4.1: Write `xfail` regression test proving the gap
   - Details: .copilot-tracking/planning/details/20260714-01-waitlist-promotion-notification-gap-details.md (Lines 240-266)
 
-- [ ] Task 4.2: Fix `GameService.leave_game` and remove the `xfail` marker
+- [x] Task 4.2: Fix `GameService.leave_game` and remove the `xfail` marker
   - Details: .copilot-tracking/planning/details/20260714-01-waitlist-promotion-notification-gap-details.md (Lines 268-292)
 
 ### [ ] Phase 5: Wire the bot leave path (bug fix + delivery unification)
