@@ -23,6 +23,7 @@
 Verifies leave DM suppression when the join notification has not been sent yet.
 """
 
+import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -31,9 +32,11 @@ import pytest
 
 from services.bot.handlers.leave_game import handle_leave_game
 from shared.message_formats import DMPredicates
+from shared.models.bot_action_queue import BotActionQueue
 from shared.models.game import GameSession
 from shared.models.notification_schedule import NotificationSchedule
 from shared.models.participant import GameParticipant, ParticipantType
+from shared.models.signup_method import SignupMethod
 from shared.models.user import User
 
 USER_DISCORD_ID = "111222333444555666"
@@ -56,6 +59,9 @@ def mock_game(game_id):
     game.title = "Leave Test Game"
     game.guild_id = "guild-db-uuid-42"
     game.status = "SCHEDULED"
+    game.max_players = 5
+    game.signup_method = SignupMethod.SELF_SIGNUP
+    game.host = None
     return game
 
 
@@ -64,8 +70,12 @@ def mock_participant(participant_db_id, mock_game):
     participant = MagicMock(spec=GameParticipant)
     participant.id = participant_db_id
     participant.game_session_id = mock_game.id
+    participant.position_type = ParticipantType.SELF_ADDED
+    participant.position = 0
+    participant.joined_at = datetime.datetime(2026, 1, 1, tzinfo=datetime.UTC)
     participant.user = MagicMock(spec=User)
     participant.user.discord_id = USER_DISCORD_ID
+    mock_game.participants = [participant]
     return participant
 
 
@@ -91,6 +101,9 @@ def _make_mock_db(mock_participant, mock_game, unsent_notification=None):
     """
     mock_db = AsyncMock()
     mock_db.delete = AsyncMock()
+    mock_db.flush = AsyncMock()
+    mock_db.refresh = AsyncMock()
+    mock_db.add = MagicMock()
     mock_db.commit = AsyncMock()
 
     game_result = MagicMock()
@@ -220,6 +233,8 @@ def _make_host_added_game(game_id: str) -> MagicMock:
     game.message_id = HOST_MESSAGE_ID
     game.scheduled_at = MagicMock()
     game.scheduled_at.timestamp.return_value = 1700000000.0
+    game.max_players = 5
+    game.signup_method = SignupMethod.SELF_SIGNUP
     host = MagicMock()
     host.discord_id = HOST_DISCORD_ID
     game.host = host
@@ -237,6 +252,8 @@ def _make_host_added_participant(participant_db_id: str, game_id: str) -> MagicM
     participant.id = participant_db_id
     participant.game_session_id = game_id
     participant.position_type = ParticipantType.HOST_ADDED
+    participant.position = 0
+    participant.joined_at = datetime.datetime(2026, 1, 1, tzinfo=datetime.UTC)
     participant.user = MagicMock(spec=User)
     participant.user.discord_id = USER_DISCORD_ID
     return participant
@@ -259,6 +276,9 @@ def _make_host_added_interaction() -> MagicMock:
 def _make_host_added_mock_db(participant: MagicMock, game: MagicMock) -> MagicMock:
     mock_db = AsyncMock()
     mock_db.delete = AsyncMock()
+    mock_db.flush = AsyncMock()
+    mock_db.refresh = AsyncMock()
+    mock_db.add = MagicMock()
     mock_db.commit = AsyncMock()
 
     game_result = MagicMock()
@@ -297,34 +317,41 @@ def _make_host_added_mock_db(participant: MagicMock, game: MagicMock) -> MagicMo
 
 @pytest.mark.asyncio
 async def test_host_added_leave_sends_dm_to_host(game_id, participant_db_id):
-    """HOST_ADDED participant leaves → host receives a DM matching host_added_dropout."""
+    """HOST_ADDED participant leaves → a host_added_dropout DM is enqueued via BotActionQueue."""
     game = _make_host_added_game(game_id)
     participant = _make_host_added_participant(participant_db_id, game_id)
+    game.participants = [participant]
     interaction = _make_host_added_interaction()
-
-    mock_host_user = MagicMock()
-    mock_host_user.send = AsyncMock()
-    interaction.client.get_user.return_value = mock_host_user
 
     mock_db = _make_host_added_mock_db(participant, game)
 
     with _patch_db(mock_db):
         await handle_leave_game(interaction, game_id)
 
-    mock_host_user.send.assert_awaited_once()
-    sent_content = mock_host_user.send.call_args.args[0]
+    added = [c.args[0] for c in mock_db.add.call_args_list]
+    dropout_rows = [
+        r
+        for r in added
+        if isinstance(r, BotActionQueue)
+        and r.payload.get("notification_type") == "host_added_dropout"
+    ]
+    assert len(dropout_rows) == 1
+    row = dropout_rows[0]
+    assert row.action_type == "send_dm"
+    assert row.discord_id == HOST_DISCORD_ID
     predicate = DMPredicates.host_added_dropout(game.title)
-    assert predicate(MagicMock(content=sent_content)), (
-        f"Sent DM did not match host_added_dropout predicate: {sent_content!r}"
+    assert predicate(MagicMock(content=row.payload["message"])), (
+        f"Enqueued DM did not match host_added_dropout predicate: {row.payload['message']!r}"
     )
 
 
 @pytest.mark.asyncio
 async def test_non_host_added_leave_does_not_send_host_dm(game_id, participant_db_id):
-    """SELF_ADDED participant leaves → get_user is never called for host notification."""
+    """SELF_ADDED participant leaves → no host_added_dropout row is enqueued."""
     game = _make_host_added_game(game_id)
     participant = _make_host_added_participant(participant_db_id, game_id)
     participant.position_type = ParticipantType.SELF_ADDED
+    game.participants = [participant]
 
     interaction = _make_host_added_interaction()
 
@@ -333,29 +360,92 @@ async def test_non_host_added_leave_does_not_send_host_dm(game_id, participant_d
     with _patch_db(mock_db):
         await handle_leave_game(interaction, game_id)
 
+    added = [c.args[0] for c in mock_db.add.call_args_list]
+    dropout_rows = [
+        r
+        for r in added
+        if isinstance(r, BotActionQueue)
+        and r.payload.get("notification_type") == "host_added_dropout"
+    ]
+    assert len(dropout_rows) == 0
     interaction.client.get_user.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_host_added_leave_no_dm_when_host_not_in_cache(game_id, participant_db_id):
-    """HOST_ADDED participant leaves, host not in Discord cache → no exception, leave succeeds."""
+async def test_host_added_leave_dm_independent_of_gateway_cache(game_id, participant_db_id):
+    """HOST_ADDED leave enqueues the dropout DM without ever touching the gateway user cache.
+
+    Delivery moved from a live discord.Client.get_user() lookup to a durable
+    BotActionQueue row built from the DB-loaded game.host relationship, so a
+    host missing from the bot's gateway cache no longer suppresses the DM.
+    """
     game = _make_host_added_game(game_id)
     participant = _make_host_added_participant(participant_db_id, game_id)
+    game.participants = [participant]
     interaction = _make_host_added_interaction()
-
-    interaction.client.get_user.return_value = None
 
     mock_db = _make_host_added_mock_db(participant, game)
 
     with _patch_db(mock_db):
         await handle_leave_game(interaction, game_id)
 
-    notify_calls = [
-        call for call in mock_db.execute.call_args_list if "game_updated_sse" in str(call.args[0])
+    added = [c.args[0] for c in mock_db.add.call_args_list]
+    dropout_rows = [
+        r
+        for r in added
+        if isinstance(r, BotActionQueue)
+        and r.payload.get("notification_type") == "host_added_dropout"
     ]
-    assert len(notify_calls) >= 1, (
-        "Expected pg_notify('game_updated_sse', ...) even when host not in cache"
-    )
+    assert len(dropout_rows) == 1, "Dropout DM must be enqueued regardless of gateway cache state"
+    interaction.client.get_user.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Confirmed leave promotes a waitlisted participant (TDD RED)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_confirmed_leave_promotes_waitlisted_participant(game_id, participant_db_id):
+    """A confirmed HOST_ADDED leaver frees a slot, promoting a waitlisted HOST_ADDED user."""
+    game = _make_host_added_game(game_id)
+    game.max_players = 1
+    game.signup_method = SignupMethod.HOST_SELECTED_WITH_WAITLIST
+
+    leaver = _make_host_added_participant(participant_db_id, game_id)
+
+    waitlisted_discord_id = "waitlisted-discord-id"
+    waitlisted = MagicMock(spec=GameParticipant)
+    waitlisted.id = str(uuid4())
+    waitlisted.game_session_id = game_id
+    waitlisted.position_type = ParticipantType.HOST_ADDED
+    waitlisted.position = 1
+    waitlisted.joined_at = datetime.datetime(2026, 1, 2, tzinfo=datetime.UTC)
+    waitlisted.user = MagicMock(spec=User)
+    waitlisted.user.discord_id = waitlisted_discord_id
+
+    game.participants = [leaver, waitlisted]
+
+    interaction = _make_host_added_interaction()
+    mock_db = _make_host_added_mock_db(leaver, game)
+
+    async def refresh_side_effect(g: MagicMock, attribute_names: list[str] | None = None) -> None:
+        g.participants = [waitlisted]
+
+    mock_db.refresh = AsyncMock(side_effect=refresh_side_effect)
+
+    with _patch_db(mock_db):
+        await handle_leave_game(interaction, game_id)
+
+    added = [c.args[0] for c in mock_db.add.call_args_list]
+    promotion_rows = [
+        r
+        for r in added
+        if isinstance(r, BotActionQueue)
+        and r.payload.get("notification_type") == "waitlist_promotion"
+    ]
+    assert len(promotion_rows) == 1
+    assert promotion_rows[0].discord_id == waitlisted_discord_id
 
 
 # ---------------------------------------------------------------------------

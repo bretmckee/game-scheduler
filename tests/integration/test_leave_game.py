@@ -86,20 +86,28 @@ def test_game(create_guild, create_channel, create_user, create_game):
     return {"guild": guild, "channel": channel, "host": host, "game": game}
 
 
-def _insert_participant(admin_db_sync, game_id: str, user_id: str) -> str:
+def _insert_participant(
+    admin_db_sync,
+    game_id: str,
+    user_id: str,
+    position: int = 1,
+    position_type: int = 1,
+    joined_at: datetime | None = None,
+) -> str:
     participant_id = str(uuid.uuid4())
     admin_db_sync.execute(
         text(
             "INSERT INTO game_participants "
-            "(id, game_session_id, user_id, position, position_type) "
-            "VALUES (:id, :game_id, :user_id, :position, :position_type)"
+            "(id, game_session_id, user_id, position, position_type, joined_at) "
+            "VALUES (:id, :game_id, :user_id, :position, :position_type, :joined_at)"
         ),
         {
             "id": participant_id,
             "game_id": game_id,
             "user_id": user_id,
-            "position": 1,
-            "position_type": 1,
+            "position": position,
+            "position_type": position_type,
+            "joined_at": joined_at or datetime.now(UTC),
         },
     )
     admin_db_sync.commit()
@@ -235,44 +243,99 @@ async def test_successful_leave_deletes_participant_and_publishes_event(
 
 @pytest.mark.asyncio
 async def test_host_added_leave_sends_dm_to_host(test_game, create_user, admin_db_sync) -> None:
-    """When a HOST_ADDED participant leaves, the host receives a DM."""
+    """When a HOST_ADDED participant leaves, a host_added_dropout DM is enqueued."""
     player = create_user(discord_user_id=PLAYER_DISCORD_ID)
     host = test_game["host"]
     game = test_game["game"]
 
-    participant_id = str(uuid.uuid4())
-    admin_db_sync.execute(
-        text(
-            "INSERT INTO game_participants "
-            "(id, game_session_id, user_id, position, position_type) "
-            "VALUES (:id, :game_id, :user_id, :position, :position_type)"
-        ),
-        {
-            "id": participant_id,
-            "game_id": game["id"],
-            "user_id": player["id"],
-            "position": 1,
-            "position_type": 8000,  # ParticipantType.HOST_ADDED
-        },
+    _insert_participant(
+        admin_db_sync,
+        game["id"],
+        player["id"],
+        position_type=8000,  # ParticipantType.HOST_ADDED
     )
-    admin_db_sync.commit()
-
-    host_dm_mock = MagicMock()
-    host_dm_mock.send = AsyncMock()
 
     interaction = _make_interaction(PLAYER_DISCORD_ID)
     interaction.client = MagicMock()
-    interaction.client.get_user = MagicMock(return_value=host_dm_mock)
 
     with _patch_db():
         await handle_leave_game(interaction, game["id"])
 
-    interaction.client.get_user.assert_called_once_with(int(host["discord_id"]))
-    host_dm_mock.send.assert_called_once()
-    dm_content = host_dm_mock.send.call_args.args[0]
+    interaction.client.get_user.assert_not_called()
+
+    dm_rows = admin_db_sync.execute(
+        text(
+            "SELECT discord_id, payload FROM bot_action_queue "
+            "WHERE action_type = 'send_dm' AND game_id = :game_id"
+        ),
+        {"game_id": game["id"]},
+    ).fetchall()
+    dropout_rows = [
+        row for row in dm_rows if row[1].get("notification_type") == "host_added_dropout"
+    ]
+    assert len(dropout_rows) == 1, "No host_added_dropout send_dm row found in bot_action_queue"
+    assert dropout_rows[0][0] == host["discord_id"]
 
     @dataclass
     class _DM:
         content: str | None
 
-    assert DMPredicates.host_added_dropout(game["title"])(_DM(dm_content))
+    assert DMPredicates.host_added_dropout(game["title"])(_DM(dropout_rows[0][1]["message"]))
+
+
+@pytest.mark.asyncio
+async def test_confirmed_leave_via_handler_promotes_waitlisted_participant(
+    test_game, create_user, create_game, admin_db_sync
+) -> None:
+    """A confirmed participant leaving via the Discord button promotes a waitlisted user."""
+    guild = test_game["guild"]
+    channel = test_game["channel"]
+    host = test_game["host"]
+
+    game = create_game(
+        guild_id=guild["id"],
+        channel_id=channel["id"],
+        host_id=host["id"],
+        title="Leave Promotion Handler Test Game",
+        max_players=1,
+    )
+
+    confirmed_user = create_user(discord_user_id=PLAYER_DISCORD_ID)
+    waitlisted_user = create_user()
+
+    confirmed_participant_id = _insert_participant(
+        admin_db_sync,
+        game["id"],
+        confirmed_user["id"],
+        joined_at=datetime.now(UTC),
+    )
+    _insert_participant(
+        admin_db_sync,
+        game["id"],
+        waitlisted_user["id"],
+        joined_at=datetime.now(UTC) + timedelta(seconds=1),
+    )
+
+    interaction = _make_interaction(PLAYER_DISCORD_ID)
+
+    with _patch_db():
+        await handle_leave_game(interaction, game["id"])
+
+    participant_row = admin_db_sync.execute(
+        text("SELECT id FROM game_participants WHERE id = :id"),
+        {"id": confirmed_participant_id},
+    ).fetchone()
+    assert participant_row is None, "Confirmed participant must be deleted after leaving"
+
+    dm_rows = admin_db_sync.execute(
+        text(
+            "SELECT discord_id, payload FROM bot_action_queue "
+            "WHERE action_type = 'send_dm' AND game_id = :game_id"
+        ),
+        {"game_id": game["id"]},
+    ).fetchall()
+    promotion_rows = [
+        row for row in dm_rows if row[1].get("notification_type") == "waitlist_promotion"
+    ]
+    assert len(promotion_rows) == 1, f"No waitlist_promotion send_dm row found: {dm_rows}"
+    assert promotion_rows[0][0] == waitlisted_user["discord_id"]

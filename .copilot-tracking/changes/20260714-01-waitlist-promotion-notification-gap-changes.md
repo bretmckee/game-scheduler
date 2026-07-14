@@ -71,3 +71,30 @@
 ### Notes
 
 - The new integration test needed `seed_redis_cache(...)` for the _leaving_ participant (not just the bot-manager account already seeded by `_make_context`) — RLS (`get_db_with_user_guilds()`) resolves the acting user's guild membership from the Redis member-projection cache, and an unseeded user resolves to an empty guild list, making the game invisible ("Game not found" 404) even though it exists. That `seed_redis_cache` call must also come _before_ any `create_authenticated_client(...)` call in the test: that factory creates and closes its own asyncio event loop, and `seed_redis_cache`'s sync wrapper reuses `asyncio.get_event_loop()` — calling it afterward hits a closed loop (`RuntimeError: Event loop is closed`).
+
+---
+
+## Phase 5: Wire the bot leave path (bug fix + delivery unification)
+
+### Added
+
+- `tests/unit/bot/handlers/test_leave_game_handler.py` — New test `test_confirmed_leave_promotes_waitlisted_participant`: a confirmed `HOST_ADDED` leaver in a `HOST_SELECTED_WITH_WAITLIST`, `max_players=1` game promotes a waitlisted `HOST_ADDED` user; asserts a `waitlist_promotion` `BotActionQueue` row. Written `xfail(strict=True)` first (confirmed `xfailed` against the unfixed handler), then the marker removed. Also added `test_host_added_leave_dm_independent_of_gateway_cache` (renamed/rewritten from `test_host_added_leave_no_dm_when_host_not_in_cache`, whose old premise — a live `discord.Client.get_user()` gateway lookup suppressing the DM — no longer applies now that delivery is DB-driven via `game.host`).
+- `tests/integration/test_leave_game.py` — New test `test_confirmed_leave_via_handler_promotes_waitlisted_participant`, mirroring the API-path regression test but calling `handle_leave_game(interaction, game_id)` directly against a real DB. Written `xfail(strict=True)` first, confirmed `xfailed`, then the marker removed.
+
+### Modified
+
+- `services/bot/handlers/leave_game.py` — `handle_leave_game` now delegates to `leave_game_and_notify(db, game, participant)` in place of the inline `db.delete(participant)` + `_notify_host_if_host_added(...)` call; deleted `_notify_host_if_host_added` entirely (its direct `discord.Client.send()` delivery is replaced by the shared function's `BotActionQueue` insert, unifying `host_added_dropout` delivery with the API-service path); `_validate_leave_game`'s query gained `selectinload(GameSession.participants).selectinload(GameParticipant.user)` so `game.participants` is populated before the delete, as `leave_game_and_notify`'s precondition requires; removed the now-unused `DMFormats`/`ParticipantType` imports, added `from shared.services.leave_game import leave_game_and_notify`.
+- `tests/unit/bot/handlers/test_leave_game_handler.py` — `test_host_added_leave_sends_dm_to_host` and `test_non_host_added_leave_does_not_send_host_dm` rewritten to assert against `BotActionQueue` rows added to the mock DB session instead of a mocked `interaction.client.get_user(...).send(...)` call (delivery-mechanism change, not a regression — called out explicitly in the plan). `mock_game`/`mock_participant` fixtures and `_make_host_added_game`/`_make_host_added_participant`/`_make_host_added_mock_db` helpers gained `max_players`, `signup_method`, `position`, `joined_at`, and `participants` so `leave_game_and_notify`'s internal `partition_participants(...)` call has real, sortable values instead of unconfigured `MagicMock` attributes.
+- `tests/integration/test_leave_game.py` — `test_host_added_leave_sends_dm_to_host` rewritten to query `bot_action_queue` for a `host_added_dropout` `send_dm` row instead of asserting a mocked `interaction.client.get_user(...).send(...)` call; `_insert_participant` gained optional `position`/`position_type`/`joined_at` parameters (defaults preserve existing call sites) so the new promotion test can control waitlist ordering.
+
+### Verified
+
+- `uv run pytest tests/unit/bot/handlers/test_leave_game_handler.py -v` — all 10 tests passing (confirmed the 2 new/rewritten tests `xfailed`/failed appropriately against the unfixed handler first, via a temporary `git stash` of the production fix, before reapplying it)
+- `scripts/run-integration-tests.sh tests/integration/test_leave_game.py tests/integration/test_leave_game_promotion.py tests/integration/test_player_removed_queue.py tests/integration/test_button_handler.py tests/integration/test_join_game.py` — 22 passed
+- `uv run pytest tests/unit` — 2351 passed
+- `uv run mypy shared/ services/` — no issues
+- `grep -n "_notify_host_if_host_added" services/bot/handlers/leave_game.py` — no matches
+
+### Notes
+
+- To properly follow the TDD bug-fix workflow despite having drafted the handler fix before the regression tests, the fix was temporarily `git stash`ed so the new `xfail`-marked tests could be run and confirmed `xfailed`/failing against the actual pre-fix handler, then the stash was popped and the `xfail` markers removed — same RED→GREEN discipline as if the fix had been written after the tests originally.
