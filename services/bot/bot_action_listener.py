@@ -30,6 +30,7 @@ from sqlalchemy import select
 
 from shared.database import get_db_session
 from shared.models.bot_action_queue import BotActionQueue
+from shared.pg_listen import listen_with_reconnect
 
 if TYPE_CHECKING:
     from services.bot.events.handlers import EventHandlers
@@ -103,26 +104,18 @@ class BotActionListener:
         self._drain_task: asyncio.Task[None] | None = None
 
     async def start(self) -> None:
-        """Open the asyncpg LISTEN connection and block until cancelled.
+        """Maintain the LISTEN connection, reconnecting automatically on loss.
 
-        Strips the SQLAlchemy ``+asyncpg`` driver prefix so asyncpg receives
-        a plain ``postgresql://`` URL it can handle directly.
+        Drains any pending bot_action_queue rows on every (re)connect, not
+        just the first one, so rows written while the connection was down
+        (or before the listener started) are picked up once LISTEN resumes.
         """
-        db_url = self._bot_db_url.replace("postgresql+asyncpg://", "postgresql://")
-        conn: asyncpg.Connection | None = None
-        try:
-            conn = await asyncpg.connect(db_url)
-            await conn.add_listener("bot_action_queue_changed", self._on_notify)
-            # Drain any rows written before we started listening.
-            self._spawn_drain()
-            await asyncio.get_event_loop().create_future()
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            logger.exception("BotActionListener failed to start")
-        finally:
-            if conn is not None:
-                await conn.close()
+        await listen_with_reconnect(
+            self._bot_db_url,
+            "bot_action_queue_changed",
+            self._on_notify,
+            on_connected=lambda _conn: self._spawn_drain(),
+        )
 
     def _on_notify(
         self,

@@ -21,7 +21,6 @@
 
 """Unit tests for BotActionListener."""
 
-import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -322,20 +321,6 @@ class TestOnNotify:
         assert spawned == [True]
 
 
-class TestStartExceptionHandling:
-    """start() catches non-CancelledError exceptions without propagating."""
-
-    @pytest.mark.asyncio
-    async def test_start_handles_connect_error(self, listener: BotActionListener) -> None:
-        with patch(
-            "services.bot.bot_action_listener.asyncpg.connect",
-            side_effect=OSError("connection refused"),
-        ):
-            await listener.start()  # must not raise
-
-        assert listener._drain_task is None  # no drain was spawned
-
-
 class TestDrainQueue:
     """_drain_queue loops until _process_one returns False."""
 
@@ -408,33 +393,53 @@ class TestSpawnDrain:
 
 
 class TestStart:
-    """start() opens asyncpg connection, LISTENs, drains pending rows, then blocks."""
+    """start() delegates to listen_with_reconnect, draining on every (re)connect.
+
+    Connection setup, retry-on-failure, and reconnect-after-disconnect behavior
+    are the shared responsibility of listen_with_reconnect (see
+    tests/unit/shared/test_pg_listen.py) — start() only needs to prove it wires
+    the right channel, callback, and drain-on-connect hook.
+    """
 
     @pytest.mark.asyncio
-    async def test_start_listens_and_drains_pending(self, listener: BotActionListener) -> None:
-        mock_conn = AsyncMock()
-        mock_conn.add_listener = AsyncMock()
-        mock_conn.close = AsyncMock()
+    async def test_start_delegates_to_listen_with_reconnect(
+        self, listener: BotActionListener
+    ) -> None:
+        """start() calls listen_with_reconnect with the URL, channel, and callback."""
+        with patch(
+            "services.bot.bot_action_listener.listen_with_reconnect",
+            new_callable=AsyncMock,
+        ) as mock_listen:
+            await listener.start()
 
-        # Make create_future() return a future that immediately resolves (so start() returns)
-        done_future: asyncio.Future[None] = asyncio.get_event_loop().create_future()
-        done_future.set_result(None)
+        args = mock_listen.call_args[0]
+        assert args[0] == listener._bot_db_url
+        assert args[1] == "bot_action_queue_changed"
+        assert args[2] == listener._on_notify
 
+    @pytest.mark.asyncio
+    async def test_start_on_connected_hook_drains_pending_rows(
+        self, listener: BotActionListener
+    ) -> None:
+        """The on_connected hook passed to listen_with_reconnect drains the queue.
+
+        This runs on every (re)connect, not just the first one, so rows written
+        while the LISTEN connection was down get picked up once it resumes.
+        """
         spawn_called: list[bool] = []
+        listener._spawn_drain = lambda: spawn_called.append(True)  # type: ignore[method-assign]
+        captured_kwargs: dict[str, object] = {}
 
-        def fake_spawn_drain() -> None:
-            spawn_called.append(True)
+        async def fake_listen(*_args: object, **kwargs: object) -> None:
+            captured_kwargs.update(kwargs)
 
-        listener._spawn_drain = fake_spawn_drain  # type: ignore[method-assign]
-
-        with (
-            patch("services.bot.bot_action_listener.asyncpg.connect", return_value=mock_conn),
-            patch.object(asyncio.get_event_loop(), "create_future", return_value=done_future),
+        with patch(
+            "services.bot.bot_action_listener.listen_with_reconnect",
+            side_effect=fake_listen,
         ):
             await listener.start()
 
-        mock_conn.add_listener.assert_awaited_once_with(
-            "bot_action_queue_changed", listener._on_notify
-        )
+        on_connected = captured_kwargs["on_connected"]
+        on_connected(MagicMock())  # type: ignore[operator]
+
         assert spawn_called == [True]
-        mock_conn.close.assert_awaited_once()

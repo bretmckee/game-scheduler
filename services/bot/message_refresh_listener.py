@@ -28,6 +28,8 @@ from typing import Any
 
 import asyncpg
 
+from shared.pg_listen import listen_with_reconnect
+
 logger = logging.getLogger(__name__)
 
 
@@ -57,25 +59,12 @@ class MessageRefreshListener:
         self._channel_workers: dict[str, asyncio.Task[Any]] = {}
 
     async def start(self) -> None:
-        """Open the asyncpg LISTEN connection and block until cancelled.
-
-        Strips the SQLAlchemy ``+asyncpg`` driver prefix so asyncpg receives
-        a plain ``postgresql://`` URL it can handle directly.
-        """
-        db_url = self._bot_db_url.replace("postgresql+asyncpg://", "postgresql://")
-        conn: asyncpg.Connection | None = None
-        try:
-            conn = await asyncpg.connect(db_url)
-            await conn.add_listener("message_refresh_queue_changed", self._on_notify)
-            # Block here; asyncio delivers NOTIFYs via the event loop while we wait.
-            await asyncio.get_event_loop().create_future()
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            logger.exception("MessageRefreshListener failed to start")
-        finally:
-            if conn is not None:
-                await conn.close()
+        """Maintain the LISTEN connection, reconnecting automatically on loss."""
+        await listen_with_reconnect(
+            self._bot_db_url,
+            "message_refresh_queue_changed",
+            self._on_notify,
+        )
 
     def _on_notify(
         self,

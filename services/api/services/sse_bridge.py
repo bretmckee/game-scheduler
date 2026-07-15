@@ -39,6 +39,7 @@ from shared.cache import client as cache_client
 from shared.cache import projection as member_projection
 from shared.database import get_bypass_db_session
 from shared.models.guild import GuildConfiguration
+from shared.pg_listen import listen_with_reconnect
 
 logger = logging.getLogger(__name__)
 
@@ -72,22 +73,22 @@ class SSEGameUpdateBridge:
         self.keepalive_interval_seconds = seconds
 
     async def start_consuming(self) -> None:
-        """Open an asyncpg connection and listen on game_updated_sse until cancelled."""
-        db_url = self._db_url.replace("postgresql+asyncpg://", "postgresql://")
-        conn: asyncpg.Connection | None = None
-        try:
-            conn = await asyncpg.connect(db_url)
-            self._conn = conn
-            await conn.add_listener("game_updated_sse", self._on_notify)
-            await asyncio.get_event_loop().create_future()
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            logger.exception("SSE bridge LISTEN loop failed")
-        finally:
-            if conn is not None:
-                await conn.close()
-                self._conn = None
+        """Maintain the LISTEN connection, reconnecting automatically on loss."""
+        await listen_with_reconnect(
+            self._db_url,
+            "game_updated_sse",
+            self._on_notify,
+            on_connected=self._set_conn,
+            on_disconnected=self._clear_conn,
+        )
+
+    def _set_conn(self, conn: asyncpg.Connection) -> None:
+        """Track the live connection so stop_consuming() can close it on demand."""
+        self._conn = conn
+
+    def _clear_conn(self) -> None:
+        """Clear the tracked connection once it has been closed."""
+        self._conn = None
 
     async def stop_consuming(self) -> None:
         """Close the asyncpg LISTEN connection."""

@@ -53,59 +53,30 @@ def listener(spawn_cb: MagicMock) -> MessageRefreshListener:
 
 
 class TestMessageRefreshListenerStart:
-    """Verify start() establishes the asyncpg LISTEN connection."""
+    """Verify start() delegates to the resilient LISTEN-with-reconnect helper.
+
+    Connection setup, retry-on-failure, and reconnect-after-disconnect
+    behavior are the shared responsibility of listen_with_reconnect (see
+    tests/unit/shared/test_pg_listen.py) — start() only needs to prove it
+    delegates to that helper with the right arguments.
+    """
 
     @pytest.mark.asyncio
-    async def test_start_opens_asyncpg_connection(self, listener: MessageRefreshListener) -> None:
-        """start() calls asyncpg.connect with the provided database URL."""
-        mock_conn = AsyncMock()
-        mock_conn.add_listener = AsyncMock()
-        mock_conn.close = AsyncMock()
-
+    async def test_start_delegates_to_listen_with_reconnect(
+        self, listener: MessageRefreshListener
+    ) -> None:
+        """start() calls listen_with_reconnect with the URL, channel, and callback."""
         with patch(
-            "services.bot.message_refresh_listener.asyncpg.connect",
+            "services.bot.message_refresh_listener.listen_with_reconnect",
             new_callable=AsyncMock,
-            return_value=mock_conn,
-        ) as mock_connect:
-            task = asyncio.create_task(listener.start())
-            # Give the coroutine a chance to call connect before we cancel
-            await asyncio.sleep(0)
-            task.cancel()
-            try:
-                await task
-            except asyncio.CancelledError:
-                pass
+        ) as mock_listen:
+            await listener.start()
 
-            mock_connect.assert_awaited_once()
-            call_url = mock_connect.call_args[0][0]
-            # SQLAlchemy driver prefix is stripped; plain postgresql:// URL is used
-            assert "postgresql+asyncpg" not in call_url
-            assert call_url.startswith("postgresql://")
-
-    @pytest.mark.asyncio
-    async def test_start_registers_listener(self, listener: MessageRefreshListener) -> None:
-        """start() calls add_listener with the correct channel name and callback."""
-        mock_conn = AsyncMock()
-        mock_conn.add_listener = AsyncMock()
-        mock_conn.close = AsyncMock()
-
-        with patch(
-            "services.bot.message_refresh_listener.asyncpg.connect",
-            new_callable=AsyncMock,
-            return_value=mock_conn,
-        ):
-            task = asyncio.create_task(listener.start())
-            await asyncio.sleep(0)
-            task.cancel()
-            try:
-                await task
-            except asyncio.CancelledError:
-                pass
-
-            mock_conn.add_listener.assert_awaited_once_with(
-                "message_refresh_queue_changed",
-                listener._on_notify,
-            )
+        mock_listen.assert_awaited_once_with(
+            _DB_URL,
+            "message_refresh_queue_changed",
+            listener._on_notify,
+        )
 
 
 class TestMessageRefreshListenerOnNotify:
@@ -137,27 +108,6 @@ class TestMessageRefreshListenerOnNotify:
         assert _CHANNEL_ID in listener._channel_workers
         # The stored value is the asyncio.Task returned by spawn_worker_cb
         assert listener._channel_workers[_CHANNEL_ID] is not None
-
-
-class TestMessageRefreshListenerStartEdgeCases:
-    """Edge cases for start() failure handling."""
-
-    @pytest.mark.asyncio
-    async def test_start_logs_and_returns_on_connection_error(
-        self, listener: MessageRefreshListener
-    ) -> None:
-        """start() logs the error and returns cleanly when asyncpg.connect raises."""
-        with (
-            patch(
-                "services.bot.message_refresh_listener.asyncpg.connect",
-                new_callable=AsyncMock,
-                side_effect=OSError("connection refused"),
-            ),
-            patch("services.bot.message_refresh_listener.logger") as mock_logger,
-        ):
-            await listener.start()
-
-        mock_logger.exception.assert_called_once_with("MessageRefreshListener failed to start")
 
 
 class TestMessageRefreshListenerOnNotifyEdgeCases:

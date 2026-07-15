@@ -23,7 +23,7 @@
 
 import asyncio
 import json
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 from uuid import uuid4
 
 import pytest
@@ -51,35 +51,54 @@ def test_bridge_accepts_db_url():
 
 
 @pytest.mark.asyncio
-async def test_start_consuming_uses_asyncpg_listen():
-    """start_consuming opens asyncpg connection and listens on game_updated_sse."""
+async def test_start_consuming_delegates_to_listen_with_reconnect():
+    """start_consuming calls listen_with_reconnect with the URL, channel, and callback.
+
+    Connection setup, retry-on-failure, and reconnect-after-disconnect behavior
+    are the shared responsibility of listen_with_reconnect (see
+    tests/unit/shared/test_pg_listen.py) — start_consuming only needs to prove
+    it delegates to that helper with the right arguments.
+    """
     bridge = SSEGameUpdateBridge(_TEST_DB_URL)
-    mock_conn = AsyncMock()
-    mock_conn.add_listener = AsyncMock()
 
-    with patch("asyncpg.connect", return_value=mock_conn) as mock_connect:
-        task = asyncio.create_task(bridge.start_consuming())
-        await asyncio.sleep(0)
-        task.cancel()
-        try:
-            await task
-        except asyncio.CancelledError:
-            pass
+    with patch(
+        "services.api.services.sse_bridge.listen_with_reconnect",
+        new_callable=AsyncMock,
+    ) as mock_listen:
+        await bridge.start_consuming()
 
-    mock_connect.assert_called_once()
-    called_url = mock_connect.call_args[0][0]
-    assert "postgresql://" in called_url and "+asyncpg" not in called_url
-    mock_conn.add_listener.assert_called_once_with("game_updated_sse", bridge._on_notify)
+    args, kwargs = mock_listen.call_args
+    assert args[0] == _TEST_DB_URL
+    assert args[1] == "game_updated_sse"
+    assert args[2] == bridge._on_notify
+    assert kwargs["on_connected"] == bridge._set_conn
+    assert kwargs["on_disconnected"] == bridge._clear_conn
 
 
 @pytest.mark.asyncio
-async def test_start_consuming_handles_connect_error():
-    """start_consuming logs exception and exits cleanly when asyncpg.connect fails."""
-    bridge = SSEGameUpdateBridge(_TEST_DB_URL)
+async def test_start_consuming_on_connected_and_on_disconnected_manage_conn():
+    """The on_connected/on_disconnected hooks passed to listen_with_reconnect track _conn.
 
-    with patch("asyncpg.connect", side_effect=OSError("connection refused")):
+    This is what lets stop_consuming() close the live connection, and what
+    lets a reconnect after a lost connection pick up a fresh one.
+    """
+    bridge = SSEGameUpdateBridge(_TEST_DB_URL)
+    mock_conn = MagicMock()
+    captured_kwargs: dict[str, object] = {}
+
+    async def fake_listen(*_args: object, **kwargs: object) -> None:
+        captured_kwargs.update(kwargs)
+
+    with patch(
+        "services.api.services.sse_bridge.listen_with_reconnect",
+        side_effect=fake_listen,
+    ):
         await bridge.start_consuming()
 
+    captured_kwargs["on_connected"](mock_conn)  # type: ignore[operator]
+    assert bridge._conn is mock_conn
+
+    captured_kwargs["on_disconnected"]()  # type: ignore[operator]
     assert bridge._conn is None
 
 
