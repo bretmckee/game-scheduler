@@ -220,6 +220,18 @@ repos:
         pass_filenames: false
         additional_dependencies: ['lizard~=1.20.0']
 
+  # AI config sync: detect drift between Copilot-native config (.github/agents,
+  # .github/instructions, .github/prompts, copilot-instructions.md, and the
+  # generated implementation-prompt files) and their Claude-native conversions.
+  - repo: local
+    hooks:
+      - id: ai-config-sync-check
+        name: Check AI config sync (Copilot -> Claude)
+        entry: uv run python scripts/check_ai_config_sync.py check
+        language: system
+        pass_filenames: false
+        files: ^(\.github/(copilot-instructions\.md|agents/|instructions/|prompts/)|\.copilot-tracking/planning/prompts/|\.claude/config-sync-manifest\.json)
+
   # Duplicate code detection
   - repo: local
     hooks:

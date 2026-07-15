@@ -1,0 +1,159 @@
+{
+  "entries": {
+    ".github/agents/task-planner.agent.md": {
+      "source_hash": "692c4f6532834d6ff165e6ea8f3c5e8ac7634a44692b6a77a290e24e35521881",
+      "output": ".claude/agents/task-planner.md",
+      "output_hash": "f124d814496b3872d67f9101bf402f38efc8b9fc1f3b40cdcc1baa469a64f66f"
+    },
+    ".github/agents/task-researcher.agent.md": {
+      "source_hash": "ccaab2b2ed738b9cc93c317ee906f0d33eb23df4dadaacb35c301c9789843dcc",
+      "output": ".claude/agents/task-researcher.md",
+      "output_hash": "c51fd1aa4c03473dabb4b8bde2353c95e51047411aee880edeefab132b9b8dfa"
+    },
+    ".github/copilot-instructions.md": {
+      "source_hash": "f38694641b9cdbbfadc65b1bcc8036774b886a366a4256cb8811a4aa08d80e81",
+      "output": null,
+      "output_hash": null
+    },
+    ".github/instructions/agents.instructions.md": {
+      "source_hash": "4d01bb8c422a94f366a4323c76827adb643d4694dcfd488f42df3086cce09e06",
+      "output": null,
+      "output_hash": null
+    },
+    ".github/instructions/ai-prompt-engineering-safety-best-practices.instructions.md": {
+      "source_hash": "a46f80920e1d84380d667a707cd62324704a8183c9ecd8671258d7eeba479165",
+      "output": null,
+      "output_hash": null
+    },
+    ".github/instructions/api-authorization.instructions.md": {
+      "source_hash": "395323af961f5d0a1942c8fb4ad1599736937b8cc2e4fea29c69f96608cb9c11",
+      "output": null,
+      "output_hash": null
+    },
+    ".github/instructions/coding-best-practices.instructions.md": {
+      "source_hash": "8cda977f39e0272675e627752c80b6b2078cdba806ee23a2252ecb4ff8002447",
+      "output": null,
+      "output_hash": null
+    },
+    ".github/instructions/commit-messages.instructions.md": {
+      "source_hash": "e07bcd00d15557d00b8c1dd9fec4c2b28ecb4ca73f3a60e1bcdf7992c2ffb7d3",
+      "output": null,
+      "output_hash": null
+    },
+    ".github/instructions/containerization-docker-best-practices.instructions.md": {
+      "source_hash": "d709ad903dc17f8e62793aab5e80b548bd142df1941e6a9b8119a71f222d243d",
+      "output": null,
+      "output_hash": null
+    },
+    ".github/instructions/copyright-headers.instructions.md": {
+      "source_hash": "3444fc99281d381ffd9bc58c0ee69d420c529177416058a5d13b59cbf278afac",
+      "output": null,
+      "output_hash": null
+    },
+    ".github/instructions/fastapi-transaction-patterns.instructions.md": {
+      "source_hash": "8b635fcd81f3c722079f027f64d30530344732c38fe31e7a71c7a26f8d7a49db",
+      "output": null,
+      "output_hash": null
+    },
+    ".github/instructions/github-actions-ci-cd-best-practices.instructions.md": {
+      "source_hash": "82f82a494d8e2a1d3120dbd015e08a79a55dbec49c5dae95f14d036aee93f95b",
+      "output": null,
+      "output_hash": null
+    },
+    ".github/instructions/grafana-observability-debugging.instructions.md": {
+      "source_hash": "977507352de36812025311723565a8f82ad036103cc6df5ef95c234d9d863bc0",
+      "output": null,
+      "output_hash": null
+    },
+    ".github/instructions/instructions.instructions.md": {
+      "source_hash": "82cafd92cbc3c3495be6e79a42d184b974a36b981558e0b82dd18ea2163eb226",
+      "output": null,
+      "output_hash": null
+    },
+    ".github/instructions/integration-tests.instructions.md": {
+      "source_hash": "190b96657a22f4c4f3f97dd10e70f2f6a3a47bb76fcdfc9f1b039fa4659725e4",
+      "output": null,
+      "output_hash": null
+    },
+    ".github/instructions/markdown.instructions.md": {
+      "source_hash": "c8a18705593ebb33b76fced36fe422d380e25356b4e8feeb2f16364484062d57",
+      "output": null,
+      "output_hash": null
+    },
+    ".github/instructions/prompt.instructions.md": {
+      "source_hash": "df0a1e03824318ecf58be410d58d77d0a8f4d41c5cfd3992643d6ec4c5ac627d",
+      "output": null,
+      "output_hash": null
+    },
+    ".github/instructions/python.instructions.md": {
+      "source_hash": "cc06af23f852110303f22afadac43461c9dc81d4b66b977c05896a102ca74f03",
+      "output": null,
+      "output_hash": null
+    },
+    ".github/instructions/quality-check-overrides.instructions.md": {
+      "source_hash": "a35694ae9d07bf6b75c806843b2c2b47e7d8603bedccbae6841aa42b1b76e0c2",
+      "output": null,
+      "output_hash": null
+    },
+    ".github/instructions/reactjs.instructions.md": {
+      "source_hash": "e88d32bb4cb752b49bd1681f93ffcf60d49277388d1634717dd0bccdc17904fb",
+      "output": null,
+      "output_hash": null
+    },
+    ".github/instructions/researcher-enhancements.instructions.md": {
+      "source_hash": "b6e4238c9d91873d04f2d0d33d9b13dcfdb0b02595f923b1537640b3e963805a",
+      "output": null,
+      "output_hash": null
+    },
+    ".github/instructions/self-explanatory-code-commenting.instructions.md": {
+      "source_hash": "9da8aa65919bee84a6d309bcab25f9e9c786098fc4ef3b5d4ba2f8317522fbb1",
+      "output": null,
+      "output_hash": null
+    },
+    ".github/instructions/taming-copilot.instructions.md": {
+      "source_hash": "5328037eeadd6e723a1ca4950b3fec211e5e977716289518efc02f7c3b250b61",
+      "output": null,
+      "output_hash": null
+    },
+    ".github/instructions/task-implementation.instructions.md": {
+      "source_hash": "fc4292dc0a3ae4cb07b15bc44baba9bf0305a57309ec1d380fc97e82c39b83fd",
+      "output": null,
+      "output_hash": null
+    },
+    ".github/instructions/test-driven-development.instructions.md": {
+      "source_hash": "d06494d87a921f4bf932119ad929574a3a78c6ddf3ae7b2875182872d4dbb193",
+      "output": null,
+      "output_hash": null
+    },
+    ".github/instructions/test-execution.instructions.md": {
+      "source_hash": "49c4e404b53150ddd1273c0f10507454cdebc87b02ea8af6f5f6252f386ede19",
+      "output": null,
+      "output_hash": null
+    },
+    ".github/instructions/typescript-5-es2022.instructions.md": {
+      "source_hash": "b5d7f95900ea40eb34064264542903331a799a54474186eb8778707d1e62f8a8",
+      "output": null,
+      "output_hash": null
+    },
+    ".github/instructions/unit-tests.instructions.md": {
+      "source_hash": "300630518da013fc1fad9cc4dd7f0161ede6c99e6f6796234c67e3a58ad53244",
+      "output": null,
+      "output_hash": null
+    },
+    ".github/prompts/brainstorm.prompt.md": {
+      "source_hash": "e40102e9bbfd4ca38ad5aa18b4adc2a96c5dc8b0562e4dfe34bdf2cdcd0f0993",
+      "output": ".claude/commands/brainstorm.md",
+      "output_hash": "6a938f0e68ced3b1239ba76ee4ffccba59afc445abded9277f313fad601e41ca"
+    },
+    ".github/prompts/commit.prompt.md": {
+      "source_hash": "359bf40cd170e8856515256ffc8e3bac3d208ffebf01051cd5685aaedd5a4d77",
+      "output": ".claude/commands/commit.md",
+      "output_hash": "851f27d9a0568ee0d91c049d37cc3a394133d054f200e5369d6381f06edbd302"
+    },
+    ".github/prompts/verify-code.prompt.md": {
+      "source_hash": "1e36a07f372b2915c83ef19cfa6d5972ffc59104456e1524b1a7c3e48c963dcf",
+      "output": ".claude/commands/verify-code.md",
+      "output_hash": "f28b2f8037db4715fcf871f718c2eb1c26b27e76b0a8f49d2f69e0027cf1a9ba"
+    }
+  }
+}
