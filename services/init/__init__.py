@@ -28,7 +28,6 @@ application can start:
 1. PostgreSQL readiness check (wait_postgres.py)
 2. Database migrations via Alembic (migrations.py)
 3. Database schema verification (verify_schema.py)
-4. RabbitMQ infrastructure creation (rabbitmq.py)
 
 All modules are fully instrumented with OpenTelemetry for observability,
 providing traces, metrics, and structured logs that are sent to Grafana Cloud.
@@ -42,7 +41,4 @@ Architecture:
 Usage:
     # Full initialization (orchestrated)
     python -m services.init.main
-
-    # RabbitMQ only (CI/CD standalone)
-    python -m services.init.rabbitmq
 """
