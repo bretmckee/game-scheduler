@@ -9,7 +9,7 @@ model: sonnet
 
 ## Core Requirements
 
-You WILL create actionable task plans based on verified research findings. You WILL write three files for each task: plan checklist (`./.copilot-tracking/planning/plans/`), implementation details (`./.copilot-tracking/planning/details/`), and implementation prompt (`./.copilot-tracking/planning/prompts/`).
+You WILL create actionable task plans based on verified research findings. You WILL write three files for each task: plan checklist (`./.copilot-tracking/planning/plans/`), implementation details (`./.copilot-tracking/planning/details/`), and an implementation command (`.claude/commands/`) that becomes a native `/implement-{{task_description}}` slash command.
 
 **CRITICAL**: You MUST verify comprehensive research exists before any planning activity. You WILL invoke the task-researcher subagent when research is missing or incomplete.
 
@@ -48,7 +48,7 @@ You WILL process user input as follows:
 ## File Operations
 
 - **READ**: You WILL use any read tool across the entire workspace for plan creation
-- **WRITE**: You WILL create/edit files ONLY in `./.copilot-tracking/planning/plans/`, `./.copilot-tracking/planning/details/`, `./.copilot-tracking/planning/prompts/`, and `./.copilot-tracking/research/`
+- **WRITE**: You WILL create/edit files ONLY in `./.copilot-tracking/planning/plans/`, `./.copilot-tracking/planning/details/`, `.claude/commands/`, and `./.copilot-tracking/research/`
 - **OUTPUT**: You WILL NOT display plan content in conversation - only brief status updates
 - **DEPENDENCY**: You WILL ensure research validation before any planning work
 
@@ -72,7 +72,7 @@ You WILL use these exact naming patterns:
 
 - **Plan/Checklist**: `YYYYMMDD-NN-task-description.plan.md` (where NN is a 2-digit sequence number starting at 01 and incrementing: 01, 02, 03, etc.)
 - **Details**: `YYYYMMDD-NN-task-description-details.md`
-- **Implementation Prompts**: `implement-task-description.prompt.md`
+- **Implementation Command**: `.claude/commands/implement-task-description.md` (no `.prompt` in the name — the plain `.md` extension is what makes Claude Code register it as a slash command)
 
 **CRITICAL**: Research files MUST exist in `./.copilot-tracking/research/` before creating any planning files.
 
@@ -145,10 +145,13 @@ You WILL include:
 - **Success Criteria**: Task-level verification steps
 - **Dependencies**: Prerequisites for each task
 
-### Implementation Prompt File (`implement-*.md`) - stored in `./.copilot-tracking/planning/prompts/`
+### Implementation Command File (`implement-*.md`) - stored in `.claude/commands/`
+
+This file becomes a native Claude Code slash command (`/implement-{{task_description}}`) as soon as it's written — no restart needed, since `.claude/commands/` already exists.
 
 You WILL include:
 
+- **Frontmatter**: `---\ndescription: '{{one_line_summary_of_what_the_command_does}}'\n---`
 - **Markdownlint disable**: `<!-- markdownlint-disable-file -->`
 - **Task Overview**: Brief implementation description
 - **Step-by-step Instructions**: Execution process referencing plan file
@@ -300,6 +303,10 @@ applyTo: '.copilot-tracking/changes/{{date}}-{{sequence}}-{{task_description}}-c
 <!-- <implementation-prompt-template> -->
 
 ```markdown
+---
+description: '{{one_line_summary_of_what_the_command_does}}'
+---
+
 <!-- markdownlint-disable-file -->
 
 # Implementation Prompt: {{task_name}}

@@ -3,7 +3,7 @@
     ".github/agents/task-planner.agent.md": {
       "source_hash": "692c4f6532834d6ff165e6ea8f3c5e8ac7634a44692b6a77a290e24e35521881",
       "output": ".claude/agents/task-planner.md",
-      "output_hash": "f124d814496b3872d67f9101bf402f38efc8b9fc1f3b40cdcc1baa469a64f66f"
+      "output_hash": "52ec1b163d4ea03a5f85d5fc941572741ee9ca90f419687ba3e6abb1a519bf93"
     },
     ".github/agents/task-researcher.agent.md": {
       "source_hash": "ccaab2b2ed738b9cc93c317ee906f0d33eb23df4dadaacb35c301c9789843dcc",
