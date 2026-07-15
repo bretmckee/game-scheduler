@@ -97,9 +97,9 @@ Fix the bug where a confirmed participant voluntarily leaving a game (via the AP
 - [x] Task 5.2: Fix `handle_leave_game` and remove the `xfail` markers
   - Details: .copilot-tracking/planning/details/20260714-01-waitlist-promotion-notification-gap-details.md (Lines 332-360)
 
-### [ ] Phase 6: E2E coverage for leave-triggers-promotion DM delivery
+### [x] Phase 6: E2E coverage for leave-triggers-promotion DM delivery
 
-- [ ] Task 6.1: Add e2e test combining the leave path with promotion-DM verification
+- [x] Task 6.1: Add e2e test combining the leave path with promotion-DM verification
   - Details: .copilot-tracking/planning/details/20260714-01-waitlist-promotion-notification-gap-details.md (Lines 364-390)
 
 ## Dependencies

@@ -379,3 +379,95 @@ async def test_promotion_drag_delivers_promotion_dm(
     )
     print(f"✓ Test user received promotion DM: {promotion_dm.content[:100]}...")
     print("✓ HOST_SELECTED_WITH_WAITLIST promotion drag DM delivery validated")
+
+
+@pytest.mark.timeout(240)
+@pytest.mark.asyncio
+async def test_leave_promotes_waitlisted_participant_sends_dm(
+    authenticated_admin_client,
+    authenticated_player_a_client,
+    admin_db,
+    main_bot_helper,
+    discord_channel_id,
+    discord_user_id,
+    discord_player_a_id,
+    discord_guild_id,
+    synced_guild,
+    test_timeouts,
+):
+    """
+    E2E: Confirmed participant voluntarily leaving via the API promotes a waitlisted user.
+
+    Verifies:
+    - Game created with max_players=1, Player A confirmed, real test user waitlisted
+    - Player A leaves via POST /api/v1/games/{id}/leave (not a host edit)
+    - Test user (waitlisted) receives a promotion DM
+    """
+    result = await admin_db.execute(
+        text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
+        {"guild_id": discord_guild_id},
+    )
+    row = result.fetchone()
+    assert row, f"Test guild {discord_guild_id} not found"
+    test_guild_id = row[0]
+
+    result = await admin_db.execute(
+        text("SELECT id FROM game_templates WHERE guild_id = :guild_id AND is_default = true"),
+        {"guild_id": test_guild_id},
+    )
+    row = result.fetchone()
+    assert row, f"Default template not found for guild {test_guild_id}"
+    test_template_id = row[0]
+
+    game_title = f"E2E Leave Promotion {uuid4().hex[:8]}"
+    scheduled_at = datetime.now(UTC) + timedelta(hours=2)
+
+    # max_players=1: Player A (joined first) is confirmed, the real test user
+    # (joined second) is waitlisted.
+    game_data = {
+        "template_id": test_template_id,
+        "title": game_title,
+        "description": "Testing waitlist promotion via voluntary leave",
+        "scheduled_at": scheduled_at.isoformat(),
+        "max_players": "1",
+        "initial_participants": json.dumps([f"<@{discord_player_a_id}>", f"<@{discord_user_id}>"]),
+    }
+
+    response = await authenticated_admin_client.post("/api/v1/games", data=game_data)
+    assert response.status_code == 201, f"Failed to create game: {response.text}"
+    game_id = response.json()["id"]
+    print(f"✓ Created game {game_id}: Player A confirmed, test user waitlisted")
+
+    message_id = await wait_for_game_message_id(
+        admin_db, game_id, timeout=test_timeouts[TimeoutType.DB_WRITE]
+    )
+    assert message_id is not None, "Message ID should be populated after announcement"
+    await main_bot_helper.wait_for_message(
+        channel_id=discord_channel_id,
+        message_id=message_id,
+        timeout=test_timeouts[TimeoutType.MESSAGE_CREATE],
+    )
+
+    leave_response = await authenticated_player_a_client.post(f"/api/v1/games/{game_id}/leave")
+    assert leave_response.status_code == 204, f"Player A failed to leave: {leave_response.text}"
+    print("✓ Player A left the game, freeing the confirmed slot")
+
+    promotion_dm = await main_bot_helper.wait_for_recent_dm(
+        user_id=discord_user_id,
+        game_title=game_title,
+        dm_type=DMType.PROMOTION,
+        timeout=test_timeouts[TimeoutType.DM_IMMEDIATE],
+    )
+
+    assert promotion_dm is not None, "Waitlisted test user should have received a promotion DM"
+    assert game_title in promotion_dm.content, (
+        f"Promotion DM should contain game title '{game_title}'"
+    )
+    expected_jump_url = (
+        f"https://discord.com/channels/{discord_guild_id}/{discord_channel_id}/{message_id}"
+    )
+    assert f"[View game in Discord]({expected_jump_url})" in promotion_dm.content, (
+        f"Promotion DM should contain link to game embed: {expected_jump_url}"
+    )
+    print(f"✓ Test user received promotion DM: {promotion_dm.content[:100]}...")
+    print("✓ Leave-triggers-promotion DM delivery validated")

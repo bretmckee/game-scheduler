@@ -98,3 +98,22 @@
 ### Notes
 
 - To properly follow the TDD bug-fix workflow despite having drafted the handler fix before the regression tests, the fix was temporarily `git stash`ed so the new `xfail`-marked tests could be run and confirmed `xfailed`/failing against the actual pre-fix handler, then the stash was popped and the `xfail` markers removed — same RED→GREEN discipline as if the fix had been written after the tests originally.
+
+---
+
+## Phase 6: E2E coverage for leave-triggers-promotion DM delivery
+
+### Added
+
+- `tests/e2e/test_waitlist_promotion.py` — New test `test_leave_promotes_waitlisted_participant_sends_dm`, combining `test_promotion_drag_delivers_promotion_dm`'s game-setup/DM-assertion style with `test_host_added_dropout_notification.py::test_host_added_dropout_sends_dm_to_host`'s leave-trigger pattern: creates a `max_players=1` game with Player A confirmed and the real test user (`discord_user_id`) waitlisted, has Player A call `POST /api/v1/games/{id}/leave` via `authenticated_player_a_client`, and verifies the waitlisted test user receives a real `waitlist_promotion` DM via `main_bot_helper.wait_for_recent_dm(dm_type=DMType.PROMOTION, ...)`, including jump-URL content. No `xfail` cycle — e2e coverage added after the implementation exists, per TDD instructions for e2e tests.
+
+### Verified
+
+- `scripts/run-e2e-tests.sh tests/e2e/test_waitlist_promotion.py::test_leave_promotes_waitlisted_participant_sends_dm` — 1 passed
+- `scripts/run-e2e-tests.sh tests/e2e/test_waitlist_promotion.py tests/e2e/test_host_added_dropout_notification.py` — 5 passed, no regression to the existing promotion/dropout e2e tests
+- `uv run pytest tests/unit` — 2351 passed
+- `uv run mypy shared/ services/` — no issues
+
+### Notes
+
+- Per the research's e2e-feasibility analysis, this covers only the API leave path (`POST /{game_id}/leave`). The bot-service Discord-button path (`handle_leave_game`) has no e2e equivalent and cannot get one on this platform: a component-interaction (button click) can only originate from a real Discord client UI session, not a bot token, so it stays covered at the integration level (Phase 5's `tests/integration/test_leave_game.py`).
