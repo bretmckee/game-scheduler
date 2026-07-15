@@ -108,7 +108,6 @@ COPY --from=base /app/.build_version ./
 COPY shared/ ./shared/
 COPY services/__init__.py ./services/
 COPY services/api/ ./services/api/
-COPY services/bot/ ./services/bot/
 
 # Create non-root user
 RUN addgroup --system appgroup && adduser --system --group appuser
