@@ -142,7 +142,7 @@ async def test_promotion_when_max_players_increased(game_service, sample_game, m
     # Verify notification content
     for row in send_dm_rows:
         assert row.payload["notification_type"] == "waitlist_promotion"
-        assert "You've been moved from the waitlist" in row.payload["message"]
+        assert "You've advanced off of the waitlist" in row.payload["message"]
         assert row.payload["game_title"] == sample_game.title
 
 

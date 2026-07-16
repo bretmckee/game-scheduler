@@ -348,13 +348,13 @@ class TestDiscordTestHelperWaitForRecentDM:
 
     @pytest.mark.asyncio
     async def test_promotion_dm_type(self):
-        """Should match promotion DM with 'A spot opened up' and 'moved from the waitlist'."""
+        """Should match promotion DM with 'A spot opened up' and 'advanced off of the waitlist'."""
         helper = DiscordTestHelper("fake_token")
         mock_dm = Mock(
             spec=discord.Message,
             content=(
                 "✅ Good news! A spot opened up in **Test Game** "
-                "scheduled for <t:1234567890:F>. You've been moved from "
+                "scheduled for <t:1234567890:F>. You've advanced off of "
                 "the waitlist to confirmed participants!"
             ),
         )

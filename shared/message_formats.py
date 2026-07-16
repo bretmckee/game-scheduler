@@ -54,7 +54,7 @@ class DMFormats:
             Formatted promotion message
         """
         base = (
-            f"✅ Good news! You've been moved from the waitlist in **{game_title}** "
+            f"✅ Good news! You've advanced off of the waitlist in **{game_title}** "
             f"scheduled for <t:{scheduled_at_unix}:F>!"
         )
         if jump_url:
@@ -284,7 +284,9 @@ class DMPredicates:
 
         def predicate(dm: DiscordMessage) -> bool:
             return bool(
-                dm.content and game_title in dm.content and "moved from the waitlist" in dm.content
+                dm.content
+                and game_title in dm.content
+                and "advanced off of the waitlist" in dm.content
             )
 
         return predicate
