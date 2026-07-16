@@ -28,14 +28,16 @@ import contextlib
 import logging
 from typing import TYPE_CHECKING, Any
 
-import asyncpg
 from sqlalchemy import select
 
 from shared.database import get_db_session
 from shared.models.base import utc_now
+from shared.pg_listen import listen_with_reconnect
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    import asyncpg
 
 logger = logging.getLogger(__name__)
 
@@ -63,20 +65,38 @@ class SchedulerLoop:
         self._notified = asyncio.Event()
 
     async def run(self) -> None:
-        """Open asyncpg LISTEN connection and run the scheduling loop."""
-        pg_url = self._db_url.replace("postgresql+asyncpg://", "postgresql://")
-        conn = await asyncpg.connect(pg_url)
-        await conn.add_listener(self.notify_channel, self._on_notify)
+        """Maintain the LISTEN connection and run the scheduling loop concurrently.
+
+        Connection lifecycle (including reconnect-on-loss) is delegated to
+        listen_with_reconnect; the due-item loop runs independently since it
+        only depends on the _notified event set by _on_notify, not on the
+        connection object itself.
+        """
+        async with asyncio.TaskGroup() as tg:
+            tg.create_task(
+                listen_with_reconnect(self._db_url, self.notify_channel, self._on_notify)
+            )
+            tg.create_task(self._run_loop())
+
+    async def _run_loop(self) -> None:
+        """Run the due-item check/process/wait cycle, surviving per-iteration errors."""
         while True:
-            item = await self._get_next_due_item()
-            if item is not None and self._is_due(item):
-                await self._process_item(item)
-                await asyncio.sleep(0)
-            else:
-                wait = self._time_until_due(item) or self.max_timeout
-                with contextlib.suppress(asyncio.TimeoutError):
-                    await asyncio.wait_for(self._notified.wait(), timeout=wait)
-                self._notified.clear()
+            try:
+                item = await self._get_next_due_item()
+                if item is not None and self._is_due(item):
+                    await self._process_item(item)
+                    await asyncio.sleep(0)
+                else:
+                    wait = self._time_until_due(item) or self.max_timeout
+                    with contextlib.suppress(asyncio.TimeoutError):
+                        await asyncio.wait_for(self._notified.wait(), timeout=wait)
+                    self._notified.clear()
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                logger.exception(
+                    "SchedulerLoop(%s): error in loop iteration, retrying", self.notify_channel
+                )
 
     async def _process_item(self, item: object) -> None:
         """Build a BotActionQueue row, add it to the DB session, and mark item processed."""

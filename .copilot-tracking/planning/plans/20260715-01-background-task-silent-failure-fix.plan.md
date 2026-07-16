@@ -45,15 +45,15 @@ Migrate `SchedulerLoop` and `AnnouncementLoop` to the already-proven `listen_wit
 
 ## Implementation Checklist
 
-### [ ] Phase 1: SchedulerLoop reconnect + per-iteration exception handling
+### [x] Phase 1: SchedulerLoop reconnect + per-iteration exception handling
 
-- [ ] Task 1.1: Write failing regression tests for SchedulerLoop resilience (RED)
+- [x] Task 1.1: Write failing regression tests for SchedulerLoop resilience (RED)
   - Details: .copilot-tracking/planning/details/20260715-01-background-task-silent-failure-fix-details.md (Lines 11-66)
 
-- [ ] Task 1.2: Migrate SchedulerLoop.run() to listen_with_reconnect and add per-iteration exception handling (GREEN)
+- [x] Task 1.2: Migrate SchedulerLoop.run() to listen_with_reconnect and add per-iteration exception handling (GREEN)
   - Details: .copilot-tracking/planning/details/20260715-01-background-task-silent-failure-fix-details.md (Lines 67-172)
 
-- [ ] Task 1.3: Refactor and add SchedulerLoop edge-case coverage
+- [x] Task 1.3: Refactor and add SchedulerLoop edge-case coverage
   - Details: .copilot-tracking/planning/details/20260715-01-background-task-silent-failure-fix-details.md (Lines 173-204)
 
 ### [ ] Phase 2: AnnouncementLoop reconnect migration

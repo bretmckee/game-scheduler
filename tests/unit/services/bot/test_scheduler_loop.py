@@ -34,6 +34,17 @@ _DB_URL = "postgresql+asyncpg://user:pass@localhost:5432/game_scheduler"
 _NOTIFY_CHANNEL = "notification_schedule_changed"
 
 
+async def _blocks_forever(*_args: object, **_kwargs: object) -> None:
+    """Stand in for a real listener that runs until cancelled.
+
+    Must be an ``async def`` (not a plain lambda returning a coroutine object)
+    so AsyncMock's side_effect machinery actually awaits it — a lambda that
+    merely returns ``asyncio.Event().wait()`` without awaiting it leaves that
+    coroutine object unawaited, which pytest reports as a failure.
+    """
+    await asyncio.Event().wait()
+
+
 def _make_loop(**kwargs: object) -> SchedulerLoop:
     defaults = {
         "db_url": _DB_URL,
@@ -136,14 +147,10 @@ async def test_run_skips_process_item_when_not_due() -> None:
     future_item = MagicMock()
     future_item.notification_time = datetime.now(UTC).replace(tzinfo=None) + timedelta(hours=1)
 
-    mock_conn = AsyncMock()
-    mock_conn.add_listener = AsyncMock()
-
     with (
         patch(
-            "services.bot.scheduler_loop.asyncpg.connect",
-            new_callable=AsyncMock,
-            return_value=mock_conn,
+            "services.bot.scheduler_loop.listen_with_reconnect",
+            new=AsyncMock(side_effect=_blocks_forever),
         ),
         patch.object(loop, "_get_next_due_item", new_callable=AsyncMock, return_value=future_item),
         patch.object(loop, "_process_item", new_callable=AsyncMock) as mock_process,
@@ -167,14 +174,10 @@ async def test_run_calls_process_item_when_due() -> None:
     past_item = MagicMock()
     past_item.notification_time = datetime.now(UTC).replace(tzinfo=None) - timedelta(seconds=1)
 
-    mock_conn = AsyncMock()
-    mock_conn.add_listener = AsyncMock()
-
     with (
         patch(
-            "services.bot.scheduler_loop.asyncpg.connect",
-            new_callable=AsyncMock,
-            return_value=mock_conn,
+            "services.bot.scheduler_loop.listen_with_reconnect",
+            new=AsyncMock(side_effect=_blocks_forever),
         ),
         patch.object(loop, "_get_next_due_item", new_callable=AsyncMock, return_value=past_item),
         patch.object(loop, "_process_item", new_callable=AsyncMock) as mock_process,
@@ -195,14 +198,10 @@ async def test_run_handles_no_items() -> None:
     """run() does not raise when no schedule rows exist."""
     loop = _make_loop()
 
-    mock_conn = AsyncMock()
-    mock_conn.add_listener = AsyncMock()
-
     with (
         patch(
-            "services.bot.scheduler_loop.asyncpg.connect",
-            new_callable=AsyncMock,
-            return_value=mock_conn,
+            "services.bot.scheduler_loop.listen_with_reconnect",
+            new=AsyncMock(side_effect=_blocks_forever),
         ),
         patch.object(loop, "_get_next_due_item", new_callable=AsyncMock, return_value=None),
         patch.object(loop, "_process_item", new_callable=AsyncMock) as mock_process,
@@ -253,13 +252,10 @@ async def test_run_clears_notified_after_waking() -> None:
     loop = _make_loop()
     loop._notified.set()  # Pre-set so the first asyncio.wait_for resolves immediately
 
-    mock_conn = AsyncMock()
-
     with (
         patch(
-            "services.bot.scheduler_loop.asyncpg.connect",
-            new_callable=AsyncMock,
-            return_value=mock_conn,
+            "services.bot.scheduler_loop.listen_with_reconnect",
+            new=AsyncMock(side_effect=_blocks_forever),
         ),
         patch.object(loop, "_get_next_due_item", new_callable=AsyncMock, return_value=None),
         patch.object(loop, "_process_item", new_callable=AsyncMock),
@@ -278,3 +274,100 @@ async def test_run_clears_notified_after_waking() -> None:
             pass
 
     assert not loop._notified.is_set()
+
+
+@pytest.mark.asyncio
+async def test_run_delegates_to_listen_with_reconnect() -> None:
+    """run() delegates connection lifecycle to listen_with_reconnect."""
+    loop = _make_loop()
+
+    with patch(
+        "services.bot.scheduler_loop.listen_with_reconnect",
+        new_callable=AsyncMock,
+    ) as mock_listen:
+        task = asyncio.create_task(loop.run())
+        await asyncio.sleep(0)
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+    args = mock_listen.call_args[0]
+    assert args[0] == loop._db_url
+    assert args[1] == loop.notify_channel
+    assert args[2] == loop._on_notify
+
+
+@pytest.mark.asyncio
+async def test_run_body_continues_after_exception_in_iteration() -> None:
+    """run() survives an exception raised mid-iteration and continues the loop."""
+    loop = _make_loop()
+    mock_get_next = AsyncMock(side_effect=[RuntimeError("transient DB error"), None])
+
+    with (
+        patch(
+            "services.bot.scheduler_loop.listen_with_reconnect",
+            new=AsyncMock(side_effect=_blocks_forever),
+        ),
+        patch.object(loop, "_get_next_due_item", new=mock_get_next),
+        patch("services.bot.scheduler_loop.logger") as mock_logger,
+    ):
+        task = asyncio.create_task(loop.run())
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+    assert mock_get_next.await_count >= 2
+    mock_logger.exception.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_run_propagates_cancellation() -> None:
+    """run()'s TaskGroup propagates CancelledError so the task cancels cleanly."""
+    loop = _make_loop()
+
+    with patch(
+        "services.bot.scheduler_loop.listen_with_reconnect",
+        new=AsyncMock(side_effect=_blocks_forever),
+    ):
+        task = asyncio.create_task(loop.run())
+        await asyncio.sleep(0)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    assert task.cancelled()
+
+
+@pytest.mark.asyncio
+async def test_run_survives_two_consecutive_exceptions_in_iteration() -> None:
+    """run() survives a second consecutive exception, proving try/except is inside the loop."""
+    loop = _make_loop()
+    mock_get_next = AsyncMock(side_effect=[RuntimeError("first"), RuntimeError("second"), None])
+
+    with (
+        patch(
+            "services.bot.scheduler_loop.listen_with_reconnect",
+            new=AsyncMock(side_effect=_blocks_forever),
+        ),
+        patch.object(loop, "_get_next_due_item", new=mock_get_next),
+        patch("services.bot.scheduler_loop.logger") as mock_logger,
+    ):
+        task = asyncio.create_task(loop.run())
+        for _ in range(4):
+            await asyncio.sleep(0)
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+    assert mock_get_next.await_count >= 3
+    mock_logger.exception.assert_called()
+    assert mock_logger.exception.call_count >= 2
