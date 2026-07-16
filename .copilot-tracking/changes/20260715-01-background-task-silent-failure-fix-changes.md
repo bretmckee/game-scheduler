@@ -334,3 +334,72 @@ services/bot/bot.py` — empty, confirming the deferred `hasattr`
 
 All three tasks done; phase gate green. This is the last phase
 touching production code in this plan.
+
+## Post-Phase-3: Code review follow-up (pace all three retry loops)
+
+- GitHub Copilot's PR review of Phase 3 suggested adding a small delay
+  before `_channel_worker` retries an unexpected exception, to avoid a
+  tight busy-loop hammering the DB/Redis at full CPU speed if a
+  failure is persistent rather than transient. The user applied it
+  locally (`_CHANNEL_WORKER_RETRY_DELAY_SECONDS = 1.0` + `await
+asyncio.sleep(...)` before `continue`); that change and everything
+  below were later squashed into a single commit rather than kept as
+  a separate "fix the fix" follow-up.
+- Asked for a review of that fix. Found two follow-up issues, both
+  addressed here:
+  1. **Incomplete test mocking.** Only one of the four tests that
+     exercise `_channel_worker`'s except-branch had `asyncio.sleep`
+     mocked; the other three (`test_continues_after_transient_exception_in_loop_body`,
+     `test_removes_channel_from_workers_on_exception`,
+     `test_continues_after_exception_in_rate_limit_claim`) incurred a
+     real ~1s sleep each — confirmed by timing
+     `tests/unit/services/bot/events/test_handlers_channel_worker.py`
+     at 3.10s versus ~0.05s before. Fixed by adding the same
+     `patch("services.bot.events.handlers.asyncio.sleep",
+new_callable=AsyncMock)` to all three.
+  2. **Inconsistency**: `SchedulerLoop._run_loop()` and
+     `AnnouncementLoop._run_loop()` have the structurally identical
+     `except Exception: logger.exception(...)` shape and the same
+     tight-retry-loop risk on a persistent failure, but neither had
+     been given the same pacing delay. Applied the identical pattern
+     to both: a module-level `_RETRY_DELAY_SECONDS = 1.0` constant and
+     `await asyncio.sleep(_RETRY_DELAY_SECONDS)` right after the
+     `logger.exception(...)` call in each `except Exception:` block.
+- **Found and fixed a real bug while updating the SchedulerLoop/
+  AnnouncementLoop tests**: `patch("services.bot.scheduler_loop.
+asyncio.sleep", ...)` does not scope to the module under test —
+  `scheduler_loop.py` and `announcement_loop.py` both do `import
+asyncio` (not `from asyncio import sleep`), so `asyncio` is the same
+  shared stdlib module object everywhere, and patching `.sleep` on it
+  mutates the real, process-wide `asyncio.sleep` for the duration of
+  the `with` block. The two rewritten tests in each file that drive
+  the loop step-by-step via repeated `await asyncio.sleep(0)` in the
+  test body were themselves silently mocked out, so the background
+  task never got scheduled and `mock_get_next.await_count` /
+  `process_calls` stayed at 0 — caught immediately by running the
+  tests, not by inspection. Fixed by capturing `real_sleep =
+asyncio.sleep` _before_ entering the `patch(...)` block and using
+  `await real_sleep(0)` for the test driver's own yields, while the
+  code under test still resolves `asyncio.sleep` through the (now
+  patched) shared module and gets asserted against.
+- Updated tests:
+  - `tests/unit/services/bot/test_scheduler_loop.py` —
+    `test_run_body_continues_after_exception_in_iteration` and
+    `test_run_survives_two_consecutive_exceptions_in_iteration` now
+    mock `asyncio.sleep` (via the `real_sleep` capture technique
+    above) and assert it was awaited with `1.0`.
+  - `tests/unit/bot/test_announcement_loop.py` —
+    `test_announcement_loop_start_retries_after_transient_error` and
+    `test_announcement_loop_start_survives_two_consecutive_exceptions`
+    likewise.
+  - `tests/unit/services/bot/events/test_handlers_channel_worker.py` —
+    `asyncio.sleep` now mocked in all four exception-path tests, not
+    just the one GitHub Copilot's review touched.
+- Verified: `uv run pytest tests/unit/services/bot/test_scheduler_loop.py
+tests/unit/bot/test_announcement_loop.py
+tests/unit/services/bot/events/test_handlers_channel_worker.py -v`
+  — 34 passed in 0.12s (back to baseline speed, no real sleeps left
+  unmocked). `uv run mypy shared/ services/` — clean. `uv run
+complexipy` — no function over the limit. `uv run pytest tests/unit
+-q` — 2379 passed (3 consecutive runs, ~10.7-11.0s each, no
+  regression from baseline).

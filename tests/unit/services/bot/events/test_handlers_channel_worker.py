@@ -165,10 +165,14 @@ class TestChannelWorker:
                 ),
             ),
             patch("services.bot.events.handlers.get_db_session", return_value=db_ctx),
+            patch(
+                "services.bot.events.handlers.asyncio.sleep", new_callable=AsyncMock
+            ) as mock_sleep,
         ):
             await event_handlers._channel_worker("chan1")  # must not raise
 
         assert mock_fetch.await_count == 4
+        mock_sleep.assert_awaited_once_with(1.0)
         assert "chan1" not in event_handlers._channel_workers
 
     @pytest.mark.asyncio
@@ -176,13 +180,19 @@ class TestChannelWorker:
         """_channel_workers entry is cleaned up even after the worker retries past an exception."""
         event_handlers._channel_workers["chan1"] = MagicMock()
 
-        with patch.object(
-            event_handlers,
-            "_fetch_next_queued_game",
-            new=AsyncMock(side_effect=[RuntimeError("boom"), None]),
+        with (
+            patch.object(
+                event_handlers,
+                "_fetch_next_queued_game",
+                new=AsyncMock(side_effect=[RuntimeError("boom"), None]),
+            ),
+            patch(
+                "services.bot.events.handlers.asyncio.sleep", new_callable=AsyncMock
+            ) as mock_sleep,
         ):
             await event_handlers._channel_worker("chan1")  # no longer raises
 
+        mock_sleep.assert_awaited_once_with(1.0)
         assert "chan1" not in event_handlers._channel_workers
 
     @pytest.mark.asyncio
@@ -211,10 +221,14 @@ class TestChannelWorker:
                 new=AsyncMock(return_value=mock_redis),
             ),
             patch("services.bot.events.handlers.get_db_session", return_value=db_ctx),
+            patch(
+                "services.bot.events.handlers.asyncio.sleep", new_callable=AsyncMock
+            ) as mock_sleep,
         ):
             await event_handlers._channel_worker("chan1")  # must not raise
 
         assert mock_fetch.await_count == 3
+        mock_sleep.assert_awaited_once_with(1.0)
         mock_db.execute.assert_awaited_once()
         assert "chan1" not in event_handlers._channel_workers
 
@@ -248,11 +262,15 @@ class TestChannelWorker:
                 new=AsyncMock(return_value=mock_redis),
             ),
             patch("services.bot.events.handlers.get_db_session", return_value=db_ctx),
+            patch(
+                "services.bot.events.handlers.asyncio.sleep", new_callable=AsyncMock
+            ) as mock_sleep,
             patch("services.bot.events.handlers.logger") as mock_logger,
         ):
             await event_handlers._channel_worker("chan1")  # must not raise
 
         assert mock_fetch.await_count == 5
+        mock_sleep.assert_awaited_once_with(1.0)
         mock_db.execute.assert_awaited_once()
         mock_logger.error.assert_called_once_with(
             "Dropping game %s from refresh queue after %d failed attempts",

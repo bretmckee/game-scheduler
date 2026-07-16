@@ -304,6 +304,11 @@ async def test_run_body_continues_after_exception_in_iteration() -> None:
     """run() survives an exception raised mid-iteration and continues the loop."""
     loop = _make_loop()
     mock_get_next = AsyncMock(side_effect=[RuntimeError("transient DB error"), None])
+    # Captured before patching asyncio.sleep below: patch() replaces the real,
+    # process-wide asyncio module's sleep attribute (scheduler_loop.py does
+    # `import asyncio`, not `from asyncio import sleep`), so the driver's own
+    # yields below must go through this real reference or they'd be mocked too.
+    real_sleep = asyncio.sleep
 
     with (
         patch(
@@ -312,11 +317,12 @@ async def test_run_body_continues_after_exception_in_iteration() -> None:
         ),
         patch.object(loop, "_get_next_due_item", new=mock_get_next),
         patch("services.bot.scheduler_loop.logger") as mock_logger,
+        patch("services.bot.scheduler_loop.asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
     ):
         task = asyncio.create_task(loop.run())
-        await asyncio.sleep(0)
-        await asyncio.sleep(0)
-        await asyncio.sleep(0)
+        await real_sleep(0)
+        await real_sleep(0)
+        await real_sleep(0)
         task.cancel()
         try:
             await task
@@ -325,6 +331,7 @@ async def test_run_body_continues_after_exception_in_iteration() -> None:
 
     assert mock_get_next.await_count >= 2
     mock_logger.exception.assert_called()
+    mock_sleep.assert_any_call(1.0)
 
 
 @pytest.mark.asyncio
@@ -350,6 +357,7 @@ async def test_run_survives_two_consecutive_exceptions_in_iteration() -> None:
     """run() survives a second consecutive exception, proving try/except is inside the loop."""
     loop = _make_loop()
     mock_get_next = AsyncMock(side_effect=[RuntimeError("first"), RuntimeError("second"), None])
+    real_sleep = asyncio.sleep
 
     with (
         patch(
@@ -358,10 +366,11 @@ async def test_run_survives_two_consecutive_exceptions_in_iteration() -> None:
         ),
         patch.object(loop, "_get_next_due_item", new=mock_get_next),
         patch("services.bot.scheduler_loop.logger") as mock_logger,
+        patch("services.bot.scheduler_loop.asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
     ):
         task = asyncio.create_task(loop.run())
         for _ in range(4):
-            await asyncio.sleep(0)
+            await real_sleep(0)
         task.cancel()
         try:
             await task
@@ -371,3 +380,5 @@ async def test_run_survives_two_consecutive_exceptions_in_iteration() -> None:
     assert mock_get_next.await_count >= 3
     mock_logger.exception.assert_called()
     assert mock_logger.exception.call_count >= 2
+    assert mock_sleep.await_count >= 2
+    mock_sleep.assert_any_call(1.0)

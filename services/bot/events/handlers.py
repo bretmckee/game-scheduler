@@ -65,6 +65,7 @@ from shared.utils.status_transitions import GameStatus, is_valid_transition
 
 _HTTP_TOO_MANY_REQUESTS = 429
 _MAX_EDIT_ATTEMPTS = 3
+_CHANNEL_WORKER_RETRY_DELAY_SECONDS = 1.0
 
 logger = logging.getLogger(__name__)
 
@@ -1427,6 +1428,7 @@ class EventHandlers:
                         "Unexpected error in channel worker loop body for channel %s, retrying",
                         discord_channel_id,
                     )
+                    await asyncio.sleep(_CHANNEL_WORKER_RETRY_DELAY_SECONDS)
                     continue
         finally:
             self._channel_workers.pop(discord_channel_id, None)

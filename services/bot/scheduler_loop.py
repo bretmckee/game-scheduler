@@ -39,6 +39,8 @@ if TYPE_CHECKING:
 
     import asyncpg
 
+_RETRY_DELAY_SECONDS = 1.0
+
 logger = logging.getLogger(__name__)
 
 
@@ -97,6 +99,7 @@ class SchedulerLoop:
                 logger.exception(
                     "SchedulerLoop(%s): error in loop iteration, retrying", self.notify_channel
                 )
+                await asyncio.sleep(_RETRY_DELAY_SECONDS)
 
     async def _process_item(self, item: object) -> None:
         """Build a BotActionQueue row, add it to the DB session, and mark item processed."""

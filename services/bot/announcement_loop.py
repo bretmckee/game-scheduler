@@ -46,6 +46,8 @@ if TYPE_CHECKING:
 
     from services.bot.bot import GameSchedulerBot
 
+_RETRY_DELAY_SECONDS = 1.0
+
 logger = logging.getLogger(__name__)
 
 
@@ -110,6 +112,7 @@ class AnnouncementLoop:
                 raise
             except Exception:
                 logger.exception("AnnouncementLoop: error in loop iteration, retrying")
+                await asyncio.sleep(_RETRY_DELAY_SECONDS)
 
     def _on_notify(
         self, _conn: asyncpg.Connection, _pid: int, _channel: str, _payload: str

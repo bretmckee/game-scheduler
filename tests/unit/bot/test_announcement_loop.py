@@ -267,6 +267,12 @@ async def test_announcement_loop_start_retries_after_transient_error() -> None:
             msg = "transient DB error"
             raise RuntimeError(msg)
 
+    # Captured before patching asyncio.sleep below: patch() replaces the real,
+    # process-wide asyncio module's sleep attribute (announcement_loop.py does
+    # `import asyncio`, not `from asyncio import sleep`), so the driver's own
+    # yields below must go through this real reference or they'd be mocked too.
+    real_sleep = asyncio.sleep
+
     with (
         patch(
             "services.bot.announcement_loop.listen_with_reconnect",
@@ -275,11 +281,12 @@ async def test_announcement_loop_start_retries_after_transient_error() -> None:
         patch.object(loop, "_process_due", side_effect=fake_process_due),
         patch.object(loop, "_next_due_time", new=AsyncMock(return_value=None)),
         patch("services.bot.announcement_loop.logger") as mock_logger,
+        patch("services.bot.announcement_loop.asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
     ):
         task = asyncio.create_task(loop.start())
-        await asyncio.sleep(0)
-        await asyncio.sleep(0)
-        await asyncio.sleep(0)
+        await real_sleep(0)
+        await real_sleep(0)
+        await real_sleep(0)
         task.cancel()
         try:
             await task
@@ -290,6 +297,7 @@ async def test_announcement_loop_start_retries_after_transient_error() -> None:
     mock_logger.exception.assert_called_once_with(
         "AnnouncementLoop: error in loop iteration, retrying"
     )
+    mock_sleep.assert_any_call(1.0)
 
 
 async def test_announcement_loop_start_clamps_wait_to_max_timeout() -> None:
@@ -347,6 +355,8 @@ async def test_announcement_loop_start_survives_two_consecutive_exceptions() -> 
             msg = f"transient DB error {process_calls}"
             raise RuntimeError(msg)
 
+    real_sleep = asyncio.sleep
+
     with (
         patch(
             "services.bot.announcement_loop.listen_with_reconnect",
@@ -355,10 +365,11 @@ async def test_announcement_loop_start_survives_two_consecutive_exceptions() -> 
         patch.object(loop, "_process_due", side_effect=fake_process_due),
         patch.object(loop, "_next_due_time", new=AsyncMock(return_value=None)),
         patch("services.bot.announcement_loop.logger") as mock_logger,
+        patch("services.bot.announcement_loop.asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
     ):
         task = asyncio.create_task(loop.start())
         for _ in range(4):
-            await asyncio.sleep(0)
+            await real_sleep(0)
         task.cancel()
         try:
             await task
@@ -368,6 +379,8 @@ async def test_announcement_loop_start_survives_two_consecutive_exceptions() -> 
     assert process_calls >= 3
     mock_logger.exception.assert_called()
     assert mock_logger.exception.call_count >= 2
+    assert mock_sleep.await_count >= 2
+    mock_sleep.assert_any_call(1.0)
 
 
 async def test_announcement_loop_announce_logs_error_when_channel_not_found() -> None:
