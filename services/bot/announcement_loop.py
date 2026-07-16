@@ -21,13 +21,14 @@
 
 """Async announcement loop for deferred game announcements."""
 
+from __future__ import annotations
+
 import asyncio
 import contextlib
 import datetime
 import logging
 from typing import TYPE_CHECKING
 
-import asyncpg
 import discord
 from sqlalchemy import func
 from sqlalchemy.future import select
@@ -36,10 +37,13 @@ from sqlalchemy.orm import selectinload
 from shared.database import get_db_session
 from shared.models import participant as participant_model
 from shared.models.game import GameSession
+from shared.pg_listen import listen_with_reconnect
 from shared.services.game_schedules import setup_game_schedules
 from shared.utils.status_transitions import GameStatus
 
 if TYPE_CHECKING:
+    import asyncpg
+
     from services.bot.bot import GameSchedulerBot
 
 logger = logging.getLogger(__name__)
@@ -55,56 +59,57 @@ class AnnouncementLoop:
 
     MAX_TIMEOUT = 3600
 
-    def __init__(self, db_url: str, bot: "GameSchedulerBot") -> None:
+    def __init__(self, db_url: str, bot: GameSchedulerBot) -> None:
         self._db_url = db_url
         self._bot = bot
         self._wake_event = asyncio.Event()
 
     async def start(self) -> None:
-        """Open the asyncpg LISTEN connection and run the announcement loop."""
-        db_url = self._db_url.replace("postgresql+asyncpg://", "postgresql://")
-        conn: asyncpg.Connection | None = None
-        try:
-            conn = await asyncpg.connect(db_url)
-            await conn.add_listener("game_announcement_changed", self._on_notify)
-            logger.debug("AnnouncementLoop connected, listening for game_announcement_changed")
-            while True:
-                try:
-                    await self._process_due()
-                    next_due = await self._next_due_time()
-                    if next_due is not None:
-                        wait = max(
-                            0.0,
-                            (
-                                next_due - datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
-                            ).total_seconds(),
-                        )
-                    else:
-                        wait = float(self.MAX_TIMEOUT)
-                    wait = min(wait, float(self.MAX_TIMEOUT))
-                    logger.debug(
-                        "AnnouncementLoop sleeping %.1fs (next_due=%s)",
-                        wait,
-                        next_due,
+        """Maintain the LISTEN connection and run the announcement loop concurrently.
+
+        Connection lifecycle (including reconnect-on-loss) is delegated to
+        listen_with_reconnect; the due-item loop runs independently since it
+        only depends on the _wake_event set by _on_notify, not on the
+        connection object itself.
+        """
+        async with asyncio.TaskGroup() as tg:
+            tg.create_task(
+                listen_with_reconnect(self._db_url, "game_announcement_changed", self._on_notify)
+            )
+            tg.create_task(self._run_loop())
+
+    async def _run_loop(self) -> None:
+        """Poll for and post due announcements, surviving per-iteration errors."""
+        while True:
+            try:
+                await self._process_due()
+                next_due = await self._next_due_time()
+                if next_due is not None:
+                    wait = max(
+                        0.0,
+                        (
+                            next_due - datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+                        ).total_seconds(),
                     )
-                    self._wake_event.clear()
-                    with contextlib.suppress(TimeoutError):
-                        await asyncio.wait_for(self._wake_event.wait(), timeout=wait)
-                    logger.debug(
-                        "AnnouncementLoop woke up (reason=%s)",
-                        "notify" if self._wake_event.is_set() else "timeout",
-                    )
-                except asyncio.CancelledError:
-                    raise
-                except Exception:
-                    logger.exception("AnnouncementLoop: error in loop iteration, retrying")
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            logger.exception("AnnouncementLoop failed: could not establish database connection")
-        finally:
-            if conn is not None:
-                await conn.close()
+                else:
+                    wait = float(self.MAX_TIMEOUT)
+                wait = min(wait, float(self.MAX_TIMEOUT))
+                logger.debug(
+                    "AnnouncementLoop sleeping %.1fs (next_due=%s)",
+                    wait,
+                    next_due,
+                )
+                self._wake_event.clear()
+                with contextlib.suppress(TimeoutError):
+                    await asyncio.wait_for(self._wake_event.wait(), timeout=wait)
+                logger.debug(
+                    "AnnouncementLoop woke up (reason=%s)",
+                    "notify" if self._wake_event.is_set() else "timeout",
+                )
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                logger.exception("AnnouncementLoop: error in loop iteration, retrying")
 
     def _on_notify(
         self, _conn: asyncpg.Connection, _pid: int, _channel: str, _payload: str

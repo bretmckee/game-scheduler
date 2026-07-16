@@ -125,6 +125,9 @@ class TestGameSchedulerBot:
         mock_sl_instance = MagicMock()
         mock_sl_instance.run = AsyncMock()
 
+        mock_al_instance = MagicMock()
+        mock_al_instance.start = AsyncMock()
+
         with patch("services.bot.bot.logger") as mock_logger:
             with patch.object(type(bot), "user", new_callable=lambda: mock_user):
                 with patch.object(type(bot), "guilds", new_callable=lambda: mock_guilds):
@@ -140,6 +143,7 @@ class TestGameSchedulerBot:
                         ),
                         patch("services.bot.bot.Path") as mock_path,
                         patch("services.bot.bot.SchedulerLoop", return_value=mock_sl_instance),
+                        patch("services.bot.bot.AnnouncementLoop", return_value=mock_al_instance),
                     ):
                         await bot.on_ready()
 

@@ -31,6 +31,17 @@ from services.bot.announcement_loop import AnnouncementLoop
 from shared.models.game import GameSession
 
 
+async def _blocks_forever(*_args: object, **_kwargs: object) -> None:
+    """Stand in for a real listener that runs until cancelled.
+
+    Must be an ``async def`` (not a plain lambda returning a coroutine object)
+    so AsyncMock's side_effect machinery actually awaits it — a lambda that
+    merely returns ``asyncio.Event().wait()`` without awaiting it leaves that
+    coroutine object unawaited, which pytest reports as a failure.
+    """
+    await asyncio.Event().wait()
+
+
 def _db_ctx(mock_db=None):
     if mock_db is None:
         mock_db = AsyncMock()
@@ -165,79 +176,85 @@ async def test_announcement_loop_next_due_time_returns_scalar() -> None:
     assert result == expected
 
 
-async def test_announcement_loop_start_closes_connection_on_cancel() -> None:
-    """start() closes the asyncpg connection when cancelled."""
-    mock_conn = AsyncMock()
-    mock_conn.add_listener = AsyncMock()
-    mock_conn.close = AsyncMock()
-
+async def test_start_delegates_to_listen_with_reconnect() -> None:
+    """start() delegates connection lifecycle to listen_with_reconnect."""
     bot = MagicMock()
     loop = AnnouncementLoop("postgresql://test", bot)
 
-    call_count = 0
+    with patch(
+        "services.bot.announcement_loop.listen_with_reconnect",
+        new_callable=AsyncMock,
+    ) as mock_listen:
+        task = asyncio.create_task(loop.start())
+        await asyncio.sleep(0)
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
 
-    async def fake_process_due() -> None:
-        nonlocal call_count
-        call_count += 1
-        raise asyncio.CancelledError
+    args = mock_listen.call_args[0]
+    assert args[0] == loop._db_url
+    assert args[1] == "game_announcement_changed"
+    assert args[2] == loop._on_notify
+
+
+async def test_announcement_loop_start_closes_connection_on_cancel() -> None:
+    """Cancelling start()'s task raises CancelledError after the loop body has run."""
+    bot = MagicMock()
+    loop = AnnouncementLoop("postgresql://test", bot)
 
     with (
         patch(
-            "services.bot.announcement_loop.asyncpg.connect", new=AsyncMock(return_value=mock_conn)
+            "services.bot.announcement_loop.listen_with_reconnect",
+            new=AsyncMock(side_effect=_blocks_forever),
         ),
-        patch.object(loop, "_process_due", side_effect=fake_process_due),
+        patch.object(loop, "_process_due", new_callable=AsyncMock) as mock_process_due,
     ):
+        task = asyncio.create_task(loop.start())
+        await asyncio.sleep(0)
+        task.cancel()
         with pytest.raises(asyncio.CancelledError):
-            await loop.start()
+            await task
 
-    mock_conn.close.assert_awaited_once()
+    mock_process_due.assert_awaited()
 
 
 async def test_announcement_loop_start_logs_sleep_and_wake() -> None:
-    """start() logs the sleep duration and wake reason during a normal iteration."""
-    mock_conn = AsyncMock()
-    mock_conn.add_listener = AsyncMock()
-    mock_conn.close = AsyncMock()
-
+    """start()'s loop body logs the sleep duration and wake reason each iteration."""
     bot = MagicMock()
     loop = AnnouncementLoop("postgresql://test", bot)
 
-    process_calls = 0
-
-    async def fake_process_due() -> None:
-        nonlocal process_calls
-        process_calls += 1
-        if process_calls >= 2:
-            raise asyncio.CancelledError
-
-    async def fake_wait_for(coro: object, timeout: float) -> None:
-        if hasattr(coro, "close"):
-            coro.close()
-
     with (
         patch(
-            "services.bot.announcement_loop.asyncpg.connect",
-            new=AsyncMock(return_value=mock_conn),
+            "services.bot.announcement_loop.listen_with_reconnect",
+            new=AsyncMock(side_effect=_blocks_forever),
         ),
-        patch.object(loop, "_process_due", side_effect=fake_process_due),
+        patch.object(loop, "_process_due", new_callable=AsyncMock),
         patch.object(loop, "_next_due_time", new=AsyncMock(return_value=None)),
-        patch(
-            "services.bot.announcement_loop.asyncio.wait_for",
-            side_effect=fake_wait_for,
-        ),
+        patch("services.bot.announcement_loop.logger") as mock_logger,
     ):
-        with pytest.raises(asyncio.CancelledError):
-            await loop.start()
+        task = asyncio.create_task(loop.start())
+        # _run_loop clears _wake_event before waiting, so let it reach the
+        # wait_for suspension first, then set the event from here to simulate
+        # a NOTIFY arriving mid-wait, then give it turns to log "woke up".
+        for _ in range(3):
+            await asyncio.sleep(0)
+        loop._wake_event.set()
+        for _ in range(3):
+            await asyncio.sleep(0)
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
 
-    assert process_calls == 2
+    mock_logger.debug.assert_any_call("AnnouncementLoop sleeping %.1fs (next_due=%s)", 3600.0, None)
+    mock_logger.debug.assert_any_call("AnnouncementLoop woke up (reason=%s)", "notify")
 
 
 async def test_announcement_loop_start_retries_after_transient_error() -> None:
     """start() catches non-CancelledError exceptions and retries the loop iteration."""
-    mock_conn = AsyncMock()
-    mock_conn.add_listener = AsyncMock()
-    mock_conn.close = AsyncMock()
-
     bot = MagicMock()
     loop = AnnouncementLoop("postgresql://test", bot)
 
@@ -249,19 +266,108 @@ async def test_announcement_loop_start_retries_after_transient_error() -> None:
         if process_calls == 1:
             msg = "transient DB error"
             raise RuntimeError(msg)
-        raise asyncio.CancelledError
 
     with (
         patch(
-            "services.bot.announcement_loop.asyncpg.connect",
-            new=AsyncMock(return_value=mock_conn),
+            "services.bot.announcement_loop.listen_with_reconnect",
+            new=AsyncMock(side_effect=_blocks_forever),
         ),
         patch.object(loop, "_process_due", side_effect=fake_process_due),
+        patch.object(loop, "_next_due_time", new=AsyncMock(return_value=None)),
+        patch("services.bot.announcement_loop.logger") as mock_logger,
     ):
-        with pytest.raises(asyncio.CancelledError):
-            await loop.start()
+        task = asyncio.create_task(loop.start())
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
 
     assert process_calls == 2
+    mock_logger.exception.assert_called_once_with(
+        "AnnouncementLoop: error in loop iteration, retrying"
+    )
+
+
+async def test_announcement_loop_start_clamps_wait_to_max_timeout() -> None:
+    """_run_loop clamps the sleep duration to MAX_TIMEOUT even when next_due is further out."""
+    bot = MagicMock()
+    loop = AnnouncementLoop("postgresql://test", bot)
+
+    far_future = datetime.datetime.now(datetime.UTC).replace(tzinfo=None) + datetime.timedelta(
+        hours=2
+    )
+
+    with (
+        patch(
+            "services.bot.announcement_loop.listen_with_reconnect",
+            new=AsyncMock(side_effect=_blocks_forever),
+        ),
+        patch.object(loop, "_process_due", new_callable=AsyncMock),
+        patch.object(loop, "_next_due_time", new=AsyncMock(return_value=far_future)),
+        patch("services.bot.announcement_loop.logger") as mock_logger,
+    ):
+        task = asyncio.create_task(loop.start())
+        for _ in range(3):
+            await asyncio.sleep(0)
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+    mock_logger.debug.assert_any_call(
+        "AnnouncementLoop sleeping %.1fs (next_due=%s)", 3600.0, far_future
+    )
+
+
+async def test_announcement_loop_start_survives_two_consecutive_exceptions() -> None:
+    """_run_loop survives a second consecutive exception, proving no outer catch swallows it.
+
+    Before this migration, any exception escaping the loop body (e.g. from a
+    dropped connection) would hit the now-removed outer
+    ``try/except Exception: logger.exception("AnnouncementLoop failed...")``
+    and start() would return silently for good. With that outer catch gone,
+    the per-iteration try/except must be the only thing standing between an
+    error and a dead loop — proving it survives twice in a row (not just
+    once) confirms it lives inside ``while True:``.
+    """
+    bot = MagicMock()
+    loop = AnnouncementLoop("postgresql://test", bot)
+
+    process_calls = 0
+
+    async def fake_process_due() -> None:
+        nonlocal process_calls
+        process_calls += 1
+        if process_calls <= 2:
+            msg = f"transient DB error {process_calls}"
+            raise RuntimeError(msg)
+
+    with (
+        patch(
+            "services.bot.announcement_loop.listen_with_reconnect",
+            new=AsyncMock(side_effect=_blocks_forever),
+        ),
+        patch.object(loop, "_process_due", side_effect=fake_process_due),
+        patch.object(loop, "_next_due_time", new=AsyncMock(return_value=None)),
+        patch("services.bot.announcement_loop.logger") as mock_logger,
+    ):
+        task = asyncio.create_task(loop.start())
+        for _ in range(4):
+            await asyncio.sleep(0)
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+    assert process_calls >= 3
+    mock_logger.exception.assert_called()
+    assert mock_logger.exception.call_count >= 2
 
 
 async def test_announcement_loop_announce_logs_error_when_channel_not_found() -> None:

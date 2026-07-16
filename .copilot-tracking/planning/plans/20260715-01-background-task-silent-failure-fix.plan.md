@@ -56,15 +56,15 @@ Migrate `SchedulerLoop` and `AnnouncementLoop` to the already-proven `listen_wit
 - [x] Task 1.3: Refactor and add SchedulerLoop edge-case coverage
   - Details: .copilot-tracking/planning/details/20260715-01-background-task-silent-failure-fix-details.md (Lines 173-204)
 
-### [ ] Phase 2: AnnouncementLoop reconnect migration
+### [x] Phase 2: AnnouncementLoop reconnect migration
 
-- [ ] Task 2.1: Write failing regression test for AnnouncementLoop delegation (RED)
+- [x] Task 2.1: Write failing regression test for AnnouncementLoop delegation (RED)
   - Details: .copilot-tracking/planning/details/20260715-01-background-task-silent-failure-fix-details.md (Lines 207-246)
 
-- [ ] Task 2.2: Migrate AnnouncementLoop.start() to listen_with_reconnect, keep loop body unchanged (GREEN)
+- [x] Task 2.2: Migrate AnnouncementLoop.start() to listen_with_reconnect, keep loop body unchanged (GREEN)
   - Details: .copilot-tracking/planning/details/20260715-01-background-task-silent-failure-fix-details.md (Lines 247-350)
 
-- [ ] Task 2.3: Refactor and add AnnouncementLoop edge-case coverage
+- [x] Task 2.3: Refactor and add AnnouncementLoop edge-case coverage
   - Details: .copilot-tracking/planning/details/20260715-01-background-task-silent-failure-fix-details.md (Lines 351-380)
 
 ### [ ] Phase 3: _channel_worker per-iteration exception handling
