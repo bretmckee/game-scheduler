@@ -24,7 +24,7 @@
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from shared.models.participant import ParticipantType
+from shared.models.participant import UNPOSITIONED_SENTINEL, ParticipantType
 from shared.models.signup_method import SignupMethod
 from shared.utils.games import DEFAULT_MAX_PLAYERS
 
@@ -111,13 +111,13 @@ def resolve_role_position(
         priority_role_ids: Ordered list of priority role IDs from the game template
 
     Returns:
-        (ROLE_MATCHED, index) on a match, (SELF_ADDED, 0) otherwise
+        (ROLE_MATCHED, index) on a match, (SELF_ADDED, UNPOSITIONED_SENTINEL) otherwise
     """
     user_role_set = set(user_role_ids)
     for index, role_id in enumerate(priority_role_ids):
         if role_id in user_role_set:
             return (ParticipantType.ROLE_MATCHED, index)
-    return (ParticipantType.SELF_ADDED, 0)
+    return (ParticipantType.SELF_ADDED, UNPOSITIONED_SENTINEL)
 
 
 def sort_participants(participants: list["GameParticipant"]) -> list["GameParticipant"]:

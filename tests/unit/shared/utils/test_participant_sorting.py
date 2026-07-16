@@ -26,7 +26,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from shared.models.participant import ParticipantType
+from shared.models.participant import UNPOSITIONED_SENTINEL, ParticipantType
 from shared.models.signup_method import SignupMethod
 from shared.utils.games import DEFAULT_MAX_PLAYERS
 from shared.utils.participant_sorting import (
@@ -669,19 +669,24 @@ class TestResolveRolePosition:
         assert result == (ParticipantType.ROLE_MATCHED, 1)
 
     def test_no_matching_role_returns_self_added(self):
-        """User with no matching role gets (SELF_ADDED, 0)."""
+        """User with no matching role gets (SELF_ADDED, 32767)."""
         result = resolve_role_position(["role_x"], ["role_a", "role_b"])
-        assert result == (ParticipantType.SELF_ADDED, 0)
+        assert result == (ParticipantType.SELF_ADDED, 32767)
 
     def test_empty_priority_list_returns_self_added(self):
-        """Empty priority_role_ids always yields (SELF_ADDED, 0)."""
+        """Empty priority_role_ids always yields (SELF_ADDED, 32767)."""
         result = resolve_role_position(["role_a"], [])
-        assert result == (ParticipantType.SELF_ADDED, 0)
+        assert result == (ParticipantType.SELF_ADDED, 32767)
 
     def test_multiple_matching_roles_first_match_wins(self):
         """When user has multiple priority roles, the lowest-index one wins."""
         result = resolve_role_position(["role_b", "role_a"], ["role_a", "role_b"])
         assert result == (ParticipantType.ROLE_MATCHED, 0)
+
+    def test_role_matched_position_is_never_the_sentinel(self):
+        """A ROLE_MATCHED result's position is a real priority index, never the sentinel."""
+        _, position = resolve_role_position(["role_a"], ["role_a"])
+        assert position != UNPOSITIONED_SENTINEL
 
 
 # ---------------------------------------------------------------------------

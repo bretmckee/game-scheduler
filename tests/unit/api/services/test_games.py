@@ -44,7 +44,7 @@ from services.api.services.games import GameService
 from shared.models import game as game_model
 from shared.models import participant as participant_model
 from shared.models.bot_action_queue import BotActionQueue
-from shared.models.participant import ParticipantType
+from shared.models.participant import UNPOSITIONED_SENTINEL, ParticipantType
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -778,6 +778,48 @@ class TestAddNewMentions:
 
         with pytest.raises(resolver_module.ValidationError):
             await game_service._add_new_mentions(game, [("@unknown", 0)])
+
+    @pytest.mark.asyncio
+    async def test_host_added_participant_uses_caller_supplied_position(
+        self, game_service, mock_db
+    ):
+        """A newly added HOST_ADDED participant's position is the caller-supplied value.
+
+        Proves the UNPOSITIONED_SENTINEL default is scoped to self-added/
+        role-based-fallback joins and never leaks into the host-added creation path.
+        """
+        game = _make_game()
+        guild = MagicMock()
+        guild.guild_id = "discord-guild-id"
+        game.guild = guild
+        game.participants = []
+
+        mock_user = MagicMock()
+        mock_user.id = "user-uuid"
+        game_service.participant_resolver.ensure_user_exists = AsyncMock(return_value=mock_user)
+        game_service.participant_resolver.resolve_initial_participants = AsyncMock(
+            return_value=(
+                [
+                    {
+                        "type": "discord",
+                        "discord_id": "discord-123",
+                        "original_input": "@user",
+                    }
+                ],
+                [],
+            )
+        )
+        mock_db.flush = AsyncMock()
+
+        with patch(
+            "services.api.services.games.schedule_join_notification",
+            new_callable=AsyncMock,
+        ):
+            await game_service._add_new_mentions(game, [("@user", 3)])
+
+        added = mock_db.add.call_args[0][0]
+        assert added.position == 3
+        assert added.position != UNPOSITIONED_SENTINEL
 
 
 # ---------------------------------------------------------------------------

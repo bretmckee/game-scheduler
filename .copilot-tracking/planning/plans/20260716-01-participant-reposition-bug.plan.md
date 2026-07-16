@@ -50,15 +50,15 @@ Fix host-initiated repositioning of self-added/role-matched participants in the 
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Sentinel default for self-added/role-based-fallback participants
+### [x] Phase 1: Sentinel default for self-added/role-based-fallback participants
 
-- [ ] Task 1.1: Write failing regression tests for the new sentinel default (RED)
+- [x] Task 1.1: Write failing regression tests for the new sentinel default (RED)
   - Details: .copilot-tracking/planning/details/20260716-01-participant-reposition-bug-details.md (Lines 11-76)
 
-- [ ] Task 1.2: Introduce the `UNPOSITIONED_SENTINEL` constant, update model/join sites, add the Alembic migration (GREEN)
+- [x] Task 1.2: Introduce the `UNPOSITIONED_SENTINEL` constant, update model/join sites, add the Alembic migration (GREEN)
   - Details: .copilot-tracking/planning/details/20260716-01-participant-reposition-bug-details.md (Lines 77-219)
 
-- [ ] Task 1.3: Refactor, add edge-case coverage, verify migration up/down
+- [x] Task 1.3: Refactor, add edge-case coverage, verify migration up/down
   - Details: .copilot-tracking/planning/details/20260716-01-participant-reposition-bug-details.md (Lines 220-276)
 
 ### [ ] Phase 2: Generalize backend position-update matching, including the `ROLE_BASED` decision

@@ -413,7 +413,7 @@ class TestBuildGameResponseHelpers:
         assert response.display_name == "Host"
         assert response.avatar_url == "http://host.com"
         assert response.position_type == ParticipantType.SELF_ADDED
-        assert response.position == 0
+        assert response.position == 32767
 
     def test_build_host_response_without_display_data(self, sample_game):
         """Build host response without display data."""
@@ -917,25 +917,25 @@ class TestRenderTextFields:
 class TestResolveJoinPosition:
     @pytest.mark.asyncio
     async def test_returns_self_added_when_no_template(self):
-        """Returns (SELF_ADDED, 0) when game has no template."""
+        """Returns (SELF_ADDED, 32767) when game has no template."""
         game = MagicMock()
         game.template = None
 
         position_type, position = await _resolve_join_position(game, "discord-123", MagicMock())
 
         assert position_type == ParticipantType.SELF_ADDED
-        assert position == 0
+        assert position == 32767
 
     @pytest.mark.asyncio
     async def test_returns_self_added_when_template_has_no_priority_roles(self):
-        """Returns (SELF_ADDED, 0) when template exists but has no priority role IDs."""
+        """Returns (SELF_ADDED, 32767) when template exists but has no priority role IDs."""
         game = MagicMock()
         game.template.signup_priority_role_ids = []
 
         position_type, position = await _resolve_join_position(game, "discord-123", MagicMock())
 
         assert position_type == ParticipantType.SELF_ADDED
-        assert position == 0
+        assert position == 32767
 
     @pytest.mark.asyncio
     @patch("services.api.routes.games._resolve_role_position_for_user", new_callable=AsyncMock)

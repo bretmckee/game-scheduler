@@ -42,7 +42,7 @@ from shared.database import get_db_session
 from shared.models.base import utc_now
 from shared.models.game import GameSession
 from shared.models.notification_schedule import NotificationSchedule
-from shared.models.participant import GameParticipant, ParticipantType
+from shared.models.participant import UNPOSITIONED_SENTINEL, GameParticipant, ParticipantType
 from shared.models.user import User
 from shared.utils.games import resolve_max_players
 from shared.utils.participant_sorting import resolve_role_position
@@ -194,7 +194,7 @@ async def _resolve_bot_role_position(
     """
     priority_role_ids = (game.template.signup_priority_role_ids or []) if game.template else []
     if not priority_role_ids or not isinstance(interaction.user, discord.Member):
-        return (ParticipantType.SELF_ADDED, 0)
+        return (ParticipantType.SELF_ADDED, UNPOSITIONED_SENTINEL)
 
     guild_discord_id = str(interaction.guild_id)
     user_discord_id = str(interaction.user.id)

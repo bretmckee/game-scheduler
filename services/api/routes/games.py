@@ -56,7 +56,7 @@ from shared.discord.client import (
     get_guild_channels_safe,
 )
 from shared.models import game as game_model
-from shared.models.participant import GameParticipant, ParticipantType
+from shared.models.participant import UNPOSITIONED_SENTINEL, GameParticipant, ParticipantType
 from shared.schemas import auth as auth_schemas
 from shared.schemas import game as game_schemas
 from shared.schemas import participant as participant_schemas
@@ -167,7 +167,7 @@ async def _resolve_join_position(
     """Determine the queue position and type for a user joining a game."""
     priority_role_ids = (game.template.signup_priority_role_ids or []) if game.template else []
     if not priority_role_ids:
-        return ParticipantType.SELF_ADDED, 0
+        return ParticipantType.SELF_ADDED, UNPOSITIONED_SENTINEL
     return await _resolve_role_position_for_user(
         priority_role_ids,
         discord_id,
@@ -1058,7 +1058,10 @@ def _build_host_response(
         avatar_url=host_avatar_url,
         joined_at=datetime_utils.format_datetime_as_utc(game.created_at),
         position_type=ParticipantType.SELF_ADDED,
-        position=0,
+        # Cosmetic only: this ParticipantResponse is never merged into
+        # partition_participants's sorted lists (see _build_game_response), so this
+        # has no sorting effect; set for consistency with the new sentinel default.
+        position=UNPOSITIONED_SENTINEL,
     )
 
 

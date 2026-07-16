@@ -23,7 +23,7 @@
 
 from datetime import datetime
 from enum import IntEnum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 from sqlalchemy import (
     CheckConstraint,
@@ -55,6 +55,9 @@ class ParticipantType(IntEnum):
     SELF_ADDED = 24000  # Low priority (sorts last)
 
 
+UNPOSITIONED_SENTINEL: Final[int] = 32767  # SmallInteger max; see ParticipantType docstring
+
+
 class GameParticipant(Base):
     """
     Game session participant with support for placeholders.
@@ -77,7 +80,14 @@ class GameParticipant(Base):
     position_type: Mapped[int] = mapped_column(
         SmallInteger, nullable=False, server_default=text("24000")
     )
-    position: Mapped[int] = mapped_column(SmallInteger, nullable=False, server_default=text("0"))
+    # UNPOSITIONED_SENTINEL is a maximum-value sentinel for unpositioned
+    # self-added/role-based-fallback participants so they always sort after any
+    # host-rearranged participant; it is not a meaningful priority value, unlike
+    # ROLE_MATCHED's position, which is a real priority-role index (see
+    # resolve_role_position).
+    position: Mapped[int] = mapped_column(
+        SmallInteger, nullable=False, server_default=text(str(UNPOSITIONED_SENTINEL))
+    )
 
     # Relationships
     game: Mapped["GameSession"] = relationship("GameSession", back_populates="participants")

@@ -58,7 +58,7 @@ class TestResolveBotRolePosition:
         interaction = MagicMock()
         game = _make_game(priority_role_ids=[])
         result = await _resolve_bot_role_position(interaction, game, _make_role_checker())
-        assert result == (ParticipantType.SELF_ADDED, 0)
+        assert result == (ParticipantType.SELF_ADDED, 32767)
 
     @pytest.mark.asyncio
     async def test_no_template_returns_self_added(self):
@@ -67,7 +67,7 @@ class TestResolveBotRolePosition:
         result = await _resolve_bot_role_position(
             interaction, _make_game_no_template(), _make_role_checker()
         )
-        assert result == (ParticipantType.SELF_ADDED, 0)
+        assert result == (ParticipantType.SELF_ADDED, 32767)
 
     @pytest.mark.asyncio
     async def test_non_member_interaction_returns_self_added(self):
@@ -76,7 +76,7 @@ class TestResolveBotRolePosition:
         interaction.user = MagicMock(spec=discord.User)  # not a Member
         game = _make_game(priority_role_ids=["role_a"])
         result = await _resolve_bot_role_position(interaction, game, _make_role_checker())
-        assert result == (ParticipantType.SELF_ADDED, 0)
+        assert result == (ParticipantType.SELF_ADDED, 32767)
 
     @pytest.mark.asyncio
     async def test_member_with_matching_role_returns_role_matched(self):
@@ -146,5 +146,5 @@ class TestResolveBotRolePosition:
 
         result = await _resolve_bot_role_position(interaction, game, checker)
 
-        assert result == (ParticipantType.SELF_ADDED, 0)
+        assert result == (ParticipantType.SELF_ADDED, 32767)
         checker.seed_user_roles.assert_called_once_with("42", "999", ["777"])
