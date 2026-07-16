@@ -61,24 +61,24 @@ Fix host-initiated repositioning of self-added/role-matched participants in the 
 - [x] Task 1.3: Refactor, add edge-case coverage, verify migration up/down
   - Details: .copilot-tracking/planning/details/20260716-01-participant-reposition-bug-details.md (Lines 220-276)
 
-### [ ] Phase 2: Generalize backend position-update matching, including the `ROLE_BASED` decision
+### [x] Phase 2: Generalize backend position-update matching, including the `ROLE_BASED` decision
 
-- [ ] Task 2.1: Write failing regression test for self-added reposition persistence (RED)
+- [x] Task 2.1: Write failing regression test for self-added reposition persistence (RED)
   - Details: .copilot-tracking/planning/details/20260716-01-participant-reposition-bug-details.md (Lines 279-318)
 
-- [ ] Task 2.2: Match on `participant_id` across `game.participants` for position updates, keep removal scoped to `HOST_ADDED` (GREEN)
+- [x] Task 2.2: Match on `participant_id` across `game.participants` for position updates, keep removal scoped to `HOST_ADDED` (GREEN)
   - Details: .copilot-tracking/planning/details/20260716-01-participant-reposition-bug-details.md (Lines 319-391)
 
-- [ ] Task 2.3: Refactor, add edge-case coverage, confirm waitlist promotion path untouched
+- [x] Task 2.3: Refactor, add edge-case coverage, confirm waitlist promotion path untouched
   - Details: .copilot-tracking/planning/details/20260716-01-participant-reposition-bug-details.md (Lines 392-420)
 
-- [ ] Task 2.4: Write failing regression tests for `ROLE_BASED` reposition-converts-to-`SELF_ADDED` (RED)
+- [x] Task 2.4: Write failing regression tests for `ROLE_BASED` reposition-converts-to-`SELF_ADDED` (RED)
   - Details: .copilot-tracking/planning/details/20260716-01-participant-reposition-bug-details.md (Lines 421-487)
 
-- [ ] Task 2.5: Convert repositioned `ROLE_MATCHED` participants to `SELF_ADDED` in `_update_prefilled_participants` (GREEN)
+- [x] Task 2.5: Convert repositioned `ROLE_MATCHED` participants to `SELF_ADDED` in `_update_prefilled_participants` (GREEN)
   - Details: .copilot-tracking/planning/details/20260716-01-participant-reposition-bug-details.md (Lines 488-579)
 
-- [ ] Task 2.6: Refactor, add edge-case coverage, confirm mixed-bucket sort/partition and waitlist path untouched
+- [x] Task 2.6: Refactor, add edge-case coverage, confirm mixed-bucket sort/partition and waitlist path untouched
   - Details: .copilot-tracking/planning/details/20260716-01-participant-reposition-bug-details.md (Lines 580-628)
 
 ### [ ] Phase 3: Frontend disturbed-prefix payload extension

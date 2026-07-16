@@ -281,3 +281,336 @@ async def test_update_prefilled_promotes_self_added_participants(
 
     assert self_added.position_type == ParticipantType.HOST_ADDED
     assert self_added.position == 2
+
+
+@pytest.mark.asyncio
+async def test_update_prefilled_persists_self_added_reposition(
+    game_service,
+    mock_db,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """A host repositioning a SELF_ADDED participant persists the new position."""
+    game_id = str(uuid.uuid4())
+    participant_id = str(uuid.uuid4())
+    user_id = str(uuid.uuid4())
+
+    self_added = participant_model.GameParticipant(
+        id=participant_id,
+        game_session_id=game_id,
+        user_id=user_id,
+        display_name=None,
+        position_type=ParticipantType.SELF_ADDED,
+        position=32767,
+    )
+
+    game = game_model.GameSession(
+        id=game_id,
+        title="Self Signup Game",
+        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        guild_id=sample_guild.id,
+        channel_id=sample_channel.id,
+        host_id=sample_user.id,
+        max_players=5,
+        status="SCHEDULED",
+        signup_method=SignupMethod.SELF_SIGNUP.value,
+        participants=[self_added],
+    )
+    game.guild = sample_guild
+    game.channel = sample_channel
+    game.host = sample_user
+
+    mock_result = MagicMock()
+    mock_result.scalars.return_value.all.return_value = []
+    mock_db.execute = AsyncMock(return_value=mock_result)
+    mock_db.flush = AsyncMock()
+
+    participant_data_list = [{"participant_id": participant_id, "position": 1}]
+
+    await game_service._update_prefilled_participants(game, participant_data_list)
+
+    assert self_added.position == 1
+    assert self_added.position_type == ParticipantType.SELF_ADDED
+
+
+@pytest.mark.asyncio
+async def test_update_prefilled_persists_role_matched_reposition_without_converting(
+    game_service,
+    mock_db,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """Repositioning a ROLE_MATCHED participant persists position; type is unaffected here.
+
+    The write-path fix is orthogonal to sort semantics; the separate question of
+    whether ROLE_BASED reordering should convert position_type is resolved in
+    Tasks 2.4-2.6, not this one, so this test uses a non-ROLE_BASED signup method.
+    """
+    game_id = str(uuid.uuid4())
+    participant_id = str(uuid.uuid4())
+    user_id = str(uuid.uuid4())
+
+    role_matched = participant_model.GameParticipant(
+        id=participant_id,
+        game_session_id=game_id,
+        user_id=user_id,
+        display_name=None,
+        position_type=ParticipantType.ROLE_MATCHED,
+        position=0,
+    )
+
+    game = game_model.GameSession(
+        id=game_id,
+        title="Host Selected Game",
+        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        guild_id=sample_guild.id,
+        channel_id=sample_channel.id,
+        host_id=sample_user.id,
+        max_players=5,
+        status="SCHEDULED",
+        signup_method=SignupMethod.HOST_SELECTED.value,
+        participants=[role_matched],
+    )
+    game.guild = sample_guild
+    game.channel = sample_channel
+    game.host = sample_user
+
+    mock_result = MagicMock()
+    mock_result.scalars.return_value.all.return_value = []
+    mock_db.execute = AsyncMock(return_value=mock_result)
+    mock_db.flush = AsyncMock()
+
+    participant_data_list = [{"participant_id": participant_id, "position": 3}]
+
+    await game_service._update_prefilled_participants(game, participant_data_list)
+
+    assert role_matched.position == 3
+    assert role_matched.position_type == ParticipantType.ROLE_MATCHED
+
+
+@pytest.mark.asyncio
+async def test_update_prefilled_leaves_untouched_self_added_participant_alone(
+    game_service,
+    mock_db,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """A SELF_ADDED participant absent from participant_data_list is untouched, not removed."""
+    game_id = str(uuid.uuid4())
+    touched_id = str(uuid.uuid4())
+    untouched_id = str(uuid.uuid4())
+
+    touched = participant_model.GameParticipant(
+        id=touched_id,
+        game_session_id=game_id,
+        user_id=str(uuid.uuid4()),
+        display_name=None,
+        position_type=ParticipantType.SELF_ADDED,
+        position=32767,
+    )
+    untouched = participant_model.GameParticipant(
+        id=untouched_id,
+        game_session_id=game_id,
+        user_id=str(uuid.uuid4()),
+        display_name=None,
+        position_type=ParticipantType.SELF_ADDED,
+        position=32767,
+    )
+
+    game = game_model.GameSession(
+        id=game_id,
+        title="Self Signup Game",
+        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        guild_id=sample_guild.id,
+        channel_id=sample_channel.id,
+        host_id=sample_user.id,
+        max_players=5,
+        status="SCHEDULED",
+        signup_method=SignupMethod.SELF_SIGNUP.value,
+        participants=[touched, untouched],
+    )
+    game.guild = sample_guild
+    game.channel = sample_channel
+    game.host = sample_user
+
+    mock_result = MagicMock()
+    mock_result.scalars.return_value.all.return_value = []
+    mock_db.execute = AsyncMock(return_value=mock_result)
+    mock_db.flush = AsyncMock()
+
+    participant_data_list = [{"participant_id": touched_id, "position": 0}]
+
+    await game_service._update_prefilled_participants(game, participant_data_list)
+
+    assert touched.position == 0
+    assert untouched.position == 32767
+    assert untouched.position_type == ParticipantType.SELF_ADDED
+    mock_db.delete.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_update_prefilled_converts_role_matched_to_self_added_on_reposition(
+    game_service,
+    mock_db,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """An explicitly-repositioned ROLE_MATCHED participant converts to SELF_ADDED."""
+    game_id = str(uuid.uuid4())
+    participant_id = str(uuid.uuid4())
+    user_id = str(uuid.uuid4())
+
+    role_matched = participant_model.GameParticipant(
+        id=participant_id,
+        game_session_id=game_id,
+        user_id=user_id,
+        display_name=None,
+        position_type=ParticipantType.ROLE_MATCHED,
+        position=0,
+    )
+
+    game = game_model.GameSession(
+        id=game_id,
+        title="Role Based Game",
+        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        guild_id=sample_guild.id,
+        channel_id=sample_channel.id,
+        host_id=sample_user.id,
+        max_players=5,
+        status="SCHEDULED",
+        signup_method=SignupMethod.ROLE_BASED.value,
+        participants=[role_matched],
+    )
+    game.guild = sample_guild
+    game.channel = sample_channel
+    game.host = sample_user
+
+    mock_result = MagicMock()
+    mock_result.scalars.return_value.all.return_value = []
+    mock_db.execute = AsyncMock(return_value=mock_result)
+    mock_db.flush = AsyncMock()
+
+    participant_data_list = [{"participant_id": participant_id, "position": 1}]
+
+    await game_service._update_prefilled_participants(game, participant_data_list)
+
+    assert role_matched.position_type == ParticipantType.SELF_ADDED
+    assert role_matched.position == 1
+
+
+@pytest.mark.asyncio
+async def test_update_prefilled_leaves_untouched_role_matched_participant_alone(
+    game_service,
+    mock_db,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """A ROLE_MATCHED participant absent from participant_data_list is never converted."""
+    game_id = str(uuid.uuid4())
+    touched_id = str(uuid.uuid4())
+    untouched_id = str(uuid.uuid4())
+
+    touched = participant_model.GameParticipant(
+        id=touched_id,
+        game_session_id=game_id,
+        user_id=str(uuid.uuid4()),
+        display_name=None,
+        position_type=ParticipantType.ROLE_MATCHED,
+        position=0,
+    )
+    untouched = participant_model.GameParticipant(
+        id=untouched_id,
+        game_session_id=game_id,
+        user_id=str(uuid.uuid4()),
+        display_name=None,
+        position_type=ParticipantType.ROLE_MATCHED,
+        position=1,
+    )
+
+    game = game_model.GameSession(
+        id=game_id,
+        title="Role Based Game",
+        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        guild_id=sample_guild.id,
+        channel_id=sample_channel.id,
+        host_id=sample_user.id,
+        max_players=5,
+        status="SCHEDULED",
+        signup_method=SignupMethod.ROLE_BASED.value,
+        participants=[touched, untouched],
+    )
+    game.guild = sample_guild
+    game.channel = sample_channel
+    game.host = sample_user
+
+    mock_result = MagicMock()
+    mock_result.scalars.return_value.all.return_value = []
+    mock_db.execute = AsyncMock(return_value=mock_result)
+    mock_db.flush = AsyncMock()
+
+    participant_data_list = [{"participant_id": touched_id, "position": 1}]
+
+    await game_service._update_prefilled_participants(game, participant_data_list)
+
+    assert touched.position_type == ParticipantType.SELF_ADDED
+    assert touched.position == 1
+    assert untouched.position_type == ParticipantType.ROLE_MATCHED
+    assert untouched.position == 1
+
+
+@pytest.mark.asyncio
+async def test_update_prefilled_role_based_game_never_promotes_to_host_added(
+    game_service,
+    mock_db,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """Editing a ROLE_BASED game never triggers the HOST_SELECTED_WITH_WAITLIST promotion.
+
+    Guards the two if-blocks' mutually-exclusive signup_method gating against a
+    future accidental broadening of the waitlist promotion condition.
+    """
+    game_id = str(uuid.uuid4())
+    participant_id = str(uuid.uuid4())
+
+    role_matched = participant_model.GameParticipant(
+        id=participant_id,
+        game_session_id=game_id,
+        user_id=str(uuid.uuid4()),
+        display_name=None,
+        position_type=ParticipantType.ROLE_MATCHED,
+        position=0,
+    )
+
+    game = game_model.GameSession(
+        id=game_id,
+        title="Role Based Game",
+        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        guild_id=sample_guild.id,
+        channel_id=sample_channel.id,
+        host_id=sample_user.id,
+        max_players=5,
+        status="SCHEDULED",
+        signup_method=SignupMethod.ROLE_BASED.value,
+        participants=[role_matched],
+    )
+    game.guild = sample_guild
+    game.channel = sample_channel
+    game.host = sample_user
+
+    mock_result = MagicMock()
+    mock_result.scalars.return_value.all.return_value = []
+    mock_db.execute = AsyncMock(return_value=mock_result)
+    mock_db.flush = AsyncMock()
+
+    participant_data_list = [{"participant_id": participant_id, "position": 1}]
+
+    await game_service._update_prefilled_participants(game, participant_data_list)
+
+    assert role_matched.position_type != ParticipantType.HOST_ADDED

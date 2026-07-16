@@ -1422,7 +1422,7 @@ class GameService:
         Update positions for existing participants.
 
         Args:
-            current_participants: Current host-added participants
+            current_participants: Participants to match against, by id (any position_type)
             participant_data_list: List of participant data dicts with positions
         """
         for participant_data in participant_data_list:
@@ -1478,11 +1478,25 @@ class GameService:
                 p.position_type = ParticipantType.HOST_ADDED
                 p.position = position
 
-        # Remove pre-filled participants not in the existing list
+        if game.signup_method == SignupMethod.ROLE_BASED:
+            role_matched_to_convert = [
+                p
+                for p in game.participants
+                if p.id in existing_participant_ids
+                and p.position_type == ParticipantType.ROLE_MATCHED
+            ]
+            for p in role_matched_to_convert:
+                position = next(
+                    d["position"] for d in participant_data_list if d.get("participant_id") == p.id
+                )
+                p.position_type = ParticipantType.SELF_ADDED
+                p.position = position
+
+        # Remove pre-filled participants not in the existing list (HOST_ADDED only)
         await self._remove_outdated_participants(current_participants, existing_participant_ids)
 
-        # Update positions for existing participants
-        self._update_participant_positions(current_participants, participant_data_list)
+        # Update positions for any participant referenced by id, regardless of position_type
+        self._update_participant_positions(game.participants, participant_data_list)
 
         await self.db.flush()
 

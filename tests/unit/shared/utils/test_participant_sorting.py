@@ -251,6 +251,27 @@ class TestSortParticipants:
         # Next 10 should be regular sorted by time
         assert result[5:] == regular
 
+    def test_remaining_role_matched_sorts_before_converted_self_added(self, mock_participant):
+        """A ROLE_MATCHED participant sorts before a converted SELF_ADDED one.
+
+        Simulates the post-ROLE_BASED-conversion state: one participant still in
+        the role-priority tier (real index 0) and one just converted to SELF_ADDED
+        with an explicit position (1). Already-correct, unchanged sort_participants
+        behavior (position_type dominates the sort key) - locks in the interaction
+        the ROLE_BASED conversion in games.py relies on.
+        """
+        base_time = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
+        remaining_role_matched = mock_participant(
+            "remaining", joined_at=base_time, position_type=ParticipantType.ROLE_MATCHED, position=0
+        )
+        converted_self_added = mock_participant(
+            "converted", joined_at=base_time, position_type=ParticipantType.SELF_ADDED, position=1
+        )
+
+        result = sort_participants([converted_self_added, remaining_role_matched])
+
+        assert result == [remaining_role_matched, converted_self_added]
+
 
 class TestPartitionParticipants:
     """Tests for partition_participants function."""
