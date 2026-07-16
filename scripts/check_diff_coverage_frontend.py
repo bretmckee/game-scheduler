@@ -60,7 +60,7 @@ def main() -> int:
     if not ts_files:
         return 0
 
-    branch = base_ref if base_ref else "origin/main"
+    branch = base_ref if base_ref else "origin/develop"
     result = subprocess.run(  # noqa: S603
         [
             sys.executable,
