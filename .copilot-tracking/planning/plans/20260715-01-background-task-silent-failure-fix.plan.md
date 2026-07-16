@@ -67,15 +67,15 @@ Migrate `SchedulerLoop` and `AnnouncementLoop` to the already-proven `listen_wit
 - [x] Task 2.3: Refactor and add AnnouncementLoop edge-case coverage
   - Details: .copilot-tracking/planning/details/20260715-01-background-task-silent-failure-fix-details.md (Lines 351-380)
 
-### [ ] Phase 3: _channel_worker per-iteration exception handling
+### [x] Phase 3: _channel_worker per-iteration exception handling
 
-- [ ] Task 3.1: Write failing regression test for _channel_worker resilience (RED)
+- [x] Task 3.1: Write failing regression test for _channel_worker resilience (RED)
   - Details: .copilot-tracking/planning/details/20260715-01-background-task-silent-failure-fix-details.md (Lines 383-428)
 
-- [ ] Task 3.2: Wrap _channel_worker loop body in try/except, update the exception-propagation test (GREEN)
+- [x] Task 3.2: Wrap _channel_worker loop body in try/except, update the exception-propagation test (GREEN)
   - Details: .copilot-tracking/planning/details/20260715-01-background-task-silent-failure-fix-details.md (Lines 429-534)
 
-- [ ] Task 3.3: Refactor, add edge-case coverage, and run full-suite/integration verification
+- [x] Task 3.3: Refactor, add edge-case coverage, and run full-suite/integration verification
   - Details: .copilot-tracking/planning/details/20260715-01-background-task-silent-failure-fix-details.md (Lines 535-581)
 
 ## Dependencies

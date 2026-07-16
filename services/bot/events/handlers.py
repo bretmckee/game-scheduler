@@ -1419,36 +1419,51 @@ class EventHandlers:
         attempt_counts: dict[str, int] = {}
         try:
             while True:
-                game_id = await self._fetch_next_queued_game(discord_channel_id)
-                if game_id is None:
-                    break
-
-                redis = await get_redis_client()
-                wait_ms = await redis.claim_channel_rate_limit_slot(discord_channel_id)
-                t_cut = await self._edit_with_backoff(discord_channel_id, game_id, wait_ms)
-                if t_cut is None:
-                    attempt_counts[game_id] = attempt_counts.get(game_id, 0) + 1
-                    if attempt_counts[game_id] < _MAX_EDIT_ATTEMPTS:
-                        continue
-                    logger.error(
-                        "Dropping game %s from refresh queue after %d failed attempts",
-                        game_id,
-                        _MAX_EDIT_ATTEMPTS,
+                try:
+                    if not await self._drain_one_queued_game(discord_channel_id, attempt_counts):
+                        break
+                except Exception:
+                    logger.exception(
+                        "Unexpected error in channel worker loop body for channel %s, retrying",
+                        discord_channel_id,
                     )
-                    t_cut = datetime.now(tz=UTC)
-
-                attempt_counts.pop(game_id, None)
-                async with get_db_session() as db:
-                    await db.execute(
-                        delete(MessageRefreshQueue).where(
-                            MessageRefreshQueue.channel_id == discord_channel_id,
-                            MessageRefreshQueue.game_id == game_id,
-                            MessageRefreshQueue.enqueued_at <= t_cut,
-                        )
-                    )
-                    await db.commit()
+                    continue
         finally:
             self._channel_workers.pop(discord_channel_id, None)
+
+    async def _drain_one_queued_game(
+        self, discord_channel_id: str, attempt_counts: dict[str, int]
+    ) -> bool:
+        """Process one queued game for this channel; return False when the queue is empty."""
+        game_id = await self._fetch_next_queued_game(discord_channel_id)
+        if game_id is None:
+            return False
+
+        redis = await get_redis_client()
+        wait_ms = await redis.claim_channel_rate_limit_slot(discord_channel_id)
+        t_cut = await self._edit_with_backoff(discord_channel_id, game_id, wait_ms)
+        if t_cut is None:
+            attempt_counts[game_id] = attempt_counts.get(game_id, 0) + 1
+            if attempt_counts[game_id] < _MAX_EDIT_ATTEMPTS:
+                return True
+            logger.error(
+                "Dropping game %s from refresh queue after %d failed attempts",
+                game_id,
+                _MAX_EDIT_ATTEMPTS,
+            )
+            t_cut = datetime.now(tz=UTC)
+
+        attempt_counts.pop(game_id, None)
+        async with get_db_session() as db:
+            await db.execute(
+                delete(MessageRefreshQueue).where(
+                    MessageRefreshQueue.channel_id == discord_channel_id,
+                    MessageRefreshQueue.game_id == game_id,
+                    MessageRefreshQueue.enqueued_at <= t_cut,
+                )
+            )
+            await db.commit()
+        return True
 
     async def _fetch_next_queued_game(self, discord_channel_id: str) -> str | None:
         """Return one pending game_id from the queue for this channel, or None if empty."""
