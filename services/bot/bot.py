@@ -123,6 +123,7 @@ class GameSchedulerBot(commands.Bot):
         self.event_handlers: EventHandlers | None = None
         self.api_cache = None
         self._sweep_task: asyncio.Task[None] | None = None
+        self._disconnected_at: float | None = None
 
         intents = discord.Intents(
             guilds=True, guild_messages=True, members=True, emojis_and_stickers=True
@@ -172,6 +173,14 @@ class GameSchedulerBot(commands.Bot):
                 "discord.guild_count": len(self.guilds),
             },
         ):
+            if self._disconnected_at is not None:
+                outage_seconds = time.monotonic() - self._disconnected_at
+                self._disconnected_at = None
+                logger.warning(
+                    "Bot fully reconnected to Gateway after session invalidation (outage %.2fs)",
+                    outage_seconds,
+                )
+
             logger.info("Bot connected as %s (ID: %s)", self.user, self.user.id)
             logger.info("Connected to %s guilds", len(self.guilds))
             logger.info("Bot is ready to receive events")
@@ -453,12 +462,30 @@ class GameSchedulerBot(commands.Bot):
         )
 
     async def on_disconnect(self) -> None:
-        """Handle Gateway disconnection."""
-        logger.warning("Bot disconnected from Gateway")
+        """Handle Gateway disconnection.
+
+        Discord disconnects clients periodically for load-balancing reasons; most
+        resolve via on_resumed within milliseconds. Only log the start of an outage
+        (repeated on_disconnect calls during a retry storm share the same start
+        time) — severity escalates to WARNING only if recovery requires a full
+        reconnect (see on_ready), since that's the case actually worth noticing.
+        """
+        if self._disconnected_at is None:
+            self._disconnected_at = time.monotonic()
+        logger.info("Bot disconnected from Gateway")
 
     async def on_resumed(self) -> None:
         """Handle Gateway reconnection after disconnect."""
-        logger.info("Bot reconnected to Gateway")
+        outage_seconds = (
+            time.monotonic() - self._disconnected_at if self._disconnected_at is not None else None
+        )
+        self._disconnected_at = None
+        if outage_seconds is None:
+            logger.info("Bot reconnected to Gateway")
+        else:
+            logger.info(
+                "Bot reconnected to Gateway (resumed session, outage %.2fs)", outage_seconds
+            )
         redis = await get_redis_client()
         await guild_projection.repopulate_all(bot=self, redis=redis)
         await self._recover_pending_workers()

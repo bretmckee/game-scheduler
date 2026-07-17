@@ -151,6 +151,60 @@ class TestGameSchedulerBot:
                     assert mock_logger.info.call_count >= 2
                     mock_path.assert_called_once_with("/tmp/bot-ready")
                     mock_path.return_value.touch.assert_called_once_with()
+                    mock_logger.warning.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_on_ready_after_disconnect_logs_warning(self, bot_config: BotConfig) -> None:
+        """on_ready reached via a prior disconnect (session invalidated, not resumed)
+        logs a warning with the outage duration, since that's the case that
+        actually needs attention — unlike a routine on_resumed recovery."""
+        bot = GameSchedulerBot(bot_config)
+        bot._disconnected_at = 100.0
+        mock_user = MagicMock()
+        mock_user.id = 123456789
+        mock_guilds = [MagicMock(), MagicMock()]
+
+        mock_redis = AsyncMock()
+        mock_pipe = MagicMock()
+        mock_pipe.execute = AsyncMock(return_value=[])
+        mock_redis._client = MagicMock()
+        mock_redis._client.pipeline.return_value.__aenter__ = AsyncMock(return_value=mock_pipe)
+        mock_redis._client.pipeline.return_value.__aexit__ = AsyncMock(return_value=False)
+        mock_redis._client.scan = AsyncMock(return_value=(0, []))
+        mock_redis._client.delete = AsyncMock()
+
+        mock_sl_instance = MagicMock()
+        mock_sl_instance.run = AsyncMock()
+
+        mock_al_instance = MagicMock()
+        mock_al_instance.start = AsyncMock()
+
+        with patch("services.bot.bot.logger") as mock_logger:
+            with patch.object(type(bot), "user", new_callable=lambda: mock_user):
+                with patch.object(type(bot), "guilds", new_callable=lambda: mock_guilds):
+                    with (
+                        patch.object(bot, "_start_test_server", new_callable=AsyncMock),
+                        patch.object(bot, "_rebuild_guild_channel_cache", new_callable=AsyncMock),
+                        patch.object(bot, "_recover_pending_workers", new_callable=AsyncMock),
+                        patch.object(bot, "_trigger_sweep", new_callable=AsyncMock),
+                        patch(
+                            "services.bot.bot.get_redis_client",
+                            new_callable=AsyncMock,
+                            return_value=mock_redis,
+                        ),
+                        patch("services.bot.bot.Path"),
+                        patch("services.bot.bot.SchedulerLoop", return_value=mock_sl_instance),
+                        patch("services.bot.bot.AnnouncementLoop", return_value=mock_al_instance),
+                        patch("services.bot.bot.time.monotonic", return_value=106.0),
+                    ):
+                        await bot.on_ready()
+
+                    mock_logger.warning.assert_called_once_with(
+                        "Bot fully reconnected to Gateway after session invalidation "
+                        "(outage %.2fs)",
+                        6.0,
+                    )
+                    assert bot._disconnected_at is None
 
     @pytest.mark.asyncio
     async def test_setup_hook_guild_sync_success(self, bot_config: BotConfig) -> None:
@@ -169,13 +223,30 @@ class TestGameSchedulerBot:
 
     @pytest.mark.asyncio
     async def test_on_disconnect_event(self, bot_config: BotConfig) -> None:
-        """Test on_disconnect event handler logs warning."""
+        """Test on_disconnect event handler logs at info and records the outage start."""
         bot = GameSchedulerBot(bot_config)
+        assert bot._disconnected_at is None
 
         with patch("services.bot.bot.logger") as mock_logger:
             await bot.on_disconnect()
 
-            mock_logger.warning.assert_called_once_with("Bot disconnected from Gateway")
+            mock_logger.info.assert_called_once_with("Bot disconnected from Gateway")
+            assert bot._disconnected_at is not None
+
+    @pytest.mark.asyncio
+    async def test_on_disconnect_event_keeps_original_time_on_repeat(
+        self, bot_config: BotConfig
+    ) -> None:
+        """Repeated on_disconnect calls during a retry storm don't reset the outage start."""
+        bot = GameSchedulerBot(bot_config)
+
+        with patch("services.bot.bot.logger"):
+            await bot.on_disconnect()
+            first_disconnected_at = bot._disconnected_at
+
+            await bot.on_disconnect()
+
+            assert bot._disconnected_at == first_disconnected_at
 
     @pytest.mark.asyncio
     async def test_on_resumed_event(self, bot_config: BotConfig) -> None:
@@ -201,6 +272,43 @@ class TestGameSchedulerBot:
             await bot.on_resumed()
 
             mock_logger.info.assert_called_once_with("Bot reconnected to Gateway")
+
+    @pytest.mark.asyncio
+    async def test_on_resumed_event_logs_outage_duration_after_disconnect(
+        self, bot_config: BotConfig
+    ) -> None:
+        """on_resumed reports outage duration and clears the tracked disconnect time."""
+        bot = GameSchedulerBot(bot_config)
+        mock_redis = AsyncMock()
+
+        with (
+            patch("services.bot.bot.logger"),
+            patch("services.bot.bot.time.monotonic", return_value=100.0),
+        ):
+            await bot.on_disconnect()
+
+        with (
+            patch("services.bot.bot.logger") as mock_logger,
+            patch(
+                "services.bot.bot.get_redis_client",
+                new_callable=AsyncMock,
+                return_value=mock_redis,
+            ),
+            patch(
+                "services.bot.bot.guild_projection.repopulate_all",
+                new_callable=AsyncMock,
+            ),
+            patch.object(bot, "_recover_pending_workers", new_callable=AsyncMock),
+            patch.object(bot, "_trigger_sweep", new_callable=AsyncMock),
+            patch.object(bot, "_sweep_orphaned_embeds", new_callable=AsyncMock),
+            patch("services.bot.bot.time.monotonic", return_value=105.0),
+        ):
+            await bot.on_resumed()
+
+            mock_logger.info.assert_called_once_with(
+                "Bot reconnected to Gateway (resumed session, outage %.2fs)", 5.0
+            )
+            assert bot._disconnected_at is None
 
     @pytest.mark.asyncio
     async def test_on_error_event(self, bot_config: BotConfig) -> None:

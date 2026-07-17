@@ -42,6 +42,7 @@ def _make_bot() -> GameSchedulerBot:
     instance.event_handlers = None
     instance.api_cache = None
     instance._sweep_task = None
+    instance._disconnected_at = None
     instance._refresh_listener_started = True
     instance._announcement_loop_started = True
     instance._scheduler_loops_started = True
