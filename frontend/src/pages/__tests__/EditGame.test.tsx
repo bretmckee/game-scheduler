@@ -20,12 +20,12 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { StatusCodes } from 'http-status-codes';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router';
 import { EditGame } from '../EditGame';
 import { apiClient } from '../../api/client';
-import { GameSession, Channel, ParticipantType } from '../../types';
+import { GameSession, Channel, Participant, ParticipantType } from '../../types';
 import { AuthContext } from '../../contexts/AuthContext';
 
 const mockNavigate = vi.fn();
@@ -574,6 +574,305 @@ describe('EditGame', () => {
       expect(formData.get('archive_delay_seconds')).toBe('1');
       expect(mockNavigate).toHaveBeenCalledWith('/games/game123');
     });
+  });
+
+  const selfAddedParticipant = (id: string, name: string, joinedAt: string): Participant => ({
+    id,
+    game_session_id: 'game123',
+    user_id: `user-${id}`,
+    discord_id: id,
+    display_name: name,
+    joined_at: joinedAt,
+    position_type: ParticipantType.SELF_ADDED,
+    position: 32767,
+  });
+
+  it('includes the full disturbed prefix, not just the literally-moved participant, in the submitted payload', async () => {
+    const gameWithParticipants: GameSession = {
+      ...mockGame,
+      participants: [
+        selfAddedParticipant('p1', 'P1', '2025-01-01T00:00:00Z'),
+        selfAddedParticipant('p2', 'P2', '2025-01-01T00:01:00Z'),
+        selfAddedParticipant('p3', 'P3', '2025-01-01T00:02:00Z'),
+      ],
+    };
+
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url.includes('/games/')) return Promise.resolve({ data: gameWithParticipants });
+      if (url.includes('/channels')) return Promise.resolve({ data: mockChannels });
+      if (url.includes('/roles')) return Promise.resolve({ data: [] });
+      return Promise.reject(new Error('Unknown URL'));
+    });
+    vi.mocked(apiClient.put).mockResolvedValueOnce({ data: gameWithParticipants });
+
+    const user = userEvent.setup();
+
+    render(
+      <AuthContext.Provider value={mockAuthContextValue}>
+        <BrowserRouter>
+          <EditGame />
+        </BrowserRouter>
+      </AuthContext.Provider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('@P1')).toBeInTheDocument();
+    });
+
+    // Drag P1 (topmost) past P2 and P3, so it lands last: [P2, P3, P1]
+    const draggedRow = screen.getByDisplayValue('@P1').closest('[draggable="true"]')!;
+    const dropTargetRow = screen.getByDisplayValue('@P3').closest('[draggable="true"]')!;
+    fireEvent.dragStart(draggedRow);
+    fireEvent.dragOver(dropTargetRow);
+    fireEvent.drop(dropTargetRow);
+
+    await user.click(screen.getByText('Save Changes'));
+
+    await waitFor(() => {
+      expect(apiClient.put).toHaveBeenCalled();
+    });
+
+    const formData = vi.mocked(apiClient.put).mock.calls[0]![1] as FormData;
+    const participantsPayload = JSON.parse(formData.get('participants') as string);
+
+    // All three participants are included, not just the literally-dragged P1
+    expect(participantsPayload).toEqual([
+      { participant_id: 'p2', position: 1 },
+      { participant_id: 'p3', position: 2 },
+      { participant_id: 'p1', position: 3 },
+    ]);
+  });
+
+  it('excludes untouched participants below the highest explicitly-positioned index', async () => {
+    const gameWithParticipants: GameSession = {
+      ...mockGame,
+      participants: [
+        selfAddedParticipant('p1', 'P1', '2025-01-01T00:00:00Z'),
+        selfAddedParticipant('p2', 'P2', '2025-01-01T00:01:00Z'),
+        selfAddedParticipant('p3', 'P3', '2025-01-01T00:02:00Z'),
+        selfAddedParticipant('p4', 'P4', '2025-01-01T00:03:00Z'),
+      ],
+    };
+
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url.includes('/games/')) return Promise.resolve({ data: gameWithParticipants });
+      if (url.includes('/channels')) return Promise.resolve({ data: mockChannels });
+      if (url.includes('/roles')) return Promise.resolve({ data: [] });
+      return Promise.reject(new Error('Unknown URL'));
+    });
+    vi.mocked(apiClient.put).mockResolvedValueOnce({ data: gameWithParticipants });
+
+    const user = userEvent.setup();
+
+    render(
+      <AuthContext.Provider value={mockAuthContextValue}>
+        <BrowserRouter>
+          <EditGame />
+        </BrowserRouter>
+      </AuthContext.Provider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('@P1')).toBeInTheDocument();
+    });
+
+    // Drag P1 past P2 and P3, landing just above the untouched P4: [P2, P3, P1, P4]
+    const draggedRow = screen.getByDisplayValue('@P1').closest('[draggable="true"]')!;
+    const dropTargetRow = screen.getByDisplayValue('@P3').closest('[draggable="true"]')!;
+    fireEvent.dragStart(draggedRow);
+    fireEvent.dragOver(dropTargetRow);
+    fireEvent.drop(dropTargetRow);
+
+    await user.click(screen.getByText('Save Changes'));
+
+    await waitFor(() => {
+      expect(apiClient.put).toHaveBeenCalled();
+    });
+
+    const formData = vi.mocked(apiClient.put).mock.calls[0]![1] as FormData;
+    const participantsPayload = JSON.parse(formData.get('participants') as string);
+
+    expect(participantsPayload).toEqual([
+      { participant_id: 'p2', position: 1 },
+      { participant_id: 'p3', position: 2 },
+      { participant_id: 'p1', position: 3 },
+    ]);
+    expect(
+      participantsPayload.find((p: { participant_id?: string }) => p.participant_id === 'p4')
+    ).toBeUndefined();
+  });
+
+  it('includes every participant through the new highest explicitly-positioned index after two non-contiguous moves', async () => {
+    const gameWithParticipants: GameSession = {
+      ...mockGame,
+      participants: Array.from({ length: 8 }, (_, i) =>
+        selfAddedParticipant(`p${i + 1}`, `P${i + 1}`, `2025-01-01T00:0${i}:00Z`)
+      ),
+    };
+
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url.includes('/games/')) return Promise.resolve({ data: gameWithParticipants });
+      if (url.includes('/channels')) return Promise.resolve({ data: mockChannels });
+      if (url.includes('/roles')) return Promise.resolve({ data: [] });
+      return Promise.reject(new Error('Unknown URL'));
+    });
+    vi.mocked(apiClient.put).mockResolvedValueOnce({ data: gameWithParticipants });
+
+    const user = userEvent.setup();
+
+    render(
+      <AuthContext.Provider value={mockAuthContextValue}>
+        <BrowserRouter>
+          <EditGame />
+        </BrowserRouter>
+      </AuthContext.Provider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('@P1')).toBeInTheDocument();
+    });
+
+    // Move 1: drag P6 (index 5) to index 1 -> [P1, P6, P2, P3, P4, P5, P7, P8]
+    fireEvent.dragStart(screen.getByDisplayValue('@P6').closest('[draggable="true"]')!);
+    fireEvent.drop(screen.getByDisplayValue('@P2').closest('[draggable="true"]')!);
+
+    // Move 2: drag P8 (now index 7) to index 4 -> [P1, P6, P2, P3, P8, P4, P5, P7]
+    fireEvent.dragStart(screen.getByDisplayValue('@P8').closest('[draggable="true"]')!);
+    fireEvent.drop(screen.getByDisplayValue('@P4').closest('[draggable="true"]')!);
+
+    await user.click(screen.getByText('Save Changes'));
+
+    await waitFor(() => {
+      expect(apiClient.put).toHaveBeenCalled();
+    });
+
+    const formData = vi.mocked(apiClient.put).mock.calls[0]![1] as FormData;
+    const participantsPayload = JSON.parse(formData.get('participants') as string);
+
+    // Highest explicitly-positioned index is 4 (P8), so indices 0-4 are all included,
+    // not just the two literally-dragged participants (P6, P8).
+    expect(participantsPayload).toEqual([
+      { participant_id: 'p1', position: 1 },
+      { participant_id: 'p6', position: 2 },
+      { participant_id: 'p2', position: 3 },
+      { participant_id: 'p3', position: 4 },
+      { participant_id: 'p8', position: 5 },
+    ]);
+  });
+
+  it('pins the whole prefix above a newly-added participant to explicit positions', async () => {
+    const gameWithParticipants: GameSession = {
+      ...mockGame,
+      participants: [
+        selfAddedParticipant('p1', 'P1', '2025-01-01T00:00:00Z'),
+        selfAddedParticipant('p2', 'P2', '2025-01-01T00:01:00Z'),
+      ],
+    };
+
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url.includes('/games/')) return Promise.resolve({ data: gameWithParticipants });
+      if (url.includes('/channels')) return Promise.resolve({ data: mockChannels });
+      if (url.includes('/roles')) return Promise.resolve({ data: [] });
+      return Promise.reject(new Error('Unknown URL'));
+    });
+    vi.mocked(apiClient.put).mockResolvedValueOnce({ data: gameWithParticipants });
+
+    const user = userEvent.setup();
+
+    render(
+      <AuthContext.Provider value={mockAuthContextValue}>
+        <BrowserRouter>
+          <EditGame />
+        </BrowserRouter>
+      </AuthContext.Provider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('@P1')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Add Participant'));
+
+    const mentionInputs = screen.getAllByPlaceholderText('@username or Discord user');
+    const newParticipantInput = mentionInputs[mentionInputs.length - 1]!;
+    fireEvent.change(newParticipantInput, { target: { value: '@NewGuy' } });
+
+    await user.click(screen.getByText('Save Changes'));
+
+    await waitFor(() => {
+      expect(apiClient.put).toHaveBeenCalled();
+    });
+
+    const formData = vi.mocked(apiClient.put).mock.calls[0]![1] as FormData;
+    const participantsPayload = JSON.parse(formData.get('participants') as string);
+
+    // Harmless side effect: this freezes the already-correct FCFS order of P1/P2
+    // into explicit position values, since addParticipant always appends at the
+    // last index (the new highest explicitly-positioned index).
+    expect(participantsPayload).toEqual([
+      { participant_id: 'p1', position: 1 },
+      { participant_id: 'p2', position: 2 },
+      { mention: '@NewGuy', position: 3 },
+    ]);
+  });
+
+  it('includes a dragged ROLE_MATCHED participant in the disturbed-prefix payload identically to SELF_ADDED', async () => {
+    const roleMatchedParticipant = (id: string, name: string, position: number): Participant => ({
+      id,
+      game_session_id: 'game123',
+      user_id: `user-${id}`,
+      discord_id: id,
+      display_name: name,
+      joined_at: '2025-01-01T00:00:00Z',
+      position_type: ParticipantType.ROLE_MATCHED,
+      position,
+    });
+
+    const gameWithParticipants: GameSession = {
+      ...mockGame,
+      signup_method: 'ROLE_BASED',
+      participants: [roleMatchedParticipant('r1', 'R1', 0), roleMatchedParticipant('r2', 'R2', 1)],
+    };
+
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url.includes('/games/')) return Promise.resolve({ data: gameWithParticipants });
+      if (url.includes('/channels')) return Promise.resolve({ data: mockChannels });
+      if (url.includes('/roles')) return Promise.resolve({ data: [] });
+      return Promise.reject(new Error('Unknown URL'));
+    });
+    vi.mocked(apiClient.put).mockResolvedValueOnce({ data: gameWithParticipants });
+
+    const user = userEvent.setup();
+
+    render(
+      <AuthContext.Provider value={mockAuthContextValue}>
+        <BrowserRouter>
+          <EditGame />
+        </BrowserRouter>
+      </AuthContext.Provider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('@R1')).toBeInTheDocument();
+    });
+
+    // Drag R1 below R2: [R2, R1]
+    fireEvent.dragStart(screen.getByDisplayValue('@R1').closest('[draggable="true"]')!);
+    fireEvent.drop(screen.getByDisplayValue('@R2').closest('[draggable="true"]')!);
+
+    await user.click(screen.getByText('Save Changes'));
+
+    await waitFor(() => {
+      expect(apiClient.put).toHaveBeenCalled();
+    });
+
+    const formData = vi.mocked(apiClient.put).mock.calls[0]![1] as FormData;
+    const participantsPayload = JSON.parse(formData.get('participants') as string);
+
+    expect(participantsPayload).toEqual([
+      { participant_id: 'r2', position: 1 },
+      { participant_id: 'r1', position: 2 },
+    ]);
   });
 });
 

@@ -32,6 +32,11 @@ Fixes host-initiated repositioning of self-added/role-matched participants in th
 
 **Known, intentional consequence of Task 2.5** (documented per the plan): because `sort_participants`'s key is `(position_type, position, joined_at)` and `SELF_ADDED` (24000) always sorts after every remaining `ROLE_MATCHED` (16000) entry, dragging a `ROLE_MATCHED` participant to a spot visually above another still-unconverted `ROLE_MATCHED` participant will still persist with the dragged participant sorting below every remaining `ROLE_MATCHED` participant. This is intended: an explicit reposition fully exits the role-priority tier, it is not a same-tier nudge. Reordering two participants while both keep their role-priority tier is unsupported (no such UI action exists) and out of scope.
 
+- frontend/src/pages/EditGame.tsx - extracted a module-level `buildParticipantsPayload` helper (the "disturbed prefix" rule: include every participant that is either explicitly positioned or displayed at/above the highest explicitly-positioned index) and replaced the duplicated `.filter(...).map(...)` blocks in both `handleSubmit` and `handleSaveAndArchive` with calls to it, so a host-repositioned self-added/role-matched participant's move actually reaches the backend from either save path
+- tests/pages/**tests**/EditGame.test.tsx - added `it.fails` regression tests for the disturbed-prefix payload (RED phase, Task 3.1: `includes the full disturbed prefix...`/`excludes untouched participants below the highest explicitly-positioned index`), removed the `.fails` markers after implementing the fix (GREEN, Task 3.2), and added edge-case coverage (Task 3.3): two non-contiguous explicit moves, the `addParticipant` "pin the whole prefix" side effect, and a `ROLE_MATCHED` participant behaving identically to `SELF_ADDED` when dragged in a `ROLE_BASED` game
+
+**Side effect noted per the plan**: consolidating both save paths into one helper also fixes a pre-existing inconsistency — `handleSaveAndArchive`'s duplicated block previously used `p.mention.trim()` for the temp-id branch instead of `p.resolvedMention ?? p.mention.trim()` (which `handleSubmit` already used), so a disambiguated-but-unsaved mention typed via "Save and Archive" now resolves the same way it already did via "Save Changes".
+
 ### Removed
 
 ## Release Summary

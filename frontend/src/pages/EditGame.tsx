@@ -25,6 +25,36 @@ import { useNavigate, useParams } from 'react-router';
 import { apiClient } from '../api/client';
 import { Channel, DiscordRole, GameSession, Participant } from '../types';
 import { GameForm, GameFormData } from '../components/GameForm';
+import { ParticipantInput } from '../components/EditableParticipantList';
+
+/**
+ * Build the participants payload for a game-update submission.
+ *
+ * Includes every participant whose mention is non-empty and who is either
+ * explicitly positioned (the participant the host literally moved/added) or
+ * displayed at or above the highest explicitly-positioned index — the
+ * "disturbed prefix" that was reindexed as a side effect of that move.
+ * Participants below that index are omitted entirely and keep whatever
+ * position (sentinel or previously-explicit) they already had server-side.
+ */
+function buildParticipantsPayload(
+  participants: ParticipantInput[]
+): Array<{ participant_id: string; position: number } | { mention: string; position: number }> {
+  const highestExplicitIndex = participants.reduce(
+    (max, p, idx) => (p.isExplicitlyPositioned ? idx : max),
+    -1
+  );
+  return participants
+    .filter(
+      (p, idx) => p.mention.trim() && (p.isExplicitlyPositioned || idx <= highestExplicitIndex)
+    )
+    .map((p) => {
+      if (!p.id.startsWith('temp-')) {
+        return { participant_id: p.id, position: p.preFillPosition };
+      }
+      return { mention: p.resolvedMention ?? p.mention.trim(), position: p.preFillPosition };
+    });
+}
 
 interface EditGameState {
   game: GameSession | null;
@@ -172,20 +202,7 @@ export const EditGame: FC = () => {
       payload.append('signup_method', formData.signupMethod);
 
       // Add participants as JSON array
-      const participantsList = formData.participants
-        .filter((p) => p.mention.trim() && p.isExplicitlyPositioned)
-        .map((p) => {
-          if (!p.id.startsWith('temp-')) {
-            return {
-              participant_id: p.id,
-              position: p.preFillPosition,
-            };
-          }
-          return {
-            mention: p.resolvedMention ?? p.mention.trim(),
-            position: p.preFillPosition,
-          };
-        });
+      const participantsList = buildParticipantsPayload(formData.participants);
       if (participantsList.length > 0) {
         payload.append('participants', JSON.stringify(participantsList));
       }
@@ -328,14 +345,7 @@ export const EditGame: FC = () => {
       payload.append('expected_duration_minutes', Math.max(elapsedMinutes, 1).toString());
     }
     payload.append('signup_method', formData.signupMethod);
-    const participantsList = formData.participants
-      .filter((p) => p.mention.trim() && p.isExplicitlyPositioned)
-      .map((p) => {
-        if (!p.id.startsWith('temp-')) {
-          return { participant_id: p.id, position: p.preFillPosition };
-        }
-        return { mention: p.mention.trim(), position: p.preFillPosition };
-      });
+    const participantsList = buildParticipantsPayload(formData.participants);
     if (participantsList.length > 0) {
       payload.append('participants', JSON.stringify(participantsList));
     }

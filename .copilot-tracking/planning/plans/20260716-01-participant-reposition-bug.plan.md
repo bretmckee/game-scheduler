@@ -81,15 +81,15 @@ Fix host-initiated repositioning of self-added/role-matched participants in the 
 - [x] Task 2.6: Refactor, add edge-case coverage, confirm mixed-bucket sort/partition and waitlist path untouched
   - Details: .copilot-tracking/planning/details/20260716-01-participant-reposition-bug-details.md (Lines 580-628)
 
-### [ ] Phase 3: Frontend disturbed-prefix payload extension
+### [x] Phase 3: Frontend disturbed-prefix payload extension
 
-- [ ] Task 3.1: Write failing regression tests for the disturbed-prefix payload (RED)
+- [x] Task 3.1: Write failing regression tests for the disturbed-prefix payload (RED)
   - Details: .copilot-tracking/planning/details/20260716-01-participant-reposition-bug-details.md (Lines 631-682)
 
-- [ ] Task 3.2: Extract shared `buildParticipantsPayload` helper and use it in both submit paths (GREEN)
+- [x] Task 3.2: Extract shared `buildParticipantsPayload` helper and use it in both submit paths (GREEN)
   - Details: .copilot-tracking/planning/details/20260716-01-participant-reposition-bug-details.md (Lines 683-754)
 
-- [ ] Task 3.3: Refactor, add edge-case coverage, confirm waitlist payload construction unchanged and `ROLE_MATCHED` reorderable identically to `SELF_ADDED`
+- [x] Task 3.3: Refactor, add edge-case coverage, confirm waitlist payload construction unchanged and `ROLE_MATCHED` reorderable identically to `SELF_ADDED`
   - Details: .copilot-tracking/planning/details/20260716-01-participant-reposition-bug-details.md (Lines 755-809)
 
 ### [ ] Phase 4: End-to-end verification
