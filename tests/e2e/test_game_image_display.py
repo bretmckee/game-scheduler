@@ -128,12 +128,15 @@ async def test_game_with_images_displays_in_discord(
     print(f"[TEST] Expected Discord channel_id: {discord_channel_id}")
     assert message_id is not None, "Message ID should be populated after announcement"
 
+    # Discord fetches/renders embed images asynchronously after the message is
+    # posted; this is slower than a plain message-create check, so it gets a
+    # wider timeout than TimeoutType.MESSAGE_CREATE.
     message = await discord_helper.wait_for_embed_images(
         channel_id=discord_channel_id,
         message_id=message_id,
         expect_thumbnail=True,
         expect_image=True,
-        timeout=test_timeouts[TimeoutType.MESSAGE_CREATE],
+        timeout=20,
     )
     print(f"[TEST] Discord message fetched: {message}")
     assert message is not None, "Discord message should exist"
@@ -225,12 +228,15 @@ async def test_game_with_only_thumbnail_displays_correctly(
     )
     assert message_id is not None, "Message ID should be populated"
 
+    # Discord fetches/renders embed images asynchronously after the message is
+    # posted; this is slower than a plain message-create check, so it gets a
+    # wider timeout than TimeoutType.MESSAGE_CREATE.
     message = await discord_helper.wait_for_embed_images(
         channel_id=discord_channel_id,
         message_id=message_id,
         expect_thumbnail=True,
         expect_image=False,
-        timeout=test_timeouts[TimeoutType.MESSAGE_CREATE],
+        timeout=20,
     )
     assert message is not None, "Discord message should exist"
     assert len(message.embeds) == 1, "Message should have exactly one embed"

@@ -136,10 +136,16 @@ def test_timeouts() -> dict[TimeoutType, int]:
     - DM_IMMEDIATE: DMs sent immediately by API events (10s)
     - DM_SCHEDULED: DMs sent by scheduler service polling (150s)
     - STATUS_TRANSITION: Status transitions via daemon polling (150s)
-    - DB_WRITE: Database write operations (5s)
+    - DB_WRITE: message_id population after game creation (15s)
 
     These values balance reliability (generous timeouts for daemon operations)
     with test speed (short timeouts for immediate operations).
+
+    DB_WRITE covers the bot's game.created -> channel.send() -> commit
+    round trip, not a pure DB write: every e2e test posts its announcement
+    to the same shared Discord test channel, so this can occasionally stall
+    for several seconds behind discord.py's local per-channel rate-limit
+    bucket (~5 messages/5s) before the message is even sent.
 
     Can be overridden in CI environments by adjusting values here.
     """
@@ -150,7 +156,7 @@ def test_timeouts() -> dict[TimeoutType, int]:
         TimeoutType.DM_IMMEDIATE: 10,
         TimeoutType.DM_SCHEDULED: 150,
         TimeoutType.STATUS_TRANSITION: 150,
-        TimeoutType.DB_WRITE: 5,
+        TimeoutType.DB_WRITE: 15,
     }
 
 
