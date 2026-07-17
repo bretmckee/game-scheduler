@@ -60,6 +60,7 @@ from shared.models.participant import UNPOSITIONED_SENTINEL, GameParticipant, Pa
 from shared.schemas import auth as auth_schemas
 from shared.schemas import game as game_schemas
 from shared.schemas import participant as participant_schemas
+from shared.services.game_metrics import record_game_joined, record_game_left
 from shared.utils import datetime_utils, participant_sorting
 
 logger = logging.getLogger(__name__)
@@ -875,6 +876,7 @@ async def join_game(
             position_type=position_type,
             position=position,
         )
+        record_game_joined("api")
 
         display_name, avatar_url = await _resolve_participant_display(
             participant, game.guild.guild_id, display_name_resolver
@@ -919,6 +921,7 @@ async def leave_game(
             game_id=game_id,
             user_discord_id=current_user.user.discord_id,
         )
+        record_game_left("api")
         logger.info("User %s successfully left game %s", current_user.user.discord_id, game_id)
     except ValueError as e:
         logger.error("Leave game error: %s", e)

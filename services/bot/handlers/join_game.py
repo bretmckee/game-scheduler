@@ -44,6 +44,7 @@ from shared.models.game import GameSession
 from shared.models.notification_schedule import NotificationSchedule
 from shared.models.participant import UNPOSITIONED_SENTINEL, GameParticipant, ParticipantType
 from shared.models.user import User
+from shared.services.game_metrics import record_game_joined
 from shared.utils.games import resolve_max_players
 from shared.utils.participant_sorting import resolve_role_position
 
@@ -116,6 +117,7 @@ async def handle_join_game(interaction: discord.Interaction, game_id: str) -> No
         )
         await db.commit()
 
+    record_game_joined("bot")
     logger.info(
         "User %s joined game %s (%s/%s)",
         user_discord_id,

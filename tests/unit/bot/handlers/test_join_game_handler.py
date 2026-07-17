@@ -159,3 +159,17 @@ async def test_join_game_executes_pg_notify(mock_game, mock_interaction, game_id
     assert len(notify_calls) >= 1, (
         "Expected db.execute call with pg_notify('game_updated_sse', ...)"
     )
+
+
+@pytest.mark.asyncio
+async def test_join_game_records_shared_join_metric(mock_game, mock_interaction, game_id):
+    """After a successful join, record_game_joined('bot') is called."""
+    mock_db = _make_mock_db(mock_game)
+
+    with (
+        _patch_db(mock_db),
+        patch("services.bot.handlers.join_game.record_game_joined") as mock_record,
+    ):
+        await handle_join_game(mock_interaction, game_id)
+
+    mock_record.assert_called_once_with("bot")

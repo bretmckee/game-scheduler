@@ -214,6 +214,22 @@ async def test_leave_notifies_sse_regardless_of_notification(
     assert len(notify_calls) >= 1, "Expected pg_notify('game_updated_sse', ...) call"
 
 
+@pytest.mark.asyncio
+async def test_leave_records_shared_leave_metric(
+    mock_game, mock_participant, mock_interaction, game_id
+):
+    """After a successful leave, record_game_left('bot') is called."""
+    mock_db = _make_mock_db(mock_participant, mock_game, unsent_notification=None)
+
+    with (
+        _patch_db(mock_db),
+        patch("services.bot.handlers.leave_game.record_game_left") as mock_record,
+    ):
+        await handle_leave_game(mock_interaction, game_id)
+
+    mock_record.assert_called_once_with("bot")
+
+
 # ---------------------------------------------------------------------------
 # HOST_ADDED leave — host DM notification (TDD RED)
 # ---------------------------------------------------------------------------

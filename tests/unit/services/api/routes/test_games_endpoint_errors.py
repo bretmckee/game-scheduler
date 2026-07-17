@@ -366,9 +366,12 @@ class TestJoinGame:
             }
         }
 
-        with patch(
-            "services.api.dependencies.permissions.verify_game_access",
-            new_callable=AsyncMock,
+        with (
+            patch(
+                "services.api.dependencies.permissions.verify_game_access",
+                new_callable=AsyncMock,
+            ),
+            patch("services.api.routes.games.record_game_joined") as mock_record,
         ):
             result = await games_routes.join_game(
                 game_id="game-1",
@@ -380,6 +383,7 @@ class TestJoinGame:
 
         assert result.display_name == "GuildDisplayName"
         assert result.avatar_url == "https://cdn.discordapp.com/avatar.png"
+        mock_record.assert_called_once_with("api")
 
 
 class TestLeaveGame:
@@ -408,3 +412,17 @@ class TestLeaveGame:
             )
 
         assert exc_info.value.status_code == http_status.HTTP_400_BAD_REQUEST
+
+    @pytest.mark.asyncio
+    async def test_leave_game_success_records_metric(
+        self, mock_current_user_unit, mock_game_service
+    ):
+        """After a successful leave, record_game_left('api') is called."""
+        with patch("services.api.routes.games.record_game_left") as mock_record:
+            await games_routes.leave_game(
+                game_id="game-1",
+                current_user=mock_current_user_unit,
+                game_service=mock_game_service,
+            )
+
+        mock_record.assert_called_once_with("api")

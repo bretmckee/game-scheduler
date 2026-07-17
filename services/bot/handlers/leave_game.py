@@ -41,6 +41,7 @@ from shared.models.game import GameSession
 from shared.models.notification_schedule import NotificationSchedule
 from shared.models.participant import GameParticipant
 from shared.models.user import User
+from shared.services.game_metrics import record_game_left
 from shared.services.leave_game import leave_game_and_notify
 
 logger = logging.getLogger(__name__)
@@ -91,6 +92,7 @@ async def handle_leave_game(interaction: discord.Interaction, game_id: str) -> N
         await upsert_message_refresh_and_notify(db, game_id, game.channel.channel_id, game.guild_id)
         await db.commit()
 
+    record_game_left("bot")
     if not join_not_sent:
         await send_success_message(interaction, f"❌ You've left **{game.title}**")
 
