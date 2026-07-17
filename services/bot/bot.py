@@ -61,6 +61,7 @@ from shared.services.game_cancellation import cancel_game
 from shared.services.game_metrics import record_game_cancelled
 from shared.services.participant_action_event_builder import build_participant_action_event
 from shared.utils.status_transitions import GameStatus
+from shared.version import get_git_version
 
 if TYPE_CHECKING:
     from services.bot.events.handlers import EventHandlers
@@ -199,6 +200,7 @@ class GameSchedulerBot(commands.Bot):
                 )
 
             logger.info("Bot connected as %s (ID: %s)", self.user, self.user.id)
+            logger.info("Bot version: %s", get_git_version())
             logger.info("Connected to %s guilds", len(self.guilds))
             logger.info("Bot is ready to receive events")
 

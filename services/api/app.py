@@ -87,6 +87,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         _app: FastAPI application instance (unused, required by framework)
     """
     logger.info("Starting API service...")
+    logger.info("API version: %s", get_git_version())
 
     redis_instance = await redis_client.get_redis_client()
     logger.info("Redis connection initialized")

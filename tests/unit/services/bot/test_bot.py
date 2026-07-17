@@ -154,6 +154,56 @@ class TestGameSchedulerBot:
                     mock_logger.warning.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_on_ready_logs_git_version(self, bot_config: BotConfig) -> None:
+        """on_ready logs the running build's git version, so a version comparison
+        doesn't require reconstructing deploy timing from logs/metrics after the
+        fact."""
+        bot = GameSchedulerBot(bot_config)
+        mock_user = MagicMock()
+        mock_user.id = 123456789
+        mock_guilds = [MagicMock(), MagicMock()]
+
+        mock_redis = AsyncMock()
+        mock_pipe = MagicMock()
+        mock_pipe.execute = AsyncMock(return_value=[])
+        mock_redis._client = MagicMock()
+        mock_redis._client.pipeline.return_value.__aenter__ = AsyncMock(return_value=mock_pipe)
+        mock_redis._client.pipeline.return_value.__aexit__ = AsyncMock(return_value=False)
+        mock_redis._client.scan = AsyncMock(return_value=(0, []))
+        mock_redis._client.delete = AsyncMock()
+
+        mock_sl_instance = MagicMock()
+        mock_sl_instance.run = AsyncMock()
+
+        mock_al_instance = MagicMock()
+        mock_al_instance.start = AsyncMock()
+
+        with patch("services.bot.bot.logger") as mock_logger:
+            with patch.object(type(bot), "user", new_callable=lambda: mock_user):
+                with patch.object(type(bot), "guilds", new_callable=lambda: mock_guilds):
+                    with (
+                        patch.object(bot, "_start_test_server", new_callable=AsyncMock),
+                        patch.object(bot, "_rebuild_guild_channel_cache", new_callable=AsyncMock),
+                        patch.object(bot, "_recover_pending_workers", new_callable=AsyncMock),
+                        patch.object(bot, "_trigger_sweep", new_callable=AsyncMock),
+                        patch(
+                            "services.bot.bot.get_redis_client",
+                            new_callable=AsyncMock,
+                            return_value=mock_redis,
+                        ),
+                        patch("services.bot.bot.Path"),
+                        patch("services.bot.bot.SchedulerLoop", return_value=mock_sl_instance),
+                        patch("services.bot.bot.AnnouncementLoop", return_value=mock_al_instance),
+                        patch(
+                            "services.bot.bot.get_git_version",
+                            return_value="0.0.1.post479+ge95e5f2",
+                        ),
+                    ):
+                        await bot.on_ready()
+
+                    mock_logger.info.assert_any_call("Bot version: %s", "0.0.1.post479+ge95e5f2")
+
+    @pytest.mark.asyncio
     async def test_on_ready_after_disconnect_logs_warning(self, bot_config: BotConfig) -> None:
         """on_ready reached via a prior disconnect (session invalidated, not resumed)
         logs a warning with the outage duration, since that's the case that

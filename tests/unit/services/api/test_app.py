@@ -113,6 +113,22 @@ async def test_lifespan_initializes_redis(mock_redis_client):
 
 
 @pytest.mark.asyncio
+async def test_lifespan_logs_git_version(mock_redis_client):
+    """Test that lifespan logs the git version on startup."""
+    with (
+        patch("services.api.app.redis_client.get_redis_client", return_value=mock_redis_client),
+        patch("services.api.app.get_git_version", return_value="0.0.1.post479+ge95e5f2"),
+        patch("services.api.app.logger") as mock_logger,
+    ):
+        application = app.create_app()
+
+        async with app.lifespan(application):
+            pass
+
+        mock_logger.info.assert_any_call("API version: %s", "0.0.1.post479+ge95e5f2")
+
+
+@pytest.mark.asyncio
 async def test_lifespan_disconnects_redis(mock_get_redis_client, mock_redis_client):
     """Test that lifespan disconnects Redis on shutdown."""
     application = app.create_app()
