@@ -178,6 +178,7 @@ class TestGameSchedulerBot:
 
         mock_al_instance = MagicMock()
         mock_al_instance.start = AsyncMock()
+        mock_histogram = MagicMock()
 
         with patch("services.bot.bot.logger") as mock_logger:
             with patch.object(type(bot), "user", new_callable=lambda: mock_user):
@@ -196,6 +197,9 @@ class TestGameSchedulerBot:
                         patch("services.bot.bot.SchedulerLoop", return_value=mock_sl_instance),
                         patch("services.bot.bot.AnnouncementLoop", return_value=mock_al_instance),
                         patch("services.bot.bot.time.monotonic", return_value=106.0),
+                        patch(
+                            "services.bot.bot.gateway_reconnect_duration_histogram", mock_histogram
+                        ),
                     ):
                         await bot.on_ready()
 
@@ -205,6 +209,9 @@ class TestGameSchedulerBot:
                         6.0,
                     )
                     assert bot._disconnected_at is None
+                    mock_histogram.record.assert_called_once_with(
+                        6.0, {"outcome": "full_reconnect"}
+                    )
 
     @pytest.mark.asyncio
     async def test_setup_hook_guild_sync_success(self, bot_config: BotConfig) -> None:
@@ -247,6 +254,23 @@ class TestGameSchedulerBot:
             await bot.on_disconnect()
 
             assert bot._disconnected_at == first_disconnected_at
+
+    @pytest.mark.asyncio
+    async def test_on_disconnect_increments_gateway_disconnect_counter(
+        self, bot_config: BotConfig
+    ) -> None:
+        """gateway_disconnect_counter.add(1) is called once per outage, not per retry."""
+        bot = GameSchedulerBot(bot_config)
+        mock_counter = MagicMock()
+
+        with (
+            patch("services.bot.bot.logger"),
+            patch("services.bot.bot.gateway_disconnect_counter", mock_counter),
+        ):
+            await bot.on_disconnect()
+            await bot.on_disconnect()
+
+        mock_counter.add.assert_called_once_with(1)
 
     @pytest.mark.asyncio
     async def test_on_resumed_event(self, bot_config: BotConfig) -> None:
@@ -309,6 +333,72 @@ class TestGameSchedulerBot:
                 "Bot reconnected to Gateway (resumed session, outage %.2fs)", 5.0
             )
             assert bot._disconnected_at is None
+
+    @pytest.mark.asyncio
+    async def test_on_resumed_records_reconnect_duration_histogram(
+        self, bot_config: BotConfig
+    ) -> None:
+        """on_resumed records outage duration on gateway_reconnect_duration_histogram,
+        labeled outcome='resumed'."""
+        bot = GameSchedulerBot(bot_config)
+        mock_redis = AsyncMock()
+        mock_histogram = MagicMock()
+
+        with (
+            patch("services.bot.bot.logger"),
+            patch("services.bot.bot.time.monotonic", return_value=100.0),
+        ):
+            await bot.on_disconnect()
+
+        with (
+            patch("services.bot.bot.logger"),
+            patch(
+                "services.bot.bot.get_redis_client",
+                new_callable=AsyncMock,
+                return_value=mock_redis,
+            ),
+            patch(
+                "services.bot.bot.guild_projection.repopulate_all",
+                new_callable=AsyncMock,
+            ),
+            patch.object(bot, "_recover_pending_workers", new_callable=AsyncMock),
+            patch.object(bot, "_trigger_sweep", new_callable=AsyncMock),
+            patch.object(bot, "_sweep_orphaned_embeds", new_callable=AsyncMock),
+            patch("services.bot.bot.time.monotonic", return_value=105.0),
+            patch("services.bot.bot.gateway_reconnect_duration_histogram", mock_histogram),
+        ):
+            await bot.on_resumed()
+
+        mock_histogram.record.assert_called_once_with(5.0, {"outcome": "resumed"})
+
+    @pytest.mark.asyncio
+    async def test_on_resumed_does_not_record_histogram_without_tracked_disconnect(
+        self, bot_config: BotConfig
+    ) -> None:
+        """on_resumed skips the histogram when no matching on_disconnect was tracked."""
+        bot = GameSchedulerBot(bot_config)
+        mock_redis = AsyncMock()
+        mock_histogram = MagicMock()
+
+        with (
+            patch("services.bot.bot.logger"),
+            patch(
+                "services.bot.bot.get_redis_client",
+                new_callable=AsyncMock,
+                return_value=mock_redis,
+            ),
+            patch(
+                "services.bot.bot.guild_projection.repopulate_all",
+                new_callable=AsyncMock,
+            ),
+            patch.object(bot, "_recover_pending_workers", new_callable=AsyncMock),
+            patch.object(bot, "_trigger_sweep", new_callable=AsyncMock),
+            patch.object(bot, "_sweep_orphaned_embeds", new_callable=AsyncMock),
+            patch("services.bot.bot.gateway_reconnect_duration_histogram", mock_histogram),
+        ):
+            await bot.on_resumed()
+
+        mock_histogram.record.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_on_error_event(self, bot_config: BotConfig) -> None:

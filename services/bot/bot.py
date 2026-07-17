@@ -94,6 +94,19 @@ sweep_duration_histogram = meter.create_histogram(
     description="Duration of completed embed deletion sweeps in seconds",
     unit="s",
 )
+gateway_disconnect_counter = meter.create_counter(
+    name="bot.gateway.disconnect",
+    description="Number of times the bot's Gateway connection was interrupted",
+    unit="1",
+)
+gateway_reconnect_duration_histogram = meter.create_histogram(
+    name="bot.gateway.reconnect.duration",
+    description=(
+        "Duration of Gateway outages from disconnect to recovery, labeled by "
+        "outcome ('resumed' or 'full_reconnect')"
+    ),
+    unit="s",
+)
 
 
 # Forward declarations to avoid circular imports
@@ -176,6 +189,9 @@ class GameSchedulerBot(commands.Bot):
             if self._disconnected_at is not None:
                 outage_seconds = time.monotonic() - self._disconnected_at
                 self._disconnected_at = None
+                gateway_reconnect_duration_histogram.record(
+                    outage_seconds, {"outcome": "full_reconnect"}
+                )
                 logger.warning(
                     "Bot fully reconnected to Gateway after session invalidation (outage %.2fs)",
                     outage_seconds,
@@ -472,6 +488,7 @@ class GameSchedulerBot(commands.Bot):
         """
         if self._disconnected_at is None:
             self._disconnected_at = time.monotonic()
+            gateway_disconnect_counter.add(1)
         logger.info("Bot disconnected from Gateway")
 
     async def on_resumed(self) -> None:
@@ -483,6 +500,7 @@ class GameSchedulerBot(commands.Bot):
         if outage_seconds is None:
             logger.info("Bot reconnected to Gateway")
         else:
+            gateway_reconnect_duration_histogram.record(outage_seconds, {"outcome": "resumed"})
             logger.info(
                 "Bot reconnected to Gateway (resumed session, outage %.2fs)", outage_seconds
             )
