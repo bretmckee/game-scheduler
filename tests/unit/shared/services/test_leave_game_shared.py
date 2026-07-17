@@ -202,6 +202,58 @@ class TestLeaveGameAndNotify:
         assert len(dropout_rows) == 0
 
     @pytest.mark.asyncio
+    async def test_repositioned_self_added_leave_does_not_enqueue_dropout_dm(
+        self, mock_db: MagicMock
+    ) -> None:
+        """A repositioned (explicit small position) SELF_ADDED leaver triggers no dropout DM."""
+        leaver = _make_participant(
+            "leaving-user", position_type=ParticipantType.SELF_ADDED, position=1
+        )
+        game = _make_game(max_players=5, host_discord_id="host-discord-id")
+        game.participants = [leaver]
+
+        async def refresh_side_effect(
+            g: MagicMock, attribute_names: list[str] | None = None
+        ) -> None:
+            g.participants = []
+
+        mock_db.refresh = AsyncMock(side_effect=refresh_side_effect)
+
+        await leave_game_and_notify(mock_db, game, leaver)
+
+        dropout_rows = [
+            r for r in _bot_rows(mock_db) if r.payload["notification_type"] == "host_added_dropout"
+        ]
+        assert len(dropout_rows) == 0
+
+    @pytest.mark.asyncio
+    async def test_converted_role_matched_leave_does_not_enqueue_dropout_dm(
+        self, mock_db: MagicMock
+    ) -> None:
+        """A ROLE_MATCHED participant converted to SELF_ADDED enqueues no dropout DM."""
+        leaver = _make_participant(
+            "leaving-user", position_type=ParticipantType.SELF_ADDED, position=1
+        )
+        game = _make_game(
+            max_players=5, host_discord_id="host-discord-id", signup_method=SignupMethod.ROLE_BASED
+        )
+        game.participants = [leaver]
+
+        async def refresh_side_effect(
+            g: MagicMock, attribute_names: list[str] | None = None
+        ) -> None:
+            g.participants = []
+
+        mock_db.refresh = AsyncMock(side_effect=refresh_side_effect)
+
+        await leave_game_and_notify(mock_db, game, leaver)
+
+        dropout_rows = [
+            r for r in _bot_rows(mock_db) if r.payload["notification_type"] == "host_added_dropout"
+        ]
+        assert len(dropout_rows) == 0
+
+    @pytest.mark.asyncio
     async def test_leave_promotes_only_one_of_two_waitlisted_users(
         self, mock_db: MagicMock
     ) -> None:

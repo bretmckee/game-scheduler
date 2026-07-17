@@ -32,6 +32,7 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
+from sqlalchemy import text
 
 from shared.utils.discord_tokens import extract_bot_discord_id
 from tests.shared.auth_helpers import cleanup_test_session, create_test_session
@@ -49,12 +50,17 @@ async def _setup_game_context(
     create_channel,
     create_template,
     seed_redis_cache,
+    allowed_signup_methods: list[str] | None = None,
 ) -> dict:
     """Create guild/channel/user/template and seed Redis for game tests."""
     guild = create_guild(bot_manager_roles=[BOT_MANAGER_ROLE_ID])
     channel = create_channel(guild_id=guild["id"])
     user = create_user(discord_user_id=TEST_BOT_DISCORD_ID)
-    template = create_template(guild_id=guild["id"], channel_id=channel["id"])
+    template = create_template(
+        guild_id=guild["id"],
+        channel_id=channel["id"],
+        allowed_signup_methods=allowed_signup_methods,
+    )
 
     await seed_redis_cache(
         user_discord_id=TEST_BOT_DISCORD_ID,
@@ -77,17 +83,18 @@ async def _create_game_via_api(
     client: httpx.AsyncClient,
     ctx: dict,
     title: str = "Test Game",
+    signup_method: str | None = None,
 ) -> dict:
     """Create a game through the API and return the response JSON."""
     scheduled_at = (datetime.now(UTC) + timedelta(hours=2)).isoformat()
-    response = await client.post(
-        "/api/v1/games",
-        data={
-            "template_id": ctx["template_id"],
-            "title": title,
-            "scheduled_at": scheduled_at,
-        },
-    )
+    data = {
+        "template_id": ctx["template_id"],
+        "title": title,
+        "scheduled_at": scheduled_at,
+    }
+    if signup_method is not None:
+        data["signup_method"] = signup_method
+    response = await client.post("/api/v1/games", data=data)
     assert response.status_code == 201, f"Game creation failed: {response.text}"
     return response.json()
 
@@ -479,6 +486,147 @@ async def test_update_game_with_all_optional_form_fields(
         assert response.status_code == 200, (
             f"Expected 200, got {response.status_code}: {response.text}"
         )
+    finally:
+        await cleanup_test_session(session_token)
+
+
+@pytest.mark.asyncio
+async def test_update_game_persists_self_added_participant_reposition(
+    create_user,
+    create_guild,
+    create_channel,
+    create_template,
+    seed_redis_cache,
+    api_base_url,
+    admin_db_sync,
+):
+    """A host-repositioned SELF_ADDED participant's new position persists (Phase 2 fix)."""
+    ctx = await _setup_game_context(
+        create_user, create_guild, create_channel, create_template, seed_redis_cache
+    )
+    participant_user = create_user()
+    session_token, _ = await create_test_session(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+
+    try:
+        async with httpx.AsyncClient(
+            base_url=api_base_url,
+            timeout=10.0,
+            cookies={"session_token": session_token},
+        ) as client:
+            game = await _create_game_via_api(client, ctx, title="Self Added Reposition Game")
+
+            participant_id = str(uuid.uuid4())
+            admin_db_sync.execute(
+                text(
+                    "INSERT INTO game_participants "
+                    "(id, game_session_id, user_id, display_name, joined_at, "
+                    "position_type, position) "
+                    "VALUES (:id, :game_session_id, :user_id, NULL, :joined_at, "
+                    ":position_type, :position)"
+                ),
+                {
+                    "id": participant_id,
+                    "game_session_id": game["id"],
+                    "user_id": participant_user["id"],
+                    "joined_at": datetime.now(UTC),
+                    "position_type": 24000,  # SELF_ADDED
+                    "position": 32767,  # UNPOSITIONED_SENTINEL
+                },
+            )
+            admin_db_sync.commit()
+
+            response = await client.put(
+                f"/api/v1/games/{game['id']}",
+                data={
+                    "participants": json.dumps([{"participant_id": participant_id, "position": 1}]),
+                },
+            )
+
+        assert response.status_code == 200, (
+            f"Expected 200, got {response.status_code}: {response.text}"
+        )
+
+        row = admin_db_sync.execute(
+            text("SELECT position_type, position FROM game_participants WHERE id = :id"),
+            {"id": participant_id},
+        ).fetchone()
+        assert row is not None, "Participant row not found after update"
+        assert row[0] == 24000, "SELF_ADDED participant must not be promoted by a reposition"
+        assert row[1] == 1
+    finally:
+        await cleanup_test_session(session_token)
+
+
+@pytest.mark.asyncio
+async def test_update_game_persists_role_matched_reposition_as_self_added(
+    create_user,
+    create_guild,
+    create_channel,
+    create_template,
+    seed_redis_cache,
+    api_base_url,
+    admin_db_sync,
+):
+    """A host-repositioned ROLE_MATCHED participant converts to SELF_ADDED (Phase 2 Task 2.5)."""
+    ctx = await _setup_game_context(
+        create_user,
+        create_guild,
+        create_channel,
+        create_template,
+        seed_redis_cache,
+        allowed_signup_methods=["ROLE_BASED"],
+    )
+    participant_user = create_user()
+    session_token, _ = await create_test_session(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+
+    try:
+        async with httpx.AsyncClient(
+            base_url=api_base_url,
+            timeout=10.0,
+            cookies={"session_token": session_token},
+        ) as client:
+            game = await _create_game_via_api(
+                client, ctx, title="Role Matched Reposition Game", signup_method="ROLE_BASED"
+            )
+
+            participant_id = str(uuid.uuid4())
+            admin_db_sync.execute(
+                text(
+                    "INSERT INTO game_participants "
+                    "(id, game_session_id, user_id, display_name, joined_at, "
+                    "position_type, position) "
+                    "VALUES (:id, :game_session_id, :user_id, NULL, :joined_at, "
+                    ":position_type, :position)"
+                ),
+                {
+                    "id": participant_id,
+                    "game_session_id": game["id"],
+                    "user_id": participant_user["id"],
+                    "joined_at": datetime.now(UTC),
+                    "position_type": 16000,  # ROLE_MATCHED
+                    "position": 0,  # real priority-role index
+                },
+            )
+            admin_db_sync.commit()
+
+            response = await client.put(
+                f"/api/v1/games/{game['id']}",
+                data={
+                    "participants": json.dumps([{"participant_id": participant_id, "position": 1}]),
+                },
+            )
+
+        assert response.status_code == 200, (
+            f"Expected 200, got {response.status_code}: {response.text}"
+        )
+
+        row = admin_db_sync.execute(
+            text("SELECT position_type, position FROM game_participants WHERE id = :id"),
+            {"id": participant_id},
+        ).fetchone()
+        assert row is not None, "Participant row not found after update"
+        assert row[0] == 24000, "ROLE_MATCHED participant must convert to SELF_ADDED on reposition"
+        assert row[1] == 1
     finally:
         await cleanup_test_session(session_token)
 

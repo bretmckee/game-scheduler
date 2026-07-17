@@ -92,15 +92,15 @@ Fix host-initiated repositioning of self-added/role-matched participants in the 
 - [x] Task 3.3: Refactor, add edge-case coverage, confirm waitlist payload construction unchanged and `ROLE_MATCHED` reorderable identically to `SELF_ADDED`
   - Details: .copilot-tracking/planning/details/20260716-01-participant-reposition-bug-details.md (Lines 755-809)
 
-### [ ] Phase 4: End-to-end verification
+### [x] Phase 4: End-to-end verification
 
-- [ ] Task 4.1: Add integration tests proving reposition (including `ROLE_BASED` conversion) persists across reload
+- [x] Task 4.1: Add integration tests proving reposition (including `ROLE_BASED` conversion) persists across reload
   - Details: .copilot-tracking/planning/details/20260716-01-participant-reposition-bug-details.md (Lines 812-858)
 
-- [ ] Task 4.2: Add leave-game regression-safety tests for repositioned/converted participants
+- [x] Task 4.2: Add leave-game regression-safety tests for repositioned/converted participants
   - Details: .copilot-tracking/planning/details/20260716-01-participant-reposition-bug-details.md (Lines 859-908)
 
-- [ ] Task 4.3: Full-suite verification gate
+- [x] Task 4.3: Full-suite verification gate
   - Details: .copilot-tracking/planning/details/20260716-01-participant-reposition-bug-details.md (Lines 909-949)
 
 ## Dependencies

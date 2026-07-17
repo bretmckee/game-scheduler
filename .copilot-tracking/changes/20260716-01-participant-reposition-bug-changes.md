@@ -33,12 +33,53 @@ Fixes host-initiated repositioning of self-added/role-matched participants in th
 **Known, intentional consequence of Task 2.5** (documented per the plan): because `sort_participants`'s key is `(position_type, position, joined_at)` and `SELF_ADDED` (24000) always sorts after every remaining `ROLE_MATCHED` (16000) entry, dragging a `ROLE_MATCHED` participant to a spot visually above another still-unconverted `ROLE_MATCHED` participant will still persist with the dragged participant sorting below every remaining `ROLE_MATCHED` participant. This is intended: an explicit reposition fully exits the role-priority tier, it is not a same-tier nudge. Reordering two participants while both keep their role-priority tier is unsupported (no such UI action exists) and out of scope.
 
 - frontend/src/pages/EditGame.tsx - extracted a module-level `buildParticipantsPayload` helper (the "disturbed prefix" rule: include every participant that is either explicitly positioned or displayed at/above the highest explicitly-positioned index) and replaced the duplicated `.filter(...).map(...)` blocks in both `handleSubmit` and `handleSaveAndArchive` with calls to it, so a host-repositioned self-added/role-matched participant's move actually reaches the backend from either save path
-- tests/pages/**tests**/EditGame.test.tsx - added `it.fails` regression tests for the disturbed-prefix payload (RED phase, Task 3.1: `includes the full disturbed prefix...`/`excludes untouched participants below the highest explicitly-positioned index`), removed the `.fails` markers after implementing the fix (GREEN, Task 3.2), and added edge-case coverage (Task 3.3): two non-contiguous explicit moves, the `addParticipant` "pin the whole prefix" side effect, and a `ROLE_MATCHED` participant behaving identically to `SELF_ADDED` when dragged in a `ROLE_BASED` game
+- frontend/src/pages/**tests**/EditGame.test.tsx - added `it.fails` regression tests for the disturbed-prefix payload (RED phase, Task 3.1: `includes the full disturbed prefix...`/`excludes untouched participants below the highest explicitly-positioned index`), removed the `.fails` markers after implementing the fix (GREEN, Task 3.2), and added edge-case coverage (Task 3.3): two non-contiguous explicit moves, the `addParticipant` "pin the whole prefix" side effect, and a `ROLE_MATCHED` participant behaving identically to `SELF_ADDED` when dragged in a `ROLE_BASED` game
 
 **Side effect noted per the plan**: consolidating both save paths into one helper also fixes a pre-existing inconsistency — `handleSaveAndArchive`'s duplicated block previously used `p.mention.trim()` for the temp-id branch instead of `p.resolvedMention ?? p.mention.trim()` (which `handleSubmit` already used), so a disambiguated-but-unsaved mention typed via "Save and Archive" now resolves the same way it already did via "Save Changes".
+
+- tests/integration/test_games_crud.py - extended `_setup_game_context` with an optional `allowed_signup_methods` param and `_create_game_via_api` with an optional `signup_method` param (both default to prior behavior when omitted); added `test_update_game_persists_self_added_participant_reposition` and `test_update_game_persists_role_matched_reposition_as_self_added` (Task 4.1), proving the full migration/backend/frontend-contract stack persists a reposition (and the `ROLE_BASED` conversion) through the real API and database
+- tests/unit/shared/services/test_leave_game_shared.py - added `test_repositioned_self_added_leave_does_not_enqueue_dropout_dm` and `test_converted_role_matched_leave_does_not_enqueue_dropout_dm` (Task 4.2, already-correct-code regression guards, no `xfail`), confirming `leave_game_and_notify`'s `host_added_dropout` gate never misfires for a merely-repositioned or role-converted `SELF_ADDED` participant
 
 ### Removed
 
 ## Release Summary
 
-_(populated after all phases complete)_
+**Total Files Affected**: 17
+
+### Files Created (2)
+
+- alembic/versions/77f802eecfc5_backfill_self_added_position_sentinel.py - reversible data migration backfilling the old `0` default to the new `32767` sentinel for non-`HOST_ADDED` rows
+- .copilot-tracking/changes/20260716-01-participant-reposition-bug-changes.md - this changes-tracking file
+
+### Files Modified (15)
+
+- shared/models/participant.py - `UNPOSITIONED_SENTINEL` constant; `position` column's `server_default` changed from `0` to the sentinel
+- services/api/routes/games.py - `_resolve_join_position`/`_build_host_response` use the sentinel instead of hardcoded `0`
+- services/bot/handlers/join_game.py - `_resolve_bot_role_position` uses the sentinel instead of hardcoded `0`
+- shared/utils/participant_sorting.py - `resolve_role_position`'s no-match fallback uses the sentinel instead of hardcoded `0` (its only change; `sort_participants`/`partition_participants` have zero diff)
+- services/api/services/games.py - `_update_prefilled_participants` matches position updates by `participant_id` across `game.participants` (any `position_type`), not just `HOST_ADDED`; adds the `ROLE_BASED`-gated `ROLE_MATCHED`→`SELF_ADDED` conversion block
+- frontend/src/pages/EditGame.tsx - shared `buildParticipantsPayload` helper implementing the disturbed-prefix rule, used by both `handleSubmit` and `handleSaveAndArchive`
+- tests/unit/services/api/routes/test_games_helpers.py - sentinel-value test rewrites
+- tests/unit/shared/utils/test_participant_sorting.py - sentinel-value test rewrites; new sentinel-guard, mixed-bucket-sort, and `ROLE_MATCHED`-position edge-case tests
+- tests/unit/services/bot/handlers/test_join_game.py - sentinel-value test rewrites
+- tests/unit/api/services/test_games.py - new `HOST_ADDED`-unaffected-by-sentinel edge-case test
+- tests/unit/services/api/services/test_games_edit_participants.py - new reposition-persistence and `ROLE_BASED`-conversion tests, plus edge-case coverage
+- frontend/src/pages/**tests**/EditGame.test.tsx - new disturbed-prefix payload tests and edge-case coverage
+- tests/integration/test_games_crud.py - helper extensions plus two new end-to-end reposition-persistence tests
+- tests/unit/shared/services/test_leave_game_shared.py - two new dropout-notification regression guards
+- .copilot-tracking/planning/plans/20260716-01-participant-reposition-bug.plan.md - all phases/tasks marked complete
+
+### Files Removed (0)
+
+None.
+
+### Dependencies & Infrastructure
+
+- **New Dependencies**: None
+- **Updated Dependencies**: None
+- **Infrastructure Changes**: None
+- **Configuration Updates**: None (one new Alembic migration, applied/reversed/reapplied and verified during Phase 1)
+
+### Deployment Notes
+
+Run `alembic upgrade head` as part of deployment to apply the `77f802eecfc5` migration before the new sentinel-dependent code paths go live. No other manual steps required. The `ROLE_BASED` decision documented in this plan (explicit reposition converts `ROLE_MATCHED` → `SELF_ADDED`, "the host has final say") is a behavior change worth calling out to hosts of `ROLE_BASED` games, though it requires no configuration change.
