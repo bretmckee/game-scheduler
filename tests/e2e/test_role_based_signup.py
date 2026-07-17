@@ -38,7 +38,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlalchemy import text
 
-from shared.models.participant import ParticipantType
+from shared.models.participant import UNPOSITIONED_SENTINEL, ParticipantType
 from shared.models.signup_method import SignupMethod
 from shared.models.template import GameTemplate
 
@@ -94,13 +94,13 @@ _CASES = [
     pytest.param(
         lambda a, b: [b],
         ParticipantType.SELF_ADDED,
-        0,
+        UNPOSITIONED_SENTINEL,
         id="bot_has_no_matching_role",
     ),
     pytest.param(
         lambda a, b: [],
         ParticipantType.SELF_ADDED,
-        0,
+        UNPOSITIONED_SENTINEL,
         id="template_priority_roles_empty",
     ),
 ]
