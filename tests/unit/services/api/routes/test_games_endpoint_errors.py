@@ -226,6 +226,26 @@ class TestDeleteGame:
 
         assert exc_info.value.status_code == http_status.HTTP_403_FORBIDDEN
 
+    @pytest.mark.asyncio
+    async def test_delete_game_success_records_metric(
+        self, mock_current_user_unit, mock_game_service, mock_role_service
+    ):
+        """After a successful cancel, record_game_cancelled('api', ...) is called."""
+        mock_game = MagicMock()
+        mock_game.scheduled_at = datetime(2026, 7, 20, 18, 0, tzinfo=UTC)
+        mock_game.expected_duration_minutes = 90
+        mock_game_service.get_game.return_value = mock_game
+
+        with patch("services.api.routes.games.record_game_cancelled") as mock_record:
+            await games_routes.delete_game(
+                game_id="game-1",
+                current_user=mock_current_user_unit,
+                game_service=mock_game_service,
+                role_service=mock_role_service,
+            )
+
+        mock_record.assert_called_once_with("api", mock_game.scheduled_at, 90)
+
 
 class TestCloneGame:
     @pytest.mark.asyncio

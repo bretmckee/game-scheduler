@@ -58,6 +58,7 @@ from shared.schemas.events import (
     NotificationDueEvent,
     NotificationSendDMEvent,
 )
+from shared.services.game_metrics import record_game_completed, record_game_posted
 from shared.services.game_schedules import clone_game_for_recurrence
 from shared.utils.games import resolve_max_players
 from shared.utils.participant_sorting import partition_participants
@@ -152,6 +153,7 @@ class EventHandlers:
                 game.message_id = str(message.id)
                 await db.commit()
 
+                record_game_posted("immediate", game.scheduled_at, game.expected_duration_minutes)
                 logger.info(
                     "Posted game announcement: game=%s, channel=%s, message=%s",
                     game_id,
@@ -1119,6 +1121,9 @@ class EventHandlers:
                     game,
                     transition_event.target_status,
                 )
+
+                if transition_event.target_status == GameStatus.COMPLETED.value:
+                    record_game_completed(game.scheduled_at, game.expected_duration_minutes)
 
             # Refresh Discord message to reflect new status
             await self._refresh_game_message(game_id)

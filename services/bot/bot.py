@@ -58,6 +58,7 @@ from shared.models.notification_schedule import NotificationSchedule
 from shared.models.participant_action_schedule import ParticipantActionSchedule
 from shared.services.event_builders import build_notification_event, build_status_transition_event
 from shared.services.game_cancellation import cancel_game
+from shared.services.game_metrics import record_game_cancelled
 from shared.services.participant_action_event_builder import build_participant_action_event
 from shared.utils.status_transitions import GameStatus
 
@@ -576,8 +577,11 @@ class GameSchedulerBot(commands.Bot):
                     )
                     return
 
+                scheduled_at = game.scheduled_at
+                expected_duration_minutes = game.expected_duration_minutes
                 await cancel_game(db, game, enqueue_cancellation=False)
                 await db.commit()
+                record_game_cancelled("bot", scheduled_at, expected_duration_minutes)
         except Exception as e:
             logger.exception("Error handling message delete for message %s: %s", message_id, e)
 
@@ -762,8 +766,11 @@ class GameSchedulerBot(commands.Bot):
                 if game is None:
                     logger.info("Sweep: game %s not found in DB, skipping cancel", game_id)
                     return
+                scheduled_at = game.scheduled_at
+                expected_duration_minutes = game.expected_duration_minutes
                 await cancel_game(db, game, enqueue_cancellation=False)
                 await db.commit()
+                record_game_cancelled("bot", scheduled_at, expected_duration_minutes)
         except Exception:
             logger.exception("Sweep: failed to cancel game %s", game_id)
 

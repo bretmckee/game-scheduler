@@ -764,6 +764,42 @@ class TestGameSchedulerBot:
         mock_db.commit.assert_awaited_once()
 
     @pytest.mark.asyncio
+    async def test_on_raw_message_delete_records_cancelled_metric(
+        self, bot_config: BotConfig
+    ) -> None:
+        """After a direct cancel, record_game_cancelled('bot', ...) is called."""
+        bot = GameSchedulerBot(bot_config)
+
+        mock_game = MagicMock()
+        mock_game.id = "550e8400-e29b-41d4-a716-446655440000"
+        mock_game.status = "SCHEDULED"
+        mock_game.scheduled_at = datetime(2026, 7, 20, 18, 0)
+        mock_game.expected_duration_minutes = 90
+
+        mock_db = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = mock_game
+        mock_db.execute = AsyncMock(return_value=mock_result)
+        mock_db.commit = AsyncMock()
+        mock_db_ctx = MagicMock()
+        mock_db_ctx.__aenter__ = AsyncMock(return_value=mock_db)
+        mock_db_ctx.__aexit__ = AsyncMock(return_value=None)
+
+        payload = MagicMock(spec=discord.RawMessageDeleteEvent)
+        payload.message_id = 123456789
+        payload.channel_id = 987654321
+        payload.guild_id = 111222333
+
+        with (
+            patch("services.bot.bot.get_bypass_db_session", return_value=mock_db_ctx),
+            patch("services.bot.bot.cancel_game", new_callable=AsyncMock),
+            patch("services.bot.bot.record_game_cancelled") as mock_record,
+        ):
+            await bot.on_raw_message_delete(payload)
+
+        mock_record.assert_called_once_with("bot", datetime(2026, 7, 20, 18, 0), 90)
+
+    @pytest.mark.asyncio
     async def test_on_raw_message_delete_no_game_no_publish(self, bot_config: BotConfig) -> None:
         """When deleted message matches no game embed, no action is taken."""
         bot = GameSchedulerBot(bot_config)
@@ -1000,6 +1036,36 @@ class TestGameSchedulerBot:
 
         mock_cancel.assert_awaited_once_with(mock_db, mock_game, enqueue_cancellation=False)
         mock_db.commit.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_cancel_missing_embed_records_cancelled_metric(
+        self, bot_config: BotConfig
+    ) -> None:
+        """After a sweep-triggered cancel, record_game_cancelled('bot', ...) is called."""
+        bot = GameSchedulerBot(bot_config)
+
+        mock_game = MagicMock()
+        mock_game.id = "game-id-456"
+        mock_game.scheduled_at = datetime(2026, 7, 21, 9, 0)
+        mock_game.expected_duration_minutes = 45
+
+        mock_db = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = mock_game
+        mock_db.execute = AsyncMock(return_value=mock_result)
+        mock_db.commit = AsyncMock()
+        mock_db_ctx = MagicMock()
+        mock_db_ctx.__aenter__ = AsyncMock(return_value=mock_db)
+        mock_db_ctx.__aexit__ = AsyncMock(return_value=None)
+
+        with (
+            patch("services.bot.bot.get_bypass_db_session", return_value=mock_db_ctx),
+            patch("services.bot.bot.cancel_game", new_callable=AsyncMock),
+            patch("services.bot.bot.record_game_cancelled") as mock_record,
+        ):
+            await bot._cancel_missing_embed("game-id-456")
+
+        mock_record.assert_called_once_with("bot", datetime(2026, 7, 21, 9, 0), 45)
 
     @pytest.mark.asyncio
     async def test_sweep_deleted_embeds_db_exception_is_caught(self, bot_config: BotConfig) -> None:

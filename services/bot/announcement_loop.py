@@ -38,6 +38,7 @@ from shared.database import get_db_session
 from shared.models import participant as participant_model
 from shared.models.game import GameSession
 from shared.pg_listen import listen_with_reconnect
+from shared.services.game_metrics import record_game_posted
 from shared.services.game_schedules import setup_game_schedules
 from shared.utils.status_transitions import GameStatus
 
@@ -205,6 +206,7 @@ class AnnouncementLoop:
             )
             await db.commit()
 
+            record_game_posted("deferred", game.scheduled_at, game.expected_duration_minutes)
             logger.info(
                 "Posted deferred game announcement: game=%s, message=%s", game_id, message_id
             )

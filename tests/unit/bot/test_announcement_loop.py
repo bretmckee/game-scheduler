@@ -147,6 +147,47 @@ async def test_announcement_loop_announce_posts_to_discord_and_sets_message_id()
     )
 
 
+async def test_announcement_loop_announce_records_posted_metric() -> None:
+    """_announce calls record_game_posted('deferred', ...) after a successful post."""
+    game_id = "aaaabbbb-cccc-dddd-eeee-ffffaaaabbbb"
+
+    game = MagicMock(spec=GameSession)
+    game.id = game_id
+    game.message_id = None
+    game.channel.channel_id = "111222333444"
+    game.reminder_minutes = []
+    game.scheduled_at = datetime.datetime(2026, 7, 17, 20, 0, 0)
+    game.expected_duration_minutes = 120
+
+    mock_message = MagicMock()
+    mock_message.id = 99999
+
+    mock_channel = AsyncMock()
+    mock_channel.send = AsyncMock(return_value=mock_message)
+
+    bot = MagicMock()
+    bot.event_handlers._get_bot_channel = AsyncMock(return_value=mock_channel)
+    bot.event_handlers._create_game_announcement = AsyncMock(
+        return_value=(None, MagicMock(), MagicMock())
+    )
+
+    mock_db, ctx = _db_ctx()
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = game
+    mock_db.execute = AsyncMock(return_value=mock_result)
+
+    loop = AnnouncementLoop("postgresql://test", bot)
+
+    with (
+        patch("services.bot.announcement_loop.get_db_session", return_value=ctx),
+        patch("services.bot.announcement_loop.setup_game_schedules", new=AsyncMock()),
+        patch("services.bot.announcement_loop.record_game_posted") as mock_record,
+    ):
+        await loop._announce(game_id)
+
+    mock_record.assert_called_once_with("deferred", game.scheduled_at, 120)
+
+
 async def test_announcement_loop_on_notify_sets_wake_event() -> None:
     """_on_notify wakes the loop by setting the wake event."""
     bot = MagicMock()

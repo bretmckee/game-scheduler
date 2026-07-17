@@ -60,7 +60,7 @@ from shared.models.participant import UNPOSITIONED_SENTINEL, GameParticipant, Pa
 from shared.schemas import auth as auth_schemas
 from shared.schemas import game as game_schemas
 from shared.schemas import participant as participant_schemas
-from shared.services.game_metrics import record_game_joined, record_game_left
+from shared.services.game_metrics import record_game_cancelled, record_game_joined, record_game_left
 from shared.utils import datetime_utils, participant_sorting
 
 logger = logging.getLogger(__name__)
@@ -781,11 +781,14 @@ async def delete_game(
     Sets status to CANCELLED and publishes event.
     """
     try:
+        game = await game_service.get_game(game_id)
         await game_service.delete_game(
             game_id=game_id,
             current_user=current_user,
             role_service=role_service,
         )
+        if game is not None:
+            record_game_cancelled("api", game.scheduled_at, game.expected_duration_minutes)
     except ValueError as e:
         if "not found" in str(e).lower():
             raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail=str(e)) from None

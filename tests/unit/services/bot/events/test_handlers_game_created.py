@@ -72,6 +72,56 @@ async def test_handle_game_created_success(event_handlers, mock_bot, sample_game
 
 
 @pytest.mark.asyncio
+async def test_handle_game_created_records_posted_metric(
+    event_handlers, mock_bot, sample_game, sample_user
+):
+    """After a successful post, record_game_posted('immediate', ...) is called."""
+    sample_game.host = sample_user
+    sample_game.participants = []
+    sample_game.expected_duration_minutes = 90
+
+    mock_guild = MagicMock()
+    mock_guild.guild_id = sample_game.guild_id
+    sample_game.guild = mock_guild
+
+    mock_channel = AsyncMock(spec=discord.TextChannel)
+    mock_message = MagicMock()
+    mock_message.id = 987654321
+    mock_channel.send = AsyncMock(return_value=mock_message)
+
+    with (
+        patch("services.bot.events.handlers.get_db_session"),
+        patch(
+            "services.bot.events.handlers.EventHandlers._validate_discord_channel",
+            return_value=True,
+        ),
+        patch(
+            "services.bot.events.handlers.EventHandlers._get_bot_channel",
+            return_value=mock_channel,
+        ),
+        patch(
+            "services.bot.events.handlers.EventHandlers._get_game_with_participants",
+            return_value=sample_game,
+        ),
+        patch(
+            "services.bot.events.handlers.get_member_display_info",
+            return_value=("Test User", "https://example.com/avatar.png"),
+        ),
+        patch("services.bot.events.handlers.discord.AllowedMentions"),
+        patch("services.bot.events.handlers.record_game_posted") as mock_record,
+    ):
+        data = {
+            "game_id": sample_game.id,
+            "channel_id": sample_game.channel_id,
+        }
+        await event_handlers._handle_game_created(data)
+
+    mock_record.assert_called_once_with(
+        "immediate", sample_game.scheduled_at, sample_game.expected_duration_minutes
+    )
+
+
+@pytest.mark.asyncio
 async def test_handle_game_created_missing_data(event_handlers):
     """Test game.created event with missing data."""
     data = {"game_id": "123"}
