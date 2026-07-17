@@ -1,7 +1,7 @@
 {
   "title": "Gateway Projection",
-  "description": "Performance monitoring for the bot gateway member projection: repopulation frequency, duration, and member scale",
-  "tags": ["bot", "projection", "gateway", "otel"],
+  "description": "Performance monitoring for the bot gateway member projection and Gateway connectivity: repopulation frequency, duration, member scale, and disconnect/reconnect behavior",
+  "tags": ["bot", "projection", "gateway", "connectivity", "otel"],
   "timezone": "browser",
   "schemaVersion": 36,
   "version": 0,
@@ -161,6 +161,104 @@
         }
       },
       "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Gateway Disconnects (1h)",
+      "description": "Number of times the bot's Gateway connection was interrupted, counted once per outage (not per retry-storm callback)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 12, "x": 0, "y": 20 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "expr": "sum(increase(bot_gateway_disconnect_total[1h]))",
+          "legendFormat": "Disconnects",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 10 },
+              { "color": "red", "value": 20 }
+            ]
+          }
+        }
+      },
+      "options": {
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "value_and_name",
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      }
+    },
+    {
+      "id": 7,
+      "title": "Full Reconnects (1h)",
+      "description": "Outages that required a full session re-identify rather than a quick resume — the case actually worth investigating",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 12, "x": 12, "y": 20 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "expr": "sum(increase(bot_gateway_reconnect_duration_seconds_count{outcome=\"full_reconnect\"}[1h]))",
+          "legendFormat": "Full reconnects",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 3 }
+            ]
+          }
+        }
+      },
+      "options": {
+        "graphMode": "area",
+        "colorMode": "background",
+        "textMode": "value_and_name",
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      }
+    },
+    {
+      "id": 8,
+      "title": "Gateway Outage Duration by Outcome",
+      "description": "Time from disconnect to recovery — 'resumed' (quick session resume, the common case) vs. 'full_reconnect' (session invalidated, needed a full re-identify)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 24 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le, outcome) (rate(bot_gateway_reconnect_duration_seconds_bucket[15m])))",
+          "legendFormat": "p50 {{outcome}}",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le, outcome) (rate(bot_gateway_reconnect_duration_seconds_bucket[15m])))",
+          "legendFormat": "p99 {{outcome}}",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "lineInterpolation": "linear", "spanNulls": false }
+        }
+      },
+      "options": {
+        "tooltip": { "mode": "multi" },
         "legend": { "displayMode": "list", "placement": "bottom" }
       }
     }
