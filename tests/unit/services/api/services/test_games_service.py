@@ -1632,6 +1632,7 @@ async def test_create_game_with_valid_channel_mention(
     mock_channel_resolver.resolve_channel_mentions.assert_any_await(
         "Meet in #general lobby",
         sample_guild.guild_id,
+        field_label="Location",
     )
     mock_db.add.assert_called()
 
@@ -1840,6 +1841,7 @@ async def test_create_game_with_plain_text_location_unchanged(
     mock_channel_resolver.resolve_channel_mentions.assert_any_await(
         "In-person at the office",
         sample_guild.guild_id,
+        field_label="Location",
     )
     mock_db.add.assert_called()
 
@@ -4465,7 +4467,7 @@ async def test_update_game_resolves_channel_mention_in_where(
         )
 
     mock_channel_resolver.resolve_channel_mentions.assert_called_once_with(
-        "#channel-name", sample_guild.guild_id
+        "#channel-name", sample_guild.guild_id, field_label="Location"
     )
 
 
@@ -4560,6 +4562,7 @@ async def test_create_game_resolves_channel_mention_in_description(
     mock_channel_resolver.resolve_channel_mentions.assert_any_await(
         "See #announcements for details",
         sample_guild.guild_id,
+        field_label="Description",
     )
 
 
@@ -4681,6 +4684,7 @@ async def test_create_game_resolves_channel_mention_in_signup_instructions(
     mock_channel_resolver.resolve_channel_mentions.assert_any_await(
         "Post in #signup-channel to join",
         sample_guild.guild_id,
+        field_label="Signup Instructions",
     )
 
 
@@ -4794,7 +4798,7 @@ async def test_update_game_resolves_channel_mention_in_description(
         )
 
     mock_channel_resolver.resolve_channel_mentions.assert_any_call(
-        "See #general for info", sample_guild.guild_id
+        "See #general for info", sample_guild.guild_id, field_label="Description"
     )
     assert mock_game.description == "See <#987654321> for info"
 
@@ -4850,7 +4854,7 @@ async def test_update_game_resolves_channel_mention_in_signup_instructions(
         )
 
     mock_channel_resolver.resolve_channel_mentions.assert_any_call(
-        "Sign up in #signup-channel", sample_guild.guild_id
+        "Sign up in #signup-channel", sample_guild.guild_id, field_label="Signup Instructions"
     )
     assert mock_game.signup_instructions == "Sign up in <#111222333>"
 

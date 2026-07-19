@@ -28,6 +28,7 @@ interface ChannelSuggestion {
 
 interface ChannelValidationError {
   type: string;
+  field?: string;
   input: string;
   reason: string;
   suggestions: ChannelSuggestion[];
@@ -44,9 +45,14 @@ export const ChannelValidationErrors: FC<ChannelValidationErrorsProps> = ({
 }) => {
   return (
     <Alert severity="error" sx={{ mb: 2 }}>
-      <AlertTitle>Location contains an invalid channel reference</AlertTitle>
+      <AlertTitle>Invalid channel reference</AlertTitle>
       {errors.map((err, idx) => (
         <Box key={idx} mb={2}>
+          {err.field && (
+            <Typography variant="overline" display="block" color="text.secondary">
+              {err.field}
+            </Typography>
+          )}
           <Typography variant="body2">
             <strong>{err.input}</strong>: {err.reason}
           </Typography>

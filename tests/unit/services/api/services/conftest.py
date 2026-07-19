@@ -93,7 +93,10 @@ def mock_participant_resolver():
 def mock_channel_resolver():
     """Mock channel resolver with a passthrough default: returns input unchanged, no errors."""
     mock = AsyncMock(spec=channel_resolver_module.ChannelResolver)
-    mock.resolve_channel_mentions.side_effect = lambda text, guild_id: (text, [])
+    mock.resolve_channel_mentions.side_effect = lambda text, guild_id, field_label="Location": (
+        text,
+        [],
+    )
     return mock
 
 

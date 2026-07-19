@@ -42,7 +42,10 @@ class ChannelResolver:
             discord_client: Discord API client for channel lookup
         """
         self.discord_client = discord_client
-        self._channel_mention_pattern = re.compile(r"(?<!<)#([^\s<>]+)")
+        # Excluding '#' from the captured name (Discord channel names can't contain '#')
+        # keeps markdown headings ("## Section", "### Title") from being parsed as
+        # channel-mention attempts.
+        self._channel_mention_pattern = re.compile(r"(?<!<)#([^\s<>#]+)")
         self._discord_channel_url_pattern = re.compile(r"https://discord\.com/channels/(\d+)/(\d+)")
         self._snowflake_token_pattern = re.compile(r"<#(\d+)>")
 
@@ -50,13 +53,19 @@ class ChannelResolver:
         self,
         location_text: str,
         guild_discord_id: str,
+        field_label: str = "Location",
     ) -> tuple[str, list[dict]]:
         """
         Resolve channel mentions in location text.
 
         Args:
-            location_text: User input location text (e.g., "Meet in #general")
+            location_text: User input text to scan (e.g., "Meet in #general") — may be
+                the location field or any other free-text field (description, signup
+                instructions) that allows channel mentions
             guild_discord_id: Discord guild ID
+            field_label: Human-readable name of the field being resolved (e.g.
+                "Description"), included in each error so the caller can tell which
+                form field an error came from
 
         Returns:
             Tuple of (resolved_text, validation_errors):
@@ -78,10 +87,14 @@ class ChannelResolver:
         text_channel_ids = {ch["id"] for ch in text_channels}
 
         resolved, errors = self._resolve_url_mentions(
-            location_text, url_matches, guild_discord_id, text_channel_ids
+            location_text, url_matches, guild_discord_id, text_channel_ids, field_label
         )
-        errors.extend(self._check_snowflake_tokens(snowflake_matches, text_channel_ids))
-        resolved, hash_errors = self._resolve_hash_mentions(resolved, hash_matches, text_channels)
+        errors.extend(
+            self._check_snowflake_tokens(snowflake_matches, text_channel_ids, field_label)
+        )
+        resolved, hash_errors = self._resolve_hash_mentions(
+            resolved, hash_matches, text_channels, field_label
+        )
         errors.extend(hash_errors)
         return resolved, errors
 
@@ -91,6 +104,7 @@ class ChannelResolver:
         url_matches: list[re.Match],
         guild_discord_id: str,
         text_channel_ids: set[str],
+        field_label: str,
     ) -> tuple[str, list[dict]]:
         errors: list[dict] = []
         for url_match in url_matches:
@@ -104,8 +118,12 @@ class ChannelResolver:
             if url_channel_id not in text_channel_ids:
                 errors.append({
                     "type": "not_found",
+                    "field": field_label,
                     "input": full_url,
-                    "reason": "This link is not a valid text channel in this server",
+                    "reason": (
+                        f"Your {field_label} contains a link to a channel that is not a "
+                        "valid text channel in this server."
+                    ),
                     "suggestions": [],
                 })
             else:
@@ -118,6 +136,7 @@ class ChannelResolver:
         channel_name: str,
         matching_channels: list[dict],
         text_channels: list[dict],
+        field_label: str,
     ) -> tuple[str, dict | None]:
         """Resolve one #channel_name match. Returns (updated_resolved, error_or_None)."""
         if len(matching_channels) == 1:
@@ -126,8 +145,12 @@ class ChannelResolver:
         if len(matching_channels) > 1:
             error = {
                 "type": "ambiguous",
+                "field": field_label,
                 "input": f"#{channel_name}",
-                "reason": f"Multiple channels match '#{channel_name}'",
+                "reason": (
+                    f"Your {field_label} contains '#{channel_name}', which matches "
+                    "multiple channels in this server."
+                ),
                 "suggestions": [{"id": ch["id"], "name": ch["name"]} for ch in matching_channels],
             }
             return resolved, error
@@ -136,10 +159,21 @@ class ChannelResolver:
         similar_channels = [
             ch for ch in text_channels if channel_name.lower() in ch["name"].lower()
         ][:5]
+        # Every match reaching this branch is a single '#' immediately followed by
+        # non-space text (a run of multiple '#' can never get here — see the pattern
+        # comment in __init__), which is exactly what a forgotten-space markdown
+        # heading looks like ("#heading" instead of "# heading"). Say so explicitly:
+        # this exact confusion previously cost real debugging time.
         error = {
             "type": "not_found",
+            "field": field_label,
             "input": f"#{channel_name}",
-            "reason": f"Channel '#{channel_name}' not found",
+            "reason": (
+                f"Your {field_label} contains '#{channel_name}', which is not a valid "
+                "channel name in this server. If you meant this as a Markdown heading, "
+                f"Discord requires a space after the '#' — use '# {channel_name}' instead "
+                f"of '#{channel_name}'."
+            ),
             "suggestions": [{"id": ch["id"], "name": ch["name"]} for ch in similar_channels],
         }
         return resolved, error
@@ -149,6 +183,7 @@ class ChannelResolver:
         resolved: str,
         hash_matches: list[re.Match],
         text_channels: list[dict],
+        field_label: str,
     ) -> tuple[str, list[dict]]:
         errors: list[dict] = []
         for match in hash_matches:
@@ -157,7 +192,7 @@ class ChannelResolver:
                 ch for ch in text_channels if ch["name"].lower() == channel_name.lower()
             ]
             resolved, error = self._resolve_single_hash_match(
-                resolved, channel_name, matching_channels, text_channels
+                resolved, channel_name, matching_channels, text_channels, field_label
             )
             if error is not None:
                 errors.append(error)
@@ -167,6 +202,7 @@ class ChannelResolver:
         self,
         snowflake_matches: list[re.Match],
         text_channel_ids: set[str],
+        field_label: str,
     ) -> list[dict]:
         """Validate <#id> tokens against the guild's text channel list."""
         errors: list[dict] = []
@@ -175,8 +211,12 @@ class ChannelResolver:
             if channel_id not in text_channel_ids:
                 errors.append({
                     "type": "not_found",
+                    "field": field_label,
                     "input": f"<#{channel_id}>",
-                    "reason": f"Channel <#{channel_id}> is not a valid text channel in this server",
+                    "reason": (
+                        f"Your {field_label} contains <#{channel_id}>, which is not a "
+                        "valid text channel in this server."
+                    ),
                     "suggestions": [],
                 })
         return errors

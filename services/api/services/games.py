@@ -82,6 +82,14 @@ logger = logging.getLogger(__name__)
 # Default game duration when expected_duration_minutes is not set
 DEFAULT_GAME_DURATION_MINUTES = 60
 
+# Human-readable labels for free-text fields, used to tell the user which field a
+# channel-mention validation error came from.
+_FREE_TEXT_FIELD_LABELS = {
+    "where": "Location",
+    "description": "Description",
+    "signup_instructions": "Signup Instructions",
+}
+
 # Sort rank for each status: lower rank sorts first.
 # SCHEDULED and IN_PROGRESS sort ascending by scheduled_at (soonest first);
 # COMPLETED and CANCELLED sort descending (most recently ended first).
@@ -607,6 +615,7 @@ class GameService:
             resolved_value, errors = await self.channel_resolver.resolve_channel_mentions(
                 resolved_fields["where"],
                 guild_id,
+                field_label=_FREE_TEXT_FIELD_LABELS["where"],
             )
             resolved_fields["where"] = resolved_value
             all_errors.extend(errors)
@@ -617,6 +626,7 @@ class GameService:
                 resolved_value, errors = await self.channel_resolver.resolve_channel_mentions(
                     value,
                     guild_id,
+                    field_label=_FREE_TEXT_FIELD_LABELS[field_key],
                 )
                 resolved_fields[field_key] = resolved_value
                 all_errors.extend(errors)
@@ -1889,6 +1899,7 @@ class GameService:
             resolved_value, errors = await self.channel_resolver.resolve_channel_mentions(
                 game.where,
                 game.guild.guild_id,
+                field_label=_FREE_TEXT_FIELD_LABELS["where"],
             )
             game.where = resolved_value
             all_channel_errors.extend(errors)
@@ -1903,6 +1914,7 @@ class GameService:
                     resolved_value, errors = await self.channel_resolver.resolve_channel_mentions(
                         current_value,
                         game.guild.guild_id,
+                        field_label=_FREE_TEXT_FIELD_LABELS[field_name],
                     )
                     setattr(game, field_name, resolved_value)
                     all_channel_errors.extend(errors)

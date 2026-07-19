@@ -449,9 +449,7 @@ describe('CreateGame', () => {
 
     // Wait for channel validation errors to appear
     await waitFor(() => {
-      expect(
-        screen.getByText('Location contains an invalid channel reference')
-      ).toBeInTheDocument();
+      expect(screen.getByText('Invalid channel reference')).toBeInTheDocument();
     });
 
     expect(screen.getByText('#nonexistent')).toBeInTheDocument();

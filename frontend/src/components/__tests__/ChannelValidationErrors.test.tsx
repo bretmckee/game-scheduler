@@ -36,7 +36,23 @@ describe('ChannelValidationErrors', () => {
 
     render(<ChannelValidationErrors errors={errors} onSuggestionClick={vi.fn()} />);
 
-    expect(screen.getByText('Location contains an invalid channel reference')).toBeInTheDocument();
+    expect(screen.getByText('Invalid channel reference')).toBeInTheDocument();
+  });
+
+  it('displays the field label when provided', () => {
+    const errors = [
+      {
+        type: 'not_found',
+        field: 'Description',
+        input: '#foo',
+        reason: "'#foo' is not a valid channel name in this server.",
+        suggestions: [],
+      },
+    ];
+
+    render(<ChannelValidationErrors errors={errors} onSuggestionClick={vi.fn()} />);
+
+    expect(screen.getByText('Description')).toBeInTheDocument();
   });
 
   it('displays error input and reason', () => {

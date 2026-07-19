@@ -397,9 +397,7 @@ describe('EditGame', () => {
     await user.click(screen.getByText('Save Changes'));
 
     await waitFor(() => {
-      expect(
-        screen.getByText('Location contains an invalid channel reference')
-      ).toBeInTheDocument();
+      expect(screen.getByText('Invalid channel reference')).toBeInTheDocument();
     });
 
     expect(screen.getByText('#nonexistent')).toBeInTheDocument();
@@ -453,17 +451,13 @@ describe('EditGame', () => {
     await user.click(screen.getByText('Save Changes'));
 
     await waitFor(() => {
-      expect(
-        screen.getByText('Location contains an invalid channel reference')
-      ).toBeInTheDocument();
+      expect(screen.getByText('Invalid channel reference')).toBeInTheDocument();
     });
 
     await user.click(screen.getByText('#general'));
 
     await waitFor(() => {
-      expect(
-        screen.queryByText('Location contains an invalid channel reference')
-      ).not.toBeInTheDocument();
+      expect(screen.queryByText('Invalid channel reference')).not.toBeInTheDocument();
     });
   });
 

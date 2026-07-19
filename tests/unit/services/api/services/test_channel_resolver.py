@@ -262,7 +262,11 @@ async def test_resolve_discord_url_channel_not_found(resolver, mock_discord_clie
     assert (
         errors[0]["input"] == "https://discord.com/channels/111222333444555666/999999999999999999"
     )
-    assert errors[0]["reason"] == "This link is not a valid text channel in this server"
+    assert errors[0]["reason"] == (
+        "Your Location contains a link to a channel that is not a valid text channel "
+        "in this server."
+    )
+    assert errors[0]["field"] == "Location"
     assert errors[0]["suggestions"] == []
 
 
@@ -491,12 +495,98 @@ async def test_resolve_snowflake_token_unknown_id(resolver, mock_discord_client)
     resolved_text, errors = await resolver.resolve_channel_mentions(
         location_text="Meet in <#999999999999999999>",
         guild_discord_id="guild123",
+        field_label="Description",
     )
 
     assert resolved_text == "Meet in <#999999999999999999>"
     assert len(errors) == 1
     assert errors[0]["type"] == "not_found"
     assert errors[0]["input"] == "<#999999999999999999>"
+    assert errors[0]["field"] == "Description"
+    assert errors[0]["reason"] == (
+        "Your Description contains <#999999999999999999>, which is not a valid text "
+        "channel in this server."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Markdown heading passthrough tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_markdown_h2_heading_passes_through_unchanged(resolver, mock_discord_client):
+    """'## Heading' markdown is not parsed as a channel mention attempt."""
+    mock_discord_client.get_guild_channels = AsyncMock(
+        return_value=[
+            {"id": "123456789", "name": "general", "type": 0},
+        ]
+    )
+
+    resolved_text, errors = await resolver.resolve_channel_mentions(
+        location_text="## Session Zero",
+        guild_discord_id="guild123",
+    )
+
+    assert resolved_text == "## Session Zero"
+    assert len(errors) == 0
+
+
+@pytest.mark.asyncio
+async def test_markdown_h3_heading_passes_through_unchanged(resolver, mock_discord_client):
+    """'### Heading' markdown is not parsed as a channel mention attempt."""
+    mock_discord_client.get_guild_channels = AsyncMock(
+        return_value=[
+            {"id": "123456789", "name": "general", "type": 0},
+        ]
+    )
+
+    resolved_text, errors = await resolver.resolve_channel_mentions(
+        location_text="### Rewards\nGold and a magic item",
+        guild_discord_id="guild123",
+    )
+
+    assert resolved_text == "### Rewards\nGold and a magic item"
+    assert len(errors) == 0
+
+
+@pytest.mark.asyncio
+async def test_markdown_heading_mid_text_passes_through_unchanged(resolver, mock_discord_client):
+    """A markdown heading later in multi-line text is also left alone."""
+    mock_discord_client.get_guild_channels = AsyncMock(
+        return_value=[
+            {"id": "123456789", "name": "general", "type": 0},
+        ]
+    )
+
+    text = "Welcome!\n## What to bring\nDice and a character sheet"
+    resolved_text, errors = await resolver.resolve_channel_mentions(
+        location_text=text,
+        guild_discord_id="guild123",
+    )
+
+    assert resolved_text == text
+    assert len(errors) == 0
+
+
+@pytest.mark.asyncio
+async def test_double_hash_immediately_followed_by_channel_name_still_resolves(
+    resolver, mock_discord_client
+):
+    """A stray leading '#' before a real channel mention still resolves the channel."""
+    mock_discord_client.get_guild_channels = AsyncMock(
+        return_value=[
+            {"id": "123456789", "name": "general", "type": 0},
+        ]
+    )
+
+    resolved_text, errors = await resolver.resolve_channel_mentions(
+        location_text="##general",
+        guild_discord_id="guild123",
+    )
+
+    assert resolved_text == "#<#123456789>"
+    assert len(errors) == 0
 
 
 # ---------------------------------------------------------------------------
