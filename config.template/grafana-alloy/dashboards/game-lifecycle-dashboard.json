@@ -212,20 +212,20 @@
     {
       "id": 7,
       "title": "Participant Changes by Action",
-      "description": "Join vs. leave rate across both bot and API",
+      "description": "Join vs. leave counts (15m buckets) across both bot and API",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "targets": [
         {
-          "expr": "sum by (action) (rate(game_participant_change_total[5m]))",
+          "expr": "sum by (action) (increase(game_participant_change_total[15m]))",
           "legendFormat": "{{action}}",
           "refId": "A"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "reqps",
+          "unit": "short",
           "custom": { "lineInterpolation": "linear", "spanNulls": false }
         }
       },
@@ -237,20 +237,20 @@
     {
       "id": 8,
       "title": "Participant Changes by Source",
-      "description": "Discord bot button vs. frontend/API-driven joins and leaves",
+      "description": "Discord bot button vs. frontend/API-driven joins and leaves (15m buckets)",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "targets": [
         {
-          "expr": "sum by (source) (rate(game_participant_change_total[5m]))",
+          "expr": "sum by (source) (increase(game_participant_change_total[15m]))",
           "legendFormat": "{{source}}",
           "refId": "A"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "reqps",
+          "unit": "short",
           "custom": { "lineInterpolation": "linear", "spanNulls": false }
         }
       },
@@ -262,20 +262,20 @@
     {
       "id": 9,
       "title": "Lifecycle Events by Action",
-      "description": "Posted vs. cancelled vs. completed rate",
+      "description": "Posted vs. cancelled vs. completed counts (15m buckets)",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "targets": [
         {
-          "expr": "sum by (action) (rate(game_lifecycle_change_total[5m]))",
+          "expr": "sum by (action) (increase(game_lifecycle_change_total[15m]))",
           "legendFormat": "{{action}}",
           "refId": "A"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "reqps",
+          "unit": "short",
           "custom": { "lineInterpolation": "linear", "spanNulls": false }
         }
       },
@@ -287,20 +287,20 @@
     {
       "id": 10,
       "title": "Lifecycle Events by Source",
-      "description": "immediate/deferred/bot/api/scheduler breakdown of lifecycle transitions",
+      "description": "immediate/deferred/bot/api/scheduler breakdown of lifecycle transitions (15m buckets)",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "targets": [
         {
-          "expr": "sum by (source) (rate(game_lifecycle_change_total[5m]))",
+          "expr": "sum by (source) (increase(game_lifecycle_change_total[15m]))",
           "legendFormat": "{{source}}",
           "refId": "A"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "reqps",
+          "unit": "short",
           "custom": { "lineInterpolation": "linear", "spanNulls": false }
         }
       },
