@@ -271,3 +271,96 @@ class TestCreateGameAnnouncementMimeTypes:
         mock_fmt.assert_called_once()
         _args, kwargs = mock_fmt.call_args
         assert kwargs.get("banner_image_mime_type") == "image/png"
+
+
+class TestResolveParticipantDisplayNames:
+    """Tests for EventHandlers._resolve_participant_display_names."""
+
+    @pytest.mark.asyncio
+    async def test_resolves_numeric_ids_via_member_projection(self, event_handlers, sample_game):
+        """Numeric Discord IDs are resolved to display names."""
+
+        async def fake_get_member_display_info(_bot, _guild_id, user_id):
+            names = {"111": ("Alice", None), "222": ("Bob", None)}
+            return names[user_id]
+
+        with patch(
+            "services.bot.events.handlers.get_member_display_info",
+            side_effect=fake_get_member_display_info,
+        ):
+            result = await event_handlers._resolve_participant_display_names(
+                sample_game, ["111"], ["222"]
+            )
+
+        assert result == {"111": "Alice", "222": "Bob"}
+
+    @pytest.mark.asyncio
+    async def test_skips_placeholder_names(self, event_handlers, sample_game):
+        """Non-numeric placeholder participant names are never looked up."""
+        with patch(
+            "services.bot.events.handlers.get_member_display_info",
+        ) as mock_get_info:
+            result = await event_handlers._resolve_participant_display_names(
+                sample_game, ["Guest Player"], []
+            )
+
+        mock_get_info.assert_not_called()
+        assert result == {}
+
+    @pytest.mark.asyncio
+    async def test_omits_ids_with_no_resolved_name(self, event_handlers, sample_game):
+        """IDs that resolve to None (e.g. left the guild) are left out of the map."""
+        with patch(
+            "services.bot.events.handlers.get_member_display_info",
+            return_value=(None, None),
+        ):
+            result = await event_handlers._resolve_participant_display_names(
+                sample_game, ["111"], []
+            )
+
+        assert result == {}
+
+    @pytest.mark.asyncio
+    async def test_returns_empty_map_without_guild(self, event_handlers, sample_game):
+        """No guild means no member projection lookups are attempted."""
+        sample_game.guild = None
+        with patch(
+            "services.bot.events.handlers.get_member_display_info",
+        ) as mock_get_info:
+            result = await event_handlers._resolve_participant_display_names(
+                sample_game, ["111"], []
+            )
+
+        mock_get_info.assert_not_called()
+        assert result == {}
+
+
+@pytest.mark.asyncio
+async def test_create_game_announcement_passes_participant_display_names(
+    event_handlers, sample_game, sample_user
+):
+    """_create_game_announcement forwards resolved participant names to the formatter."""
+    sample_game.host = sample_user
+    sample_game.participants = []
+
+    async def fake_resolve(_game, _confirmed, _overflow):
+        return {"111": "Alice"}
+
+    with (
+        patch("services.bot.events.handlers.format_game_announcement") as mock_fmt,
+        patch(
+            "services.bot.events.handlers.get_member_display_info",
+            return_value=(None, None),
+        ),
+        patch.object(
+            event_handlers,
+            "_resolve_participant_display_names",
+            side_effect=fake_resolve,
+        ),
+    ):
+        mock_fmt.return_value = (None, MagicMock(), MagicMock())
+        await event_handlers._create_game_announcement(sample_game)
+
+    mock_fmt.assert_called_once()
+    _args, kwargs = mock_fmt.call_args
+    assert kwargs.get("participant_display_names") == {"111": "Alice"}

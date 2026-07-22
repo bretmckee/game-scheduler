@@ -120,6 +120,7 @@ class GameMessageFormatter:
         expected_duration_minutes: int | None,
         where: str | None,
         channel_id: str | None,
+        host_display_name: str | None = None,
     ) -> None:
         """Add game time, host, duration, location, and channel fields.
 
@@ -130,6 +131,8 @@ class GameMessageFormatter:
             expected_duration_minutes: Optional game duration
             where: Optional game location
             channel_id: Optional voice channel ID
+            host_display_name: Optional resolved host display name, rendered
+                instead of a raw `<@id>` mention
         """
         game_time_value = (
             f"{format_discord_timestamp(scheduled_at, 'F')} "
@@ -137,7 +140,8 @@ class GameMessageFormatter:
         )
         embed.add_field(name="Game Time", value=game_time_value, inline=False)
 
-        formatted_host = format_user_or_placeholder(host_id)
+        host_display_names = {host_id: host_display_name} if host_display_name else None
+        formatted_host = format_user_or_placeholder(host_id, host_display_names)
         embed.add_field(name="Host", value=formatted_host, inline=True)
 
         if expected_duration_minutes:
@@ -161,6 +165,7 @@ class GameMessageFormatter:
         overflow_ids: list[str],
         current_count: int,
         max_players: int,
+        participant_display_names: dict[str, str] | None = None,
     ) -> None:
         """Add participant and waitlist fields to embed.
 
@@ -170,6 +175,8 @@ class GameMessageFormatter:
             overflow_ids: List of waitlisted participant IDs
             current_count: Current participant count
             max_players: Maximum allowed participants
+            participant_display_names: Optional map of user_id -> resolved
+                display name, rendered instead of a raw `<@id>` mention
         """
         open_slots = max(0, max_players - len(participant_ids))
         if open_slots > 0:
@@ -178,7 +185,12 @@ class GameMessageFormatter:
         if participant_ids:
             embed.add_field(
                 name=f"Participants ({current_count}/{max_players})",
-                value=format_participant_list(participant_ids, max_display=15, start_number=1),
+                value=format_participant_list(
+                    participant_ids,
+                    max_display=15,
+                    start_number=1,
+                    display_names=participant_display_names,
+                ),
                 inline=True,
             )
         else:
@@ -191,7 +203,10 @@ class GameMessageFormatter:
         if overflow_ids:
             start_num = len(participant_ids) + 1
             overflow_text = format_participant_list(
-                overflow_ids, max_display=10, start_number=start_num
+                overflow_ids,
+                max_display=10,
+                start_number=start_num,
+                display_names=participant_display_names,
             )
             embed.add_field(
                 name=f"Waitlisted ({len(overflow_ids)})",
@@ -243,6 +258,7 @@ class GameMessageFormatter:
         thumbnail_url: str | None = None,
         image_url: str | None = None,
         rewards: str | None = None,
+        participant_display_names: dict[str, str] | None = None,
     ) -> discord.Embed:
         """Create an embed for a game session.
 
@@ -264,6 +280,8 @@ class GameMessageFormatter:
             host_avatar_url: Optional host Discord CDN avatar URL for embed author icon
             thumbnail_url: Optional thumbnail image URL
             image_url: Optional banner image URL
+            participant_display_names: Optional map of user_id -> resolved
+                display name, rendered instead of a raw `<@id>` mention
 
         Returns:
             Configured Discord embed
@@ -290,11 +308,22 @@ class GameMessageFormatter:
             embed.set_image(url=img_url)
 
         GameMessageFormatter._add_game_time_fields(
-            embed, scheduled_at, host_id, expected_duration_minutes, where, channel_id
+            embed,
+            scheduled_at,
+            host_id,
+            expected_duration_minutes,
+            where,
+            channel_id,
+            host_display_name,
         )
 
         GameMessageFormatter._add_participant_fields(
-            embed, participant_ids, overflow_ids, current_count, max_players
+            embed,
+            participant_ids,
+            overflow_ids,
+            current_count,
+            max_players,
+            participant_display_names,
         )
 
         if rewards:
@@ -390,6 +419,7 @@ def format_game_announcement(
     rewards: str | None = None,
     thumbnail_mime_type: str | None = None,
     banner_image_mime_type: str | None = None,
+    participant_display_names: dict[str, str] | None = None,
 ) -> tuple[str | None, discord.Embed, GameView]:
     """Format a complete game announcement with embed and buttons.
 
@@ -414,6 +444,8 @@ def format_game_announcement(
         thumbnail_id: UUID of thumbnail image if present
         banner_image_id: UUID of banner image if present
         guild_id: Optional guild ID for special @everyone handling
+        participant_display_names: Optional map of user_id -> resolved
+            display name, rendered instead of a raw `<@id>` mention
 
     Returns:
         Tuple of (content, embed, view) where content contains role mentions if any
@@ -452,6 +484,7 @@ def format_game_announcement(
         thumbnail_url=thumbnail_url,
         image_url=image_url,
         rewards=rewards,
+        participant_display_names=participant_display_names,
     )
 
     view = GameView.from_game_data(

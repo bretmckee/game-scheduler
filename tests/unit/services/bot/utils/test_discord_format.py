@@ -62,6 +62,27 @@ class TestFormatUserOrPlaceholder:
         result = format_user_or_placeholder("Host-12abc")
         assert result == "Host-12abc"
 
+    def test_uses_resolved_display_name_when_available(self):
+        """Test that a resolved display name is rendered instead of a raw mention."""
+        result = format_user_or_placeholder(
+            "123456789012345678", display_names={"123456789012345678": "CoolNick"}
+        )
+        assert result == "@CoolNick"
+
+    def test_falls_back_to_mention_when_id_not_in_display_names(self):
+        """Test that IDs missing from the display_names map still render as mentions."""
+        result = format_user_or_placeholder(
+            "123456789012345678", display_names={"999999999999999999": "OtherUser"}
+        )
+        assert result == "<@123456789012345678>"
+
+    def test_placeholder_ignores_display_names(self):
+        """Test that placeholder names are unaffected by display_names."""
+        result = format_user_or_placeholder(
+            "Player123", display_names={"Player123": "ShouldNotBeUsed"}
+        )
+        assert result == "Player123"
+
 
 class TestFormatDiscordMention:
     """Tests for format_discord_mention function."""
@@ -158,6 +179,26 @@ class TestFormatParticipantList:
         waitlist = ["999999999999999999"]
         result = format_participant_list(waitlist, start_number=4)
         assert "4. <@999999999999999999>" in result
+
+    def test_uses_resolved_display_names_when_available(self):
+        """Test that resolved display names replace raw mentions in the list."""
+        participants = ["111111111111111111", "222222222222222222"]
+        result = format_participant_list(
+            participants,
+            display_names={
+                "111111111111111111": "Alice",
+                "222222222222222222": "Bob",
+            },
+        )
+        assert result == "1. @Alice\n2. @Bob"
+
+    def test_missing_display_name_falls_back_to_mention(self):
+        """Test that a participant absent from display_names still renders as a mention."""
+        participants = ["111111111111111111", "222222222222222222"]
+        result = format_participant_list(
+            participants, display_names={"111111111111111111": "Alice"}
+        )
+        assert result == "1. @Alice\n2. <@222222222222222222>"
 
 
 class TestFormatGameStatusEmoji:

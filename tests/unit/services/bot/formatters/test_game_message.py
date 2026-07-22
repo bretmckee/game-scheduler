@@ -114,8 +114,39 @@ class TestGameMessageFormatter:
             assert any("Participants" in str(call) and "2/5" in str(call) for call in calls)
             mock_embed_class.assert_called_once_with(title="Game", description="Desc", color=ANY)
 
+    def test_embed_participants_use_resolved_display_names(self):
+        """Test that participant_display_names renders resolved names, not raw mentions."""
+        scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
+
+        with patch("services.bot.formatters.game_message.discord.Embed") as mock_embed_class:
+            mock_embed = MagicMock()
+            mock_embed_class.return_value = mock_embed
+
+            formatter = GameMessageFormatter()
+            formatter.create_game_embed(
+                game_title="Game",
+                description="Desc",
+                scheduled_at=scheduled_at,
+                host_id="123",
+                participant_ids=["111", "222"],
+                overflow_ids=["333"],
+                current_count=2,
+                max_players=2,
+                status="SCHEDULED",
+                participant_display_names={"111": "Alice", "333": "Waitlisted Carl"},
+            )
+
+            calls = [str(call) for call in mock_embed.add_field.call_args_list]
+            participants_call = next(call for call in calls if "Participants" in call)
+            waitlist_call = next(call for call in calls if "Waitlisted" in call)
+
+            assert "@Alice" in participants_call
+            assert "<@222>" in participants_call
+            assert "@Waitlisted Carl" in waitlist_call
+            mock_embed_class.assert_called_once_with(title="Game", description="Desc", color=ANY)
+
     def test_embed_includes_host_field(self):
-        """Test that embed always includes host in a field with mention format."""
+        """Test that host field falls back to a Discord mention when no display name is resolved."""
         scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
 
         with patch("services.bot.formatters.game_message.discord.Embed") as mock_embed_class:
@@ -165,6 +196,34 @@ class TestGameMessageFormatter:
             # Host field should have Discord mention (avatar not used in fields)
             calls = [str(call) for call in mock_embed.add_field.call_args_list]
             assert any("Host" in str(call) and "<@123456>" in str(call) for call in calls)
+            mock_embed_class.assert_called_once_with(title="Game", description="Desc", color=ANY)
+
+    def test_embed_host_field_uses_resolved_display_name(self):
+        """Test that host field renders a resolved display name instead of a raw mention."""
+        scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
+
+        with patch("services.bot.formatters.game_message.discord.Embed") as mock_embed_class:
+            mock_embed = MagicMock()
+            mock_embed_class.return_value = mock_embed
+
+            formatter = GameMessageFormatter()
+            formatter.create_game_embed(
+                game_title="Game",
+                description="Desc",
+                scheduled_at=scheduled_at,
+                host_id="123456",
+                participant_ids=[],
+                overflow_ids=[],
+                current_count=0,
+                max_players=5,
+                status="SCHEDULED",
+                host_display_name="JmanX",
+            )
+
+            calls = [str(call) for call in mock_embed.add_field.call_args_list]
+            host_call = next(call for call in calls if "Host" in call)
+            assert "@JmanX" in host_call
+            assert "<@123456>" not in host_call
             mock_embed_class.assert_called_once_with(title="Game", description="Desc", color=ANY)
 
     def test_embed_includes_channel_when_provided(self):
