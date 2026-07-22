@@ -128,6 +128,9 @@ class TestGameSchedulerBot:
         mock_al_instance = MagicMock()
         mock_al_instance.start = AsyncMock()
 
+        mock_listener_instance = MagicMock()
+        mock_listener_instance.start = AsyncMock()
+
         with patch("services.bot.bot.logger") as mock_logger:
             with patch.object(type(bot), "user", new_callable=lambda: mock_user):
                 with patch.object(type(bot), "guilds", new_callable=lambda: mock_guilds):
@@ -144,6 +147,14 @@ class TestGameSchedulerBot:
                         patch("services.bot.bot.Path") as mock_path,
                         patch("services.bot.bot.SchedulerLoop", return_value=mock_sl_instance),
                         patch("services.bot.bot.AnnouncementLoop", return_value=mock_al_instance),
+                        patch(
+                            "services.bot.bot.MessageRefreshListener",
+                            return_value=mock_listener_instance,
+                        ),
+                        patch(
+                            "services.bot.bot.BotActionListener",
+                            return_value=mock_listener_instance,
+                        ),
                     ):
                         await bot.on_ready()
 
@@ -178,6 +189,9 @@ class TestGameSchedulerBot:
         mock_al_instance = MagicMock()
         mock_al_instance.start = AsyncMock()
 
+        mock_listener_instance = MagicMock()
+        mock_listener_instance.start = AsyncMock()
+
         with patch("services.bot.bot.logger") as mock_logger:
             with patch.object(type(bot), "user", new_callable=lambda: mock_user):
                 with patch.object(type(bot), "guilds", new_callable=lambda: mock_guilds):
@@ -194,6 +208,14 @@ class TestGameSchedulerBot:
                         patch("services.bot.bot.Path"),
                         patch("services.bot.bot.SchedulerLoop", return_value=mock_sl_instance),
                         patch("services.bot.bot.AnnouncementLoop", return_value=mock_al_instance),
+                        patch(
+                            "services.bot.bot.MessageRefreshListener",
+                            return_value=mock_listener_instance,
+                        ),
+                        patch(
+                            "services.bot.bot.BotActionListener",
+                            return_value=mock_listener_instance,
+                        ),
                         patch(
                             "services.bot.bot.get_git_version",
                             return_value="0.0.1.post479+ge95e5f2",
@@ -230,6 +252,9 @@ class TestGameSchedulerBot:
         mock_al_instance.start = AsyncMock()
         mock_histogram = MagicMock()
 
+        mock_listener_instance = MagicMock()
+        mock_listener_instance.start = AsyncMock()
+
         with patch("services.bot.bot.logger") as mock_logger:
             with patch.object(type(bot), "user", new_callable=lambda: mock_user):
                 with patch.object(type(bot), "guilds", new_callable=lambda: mock_guilds):
@@ -246,6 +271,14 @@ class TestGameSchedulerBot:
                         patch("services.bot.bot.Path"),
                         patch("services.bot.bot.SchedulerLoop", return_value=mock_sl_instance),
                         patch("services.bot.bot.AnnouncementLoop", return_value=mock_al_instance),
+                        patch(
+                            "services.bot.bot.MessageRefreshListener",
+                            return_value=mock_listener_instance,
+                        ),
+                        patch(
+                            "services.bot.bot.BotActionListener",
+                            return_value=mock_listener_instance,
+                        ),
                         patch("services.bot.bot.time.monotonic", return_value=106.0),
                         patch(
                             "services.bot.bot.gateway_reconnect_duration_histogram", mock_histogram
