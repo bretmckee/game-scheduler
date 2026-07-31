@@ -21,18 +21,53 @@
 
 """Pydantic schemas for game templates."""
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+from shared.models.signup_method import SignupMethod
 
 _MAX_PRIORITY_ROLES = 8
 _MAX_PRIORITY_ROLES_MSG = (
     f"signup_priority_role_ids may contain at most {_MAX_PRIORITY_ROLES} role IDs"
 )
+_ROLE_BASED = SignupMethod.ROLE_BASED.value
 
 
 def _validate_priority_role_ids(v: list[str] | None) -> list[str] | None:
     if v is not None and len(v) > _MAX_PRIORITY_ROLES:
         raise ValueError(_MAX_PRIORITY_ROLES_MSG)
     return v
+
+
+def validate_signup_method_priority_consistency(
+    signup_priority_role_ids: list[str] | None,
+    default_signup_method: str | None,
+    allowed_signup_methods: list[str] | None,
+) -> None:
+    """Enforce that priority roles and ROLE_BASED signup method imply each other.
+
+    Used both as a create-time schema validator (where the full field set is
+    always known) and by the update route, which validates the merged result
+    of a partial update against the existing template row.
+    """
+    if signup_priority_role_ids:
+        if default_signup_method != _ROLE_BASED:
+            msg = "default_signup_method must be ROLE_BASED when signup_priority_role_ids is set"
+            raise ValueError(msg)
+        if allowed_signup_methods is not None and allowed_signup_methods != [_ROLE_BASED]:
+            msg = (
+                "allowed_signup_methods must be exactly ['ROLE_BASED'] when "
+                "signup_priority_role_ids is set"
+            )
+            raise ValueError(msg)
+    else:
+        if default_signup_method == _ROLE_BASED:
+            msg = "default_signup_method cannot be ROLE_BASED without signup_priority_role_ids"
+            raise ValueError(msg)
+        if allowed_signup_methods is not None and _ROLE_BASED in allowed_signup_methods:
+            msg = (
+                "allowed_signup_methods cannot include ROLE_BASED without signup_priority_role_ids"
+            )
+            raise ValueError(msg)
 
 
 class TemplateCreateRequest(BaseModel):
@@ -95,6 +130,15 @@ class TemplateCreateRequest(BaseModel):
     @classmethod
     def max_eight_priority_roles(cls, v: list[str] | None) -> list[str] | None:
         return _validate_priority_role_ids(v)
+
+    @model_validator(mode="after")
+    def check_signup_method_priority_consistency(self) -> "TemplateCreateRequest":
+        validate_signup_method_priority_consistency(
+            self.signup_priority_role_ids,
+            self.default_signup_method,
+            self.allowed_signup_methods,
+        )
+        return self
 
 
 class TemplateUpdateRequest(BaseModel):

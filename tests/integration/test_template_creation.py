@@ -92,6 +92,7 @@ async def test_create_template_via_api_success(
                     "order": 1,
                     "is_default": False,
                     "signup_priority_role_ids": ["111222333444555666", "999888777666555444"],
+                    "default_signup_method": "ROLE_BASED",
                 },
             )
 
@@ -116,6 +117,7 @@ async def test_create_template_via_api_success(
             "111222333444555666",
             "999888777666555444",
         ]
+        assert template_data["default_signup_method"] == "ROLE_BASED"
 
         template_id = template_data["id"]
 
@@ -126,7 +128,7 @@ async def test_create_template_via_api_success(
                 SELECT name, description, max_players, guild_id, channel_id,
                        expected_duration_minutes, reminder_minutes, "where",
                        signup_instructions, "order", is_default,
-                       signup_priority_role_ids
+                       signup_priority_role_ids, default_signup_method
                 FROM game_templates
                 WHERE id = :id
             """
@@ -148,6 +150,7 @@ async def test_create_template_via_api_success(
         assert row.order == 1
         assert row.is_default is False
         assert row.signup_priority_role_ids == ["111222333444555666", "999888777666555444"]
+        assert row.default_signup_method == "ROLE_BASED"
 
     finally:
         await cleanup_test_session(session_token)
@@ -218,6 +221,72 @@ async def test_create_template_without_bot_manager_role(
         )
         count = result.scalar()
         assert count == 0, "Template should not have been created without authorization"
+    finally:
+        await cleanup_test_session(session_token)
+
+
+@pytest.mark.asyncio
+async def test_create_template_with_priority_roles_and_wrong_signup_method_rejected(
+    admin_db_sync,
+    create_guild,
+    create_channel,
+    create_user,
+    seed_redis_cache,
+    api_base_url,
+):
+    """Verify template creation rejects signup_priority_role_ids without ROLE_BASED.
+
+    Prevents templates from being persisted with priority roles configured but
+    a default_signup_method that isn't ROLE_BASED, which would leave the
+    priority roles unreachable in game creation.
+    """
+    bot_manager_role_id = "123456789012345678"
+    guild = create_guild(bot_manager_roles=[bot_manager_role_id])
+    channel = create_channel(guild_id=guild["id"])
+    create_user(discord_user_id=TEST_BOT_DISCORD_ID)
+
+    session_token, _ = await create_test_session(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+    await seed_redis_cache(
+        user_discord_id=TEST_BOT_DISCORD_ID,
+        guild_discord_id=guild["guild_id"],
+        channel_discord_id=channel["channel_id"],
+        user_roles=[bot_manager_role_id],
+    )
+
+    try:
+        async with httpx.AsyncClient(
+            base_url=api_base_url,
+            timeout=10.0,
+            cookies={"session_token": session_token},
+        ) as client:
+            response = await client.post(
+                f"/api/v1/guilds/{guild['id']}/templates",
+                json={
+                    "guild_id": guild["id"],
+                    "channel_id": channel["id"],
+                    "name": "Mismatched Priority Template",
+                    "order": 0,
+                    "is_default": False,
+                    "signup_priority_role_ids": ["111222333444555666"],
+                    "default_signup_method": "SELF_SIGNUP",
+                },
+            )
+
+        assert response.status_code == 422, (
+            f"Expected 422, got {response.status_code}: {response.text}"
+        )
+
+        result = admin_db_sync.execute(
+            text(
+                """
+                SELECT COUNT(*) FROM game_templates
+                WHERE guild_id = :guild_id AND name = :name
+            """
+            ),
+            {"guild_id": guild["id"], "name": "Mismatched Priority Template"},
+        )
+        count = result.scalar()
+        assert count == 0, "Template should not have been created with invalid signup method"
 
     finally:
         await cleanup_test_session(session_token)

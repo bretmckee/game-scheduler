@@ -85,6 +85,104 @@ async def test_update_template_success(
 
 
 @pytest.mark.asyncio
+async def test_update_template_priority_roles_without_role_based_method_rejected(
+    create_guild,
+    create_channel,
+    create_user,
+    create_template,
+    seed_redis_cache,
+    api_base_url,
+):
+    """PUT rejects (422) adding priority roles without also setting ROLE_BASED."""
+    guild = create_guild(bot_manager_roles=[BOT_MANAGER_ROLE_ID])
+    channel = create_channel(guild_id=guild["id"])
+    create_user(discord_user_id=TEST_BOT_DISCORD_ID)
+    template = create_template(
+        guild_id=guild["id"],
+        channel_id=channel["id"],
+        default_signup_method="SELF_SIGNUP",
+    )
+
+    session_token, _ = await create_test_session(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+    await seed_redis_cache(
+        user_discord_id=TEST_BOT_DISCORD_ID,
+        guild_discord_id=guild["guild_id"],
+        user_roles=[BOT_MANAGER_ROLE_ID],
+    )
+
+    try:
+        async with httpx.AsyncClient(
+            base_url=api_base_url,
+            timeout=10.0,
+            cookies={"session_token": session_token},
+        ) as client:
+            response = await client.put(
+                f"/api/v1/templates/{template['id']}",
+                json={"signup_priority_role_ids": ["role1"]},
+            )
+
+        assert response.status_code == 422, (
+            f"Expected 422, got {response.status_code}: {response.text}"
+        )
+    finally:
+        await cleanup_test_session(session_token)
+
+
+@pytest.mark.asyncio
+async def test_update_template_priority_roles_then_followup_patch_succeeds(
+    create_guild,
+    create_channel,
+    create_user,
+    create_template,
+    seed_redis_cache,
+    api_base_url,
+):
+    """After roles + ROLE_BASED are set together, a later PATCH touching only
+    the roles list succeeds without re-sending default_signup_method."""
+    guild = create_guild(bot_manager_roles=[BOT_MANAGER_ROLE_ID])
+    channel = create_channel(guild_id=guild["id"])
+    create_user(discord_user_id=TEST_BOT_DISCORD_ID)
+    template = create_template(
+        guild_id=guild["id"],
+        channel_id=channel["id"],
+        default_signup_method="SELF_SIGNUP",
+    )
+
+    session_token, _ = await create_test_session(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+    await seed_redis_cache(
+        user_discord_id=TEST_BOT_DISCORD_ID,
+        guild_discord_id=guild["guild_id"],
+        user_roles=[BOT_MANAGER_ROLE_ID],
+    )
+
+    try:
+        async with httpx.AsyncClient(
+            base_url=api_base_url,
+            timeout=10.0,
+            cookies={"session_token": session_token},
+        ) as client:
+            first = await client.put(
+                f"/api/v1/templates/{template['id']}",
+                json={
+                    "signup_priority_role_ids": ["role1"],
+                    "default_signup_method": "ROLE_BASED",
+                    "allowed_signup_methods": ["ROLE_BASED"],
+                },
+            )
+            assert first.status_code == 200, f"Expected 200, got {first.status_code}: {first.text}"
+
+            second = await client.put(
+                f"/api/v1/templates/{template['id']}",
+                json={"signup_priority_role_ids": ["role1", "role2"]},
+            )
+
+        assert second.status_code == 200, f"Expected 200, got {second.status_code}: {second.text}"
+        assert second.json()["signup_priority_role_ids"] == ["role1", "role2"]
+    finally:
+        await cleanup_test_session(session_token)
+
+
+@pytest.mark.asyncio
 async def test_delete_template_non_default_success(
     create_guild,
     create_channel,

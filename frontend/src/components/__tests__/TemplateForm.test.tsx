@@ -956,4 +956,83 @@ describe('TemplateForm - Role Priority Section', () => {
       );
     });
   });
+
+  it('auto-derives Role Based signup method when priority roles are set', async () => {
+    const user = userEvent.setup();
+    render(
+      <TemplateForm
+        open={true}
+        template={{ ...baseTemplate, signup_priority_role_ids: ['role-1'] }}
+        guildId="guild-1"
+        channels={mockChannels}
+        roles={mockRoles}
+        onClose={mockOnClose}
+        onSubmit={mockOnSubmit}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: /update/i }));
+
+    await waitFor(() => {
+      expect(mockOnSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          allowed_signup_methods: ['ROLE_BASED'],
+          default_signup_method: 'ROLE_BASED',
+        })
+      );
+    });
+  });
+
+  it('excludes ROLE_BASED from allowed methods when priority roles are empty', async () => {
+    const user = userEvent.setup();
+    render(
+      <TemplateForm
+        open={true}
+        template={baseTemplate}
+        guildId="guild-1"
+        channels={mockChannels}
+        roles={mockRoles}
+        onClose={mockOnClose}
+        onSubmit={mockOnSubmit}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: /update/i }));
+
+    await waitFor(() => {
+      expect(mockOnSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          allowed_signup_methods: ['SELF_SIGNUP', 'HOST_SELECTED', 'HOST_SELECTED_WITH_WAITLIST'],
+          default_signup_method: null,
+        })
+      );
+    });
+  });
+
+  it('shows the Role Based auto-select note only when priority roles are set', async () => {
+    const user = userEvent.setup();
+    render(
+      <TemplateForm
+        open={true}
+        template={null}
+        guildId="guild-1"
+        channels={mockChannels}
+        roles={mockRoles}
+        onClose={mockOnClose}
+        onSubmit={mockOnSubmit}
+      />
+    );
+
+    expect(
+      screen.queryByText(/automatically sets this template's signup method/i)
+    ).not.toBeInTheDocument();
+
+    const select = screen.getByLabelText(/add priority role/i);
+    await user.click(select);
+    await user.click(screen.getByRole('option', { name: /@Mage/i }));
+
+    expect(
+      screen.getByText(/automatically sets this template's signup method/i)
+    ).toBeInTheDocument();
+  });
 });

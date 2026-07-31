@@ -412,6 +412,44 @@ describe('GameForm - Signup Method Selector', () => {
     expect(input).not.toHaveAttribute('aria-disabled', 'true');
   });
 
+  it('should not offer Role Based when the template has no priority roles configured', async () => {
+    const user = userEvent.setup();
+    const { getByTestId, queryByText } = renderWithAuth(
+      <GameForm
+        mode="create"
+        guildId="guild1"
+        channels={[mockChannel]}
+        allowedSignupMethods={['SELF_SIGNUP', 'HOST_SELECTED', 'HOST_SELECTED_WITH_WAITLIST']}
+        defaultSignupMethod="SELF_SIGNUP"
+        onSubmit={mockOnSubmit}
+        onCancel={mockOnCancel}
+      />
+    );
+
+    const select = getByTestId('signup-method-select');
+    await user.click(select);
+
+    expect(queryByText('Role Based')).not.toBeInTheDocument();
+  });
+
+  it('should offer only Role Based when the template restricts to priority roles', () => {
+    const { getByTestId, getByText } = renderWithAuth(
+      <GameForm
+        mode="create"
+        guildId="guild1"
+        channels={[mockChannel]}
+        allowedSignupMethods={['ROLE_BASED']}
+        defaultSignupMethod="ROLE_BASED"
+        onSubmit={mockOnSubmit}
+        onCancel={mockOnCancel}
+      />
+    );
+
+    const select = getByTestId('signup-method-select');
+    expect(select).toHaveClass('Mui-disabled');
+    expect(getByText('Role Based')).toBeInTheDocument();
+  });
+
   it('should preserve signup method in edit mode', () => {
     const { getByTestId, getByText } = renderWithAuth(
       <GameForm

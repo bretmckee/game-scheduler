@@ -260,9 +260,25 @@ async def update_template(
     )
 
     # Update template
+    updates = request.model_dump(exclude_unset=True)
+
+    # Cross-field validation must see the state *after* merging this partial
+    # update onto the existing row: TemplateUpdateRequest fields are all
+    # optional, so a field absent from `updates` means "unchanged", not "null".
+    try:
+        template_schemas.validate_signup_method_priority_consistency(
+            updates.get("signup_priority_role_ids", template.signup_priority_role_ids),
+            updates.get("default_signup_method", template.default_signup_method),
+            updates.get("allowed_signup_methods", template.allowed_signup_methods),
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
+
     updated_template = await template_svc.update_template(
         template,
-        **request.model_dump(exclude_unset=True),
+        **updates,
     )
 
     return await build_template_response(updated_template, discord_client)

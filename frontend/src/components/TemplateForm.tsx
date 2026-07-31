@@ -50,6 +50,7 @@ import {
   DiscordRole,
   TemplateCreateRequest,
   TemplateUpdateRequest,
+  SignupMethod,
 } from '../types';
 import { UI } from '../constants/ui';
 import { Time } from '../constants/time';
@@ -214,6 +215,10 @@ export const TemplateForm: FC<TemplateFormProps> = ({
         archiveDelayMinutes
       );
 
+      // Priority roles imply Role Based signup: the template's signup method
+      // is derived from whether priority roles are set, not chosen separately.
+      const hasPriorityRoles = signupPriorityRoleIds.length > 0;
+
       const data: any = {
         name: name.trim(),
         description: description.trim() || null,
@@ -223,7 +228,15 @@ export const TemplateForm: FC<TemplateFormProps> = ({
         notify_role_ids: notifyRoleIds.length > 0 ? notifyRoleIds : null,
         allowed_player_role_ids: allowedPlayerRoleIds.length > 0 ? allowedPlayerRoleIds : null,
         allowed_host_role_ids: allowedHostRoleIds.length > 0 ? allowedHostRoleIds : null,
-        signup_priority_role_ids: signupPriorityRoleIds.length > 0 ? signupPriorityRoleIds : null,
+        signup_priority_role_ids: hasPriorityRoles ? signupPriorityRoleIds : null,
+        allowed_signup_methods: hasPriorityRoles
+          ? [SignupMethod.ROLE_BASED]
+          : [
+              SignupMethod.SELF_SIGNUP,
+              SignupMethod.HOST_SELECTED,
+              SignupMethod.HOST_SELECTED_WITH_WAITLIST,
+            ],
+        default_signup_method: hasPriorityRoles ? SignupMethod.ROLE_BASED : null,
         max_players: parseInt(maxPlayers),
         expected_duration_minutes: expectedDuration,
         reminder_minutes: reminderMinutesArray.length > 0 ? reminderMinutesArray : null,
@@ -591,6 +604,17 @@ export const TemplateForm: FC<TemplateFormProps> = ({
             <FormHelperText>
               Role join priority order for Role-Based signup (max 8, drag to reorder)
             </FormHelperText>
+            {signupPriorityRoleIds.length > 0 && (
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: 'block', mt: 0.5 }}
+              >
+                Adding priority roles automatically sets this template&apos;s Signup Method to Role
+                Based. Games created from this template will use Role Based signup, and Role Based
+                won&apos;t be selectable on templates with no priority roles.
+              </Typography>
+            )}
           </Box>
 
           <Divider>

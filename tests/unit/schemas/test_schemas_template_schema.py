@@ -110,6 +110,7 @@ def test_signup_priority_role_ids_accepted_on_create():
         name="Template",
         channel_id="channel-id",
         signup_priority_role_ids=["r1", "r2", "r3"],
+        default_signup_method="ROLE_BASED",
     )
     assert request.signup_priority_role_ids == ["r1", "r2", "r3"]
 
@@ -122,6 +123,7 @@ def test_signup_priority_role_ids_max_8_enforced():
             name="Template",
             channel_id="channel-id",
             signup_priority_role_ids=["r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9"],
+            default_signup_method="ROLE_BASED",
         )
 
 
@@ -162,3 +164,91 @@ def test_template_response_includes_signup_priority_role_ids():
         updated_at="2026-03-26T00:00:00",
     )
     assert response.signup_priority_role_ids == ["role1"]
+
+
+def test_priority_roles_require_role_based_default_on_create():
+    """signup_priority_role_ids without default_signup_method=ROLE_BASED is rejected."""
+    with pytest.raises(ValidationError):
+        template_schemas.TemplateCreateRequest(
+            guild_id="guild-id",
+            name="Template",
+            channel_id="channel-id",
+            signup_priority_role_ids=["r1"],
+        )
+
+
+def test_priority_roles_with_wrong_default_method_rejected_on_create():
+    """signup_priority_role_ids with a non-ROLE_BASED default_signup_method is rejected."""
+    with pytest.raises(ValidationError):
+        template_schemas.TemplateCreateRequest(
+            guild_id="guild-id",
+            name="Template",
+            channel_id="channel-id",
+            signup_priority_role_ids=["r1"],
+            default_signup_method="SELF_SIGNUP",
+        )
+
+
+def test_priority_roles_with_extra_allowed_methods_rejected_on_create():
+    """allowed_signup_methods must be exactly ['ROLE_BASED'] when priority roles are set."""
+    with pytest.raises(ValidationError):
+        template_schemas.TemplateCreateRequest(
+            guild_id="guild-id",
+            name="Template",
+            channel_id="channel-id",
+            signup_priority_role_ids=["r1"],
+            default_signup_method="ROLE_BASED",
+            allowed_signup_methods=["ROLE_BASED", "SELF_SIGNUP"],
+        )
+
+
+def test_priority_roles_with_role_based_allowed_only_accepted_on_create():
+    """allowed_signup_methods=['ROLE_BASED'] is accepted alongside priority roles."""
+    request = template_schemas.TemplateCreateRequest(
+        guild_id="guild-id",
+        name="Template",
+        channel_id="channel-id",
+        signup_priority_role_ids=["r1"],
+        default_signup_method="ROLE_BASED",
+        allowed_signup_methods=["ROLE_BASED"],
+    )
+    assert request.allowed_signup_methods == ["ROLE_BASED"]
+
+
+def test_role_based_default_without_priority_roles_rejected_on_create():
+    """default_signup_method=ROLE_BASED without signup_priority_role_ids is rejected."""
+    with pytest.raises(ValidationError):
+        template_schemas.TemplateCreateRequest(
+            guild_id="guild-id",
+            name="Template",
+            channel_id="channel-id",
+            default_signup_method="ROLE_BASED",
+        )
+
+
+def test_allowed_methods_containing_role_based_without_priority_roles_rejected_on_create():
+    """allowed_signup_methods cannot include ROLE_BASED without priority roles.
+
+    Without this check, a template could leave ROLE_BASED selectable in game
+    creation (GameForm treats allowed_signup_methods as an allow-list) even
+    though it has no priority roles configured to resolve it.
+    """
+    with pytest.raises(ValidationError):
+        template_schemas.TemplateCreateRequest(
+            guild_id="guild-id",
+            name="Template",
+            channel_id="channel-id",
+            default_signup_method="SELF_SIGNUP",
+            allowed_signup_methods=["SELF_SIGNUP", "ROLE_BASED"],
+        )
+
+
+def test_non_role_based_default_without_priority_roles_accepted_on_create():
+    """A non-ROLE_BASED default_signup_method with no priority roles is fine."""
+    request = template_schemas.TemplateCreateRequest(
+        guild_id="guild-id",
+        name="Template",
+        channel_id="channel-id",
+        default_signup_method="SELF_SIGNUP",
+    )
+    assert request.default_signup_method == "SELF_SIGNUP"

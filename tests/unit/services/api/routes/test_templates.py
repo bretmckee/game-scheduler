@@ -85,6 +85,7 @@ def mock_template():
     template.signup_instructions = "Just join!"
     template.allowed_signup_methods = ["SELF_SIGNUP", "HOST_SELECTED"]
     template.default_signup_method = "SELF_SIGNUP"
+    template.signup_priority_role_ids = None
     template.archive_delay_seconds = None
     template.archive_channel_id = None
     template.created_at = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
@@ -662,8 +663,8 @@ class TestCreateTemplate:
             name="Priority Template",
             channel_id=mock_template.channel_id,
             signup_priority_role_ids=["111", "222"],
-            allowed_signup_methods=["SELF_SIGNUP"],
-            default_signup_method="SELF_SIGNUP",
+            allowed_signup_methods=["ROLE_BASED"],
+            default_signup_method="ROLE_BASED",
         )
 
         with (
@@ -692,8 +693,8 @@ class TestCreateTemplate:
 
             call_kwargs = mock_service.create_template.call_args.kwargs
             assert call_kwargs["signup_priority_role_ids"] == ["111", "222"]
-            assert call_kwargs["allowed_signup_methods"] == ["SELF_SIGNUP"]
-            assert call_kwargs["default_signup_method"] == "SELF_SIGNUP"
+            assert call_kwargs["allowed_signup_methods"] == ["ROLE_BASED"]
+            assert call_kwargs["default_signup_method"] == "ROLE_BASED"
             mock_get_guild.assert_awaited_once_with(
                 mock_db, mock_guild_config.id, mock_current_user_unit.user.discord_id
             )
@@ -823,6 +824,208 @@ class TestUpdateTemplate:
                 mock_template.guild_id, mock_current_user_unit, mock_role_service, mock_db
             )
             mock_fetch.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_update_template_priority_roles_only_valid_when_existing_default_role_based(
+        self, mock_db, mock_current_user_unit, mock_template
+    ):
+        """A partial update touching only priority roles succeeds when the
+        existing template's default_signup_method is already ROLE_BASED."""
+        mock_template.default_signup_method = "ROLE_BASED"
+        mock_template.allowed_signup_methods = ["ROLE_BASED"]
+        mock_template.signup_priority_role_ids = ["existing-role"]
+
+        request = template_schemas.TemplateUpdateRequest(
+            signup_priority_role_ids=["existing-role", "new-role"],
+        )
+
+        with (
+            patch("services.api.auth.roles.get_role_service") as mock_get_role_service,
+            patch(
+                "services.api.services.template_service.TemplateService"
+            ) as mock_template_service,
+            patch("shared.discord.client.fetch_channel_name_safe", return_value="test-channel"),
+            patch(
+                "services.api.dependencies.permissions.require_bot_manager"
+            ) as mock_require_manager,
+        ):
+            mock_role_service = AsyncMock()
+            mock_get_role_service.return_value = mock_role_service
+            mock_require_manager.return_value = mock_current_user_unit
+
+            mock_service = AsyncMock()
+            mock_service.get_template_by_id.return_value = mock_template
+            mock_service.update_template.return_value = mock_template
+            mock_template_service.return_value = mock_service
+
+            await templates.update_template(
+                template_id=mock_template.id,
+                request=request,
+                current_user=mock_current_user_unit,
+                db=mock_db,
+                discord_client=AsyncMock(),
+            )
+
+            mock_service.update_template.assert_awaited_once_with(
+                mock_template,
+                signup_priority_role_ids=["existing-role", "new-role"],
+            )
+            mock_get_role_service.assert_called_once_with()
+            mock_template_service.assert_called_once_with(mock_db)
+            mock_require_manager.assert_awaited_once_with(
+                mock_template.guild_id, mock_current_user_unit, mock_role_service, mock_db
+            )
+
+    @pytest.mark.asyncio
+    async def test_update_template_priority_roles_only_rejected_when_existing_default_mismatched(
+        self, mock_db, mock_current_user_unit, mock_template
+    ):
+        """A partial update adding priority roles is rejected (422) when the
+        existing template's default_signup_method is not ROLE_BASED and the
+        update doesn't also fix it."""
+        mock_template.default_signup_method = "SELF_SIGNUP"
+        mock_template.signup_priority_role_ids = None
+
+        request = template_schemas.TemplateUpdateRequest(
+            signup_priority_role_ids=["new-role"],
+        )
+
+        with (
+            patch("services.api.auth.roles.get_role_service") as mock_get_role_service,
+            patch(
+                "services.api.services.template_service.TemplateService"
+            ) as mock_template_service,
+            patch(
+                "services.api.dependencies.permissions.require_bot_manager"
+            ) as mock_require_manager,
+        ):
+            mock_role_service = AsyncMock()
+            mock_get_role_service.return_value = mock_role_service
+            mock_require_manager.return_value = mock_current_user_unit
+
+            mock_service = AsyncMock()
+            mock_service.get_template_by_id.return_value = mock_template
+            mock_template_service.return_value = mock_service
+
+            with pytest.raises(HTTPException) as exc_info:
+                await templates.update_template(
+                    template_id=mock_template.id,
+                    request=request,
+                    current_user=mock_current_user_unit,
+                    db=mock_db,
+                    discord_client=AsyncMock(),
+                )
+
+            assert exc_info.value.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+            mock_service.update_template.assert_not_awaited()
+            mock_get_role_service.assert_called_once_with()
+            mock_template_service.assert_called_once_with(mock_db)
+            mock_require_manager.assert_awaited_once_with(
+                mock_template.guild_id, mock_current_user_unit, mock_role_service, mock_db
+            )
+
+    @pytest.mark.asyncio
+    async def test_update_template_clearing_priority_roles_rejected_without_method_change(
+        self, mock_db, mock_current_user_unit, mock_template
+    ):
+        """Clearing priority roles is rejected (422) if default_signup_method
+        stays ROLE_BASED because the update doesn't also change it."""
+        mock_template.default_signup_method = "ROLE_BASED"
+        mock_template.allowed_signup_methods = ["ROLE_BASED"]
+        mock_template.signup_priority_role_ids = ["existing-role"]
+
+        request = template_schemas.TemplateUpdateRequest(
+            signup_priority_role_ids=None,
+        )
+
+        with (
+            patch("services.api.auth.roles.get_role_service") as mock_get_role_service,
+            patch(
+                "services.api.services.template_service.TemplateService"
+            ) as mock_template_service,
+            patch(
+                "services.api.dependencies.permissions.require_bot_manager"
+            ) as mock_require_manager,
+        ):
+            mock_role_service = AsyncMock()
+            mock_get_role_service.return_value = mock_role_service
+            mock_require_manager.return_value = mock_current_user_unit
+
+            mock_service = AsyncMock()
+            mock_service.get_template_by_id.return_value = mock_template
+            mock_template_service.return_value = mock_service
+
+            with pytest.raises(HTTPException) as exc_info:
+                await templates.update_template(
+                    template_id=mock_template.id,
+                    request=request,
+                    current_user=mock_current_user_unit,
+                    db=mock_db,
+                    discord_client=AsyncMock(),
+                )
+
+            assert exc_info.value.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+            mock_service.update_template.assert_not_awaited()
+            mock_get_role_service.assert_called_once_with()
+            mock_template_service.assert_called_once_with(mock_db)
+            mock_require_manager.assert_awaited_once_with(
+                mock_template.guild_id, mock_current_user_unit, mock_role_service, mock_db
+            )
+
+    @pytest.mark.asyncio
+    async def test_update_template_clearing_priority_roles_with_method_change_succeeds(
+        self, mock_db, mock_current_user_unit, mock_template
+    ):
+        """Clearing priority roles together with default_signup_method in the
+        same request succeeds."""
+        mock_template.default_signup_method = "ROLE_BASED"
+        mock_template.allowed_signup_methods = ["ROLE_BASED"]
+        mock_template.signup_priority_role_ids = ["existing-role"]
+
+        request = template_schemas.TemplateUpdateRequest(
+            signup_priority_role_ids=None,
+            allowed_signup_methods=None,
+            default_signup_method="SELF_SIGNUP",
+        )
+
+        with (
+            patch("services.api.auth.roles.get_role_service") as mock_get_role_service,
+            patch(
+                "services.api.services.template_service.TemplateService"
+            ) as mock_template_service,
+            patch("shared.discord.client.fetch_channel_name_safe", return_value="test-channel"),
+            patch(
+                "services.api.dependencies.permissions.require_bot_manager"
+            ) as mock_require_manager,
+        ):
+            mock_role_service = AsyncMock()
+            mock_get_role_service.return_value = mock_role_service
+            mock_require_manager.return_value = mock_current_user_unit
+
+            mock_service = AsyncMock()
+            mock_service.get_template_by_id.return_value = mock_template
+            mock_service.update_template.return_value = mock_template
+            mock_template_service.return_value = mock_service
+
+            await templates.update_template(
+                template_id=mock_template.id,
+                request=request,
+                current_user=mock_current_user_unit,
+                db=mock_db,
+                discord_client=AsyncMock(),
+            )
+
+            mock_service.update_template.assert_awaited_once_with(
+                mock_template,
+                signup_priority_role_ids=None,
+                allowed_signup_methods=None,
+                default_signup_method="SELF_SIGNUP",
+            )
+            mock_get_role_service.assert_called_once_with()
+            mock_template_service.assert_called_once_with(mock_db)
+            mock_require_manager.assert_awaited_once_with(
+                mock_template.guild_id, mock_current_user_unit, mock_role_service, mock_db
+            )
 
 
 class TestDeleteTemplate:
