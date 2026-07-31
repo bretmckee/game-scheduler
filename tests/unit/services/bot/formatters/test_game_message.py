@@ -1274,6 +1274,132 @@ class TestGameEmbedImages:
                 signup_method="SELF_SIGNUP",
             )
 
+    def test_format_game_announcement_mentions_host_and_confirmed_participants(self):
+        """Test content mentions the host and confirmed (non-waitlisted) participants."""
+        scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
+        role_id = "987654321"
+        host_id = "111111111"
+        participant_id_1 = "222222222"
+        participant_id_2 = "333333333"
+        overflow_id = "444444444"
+
+        with (
+            patch("services.bot.formatters.game_message.discord.Embed") as mock_embed_class,
+            patch("services.bot.formatters.game_message.GameView") as mock_view_class,
+        ):
+            mock_embed_class.return_value = MagicMock()
+            mock_view_class.from_game_data.return_value = MagicMock()
+
+            content, _embed, _view = format_game_announcement(
+                game_id="game-123",
+                game_title="Test Game",
+                description="Test description",
+                scheduled_at=scheduled_at,
+                host_id=host_id,
+                participant_ids=[participant_id_1, participant_id_2],
+                overflow_ids=[overflow_id],
+                current_count=2,
+                max_players=2,
+                status="SCHEDULED",
+                signup_method="SELF_SIGNUP",
+                notify_role_ids=[role_id],
+            )
+
+            assert content == (
+                f"<@&{role_id}> <@{host_id}> <@{participant_id_1}> <@{participant_id_2}>"
+            )
+            assert overflow_id not in content
+            mock_embed_class.assert_called_once_with(
+                title="Test Game", description="Test description", color=ANY
+            )
+            mock_view_class.from_game_data.assert_called_once_with(
+                game_id="game-123",
+                current_players=2,
+                max_players=2,
+                status="SCHEDULED",
+                signup_method="SELF_SIGNUP",
+            )
+
+    def test_format_game_announcement_mentions_participants_without_role(self):
+        """Test content mentions host/participants even when no roles are configured."""
+        scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
+        host_id = "111111111"
+        participant_id = "222222222"
+
+        with (
+            patch("services.bot.formatters.game_message.discord.Embed") as mock_embed_class,
+            patch("services.bot.formatters.game_message.GameView") as mock_view_class,
+        ):
+            mock_embed_class.return_value = MagicMock()
+            mock_view_class.from_game_data.return_value = MagicMock()
+
+            content, _embed, _view = format_game_announcement(
+                game_id="game-123",
+                game_title="Test Game",
+                description="Test description",
+                scheduled_at=scheduled_at,
+                host_id=host_id,
+                participant_ids=[participant_id],
+                overflow_ids=[],
+                current_count=1,
+                max_players=5,
+                status="SCHEDULED",
+                signup_method="SELF_SIGNUP",
+            )
+
+            assert content == f"<@{host_id}> <@{participant_id}>"
+            mock_embed_class.assert_called_once_with(
+                title="Test Game", description="Test description", color=ANY
+            )
+            mock_view_class.from_game_data.assert_called_once_with(
+                game_id="game-123",
+                current_players=1,
+                max_players=5,
+                status="SCHEDULED",
+                signup_method="SELF_SIGNUP",
+            )
+
+    def test_format_game_announcement_skips_placeholder_participants_in_mentions(self):
+        """Test content skips non-Discord placeholder participants (display names) in mentions."""
+        scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
+        host_id = "111111111"
+        participant_id = "222222222"
+        placeholder_name = "Guest Player"
+
+        with (
+            patch("services.bot.formatters.game_message.discord.Embed") as mock_embed_class,
+            patch("services.bot.formatters.game_message.GameView") as mock_view_class,
+        ):
+            mock_embed_class.return_value = MagicMock()
+            mock_view_class.from_game_data.return_value = MagicMock()
+
+            content, _embed, _view = format_game_announcement(
+                game_id="game-123",
+                game_title="Test Game",
+                description="Test description",
+                scheduled_at=scheduled_at,
+                host_id=host_id,
+                participant_ids=[participant_id, placeholder_name],
+                overflow_ids=[],
+                current_count=2,
+                max_players=5,
+                status="SCHEDULED",
+                signup_method="SELF_SIGNUP",
+            )
+
+            assert content == f"<@{host_id}> <@{participant_id}>"
+            assert placeholder_name not in content
+            mock_embed_class.assert_called_once_with(
+                title="Test Game", description="Test description", color=ANY
+            )
+            mock_view_class.from_game_data.assert_called_once_with(
+                game_id="game-123",
+                current_players=2,
+                max_players=5,
+                status="SCHEDULED",
+                signup_method="SELF_SIGNUP",
+            )
+
 
 class TestEmbedNewFields:
     """Tests for new embed fields added to improve layout."""

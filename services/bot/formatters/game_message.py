@@ -448,7 +448,8 @@ def format_game_announcement(
             display name, rendered instead of a raw `<@id>` mention
 
     Returns:
-        Tuple of (content, embed, view) where content contains role mentions if any
+        Tuple of (content, embed, view) where content contains role mentions
+        (if any), the host mention, and confirmed participant mentions
     """
     formatter = GameMessageFormatter()
 
@@ -495,16 +496,22 @@ def format_game_announcement(
         signup_method=signup_method,
     )
 
-    # Format role mentions for message content (appears above embed)
-    content = None
-    if notify_role_ids:
-        mentions = []
-        for role_id in notify_role_ids:
-            # Special handling: @everyone uses literal string, not <@&guild_id>
-            if guild_id and role_id == guild_id:
-                mentions.append("@everyone")
-            else:
-                mentions.append(f"<@&{role_id}>")
-        content = " ".join(mentions)
+    # Format mentions for message content (appears above embed): roles, then
+    # the host, then confirmed (non-waitlisted) participants with real Discord
+    # IDs. Placeholder participants (display_name only, no Discord account)
+    # are excluded since they have no ID to mention.
+    mentions = []
+    for role_id in notify_role_ids or []:
+        # Special handling: @everyone uses literal string, not <@&guild_id>
+        if guild_id and role_id == guild_id:
+            mentions.append("@everyone")
+        else:
+            mentions.append(f"<@&{role_id}>")
+
+    if host_id.isdigit():
+        mentions.append(format_discord_mention(host_id))
+    mentions.extend(format_discord_mention(uid) for uid in participant_ids if uid.isdigit())
+
+    content = " ".join(mentions) if mentions else None
 
     return content, embed, view
