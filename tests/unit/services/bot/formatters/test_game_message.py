@@ -1359,6 +1359,46 @@ class TestGameEmbedImages:
                 signup_method="SELF_SIGNUP",
             )
 
+    def test_format_game_announcement_mentions_host_once_when_host_also_signed_up(self):
+        """Test host is mentioned only once when the host also joined as a participant."""
+        scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
+        host_id = "111111111"
+        other_participant_id = "222222222"
+
+        with (
+            patch("services.bot.formatters.game_message.discord.Embed") as mock_embed_class,
+            patch("services.bot.formatters.game_message.GameView") as mock_view_class,
+        ):
+            mock_embed_class.return_value = MagicMock()
+            mock_view_class.from_game_data.return_value = MagicMock()
+
+            content, _embed, _view = format_game_announcement(
+                game_id="game-123",
+                game_title="Test Game",
+                description="Test description",
+                scheduled_at=scheduled_at,
+                host_id=host_id,
+                participant_ids=[host_id, other_participant_id],
+                overflow_ids=[],
+                current_count=2,
+                max_players=5,
+                status="SCHEDULED",
+                signup_method="SELF_SIGNUP",
+            )
+
+            assert content == f"<@{host_id}> <@{other_participant_id}>"
+            assert content.count(f"<@{host_id}>") == 1
+            mock_embed_class.assert_called_once_with(
+                title="Test Game", description="Test description", color=ANY
+            )
+            mock_view_class.from_game_data.assert_called_once_with(
+                game_id="game-123",
+                current_players=2,
+                max_players=5,
+                status="SCHEDULED",
+                signup_method="SELF_SIGNUP",
+            )
+
     def test_format_game_announcement_skips_placeholder_participants_in_mentions(self):
         """Test content skips non-Discord placeholder participants (display names) in mentions."""
         scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)

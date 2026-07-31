@@ -510,7 +510,9 @@ def format_game_announcement(
 
     if host_id.isdigit():
         mentions.append(format_discord_mention(host_id))
-    mentions.extend(format_discord_mention(uid) for uid in participant_ids if uid.isdigit())
+    mentions.extend(
+        format_discord_mention(uid) for uid in participant_ids if uid.isdigit() and uid != host_id
+    )
 
     content = " ".join(mentions) if mentions else None
 
