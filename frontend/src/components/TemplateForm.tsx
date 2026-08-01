@@ -393,11 +393,11 @@ export const TemplateForm: FC<TemplateFormProps> = ({
           </Typography>
 
           <FormControl fullWidth required error={!!errors.channelId}>
-            <InputLabel>Channel</InputLabel>
+            <InputLabel>Announcement Channel</InputLabel>
             <Select
               value={channelId}
               onChange={(e) => setChannelId(e.target.value)}
-              label="Channel"
+              label="Announcement Channel"
             >
               {channels.map((channel) => (
                 <MenuItem key={channel.id} value={channel.id}>
