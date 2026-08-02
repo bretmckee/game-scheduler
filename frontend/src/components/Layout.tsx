@@ -53,6 +53,15 @@ export const Layout: FC = () => {
               <Button color="inherit" onClick={() => navigate('/about')}>
                 About
               </Button>
+              <Button
+                color="inherit"
+                component="a"
+                href="https://github.com/game-scheduler/game-scheduler/wiki"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Help
+              </Button>
               <Button color="inherit" onClick={handleLogout}>
                 Logout
               </Button>
@@ -61,6 +70,15 @@ export const Layout: FC = () => {
             <>
               <Button color="inherit" onClick={() => navigate('/about')}>
                 About
+              </Button>
+              <Button
+                color="inherit"
+                component="a"
+                href="https://github.com/game-scheduler/game-scheduler/wiki"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Help
               </Button>
               <Button color="inherit" onClick={() => navigate('/login')}>
                 Login
