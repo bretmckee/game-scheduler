@@ -1,10 +1,10 @@
 # Player Guide
 
-This guide is for Discord guild members who want to join game sessions and receive notifications.
+This guide is for Discord server members who want to join game sessions and receive notifications.
 
 ## How to Find Game Announcements
 
-Game announcements appear in Discord channels configured by your guild administrator. These are typically dedicated gaming channels like #board-games or #rpg-sessions.
+Game announcements appear in Discord channels configured by your server administrator. These are typically dedicated gaming channels like #board-games or #rpg-sessions.
 
 ### Game Announcement Format
 
@@ -67,7 +67,7 @@ You can also join games through the web dashboard:
 
 1. Navigate to the Game Scheduler web dashboard
 2. Log in with your Discord account
-3. Browse available games in your guild
+3. Browse available games in your server
 4. Click on a game to view details
 5. Click "Join Game" button
 6. You'll receive the same confirmation DM one minute after joining
@@ -248,12 +248,12 @@ Note: Role Based games use the same button as Self Signup — clicking it still 
 
 Note: If the game is full but not started, you can still join and you'll be waitlisted automatically.
 
-### Can I see all games in my guild?
+### Can I see all games in my server?
 
 Yes! Use the web dashboard:
 
 1. Log in with your Discord account
-2. Select your guild
+2. Select your server
 3. Click "Browse Games"
 4. Filter by channel, status, or date
 5. View all available games and their details
@@ -261,7 +261,7 @@ Yes! Use the web dashboard:
 ## Next Steps
 
 - **For Game Hosts**: See [Host Guide](HOST-GUIDE.md) for creating and managing games
-- **For Guild Admins**: See [Guild Admin Guide](GUILD-ADMIN.md) for bot configuration
+- **For Server Admins**: See [Server Admin Guide](SERVER-ADMIN.md) for bot configuration
 - **For Developers**: See [Developer Documentation](developer/README.md) for contributing
 
 ## Getting Help
@@ -269,8 +269,8 @@ Yes! Use the web dashboard:
 If you encounter issues:
 
 1. Check your Discord privacy settings for DM permissions
-2. Verify you're a member of the guild where the game is hosted
+2. Verify you're a member of the server where the game is hosted
 3. Ensure the game hasn't already started or been canceled
 4. Contact the game host for game-specific questions
-5. Ask your guild administrator for bot configuration issues
+5. Ask your server administrator for bot configuration issues
 6. Check the project's GitHub repository for known issues

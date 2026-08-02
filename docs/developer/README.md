@@ -105,7 +105,7 @@ See [SETUP.md](SETUP.md) for pre-commit hook configuration.
 
 - [Root README](../../README.md) - Project overview and quick links
 - [Deployment Documentation](../deployment/README.md) - Self-hosting and production deployment
-- [Guild Admin Guide](../GUILD-ADMIN.md) - Bot setup and configuration
+- [Server Admin Guide](../SERVER-ADMIN.md) - Bot setup and configuration
 - [Host Guide](../HOST-GUIDE.md) - Game management workflows
 - [Player Guide](../PLAYER-GUIDE.md) - End-user interactions
 

@@ -1,23 +1,24 @@
 # Game Host Guide
 
-This guide is for Discord guild members who want to create and manage game sessions using the Game Scheduler bot.
+This guide is for Discord server members who want to create and manage game sessions using the Game Scheduler bot.
 
 ## Prerequisites
 
-- Discord account and membership in a guild with Game Scheduler bot installed
-- Host permissions (configured by guild administrator)
+- Discord account and membership in a server with Game Scheduler bot installed
+- Host permissions (configured by server administrator)
 - Web browser for accessing the dashboard
 
 ## Step 1: Access the Web Dashboard
 
 ### Logging In
 
-1. Navigate to the Game Scheduler web dashboard (URL provided by your guild administrator)
+1. Navigate to the Game Scheduler web dashboard (URL provided by your server administrator)
 2. Click "Login with Discord"
 3. Authorize the application to access your Discord account
    - **Required permissions**:
      - `identify` - Access your Discord username and avatar
-     - `guilds` - See which guilds you're a member of
+     - `guilds` - See which servers you're a member of
+     - `guilds.members.read` - Look up your roles within a server (used for role-based permissions and signup priority)
 4. After authorization, you'll be redirected back to the dashboard
 
 ### OAuth Login Process
@@ -28,22 +29,23 @@ The login process uses Discord's OAuth2 authentication:
 - Access tokens are stored server-side, never exposed to the browser
 - You can revoke application access anytime via Discord's "Authorized Apps" settings
 
-## Step 2: Select Your Guild
+## Step 2: Select Your Server
 
 After logging in:
 
-1. You'll see a list of Discord guilds where you're a member
-2. Only guilds with the Game Scheduler bot installed will appear
-3. Click on the guild where you want to create a game
-4. If you only have access to one guild, it will be selected automatically
+1. You'll see a list of Discord servers where you're a member
+2. Only servers with the Game Scheduler bot installed will appear
+3. Click on the server where you want to create a game
+
+When creating a game specifically, if you only have host access (via a template) to one server, that server is selected automatically.
 
 ## Step 3: Create a Game
 
 ### Using Game Templates
 
-Game templates provide pre-filled defaults to speed up game creation. Your guild administrator creates and manages templates.
+Game templates provide pre-filled defaults to speed up game creation. Your server administrator creates and manages templates.
 
-1. From the guild dashboard, click "Create Game"
+1. From the server dashboard, click "Create Game"
 2. Select a template from the dropdown
    - Templates include defaults for:
      - Announcement channel
@@ -61,7 +63,9 @@ Required fields:
 
 - **Title**: Name of your game session (e.g., "D&D Session 5", "Board Game Night")
 - **Scheduled Time**: When the game starts (DateTimePicker uses your browser's timezone)
-- **Channel**: Discord channel where the announcement will be posted
+
+The announcement **Channel** is set by the template you selected and is shown read-only. Bot
+managers get an editable channel dropdown instead and can pick a different channel.
 
 Optional fields:
 
@@ -79,12 +83,17 @@ Optional fields:
 - **Signup Method**: How players can join the game
   - **Self Signup**: Players click Discord buttons to join/leave
   - **Host Selected**: Only you can add players (buttons disabled)
-  - **Role Based**: Players click Discord buttons to join, but their position in the participant list is determined by their Discord roles at the time they sign up. Members whose roles match the template's priority list are sorted ahead of other players. This is useful when a game is likely to fill up and you want certain role groups to have guaranteed spots over others.
+  - **Host Selected (with Waitlist)**: Players can join a waitlist by clicking a Discord button, but you promote them from the waitlist to confirmed
+  - **Role Based**: Players click Discord buttons to join, but their position in the participant list is determined by their Discord roles at the time they sign up. Members whose roles match the template's priority list are sorted ahead of other players. The priority list itself is fixed by the template — configured by your server administrator, not chosen per game — so this is useful when your server has set up role-priority templates for games that are likely to fill up.
   - Defaults to template's default method if not specified
 - **Initial Participants**: Pre-fill the participant list with Discord mentions or placeholders
   - Enter Discord usernames (e.g., `@PlayerName`) or plain text placeholders
   - Each participant on a new line or separated by commas
   - Invalid mentions will show suggestions for disambiguation
+- **Schedule Posting**: Optionally delay when the Discord announcement is posted, independent of the game's scheduled time
+  - Leave blank (or check **Post immediately**) to announce right away
+  - Useful for preparing a game ahead of time without notifying players yet
+  - Until the announcement posts, the game shows a "Pending posting" indicator on your games list
 
 **Bot Manager Exclusive Feature**:
 
@@ -170,12 +179,14 @@ The host confirmation step is a natural point to notice and correct any unwanted
 
 ### Viewing Your Games
 
-1. From the guild dashboard, click "My Games"
+1. From the server dashboard, click "My Games"
 2. You'll see all games you're hosting with status indicators:
    - **SCHEDULED**: Game is upcoming
    - **IN_PROGRESS**: Game is currently happening
    - **COMPLETED**: Game has finished
    - **CANCELLED**: Game was canceled
+   - **ARCHIVED**: Game was moved to the archive channel via **Save and Archive**
+   - **PENDING_CONFIRMATION**: An automatically-generated recurring game clone that's waiting on your Confirm/Decline DM (see [Recurring Games](#recurring-games)) — not yet announced in Discord
 
 ### Editing Games
 
@@ -217,7 +228,7 @@ If you checked **"Remind me to add rewards"** when creating the game, the bot wi
 
 ### Save and Archive
 
-If your guild has an archive channel configured on the template, a **Save and Archive** button appears on the edit form once you have entered a rewards value for a completed game. Clicking it saves the rewards and immediately moves the game to the archive channel in a single step.
+If your server has an archive channel configured on the template, a **Save and Archive** button appears on the edit form once you have entered a rewards value. Clicking it saves the rewards and immediately moves the game to the archive channel in a single step. This is available for completed games, and also for in-progress games if you want to archive early.
 
 ### Canceling Games
 
@@ -229,6 +240,21 @@ If your guild has an archive channel configured on the template, a **Save and Ar
 
 **Note**: Only hosts and bot managers can cancel games
 
+### Cloning Games
+
+To quickly set up a repeat of a one-off game without configuring the recurrence rule:
+
+1. View game details for the game you want to duplicate
+2. Click "Clone Game"
+3. Adjust the pre-filled details and pick a new scheduled time (defaults to 7 days after the source game)
+4. Submit to create and announce the new game
+
+This is separate from automatic recurrence (see [Recurring Games](#recurring-games)) — it creates a one-time copy rather than setting up an ongoing series.
+
+### Downloading a Calendar Event
+
+From the game details page, hosts and participants can click the download icon next to the scheduled time to download an `.ics` calendar file for the game, for adding it to Google Calendar, Outlook, Apple Calendar, etc.
+
 ## Step 5: Understanding Notifications
 
 ### Automatic Notifications
@@ -237,15 +263,22 @@ The bot sends notifications to participants:
 
 - **Game Creation**: Announcement posted in the configured channel
 - **Reminder**: Sent at the time specified in "Reminder Time" (e.g., 24 hours before)
+- **Join Confirmation**: A player is DMed when they successfully join a game
+- **Waitlist Join**: A player is DMed when they join the waitlist (Host Selected with Waitlist games)
 - **Waitlist Promotion**: Players are notified if they move from waitlist to confirmed
+- **Waitlist Demotion**: A confirmed player is DMed if they're bumped back to the waitlist
+- **Participant Removal**: A player is DMed if a host or bot manager removes them
+- **Dropped for Host-Added Player**: A player is DMed if they're dropped because the host directly added someone else
 - **Game Cancellation**: All participants notified when a game is canceled
 - **Game Updates**: Participants notified of significant changes (time, location, etc.)
+- **Recurrence Confirmation**: The host is DMed to confirm/decline the next occurrence of a recurring game (see [Recurring Games](#recurring-games))
+- **Rewards Reminder**: The host is DMed to add rewards if "Remind me to add rewards" was checked (see [Recording Rewards](#recording-rewards))
 
 ### Notification Roles
 
 Templates can specify Discord roles to ping when games are created:
 
-- Guild administrators configure which roles receive notifications
+- Server administrators configure which roles receive notifications
 - These roles are notified in addition to individual participants
 - Useful for game-type specific announcement roles (e.g., @RPG-Players, @BoardGamers)
 
@@ -253,38 +286,37 @@ Templates can specify Discord roles to ping when games are created:
 
 ### Who Can Host Games?
 
-Host permissions are configured by guild administrators in two ways:
+Host permissions are configured by server administrators in two ways:
 
 1. **Template-Based Permissions**:
    - Each template can specify `allowed_host_role_ids`
    - Only users with these roles can create games using that template
    - If empty, all bot managers can use the template
 
-2. **Guild-Level Permissions**:
-   - **Bot Manager Roles**: Roles configured by guild admin that grant hosting permissions
-   - **Discord Permissions**: Users with `MANAGE_GUILD` or `ADMINISTRATOR` Discord permissions
-   - **Require Host Role** setting: Guild admin can toggle whether bot manager roles are required
+2. **Server-Level Permissions**:
+   - **Bot Manager Roles**: Roles configured by server admin that grant hosting permissions. If none are configured, access falls back to Discord's `MANAGE_GUILD` permission below.
+   - **Discord Permissions**: Users with `MANAGE_GUILD` or `ADMINISTRATOR` Discord permissions always have bot manager access
 
 ### Checking Your Permissions
 
 If you can't see the "Create Game" button or templates:
 
-1. Check with your guild administrator about host permissions
+1. Check with your server administrator about host permissions
 2. Verify you have the required roles
-3. Confirm the guild has configured game templates
+3. Confirm the server has configured game templates
 
 ## Common Issues and Solutions
 
-### Can't See Any Guilds After Login
+### Can't See Any Servers After Login
 
-- Ensure you're a member of a guild with the Game Scheduler bot installed
+- Ensure you're a member of a server with the Game Scheduler bot installed
 - Try logging out and logging back in
 - Clear your browser cache and cookies
 
 ### Can't Create Games
 
-- Verify you have host permissions (check with guild admin)
-- Ensure your guild has at least one game template configured
+- Verify you have host permissions (check with server admin)
+- Ensure your server has at least one game template configured
 - Check that you have the required roles for the template
 
 ### @Mention Validation Errors
@@ -292,14 +324,14 @@ If you can't see the "Create Game" button or templates:
 - Ensure usernames are spelled correctly
 - Include the @ symbol for Discord mentions
 - Click on suggested usernames if disambiguation is offered
-- Verify the user is a member of your Discord guild
+- Verify the user is a member of your Discord server
 
 ### Game Doesn't Appear in Discord
 
 - Verify you selected the correct channel when creating the game
-- Ask your guild administrator to check bot permissions - see [Guild Admin Guide: Bot Permissions](GUILD-ADMIN.md#step-1-invite-the-bot-to-your-server)
-- Ensure the channel is configured as an announcement channel (check with guild admin)
-- Contact your guild administrator if the bot is offline or unresponsive
+- Ask your server administrator to check bot permissions - see [Server Admin Guide: Bot Permissions](SERVER-ADMIN.md#step-1-invite-the-bot-to-your-server)
+- Ensure the channel is configured as an announcement channel (check with server admin)
+- Contact your server administrator if the bot is offline or unresponsive
 
 ### Can't Edit a Game
 
@@ -335,7 +367,7 @@ If you can't see the "Create Game" button or templates:
 
 ## Next Steps
 
-- **For Guild Admins**: See [Guild Admin Guide](GUILD-ADMIN.md) for bot configuration
+- **For Server Admins**: See [Server Admin Guide](SERVER-ADMIN.md) for bot configuration
 - **For Players**: See [Player Guide](PLAYER-GUIDE.md) for joining games
 - **For Developers**: See [Developer Documentation](developer/README.md) for contributing
 
@@ -344,7 +376,7 @@ If you can't see the "Create Game" button or templates:
 If you need assistance:
 
 1. Check this guide's [Common Issues](#common-issues-and-solutions) section
-2. Ask your guild administrator about permission configuration
+2. Ask your server administrator about permission configuration
 3. Review the game creation form validation messages
 4. Contact the bot maintainer for technical support
 5. Check the project's GitHub repository for documentation updates

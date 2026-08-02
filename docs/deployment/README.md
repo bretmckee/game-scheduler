@@ -148,7 +148,7 @@ See [Configuration Guide](configuration.md#opentelemetry-and-observability-confi
 ## Support Resources
 
 - **Developer Documentation**: [../developer/README.md](../developer/README.md)
-- **Guild Admin Guide**: [../GUILD-ADMIN.md](../GUILD-ADMIN.md) - Adding bot to Discord servers
+- **Server Admin Guide**: [../SERVER-ADMIN.md](../SERVER-ADMIN.md) - Adding bot to Discord servers
 - **GitHub Issues**: Report bugs or request features
 - **Discord Server**: (Add your support server invite if available)
 

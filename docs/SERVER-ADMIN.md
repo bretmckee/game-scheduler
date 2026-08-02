@@ -1,10 +1,10 @@
-# Guild Administrator Guide
+# Server Administrator Guide
 
-This guide is for Discord server administrators who want to add the Game Scheduler bot to their guild and configure it for their community.
+This guide is for Discord server administrators who want to add the Game Scheduler bot to their server and configure it for their community.
 
 ## Prerequisites
 
-- Discord server (guild) ownership or Administrator permission
+- Discord server ownership or Administrator permission
 - Bot invite URL from the bot owner or your self-hosted instance
 
 ## Step 1: Invite the Bot to Your Server
@@ -35,15 +35,15 @@ For information on what data the bot stores, see [Data Privacy](#data-privacy).
 
 ## Step 2: Roles
 
-The bot defines four roles that control what members can do. Each bot role can be mapped to one or more Discord roles via the Web Dashboard, allowing you to align bot permissions with your existing guild structure.
+The bot defines four roles that control what members can do. Each bot role can be mapped to one or more Discord roles via the Web Dashboard, allowing you to align bot permissions with your existing server structure.
 
 ### Management Roles
 
 #### Bot Manager Role
 
-The bot manager role allows a guild owner to share bot management responsibility with trusted members, without granting them full Discord administrator access. Bot managers can create and manage templates, configure guild settings, and create or manage any game regardless of other role restrictions.
+The bot manager role allows a server owner to share bot management responsibility with trusted members, without granting them full Discord administrator access. Bot managers can create and manage templates, configure server settings, and create or manage any game regardless of other role restrictions.
 
-**Note**: Discord guild administrators and the guild owner automatically have bot manager access without needing an explicit role assignment.
+**Note**: Discord server administrators and the server owner automatically have bot manager access without needing an explicit role assignment.
 
 ### Game Roles
 
@@ -55,7 +55,7 @@ Members with a notify role are pinged when a new game is created. This lets inte
 
 #### Player Role
 
-Members with a player role can sign up for games. When no player roles are assigned to a template, any guild member can join.
+Members with a player role can sign up for games. When no player roles are assigned to a template, any server member can join.
 
 #### Host Role
 
@@ -67,7 +67,7 @@ The same Discord role can be assigned to multiple game bot roles — for example
 
 ### Creating Discord Roles
 
-Before mapping Discord roles to bot roles, you need to have the appropriate Discord roles created in your guild. If you need to create new roles:
+Before mapping Discord roles to bot roles, you need to have the appropriate Discord roles created in your server. If you need to create new roles:
 
 1. Open your Discord server and go to **Server Settings**
 2. Select **Roles** from the left sidebar
@@ -82,7 +82,7 @@ The bot posts game announcements in specific channels you designate.
 
 ### Adding Announcement Channels
 
-1. In the Web Dashboard, navigate to your guild settings
+1. In the Web Dashboard, navigate to your server settings
 2. Go to "Channel Configuration"
 3. Click "Add Channel"
 4. Select the channel from the dropdown (bot must have "View Channels" permission)
@@ -109,13 +109,13 @@ Templates serve two purposes. First, they let bot managers lock in parameters th
 
 Each template defines the announcement channel, the roles used for notifications, player eligibility, and host permissions, as well as default values for new games like max players and reminder times.
 
-When the bot joins your guild, one template is created automatically. However, it needs to be customized before it is useful — at minimum, you must set the announcement channel and adjust any role assignments.
+When the bot joins your server, one template is created automatically. However, it needs to be customized before it is useful — at minimum, you must set the announcement channel and adjust any role assignments.
 
 If your server hosts different types of games, create a separate template for each game type. This lets you set different channels, roles, and defaults per game type, and gives hosts a clear starting point when scheduling a game.
 
 ### Creating Templates
 
-1. In the Web Dashboard, navigate to "Templates" under your guild
+1. In the Web Dashboard, navigate to "Templates" under your server
 2. Click "Create Template"
 3. Fill in the general fields:
    - **Name**: Template identifier (e.g., "D&D Session", "Board Game Night")
@@ -128,6 +128,9 @@ If your server hosts different types of games, create a separate template for ea
    - **Allowed Player Roles**: Roles that can join games (empty = everyone)
    - **Allowed Host Roles**: Roles that can create games from this template (empty = all bot managers)
    - **Signup Priority Roles**: Ordered list of Discord roles that determines join priority when the game fills up (up to 8 roles, drag to reorder). Earlier positions take higher priority. Changing this list does not affect existing games — priority is captured per-participant at the moment they join.
+     - Adding any priority roles locks this template to **Role Based** signup exclusively — hosts using it won't have a choice of signup method
+     - Leaving this list empty allows hosts to choose Self Signup, Host Selected, or Host Selected (with Waitlist) instead, but never Role Based
+     - There's no separate "signup method" setting on the template — it's determined entirely by whether priority roles are configured
 5. Optionally, configure the pre-populated defaults (hosts can override these):
    - **Max Players**: Default participant limit
    - **Expected Duration**: How long games typically last
@@ -164,7 +167,7 @@ If your server hosts different types of games, create a separate template for ea
 
 - Bot uses Discord's role-based permission system
 - Bot manager roles grant game management permissions
-- Web dashboard requires Discord OAuth login - users must be guild members
+- Web dashboard requires Discord OAuth login - users must be server members
 - Bot cannot access channels it doesn't have permissions for
 
 ### Data Privacy
