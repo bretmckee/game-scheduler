@@ -50,7 +50,6 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import text
 
-from services.bot.utils.discord_format import get_member_display_info
 from tests.e2e.conftest import TimeoutType, wait_for_game_message_id
 from tests.e2e.helpers.discord import DMType
 
@@ -154,15 +153,11 @@ async def test_player_removal_sends_dm_and_updates_message(
     assert "1/4" in verify_participants_field.name, (
         f"Should show 1/4 participants before removal: {verify_participants_field.name}"
     )
-    # The embed renders a resolved display name (from the member projection) when
-    # available, falling back to a raw `<@id>` mention otherwise - mirror that same
-    # resolution here rather than assuming which form the bot produced.
-    expected_display_name, _ = await get_member_display_info(
-        None, discord_guild_id, discord_user_id
-    )
-    expected_participant_text = (
-        f"@{expected_display_name}" if expected_display_name else f"<@{discord_user_id}>"
-    )
+    # This test user is a confirmed participant (initial_participants, within
+    # max_players), so the embed renders it as a raw mention: confirmed
+    # participants are mentioned live in the message content, which caches
+    # them client-side, so no resolved-display-name workaround is needed.
+    expected_participant_text = f"<@{discord_user_id}>"
     assert expected_participant_text in verify_participants_field.value, (
         f"Test user ({expected_participant_text!r}) should be in participant list "
         f"before removal: {verify_participants_field.value!r}"

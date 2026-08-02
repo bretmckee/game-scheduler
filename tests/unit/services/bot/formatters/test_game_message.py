@@ -114,8 +114,15 @@ class TestGameMessageFormatter:
             assert any("Participants" in str(call) and "2/5" in str(call) for call in calls)
             mock_embed_class.assert_called_once_with(title="Game", description="Desc", color=ANY)
 
-    def test_embed_participants_use_resolved_display_names(self):
-        """Test that participant_display_names renders resolved names, not raw mentions."""
+    def test_embed_confirmed_participants_use_raw_mentions_overflow_uses_display_names(self):
+        """Confirmed participants render as raw mentions; only overflow uses resolved names.
+
+        Confirmed participants are mentioned live in the message content (see
+        format_game_announcement), which populates the viewing client's mention
+        cache - so the embed field can use a plain `<@id>` mention safely.
+        Overflow (waitlisted) participants are never mentioned in the content,
+        so they still need the resolved-name workaround.
+        """
         scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
 
         with patch("services.bot.formatters.game_message.discord.Embed") as mock_embed_class:
@@ -133,15 +140,16 @@ class TestGameMessageFormatter:
                 current_count=2,
                 max_players=2,
                 status="SCHEDULED",
-                participant_display_names={"111": "Alice", "333": "Waitlisted Carl"},
+                overflow_display_names={"111": "Alice", "333": "Waitlisted Carl"},
             )
 
             calls = [str(call) for call in mock_embed.add_field.call_args_list]
             participants_call = next(call for call in calls if "Participants" in call)
             waitlist_call = next(call for call in calls if "Waitlisted" in call)
 
-            assert "@Alice" in participants_call
+            assert "<@111>" in participants_call
             assert "<@222>" in participants_call
+            assert "@Alice" not in participants_call
             assert "@Waitlisted Carl" in waitlist_call
             mock_embed_class.assert_called_once_with(title="Game", description="Desc", color=ANY)
 
@@ -198,8 +206,14 @@ class TestGameMessageFormatter:
             assert any("Host" in str(call) and "<@123456>" in str(call) for call in calls)
             mock_embed_class.assert_called_once_with(title="Game", description="Desc", color=ANY)
 
-    def test_embed_host_field_uses_resolved_display_name(self):
-        """Test that host field renders a resolved display name instead of a raw mention."""
+    def test_embed_host_field_uses_raw_mention_even_with_display_name(self):
+        """Host field always renders a raw mention now that the host is mentioned in content.
+
+        host_display_name is still used for the embed author line (which can
+        never render as a clickable mention), but the Host *field* no longer
+        needs the resolved-name workaround since format_game_announcement
+        always mentions the host live in the message content.
+        """
         scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
 
         with patch("services.bot.formatters.game_message.discord.Embed") as mock_embed_class:
@@ -222,8 +236,8 @@ class TestGameMessageFormatter:
 
             calls = [str(call) for call in mock_embed.add_field.call_args_list]
             host_call = next(call for call in calls if "Host" in call)
-            assert "@JmanX" in host_call
-            assert "<@123456>" not in host_call
+            assert "<@123456>" in host_call
+            assert "@JmanX" not in host_call
             mock_embed_class.assert_called_once_with(title="Game", description="Desc", color=ANY)
 
     def test_embed_includes_channel_when_provided(self):

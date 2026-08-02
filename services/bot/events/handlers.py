@@ -1357,9 +1357,7 @@ class EventHandlers:
                 self.bot, game.guild.guild_id, game.host.discord_id
             )
 
-        participant_display_names = await self._resolve_participant_display_names(
-            game, confirmed_ids, overflow_ids
-        )
+        overflow_display_names = await self._resolve_overflow_display_names(game, overflow_ids)
 
         return format_game_announcement(
             game_id=str(game.id),
@@ -1385,22 +1383,24 @@ class EventHandlers:
             banner_image_mime_type=game.banner_image.mime_type if game.banner_image else None,
             guild_id=game.guild.guild_id if game.guild else None,
             rewards=game.rewards,
-            participant_display_names=participant_display_names,
+            overflow_display_names=overflow_display_names,
         )
 
-    async def _resolve_participant_display_names(
-        self, game: GameSession, confirmed_ids: list[str], overflow_ids: list[str]
+    async def _resolve_overflow_display_names(
+        self, game: GameSession, overflow_ids: list[str]
     ) -> dict[str, str]:
         """
-        Resolve participant Discord IDs to display names via the member projection.
+        Resolve waitlisted participant Discord IDs to display names via the member projection.
 
-        Rendering participant mentions as resolved names (instead of raw
-        `<@id>` mention syntax) avoids Discord showing a bare snowflake when
-        the viewing client doesn't have that user cached locally.
+        Rendering waitlisted participant mentions as resolved names (instead
+        of raw `<@id>` mention syntax) avoids Discord showing a bare
+        snowflake when the viewing client doesn't have that user cached
+        locally. Confirmed participants and the host don't need this: they're
+        mentioned live in the message content (see format_game_announcement),
+        which caches them client-side, so a raw mention renders fine there.
 
         Args:
             game: Game session with guild loaded
-            confirmed_ids: Confirmed participant Discord IDs or placeholder names
             overflow_ids: Waitlisted participant Discord IDs or placeholder names
 
         Returns:
@@ -1409,7 +1409,7 @@ class EventHandlers:
         if not game.guild:
             return {}
 
-        discord_ids = {uid for uid in (*confirmed_ids, *overflow_ids) if uid.isdigit()}
+        discord_ids = {uid for uid in overflow_ids if uid.isdigit()}
         if not discord_ids:
             return {}
 

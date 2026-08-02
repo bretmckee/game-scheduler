@@ -273,26 +273,32 @@ class TestCreateGameAnnouncementMimeTypes:
         assert kwargs.get("banner_image_mime_type") == "image/png"
 
 
-class TestResolveParticipantDisplayNames:
-    """Tests for EventHandlers._resolve_participant_display_names."""
+class TestResolveOverflowDisplayNames:
+    """Tests for EventHandlers._resolve_overflow_display_names.
+
+    Only overflow (waitlisted) participants need resolved display names:
+    confirmed participants and the host are mentioned live in the message
+    content by format_game_announcement, which caches them client-side, so
+    the embed can render a plain `<@id>` mention for them instead.
+    """
 
     @pytest.mark.asyncio
-    async def test_resolves_numeric_ids_via_member_projection(self, event_handlers, sample_game):
-        """Numeric Discord IDs are resolved to display names."""
+    async def test_resolves_numeric_overflow_ids_via_member_projection(
+        self, event_handlers, sample_game
+    ):
+        """Numeric overflow Discord IDs are resolved to display names."""
 
         async def fake_get_member_display_info(_bot, _guild_id, user_id):
-            names = {"111": ("Alice", None), "222": ("Bob", None)}
+            names = {"222": ("Bob", None)}
             return names[user_id]
 
         with patch(
             "services.bot.events.handlers.get_member_display_info",
             side_effect=fake_get_member_display_info,
         ):
-            result = await event_handlers._resolve_participant_display_names(
-                sample_game, ["111"], ["222"]
-            )
+            result = await event_handlers._resolve_overflow_display_names(sample_game, ["222"])
 
-        assert result == {"111": "Alice", "222": "Bob"}
+        assert result == {"222": "Bob"}
 
     @pytest.mark.asyncio
     async def test_skips_placeholder_names(self, event_handlers, sample_game):
@@ -300,8 +306,8 @@ class TestResolveParticipantDisplayNames:
         with patch(
             "services.bot.events.handlers.get_member_display_info",
         ) as mock_get_info:
-            result = await event_handlers._resolve_participant_display_names(
-                sample_game, ["Guest Player"], []
+            result = await event_handlers._resolve_overflow_display_names(
+                sample_game, ["Guest Player"]
             )
 
         mock_get_info.assert_not_called()
@@ -314,9 +320,7 @@ class TestResolveParticipantDisplayNames:
             "services.bot.events.handlers.get_member_display_info",
             return_value=(None, None),
         ):
-            result = await event_handlers._resolve_participant_display_names(
-                sample_game, ["111"], []
-            )
+            result = await event_handlers._resolve_overflow_display_names(sample_game, ["111"])
 
         assert result == {}
 
@@ -327,24 +331,22 @@ class TestResolveParticipantDisplayNames:
         with patch(
             "services.bot.events.handlers.get_member_display_info",
         ) as mock_get_info:
-            result = await event_handlers._resolve_participant_display_names(
-                sample_game, ["111"], []
-            )
+            result = await event_handlers._resolve_overflow_display_names(sample_game, ["111"])
 
         mock_get_info.assert_not_called()
         assert result == {}
 
 
 @pytest.mark.asyncio
-async def test_create_game_announcement_passes_participant_display_names(
+async def test_create_game_announcement_passes_overflow_display_names(
     event_handlers, sample_game, sample_user
 ):
-    """_create_game_announcement forwards resolved participant names to the formatter."""
+    """_create_game_announcement forwards resolved overflow display names to the formatter."""
     sample_game.host = sample_user
     sample_game.participants = []
 
-    async def fake_resolve(_game, _confirmed, _overflow):
-        return {"111": "Alice"}
+    async def fake_resolve(_game, _overflow):
+        return {"222": "Bob"}
 
     with (
         patch("services.bot.events.handlers.format_game_announcement") as mock_fmt,
@@ -354,7 +356,7 @@ async def test_create_game_announcement_passes_participant_display_names(
         ),
         patch.object(
             event_handlers,
-            "_resolve_participant_display_names",
+            "_resolve_overflow_display_names",
             side_effect=fake_resolve,
         ),
     ):
@@ -363,4 +365,4 @@ async def test_create_game_announcement_passes_participant_display_names(
 
     mock_fmt.assert_called_once()
     _args, kwargs = mock_fmt.call_args
-    assert kwargs.get("participant_display_names") == {"111": "Alice"}
+    assert kwargs.get("overflow_display_names") == {"222": "Bob"}
