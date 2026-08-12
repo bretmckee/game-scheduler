@@ -2236,16 +2236,7 @@ class GameService:
             )
             return existing_participant
 
-        # Check if game is full (count non-placeholder participants)
-        count_result = await self.db.execute(
-            select(func.count(participant_model.GameParticipant.id)).where(
-                participant_model.GameParticipant.game_session_id == game_id,
-                participant_model.GameParticipant.user_id.isnot(None),
-            )
-        )
-        participant_count = count_result.scalar() or 0
-
-        # Resolve max players with inheritance
+        # Verify guild and channel configuration exist before allowing the join
         guild_result = await self.db.execute(
             select(guild_model.GuildConfiguration).where(
                 guild_model.GuildConfiguration.id == game.guild_id
@@ -2266,11 +2257,14 @@ class GameService:
             msg = f"Channel configuration not found for ID: {game.channel_id}"
             raise ValueError(msg)
 
-        # Use game's max_players or default to DEFAULT_MAX_PLAYERS
-        max_players = resolve_max_players(game.max_players)
-
-        if max_players is not None and participant_count >= max_players:
-            msg = "Game is full"
+        # HOST_SELECTED games never accept self-joins - only the host adds
+        # participants (the join button is disabled client-side for this method).
+        # Every other signup method (SELF_SIGNUP, HOST_SELECTED_WITH_WAITLIST,
+        # ROLE_BASED) always accepts the join regardless of capacity; a
+        # participant past max_players simply lands in the overflow/waitlist
+        # group computed by partition_participants rather than being rejected.
+        if game.signup_method == SignupMethod.HOST_SELECTED:
+            msg = "This game does not accept self-signups; only the host can add participants"
             raise ValueError(msg)
 
         # Add participant

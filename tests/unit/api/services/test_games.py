@@ -45,6 +45,7 @@ from shared.models import game as game_model
 from shared.models import participant as participant_model
 from shared.models.bot_action_queue import BotActionQueue
 from shared.models.participant import UNPOSITIONED_SENTINEL, ParticipantType
+from shared.models.signup_method import SignupMethod
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -73,6 +74,7 @@ def _make_game(
     guild_id: str = "guild-uuid-1",
     channel_id: str = "channel-uuid-1",
     max_players: int | None = 4,
+    signup_method: str = SignupMethod.SELF_SIGNUP.value,
 ) -> MagicMock:
     """Return a minimal game mock."""
     game = MagicMock(spec=game_model.GameSession)
@@ -81,6 +83,7 @@ def _make_game(
     game.guild_id = guild_id
     game.channel_id = channel_id
     game.max_players = max_players
+    game.signup_method = signup_method
     game.scheduled_at = datetime.datetime(2026, 6, 1, 20, 0, tzinfo=datetime.UTC)
     guild = MagicMock()
     guild.guild_id = "discord-guild-id"
@@ -152,10 +155,9 @@ class TestJoinGame:
         mock_user.id = "user-uuid"
         game_service.participant_resolver.ensure_user_exists = AsyncMock(return_value=mock_user)
 
-        # No existing participant, count = 0, then guild_config = None
+        # No existing participant, then guild_config = None
         mock_db.execute.side_effect = [
             _make_db_scalar_result(None),  # existing_participant query
-            _make_db_scalar_value(0),  # count query
             _make_db_scalar_result(None),  # guild_config query → triggers error
         ]
 
@@ -175,7 +177,6 @@ class TestJoinGame:
         mock_guild_config = MagicMock()
         mock_db.execute.side_effect = [
             _make_db_scalar_result(None),  # existing_participant
-            _make_db_scalar_value(0),  # count
             _make_db_scalar_result(mock_guild_config),  # guild_config
             _make_db_scalar_result(None),  # channel_config → triggers error
         ]
@@ -184,9 +185,13 @@ class TestJoinGame:
             await game_service.join_game(game.id, "user123")
 
     @pytest.mark.asyncio
-    async def test_game_full_raises_error(self, game_service, mock_db):
-        """Raises ValueError when game has no available spots."""
-        game = _make_game(max_players=2)
+    async def test_host_selected_rejects_self_join(self, game_service, mock_db):
+        """Raises ValueError for a HOST_SELECTED self-join, regardless of capacity.
+
+        Only the host adds participants for this signup method (the join
+        button is disabled client-side); an empty game must still reject it.
+        """
+        game = _make_game(max_players=10, signup_method=SignupMethod.HOST_SELECTED.value)
         game_service.get_game = AsyncMock(return_value=game)
 
         mock_user = MagicMock()
@@ -197,12 +202,11 @@ class TestJoinGame:
         mock_channel_config = MagicMock()
         mock_db.execute.side_effect = [
             _make_db_scalar_result(None),  # existing_participant
-            _make_db_scalar_value(2),  # count = 2 (full)
             _make_db_scalar_result(mock_guild_config),  # guild_config
             _make_db_scalar_result(mock_channel_config),  # channel_config
         ]
 
-        with pytest.raises(ValueError, match="Game is full"):
+        with pytest.raises(ValueError, match="does not accept self-signups"):
             await game_service.join_game(game.id, "user123")
 
     @pytest.mark.asyncio
@@ -222,7 +226,6 @@ class TestJoinGame:
         mock_channel_config = MagicMock()
         mock_db.execute.side_effect = [
             _make_db_scalar_result(None),  # existing_participant
-            _make_db_scalar_value(0),  # count
             _make_db_scalar_result(mock_guild_config),  # guild_config
             _make_db_scalar_result(mock_channel_config),  # channel_config
         ]

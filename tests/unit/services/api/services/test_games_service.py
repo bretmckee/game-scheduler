@@ -2408,11 +2408,7 @@ async def test_join_game_success(
     existing_participant_result = MagicMock()
     existing_participant_result.scalar_one_or_none.return_value = None
 
-    # Mock the participant count query
-    count_result = MagicMock()
-    count_result.scalar.return_value = 0
-
-    # Mock guild/channel queries for max_players resolution
+    # Mock guild/channel config existence checks
     guild_result = MagicMock()
     guild_result.scalar_one_or_none.return_value = sample_guild
     channel_result = MagicMock()
@@ -2426,7 +2422,6 @@ async def test_join_game_success(
         side_effect=[
             game_result,
             existing_participant_result,
-            count_result,
             guild_result,
             channel_result,
             game_result2,  # get_game reload after participant added
@@ -2491,13 +2486,83 @@ async def test_join_game_already_joined(
 
 
 @pytest.mark.asyncio
-async def test_join_game_full(
+async def test_join_game_self_signup_succeeds_past_max_players(
     game_service, mock_db, mock_participant_resolver, sample_guild, sample_channel
 ):
-    """Test joining full game raises ValueError."""
+    """SELF_SIGNUP self-join succeeds even at capacity; the joiner is waitlisted.
+
+    SELF_SIGNUP has no join-time capacity check - see partition_participants,
+    which places anyone past max_players into the overflow/waitlist group for
+    automatic promotion later. join_game() must never reject the join itself.
+    """
     game_id = str(uuid.uuid4())
     new_user = user_model.User(id=str(uuid.uuid4()), discord_id="999")
-    mock_game = game_model.GameSession(id=game_id, status="SCHEDULED", max_players=2)
+    mock_game = game_model.GameSession(
+        id=game_id,
+        status="SCHEDULED",
+        max_players=2,
+        signup_method=SignupMethod.SELF_SIGNUP.value,
+    )
+    mock_game.participants = []
+    mock_game.guild_id = sample_guild.id
+    mock_game.channel_id = sample_channel.id
+    mock_game.channel = sample_channel
+
+    game_result = MagicMock()
+    game_result.scalar_one_or_none.return_value = mock_game
+
+    # Mock existing participant check (None = user not already in game)
+    existing_participant_result = MagicMock()
+    existing_participant_result.scalar_one_or_none.return_value = None
+
+    # Mock guild/channel config existence checks
+    guild_result = MagicMock()
+    guild_result.scalar_one_or_none.return_value = sample_guild
+    channel_result = MagicMock()
+    channel_result.scalar_one_or_none.return_value = sample_channel
+
+    # Mock game reload after join (get_game uses scalar_one_or_none)
+    game_result2 = MagicMock()
+    game_result2.scalar_one_or_none.return_value = mock_game
+
+    mock_db.execute = AsyncMock(
+        side_effect=[
+            game_result,
+            existing_participant_result,
+            guild_result,
+            channel_result,
+            game_result2,  # get_game reload after participant added
+            MagicMock(),  # _publish_game_updated: pg_insert into message_refresh_queue
+            MagicMock(),  # _publish_game_updated: pg_notify
+        ]
+    )
+    mock_db.add = MagicMock()
+    mock_db.flush = AsyncMock()
+
+    mock_participant_resolver.ensure_user_exists = AsyncMock(return_value=new_user)
+
+    participant = await game_service.join_game(game_id=game_id, user_discord_id=new_user.discord_id)
+
+    assert participant.position_type == ParticipantType.SELF_ADDED
+
+
+@pytest.mark.asyncio
+async def test_join_game_host_selected_rejects_self_join(
+    game_service, mock_db, mock_participant_resolver, sample_guild, sample_channel
+):
+    """HOST_SELECTED never accepts a self-join, regardless of capacity.
+
+    Only the host adds participants for this signup method (the join button
+    is disabled client-side); an empty game must still be rejected.
+    """
+    game_id = str(uuid.uuid4())
+    new_user = user_model.User(id=str(uuid.uuid4()), discord_id="999")
+    mock_game = game_model.GameSession(
+        id=game_id,
+        status="SCHEDULED",
+        max_players=10,
+        signup_method=SignupMethod.HOST_SELECTED.value,
+    )
     mock_game.participants = []
     mock_game.guild_id = sample_guild.id
     mock_game.channel_id = sample_channel.id
@@ -2509,22 +2574,16 @@ async def test_join_game_full(
     existing_participant_result = MagicMock()
     existing_participant_result.scalar_one_or_none.return_value = None
 
-    # Mock the participant count query (2 non-placeholder participants)
-    count_result = MagicMock()
-    count_result.scalar.return_value = 2
-
-    # Mock guild and channel config for max_players resolution
+    # Mock guild/channel config existence checks
     guild_result = MagicMock()
-    guild_result.scalar_one.return_value = sample_guild
-
+    guild_result.scalar_one_or_none.return_value = sample_guild
     channel_result = MagicMock()
-    channel_result.scalar_one.return_value = sample_channel
+    channel_result.scalar_one_or_none.return_value = sample_channel
 
     mock_db.execute = AsyncMock(
         side_effect=[
             game_result,
             existing_participant_result,
-            count_result,
             guild_result,
             channel_result,
         ]
@@ -2532,8 +2591,72 @@ async def test_join_game_full(
 
     mock_participant_resolver.ensure_user_exists = AsyncMock(return_value=new_user)
 
-    with pytest.raises(ValueError, match="Game is full"):
+    with pytest.raises(ValueError, match="does not accept self-signups"):
         await game_service.join_game(game_id=game_id, user_discord_id=new_user.discord_id)
+
+
+@pytest.mark.asyncio
+async def test_join_game_host_selected_with_waitlist_self_join_succeeds(
+    game_service, mock_db, mock_participant_resolver, sample_guild, sample_channel
+):
+    """Self-joining a HOST_SELECTED_WITH_WAITLIST game always succeeds.
+
+    HOST_SELECTED_WITH_WAITLIST never treats self-added participants as
+    confirmed (see partition_participants) - the host promotes them later -
+    so a self-join must succeed regardless of capacity, landing the
+    participant on the waitlist.
+    """
+    game_id = str(uuid.uuid4())
+    new_user = user_model.User(id=str(uuid.uuid4()), discord_id="999")
+    mock_game = game_model.GameSession(
+        id=game_id,
+        status="SCHEDULED",
+        guild_id=sample_guild.id,
+        channel_id=sample_channel.id,
+        max_players=2,
+        signup_method=SignupMethod.HOST_SELECTED_WITH_WAITLIST.value,
+    )
+    mock_game.channel = sample_channel
+    mock_game.participants = []
+
+    game_result = MagicMock()
+    game_result.scalar_one_or_none.return_value = mock_game
+
+    # Mock existing participant check (None = user not already in game)
+    existing_participant_result = MagicMock()
+    existing_participant_result.scalar_one_or_none.return_value = None
+
+    # Mock guild/channel config existence checks
+    guild_result = MagicMock()
+    guild_result.scalar_one_or_none.return_value = sample_guild
+    channel_result = MagicMock()
+    channel_result.scalar_one_or_none.return_value = sample_channel
+
+    # Mock game reload after join (get_game uses scalar_one_or_none)
+    game_result2 = MagicMock()
+    game_result2.scalar_one_or_none.return_value = mock_game
+
+    mock_db.execute = AsyncMock(
+        side_effect=[
+            game_result,
+            existing_participant_result,
+            guild_result,
+            channel_result,
+            game_result2,  # get_game reload after participant added
+            MagicMock(),  # _publish_game_updated: pg_insert into message_refresh_queue
+            MagicMock(),  # _publish_game_updated: pg_notify
+        ]
+    )
+    mock_db.add = MagicMock()
+    mock_db.flush = AsyncMock()
+
+    mock_participant_resolver.ensure_user_exists = AsyncMock(return_value=new_user)
+
+    participant = await game_service.join_game(game_id=game_id, user_discord_id=new_user.discord_id)
+
+    # Self-joins for HOST_SELECTED_WITH_WAITLIST games always land on the
+    # waitlist (SELF_ADDED); the host promotes them to HOST_ADDED later.
+    assert participant.position_type == ParticipantType.SELF_ADDED
 
 
 @pytest.mark.asyncio
