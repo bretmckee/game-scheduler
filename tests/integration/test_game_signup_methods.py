@@ -44,6 +44,7 @@ pytestmark = pytest.mark.integration
 # Test Discord token (format valid but doesn't need to work - no Discord connection)
 TEST_DISCORD_TOKEN = "MTQ0NDA3ODM4NjM4MDAxMzY0OA.GvmbbW.fake_token_for_integration_tests"
 TEST_BOT_DISCORD_ID = extract_bot_discord_id(TEST_DISCORD_TOKEN)
+PLAYER_FAKE_TOKEN = "MTQ0NDA3ODM4NjM4MDAxMzY0OA.GvmbbW.fake_token_for_joining_player"
 
 
 def _create_test_user(create_user):
@@ -510,3 +511,133 @@ def test_api_creates_host_selected_game_with_initial_participants(
         {"game_id": game_id},
     ).fetchone()
     assert bot_row is not None, "No game_created row found in bot_action_queue"
+
+
+def test_self_signup_join_succeeds_past_max_players(
+    admin_db_sync,
+    create_user,
+    create_guild,
+    create_channel,
+    create_template,
+    seed_redis_cache,
+    create_authenticated_client,
+):
+    """
+    POST /{game_id}/join succeeds for a SELF_SIGNUP game already at max_players.
+
+    Regression test: join_game() used to reject any self-join once
+    participant_count >= max_players, regardless of signup method. A
+    SELF_SIGNUP game must waitlist the joiner instead of rejecting the join.
+    """
+    test_user = _create_test_user(create_user)
+    test_template = _create_test_template(
+        create_guild, create_channel, create_template, seed_redis_cache, test_user
+    )
+
+    joiner = create_user()
+    prefilled_user = create_user()
+
+    # RLS requires the joining user's guild membership to be cached before
+    # create_authenticated_client() runs its own event loop, otherwise
+    # get_db_with_user_guilds() resolves an empty guild list and the game is
+    # invisible to this session ("Game not found") even though it exists.
+    seed_redis_cache(
+        user_discord_id=joiner["discord_id"],
+        guild_discord_id=test_template["guild_id"],
+        channel_discord_id=test_template["channel_id"],
+    )
+
+    bot_manager_client = create_authenticated_client(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+
+    scheduled_at = (datetime.now(UTC) + timedelta(days=1)).isoformat()
+    create_resp = bot_manager_client.post(
+        "/api/v1/games",
+        data={
+            "template_id": test_template["id"],
+            "title": "INT_TEST Self Signup Past Capacity",
+            "scheduled_at": scheduled_at,
+            "signup_method": SignupMethod.SELF_SIGNUP.value,
+            "max_players": "1",
+        },
+    )
+    assert create_resp.status_code in (200, 201), f"Create failed: {create_resp.text}"
+    game_id = create_resp.json()["id"]
+
+    # Fill the single confirmed slot directly so the game is already "full"
+    # before the real joiner attempts to join via the API.
+    _insert_user_participant(
+        admin_db_sync,
+        game_id,
+        prefilled_user["id"],
+        position=1,
+        position_type=ParticipantType.SELF_ADDED,
+    )
+
+    joiner_client = create_authenticated_client(PLAYER_FAKE_TOKEN, joiner["discord_id"])
+    join_resp = joiner_client.post(f"/api/v1/games/{game_id}/join")
+
+    assert join_resp.status_code == 200, (
+        f"Expected join past capacity to succeed and waitlist the user, "
+        f"got {join_resp.status_code}: {join_resp.text}"
+    )
+    assert join_resp.json()["discord_id"] == joiner["discord_id"]
+
+    participant_count = admin_db_sync.execute(
+        text(
+            "SELECT COUNT(*) FROM game_participants "
+            "WHERE game_session_id = :game_id AND user_id IS NOT NULL"
+        ),
+        {"game_id": game_id},
+    ).scalar()
+    assert participant_count == 2, "Both the pre-filled participant and the joiner must be present"
+
+
+def test_host_selected_self_join_rejected_via_api(
+    create_user,
+    create_guild,
+    create_channel,
+    create_template,
+    seed_redis_cache,
+    create_authenticated_client,
+):
+    """
+    POST /{game_id}/join returns 400 for a HOST_SELECTED game.
+
+    HOST_SELECTED games never accept self-joins - only the host adds
+    participants - independent of how many players are already in the game.
+    """
+    test_user = _create_test_user(create_user)
+    test_template = _create_test_template(
+        create_guild, create_channel, create_template, seed_redis_cache, test_user
+    )
+
+    joiner = create_user()
+    seed_redis_cache(
+        user_discord_id=joiner["discord_id"],
+        guild_discord_id=test_template["guild_id"],
+        channel_discord_id=test_template["channel_id"],
+    )
+
+    bot_manager_client = create_authenticated_client(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+
+    scheduled_at = (datetime.now(UTC) + timedelta(days=1)).isoformat()
+    create_resp = bot_manager_client.post(
+        "/api/v1/games",
+        data={
+            "template_id": test_template["id"],
+            "title": "INT_TEST Host Selected Rejects Self Join",
+            "scheduled_at": scheduled_at,
+            "signup_method": SignupMethod.HOST_SELECTED.value,
+        },
+    )
+    assert create_resp.status_code in (200, 201), f"Create failed: {create_resp.text}"
+    game_id = create_resp.json()["id"]
+
+    joiner_client = create_authenticated_client(PLAYER_FAKE_TOKEN, joiner["discord_id"])
+    join_resp = joiner_client.post(f"/api/v1/games/{game_id}/join")
+
+    assert join_resp.status_code == 400, (
+        f"Expected self-join to a HOST_SELECTED game to be rejected, "
+        f"got {join_resp.status_code}: {join_resp.text}"
+    )
+    assert "does not accept self-signups" in join_resp.json()["detail"]

@@ -21,13 +21,15 @@
 
 """Unit tests for the join game bot handler."""
 
+import uuid
 from unittest.mock import AsyncMock, MagicMock
 
 import discord
 import pytest
 
-from services.bot.handlers.join_game import _resolve_bot_role_position
+from services.bot.handlers.join_game import _resolve_bot_role_position, _validate_join_game
 from shared.models.participant import ParticipantType
+from shared.models.signup_method import SignupMethod
 
 
 def _make_game(priority_role_ids: list[str] | None = None) -> MagicMock:
@@ -47,6 +49,37 @@ def _make_role_checker() -> MagicMock:
     checker = MagicMock()
     checker.seed_user_roles = AsyncMock()
     return checker
+
+
+def _make_db_scalar_result(value):
+    """Return a mock db.execute() result with scalar_one_or_none() set."""
+    result = MagicMock()
+    result.scalar_one_or_none.return_value = value
+    return result
+
+
+class TestValidateJoinGame:
+    """Tests for _validate_join_game."""
+
+    @pytest.mark.asyncio
+    async def test_host_selected_rejects_self_join(self):
+        """HOST_SELECTED games reject self-joins server-side.
+
+        The Discord join button is disabled for HOST_SELECTED games, but that
+        is client-side only; the handler must reject it too in case the
+        button is bypassed (stale message, replayed interaction, etc.).
+        """
+        game = MagicMock()
+        game.status = "SCHEDULED"
+        game.signup_method = SignupMethod.HOST_SELECTED.value
+
+        db = AsyncMock()
+        db.execute = AsyncMock(side_effect=[_make_db_scalar_result(game)])
+
+        result = await _validate_join_game(db, uuid.uuid4(), "discord-user-id")
+
+        assert result["can_join"] is False
+        assert "does not accept self-signups" in result["error"]
 
 
 class TestResolveBotRolePosition:

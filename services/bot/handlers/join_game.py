@@ -43,6 +43,7 @@ from shared.models.base import utc_now
 from shared.models.game import GameSession
 from shared.models.notification_schedule import NotificationSchedule
 from shared.models.participant import UNPOSITIONED_SENTINEL, GameParticipant, ParticipantType
+from shared.models.signup_method import SignupMethod
 from shared.models.user import User
 from shared.services.game_metrics import record_game_joined
 from shared.utils.games import resolve_max_players
@@ -157,6 +158,15 @@ async def _validate_join_game(db: AsyncSession, game_id: uuid.UUID, user_discord
 
     if game.status != "SCHEDULED":
         return {"can_join": False, "error": "Game has already started or is completed"}
+
+    # HOST_SELECTED games never accept self-joins - only the host adds
+    # participants. The Discord join button is disabled for this method, but
+    # that is client-side only; enforce it here too in case it's bypassed.
+    if game.signup_method == SignupMethod.HOST_SELECTED.value:
+        return {
+            "can_join": False,
+            "error": "This game does not accept self-signups; only the host can add participants",
+        }
 
     result_user = await db.execute(select(User).where(User.discord_id == user_discord_id))
     user_result = result_user.scalar_one_or_none()
