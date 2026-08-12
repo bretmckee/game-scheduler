@@ -194,6 +194,8 @@ export const GameDetails: FC = () => {
   const canEdit = canManageGame(game);
   const isParticipant =
     user && game && game.participants?.some((p) => p.user_id === user.user_uuid);
+  // HOST_SELECTED games never accept self-joins - only the host adds participants.
+  const canSelfJoin = game?.signup_method !== SignupMethod.HOST_SELECTED;
 
   const handleDownloadCalendar = async () => {
     if (!gameId) return;
@@ -470,7 +472,7 @@ export const GameDetails: FC = () => {
         <Divider sx={{ my: 3 }} />
 
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-          {!isHost && !isParticipant && game.status === 'SCHEDULED' && (
+          {!isHost && !isParticipant && canSelfJoin && game.status === 'SCHEDULED' && (
             <Button variant="contained" onClick={handleJoinGame} disabled={actionLoading}>
               Join Game
             </Button>

@@ -269,6 +269,25 @@ describe('GameCard - Join/Leave Functionality', () => {
     expect(screen.queryByText('Leave')).not.toBeInTheDocument();
   });
 
+  it('hides join button for HOST_SELECTED games', () => {
+    const hostSelectedGame: GameSession = {
+      ...mockGame,
+      signup_method: 'HOST_SELECTED',
+    };
+
+    render(
+      <AuthContext.Provider value={mockAuthContext}>
+        <MemoryRouter>
+          <GameCard game={hostSelectedGame} />
+        </MemoryRouter>
+      </AuthContext.Provider>
+    );
+
+    // HOST_SELECTED games never accept self-joins - only the host adds
+    // participants - so the join button must not be offered at all.
+    expect(screen.queryByText('Join')).not.toBeInTheDocument();
+  });
+
   it('does not show join/leave buttons when game is not scheduled', () => {
     const completedGame: GameSession = {
       ...mockGame,

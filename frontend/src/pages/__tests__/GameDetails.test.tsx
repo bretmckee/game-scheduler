@@ -133,6 +133,39 @@ describe('GameDetails - Edit Game button visibility', () => {
   });
 });
 
+describe('GameDetails - Join Game button visibility', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('shows Join Game button for a non-participant on a SELF_SIGNUP game', async () => {
+    vi.mocked(apiClient.get).mockResolvedValue({
+      data: { ...baseGame, signup_method: 'SELF_SIGNUP' },
+    });
+
+    renderGameDetails();
+
+    await waitFor(() => {
+      expect(screen.getByText('Join Game')).toBeInTheDocument();
+    });
+  });
+
+  it('hides Join Game button for a non-participant on a HOST_SELECTED game', async () => {
+    vi.mocked(apiClient.get).mockResolvedValue({
+      data: { ...baseGame, signup_method: 'HOST_SELECTED' },
+    });
+
+    renderGameDetails();
+
+    // HOST_SELECTED games never accept self-joins - only the host adds
+    // participants - so the join button must not be offered at all.
+    await waitFor(() => {
+      expect(screen.getByText('Test Game')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('Join Game')).not.toBeInTheDocument();
+  });
+});
+
 describe('GameDetails - Rewards spoiler', () => {
   beforeEach(() => {
     vi.clearAllMocks();

@@ -32,7 +32,7 @@ import {
   Alert,
 } from '@mui/material';
 import { useNavigate } from 'react-router';
-import { GameSession } from '../types';
+import { GameSession, SignupMethod } from '../types';
 import { Time } from '../constants/time';
 import { UI } from '../constants/ui';
 import { useAuth } from '../hooks/useAuth';
@@ -51,6 +51,8 @@ export const GameCard: FC<GameCardProps> = ({ game, showActions = true, onGameUp
   const [error, setError] = useState<string | null>(null);
 
   const isParticipant = user && game.participants?.some((p) => p.user_id === user.user_uuid);
+  // HOST_SELECTED games never accept self-joins - only the host adds participants.
+  const canSelfJoin = game.signup_method !== SignupMethod.HOST_SELECTED;
 
   const handleJoinGame = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -230,7 +232,7 @@ export const GameCard: FC<GameCardProps> = ({ game, showActions = true, onGameUp
             View Details
           </Button>
 
-          {!isParticipant && game.status === 'SCHEDULED' && (
+          {!isParticipant && canSelfJoin && game.status === 'SCHEDULED' && (
             <Button
               size="small"
               variant="contained"
