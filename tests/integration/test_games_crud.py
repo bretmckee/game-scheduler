@@ -632,6 +632,108 @@ async def test_update_game_persists_role_matched_reposition_as_self_added(
 
 
 @pytest.mark.asyncio
+async def test_update_game_preserves_host_added_participant_omitted_from_payload(
+    create_user,
+    create_guild,
+    create_channel,
+    create_template,
+    seed_redis_cache,
+    api_base_url,
+    admin_db_sync,
+):
+    """A HOST_ADDED participant omitted from `participants` survives an update.
+
+    Regression test for a bug report: a host manually queued a HOST_ADDED waitlist
+    entry (e.g. a boundary marker like "Auto Waitlisters End") past the confirmed
+    slots of a HOST_SELECTED_WITH_WAITLIST game. The edit-game frontend's
+    disturbed-prefix payload never resends untouched HOST_ADDED rows sitting past the
+    confirmed prefix, and the backend used to (incorrectly) delete any HOST_ADDED
+    participant absent from the submitted list on every save. Omission from
+    `participants` must not delete a participant -- only `removed_participant_ids` may.
+    """
+    ctx = await _setup_game_context(
+        create_user,
+        create_guild,
+        create_channel,
+        create_template,
+        seed_redis_cache,
+        allowed_signup_methods=["HOST_SELECTED_WITH_WAITLIST"],
+    )
+    confirmed_user = create_user()
+    session_token, _ = await create_test_session(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+
+    try:
+        async with httpx.AsyncClient(
+            base_url=api_base_url,
+            timeout=10.0,
+            cookies={"session_token": session_token},
+        ) as client:
+            game = await _create_game_via_api(
+                client,
+                ctx,
+                title="Host Added Waitlist Game",
+                signup_method="HOST_SELECTED_WITH_WAITLIST",
+            )
+
+            confirmed_id = str(uuid.uuid4())
+            waitlisted_marker_id = str(uuid.uuid4())
+            insert_sql = text(
+                "INSERT INTO game_participants "
+                "(id, game_session_id, user_id, display_name, joined_at, "
+                "position_type, position) "
+                "VALUES (:id, :game_session_id, :user_id, :display_name, :joined_at, "
+                ":position_type, :position)"
+            )
+            admin_db_sync.execute(
+                insert_sql,
+                {
+                    "id": confirmed_id,
+                    "game_session_id": game["id"],
+                    "user_id": confirmed_user["id"],
+                    "display_name": None,
+                    "joined_at": datetime.now(UTC),
+                    "position_type": 8000,  # HOST_ADDED
+                    "position": 0,
+                },
+            )
+            admin_db_sync.execute(
+                insert_sql,
+                {
+                    "id": waitlisted_marker_id,
+                    "game_session_id": game["id"],
+                    "user_id": None,
+                    "display_name": "Auto Waitlisters End",
+                    "joined_at": datetime.now(UTC),
+                    "position_type": 8000,  # HOST_ADDED, past the confirmed prefix
+                    "position": 99,
+                },
+            )
+            admin_db_sync.commit()
+
+            # Mirrors the frontend's disturbed-prefix payload: only the confirmed
+            # participant is resent; the waitlisted marker is omitted, not removed.
+            response = await client.put(
+                f"/api/v1/games/{game['id']}",
+                data={
+                    "signup_method": "SELF_SIGNUP",
+                    "participants": json.dumps([{"participant_id": confirmed_id, "position": 0}]),
+                },
+            )
+
+        assert response.status_code == 200, (
+            f"Expected 200, got {response.status_code}: {response.text}"
+        )
+
+        row = admin_db_sync.execute(
+            text("SELECT id FROM game_participants WHERE id = :id"),
+            {"id": waitlisted_marker_id},
+        ).fetchone()
+        assert row is not None, "HOST_ADDED participant omitted from payload must not be deleted"
+    finally:
+        await cleanup_test_session(session_token)
+
+
+@pytest.mark.asyncio
 async def test_update_game_remove_thumbnail(
     create_user,
     create_guild,

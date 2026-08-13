@@ -170,8 +170,22 @@ function replaceMentionToken(text: string, token: string, replacement: string): 
   return text.replace(new RegExp(escaped + '(?![\\w.])', 'g'), replacement);
 }
 
-function buildParticipantList(data: Partial<GameSession>): EditableParticipantInput[] {
-  if (data.signup_method === SignupMethod.HOST_SELECTED_WITH_WAITLIST) {
+/**
+ * Build the editable participant list for the form.
+ *
+ * `signupMethod` defaults to `data.signup_method` (the server-side value) but callers
+ * may pass a pending, not-yet-saved signup method instead. This lets the form refresh
+ * `isExplicitlyPositioned`/`isReadOnly` flags immediately when the host changes the
+ * signup method dropdown, before the change is submitted -- otherwise those flags stay
+ * pinned to the original method and a host-added participant positioned past the old
+ * method's confirmed slots (e.g. a manually queued waitlist entry) is silently dropped
+ * from the next save's payload.
+ */
+function buildParticipantList(
+  data: Partial<GameSession>,
+  signupMethod: string | undefined = data.signup_method
+): EditableParticipantInput[] {
+  if (signupMethod === SignupMethod.HOST_SELECTED_WITH_WAITLIST) {
     const confirmed = (data.confirmed_participants ?? []).map((p, index) => ({
       id: p.id,
       mention: formatParticipantDisplay(p.display_name, p.discord_id),
@@ -443,10 +457,23 @@ export const GameForm: FC<GameFormProps> = ({
     return `${count}/${MAX_SIGNUP_INSTRUCTIONS_LENGTH} characters`;
   };
 
+  // Changing the signup method changes which participants count as "explicitly
+  // positioned" vs. read-only waitlist entries, so the participant list must be rebuilt
+  // for the new method rather than left with flags computed for the old one.
+  const applySignupMethodChange = (newSignupMethod: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      signupMethod: newSignupMethod,
+      participants: initialData
+        ? buildParticipantList(initialData, newSignupMethod)
+        : prev.participants,
+    }));
+  };
+
   const handleSelectChange = (event: SelectChangeEvent) => {
     const { name, value } = event.target;
     if (name === 'signupMethod') {
-      setFormData((prev) => ({ ...prev, signupMethod: value }));
+      applySignupMethodChange(value);
     } else {
       setFormData((prev) => ({ ...prev, channelId: value }));
     }
@@ -880,12 +907,11 @@ export const GameForm: FC<GameFormProps> = ({
                 <Checkbox
                   checked={formData.signupMethod === SignupMethod.HOST_SELECTED_WITH_WAITLIST}
                   onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      signupMethod: e.target.checked
+                    applySignupMethodChange(
+                      e.target.checked
                         ? SignupMethod.HOST_SELECTED_WITH_WAITLIST
-                        : SignupMethod.HOST_SELECTED,
-                    }))
+                        : SignupMethod.HOST_SELECTED
+                    )
                   }
                   disabled={loading}
                 />

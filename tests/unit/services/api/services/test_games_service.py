@@ -3754,68 +3754,6 @@ def test_separate_existing_and_new_participants_uses_default_position(game_servi
     assert mentions == [("@user1", 0), ("@user2", 5)]
 
 
-# Tests for _remove_outdated_participants
-
-
-@pytest.mark.asyncio
-async def test_remove_outdated_participants_removes_missing_ids(game_service):
-    """Test that participants not in existing_ids are deleted."""
-    participant1 = MagicMock(id="id-1")
-    participant2 = MagicMock(id="id-2")
-    participant3 = MagicMock(id="id-3")
-    current_participants = [participant1, participant2, participant3]
-
-    existing_ids = {"id-1", "id-3"}
-
-    await game_service._remove_outdated_participants(current_participants, existing_ids)
-
-    game_service.db.delete.assert_called_once_with(participant2)
-
-
-@pytest.mark.asyncio
-async def test_remove_outdated_participants_keeps_all_when_all_present(game_service):
-    """Test that no participants are deleted when all IDs are in existing_ids."""
-    participant1 = MagicMock(id="id-1")
-    participant2 = MagicMock(id="id-2")
-    current_participants = [participant1, participant2]
-
-    existing_ids = {"id-1", "id-2"}
-
-    await game_service._remove_outdated_participants(current_participants, existing_ids)
-
-    game_service.db.delete.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_remove_outdated_participants_removes_multiple(game_service):
-    """Test that multiple outdated participants are deleted."""
-    participant1 = MagicMock(id="id-1")
-    participant2 = MagicMock(id="id-2")
-    participant3 = MagicMock(id="id-3")
-    participant4 = MagicMock(id="id-4")
-    current_participants = [participant1, participant2, participant3, participant4]
-
-    existing_ids = {"id-2"}
-
-    await game_service._remove_outdated_participants(current_participants, existing_ids)
-
-    assert game_service.db.delete.call_count == 3
-    game_service.db.delete.assert_any_call(participant1)
-    game_service.db.delete.assert_any_call(participant3)
-    game_service.db.delete.assert_any_call(participant4)
-
-
-@pytest.mark.asyncio
-async def test_remove_outdated_participants_empty_list(game_service):
-    """Test that no deletions occur with empty participant list."""
-    current_participants = []
-    existing_ids = {"id-1"}
-
-    await game_service._remove_outdated_participants(current_participants, existing_ids)
-
-    game_service.db.delete.assert_not_called()
-
-
 # Tests for _update_participant_positions
 
 

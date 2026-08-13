@@ -452,6 +452,77 @@ async def test_update_prefilled_leaves_untouched_self_added_participant_alone(
 
 
 @pytest.mark.asyncio
+async def test_update_prefilled_leaves_untouched_host_added_participant_alone(
+    game_service,
+    mock_db,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """A HOST_ADDED participant absent from participant_data_list is untouched, not removed.
+
+    Regression test for the "Auto Waitlisters End" bug report: the edit-game frontend's
+    disturbed-prefix payload optimization (EditGame.tsx's buildParticipantsPayload) never
+    resends HOST_ADDED participants sitting past the confirmed prefix (e.g. manually
+    host-added waitlist entries) -- by its own docstring's stated contract, those rows
+    should be left untouched server-side unless explicitly removed via
+    removed_participant_ids. _update_prefilled_participants must honor that contract
+    instead of deleting anything merely absent from the submitted list.
+    """
+    game_id = str(uuid.uuid4())
+    touched_id = str(uuid.uuid4())
+    untouched_id = str(uuid.uuid4())
+
+    touched = participant_model.GameParticipant(
+        id=touched_id,
+        game_session_id=game_id,
+        user_id=str(uuid.uuid4()),
+        display_name=None,
+        position_type=ParticipantType.HOST_ADDED,
+        position=0,
+    )
+    untouched = participant_model.GameParticipant(
+        id=untouched_id,
+        game_session_id=game_id,
+        user_id=None,
+        display_name="Auto Waitlisters End",
+        position_type=ParticipantType.HOST_ADDED,
+        position=99,
+    )
+
+    game = game_model.GameSession(
+        id=game_id,
+        title="Waitlist Game",
+        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        guild_id=sample_guild.id,
+        channel_id=sample_channel.id,
+        host_id=sample_user.id,
+        max_players=1,
+        status="SCHEDULED",
+        signup_method=SignupMethod.HOST_SELECTED_WITH_WAITLIST.value,
+        participants=[touched, untouched],
+    )
+    game.guild = sample_guild
+    game.channel = sample_channel
+    game.host = sample_user
+
+    # The current-HOST_ADDED-participants query returns both rows; the submitted
+    # payload (below) only re-sends the confirmed one, mirroring what the real
+    # frontend sends when a host-added waitlist entry is never touched.
+    mock_result = MagicMock()
+    mock_result.scalars.return_value.all.return_value = [touched, untouched]
+    mock_db.execute = AsyncMock(return_value=mock_result)
+    mock_db.flush = AsyncMock()
+
+    participant_data_list = [{"participant_id": touched_id, "position": 0}]
+
+    await game_service._update_prefilled_participants(game, participant_data_list)
+
+    assert untouched.position_type == ParticipantType.HOST_ADDED
+    mock_db.delete.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_update_prefilled_converts_role_matched_to_self_added_on_reposition(
     game_service,
     mock_db,

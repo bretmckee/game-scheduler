@@ -1407,22 +1407,6 @@ class GameService:
 
         return existing_participant_ids, mentions_with_positions
 
-    async def _remove_outdated_participants(
-        self,
-        current_participants: Sequence[participant_model.GameParticipant],
-        existing_participant_ids: set[str],
-    ) -> None:
-        """
-        Remove pre-filled participants not in the existing list.
-
-        Args:
-            current_participants: Current host-added participants
-            existing_participant_ids: Set of participant IDs to keep
-        """
-        for p in current_participants:
-            if p.id not in existing_participant_ids:
-                await self.db.delete(p)
-
     def _update_participant_positions(
         self,
         current_participants: Sequence[participant_model.GameParticipant],
@@ -1459,15 +1443,6 @@ class GameService:
         Raises:
             ValidationError: If @mentions cannot be resolved
         """
-        # Get current host-added participants
-        current_prefilled = await self.db.execute(
-            select(participant_model.GameParticipant).where(
-                participant_model.GameParticipant.game_session_id == game.id,
-                participant_model.GameParticipant.position_type == ParticipantType.HOST_ADDED,
-            )
-        )
-        current_participants = current_prefilled.scalars().all()
-
         # Separate existing participants (by ID) from new mentions
         (
             existing_participant_ids,
@@ -1502,8 +1477,11 @@ class GameService:
                 p.position_type = ParticipantType.SELF_ADDED
                 p.position = position
 
-        # Remove pre-filled participants not in the existing list (HOST_ADDED only)
-        await self._remove_outdated_participants(current_participants, existing_participant_ids)
+        # Note: participants omitted from participant_data_list are left untouched here.
+        # Explicit removal is a separate mechanism (removed_participant_ids /
+        # _remove_participants) -- omission from this list is not a removal request. The
+        # frontend's disturbed-prefix payload intentionally omits untouched HOST_ADDED
+        # rows (e.g. host-added waitlist entries past the confirmed prefix) on every save.
 
         # Update positions for any participant referenced by id, regardless of position_type
         self._update_participant_positions(game.participants, participant_data_list)

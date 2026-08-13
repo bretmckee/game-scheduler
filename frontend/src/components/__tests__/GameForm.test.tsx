@@ -19,7 +19,7 @@
 // SOFTWARE.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { GameForm } from '../GameForm';
 import { AuthContext } from '../../contexts/AuthContext';
@@ -689,6 +689,85 @@ describe('GameForm - HOST_SELECTED_WITH_WAITLIST checkbox', () => {
     );
 
     expect(queryByLabelText(/players can join waitlist/i)).not.toBeInTheDocument();
+  });
+});
+
+describe('GameForm - switching signup method refreshes the participant list', () => {
+  const mockChannel: Channel = {
+    id: 'ch1',
+    channel_name: 'General',
+    guild_id: 'guild1',
+    channel_id: 'ch1',
+    is_active: true,
+    created_at: '2025-01-01T00:00:00Z',
+    updated_at: '2025-01-01T00:00:00Z',
+  };
+
+  it('re-enables a host-added waitlist entry for editing after switching to Self Signup', async () => {
+    const user = userEvent.setup();
+    const confirmedParticipant = {
+      id: 'confirmed-1',
+      game_session_id: 'game-1',
+      user_id: null,
+      discord_id: '111',
+      display_name: 'Player A',
+      joined_at: new Date().toISOString(),
+      position_type: ParticipantType.HOST_ADDED,
+      position: 1,
+    };
+    // A host-added entry sitting past max_players -- e.g. a manually-queued waitlist
+    // marker like the "Auto Waitlisters End" entry from the bug report.
+    const waitlistedMarker = {
+      id: 'waitlist-1',
+      game_session_id: 'game-1',
+      user_id: null,
+      discord_id: null,
+      display_name: 'Auto Waitlisters End',
+      joined_at: new Date().toISOString(),
+      position_type: ParticipantType.HOST_ADDED,
+      position: 99,
+    };
+
+    const { getAllByPlaceholderText, getByTestId } = renderWithAuth(
+      <GameForm
+        mode="edit"
+        guildId="guild1"
+        channels={[mockChannel]}
+        allowedSignupMethods={['SELF_SIGNUP', 'HOST_SELECTED', 'HOST_SELECTED_WITH_WAITLIST']}
+        initialData={{
+          id: 'game-1',
+          title: 'Test Game',
+          scheduled_at: new Date().toISOString(),
+          channel_id: 'ch1',
+          description: 'Test',
+          signup_method: 'HOST_SELECTED_WITH_WAITLIST',
+          max_players: 1,
+          participants: [confirmedParticipant, waitlistedMarker],
+          confirmed_participants: [confirmedParticipant],
+          waitlist_participants: [waitlistedMarker],
+        }}
+        onSubmit={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    );
+
+    const findMarkerInput = () =>
+      getAllByPlaceholderText('@username or Discord user').find(
+        (el) => (el as HTMLInputElement).value === 'Auto Waitlisters End'
+      );
+
+    // Before the switch: displayed read-only, as HOST_SELECTED_WITH_WAITLIST's waitlist entry
+    expect(findMarkerInput()).toBeDisabled();
+
+    const select = getByTestId('signup-method-select');
+    await user.click(within(select).getByRole('combobox'));
+    await user.click(screen.getByRole('option', { name: 'Self Signup' }));
+
+    // After the switch: the same row must be re-editable (isReadOnly recomputed) instead
+    // of silently staying pinned to a stale HOST_SELECTED_WITH_WAITLIST read-only flag --
+    // a stale isExplicitlyPositioned flag here is what causes the row to be dropped from
+    // the submitted payload and deleted server-side.
+    expect(findMarkerInput()).not.toBeDisabled();
   });
 });
 
