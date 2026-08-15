@@ -412,12 +412,12 @@ class DiscordTestHelper:
         if waitlist_columns and verify_numbered_participants:
             self._check_waitlist_numbering(waitlist_columns)
 
-    def _verify_links_field(self, field_map: dict[str, str], expected_game_id: int | None) -> None:
+    def _verify_links_field(self, field_map: dict[str, str], expected_game_id: str | None) -> None:
         """Verify Links field contains calendar URL if game_id provided."""
         if expected_game_id:
             links_field = field_map.get("Links")
             assert links_field is not None, "Links field missing when game_id provided"
-            assert f"/games/{expected_game_id}/calendar" in links_field, (
+            assert f"/download-calendar/{expected_game_id}" in links_field, (
                 f"Links field should contain calendar URL: {links_field}"
             )
 
@@ -431,7 +431,7 @@ class DiscordTestHelper:
         expected_run_time: str | None = None,
         expected_location: str | None = None,
         expected_voice_channel: str | None = None,
-        expected_game_id: int | None = None,
+        expected_game_id: str | None = None,
         verify_numbered_participants: bool = True,
     ) -> None:
         """

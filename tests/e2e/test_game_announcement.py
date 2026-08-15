@@ -71,6 +71,7 @@ async def test_game_creation_posts_announcement_to_discord(
     - Message contains embed with correct content
     - Embed contains game details (title, host mention, player count, location)
     - Plain text location displays unchanged in Discord embed
+    - Links field contains the calendar download URL for this game
     """
     result = await admin_db.execute(
         text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
@@ -125,6 +126,7 @@ async def test_game_creation_posts_announcement_to_discord(
         expected_host_id=discord_user_id,
         expected_max_players=4,
         expected_location=game_location,
+        expected_game_id=game_id,
     )
 
 
