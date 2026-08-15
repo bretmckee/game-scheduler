@@ -39,6 +39,7 @@ E2E data seeded by init service:
 - Test host user (from DISCORD_USER_ID)
 """
 
+import json
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
@@ -125,3 +126,109 @@ async def test_game_creation_posts_announcement_to_discord(
         expected_max_players=4,
         expected_location=game_location,
     )
+
+
+@pytest.mark.asyncio
+async def test_game_with_large_waitlist_shows_row_major_columns(
+    authenticated_admin_client,
+    admin_db,
+    discord_helper,
+    discord_guild_id,
+    discord_channel_id,
+    discord_user_id,
+    synced_guild,
+    test_timeouts,
+):
+    """
+    E2E: A waitlist bigger than max_players renders as three row-major columns.
+
+    Verifies:
+    - Participants field always spans two side-by-side columns
+    - Waitlist field spans three side-by-side columns once there's overflow
+    - Waitlist numbering starts at 1 (does not continue from participant count)
+    - Waitlist entries are distributed row-major (column 1: positions 1, 4, 7;
+      column 2: positions 2, 5; column 3: positions 3, 6)
+    """
+    result = await admin_db.execute(
+        text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
+        {"guild_id": discord_guild_id},
+    )
+    row = result.fetchone()
+    assert row, f"Test guild {discord_guild_id} not found"
+    test_guild_id = row[0]
+
+    result = await admin_db.execute(
+        text("SELECT id FROM game_templates WHERE guild_id = :guild_id AND is_default = true"),
+        {"guild_id": test_guild_id},
+    )
+    row = result.fetchone()
+    assert row, f"Default template not found for guild {test_guild_id}"
+    test_template_id = row[0]
+
+    scheduled_time = datetime.now(UTC) + timedelta(hours=2)
+    game_title = f"E2E Waitlist Columns {uuid4().hex[:8]}"
+
+    # First 2 names fill max_players=2; the remaining 7 placeholders overflow
+    # onto the waitlist, which is enough to populate all three columns unevenly
+    # (column 1 gets positions 1, 4, 7; column 2 gets 2, 5; column 3 gets 3, 6).
+    waitlist_names = [f"Waitlist {i}" for i in range(1, 8)]
+    game_data = {
+        "template_id": test_template_id,
+        "title": game_title,
+        "description": "Testing waitlist row-major column layout",
+        "scheduled_at": scheduled_time.isoformat(),
+        "max_players": "2",
+        "initial_participants": json.dumps(["Player A", "Player B", *waitlist_names]),
+    }
+
+    response = await authenticated_admin_client.post("/api/v1/games", data=game_data)
+    assert response.status_code == 201, f"Failed to create game: {response.text}"
+    game_id = response.json()["id"]
+    print(f"✓ Created game {game_id} with 2 confirmed + 7 waitlisted placeholders")
+
+    message_id = await wait_for_game_message_id(
+        admin_db, game_id, timeout=test_timeouts[TimeoutType.DB_WRITE]
+    )
+    assert message_id is not None, "Message ID should be populated after announcement"
+
+    message = await discord_helper.get_message(discord_channel_id, message_id)
+    assert message is not None, "Discord message should exist"
+    assert len(message.embeds) == 1, "Message should have exactly one embed"
+    embed = message.embeds[0]
+
+    # Baseline structural/numbering checks shared with every announcement test.
+    discord_helper.verify_game_embed(
+        embed=embed,
+        expected_title=game_title,
+        expected_host_id=discord_user_id,
+        expected_max_players=2,
+    )
+
+    # Participants always span exactly two columns: with 2 confirmed
+    # participants, each column holds exactly one name (split contiguously
+    # in half; see GameMessageFormatter._format_participant_columns).
+    participants_fields = [f for f in embed.fields if f.name and "Participants" in f.name]
+    assert len(participants_fields) == 1, "Expected exactly one named Participants field"
+    participants_idx = embed.fields.index(participants_fields[0])
+    participants_columns = embed.fields[participants_idx : participants_idx + 2]
+    assert "Player A" in participants_columns[0].value
+    assert "Player B" in participants_columns[1].value
+
+    # Waitlist spans exactly three columns, row-major, numbered from 1 -
+    # not continuing from the 2 confirmed participants.
+    waitlist_fields = [f for f in embed.fields if f.name and "Waitlisted" in f.name]
+    assert len(waitlist_fields) == 1, "Expected exactly one named Waitlisted field"
+    assert "(7)" in waitlist_fields[0].name
+    waitlist_idx = embed.fields.index(waitlist_fields[0])
+    waitlist_columns = embed.fields[waitlist_idx : waitlist_idx + 3]
+    assert len(waitlist_columns) == 3, "Waitlist should render as three side-by-side columns"
+
+    col1, col2, col3 = (f.value for f in waitlist_columns)
+    assert "1. Waitlist 1" in col1
+    assert "4. Waitlist 4" in col1
+    assert "7. Waitlist 7" in col1
+    assert "2. Waitlist 2" in col2
+    assert "5. Waitlist 5" in col2
+    assert "3. Waitlist 3" in col3
+    assert "6. Waitlist 6" in col3
+    print("✓ Waitlist renders as three row-major columns numbered from 1")

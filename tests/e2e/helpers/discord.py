@@ -345,17 +345,24 @@ class DiscordTestHelper:
                 f"Voice Channel mismatch: {voice_channel_field}"
             )
 
-    def _find_participants_field(self, field_map: dict[str, str]) -> tuple[str, str]:
-        """Find and return participants field name and value."""
-        participants_field_name = None
-        participants_field_value = None
-        for name, value in field_map.items():
-            if "Participants" in name:
-                participants_field_name = name
-                participants_field_value = value
-                break
-        assert participants_field_name is not None, "Participants field missing"
-        return participants_field_name, participants_field_value
+    def _find_participants_field(self, embed: discord.Embed) -> tuple[str, str]:
+        """Find the participants field(s) and return (field_name, combined_value).
+
+        Participants always span two side-by-side embed columns (see
+        GameMessageFormatter._add_participant_fields), so the combined value
+        concatenates both columns in display order (left column's numbers are
+        contiguous with the right column's, so this preserves 1..N ordering).
+        """
+        fields = embed.fields
+        for i, field in enumerate(fields):
+            if field.name and "Participants" in field.name:
+                columns = [field.value or ""]
+                if i + 1 < len(fields):
+                    columns.append(fields[i + 1].value or "")
+                combined = "\n".join(v for v in columns if v and v != "\u200b")
+                return field.name, combined
+        msg = "Participants field missing"
+        raise AssertionError(msg)
 
     def _verify_participants_numbering(
         self, participants_value: str, verify_numbered_participants: bool
@@ -373,35 +380,37 @@ class DiscordTestHelper:
                         f"Participant line {i} should start with '{i}.': {line}"
                     )
 
-    def _check_waitlist_numbering(
-        self,
-        waitlisted_field_value: str,
-        participants_value: str,
-    ) -> None:
-        """Assert waitlist lines are numbered sequentially after the confirmed player list."""
-        participant_count = len([line for line in participants_value.split("\n") if line.strip()])
-        waitlist_lines = waitlisted_field_value.split("\n")
-        for i, line in enumerate(waitlist_lines, start=participant_count + 1):
-            if line.strip():
-                assert line.startswith(f"{i}."), f"Waitlist line should start with '{i}.': {line}"
+    def _check_waitlist_numbering(self, waitlist_columns: list[str]) -> None:
+        """Assert waitlist numbering starts at 1 and is distributed row-major.
+
+        The waitlist always spans three columns (see
+        GameMessageFormatter._add_participant_fields), filled row-major: column
+        0 holds positions 1, 4, 7, ...; column 1 holds 2, 5, 8, ...; column 2
+        holds 3, 6, 9, ....
+        """
+        num_columns = len(waitlist_columns)
+        for column_index, column_value in enumerate(waitlist_columns):
+            lines = [line for line in column_value.split("\n") if line.strip()]
+            for row, line in enumerate(lines):
+                expected_number = row * num_columns + column_index + 1
+                assert line.startswith(f"{expected_number}."), (
+                    f"Waitlist line should start with '{expected_number}.': {line}"
+                )
 
     def _verify_waitlist_field(
         self,
-        field_map: dict[str, str],
-        participants_value: str,
+        embed: discord.Embed,
         verify_numbered_participants: bool,
     ) -> None:
-        """Verify waitlist field and numbering if present."""
-        waitlisted_field_value = next(
-            (value for name, value in field_map.items() if "Waitlisted" in name),
-            None,
-        )
-        if (
-            waitlisted_field_value
-            and waitlisted_field_value != "None"
-            and verify_numbered_participants
-        ):
-            self._check_waitlist_numbering(waitlisted_field_value, participants_value)
+        """Verify waitlist field(s) and numbering if present."""
+        fields = embed.fields
+        waitlist_columns = None
+        for i, field in enumerate(fields):
+            if field.name and "Waitlisted" in field.name:
+                waitlist_columns = [f.value or "" for f in fields[i : i + 3]]
+                break
+        if waitlist_columns and verify_numbered_participants:
+            self._check_waitlist_numbering(waitlist_columns)
 
     def _verify_links_field(self, field_map: dict[str, str], expected_game_id: int | None) -> None:
         """Verify Links field contains calendar URL if game_id provided."""
@@ -453,15 +462,13 @@ class DiscordTestHelper:
             field_map, expected_run_time, expected_location, expected_voice_channel
         )
 
-        participants_field_name, participants_field_value = self._find_participants_field(field_map)
+        participants_field_name, participants_field_value = self._find_participants_field(embed)
         assert f"/{expected_max_players}" in participants_field_name, (
             f"Max players incorrect in field name: {participants_field_name}"
         )
 
         self._verify_participants_numbering(participants_field_value, verify_numbered_participants)
-        self._verify_waitlist_field(
-            field_map, participants_field_value, verify_numbered_participants
-        )
+        self._verify_waitlist_field(embed, verify_numbered_participants)
         self._verify_links_field(field_map, expected_game_id)
 
         assert embed.footer and embed.footer.text, "Embed should have footer with status"

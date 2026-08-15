@@ -27,6 +27,7 @@ including announcements, updates, and participant lists.
 
 import contextlib
 import logging
+import math
 from datetime import datetime
 
 import discord
@@ -36,8 +37,10 @@ from services.bot.utils.discord_format import (
     format_discord_mention,
     format_discord_timestamp,
     format_duration,
+    format_numbered_participants,
     format_participant_list,
     format_user_or_placeholder,
+    split_row_major,
 )
 from services.bot.views.game_view import GameView
 from shared.models import GameStatus
@@ -51,6 +54,14 @@ _MIME_TO_EXT: dict[str, str] = {
     "image/jpeg": ".jpg",
     "image/webp": ".webp",
 }
+
+# Participants always occupy two side-by-side embed columns, leaving room for
+# the Links field to complete that row. The waitlist, when present, gets its
+# own row below split across three columns. See _add_participant_fields.
+_PARTICIPANT_COLUMNS = 2
+_WAITLIST_COLUMNS = 3
+_PARTICIPANT_MAX_DISPLAY = 15
+_WAITLIST_MAX_DISPLAY = 15
 
 
 class GameMessageFormatter:
@@ -164,9 +175,16 @@ class GameMessageFormatter:
         overflow_ids: list[str],
         current_count: int,
         max_players: int,
+        calendar_url: str | None = None,
         overflow_display_names: dict[str, str] | None = None,
     ) -> None:
-        """Add participant and waitlist fields to embed.
+        """Add participant, waitlist, and links fields to embed.
+
+        Participants always fill two side-by-side columns (split contiguously
+        in half), leaving room for the Links field to complete that row. When
+        there's a waitlist, it gets its own row below, split row-major across
+        three columns and numbered independently starting at 1 (see
+        split_row_major) rather than continuing from the participant count.
 
         Args:
             embed: Discord embed to configure
@@ -174,6 +192,8 @@ class GameMessageFormatter:
             overflow_ids: List of waitlisted participant IDs
             current_count: Current participant count
             max_players: Maximum allowed participants
+            calendar_url: Optional calendar download URL, rendered as the
+                third column alongside the two participant columns
             overflow_display_names: Optional map of user_id -> resolved
                 display name for waitlisted participants, rendered instead of
                 a raw `<@id>` mention. Confirmed participants are always
@@ -186,54 +206,105 @@ class GameMessageFormatter:
         if open_slots > 0:
             participant_ids = list(participant_ids) + ["open slot"] * open_slots
 
+        participants_name = f"Participants ({current_count}/{max_players})"
         if participant_ids:
-            embed.add_field(
-                name=f"Participants ({current_count}/{max_players})",
-                value=format_participant_list(
-                    participant_ids,
-                    max_display=15,
-                    start_number=1,
-                ),
-                inline=True,
+            left_text, right_text = GameMessageFormatter._format_participant_columns(
+                participant_ids
             )
+            embed.add_field(name=participants_name, value=left_text, inline=True)
+            embed.add_field(name="\u200b", value=right_text, inline=True)
         else:
-            embed.add_field(
-                name=f"Participants ({current_count}/{max_players})",
-                value="No participants yet",
-                inline=True,
-            )
+            embed.add_field(name=participants_name, value="No participants yet", inline=True)
+            embed.add_field(name="\u200b", value="\u200b", inline=True)
+
+        if calendar_url:
+            links_value = f"📅 [Add to Calendar]({calendar_url})"
+            embed.add_field(name="Links", value=links_value, inline=True)
+        else:
+            embed.add_field(name="\u200b", value="\u200b", inline=True)
 
         if overflow_ids:
-            start_num = len(participant_ids) + 1
-            overflow_text = format_participant_list(
-                overflow_ids,
-                max_display=10,
-                start_number=start_num,
-                display_names=overflow_display_names,
-            )
-            embed.add_field(
-                name=f"Waitlisted ({len(overflow_ids)})",
-                value=overflow_text,
-                inline=True,
-            )
+            for index, text in enumerate(
+                GameMessageFormatter._format_waitlist_columns(overflow_ids, overflow_display_names)
+            ):
+                name = f"Waitlisted ({len(overflow_ids)})" if index == 0 else "\u200b"
+                embed.add_field(name=name, value=text, inline=True)
 
     @staticmethod
-    def _add_footer_and_links(
-        embed: discord.Embed,
-        status: str,
-        calendar_url: str | None,
-    ) -> None:
-        """Add links field and footer to embed.
+    def _format_participant_columns(participant_ids: list[str]) -> tuple[str, str]:
+        """Split a (already open-slot-padded) participant list into two columns.
+
+        The list is truncated to `_PARTICIPANT_MAX_DISPLAY` entries and split
+        contiguously in half, with any excess noted as "... and N more" at
+        the end of the second column.
+
+        Args:
+            participant_ids: Confirmed participant IDs, padded with "open
+                slot" placeholders up to capacity
+
+        Returns:
+            Tuple of (left_column_text, right_column_text)
+        """
+        displayed = participant_ids[:_PARTICIPANT_MAX_DISPLAY]
+        remaining = len(participant_ids) - len(displayed)
+        midpoint = math.ceil(len(displayed) / _PARTICIPANT_COLUMNS)
+        left, right = displayed[:midpoint], displayed[midpoint:]
+
+        left_text = format_participant_list(left, max_display=len(left), include_count=False)
+        right_text = (
+            format_participant_list(
+                right, max_display=len(right), start_number=midpoint + 1, include_count=False
+            )
+            if right
+            else "\u200b"
+        )
+        if remaining:
+            note = f"... and {remaining} more"
+            right_text = f"{right_text}\n{note}" if right_text != "\u200b" else note
+
+        return left_text, right_text
+
+    @staticmethod
+    def _format_waitlist_columns(
+        overflow_ids: list[str],
+        overflow_display_names: dict[str, str] | None,
+    ) -> list[str]:
+        """Split the waitlist into row-major columns, numbered independently from 1.
+
+        The list is truncated to `_WAITLIST_MAX_DISPLAY` entries before being
+        distributed across `_WAITLIST_COLUMNS` columns, with any excess noted
+        as "... and N more" at the end of the last column.
+
+        Args:
+            overflow_ids: Waitlisted participant IDs, in join order
+            overflow_display_names: Optional map of user_id -> resolved
+                display name
+
+        Returns:
+            One rendered column of text per waitlist column
+        """
+        displayed = overflow_ids[:_WAITLIST_MAX_DISPLAY]
+        remaining = len(overflow_ids) - len(displayed)
+        columns = split_row_major(displayed, _WAITLIST_COLUMNS)
+        texts = [format_numbered_participants(column, overflow_display_names) for column in columns]
+
+        if remaining:
+            note = f"... and {remaining} more"
+            texts[-1] = f"{texts[-1]}\n{note}" if texts[-1] != "\u200b" else note
+
+        return texts
+
+    @staticmethod
+    def _add_footer(embed: discord.Embed, status: str) -> None:
+        """Add the status footer to embed.
+
+        The Links field is added earlier, alongside the participant columns
+        (see _add_participant_fields), so this only sets the footer.
 
         Args:
             embed: Discord embed to configure
             status: Game status
-            calendar_url: Optional calendar download URL
         """
-        if calendar_url:
-            links_value = f"📅 [Add to Calendar]({calendar_url})"
-            embed.add_field(name="Links", value=links_value, inline=True)
-
         status_display = status
         with contextlib.suppress(ValueError, AttributeError):
             status_display = GameStatus(status).display_name
@@ -326,13 +397,14 @@ class GameMessageFormatter:
             overflow_ids,
             current_count,
             max_players,
+            calendar_url,
             overflow_display_names,
         )
 
         if rewards:
             embed.add_field(name=EMBED_FIELD_REWARDS, value=f"||{rewards}||", inline=False)
 
-        GameMessageFormatter._add_footer_and_links(embed, status, calendar_url)
+        GameMessageFormatter._add_footer(embed, status)
 
         return GameMessageFormatter._trim_embed_if_needed(embed)
 

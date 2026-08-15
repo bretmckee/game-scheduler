@@ -32,10 +32,12 @@ from services.bot.utils.discord_format import (
     format_discord_timestamp,
     format_duration,
     format_game_status_emoji,
+    format_numbered_participants,
     format_participant_list,
     format_rules_section,
     format_user_or_placeholder,
     get_member_display_info,
+    split_row_major,
 )
 
 
@@ -199,6 +201,60 @@ class TestFormatParticipantList:
             participants, display_names={"111111111111111111": "Alice"}
         )
         assert result == "1. @Alice\n2. <@222222222222222222>"
+
+
+class TestSplitRowMajor:
+    """Tests for split_row_major function."""
+
+    def test_distributes_items_row_major(self):
+        """Test that items fill columns left-to-right, top-to-bottom."""
+        items = [f"item{i}" for i in range(1, 9)]  # 8 items
+        columns = split_row_major(items, num_columns=3)
+        assert columns[0] == [(1, "item1"), (4, "item4"), (7, "item7")]
+        assert columns[1] == [(2, "item2"), (5, "item5"), (8, "item8")]
+        assert columns[2] == [(3, "item3"), (6, "item6")]
+
+    def test_honors_custom_start_number(self):
+        """Test that numbering starts from start_number, not 1."""
+        items = ["a", "b", "c"]
+        columns = split_row_major(items, num_columns=3, start_number=5)
+        assert columns[0] == [(5, "a")]
+        assert columns[1] == [(6, "b")]
+        assert columns[2] == [(7, "c")]
+
+    def test_empty_list_produces_empty_columns(self):
+        """Test that an empty item list produces empty columns, not an error."""
+        columns = split_row_major([], num_columns=3)
+        assert columns == [[], [], []]
+
+    def test_fewer_items_than_columns(self):
+        """Test that trailing columns are empty when there aren't enough items."""
+        columns = split_row_major(["a"], num_columns=3)
+        assert columns == [[(1, "a")], [], []]
+
+
+class TestFormatNumberedParticipants:
+    """Tests for format_numbered_participants function."""
+
+    def test_formats_explicit_non_contiguous_numbers(self):
+        """Test that each entry uses its given number, not a contiguous count."""
+        result = format_numbered_participants([
+            (1, "111111111111111111"),
+            (4, "222222222222222222"),
+        ])
+        assert result == "1. <@111111111111111111>\n4. <@222222222222222222>"
+
+    def test_empty_list_returns_zero_width_space(self):
+        """Test that an empty column renders as a zero-width space, not empty string."""
+        result = format_numbered_participants([])
+        assert result == "\u200b"
+
+    def test_uses_resolved_display_names_when_available(self):
+        """Test that resolved display names replace raw mentions."""
+        result = format_numbered_participants(
+            [(1, "111111111111111111")], display_names={"111111111111111111": "Alice"}
+        )
+        assert result == "1. @Alice"
 
 
 class TestFormatGameStatusEmoji:
