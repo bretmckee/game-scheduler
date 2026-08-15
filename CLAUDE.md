@@ -79,7 +79,9 @@ This file indexes the instruction files in `.github/instructions/`. Each entry i
 ### Commit Messages
 
 **Path:** `.github/instructions/commit-messages.instructions.md`
-**When to use:** Creating git commits. Covers message format and conventions.
+**When to use:** Creating git commits. Covers message format, conventions, and
+branch policy (commit to the current branch; ask before touching `staging` or
+`main`).
 
 ### Quality Check Overrides
 
