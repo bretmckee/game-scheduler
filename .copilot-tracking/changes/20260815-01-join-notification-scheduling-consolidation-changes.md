@@ -85,3 +85,25 @@ No files modified — verification only, run once after Task 3.2 reached GREEN.
 - `scripts/run-e2e-tests.sh tests/e2e/test_join_notification.py` - 5 passed (322.75s), including all 5 tests named in the plan's success criteria, exercising the consolidated functions end-to-end through real Discord DM delivery.
 
 **Verification**: Both runs' full output was captured via `tee` per `.github/instructions/test-execution.instructions.md` before any inspection; both scripts reported their own pass/fail status ("Integration tests passed!", "End-to-end tests passed!") in addition to pytest's summary line. No coverage was added for `services/bot/handlers/join_game.py::handle_join_game` in this task, per the plan's explicit note.
+
+### Phase 4: Remove dead code — `shared/data_access/guild_queries.py::add_participant`
+
+Plain dead-code removal (no xfail/TDD workflow) per `.github/instructions/test-driven-development.instructions.md` - `add_participant` behaved correctly, it simply had no production caller.
+
+#### Added
+
+- `tests/integration/test_guild_queries_integration.py` - added `_seed_participant(game_id, user_id)` helper (after `make_game_data`, before the `# Game Operations Integration Tests` section header) that builds a `GameParticipant` row directly for test setup, replacing the removed `guild_queries.add_participant` as scaffolding.
+
+#### Modified
+
+- `tests/integration/test_guild_queries_integration.py`:
+  - Import block: added `GameParticipant` to the existing `from shared.models.participant import ParticipantType` line.
+  - `test_remove_participant_validates_game_belongs_to_guild`, `test_remove_participant_succeeds_for_correct_guild`, `test_list_user_games_returns_only_guild_games` - replaced their `await guild_queries.add_participant(...)` setup calls with `admin_db.add(_seed_participant(...))`, keeping the existing `await admin_db.commit()` calls unchanged.
+
+#### Removed
+
+- `shared/data_access/guild_queries.py` - deleted `add_participant` in its entirety (zero production callers, re-confirmed before removal).
+- `tests/unit/shared/data_access/test_guild_queries_unit.py` - deleted the entire `TestAddParticipant` class (5 tests). `GameParticipant` import and `sample_game` fixture retained - still used by `TestRemoveParticipant` and other classes.
+- `tests/integration/test_guild_queries_integration.py` - deleted `test_add_participant_validates_game_belongs_to_guild` and `test_add_participant_succeeds_for_correct_guild` in their entirety (exercised `add_participant` directly, no other purpose).
+
+**Verification**: `grep -rn "guild_queries\.add_participant\|guild_queries import.*add_participant" services/ shared/` (excluding the definition site) returned no matches both before and after removal, confirming zero production callers. `grep -rn "add_participant" services/ shared/ tests/` after the phase shows only the `_seed_participant` helper's docstring text and the unrelated `_add_participant_carryover_schedules`/`_add_participant_fields` functions (different names, substring false positives) - no stray reference to the removed function survives. `uv run pytest tests/unit` (2454 passed - 5 fewer than Phase 3's 2459, matching the deleted `TestAddParticipant` class), `uv run mypy shared/ services/` (no issues), `uv run ruff check`/`ruff format --check` on all three changed files (clean). `scripts/run-integration-tests.sh tests/integration/test_guild_queries_integration.py` - 19 passed (down from 21 pre-removal, matching the 2 deleted dedicated tests), full output captured via `tee` per `.github/instructions/test-execution.instructions.md`.

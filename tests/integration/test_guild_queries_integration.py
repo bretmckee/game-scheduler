@@ -36,7 +36,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from shared.data_access import guild_queries
-from shared.models.participant import ParticipantType
+from shared.models.participant import GameParticipant, ParticipantType
 
 pytestmark = pytest.mark.integration
 
@@ -66,6 +66,23 @@ def make_game_data(channel_id: int, host_id: int, **overrides):
         "max_players": 4,
     }
     return {**defaults, **overrides}
+
+
+def _seed_participant(game_id: str, user_id: str) -> GameParticipant:
+    """Build a GameParticipant row for test setup only.
+
+    guild_queries.add_participant was removed as dead production code;
+    these tests only need a participant to already exist so they can
+    exercise remove_participant / list_user_games, not add_participant
+    itself.
+    """
+    return GameParticipant(
+        id=str(uuid.uuid4()),
+        game_session_id=game_id,
+        user_id=user_id,
+        position_type=ParticipantType.SELF_ADDED,
+        position=0,
+    )
 
 
 # ============================================================================
@@ -260,56 +277,6 @@ async def test_delete_game_succeeds_for_correct_guild(
 
 
 @pytest.mark.asyncio
-async def test_add_participant_validates_game_belongs_to_guild(
-    admin_db, create_guild, create_channel, create_user
-):
-    """Verify add_participant validates game belongs to guild."""
-    guild_a = create_guild()
-    guild_b = create_guild()
-    channel = create_channel(guild_id=guild_a["id"])
-    user = create_user()
-
-    game_data = make_game_data(channel["id"], user["id"])
-    game = await guild_queries.create_game(admin_db, guild_a["id"], game_data)
-    await admin_db.commit()
-
-    with pytest.raises(ValueError, match="not found in guild"):
-        await guild_queries.add_participant(
-            admin_db,
-            guild_b["id"],
-            game.id,
-            user["id"],
-            {"position_type": ParticipantType.SELF_ADDED, "position": 0},
-        )
-
-
-@pytest.mark.asyncio
-async def test_add_participant_succeeds_for_correct_guild(
-    admin_db, create_guild, create_channel, create_user
-):
-    """Verify add_participant works when game belongs to guild."""
-    guild = create_guild()
-    channel = create_channel(guild_id=guild["id"])
-    user = create_user()
-
-    game_data = make_game_data(channel["id"], user["id"])
-    game = await guild_queries.create_game(admin_db, guild["id"], game_data)
-    await admin_db.commit()
-
-    participant = await guild_queries.add_participant(
-        admin_db,
-        guild["id"],
-        game.id,
-        user["id"],
-        {"position_type": ParticipantType.SELF_ADDED, "position": 0},
-    )
-    await admin_db.commit()
-
-    assert participant.game_session_id == game.id
-    assert participant.user_id == user["id"]
-
-
-@pytest.mark.asyncio
 async def test_remove_participant_validates_game_belongs_to_guild(
     admin_db, create_guild, create_channel, create_user
 ):
@@ -321,13 +288,7 @@ async def test_remove_participant_validates_game_belongs_to_guild(
 
     game_data = make_game_data(channel["id"], user["id"])
     game = await guild_queries.create_game(admin_db, guild_a["id"], game_data)
-    await guild_queries.add_participant(
-        admin_db,
-        guild_a["id"],
-        game.id,
-        user["id"],
-        {"position_type": ParticipantType.SELF_ADDED, "position": 0},
-    )
+    admin_db.add(_seed_participant(game.id, user["id"]))
     await admin_db.commit()
 
     with pytest.raises(ValueError, match="not found in guild"):
@@ -345,13 +306,7 @@ async def test_remove_participant_succeeds_for_correct_guild(
 
     game_data = make_game_data(channel["id"], user["id"])
     game = await guild_queries.create_game(admin_db, guild["id"], game_data)
-    await guild_queries.add_participant(
-        admin_db,
-        guild["id"],
-        game.id,
-        user["id"],
-        {"position_type": ParticipantType.SELF_ADDED, "position": 0},
-    )
+    admin_db.add(_seed_participant(game.id, user["id"]))
     await admin_db.commit()
 
     await guild_queries.remove_participant(admin_db, guild["id"], game.id, user["id"])
@@ -376,24 +331,12 @@ async def test_list_user_games_returns_only_guild_games(
     game_a = await guild_queries.create_game(
         admin_db, guild_a["id"], make_game_data(channel_a["id"], user["id"])
     )
-    await guild_queries.add_participant(
-        admin_db,
-        guild_a["id"],
-        game_a.id,
-        user["id"],
-        {"position_type": ParticipantType.SELF_ADDED, "position": 0},
-    )
+    admin_db.add(_seed_participant(game_a.id, user["id"]))
 
     game_b = await guild_queries.create_game(
         admin_db, guild_b["id"], make_game_data(channel_b["id"], user["id"])
     )
-    await guild_queries.add_participant(
-        admin_db,
-        guild_b["id"],
-        game_b.id,
-        user["id"],
-        {"position_type": ParticipantType.SELF_ADDED, "position": 0},
-    )
+    admin_db.add(_seed_participant(game_b.id, user["id"]))
     await admin_db.commit()
 
     guild_a_games = await guild_queries.list_user_games(admin_db, guild_a["id"], user["id"])

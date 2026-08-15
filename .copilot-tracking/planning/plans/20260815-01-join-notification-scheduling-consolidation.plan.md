@@ -80,18 +80,18 @@ Consolidate the scattered "schedule a join notification for a new game participa
 - [x] Task 3.3: Run the existing integration suite (scoped to the 4 files confirmed to exercise these functions) and the existing e2e suite (`tests/e2e/test_join_notification.py`) once, now that Phase 3's GREEN state is reached
   - Details: .copilot-tracking/planning/details/20260815-01-join-notification-scheduling-consolidation-details.md (Lines 271-285)
 
-### [ ] Phase 4: Remove dead code — `shared/data_access/guild_queries.py::add_participant`
+### [x] Phase 4: Remove dead code — `shared/data_access/guild_queries.py::add_participant`
 
-- [ ] Task 4.1: Re-confirm zero production callers (re-run the research doc's grep)
+- [x] Task 4.1: Re-confirm zero production callers (re-run the research doc's grep)
   - Details: .copilot-tracking/planning/details/20260815-01-join-notification-scheduling-consolidation-details.md (Lines 290-301)
 
-- [ ] Task 4.2: Remove `add_participant` from `shared/data_access/guild_queries.py` and delete its dedicated `TestAddParticipant` class in `tests/unit/shared/data_access/test_guild_queries_unit.py`
+- [x] Task 4.2: Remove `add_participant` from `shared/data_access/guild_queries.py` and delete its dedicated `TestAddParticipant` class in `tests/unit/shared/data_access/test_guild_queries_unit.py`
   - Details: .copilot-tracking/planning/details/20260815-01-join-notification-scheduling-consolidation-details.md (Lines 302-317)
 
-- [ ] Task 4.3: Delete `add_participant`'s dedicated integration tests in `tests/integration/test_guild_queries_integration.py`; replace the incidental `add_participant`-as-setup calls in `remove_participant`/`list_user_games` tests with a direct-insert helper
+- [x] Task 4.3: Delete `add_participant`'s dedicated integration tests in `tests/integration/test_guild_queries_integration.py`; replace the incidental `add_participant`-as-setup calls in `remove_participant`/`list_user_games` tests with a direct-insert helper
   - Details: .copilot-tracking/planning/details/20260815-01-join-notification-scheduling-consolidation-details.md (Lines 318-356)
 
-- [ ] Task 4.4: Full-suite confirmation (unit, mypy, scoped integration)
+- [x] Task 4.4: Full-suite confirmation (unit, mypy, scoped integration)
   - Details: .copilot-tracking/planning/details/20260815-01-join-notification-scheduling-consolidation-details.md (Lines 357-368)
 
 ## Dependencies

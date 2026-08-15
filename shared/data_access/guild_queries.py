@@ -203,52 +203,6 @@ async def delete_game(db: AsyncSession, guild_id: str, game_id: str) -> None:
     await db.flush()
 
 
-async def add_participant(
-    db: AsyncSession, guild_id: str, game_id: str, user_id: str, data: dict
-) -> GameParticipant:
-    """
-    Add participant to game with guild ownership validation.
-
-    Validates that the game belongs to the specified guild before adding participant.
-
-    Args:
-        db: Database session for query execution
-        guild_id: Guild ID for isolation (required, cannot be None)
-        game_id: Game session ID to add participant to
-        user_id: User ID of participant to add
-        data: Dictionary of additional participant attributes
-
-    Returns:
-        Created GameParticipant object
-
-    Raises:
-        ValueError: If guild_id, game_id, or user_id is empty, or game not found in guild
-    """
-    if not guild_id:
-        msg = "guild_id cannot be empty"
-        raise ValueError(msg)
-    if not game_id:
-        msg = "game_id cannot be empty"
-        raise ValueError(msg)
-    if not user_id:
-        msg = "user_id cannot be empty"
-        raise ValueError(msg)
-
-    game = await get_game_by_id(db, guild_id, game_id)
-    if not game:
-        msg = f"Game {game_id} not found in guild {guild_id}"
-        raise ValueError(msg)
-
-    data_copy = data.copy()
-    data_copy["game_session_id"] = game_id
-    data_copy["user_id"] = user_id
-
-    participant = GameParticipant(**data_copy)
-    db.add(participant)
-    await db.flush()
-    return participant
-
-
 async def remove_participant(db: AsyncSession, guild_id: str, game_id: str, user_id: str) -> None:
     """
     Remove participant from game with guild ownership validation.

@@ -364,64 +364,6 @@ class TestDeleteGame:
         mock_db.execute.assert_not_called()
 
 
-class TestAddParticipant:
-    """Tests for add_participant function."""
-
-    @pytest.mark.asyncio
-    async def test_success_adds_participant(self, mock_db, sample_game):
-        """Adds participant when game found in guild."""
-        mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = sample_game
-        mock_db.execute.return_value = mock_result
-
-        participant_data = {"position": 0}
-        result = await guild_queries.add_participant(
-            mock_db, "guild-1", "game-123", "user-2", participant_data
-        )
-
-        assert isinstance(result, GameParticipant)
-        assert result.game_session_id == "game-123"
-        assert result.user_id == "user-2"
-        mock_db.add.assert_called_once_with(result)
-        mock_db.flush.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_validates_game_belongs_to_guild(self, mock_db):
-        """Raises ValueError when game not found in guild."""
-        mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = None
-        mock_db.execute.return_value = mock_result
-
-        with pytest.raises(ValueError, match="Game game-123 not found in guild guild-1"):
-            await guild_queries.add_participant(mock_db, "guild-1", "game-123", "user-2", {})
-
-        mock_db.add.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_empty_guild_id_raises_error(self, mock_db):
-        """Raises ValueError when guild_id is empty string."""
-        with pytest.raises(ValueError, match="guild_id cannot be empty"):
-            await guild_queries.add_participant(mock_db, "", "game-123", "user-2", {})
-
-        mock_db.execute.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_empty_game_id_raises_error(self, mock_db):
-        """Raises ValueError when game_id is empty string."""
-        with pytest.raises(ValueError, match="game_id cannot be empty"):
-            await guild_queries.add_participant(mock_db, "guild-1", "", "user-2", {})
-
-        mock_db.execute.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_empty_user_id_raises_error(self, mock_db):
-        """Raises ValueError when user_id is empty string."""
-        with pytest.raises(ValueError, match="user_id cannot be empty"):
-            await guild_queries.add_participant(mock_db, "guild-1", "game-123", "", {})
-
-        mock_db.execute.assert_not_called()
-
-
 class TestRemoveParticipant:
     """Tests for remove_participant function."""
 
