@@ -61,12 +61,12 @@ Consolidate the scattered "schedule a join notification for a new game participa
 - [x] Task 1.5: Add direct unit test coverage for the relocated primitive in `tests/unit/shared/services/test_game_schedules.py`
   - Details: .copilot-tracking/planning/details/20260815-01-join-notification-scheduling-consolidation-details.md (Lines 92-109)
 
-### [ ] Phase 2: Fix the confirmed-only bug and rename `_schedule_join_notifications` to public `schedule_join_notifications_for_game`
+### [x] Phase 2: Fix the confirmed-only bug and rename `_schedule_join_notifications` to public `schedule_join_notifications_for_game`
 
-- [ ] Task 2.1: Write the `xfail` regression test proving the confirmed-only bug (RED)
+- [x] Task 2.1: Write the `xfail` regression test proving the confirmed-only bug (RED)
   - Details: .copilot-tracking/planning/details/20260815-01-join-notification-scheduling-consolidation-details.md (Lines 112-141)
 
-- [ ] Task 2.2: Rename, fix (iterate all participants), and delegate to the moved primitive (GREEN); remove the `xfail` marker; update `setup_game_schedules`'s call site and docstring
+- [x] Task 2.2: Rename, fix (iterate all participants), and delegate to the moved primitive (GREEN); remove the `xfail` marker; update `setup_game_schedules`'s call site and docstring
   - Details: .copilot-tracking/planning/details/20260815-01-join-notification-scheduling-consolidation-details.md (Lines 142-180)
 
 ### [ ] Phase 3: Delete `GameService._schedule_join_notifications_for_game` and repoint its callers

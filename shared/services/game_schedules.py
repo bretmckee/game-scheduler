@@ -92,10 +92,10 @@ async def setup_game_schedules(
 ) -> None:
     """Set up announcement schedules after a game is announced.
 
-    Creates join-notification entries for confirmed participants and populates
-    the reminder schedule. Status-transition schedules (IN_PROGRESS/COMPLETED)
-    are created unconditionally at game creation time and must not be created
-    here.
+    Creates join-notification entries for every Discord participant, confirmed
+    or waitlisted, and populates the reminder schedule. Status-transition
+    schedules (IN_PROGRESS/COMPLETED) are created unconditionally at game
+    creation time and must not be created here.
 
     Does not commit.  The caller is responsible for committing the transaction.
 
@@ -104,30 +104,39 @@ async def setup_game_schedules(
         game: The just-announced GameSession (participants relationship must be loaded).
         reminder_minutes: Minutes before game start at which to send reminders.
     """
-    await _schedule_join_notifications(db, game)
+    await schedule_join_notifications_for_game(db, game)
     await _populate_reminder_schedule(db, game, reminder_minutes)
 
 
-async def _schedule_join_notifications(
+async def schedule_join_notifications_for_game(
     db: AsyncSession,
     game: game_model.GameSession,
 ) -> None:
-    partitioned = partition_participants(
-        game.participants, game.max_players, signup_method=game.signup_method
-    )
-    for participant in partitioned.confirmed:
+    """Schedule delayed join notifications for every Discord participant in a game.
+
+    Schedules every participant in game.participants, confirmed or waitlisted alike
+    (unlike schedule_join_notification, which schedules a single, already-known-new
+    participant). Safe only when the entire game.participants list is known to
+    contain no previously-scheduled rows, i.e. at bulk "activation" moments such as
+    game announcement or recurrence-clone creation — not for incremental joins,
+    which must call schedule_join_notification directly to avoid re-scheduling
+    (and re-notifying) pre-existing participants.
+
+    Does not commit. Caller must commit transaction.
+
+    Args:
+        db: Active async database session.
+        game: The GameSession whose participants should be scheduled.
+    """
+    for participant in game.participants:
         if participant.user_id:
-            schedule = notification_schedule_model.NotificationSchedule(
+            await schedule_join_notification(
+                db=db,
                 game_id=game.id,
                 participant_id=participant.id,
-                notification_type="join_notification",
-                notification_time=utc_now() + timedelta(seconds=60),
-                sent=False,
                 game_scheduled_at=game.scheduled_at,
-                reminder_minutes=None,
+                delay_seconds=60,
             )
-            db.add(schedule)
-            await db.flush()
 
 
 async def _populate_reminder_schedule(

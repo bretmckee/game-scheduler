@@ -28,11 +28,13 @@ import pytest
 
 from shared.models import game as game_model
 from shared.models import notification_schedule as ns_model
+from shared.models import participant as participant_model
+from shared.models.signup_method import SignupMethod
 from shared.services.game_schedules import (
     _create_status_schedules,
     _populate_reminder_schedule,
-    _schedule_join_notifications,
     schedule_join_notification,
+    schedule_join_notifications_for_game,
     setup_game_schedules,
 )
 from shared.utils.status_transitions import GameStatus
@@ -107,7 +109,7 @@ async def test_setup_game_schedules_delegates_to_helpers(db, game):
     """setup_game_schedules must call join-notification and reminder helpers."""
     with (
         patch(
-            "shared.services.game_schedules._schedule_join_notifications", new=AsyncMock()
+            "shared.services.game_schedules.schedule_join_notifications_for_game", new=AsyncMock()
         ) as mock_join,
         patch(
             "shared.services.game_schedules._populate_reminder_schedule", new=AsyncMock()
@@ -120,36 +122,25 @@ async def test_setup_game_schedules_delegates_to_helpers(db, game):
 
 
 @pytest.mark.asyncio
-async def test_schedule_join_notifications_adds_entry_for_confirmed_participant_with_user_id(
-    db, game
-):
-    """A confirmed participant with a user_id must get a join-notification entry."""
+async def test_schedule_join_notifications_for_game_delegates_for_confirmed_participant(db, game):
+    """A participant with a user_id must be scheduled via the shared primitive."""
     participant = MagicMock()
     participant.id = "participant-1"
     participant.user_id = "user-1"
+    game.participants = [participant]
 
-    partitioned = MagicMock()
-    partitioned.confirmed = [participant]
+    with patch(
+        "shared.services.game_schedules.schedule_join_notification", new=AsyncMock()
+    ) as mock_schedule:
+        await schedule_join_notifications_for_game(db, game)
 
-    with (
-        patch("shared.services.game_schedules.partition_participants", return_value=partitioned),
-        patch(
-            "shared.services.game_schedules.utc_now",
-            return_value=datetime.datetime(2026, 1, 1, 12, 0, 0, tzinfo=datetime.UTC).replace(
-                tzinfo=None
-            ),
-        ),
-    ):
-        await _schedule_join_notifications(db, game)
-
-    db.add.assert_called_once()
-    added = db.add.call_args[0][0]
-    assert isinstance(added, ns_model.NotificationSchedule)
-    assert added.game_id == "game-1"
-    assert added.participant_id == "participant-1"
-    assert added.notification_type == "join_notification"
-    assert added.sent is False
-    db.flush.assert_awaited_once()
+    mock_schedule.assert_called_once_with(
+        db=db,
+        game_id=game.id,
+        participant_id=participant.id,
+        game_scheduled_at=game.scheduled_at,
+        delay_seconds=60,
+    )
 
 
 @pytest.mark.asyncio
@@ -157,14 +148,42 @@ async def test_schedule_join_notifications_skips_participant_without_user_id(db,
     """Participants without a user_id must not produce a notification entry."""
     participant = MagicMock()
     participant.user_id = None
+    game.participants = [participant]
 
-    partitioned = MagicMock()
-    partitioned.confirmed = [participant]
+    with patch(
+        "shared.services.game_schedules.schedule_join_notification", new=AsyncMock()
+    ) as mock_schedule:
+        await schedule_join_notifications_for_game(db, game)
 
-    with patch("shared.services.game_schedules.partition_participants", return_value=partitioned):
-        await _schedule_join_notifications(db, game)
+    mock_schedule.assert_not_called()
 
-    db.add.assert_not_called()
+
+@pytest.mark.asyncio
+async def test_schedule_join_notifications_for_game_includes_overflow_participant(db, game):
+    """Waitlisted (overflow) participants must be scheduled, not just confirmed ones."""
+    game.max_players = 1
+    game.signup_method = SignupMethod.SELF_SIGNUP
+    joined_at = datetime.datetime(2026, 1, 1, tzinfo=datetime.UTC)
+    confirmed_participant = MagicMock()
+    confirmed_participant.id = "participant-confirmed"
+    confirmed_participant.user_id = "user-confirmed"
+    confirmed_participant.position_type = participant_model.ParticipantType.SELF_ADDED
+    confirmed_participant.position = 1
+    confirmed_participant.joined_at = joined_at
+    overflow_participant = MagicMock()
+    overflow_participant.id = "participant-overflow"
+    overflow_participant.user_id = "user-overflow"
+    overflow_participant.position_type = participant_model.ParticipantType.SELF_ADDED
+    overflow_participant.position = 2
+    overflow_participant.joined_at = joined_at
+    game.participants = [confirmed_participant, overflow_participant]
+
+    with patch(
+        "shared.services.game_schedules.schedule_join_notification", new=AsyncMock()
+    ) as mock_schedule:
+        await schedule_join_notifications_for_game(db, game)
+
+    assert mock_schedule.call_count == 2
 
 
 @pytest.mark.asyncio
