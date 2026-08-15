@@ -106,8 +106,13 @@ class NotificationScheduleService:
         """
         Update notification schedule for a game session.
 
-        Deletes existing schedule records and creates new ones based on
-        current game.scheduled_at and reminder_minutes values.
+        Deletes existing reminder schedule records and creates new ones based
+        on current game.scheduled_at and reminder_minutes values. Scoped to
+        notification_type == "reminder" only -- this table also holds
+        join_notification rows (see NotificationSchedule's docstring), which
+        must survive a reminder refresh even when both happen to fall in the
+        same request/transaction (e.g. a host edit that both adds a
+        participant and resubmits reminder_minutes).
 
         Does not commit. Caller must commit transaction.
 
@@ -115,13 +120,15 @@ class NotificationScheduleService:
             game: Game session to update schedule for
             reminder_minutes: List of reminder times in minutes before game
         """
-        # Delete existing schedule records
+        # Delete existing reminder schedule records only -- must not touch
+        # join_notification rows for this game.
         await self.db.execute(
             delete(notification_schedule_model.NotificationSchedule).where(
-                notification_schedule_model.NotificationSchedule.game_id == game.id
+                notification_schedule_model.NotificationSchedule.game_id == game.id,
+                notification_schedule_model.NotificationSchedule.notification_type == "reminder",
             )
         )
-        logger.debug("Deleted existing schedule for game %s", game.id)
+        logger.debug("Deleted existing reminder schedule for game %s", game.id)
 
         # Populate new schedule
         await self.populate_schedule(game, reminder_minutes)

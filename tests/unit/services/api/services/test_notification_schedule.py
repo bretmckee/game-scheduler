@@ -117,6 +117,32 @@ async def test_update_schedule_deletes_and_creates():
 
 
 @pytest.mark.asyncio
+async def test_update_schedule_delete_is_scoped_to_reminder_rows():
+    """update_schedule's DELETE must only target reminder-type rows.
+
+    join_notification rows (e.g. one just created by _add_new_mentions in the
+    same request) must survive a reminder-schedule refresh -- this table holds
+    both types (see NotificationSchedule's docstring), and update_schedule's
+    job is only to refresh reminders.
+    """
+    mock_db = AsyncMock()
+    mock_db.add = MagicMock()
+    service = NotificationScheduleService(mock_db)
+
+    scheduled_at = datetime.now(UTC).replace(tzinfo=None) + timedelta(hours=3)
+    game = MagicMock(spec=GameSession)
+    game.id = "test-game-id"
+    game.scheduled_at = scheduled_at
+
+    await service.update_schedule(game, [120, 30])
+
+    delete_stmt = mock_db.execute.call_args_list[0][0][0]
+    compiled_sql = str(delete_stmt.compile(compile_kwargs={"literal_binds": True}))
+    assert "notification_type" in compiled_sql
+    assert "reminder" in compiled_sql
+
+
+@pytest.mark.asyncio
 async def test_populate_schedule_with_empty_reminders():
     """Test that populate_schedule handles empty reminder list gracefully."""
     # Mock database session
