@@ -52,6 +52,7 @@ from shared.models.message_refresh_queue import MessageRefreshQueue
 from shared.models.notification_schedule import NotificationSchedule
 from shared.models.participant import GameParticipant
 from shared.models.participant_action_schedule import ParticipantActionSchedule
+from shared.models.signup_method import SignupMethod
 from shared.schemas.events import (
     GameStatusTransitionDueEvent,
     NotificationDueEvent,
@@ -622,7 +623,11 @@ class EventHandlers:
             game.participants, game.max_players, signup_method=game.signup_method
         )
         if participant in partitioned.overflow:
-            return DMFormats.join_waitlist(game_title=game.title, jump_url=jump_url)
+            return DMFormats.join_waitlist(
+                game_title=game.title,
+                jump_url=jump_url,
+                host_selects=game.signup_method == SignupMethod.HOST_SELECTED_WITH_WAITLIST,
+            )
 
         if game.signup_instructions:
             return DMFormats.join_with_instructions(

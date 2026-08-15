@@ -591,6 +591,7 @@ class TestHandleJoinNotificationHelpers:
                     game_title=sample_game.title,
                     jump_url=f"https://discord.com/channels/"
                     f"{sample_game.guild.guild_id}/{sample_game.channel.channel_id}/{sample_game.message_id}",
+                    host_selects=True,
                 )
                 mock_formats.join_simple.assert_not_called()
                 mock_formats.join_with_instructions.assert_not_called()
@@ -668,6 +669,7 @@ class TestHandleJoinNotificationHelpers:
                     game_title=sample_game.title,
                     jump_url=f"https://discord.com/channels/"
                     f"{sample_game.guild.guild_id}/{sample_game.channel.channel_id}/{sample_game.message_id}",
+                    host_selects=False,
                 )
                 mock_formats.join_simple.assert_not_called()
                 mock_formats.join_with_instructions.assert_not_called()

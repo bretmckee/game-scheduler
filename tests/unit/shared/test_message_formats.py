@@ -273,6 +273,20 @@ def test_join_waitlist_without_jump_url_omits_link():
     assert "Epic Quest" in msg
 
 
+def test_join_waitlist_omits_host_selection_text_by_default():
+    """Default (non-HOST_SELECTED_WITH_WAITLIST) waitlist DM must not claim
+    the host selects who gets promoted -- promotion there is automatic."""
+    msg = DMFormats.join_waitlist("Epic Quest")
+    assert "host will select" not in msg.lower()
+
+
+def test_join_waitlist_includes_host_selection_text_when_host_selects():
+    """HOST_SELECTED_WITH_WAITLIST games do have the host manually select --
+    that sentence must still appear when host_selects=True."""
+    msg = DMFormats.join_waitlist("Epic Quest", host_selects=True)
+    assert "host will select" in msg.lower()
+
+
 # DMPredicates.join_waitlist
 
 

@@ -225,21 +225,31 @@ class DMFormats:
         )
 
     @staticmethod
-    def join_waitlist(game_title: str, jump_url: str | None = None) -> str:
+    def join_waitlist(
+        game_title: str,
+        jump_url: str | None = None,
+        *,
+        host_selects: bool = False,
+    ) -> str:
         """
-        Format DM sent when a player joins the waitlist for a HOST_SELECTED_WITH_WAITLIST game.
+        Format DM sent when a player joins the waitlist for a game.
 
         Args:
             game_title: Title of the game
             jump_url: Discord jump URL to game posting, or None if unavailable
+            host_selects: True for HOST_SELECTED_WITH_WAITLIST, where the host
+                manually chooses who to promote. False (default) for any other
+                signup method that can waitlist (SELF_SIGNUP, ROLE_BASED),
+                where promotion happens automatically as slots open up.
 
         Returns:
             Formatted waitlist join message
         """
-        text = (
-            f"\U0001f3ab You're on the waitlist for **{game_title}**. "
-            f"The host will select participants. You will be notified if you are selected."
-        )
+        text = f"\U0001f3ab You're on the waitlist for **{game_title}**. "
+        if host_selects:
+            text += "The host will select participants. You will be notified if you are selected."
+        else:
+            text += "You'll be automatically notified if a spot opens up."
         if jump_url:
             text += f"\n[View game in Discord]({jump_url})"
         return text
