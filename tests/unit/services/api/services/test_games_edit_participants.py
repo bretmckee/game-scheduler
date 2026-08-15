@@ -23,7 +23,7 @@
 
 import datetime
 import uuid
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -685,3 +685,64 @@ async def test_update_prefilled_role_based_game_never_promotes_to_host_added(
     await game_service._update_prefilled_participants(game, participant_data_list)
 
     assert role_matched.position_type != ParticipantType.HOST_ADDED
+
+
+@pytest.mark.asyncio
+async def test_update_prefilled_schedules_join_notification_for_new_mention(
+    game_service,
+    mock_db,
+    mock_participant_resolver,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """A brand-new @mention added by the host via game update must be scheduled
+    for a join notification, the same as one added at game creation time.
+    """
+    game_id = str(uuid.uuid4())
+    scheduled_at = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+
+    game = game_model.GameSession(
+        id=game_id,
+        title="Test Game",
+        scheduled_at=scheduled_at,
+        guild_id=sample_guild.id,
+        channel_id=sample_channel.id,
+        host_id=sample_user.id,
+        max_players=5,
+        status="SCHEDULED",
+        signup_method=SignupMethod.HOST_SELECTED.value,
+        participants=[],  # loaded (and cached) before the new participant exists
+    )
+    game.guild = sample_guild
+    game.channel = sample_channel
+    game.host = sample_user
+
+    new_user = user_model.User(id=str(uuid.uuid4()), discord_id="111222333444555666")
+    mock_participant_resolver.resolve_initial_participants.return_value = (
+        [
+            {
+                "type": "discord",
+                "discord_id": "111222333444555666",
+                "original_input": "<@111222333444555666>",
+            }
+        ],
+        [],
+    )
+    mock_participant_resolver.ensure_user_exists = AsyncMock(return_value=new_user)
+    mock_db.flush = AsyncMock()
+
+    participant_data_list = [{"mention": "<@111222333444555666>", "position": 1}]
+
+    with patch(
+        "services.api.services.games.schedule_join_notification", new_callable=AsyncMock
+    ) as mock_schedule:
+        await game_service._update_prefilled_participants(game, participant_data_list)
+
+    mock_schedule.assert_called_once_with(
+        db=mock_db,
+        game_id=game_id,
+        participant_id=ANY,
+        game_scheduled_at=scheduled_at,
+        delay_seconds=60,
+    )

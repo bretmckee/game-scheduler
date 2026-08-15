@@ -430,11 +430,13 @@ class TestHandleJoinNotificationHelpers:
     def test_format_join_notification_message_with_instructions(self, event_handlers, sample_game):
         """Test message formatting with signup instructions."""
         sample_game.signup_instructions = "Join our Discord at https://discord.gg/test"
+        participant = MagicMock()
+        participant.id = str(uuid4())
 
         with patch("services.bot.events.handlers.DMFormats") as mock_formats:
             mock_formats.join_with_instructions.return_value = "Test message with instructions"
 
-            message = event_handlers._format_join_notification_message(sample_game)
+            message = event_handlers._format_join_notification_message(sample_game, participant)
 
             expected_jump_url = (
                 f"https://discord.com/channels/"
@@ -453,11 +455,13 @@ class TestHandleJoinNotificationHelpers:
     ):
         """Test message formatting without signup instructions."""
         sample_game.signup_instructions = None
+        participant = MagicMock()
+        participant.id = str(uuid4())
 
         with patch("services.bot.events.handlers.DMFormats") as mock_formats:
             mock_formats.join_simple.return_value = "Test simple message"
 
-            message = event_handlers._format_join_notification_message(sample_game)
+            message = event_handlers._format_join_notification_message(sample_game, participant)
 
             expected_jump_url = (
                 f"https://discord.com/channels/"
@@ -472,11 +476,13 @@ class TestHandleJoinNotificationHelpers:
         """Test message formatting passes jump_url=None when message_id is absent."""
         sample_game.message_id = None
         sample_game.signup_instructions = None
+        participant = MagicMock()
+        participant.id = str(uuid4())
 
         with patch("services.bot.events.handlers.DMFormats") as mock_formats:
             mock_formats.join_simple.return_value = "Test simple message"
 
-            message = event_handlers._format_join_notification_message(sample_game)
+            message = event_handlers._format_join_notification_message(sample_game, participant)
 
             mock_formats.join_simple.assert_called_once_with(sample_game.title, jump_url=None)
             assert message == "Test simple message"
@@ -520,23 +526,78 @@ class TestHandleJoinNotificationHelpers:
                 assert "Failed to send join notification" in str(mock_logger.warning.call_args)
 
     def test_format_join_notification_dispatches_waitlist_dm(self, event_handlers, sample_game):
-        """Test join notification dispatches join_waitlist for HOST_SELECTED_WITH_WAITLIST.
+        """Test join notification dispatches join_waitlist for a still-waitlisted
+        participant in HOST_SELECTED_WITH_WAITLIST.
 
         join_simple and join_with_instructions must NOT be called.
         """
         sample_game.signup_method = SignupMethod.HOST_SELECTED_WITH_WAITLIST
         sample_game.signup_instructions = None
+        participant = MagicMock()
+        participant.id = str(uuid4())
 
-        with patch("services.bot.events.handlers.DMFormats") as mock_formats:
-            mock_formats.join_waitlist.return_value = "You're on the waitlist!"
+        with patch("services.bot.events.handlers.partition_participants") as mock_partition:
+            mock_partitioned = MagicMock()
+            mock_partitioned.confirmed = []
+            mock_partitioned.overflow = [participant]
+            mock_partition.return_value = mock_partitioned
 
-            message = event_handlers._format_join_notification_message(sample_game)
+            with patch("services.bot.events.handlers.DMFormats") as mock_formats:
+                mock_formats.join_waitlist.return_value = "You're on the waitlist!"
 
-            mock_formats.join_waitlist.assert_called_once_with(
-                game_title=sample_game.title,
-                jump_url=f"https://discord.com/channels/"
-                f"{sample_game.guild.guild_id}/{sample_game.channel.channel_id}/{sample_game.message_id}",
-            )
-            mock_formats.join_simple.assert_not_called()
-            mock_formats.join_with_instructions.assert_not_called()
-            assert message == "You're on the waitlist!"
+                message = event_handlers._format_join_notification_message(sample_game, participant)
+
+                mock_partition.assert_called_once_with(
+                    sample_game.participants,
+                    sample_game.max_players,
+                    signup_method=sample_game.signup_method,
+                )
+                mock_formats.join_waitlist.assert_called_once_with(
+                    game_title=sample_game.title,
+                    jump_url=f"https://discord.com/channels/"
+                    f"{sample_game.guild.guild_id}/{sample_game.channel.channel_id}/{sample_game.message_id}",
+                )
+                mock_formats.join_simple.assert_not_called()
+                mock_formats.join_with_instructions.assert_not_called()
+                assert message == "You're on the waitlist!"
+
+    def test_format_join_notification_uses_instructions_for_confirmed_in_hsw_mode(
+        self, event_handlers, sample_game
+    ):
+        """A participant who actually landed in a confirmed slot of a
+        HOST_SELECTED_WITH_WAITLIST game (e.g. host-added directly) must get the
+        host's welcome message, not the "you're on the waitlist" DM.
+        """
+        sample_game.signup_method = SignupMethod.HOST_SELECTED_WITH_WAITLIST
+        sample_game.signup_instructions = "Bring your character sheet"
+        participant = MagicMock()
+        participant.id = str(uuid4())
+
+        with patch("services.bot.events.handlers.partition_participants") as mock_partition:
+            mock_partitioned = MagicMock()
+            mock_partitioned.confirmed = [participant]
+            mock_partitioned.overflow = []
+            mock_partition.return_value = mock_partitioned
+
+            with patch("services.bot.events.handlers.DMFormats") as mock_formats:
+                mock_formats.join_with_instructions.return_value = "Welcome!"
+
+                message = event_handlers._format_join_notification_message(sample_game, participant)
+
+                mock_partition.assert_called_once_with(
+                    sample_game.participants,
+                    sample_game.max_players,
+                    signup_method=sample_game.signup_method,
+                )
+                expected_jump_url = (
+                    f"https://discord.com/channels/"
+                    f"{sample_game.guild.guild_id}/{sample_game.channel.channel_id}/{sample_game.message_id}"
+                )
+                mock_formats.join_with_instructions.assert_called_once_with(
+                    sample_game.title,
+                    sample_game.signup_instructions,
+                    int(sample_game.scheduled_at.timestamp()),
+                    jump_url=expected_jump_url,
+                )
+                mock_formats.join_waitlist.assert_not_called()
+                assert message == "Welcome!"

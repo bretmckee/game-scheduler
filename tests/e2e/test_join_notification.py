@@ -467,3 +467,113 @@ async def test_join_dm_says_waitlist_for_host_selected_with_waitlist(
 
     print(f"[TEST] DM Content:\n{join_dm.content}")
     print("[TEST] ✓ Waitlist join DM delivery verified successfully")
+
+
+@pytest.mark.timeout(240)
+@pytest.mark.asyncio
+async def test_join_dm_has_instructions_when_host_adds_directly_to_confirmed_hsw_slot(
+    authenticated_admin_client,
+    admin_db,
+    main_bot_helper,
+    discord_channel_id,
+    discord_user_id,
+    discord_guild_id,
+    synced_guild,
+    test_timeouts,
+):
+    """
+    E2E: Host @-adding a player directly into a confirmed slot of a
+    HOST_SELECTED_WITH_WAITLIST game sends the welcome message (with the
+    host's signup instructions), not the generic waitlist DM.
+
+    Regression test: _format_join_notification_message used to send the
+    waitlist DM to every participant in this signup method regardless of
+    whether they actually landed in a confirmed slot.
+
+    Verifies:
+    - Game created with signup_method=HOST_SELECTED_WITH_WAITLIST and
+      signup_instructions configured
+    - Host adds the player directly (as a new @mention, not pre-existing)
+      via the participants update API, landing in a confirmed slot
+    - Join notification DM contains the host's signup instructions
+    - DM does NOT contain waitlist language
+    """
+    result = await admin_db.execute(
+        text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
+        {"guild_id": discord_guild_id},
+    )
+    row = result.fetchone()
+    assert row, f"Test guild {discord_guild_id} not found"
+    test_guild_id = row[0]
+
+    result = await admin_db.execute(
+        text("SELECT id FROM game_templates WHERE guild_id = :guild_id AND is_default = true"),
+        {"guild_id": test_guild_id},
+    )
+    row = result.fetchone()
+    assert row, f"Default template not found for guild {test_guild_id}"
+    test_template_id = row[0]
+
+    scheduled_time = datetime.now(UTC) + timedelta(hours=2)
+    game_title = f"E2E HSW Host Add Test {uuid4().hex[:8]}"
+    signup_instructions = "Bring your character sheet to the table."
+
+    game_data = {
+        "template_id": test_template_id,
+        "title": game_title,
+        "description": "Testing host-added confirmed slot DM in HOST_SELECTED_WITH_WAITLIST",
+        "scheduled_at": scheduled_time.isoformat(),
+        "max_players": "4",
+        "signup_method": SignupMethod.HOST_SELECTED_WITH_WAITLIST.value,
+        "signup_instructions": signup_instructions,
+    }
+
+    response = await authenticated_admin_client.post("/api/v1/games", data=game_data)
+    assert response.status_code == 201, f"Failed to create game: {response.text}"
+    game_id = response.json()["id"]
+    print(f"\n[TEST] Created HOST_SELECTED_WITH_WAITLIST game {game_id} with signup_instructions")
+
+    message_id = await wait_for_game_message_id(
+        admin_db, game_id, timeout=test_timeouts[TimeoutType.DB_WRITE]
+    )
+    await main_bot_helper.wait_for_message(
+        channel_id=discord_channel_id,
+        message_id=message_id,
+        timeout=test_timeouts[TimeoutType.MESSAGE_CREATE],
+    )
+
+    # Host adds the test user directly via @mention; with an empty roster and
+    # max_players=4, this lands the new HOST_ADDED participant in a confirmed slot.
+    add_data = {
+        "participants": json.dumps([{"mention": f"<@{discord_user_id}>", "position": 1}]),
+    }
+    add_response = await authenticated_admin_client.put(f"/api/v1/games/{game_id}", data=add_data)
+    assert add_response.status_code == 200, f"Failed to add participant: {add_response.text}"
+    print(f"[TEST] Host added test user {discord_user_id} directly to a confirmed slot")
+
+    join_dm = await main_bot_helper.wait_for_recent_dm(
+        user_id=discord_user_id,
+        game_title=game_title,
+        dm_type=DMType.JOIN,
+        timeout=test_timeouts[TimeoutType.DM_SCHEDULED],
+        interval=5,
+    )
+
+    assert game_title in join_dm.content, (
+        f"Join notification DM should mention game title '{game_title}'"
+    )
+    print("[TEST] ✓ Join notification DM contains game title")
+
+    assert signup_instructions in join_dm.content, (
+        "Host-added confirmed participant should receive the welcome message "
+        "with the host's signup instructions"
+    )
+    print("[TEST] ✓ Join notification DM contains the host's signup instructions")
+
+    assert "waitlist" not in join_dm.content.lower(), (
+        "Confirmed participant should NOT receive waitlist language"
+    )
+    print("[TEST] ✓ Join notification DM does NOT contain waitlist language")
+
+    print(f"[TEST] DM Content:\n{join_dm.content}")
+    print("[TEST] ✓ Host-added confirmed slot welcome DM delivery verified successfully")

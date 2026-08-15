@@ -261,10 +261,11 @@ async def test_promotion_drag_delivers_promotion_dm(
     E2E: Host promoting a waitlisted player in HOST_SELECTED_WITH_WAITLIST sends promotion DM.
 
     Verifies:
-    - Game created with HOST_SELECTED_WITH_WAITLIST
+    - Game created with HOST_SELECTED_WITH_WAITLIST and signup_instructions configured
     - Test user joins (lands on waitlist as SELF_ADDED in overflow)
     - Host explicitly selects (promotes) the waitlisted user via the participants update API
-    - Test user receives a promotion DM
+    - Test user receives a promotion DM that includes the host's signup instructions
+      (the promotion DM is the only join notification a promoted user ever gets)
     """
     result = await admin_db.execute(
         text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
@@ -284,6 +285,7 @@ async def test_promotion_drag_delivers_promotion_dm(
 
     game_title = f"E2E Host Drag Promote {uuid4().hex[:8]}"
     scheduled_at = datetime.now(UTC) + timedelta(hours=2)
+    signup_instructions = "Bring your character sheet to the table."
 
     game_data = {
         "template_id": test_template_id,
@@ -292,6 +294,7 @@ async def test_promotion_drag_delivers_promotion_dm(
         "scheduled_at": scheduled_at.isoformat(),
         "max_players": "4",
         "signup_method": SignupMethod.HOST_SELECTED_WITH_WAITLIST.value,
+        "signup_instructions": signup_instructions,
     }
 
     response = await authenticated_admin_client.post("/api/v1/games", data=game_data)
@@ -376,6 +379,10 @@ async def test_promotion_drag_delivers_promotion_dm(
     )
     assert f"[View game in Discord]({expected_jump_url})" in promotion_dm.content, (
         f"Promotion DM should contain link to game embed: {expected_jump_url}"
+    )
+    assert signup_instructions in promotion_dm.content, (
+        "Promotion DM should include the host's signup instructions, since the "
+        "promoted user never receives a separate join_with_instructions DM"
     )
     print(f"✓ Test user received promotion DM: {promotion_dm.content[:100]}...")
     print("✓ HOST_SELECTED_WITH_WAITLIST promotion drag DM delivery validated")

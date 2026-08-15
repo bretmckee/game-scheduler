@@ -1549,6 +1549,12 @@ class GameService:
                     position=position,
                 )
             self.db.add(new_participant)
+            # Callers (e.g. _update_prefilled_participants) may have already
+            # loaded game.participants earlier in the request; setting the FK
+            # alone doesn't update that cached collection, so append explicitly
+            # or _schedule_join_notifications_for_game below would partition
+            # against a stale list that's missing every participant just added.
+            game.participants.append(new_participant)
 
         await self.db.flush()
 

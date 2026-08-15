@@ -202,3 +202,97 @@ def test_confirmed_leave_via_api_promotes_waitlisted_participant(
     assert waitlisted_user["discord_id"] in discord_ids, (
         "send_dm must target the promoted waitlisted user"
     )
+
+
+def test_promotion_dm_includes_host_signup_instructions(
+    admin_db_sync,
+    create_user,
+    create_guild,
+    create_channel,
+    create_template,
+    seed_redis_cache,
+    create_authenticated_client,
+):
+    """
+    The waitlist_promotion send_dm payload includes the game's signup_instructions.
+
+    A promoted user never receives a separate join_with_instructions DM -- the
+    promotion DM is the only join notification they ever get -- so the host's
+    signup instructions must ride along on it.
+    """
+    ctx = _make_context(
+        create_guild,
+        create_channel,
+        create_user,
+        create_template,
+        seed_redis_cache,
+        guild_discord_id="764555555555555555",
+        channel_discord_id="764555555555555556",
+        allowed_signup_methods=[SignupMethod.HOST_SELECTED_WITH_WAITLIST.value],
+        default_signup_method=SignupMethod.HOST_SELECTED_WITH_WAITLIST.value,
+    )
+
+    confirmed_user = create_user()
+    waitlisted_user = create_user()
+
+    seed_redis_cache(
+        user_discord_id=confirmed_user["discord_id"],
+        guild_discord_id="764555555555555555",
+        channel_discord_id="764555555555555556",
+    )
+
+    bot_manager_client = create_authenticated_client(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+
+    scheduled_at = (datetime.now(UTC) + timedelta(days=1)).isoformat()
+    signup_instructions = "Bring your character sheet to the table."
+    create_resp = bot_manager_client.post(
+        "/api/v1/games",
+        data={
+            "template_id": ctx["template_id"],
+            "title": "INT_TEST Promotion Instructions Game",
+            "scheduled_at": scheduled_at,
+            "signup_method": SignupMethod.HOST_SELECTED_WITH_WAITLIST.value,
+            "max_players": "1",
+            "signup_instructions": signup_instructions,
+        },
+    )
+    assert create_resp.status_code in (200, 201), f"Create failed: {create_resp.text}"
+    game_id = create_resp.json()["id"]
+
+    _insert_participant(
+        admin_db_sync,
+        game_id,
+        confirmed_user["id"],
+        position=1,
+        position_type=ParticipantType.HOST_ADDED,
+    )
+    _insert_participant(
+        admin_db_sync,
+        game_id,
+        waitlisted_user["id"],
+        position=2,
+        position_type=ParticipantType.HOST_ADDED,
+    )
+
+    confirmed_client = create_authenticated_client(PLAYER_FAKE_TOKEN, confirmed_user["discord_id"])
+    leave_resp = confirmed_client.post(f"/api/v1/games/{game_id}/leave")
+    assert leave_resp.status_code == 204, f"Leave failed: {leave_resp.text}"
+
+    dm_rows = admin_db_sync.execute(
+        text(
+            "SELECT payload FROM bot_action_queue "
+            "WHERE action_type = 'send_dm' AND game_id = :game_id "
+            "AND discord_id = :discord_id"
+        ),
+        {"game_id": game_id, "discord_id": waitlisted_user["discord_id"]},
+    ).fetchall()
+
+    promotion_payloads = [
+        row[0] for row in dm_rows if row[0].get("notification_type") == "waitlist_promotion"
+    ]
+    assert len(promotion_payloads) == 1, (
+        f"Expected exactly one waitlist_promotion send_dm, got: {dm_rows}"
+    )
+    assert signup_instructions in promotion_payloads[0]["message"], (
+        f"Promotion DM should include signup_instructions, got: {promotion_payloads[0]['message']}"
+    )

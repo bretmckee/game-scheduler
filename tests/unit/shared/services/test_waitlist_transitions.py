@@ -51,12 +51,14 @@ def _make_game(
     max_players: int = 1,
     message_id: str | None = "msg-id-123",
     title: str = "Test Game",
+    signup_instructions: str | None = None,
 ) -> MagicMock:
     game = MagicMock()
     game.id = "game-uuid-1"
     game.title = title
     game.max_players = max_players
     game.signup_method = "self_signup"
+    game.signup_instructions = signup_instructions
     game.scheduled_at = datetime.datetime(2026, 8, 1, 18, 0, tzinfo=datetime.UTC)
     game.message_id = message_id
     game.guild = MagicMock()
@@ -164,6 +166,26 @@ class TestDetectAndNotifyTransitions:
         bot_rows = [r for r in added if isinstance(r, BotActionQueue)]
         assert len(bot_rows) == 1
         assert "discord.com/channels" not in bot_rows[0].payload["message"]
+
+    @pytest.mark.asyncio
+    async def test_promotion_dm_includes_host_signup_instructions(self, mock_db: MagicMock) -> None:
+        """The promotion DM carries the host's welcome text, since it's the only
+        join notification a promoted (waitlist -> confirmed) user ever receives.
+        """
+        confirmed = _make_participant("host-user")
+        overflow = _make_participant(
+            "waitlisted-user", joined_at=datetime.datetime(2026, 1, 2, tzinfo=datetime.UTC)
+        )
+        old_partitioned = partition_participants([confirmed, overflow], max_players=1)
+
+        game = _make_game(max_players=1, signup_instructions="Bring your character sheet")
+        game.participants = [overflow]
+
+        await detect_and_notify_transitions(mock_db, game, old_partitioned)
+
+        added = [c.args[0] for c in mock_db.add.call_args_list]
+        bot_rows = [r for r in added if isinstance(r, BotActionQueue)]
+        assert "Bring your character sheet" in bot_rows[0].payload["message"]
 
     @pytest.mark.asyncio
     async def test_multiple_simultaneous_promotions(self, mock_db: MagicMock) -> None:

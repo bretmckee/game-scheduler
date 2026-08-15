@@ -594,12 +594,21 @@ class EventHandlers:
     def _format_join_notification_message(
         self,
         game: GameSession,
+        participant: GameParticipant,
     ) -> str:
         """
         Format join notification message with conditional signup instructions.
 
+        In HOST_SELECTED_WITH_WAITLIST games, a participant can be either
+        confirmed or waitlisted (see _is_participant_confirmed), so status is
+        re-derived here rather than assumed from signup_method alone — only a
+        participant who is actually still waitlisted gets the generic waitlist
+        DM; a confirmed participant gets the host's welcome message like any
+        other mode.
+
         Args:
             game: The game session
+            participant: The participant being notified
 
         Returns:
             Formatted message string
@@ -614,7 +623,11 @@ class EventHandlers:
             logger.warning("Cannot build jump URL for join notification on game %s", game.id)
 
         if game.signup_method == SignupMethod.HOST_SELECTED_WITH_WAITLIST:
-            return DMFormats.join_waitlist(game_title=game.title, jump_url=jump_url)
+            partitioned = partition_participants(
+                game.participants, game.max_players, signup_method=game.signup_method
+            )
+            if participant in partitioned.overflow:
+                return DMFormats.join_waitlist(game_title=game.title, jump_url=jump_url)
 
         if game.signup_instructions:
             return DMFormats.join_with_instructions(
@@ -674,7 +687,7 @@ class EventHandlers:
                 if not self._is_participant_confirmed(participant, game):
                     return
 
-                message = self._format_join_notification_message(game)
+                message = self._format_join_notification_message(game, participant)
                 await self._send_join_notification_dm(participant, message, str(event.game_id))
 
         except Exception as e:
@@ -707,7 +720,7 @@ class EventHandlers:
                         event.participant_id,
                         event.game_id,
                     )
-                    message = self._format_join_notification_message(game)
+                    message = self._format_join_notification_message(game, participant)
                     await self._send_join_notification_dm(participant, message, str(event.game_id))
                     return
 

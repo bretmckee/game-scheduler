@@ -211,6 +211,16 @@ def test_promotion_no_jump_url_omits_link():
     assert "Epic Quest" in msg
 
 
+def test_promotion_includes_signup_instructions_when_present():
+    """Promoted users should see the host's welcome text in the promotion DM.
+
+    Waitlist -> confirmed is the only join notification promoted users ever
+    receive, so the host's signup instructions must ride along on it.
+    """
+    msg = DMFormats.promotion("Epic Quest", _UNIX, signup_instructions="Bring your character sheet")
+    assert "Bring your character sheet" in msg
+
+
 # ---------------------------------------------------------------------------
 # DMFormats.join_with_instructions
 # ---------------------------------------------------------------------------

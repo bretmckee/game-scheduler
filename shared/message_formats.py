@@ -41,14 +41,24 @@ class DMFormats:
     """Format strings for Discord DMs sent by the bot."""
 
     @staticmethod
-    def promotion(game_title: str, scheduled_at_unix: int, jump_url: str | None = None) -> str:
+    def promotion(
+        game_title: str,
+        scheduled_at_unix: int,
+        jump_url: str | None = None,
+        signup_instructions: str | None = None,
+    ) -> str:
         """
         Format promotion DM when user moves from waitlist to confirmed.
+
+        A promoted user never receives a separate join_with_instructions DM —
+        this promotion message is the only join notification they get — so the
+        host's signup instructions ride along here when present.
 
         Args:
             game_title: Title of the game
             scheduled_at_unix: Unix timestamp of game start time
             jump_url: Discord jump URL to game posting, or None if unavailable
+            signup_instructions: Game-specific signup instructions, or None
 
         Returns:
             Formatted promotion message
@@ -57,6 +67,8 @@ class DMFormats:
             f"✅ Good news! You've advanced off of the waitlist in **{game_title}** "
             f"scheduled for <t:{scheduled_at_unix}:F>!"
         )
+        if signup_instructions:
+            base += f"\n\n📋 **Signup Instructions**\n{signup_instructions}"
         if jump_url:
             return f"{base}\n[View game in Discord]({jump_url})"
         return base

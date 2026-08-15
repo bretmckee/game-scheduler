@@ -49,7 +49,12 @@ async def _notify_promoted_users(
 ) -> None:
     scheduled_at_unix = int(game.scheduled_at.timestamp())
     jump_url = _build_jump_url(game)
-    message = DMFormats.promotion(game.title, scheduled_at_unix, jump_url=jump_url)
+    message = DMFormats.promotion(
+        game.title,
+        scheduled_at_unix,
+        jump_url=jump_url,
+        signup_instructions=game.signup_instructions,
+    )
 
     for discord_id in promoted_discord_ids:
         db.add(
