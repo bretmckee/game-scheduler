@@ -357,57 +357,62 @@ class TestHandleJoinNotificationHelpers:
                     event.game_id,
                 )
 
-    def test_is_participant_confirmed_when_confirmed(self, event_handlers, sample_game):
-        """Test participant is confirmed (not waitlisted)."""
+    def test_should_send_join_notification_true_when_confirmed(self, event_handlers, sample_game):
+        """A confirmed participant should be notified."""
         participant = MagicMock()
         participant.id = str(uuid4())
 
         with patch("services.bot.events.handlers.partition_participants") as mock_partition:
             mock_partitioned = MagicMock()
             mock_partitioned.confirmed = [participant]
+            mock_partitioned.overflow = []
             mock_partition.return_value = mock_partitioned
 
-            is_confirmed = event_handlers._is_participant_confirmed(participant, sample_game)
+            should_send = event_handlers._should_send_join_notification(participant, sample_game)
 
-            assert is_confirmed is True
+            assert should_send is True
             mock_partition.assert_called_once_with(
                 sample_game.participants,
                 sample_game.max_players,
                 signup_method=sample_game.signup_method,
             )
 
-    def test_is_participant_confirmed_when_waitlisted(self, event_handlers, sample_game):
-        """Test participant is waitlisted (not confirmed)."""
+    def test_should_send_join_notification_false_when_not_found_in_either_partition(
+        self, event_handlers, sample_game
+    ):
+        """A participant absent from both confirmed and overflow (e.g. removed
+        from the game between scheduling and firing) is not notified.
+        """
         participant = MagicMock()
         participant.id = str(uuid4())
 
         with patch("services.bot.events.handlers.partition_participants") as mock_partition:
             mock_partitioned = MagicMock()
             mock_partitioned.confirmed = []
+            mock_partitioned.overflow = []
             mock_partition.return_value = mock_partitioned
 
             with patch("services.bot.events.handlers.logger") as mock_logger:
-                is_confirmed = event_handlers._is_participant_confirmed(participant, sample_game)
+                should_send = event_handlers._should_send_join_notification(
+                    participant, sample_game
+                )
 
-                assert is_confirmed is False
+                assert should_send is False
                 mock_partition.assert_called_once_with(
                     sample_game.participants,
                     sample_game.max_players,
                     signup_method=sample_game.signup_method,
                 )
                 mock_logger.info.assert_called_once_with(
-                    "Participant %s is waitlisted, skipping join notification for game %s",
+                    "Participant %s no longer in game %s, skipping join notification",
                     participant.id,
                     sample_game.id,
                 )
 
-    def test_is_participant_confirmed_returns_true_for_waitlisted_in_hsw_mode(
+    def test_should_send_join_notification_true_for_waitlisted_in_hsw_mode(
         self, event_handlers, sample_game
     ):
-        """Test waitlisted player is treated as confirmed in HOST_SELECTED_WITH_WAITLIST.
-
-        SELF_ADDED players land in overflow; they must receive the waitlist join DM.
-        """
+        """A waitlisted player in HOST_SELECTED_WITH_WAITLIST is notified (waitlist DM)."""
         sample_game.signup_method = SignupMethod.HOST_SELECTED_WITH_WAITLIST
         participant = MagicMock()
         participant.id = str(uuid4())
@@ -418,9 +423,39 @@ class TestHandleJoinNotificationHelpers:
             mock_partitioned.overflow = [participant]
             mock_partition.return_value = mock_partitioned
 
-            is_confirmed = event_handlers._is_participant_confirmed(participant, sample_game)
+            should_send = event_handlers._should_send_join_notification(participant, sample_game)
 
-            assert is_confirmed is True
+            assert should_send is True
+            mock_partition.assert_called_once_with(
+                sample_game.participants,
+                sample_game.max_players,
+                signup_method=sample_game.signup_method,
+            )
+
+    def test_should_send_join_notification_true_for_waitlisted_in_self_signup_mode(
+        self, event_handlers, sample_game
+    ):
+        """A waitlisted player in SELF_SIGNUP is also notified (waitlist DM).
+
+        Regression test: waitlisted self-joiners in SELF_SIGNUP (and every mode
+        other than HOST_SELECTED_WITH_WAITLIST) never received any notification
+        at all -- not even the fallback "no longer confirmed" skip log, just
+        silence. Being on the waitlist is a real, notifiable state in any mode
+        that allows landing there.
+        """
+        sample_game.signup_method = SignupMethod.SELF_SIGNUP
+        participant = MagicMock()
+        participant.id = str(uuid4())
+
+        with patch("services.bot.events.handlers.partition_participants") as mock_partition:
+            mock_partitioned = MagicMock()
+            mock_partitioned.confirmed = []
+            mock_partitioned.overflow = [participant]
+            mock_partition.return_value = mock_partitioned
+
+            should_send = event_handlers._should_send_join_notification(participant, sample_game)
+
+            assert should_send is True
             mock_partition.assert_called_once_with(
                 sample_game.participants,
                 sample_game.max_players,
@@ -601,3 +636,39 @@ class TestHandleJoinNotificationHelpers:
                 )
                 mock_formats.join_waitlist.assert_not_called()
                 assert message == "Welcome!"
+
+    def test_format_join_notification_dispatches_waitlist_dm_for_self_signup_mode(
+        self, event_handlers, sample_game
+    ):
+        """A waitlisted participant in SELF_SIGNUP must get the waitlist DM too,
+        not fall through to join_with_instructions/join_simple.
+        """
+        sample_game.signup_method = SignupMethod.SELF_SIGNUP
+        sample_game.signup_instructions = None
+        participant = MagicMock()
+        participant.id = str(uuid4())
+
+        with patch("services.bot.events.handlers.partition_participants") as mock_partition:
+            mock_partitioned = MagicMock()
+            mock_partitioned.confirmed = []
+            mock_partitioned.overflow = [participant]
+            mock_partition.return_value = mock_partitioned
+
+            with patch("services.bot.events.handlers.DMFormats") as mock_formats:
+                mock_formats.join_waitlist.return_value = "You're on the waitlist!"
+
+                message = event_handlers._format_join_notification_message(sample_game, participant)
+
+                mock_partition.assert_called_once_with(
+                    sample_game.participants,
+                    sample_game.max_players,
+                    signup_method=sample_game.signup_method,
+                )
+                mock_formats.join_waitlist.assert_called_once_with(
+                    game_title=sample_game.title,
+                    jump_url=f"https://discord.com/channels/"
+                    f"{sample_game.guild.guild_id}/{sample_game.channel.channel_id}/{sample_game.message_id}",
+                )
+                mock_formats.join_simple.assert_not_called()
+                mock_formats.join_with_instructions.assert_not_called()
+                assert message == "You're on the waitlist!"

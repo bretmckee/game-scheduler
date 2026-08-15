@@ -577,3 +577,118 @@ async def test_join_dm_has_instructions_when_host_adds_directly_to_confirmed_hsw
 
     print(f"[TEST] DM Content:\n{join_dm.content}")
     print("[TEST] ✓ Host-added confirmed slot welcome DM delivery verified successfully")
+
+
+@pytest.mark.timeout(240)
+@pytest.mark.asyncio
+async def test_join_dm_says_waitlist_for_host_added_self_signup_overflow(
+    authenticated_admin_client,
+    admin_db,
+    discord_guild_id,
+    discord_channel_id,
+    discord_user_id,
+    synced_guild,
+    main_bot_helper,
+    test_timeouts,
+):
+    """
+    E2E: Host-adding a player past capacity in a SELF_SIGNUP game sends the
+    waitlist DM.
+
+    Regression test for two bugs found from a real bug report (a player who
+    self-joined a full SELF_SIGNUP game got no notification at all):
+    1. _schedule_join_notifications_for_game only scheduled confirmed
+       participants, so a host-added participant who overflows past
+       max_players never got any notification scheduled -- not even the
+       waitlist DM.
+    2. _should_send_join_notification / _format_join_notification_message
+       only treated "waitlisted" as a notify-worthy state for
+       HOST_SELECTED_WITH_WAITLIST, so even a scheduled notification for a
+       waitlisted participant in any other mode was silently dropped.
+
+    Adding the participant through the real host-edit API (not a raw DB
+    insert) exercises the actual _add_new_mentions /
+    _schedule_join_notifications_for_game code path, so this catches bug (1)
+    as well as (2). A real self-join can't be used here for DM verification:
+    the only e2e player identity available besides the admin/host is a bot
+    account, and Discord bots cannot DM other bots.
+
+    Verifies:
+    - Game created with signup_method=SELF_SIGNUP, max_players=1, and a
+      placeholder occupying the one confirmed slot
+    - Host adds the (non-bot) test user via the participants update API,
+      landing them in overflow (the slot is taken)
+    - The added user receives the waitlist join DM
+    """
+    result = await admin_db.execute(
+        text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
+        {"guild_id": discord_guild_id},
+    )
+    row = result.fetchone()
+    assert row, f"Test guild {discord_guild_id} not found"
+    test_guild_id = row[0]
+
+    result = await admin_db.execute(
+        text("SELECT id FROM game_templates WHERE guild_id = :guild_id AND is_default = true"),
+        {"guild_id": test_guild_id},
+    )
+    row = result.fetchone()
+    assert row, f"Default template not found for guild {test_guild_id}"
+    test_template_id = row[0]
+
+    scheduled_time = datetime.now(UTC) + timedelta(hours=2)
+    game_title = f"E2E Self-Signup Waitlist Test {uuid4().hex[:8]}"
+
+    game_data = {
+        "template_id": test_template_id,
+        "title": game_title,
+        "description": "Testing waitlist DM for host-added SELF_SIGNUP overflow",
+        "scheduled_at": scheduled_time.isoformat(),
+        "max_players": "1",
+        "signup_method": SignupMethod.SELF_SIGNUP.value,
+        "initial_participants": json.dumps(["Placeholder"]),
+    }
+
+    response = await authenticated_admin_client.post("/api/v1/games", data=game_data)
+    assert response.status_code == 201, f"Failed to create game: {response.text}"
+    game_id = response.json()["id"]
+    print(f"\n[TEST] Created SELF_SIGNUP game {game_id} (max_players=1, Placeholder confirmed)")
+
+    message_id = await wait_for_game_message_id(
+        admin_db, game_id, timeout=test_timeouts[TimeoutType.DB_WRITE]
+    )
+    await main_bot_helper.wait_for_message(
+        channel_id=discord_channel_id,
+        message_id=message_id,
+        timeout=test_timeouts[TimeoutType.MESSAGE_CREATE],
+    )
+
+    # Host adds the test user via @mention at a position after the
+    # placeholder's, so they land past the one confirmed slot, in overflow.
+    add_data = {
+        "participants": json.dumps([{"mention": f"<@{discord_user_id}>", "position": 2}]),
+    }
+    add_response = await authenticated_admin_client.put(f"/api/v1/games/{game_id}", data=add_data)
+    assert add_response.status_code == 200, f"Failed to add participant: {add_response.text}"
+    print(f"[TEST] Host added test user {discord_user_id}; game is full, so they're waitlisted")
+
+    join_dm = await main_bot_helper.wait_for_recent_dm(
+        user_id=discord_user_id,
+        game_title=game_title,
+        dm_type=DMType.WAITLIST_JOIN,
+        timeout=test_timeouts[TimeoutType.DM_SCHEDULED],
+        interval=5,
+    )
+
+    assert game_title in join_dm.content, (
+        f"Join notification DM should mention game title '{game_title}'"
+    )
+    print("[TEST] ✓ Join notification DM contains game title")
+
+    assert "waitlist" in join_dm.content.lower(), (
+        "Join notification DM for a full SELF_SIGNUP game should say 'waitlist'"
+    )
+    print("[TEST] ✓ Join notification DM contains waitlist language")
+
+    print(f"[TEST] DM Content:\n{join_dm.content}")
+    print("[TEST] ✓ Host-added SELF_SIGNUP waitlist join DM delivery verified successfully")

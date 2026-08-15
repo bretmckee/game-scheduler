@@ -52,7 +52,6 @@ from shared.models.message_refresh_queue import MessageRefreshQueue
 from shared.models.notification_schedule import NotificationSchedule
 from shared.models.participant import GameParticipant
 from shared.models.participant_action_schedule import ParticipantActionSchedule
-from shared.models.signup_method import SignupMethod
 from shared.schemas.events import (
     GameStatusTransitionDueEvent,
     NotificationDueEvent,
@@ -554,17 +553,21 @@ class EventHandlers:
 
         return game, participant
 
-    def _is_participant_confirmed(
+    def _should_send_join_notification(
         self,
         participant: GameParticipant,
         game: GameSession,
     ) -> bool:
         """
-        Check if participant should receive a join notification.
+        Check whether a join notification should be sent to this participant.
 
-        Returns True for confirmed participants in any mode, and also True for
-        waitlisted participants in HOST_SELECTED_WITH_WAITLIST (where being on the
-        waitlist is the intended state and the player should receive the waitlist DM).
+        Every participant still present in the game -- confirmed or waitlisted
+        -- gets a join notification; _format_join_notification_message decides
+        whether the content is the welcome message or the waitlist DM. Being on
+        the waitlist is a real, notifiable state in any signup method that
+        allows landing there (not just HOST_SELECTED_WITH_WAITLIST). This only
+        returns False for a participant absent from both partitions, e.g. one
+        removed from the game between scheduling and firing.
 
         Args:
             participant: The participant to check
@@ -576,20 +579,16 @@ class EventHandlers:
         partitioned = partition_participants(
             game.participants, game.max_players, signup_method=game.signup_method
         )
-        is_confirmed = participant in partitioned.confirmed
-        is_waitlisted = participant in partitioned.overflow
+        still_in_game = participant in partitioned.confirmed or participant in partitioned.overflow
 
-        if game.signup_method == SignupMethod.HOST_SELECTED_WITH_WAITLIST and is_waitlisted:
-            return True
-
-        if not is_confirmed:
+        if not still_in_game:
             logger.info(
-                "Participant %s is waitlisted, skipping join notification for game %s",
+                "Participant %s no longer in game %s, skipping join notification",
                 participant.id,
                 game.id,
             )
 
-        return is_confirmed
+        return still_in_game
 
     def _format_join_notification_message(
         self,
@@ -597,14 +596,11 @@ class EventHandlers:
         participant: GameParticipant,
     ) -> str:
         """
-        Format join notification message with conditional signup instructions.
+        Format join notification message based on confirmed vs. waitlisted status.
 
-        In HOST_SELECTED_WITH_WAITLIST games, a participant can be either
-        confirmed or waitlisted (see _is_participant_confirmed), so status is
-        re-derived here rather than assumed from signup_method alone — only a
-        participant who is actually still waitlisted gets the generic waitlist
-        DM; a confirmed participant gets the host's welcome message like any
-        other mode.
+        A participant who landed in the waitlist (overflow) gets the generic
+        waitlist DM regardless of signup method; a confirmed participant gets
+        the host's welcome message (with signup_instructions if present).
 
         Args:
             game: The game session
@@ -622,12 +618,11 @@ class EventHandlers:
         else:
             logger.warning("Cannot build jump URL for join notification on game %s", game.id)
 
-        if game.signup_method == SignupMethod.HOST_SELECTED_WITH_WAITLIST:
-            partitioned = partition_participants(
-                game.participants, game.max_players, signup_method=game.signup_method
-            )
-            if participant in partitioned.overflow:
-                return DMFormats.join_waitlist(game_title=game.title, jump_url=jump_url)
+        partitioned = partition_participants(
+            game.participants, game.max_players, signup_method=game.signup_method
+        )
+        if participant in partitioned.overflow:
+            return DMFormats.join_waitlist(game_title=game.title, jump_url=jump_url)
 
         if game.signup_instructions:
             return DMFormats.join_with_instructions(
@@ -684,7 +679,7 @@ class EventHandlers:
                 if not game or not participant:
                     return
 
-                if not self._is_participant_confirmed(participant, game):
+                if not self._should_send_join_notification(participant, game):
                     return
 
                 message = self._format_join_notification_message(game, participant)

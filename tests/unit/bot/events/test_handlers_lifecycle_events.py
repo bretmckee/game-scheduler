@@ -149,7 +149,7 @@ async def test_game_reminder_exception_is_caught(handlers):
 
 
 async def test_join_notification_not_confirmed_skips(handlers):
-    """Returns early when participant is on the waitlist, not confirmed."""
+    """Returns early when the participant is no longer in the game."""
     event = NotificationDueEvent(
         game_id=uuid4(),
         notification_type="join_notification",
@@ -164,7 +164,7 @@ async def test_join_notification_not_confirmed_skips(handlers):
             "_fetch_join_notification_data",
             new=AsyncMock(return_value=(mock_game, mock_participant)),
         ),
-        patch.object(handlers, "_is_participant_confirmed", return_value=False),
+        patch.object(handlers, "_should_send_join_notification", return_value=False),
         patch.object(handlers, "_send_join_notification_dm", new=AsyncMock()) as mock_send,
         patch("services.bot.events.handlers.get_db_session", return_value=ctx),
     ):

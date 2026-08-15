@@ -667,6 +667,48 @@ class TestScheduleJoinNotifications:
         )
 
     @pytest.mark.asyncio
+    async def test_schedules_notification_for_overflow_discord_participant(
+        self, game_service, mock_db
+    ):
+        """Calls schedule_join_notification for a participant who landed in
+        the waitlist (overflow) too, not just confirmed ones.
+
+        Being waitlisted is a real, notifiable state (see
+        EventHandlers._should_send_join_notification in the bot service), so
+        it must be scheduled the same as a confirmed join.
+        """
+        game = _make_game(max_players=1)
+        game.scheduled_at = datetime.datetime(2026, 6, 1, 20, 0, tzinfo=datetime.UTC)
+
+        confirmed = MagicMock(spec=participant_model.GameParticipant)
+        confirmed.id = "confirmed-uuid"
+        confirmed.user_id = "confirmed-user-uuid"
+        confirmed.position_type = ParticipantType.SELF_ADDED
+        confirmed.position = 0
+
+        overflow = MagicMock(spec=participant_model.GameParticipant)
+        overflow.id = "overflow-uuid"
+        overflow.user_id = "overflow-user-uuid"
+        overflow.position_type = ParticipantType.SELF_ADDED
+        overflow.position = 1
+
+        game.participants = [confirmed, overflow]
+
+        with patch(
+            "services.api.services.games.schedule_join_notification",
+            new_callable=AsyncMock,
+        ) as mock_schedule:
+            await game_service._schedule_join_notifications_for_game(game)
+
+        mock_schedule.assert_any_call(
+            db=mock_db,
+            game_id=game.id,
+            participant_id=overflow.id,
+            game_scheduled_at=game.scheduled_at,
+            delay_seconds=60,
+        )
+
+    @pytest.mark.asyncio
     async def test_skips_display_name_only_participant(self, game_service):
         """Does not schedule notifications for participants without a user_id."""
         game = _make_game(max_players=4)

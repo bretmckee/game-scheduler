@@ -1563,21 +1563,19 @@ class GameService:
 
     async def _schedule_join_notifications_for_game(self, game: game_model.GameSession) -> None:
         """
-        Schedule join notifications for confirmed Discord participants of a game.
+        Schedule join notifications for Discord participants of a game.
 
-        Creates notification schedule entries for Discord users (participants with user_id)
-        who are confirmed (not on waitlist). Each notification is scheduled to be sent
-        60 seconds after the participant joined.
+        Creates notification schedule entries for every Discord user
+        (a participant with user_id), whether they landed in a confirmed slot
+        or the waitlist -- being waitlisted is a real, notifiable state (the
+        bot sends the waitlist DM instead of the welcome message), so it must
+        be scheduled the same as a confirmed join. Each notification is
+        scheduled to be sent 60 seconds after the participant joined.
 
         Args:
             game: Game session with participants relationship loaded
         """
-        # Only notify confirmed participants, not waitlisted ones
-        partitioned = partition_participants(
-            game.participants, game.max_players, signup_method=game.signup_method
-        )
-
-        for participant in partitioned.confirmed:
+        for participant in game.participants:
             # Only schedule for Discord users (participants with user_id)
             if participant.user_id:
                 await schedule_join_notification(
