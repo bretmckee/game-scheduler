@@ -1289,9 +1289,8 @@ async def test_setup_game_schedules_with_reminders_and_duration(
     reminder_minutes = [30, 60]
 
     with (
-        patch.object(
-            game_service,
-            "_schedule_join_notifications_for_game",
+        patch(
+            "services.api.services.games.schedule_join_notifications_for_game",
             new_callable=AsyncMock,
         ) as mock_join_notifications,
         patch(
@@ -1304,7 +1303,7 @@ async def test_setup_game_schedules_with_reminders_and_duration(
 
         await game_service._setup_game_schedules(game, reminder_minutes)
 
-        mock_join_notifications.assert_called_once_with(game)
+        mock_join_notifications.assert_called_once_with(game_service.db, game)
         mock_schedule_service.populate_schedule.assert_called_once_with(game, reminder_minutes)
         mock_schedule_service_class.assert_called_once_with(game_service.db)
 
@@ -1326,9 +1325,8 @@ async def test_setup_game_schedules_without_duration(
     reminder_minutes = [60]
 
     with (
-        patch.object(
-            game_service,
-            "_schedule_join_notifications_for_game",
+        patch(
+            "services.api.services.games.schedule_join_notifications_for_game",
             new_callable=AsyncMock,
         ) as mock_join_notifications,
         patch(
@@ -1341,7 +1339,7 @@ async def test_setup_game_schedules_without_duration(
 
         await game_service._setup_game_schedules(game, reminder_minutes)
 
-        mock_join_notifications.assert_called_once_with(game)
+        mock_join_notifications.assert_called_once_with(game_service.db, game)
         mock_schedule_service.populate_schedule.assert_called_once_with(game, reminder_minutes)
         mock_schedule_service_class.assert_called_once_with(game_service.db)
 

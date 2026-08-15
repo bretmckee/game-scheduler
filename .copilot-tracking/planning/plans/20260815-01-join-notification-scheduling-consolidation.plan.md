@@ -69,15 +69,15 @@ Consolidate the scattered "schedule a join notification for a new game participa
 - [x] Task 2.2: Rename, fix (iterate all participants), and delegate to the moved primitive (GREEN); remove the `xfail` marker; update `setup_game_schedules`'s call site and docstring
   - Details: .copilot-tracking/planning/details/20260815-01-join-notification-scheduling-consolidation-details.md (Lines 142-180)
 
-### [ ] Phase 3: Delete `GameService._schedule_join_notifications_for_game` and repoint its callers
+### [x] Phase 3: Delete `GameService._schedule_join_notifications_for_game` and repoint its callers
 
-- [ ] Task 3.1: Write the `xfail` regression test proving the `_add_new_mentions` duplicate-scheduling bug (RED)
+- [x] Task 3.1: Write the `xfail` regression test proving the `_add_new_mentions` duplicate-scheduling bug (RED)
   - Details: .copilot-tracking/planning/details/20260815-01-join-notification-scheduling-consolidation-details.md (Lines 183-212)
 
-- [ ] Task 3.2: Repoint `_setup_game_schedules` and `_add_new_mentions` at the shared functions directly; delete `_schedule_join_notifications_for_game` (GREEN); remove the `xfail` marker; update `test_games.py` and `test_games_service.py`
+- [x] Task 3.2: Repoint `_setup_game_schedules` and `_add_new_mentions` at the shared functions directly; delete `_schedule_join_notifications_for_game` (GREEN); remove the `xfail` marker; update `test_games.py` and `test_games_service.py`
   - Details: .copilot-tracking/planning/details/20260815-01-join-notification-scheduling-consolidation-details.md (Lines 213-270)
 
-- [ ] Task 3.3: Run the existing integration suite (scoped to the 4 files confirmed to exercise these functions) and the existing e2e suite (`tests/e2e/test_join_notification.py`) once, now that Phase 3's GREEN state is reached
+- [x] Task 3.3: Run the existing integration suite (scoped to the 4 files confirmed to exercise these functions) and the existing e2e suite (`tests/e2e/test_join_notification.py`) once, now that Phase 3's GREEN state is reached
   - Details: .copilot-tracking/planning/details/20260815-01-join-notification-scheduling-consolidation-details.md (Lines 271-285)
 
 ### [ ] Phase 4: Remove dead code — `shared/data_access/guild_queries.py::add_participant`

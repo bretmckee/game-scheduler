@@ -28,7 +28,6 @@ Tests verify:
 - _resolve_game_host host-user-not-found path
 - _apply_deadline_carryover early-return path
 - _update_prefilled_participants / _add_new_mentions with mentions
-- _schedule_join_notifications_for_game with confirmed participants
 """
 
 import datetime
@@ -630,106 +629,6 @@ class TestApplyDeadlineCarryover:
 
 
 # ---------------------------------------------------------------------------
-# TestScheduleJoinNotifications
-# ---------------------------------------------------------------------------
-
-
-class TestScheduleJoinNotifications:
-    """Tests for GameService._schedule_join_notifications_for_game."""
-
-    @pytest.mark.asyncio
-    async def test_schedules_notification_for_confirmed_discord_participant(
-        self, game_service, mock_db
-    ):
-        """Calls schedule_join_notification for each confirmed participant with a user_id."""
-        game = _make_game(max_players=4)
-        game.scheduled_at = datetime.datetime(2026, 6, 1, 20, 0, tzinfo=datetime.UTC)
-
-        participant = MagicMock(spec=participant_model.GameParticipant)
-        participant.id = "participant-uuid"
-        participant.user_id = "user-uuid"
-        participant.position_type = ParticipantType.SELF_ADDED
-        participant.position = 0
-        game.participants = [participant]
-
-        with patch(
-            "services.api.services.games.schedule_join_notification",
-            new_callable=AsyncMock,
-        ) as mock_schedule:
-            await game_service._schedule_join_notifications_for_game(game)
-
-        mock_schedule.assert_called_once_with(
-            db=mock_db,
-            game_id=game.id,
-            participant_id=participant.id,
-            game_scheduled_at=game.scheduled_at,
-            delay_seconds=60,
-        )
-
-    @pytest.mark.asyncio
-    async def test_schedules_notification_for_overflow_discord_participant(
-        self, game_service, mock_db
-    ):
-        """Calls schedule_join_notification for a participant who landed in
-        the waitlist (overflow) too, not just confirmed ones.
-
-        Being waitlisted is a real, notifiable state (see
-        EventHandlers._should_send_join_notification in the bot service), so
-        it must be scheduled the same as a confirmed join.
-        """
-        game = _make_game(max_players=1)
-        game.scheduled_at = datetime.datetime(2026, 6, 1, 20, 0, tzinfo=datetime.UTC)
-
-        confirmed = MagicMock(spec=participant_model.GameParticipant)
-        confirmed.id = "confirmed-uuid"
-        confirmed.user_id = "confirmed-user-uuid"
-        confirmed.position_type = ParticipantType.SELF_ADDED
-        confirmed.position = 0
-
-        overflow = MagicMock(spec=participant_model.GameParticipant)
-        overflow.id = "overflow-uuid"
-        overflow.user_id = "overflow-user-uuid"
-        overflow.position_type = ParticipantType.SELF_ADDED
-        overflow.position = 1
-
-        game.participants = [confirmed, overflow]
-
-        with patch(
-            "services.api.services.games.schedule_join_notification",
-            new_callable=AsyncMock,
-        ) as mock_schedule:
-            await game_service._schedule_join_notifications_for_game(game)
-
-        mock_schedule.assert_any_call(
-            db=mock_db,
-            game_id=game.id,
-            participant_id=overflow.id,
-            game_scheduled_at=game.scheduled_at,
-            delay_seconds=60,
-        )
-
-    @pytest.mark.asyncio
-    async def test_skips_display_name_only_participant(self, game_service):
-        """Does not schedule notifications for participants without a user_id."""
-        game = _make_game(max_players=4)
-
-        placeholder = MagicMock(spec=participant_model.GameParticipant)
-        placeholder.id = "placeholder-uuid"
-        placeholder.user_id = None  # display-name participant, no Discord link
-        placeholder.position_type = ParticipantType.SELF_ADDED
-        placeholder.position = 0
-        game.participants = [placeholder]
-
-        with patch(
-            "services.api.services.games.schedule_join_notification",
-            new_callable=AsyncMock,
-        ) as mock_schedule:
-            await game_service._schedule_join_notifications_for_game(game)
-
-        mock_schedule.assert_not_called()
-
-
-# ---------------------------------------------------------------------------
 # TestAddNewMentions
 # ---------------------------------------------------------------------------
 
@@ -865,6 +764,59 @@ class TestAddNewMentions:
         added = mock_db.add.call_args[0][0]
         assert added.position == 3
         assert added.position != UNPOSITIONED_SENTINEL
+
+    @pytest.mark.asyncio
+    async def test_only_schedules_notification_for_newly_added_participant(
+        self, game_service, mock_db
+    ):
+        """Only the newly added participant is scheduled, not pre-existing ones.
+
+        A game already has a participant scheduled (and notified) on a prior
+        edit. Adding one new mention must schedule exactly one notification --
+        for the new participant only -- not re-sweep and re-notify the
+        pre-existing one.
+        """
+        game = _make_game()
+        guild = MagicMock()
+        guild.guild_id = "discord-guild-id"
+        game.guild = guild
+
+        existing_participant = MagicMock(spec=participant_model.GameParticipant)
+        existing_participant.id = "existing-participant-uuid"
+        existing_participant.user_id = "existing-user-uuid"
+        game.participants = [existing_participant]
+
+        mock_user = MagicMock()
+        mock_user.id = "user-uuid"
+        game_service.participant_resolver.ensure_user_exists = AsyncMock(return_value=mock_user)
+        game_service.participant_resolver.resolve_initial_participants = AsyncMock(
+            return_value=(
+                [
+                    {
+                        "type": "discord",
+                        "discord_id": "discord-123",
+                        "original_input": "@user",
+                    }
+                ],
+                [],
+            )
+        )
+        mock_db.flush = AsyncMock()
+
+        with patch(
+            "services.api.services.games.schedule_join_notification",
+            new_callable=AsyncMock,
+        ) as mock_schedule:
+            await game_service._add_new_mentions(game, [("@user", 1)])
+
+        new_participant = mock_db.add.call_args_list[-1][0][0]
+        mock_schedule.assert_called_once_with(
+            db=mock_db,
+            game_id=game.id,
+            participant_id=new_participant.id,
+            game_scheduled_at=game.scheduled_at,
+            delay_seconds=60,
+        )
 
 
 # ---------------------------------------------------------------------------

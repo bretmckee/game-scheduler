@@ -55,3 +55,33 @@ The plan's Task 2.1 file list only touches the test file, and assigns the actual
   - `test_schedule_join_notifications_skips_participant_without_user_id` - dropped the `partition_participants` patch; now patches `schedule_join_notification` and asserts it's not called for a participant without a `user_id`.
 
 **Verification**: `uv run pytest tests/unit/shared/services/test_game_schedules.py -k includes_overflow -v` showed `xfailed` before the fix (RED confirmed) and `passed` after the marker was removed (strict mode would otherwise error on an unexpected pass). `uv run pytest tests/unit` (2461 passed), `uv run mypy shared/ services/` (no issues), `uv run ruff check`/`ruff format --check` on both changed files (clean). `grep -rn "_schedule_join_notifications\b" --include="*.py" .` confirms the old private name no longer exists anywhere in the codebase.
+
+### Phase 3: Delete `GameService._schedule_join_notifications_for_game` and repoint its callers
+
+#### Added
+
+- `tests/unit/api/services/test_games.py` - added `TestAddNewMentions.test_only_schedules_notification_for_newly_added_participant`, the bug-fix regression test (initially `xfail(strict=True)`, confirmed `xfailed` before the fix, marker removed after); builds a game with one pre-existing (already-scheduled) participant, adds one new mention, and asserts `schedule_join_notification` is called exactly once, for the newly-added participant only.
+
+#### Modified
+
+- `services/api/services/games.py`:
+  - Extended the `shared.services.game_schedules` import into a parenthesized multi-import block adding `schedule_join_notifications_for_game`.
+  - `_setup_game_schedules` - replaced `await self._schedule_join_notifications_for_game(game)` with `await schedule_join_notifications_for_game(self.db, game)`.
+  - `_add_new_mentions` - fixed the duplicate-scheduling bug: added a local `new_participants` list, appended each newly-created participant to it inside the creation loop, and replaced the closing `await self._schedule_join_notifications_for_game(game)` bulk-sweep with a loop that calls `schedule_join_notification` directly for each entry in `new_participants` only (participants with a `user_id`) - no longer re-sweeps or re-notifies participants already scheduled on a prior edit. Updated the inline comment above `game.participants.append(new_participant)` to no longer reference the deleted method by name.
+  - Deleted `_schedule_join_notifications_for_game` in its entirety - its only two callers (`_setup_game_schedules`, `_add_new_mentions`) now call the shared module-level functions directly.
+- `tests/unit/api/services/test_games.py`:
+  - Removed the "`- _schedule_join_notifications_for_game with confirmed participants`" bullet from the module docstring.
+  - Deleted the entire `TestScheduleJoinNotifications` class - its target method no longer exists; equivalent coverage (confirmed-and-overflow participants scheduled, no-`user_id` participants skipped) lives in `tests/unit/shared/services/test_game_schedules.py` (added in Phase 2).
+- `tests/unit/services/api/services/test_games_service.py`:
+  - `test_setup_game_schedules_with_reminders_and_duration` and `test_setup_game_schedules_without_duration` - changed `patch.object(game_service, "_schedule_join_notifications_for_game", ...)` to `patch("services.api.services.games.schedule_join_notifications_for_game", ...)`; changed `mock_join_notifications.assert_called_once_with(game)` to `mock_join_notifications.assert_called_once_with(game_service.db, game)`.
+
+**Verification**: `uv run pytest tests/unit/api/services/test_games.py -k only_schedules_notification_for_newly_added -v` showed `xfailed` before the fix (RED confirmed) and `passed` after the marker was removed. `uv run pytest tests/unit` (2459 passed), `uv run mypy shared/ services/` (no issues), `uv run ruff check`/`ruff format --check` on all three changed files (clean). `grep -rn "\b_schedule_join_notifications_for_game\b" services/ tests/unit tests/integration` returns no matches, confirming the dead method is fully removed.
+
+#### Task 3.3: Full-consolidation verification against integration and e2e suites
+
+No files modified — verification only, run once after Task 3.2 reached GREEN.
+
+- `scripts/run-integration-tests.sh tests/integration/test_game_signup_methods.py tests/integration/test_games_crud.py tests/integration/test_leave_game_promotion.py tests/integration/test_player_removed_queue.py` - 33 passed, matching the pre-refactor baseline. Exercises `join_game`, `_setup_game_schedules`, `_add_new_mentions`, and `shared/services/game_schedules.py` through real API + DB.
+- `scripts/run-e2e-tests.sh tests/e2e/test_join_notification.py` - 5 passed (322.75s), including all 5 tests named in the plan's success criteria, exercising the consolidated functions end-to-end through real Discord DM delivery.
+
+**Verification**: Both runs' full output was captured via `tee` per `.github/instructions/test-execution.instructions.md` before any inspection; both scripts reported their own pass/fail status ("Integration tests passed!", "End-to-end tests passed!") in addition to pytest's summary line. No coverage was added for `services/bot/handlers/join_game.py::handle_join_game` in this task, per the plan's explicit note.

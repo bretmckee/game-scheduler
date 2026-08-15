@@ -63,7 +63,11 @@ from shared.schemas import auth as auth_schemas
 from shared.schemas import game as game_schemas
 from shared.services import waitlist_transitions
 from shared.services.game_cancellation import cancel_game as cancel_game_service
-from shared.services.game_schedules import clone_game_for_recurrence, schedule_join_notification
+from shared.services.game_schedules import (
+    clone_game_for_recurrence,
+    schedule_join_notification,
+    schedule_join_notifications_for_game,
+)
 from shared.services.image_storage import (
     increment_image_ref,
     release_image,
@@ -577,7 +581,7 @@ class GameService:
             reminder_minutes: List of minutes before game to send reminders
         """
         # Schedule join notifications for newly added participants
-        await self._schedule_join_notifications_for_game(game)
+        await schedule_join_notifications_for_game(self.db, game)
 
         # Populate reminder notification schedule
         schedule_service = notification_schedule_service.NotificationScheduleService(self.db)
@@ -1525,6 +1529,8 @@ class GameService:
                 valid_participants=[p["original_input"] for p in valid_participants],
             )
 
+        new_participants: list[participant_model.GameParticipant] = []
+
         # Create participant records
         for idx, p_data in enumerate(valid_participants):
             position = mentions_with_positions[idx][1]
@@ -1551,36 +1557,21 @@ class GameService:
             # Callers (e.g. _update_prefilled_participants) may have already
             # loaded game.participants earlier in the request; setting the FK
             # alone doesn't update that cached collection, so append explicitly
-            # or _schedule_join_notifications_for_game below would partition
-            # against a stale list that's missing every participant just added.
+            # to keep it consistent for other consumers of game.participants.
             game.participants.append(new_participant)
+            new_participants.append(new_participant)
 
         await self.db.flush()
 
-        # Schedule join notifications for newly added participants
-        await self._schedule_join_notifications_for_game(game)
-
-    async def _schedule_join_notifications_for_game(self, game: game_model.GameSession) -> None:
-        """
-        Schedule join notifications for Discord participants of a game.
-
-        Creates notification schedule entries for every Discord user
-        (a participant with user_id), whether they landed in a confirmed slot
-        or the waitlist -- being waitlisted is a real, notifiable state (the
-        bot sends the waitlist DM instead of the welcome message), so it must
-        be scheduled the same as a confirmed join. Each notification is
-        scheduled to be sent 60 seconds after the participant joined.
-
-        Args:
-            game: Game session with participants relationship loaded
-        """
-        for participant in game.participants:
-            # Only schedule for Discord users (participants with user_id)
-            if participant.user_id:
+        # Schedule a join notification for each participant just created here --
+        # not the whole of game.participants, which may already contain other
+        # participants scheduled (and notified) on a previous edit.
+        for new_participant in new_participants:
+            if new_participant.user_id:
                 await schedule_join_notification(
                     db=self.db,
                     game_id=game.id,
-                    participant_id=participant.id,
+                    participant_id=new_participant.id,
                     game_scheduled_at=game.scheduled_at,
                     delay_seconds=60,
                 )
