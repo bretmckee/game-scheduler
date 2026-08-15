@@ -44,21 +44,21 @@ Consolidate the scattered "schedule a join notification for a new game participa
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Relocate `schedule_join_notification` primitive to `shared/services/game_schedules.py`
+### [x] Phase 1: Relocate `schedule_join_notification` primitive to `shared/services/game_schedules.py`
 
-- [ ] Task 1.1: Move `schedule_join_notification()` verbatim into `shared/services/game_schedules.py`; delete it from `services/api/services/notification_schedule.py`
+- [x] Task 1.1: Move `schedule_join_notification()` verbatim into `shared/services/game_schedules.py`; delete it from `services/api/services/notification_schedule.py`
   - Details: .copilot-tracking/planning/details/20260815-01-join-notification-scheduling-consolidation-details.md (Lines 11-28)
 
-- [ ] Task 1.2: Repoint `services/api/services/games.py`'s import to the new location
+- [x] Task 1.2: Repoint `services/api/services/games.py`'s import to the new location
   - Details: .copilot-tracking/planning/details/20260815-01-join-notification-scheduling-consolidation-details.md (Lines 29-45)
 
-- [ ] Task 1.3: Repoint `services/bot/handlers/join_game.py`'s `handle_join_game` to call the shared primitive instead of constructing `NotificationSchedule` inline (note: no e2e coverage exists or can exist for this handler — see task details)
+- [x] Task 1.3: Repoint `services/bot/handlers/join_game.py`'s `handle_join_game` to call the shared primitive instead of constructing `NotificationSchedule` inline (note: no e2e coverage exists or can exist for this handler — see task details)
   - Details: .copilot-tracking/planning/details/20260815-01-join-notification-scheduling-consolidation-details.md (Lines 46-80)
 
-- [ ] Task 1.4: Update `tests/e2e/test_join_notification.py`'s import (static/import check only — behavioral verification happens once in Phase 3 Task 3.3)
+- [x] Task 1.4: Update `tests/e2e/test_join_notification.py`'s import (static/import check only — behavioral verification happens once in Phase 3 Task 3.3)
   - Details: .copilot-tracking/planning/details/20260815-01-join-notification-scheduling-consolidation-details.md (Lines 81-91)
 
-- [ ] Task 1.5: Add direct unit test coverage for the relocated primitive in `tests/unit/shared/services/test_game_schedules.py`
+- [x] Task 1.5: Add direct unit test coverage for the relocated primitive in `tests/unit/shared/services/test_game_schedules.py`
   - Details: .copilot-tracking/planning/details/20260815-01-join-notification-scheduling-consolidation-details.md (Lines 92-109)
 
 ### [ ] Phase 2: Fix the confirmed-only bug and rename `_schedule_join_notifications` to public `schedule_join_notifications_for_game`

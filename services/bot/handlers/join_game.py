@@ -23,7 +23,6 @@
 
 import logging
 import uuid
-from datetime import timedelta
 
 import discord
 from sqlalchemy import select
@@ -39,13 +38,12 @@ from services.bot.handlers.utils import (
     upsert_message_refresh_and_notify,
 )
 from shared.database import get_db_session
-from shared.models.base import utc_now
 from shared.models.game import GameSession
-from shared.models.notification_schedule import NotificationSchedule
 from shared.models.participant import UNPOSITIONED_SENTINEL, GameParticipant, ParticipantType
 from shared.models.signup_method import SignupMethod
 from shared.models.user import User
 from shared.services.game_metrics import record_game_joined
+from shared.services.game_schedules import schedule_join_notification
 from shared.utils.games import resolve_max_players
 from shared.utils.participant_sorting import resolve_role_position
 
@@ -102,16 +100,13 @@ async def handle_join_game(interaction: discord.Interaction, game_id: str) -> No
             return
 
         # Create delayed join notification schedule
-        schedule = NotificationSchedule(
+        await schedule_join_notification(
+            db=db,
             game_id=str(game_id),
             participant_id=participant.id,
-            notification_type="join_notification",
-            notification_time=utc_now() + timedelta(seconds=60),
-            sent=False,
             game_scheduled_at=game.scheduled_at,
-            reminder_minutes=None,
+            delay_seconds=60,
         )
-        db.add(schedule)
 
         await upsert_message_refresh_and_notify(
             db, str(game_id), game.channel.channel_id, game.guild_id

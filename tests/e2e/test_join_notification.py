@@ -51,9 +51,9 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import text
 
-from services.api.services.notification_schedule import schedule_join_notification
 from shared.models.participant import ParticipantType
 from shared.models.signup_method import SignupMethod
+from shared.services.game_schedules import schedule_join_notification
 from tests.e2e.conftest import TimeoutType, wait_for_game_message_id
 from tests.e2e.helpers.discord import DMType
 

@@ -44,7 +44,6 @@ from services.api.services import channel_resolver as channel_resolver_module
 from services.api.services import emoji_resolver as emoji_resolver_module
 from services.api.services import notification_schedule as notification_schedule_service
 from services.api.services import participant_resolver as resolver_module
-from services.api.services.notification_schedule import schedule_join_notification
 from shared.discord import client as discord_client_module
 from shared.models import channel as channel_model
 from shared.models import game as game_model
@@ -64,7 +63,7 @@ from shared.schemas import auth as auth_schemas
 from shared.schemas import game as game_schemas
 from shared.services import waitlist_transitions
 from shared.services.game_cancellation import cancel_game as cancel_game_service
-from shared.services.game_schedules import clone_game_for_recurrence
+from shared.services.game_schedules import clone_game_for_recurrence, schedule_join_notification
 from shared.services.image_storage import (
     increment_image_ref,
     release_image,

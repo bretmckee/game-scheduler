@@ -32,6 +32,7 @@ from shared.services.game_schedules import (
     _create_status_schedules,
     _populate_reminder_schedule,
     _schedule_join_notifications,
+    schedule_join_notification,
     setup_game_schedules,
 )
 from shared.utils.status_transitions import GameStatus
@@ -58,6 +59,47 @@ def game():
     g.status = GameStatus.SCHEDULED.value
     g.participants = []
     return g
+
+
+@pytest.mark.asyncio
+async def test_schedule_join_notification_adds_and_returns_entry(db):
+    """The primitive must add a join_notification row and return that same object."""
+    result = await schedule_join_notification(
+        db,
+        game_id="game-1",
+        participant_id="participant-1",
+        game_scheduled_at=_FUTURE_SCHEDULED_AT,
+        delay_seconds=60,
+    )
+
+    db.add.assert_called_once()
+    added = db.add.call_args[0][0]
+    assert isinstance(added, ns_model.NotificationSchedule)
+    assert added.game_id == "game-1"
+    assert added.participant_id == "participant-1"
+    assert added.notification_type == "join_notification"
+    assert added.sent is False
+    assert added.game_scheduled_at == _FUTURE_SCHEDULED_AT
+    assert added.reminder_minutes is None
+    db.flush.assert_awaited_once()
+    assert result is added
+
+
+@pytest.mark.asyncio
+async def test_schedule_join_notification_uses_default_delay(db):
+    """Omitting delay_seconds must schedule the notification 60 seconds out."""
+    fixed_now = datetime.datetime(2026, 1, 1, 12, 0, 0, tzinfo=datetime.UTC).replace(tzinfo=None)
+
+    with patch("shared.services.game_schedules.utc_now", return_value=fixed_now):
+        result = await schedule_join_notification(
+            db,
+            game_id="game-1",
+            participant_id="participant-1",
+            game_scheduled_at=_FUTURE_SCHEDULED_AT,
+        )
+
+    expected_notification_time = fixed_now + datetime.timedelta(seconds=60)
+    assert result.notification_time == expected_notification_time
 
 
 @pytest.mark.asyncio

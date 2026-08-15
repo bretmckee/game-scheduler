@@ -42,6 +42,49 @@ from shared.utils.status_transitions import GameStatus
 _DEFAULT_GAME_DURATION_MINUTES = 60
 
 
+async def schedule_join_notification(
+    db: AsyncSession,
+    game_id: str,
+    participant_id: str,
+    game_scheduled_at: datetime | None,
+    delay_seconds: int = 60,
+) -> notification_schedule_model.NotificationSchedule:
+    """
+    Schedule delayed join notification for a participant.
+
+    Creates a notification_schedule entry that will trigger a notification
+    after the specified delay. If the participant is removed before the
+    notification time, the schedule is automatically cancelled via CASCADE delete.
+
+    Does not commit. Caller must commit transaction. Uses flush() to generate
+    schedule ID immediately.
+
+    Args:
+        db: Database session
+        game_id: ID of the game joined
+        participant_id: ID of the participant who joined
+        game_scheduled_at: When the game is scheduled (for TTL calculation)
+        delay_seconds: Delay before notification (default: 60)
+
+    Returns:
+        Created NotificationSchedule instance
+    """
+    schedule = notification_schedule_model.NotificationSchedule(
+        game_id=game_id,
+        participant_id=participant_id,
+        notification_type="join_notification",
+        notification_time=utc_now() + timedelta(seconds=delay_seconds),
+        sent=False,
+        game_scheduled_at=game_scheduled_at,
+        reminder_minutes=None,
+    )
+
+    db.add(schedule)
+    await db.flush()
+
+    return schedule
+
+
 async def setup_game_schedules(
     db: AsyncSession,
     game: game_model.GameSession,
