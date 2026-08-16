@@ -748,6 +748,56 @@ class TestGameMessageFormatterHelpers:
         assert "7. <@106>" in waitlist_calls[2]["value"]
         assert "8. <@107>" in waitlist_calls[2]["value"]
 
+    def test_add_participant_fields_shows_participants_well_past_old_cap(self):
+        """Test that participants effectively always show in full (up to 100).
+
+        max_players is capped at 100 by GameCreateRequest/GameUpdateRequest
+        (shared/schemas/game.py), so _PARTICIPANT_MAX_DISPLAY=100 means real
+        games never hit the truncation note.
+        """
+        embed = MagicMock()
+        participant_ids = [str(i) for i in range(40)]
+
+        GameMessageFormatter._add_participant_fields(embed, participant_ids, [], 40, 40)
+
+        calls = [call[1] for call in embed.add_field.call_args_list]
+        combined_value = "".join(c["value"] for c in calls[:3])
+        assert "... and" not in combined_value
+        assert "40. <@39>" in combined_value
+
+    def test_add_participant_fields_waitlist_budget_shrinks_with_more_max_players(self):
+        """Test that a large max_players leaves less waitlist display budget.
+
+        Waitlist budget is max(_MIN_WAITLIST_DISPLAY, _TOTAL_DISPLAY_BUDGET -
+        max_players); at max_players=100 that floors out at 15.
+        """
+        embed = MagicMock()
+        overflow_ids = [str(i) for i in range(20)]
+
+        GameMessageFormatter._add_participant_fields(embed, ["111"], overflow_ids, 1, 100)
+
+        calls = [call[1] for call in embed.add_field.call_args_list]
+        waitlist_values = "".join(c["value"] for c in calls[-3:])
+        assert "... and 5 more" in waitlist_values
+        assert "15. <@14>" in waitlist_values
+        assert "16. <@15>" not in waitlist_values
+
+    def test_add_participant_fields_waitlist_budget_grows_with_fewer_max_players(self):
+        """Test that a small max_players leaves more waitlist display budget.
+
+        At max_players=2, budget is _TOTAL_DISPLAY_BUDGET - 2 = 103, so 50
+        waitlisted entries all display without truncation.
+        """
+        embed = MagicMock()
+        overflow_ids = [str(i) for i in range(50)]
+
+        GameMessageFormatter._add_participant_fields(embed, ["111", "222"], overflow_ids, 2, 2)
+
+        calls = [call[1] for call in embed.add_field.call_args_list]
+        waitlist_values = "".join(c["value"] for c in calls[-3:])
+        assert "... and" not in waitlist_values
+        assert "50. <@49>" in waitlist_values
+
     def test_add_participant_fields_shows_open_slots_when_under_capacity(self):
         """Test that open slot placeholders appear when game is not full."""
         embed = MagicMock()

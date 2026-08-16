@@ -288,11 +288,15 @@ def test_game_update_multiple_fields_rolls_back_on_constraint(
 
     client = create_authenticated_client(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
 
-    # Add temporary CHECK constraint on max_players
+    # Add temporary CHECK constraint on max_players. 100 (not, say, 999) is
+    # used so the request still clears GameUpdateRequest's own ge=1/le=100
+    # Pydantic bound and reaches the database - this test is specifically
+    # about a DB-level constraint triggering rollback, not API-level
+    # validation rejecting the request outright.
     admin_db_sync.execute(
         text(
             "ALTER TABLE game_sessions ADD CONSTRAINT test_reject_max_players "
-            "CHECK (max_players != 999)"
+            "CHECK (max_players != 100)"
         )
     )
     admin_db_sync.commit()
@@ -303,7 +307,7 @@ def test_game_update_multiple_fields_rolls_back_on_constraint(
             f"/api/v1/games/{game['id']}",
             data={
                 "title": "Updated Title",
-                "max_players": "999",
+                "max_players": "100",
             },
         )
 
@@ -320,8 +324,8 @@ def test_game_update_multiple_fields_rolls_back_on_constraint(
         assert game_after.title == original_title, (
             f"Title should be '{original_title}', got '{game_after.title}'"
         )
-        assert game_after.max_players != 999, (
-            f"max_players should not be 999, got '{game_after.max_players}'"
+        assert game_after.max_players != 100, (
+            f"max_players should not be 100, got '{game_after.max_players}'"
         )
 
     finally:

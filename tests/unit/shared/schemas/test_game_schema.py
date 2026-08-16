@@ -93,6 +93,40 @@ class TestGameUpdateRequestDescriptionLimit:
         assert req.description is None
 
 
+class TestGameUpdateRequestMaxPlayersLimit:
+    """Tests for GameUpdateRequest max_players ge=1/le=100 bound.
+
+    GameCreateRequest already enforced this range; GameUpdateRequest didn't,
+    so a game's max_players could be pushed arbitrarily high via an update
+    even though creation capped it at 100.
+    """
+
+    def test_max_players_at_lower_bound_accepted(self):
+        """Test that max_players=1 is accepted."""
+        req = GameUpdateRequest(max_players=1)
+        assert req.max_players == 1
+
+    def test_max_players_at_upper_bound_accepted(self):
+        """Test that max_players=100 is accepted."""
+        req = GameUpdateRequest(max_players=100)
+        assert req.max_players == 100
+
+    def test_max_players_below_lower_bound_rejected(self):
+        """Test that max_players=0 is rejected."""
+        with pytest.raises(ValidationError):
+            GameUpdateRequest(max_players=0)
+
+    def test_max_players_above_upper_bound_rejected(self):
+        """Test that max_players=101 is rejected."""
+        with pytest.raises(ValidationError):
+            GameUpdateRequest(max_players=101)
+
+    def test_none_max_players_accepted(self):
+        """Test that None max_players (no change) is accepted."""
+        req = GameUpdateRequest(max_players=None)
+        assert req.max_players is None
+
+
 class TestGameCreateRequestPostAt:
     """Tests for GameCreateRequest.post_at field."""
 

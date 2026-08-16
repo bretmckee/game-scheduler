@@ -59,8 +59,19 @@ _MIME_TO_EXT: dict[str, str] = {
 # not by their content. See _add_participant_fields.
 _PARTICIPANT_COLUMNS = 3
 _WAITLIST_COLUMNS = 3
-_PARTICIPANT_MAX_DISPLAY = 15
-_WAITLIST_MAX_DISPLAY = 15
+
+# Participants effectively always show in full: GameCreateRequest and
+# GameUpdateRequest both cap max_players at 100 (shared/schemas/game.py), so
+# this display cap is a defensive backstop, not something real games hit.
+# The waitlist's cap is dynamic (_TOTAL_DISPLAY_BUDGET - max_players, floored
+# at _MIN_WAITLIST_DISPLAY) so the two sections share one overall name
+# budget - each field is independently well under Discord's 1024-char
+# field-value limit at these sizes, but a fixed high cap on both regardless
+# of max_players could let their combined text meaningfully eat into
+# Discord's 6000-char whole-embed total (see DISCORD_EMBED_TOTAL_SAFE_LIMIT).
+_PARTICIPANT_MAX_DISPLAY = 100
+_TOTAL_DISPLAY_BUDGET = 105
+_MIN_WAITLIST_DISPLAY = 15
 
 
 class GameMessageFormatter:
@@ -200,6 +211,13 @@ class GameMessageFormatter:
         than continuing from the participant count (see
         _split_into_columns).
 
+        Participants are shown in full up to `_PARTICIPANT_MAX_DISPLAY`
+        (effectively always, since max_players is capped at 100 - see
+        shared/schemas/game.py); the waitlist shares a `_TOTAL_DISPLAY_BUDGET`
+        pool with however many participant slots are in play, so a small game
+        shows a bigger waitlist and a large game shows a smaller one, floored
+        at `_MIN_WAITLIST_DISPLAY`.
+
         Args:
             embed: Discord embed to configure
             participant_ids: List of confirmed participant IDs
@@ -231,8 +249,9 @@ class GameMessageFormatter:
             embed.add_field(name=name, value=text, inline=True)
 
         if overflow_ids:
+            waitlist_max_display = max(_MIN_WAITLIST_DISPLAY, _TOTAL_DISPLAY_BUDGET - max_players)
             waitlist_columns = GameMessageFormatter._split_into_columns(
-                overflow_ids, _WAITLIST_COLUMNS, _WAITLIST_MAX_DISPLAY, overflow_display_names
+                overflow_ids, _WAITLIST_COLUMNS, waitlist_max_display, overflow_display_names
             )
             for index, text in enumerate(waitlist_columns):
                 name = f"Waitlisted ({len(overflow_ids)})" if index == 0 else "\u200b"

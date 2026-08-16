@@ -128,7 +128,7 @@ class GameUpdateRequest(BaseModel):
     signup_instructions: str | None = Field(None, max_length=1000)
     scheduled_at: datetime | None = None
     where: str | None = Field(None, max_length=500)
-    max_players: int | None = None
+    max_players: int | None = Field(None, ge=1, le=100)
     reminder_minutes: list[int] | None = None
     expected_duration_minutes: int | None = Field(
         None,
