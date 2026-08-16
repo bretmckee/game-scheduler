@@ -114,12 +114,12 @@ Add a self-contained "Add to Google Calendar" quick-add link to the Discord game
 - [x] Task 6.2: GREEN — implement the mint helper and rewrite `DownloadCalendar.tsx` to mint-then-`window.location.href`-navigate, removing the old fetch+Blob code, remove `.failing` markers
   - Details: .copilot-tracking/planning/details/20260816-01-calendar-link-improvements-details.md (Lines 567-596)
 
-### [ ] Phase 7: Frontend `ExportButton.tsx` / `GameDetails.tsx` Migration
+### [x] Phase 7: Frontend `ExportButton.tsx` / `GameDetails.tsx` Migration
 
-- [ ] Task 7.1: RED — create `ExportButton.test.tsx` (new file) and add calendar-export tests to `GameDetails` tests, all `test.failing`, mocking the Phase 6 mint helper
+- [x] Task 7.1: RED — create `ExportButton.test.tsx` (new file) and add calendar-export tests to `GameDetails` tests, all `test.failing`, mocking the Phase 6 mint helper
   - Details: .copilot-tracking/planning/details/20260816-01-calendar-link-improvements-details.md (Lines 600-621)
 
-- [ ] Task 7.2: GREEN — migrate both components' handlers to mint-then-navigate, removing the `axios.get(..., { responseType: 'blob' })` Blob-download code, remove `.failing` markers
+- [x] Task 7.2: GREEN — migrate both components' handlers to mint-then-navigate, removing the `axios.get(..., { responseType: 'blob' })` Blob-download code, remove `.failing` markers
   - Details: .copilot-tracking/planning/details/20260816-01-calendar-link-improvements-details.md (Lines 623-639)
 
 ## Dependencies

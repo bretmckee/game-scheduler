@@ -40,8 +40,8 @@ import {
 } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
 import { useParams, useNavigate } from 'react-router';
-import axios from 'axios';
 import { apiClient } from '../api/client';
+import { mintCalendarExportToken, buildCalendarExportUrl } from '../api/calendarExport';
 import { GameSession, SignupMethod, SIGNUP_METHOD_INFO } from '../types';
 import { ParticipantList } from '../components/ParticipantList';
 import { useAuth } from '../hooks/useAuth';
@@ -202,30 +202,8 @@ export const GameDetails: FC = () => {
 
     setCalendarLoading(true);
     try {
-      const url = `/api/v1/export/game/${gameId}`;
-      const response = await axios.get(url, {
-        responseType: 'blob',
-        withCredentials: true,
-      });
-
-      const contentDisposition = response.headers['content-disposition'];
-      let filename = `game-${gameId}.ics`;
-      if (contentDisposition) {
-        const filenameMatch = contentDisposition.match(/filename=([^;]+)/);
-        if (filenameMatch) {
-          filename = filenameMatch[1].trim();
-        }
-      }
-
-      const blob = new Blob([response.data], { type: 'text/calendar' });
-      const downloadUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = downloadUrl;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(downloadUrl);
+      const token = await mintCalendarExportToken(gameId);
+      window.location.href = buildCalendarExportUrl(token);
     } catch (err) {
       console.error('Failed to export calendar:', err);
       const errorMessage =
