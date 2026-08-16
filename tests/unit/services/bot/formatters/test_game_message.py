@@ -27,10 +27,17 @@ from unittest.mock import ANY, MagicMock, patch
 import discord
 
 from services.bot.formatters.game_message import (
+    _PARTICIPANT_COLUMNS,
+    _WAITLIST_COLUMNS,
+    _ZERO_WIDTH_SPACE,
     GameMessageFormatter,
     format_game_announcement,
 )
-from shared.utils.limits import DISCORD_EMBED_TOTAL_SAFE_LIMIT, MAX_DESCRIPTION_LENGTH
+from shared.utils.limits import (
+    DISCORD_EMBED_FIELD_VALUE_LIMIT,
+    DISCORD_EMBED_TOTAL_SAFE_LIMIT,
+    MAX_DESCRIPTION_LENGTH,
+)
 
 
 class TestGameMessageFormatter:
@@ -111,7 +118,7 @@ class TestGameMessageFormatter:
             )
 
             calls = [str(call) for call in mock_embed.add_field.call_args_list]
-            assert any("Participants" in str(call) and "2/5" in str(call) for call in calls)
+            assert any("Players" in str(call) and "2/5" in str(call) for call in calls)
             mock_embed_class.assert_called_once_with(title="Game", description="Desc", color=ANY)
 
     def test_embed_confirmed_participants_use_raw_mentions_overflow_uses_display_names(self):
@@ -145,11 +152,11 @@ class TestGameMessageFormatter:
 
             calls = list(mock_embed.add_field.call_args_list)
             call_strs = [str(call) for call in calls]
-            participants_idx = next(i for i, call in enumerate(call_strs) if "Participants" in call)
+            participants_idx = next(i for i, call in enumerate(call_strs) if "Players" in call)
             # Participants always span two side-by-side columns; the second
             # column immediately follows the first (see _add_participant_fields).
             participants_text = call_strs[participants_idx] + call_strs[participants_idx + 1]
-            waitlist_call = next(call for call in call_strs if "Waitlisted" in call)
+            waitlist_call = next(call for call in call_strs if "Waitlist" in call)
 
             assert "<@111>" in participants_text
             assert "<@222>" in participants_text
@@ -343,7 +350,7 @@ class TestGameMessageFormatter:
             )
 
             calls = [str(call) for call in mock_embed.add_field.call_args_list]
-            assert any("Participants" in str(call) for call in calls)
+            assert any("Players" in str(call) for call in calls)
             mock_embed_class.assert_called_once_with(title="Game", description="Desc", color=ANY)
 
     def test_embed_includes_rules_when_provided(self):
@@ -735,18 +742,22 @@ class TestGameMessageFormatterHelpers:
 
         GameMessageFormatter._add_participant_fields(embed, ["111", "222", "333"], [], 3, 5)
 
-        # Three participant columns (no waitlist).
-        assert embed.add_field.call_count == 3
+        # No waitlist, so only the participant columns are added.
+        assert embed.add_field.call_count == _PARTICIPANT_COLUMNS
         first_call_kwargs = embed.add_field.call_args_list[0][1]
-        assert "Participants (3/5)" in first_call_kwargs["name"]
+        assert "Players (3/5)" in first_call_kwargs["name"]
 
     def test_add_participant_fields_splits_into_three_columns(self):
         """Test that participants are split contiguously across three fields.
 
-        Three columns, not two, so the row is the same width as the
-        waitlist row below it - Discord sizes inline fields by how many
-        share a row, not by their content, so mismatched column counts
-        produce mismatched widths (see _split_into_columns).
+        Three columns so the row is the same width as the waitlist row
+        below it - Discord sizes inline fields by how many share a row, not
+        by their content, so mismatched column counts produce mismatched
+        widths (see _split_into_columns). _split_evenly is preferred here
+        since a plain count-based split keeps every column comfortably
+        under Discord's per-field limit for short entries like these (see
+        test_add_participant_fields_waitlist_falls_back_to_length_packing_when_even_split_overflows
+        for a case where it isn't safe and packing falls back accordingly).
         """
         embed = MagicMock()
 
@@ -756,9 +767,9 @@ class TestGameMessageFormatterHelpers:
 
         calls = [call[1] for call in embed.add_field.call_args_list]
         col1, col2, col3 = calls[0], calls[1], calls[2]
-        assert col1["name"] == "Participants (6/6)"
-        assert col2["name"] == "\u200b"
-        assert col3["name"] == "\u200b"
+        assert col1["name"] == "Players (6/6)"
+        assert col2["name"] == _ZERO_WIDTH_SPACE
+        assert col3["name"] == _ZERO_WIDTH_SPACE
         assert "1. <@111>" in col1["value"]
         assert "2. <@222>" in col1["value"]
         assert "3. <@333>" in col2["value"]
@@ -773,10 +784,10 @@ class TestGameMessageFormatterHelpers:
         GameMessageFormatter._add_participant_fields(embed, [], [], 0, 5)
 
         calls = [call[1] for call in embed.add_field.call_args_list]
-        combined_value = "".join(c["value"] for c in calls[:3])
-        assert "Participants (0/5)" in calls[0]["name"]
+        combined_value = "".join(c["value"] for c in calls[:_PARTICIPANT_COLUMNS])
+        assert "Players (0/5)" in calls[0]["name"]
         assert "open slot" in combined_value.lower()
-        assert "No participants yet" not in combined_value
+        assert "No players yet" not in combined_value
 
     def test_add_participant_fields_with_waitlist(self):
         """Test adding participant fields with waitlisted participants."""
@@ -784,10 +795,10 @@ class TestGameMessageFormatterHelpers:
 
         GameMessageFormatter._add_participant_fields(embed, ["111", "222"], ["333", "444"], 2, 2)
 
-        # 3 participant columns + 3 waitlist columns.
-        assert embed.add_field.call_count == 6
+        # Player columns plus waitlist columns.
+        assert embed.add_field.call_count == _PARTICIPANT_COLUMNS + _WAITLIST_COLUMNS
         calls = [call[1] for call in embed.add_field.call_args_list]
-        assert any("Waitlisted (2)" in c.get("name", "") for c in calls)
+        assert any("Waitlist (2)" in c.get("name", "") for c in calls)
 
     def test_add_participant_fields_waitlist_numbers_reset_to_one(self):
         """Test that waitlist numbering always starts at 1, not after participant count."""
@@ -798,58 +809,69 @@ class TestGameMessageFormatterHelpers:
         )
 
         calls = [call[1] for call in embed.add_field.call_args_list]
-        # 3 participant columns precede the 3 waitlist columns.
-        waitlist_values = "".join(c["value"] for c in calls[-3:])
+        # Participant columns precede the waitlist columns.
+        waitlist_values = "".join(c["value"] for c in calls[-_WAITLIST_COLUMNS:])
         assert "1. <@444>" in waitlist_values
         assert "2. <@555>" in waitlist_values
 
-    def test_add_participant_fields_waitlist_spans_three_columns(self):
-        """Test that the waitlist is distributed as contiguous chunks across three fields."""
-        embed = MagicMock()
-        overflow_ids = [str(i) for i in range(100, 100 + 8)]  # 8 waitlisted entries
+    def test_add_participant_fields_waitlist_falls_back_to_length_packing_when_even_split_overflows(
+        self,
+    ):
+        """Test that a long-entry waitlist falls back to length-based packing when needed.
 
-        GameMessageFormatter._add_participant_fields(embed, ["111"], overflow_ids, 1, 1)
+        _split_evenly is tried first (see test_add_participant_fields_splits_into_three_columns),
+        but a fixed-count split can't account for content length: with 30
+        entries each carrying a 100-char resolved display name, an even
+        10-10-10 split would put every column at ~1050 chars - over
+        Discord's per-field limit - so packing falls back to
+        _pack_by_length instead, which fills each column to capacity (9
+        entries each, well under the limit) and notes the remainder that
+        doesn't fit in the last column.
+        """
+        embed = MagicMock()
+        overflow_ids = [str(i) for i in range(1, 31)]  # 30 waitlisted entries
+        names = dict.fromkeys(overflow_ids, "X" * 100)
+
+        GameMessageFormatter._add_participant_fields(
+            embed, ["111"], overflow_ids, 1, 1, overflow_display_names=names
+        )
 
         calls = [call[1] for call in embed.add_field.call_args_list]
-        waitlist_calls = calls[-3:]
-        assert "Waitlisted (8)" in waitlist_calls[0]["name"]
-        assert waitlist_calls[1]["name"] == "\u200b"
-        assert waitlist_calls[2]["name"] == "\u200b"
-        # Contiguous chunks of ceil(8/3)=3: column 1 gets positions 1-3, column 2
-        # gets 4-6, column 3 gets 7-8 - reading column-by-column (not
-        # interleaved/row-major) recovers the original order on every Discord
-        # client, including mobile, which stacks fields instead of gridding them.
-        assert "1. <@100>" in waitlist_calls[0]["value"]
-        assert "2. <@101>" in waitlist_calls[0]["value"]
-        assert "3. <@102>" in waitlist_calls[0]["value"]
-        assert "4. <@103>" in waitlist_calls[1]["value"]
-        assert "5. <@104>" in waitlist_calls[1]["value"]
-        assert "6. <@105>" in waitlist_calls[1]["value"]
-        assert "7. <@106>" in waitlist_calls[2]["value"]
-        assert "8. <@107>" in waitlist_calls[2]["value"]
+        waitlist_calls = calls[-_WAITLIST_COLUMNS:]
+        assert "Waitlist (30)" in waitlist_calls[0]["name"]
+        assert waitlist_calls[1]["name"] == _ZERO_WIDTH_SPACE
+        assert waitlist_calls[2]["name"] == _ZERO_WIDTH_SPACE
+        for n in range(1, 10):
+            assert f"{n}. @{'X' * 100}" in waitlist_calls[0]["value"]
+        assert "10." not in waitlist_calls[0]["value"]
+        for n in range(10, 19):
+            assert f"{n}. @{'X' * 100}" in waitlist_calls[1]["value"]
+        assert "19." not in waitlist_calls[1]["value"]
+        for n in range(19, 28):
+            assert f"{n}. @{'X' * 100}" in waitlist_calls[2]["value"]
+        assert "28." not in waitlist_calls[2]["value"]
+        assert "... and 3 more" in waitlist_calls[2]["value"]
+        for call in waitlist_calls:
+            assert len(call["value"]) <= DISCORD_EMBED_FIELD_VALUE_LIMIT
 
     def test_add_participant_fields_shows_participants_well_past_old_cap(self):
-        """Test that participants effectively always show in full (up to 100).
-
-        max_players is capped at 100 by GameCreateRequest/GameUpdateRequest
-        (shared/schemas/game.py), so _PARTICIPANT_MAX_DISPLAY=100 means real
-        games never hit the truncation note.
-        """
+        """Test that participants under _PARTICIPANT_MAX_DISPLAY show in full, untruncated."""
         embed = MagicMock()
         participant_ids = [str(i) for i in range(40)]
 
         GameMessageFormatter._add_participant_fields(embed, participant_ids, [], 40, 40)
 
         calls = [call[1] for call in embed.add_field.call_args_list]
-        combined_value = "".join(c["value"] for c in calls[:3])
+        combined_value = "".join(c["value"] for c in calls[:_PARTICIPANT_COLUMNS])
         assert "... and" not in combined_value
         assert "40. <@39>" in combined_value
 
     def test_add_participant_fields_waitlist_budget_shrinks_with_more_max_players(self):
         """Test that a large max_players leaves less waitlist display budget.
 
-        Waitlist budget is max(_MIN_WAITLIST_DISPLAY, _TOTAL_DISPLAY_BUDGET -
-        max_players); at max_players=100 that floors out at 15.
+        Waitlist budget is min(_MAX_WAITLIST_DISPLAY, max(_MIN_WAITLIST_DISPLAY,
+        _TOTAL_DISPLAY_BUDGET - max_players)); at max_players=100 that floors
+        out at 15.
         """
         embed = MagicMock()
         overflow_ids = [str(i) for i in range(20)]
@@ -857,7 +879,7 @@ class TestGameMessageFormatterHelpers:
         GameMessageFormatter._add_participant_fields(embed, ["111"], overflow_ids, 1, 100)
 
         calls = [call[1] for call in embed.add_field.call_args_list]
-        waitlist_values = "".join(c["value"] for c in calls[-3:])
+        waitlist_values = "".join(c["value"] for c in calls[-_WAITLIST_COLUMNS:])
         assert "... and 5 more" in waitlist_values
         assert "15. <@14>" in waitlist_values
         assert "16. <@15>" not in waitlist_values
@@ -873,14 +895,15 @@ class TestGameMessageFormatterHelpers:
         )
 
         calls = [call[1] for call in embed.add_field.call_args_list]
-        waitlist_values = "".join(c["value"] for c in calls[-3:])
+        waitlist_values = "".join(c["value"] for c in calls[-_WAITLIST_COLUMNS:])
         assert f"[... and 5 more]({game_url})" in waitlist_values
 
     def test_add_participant_fields_waitlist_budget_grows_with_fewer_max_players(self):
         """Test that a small max_players leaves more waitlist display budget.
 
-        At max_players=2, budget is _TOTAL_DISPLAY_BUDGET - 2 = 103, so 50
-        waitlisted entries all display without truncation.
+        At max_players=2, _TOTAL_DISPLAY_BUDGET - 2 = 103, ceilinged by
+        _MAX_WAITLIST_DISPLAY (64), so all 50 waitlisted entries (under that
+        cap) display without truncation.
         """
         embed = MagicMock()
         overflow_ids = [str(i) for i in range(50)]
@@ -888,9 +911,34 @@ class TestGameMessageFormatterHelpers:
         GameMessageFormatter._add_participant_fields(embed, ["111", "222"], overflow_ids, 2, 2)
 
         calls = [call[1] for call in embed.add_field.call_args_list]
-        waitlist_values = "".join(c["value"] for c in calls[-3:])
+        waitlist_values = "".join(c["value"] for c in calls[-_WAITLIST_COLUMNS:])
         assert "... and" not in waitlist_values
         assert "50. <@49>" in waitlist_values
+
+    def test_add_participant_fields_waitlist_column_values_stay_under_discord_field_limit(self):
+        """Test that a large waitlist of real-length Discord IDs stays under Discord's field limit.
+
+        Regression test: a real dev-environment game with max_players=5 and
+        123 waitlisted participants (real 18-digit Discord snowflake
+        mentions) produced a "... and N more" column value over Discord's
+        1024-char field-value limit once _WAITLIST_COLUMNS dropped from 3 to
+        2, which made every subsequent Discord message edit for that game
+        fail with a 400 and silently stop updating.
+        """
+        embed = MagicMock()
+        overflow_ids = [str(414948405698232320 + i) for i in range(123)]  # 18-digit snowflakes
+        game_url = (
+            "https://game-scheduler-dev.boneheads.us/games/510a023d-973d-4011-86c8-6f5ce213c78f"
+        )
+
+        GameMessageFormatter._add_participant_fields(
+            embed, ["111111111111111111"], overflow_ids, 1, 5, game_url=game_url
+        )
+
+        calls = [call[1] for call in embed.add_field.call_args_list]
+        assert calls, "Expected fields to have been added"
+        for call in calls:
+            assert len(call["value"]) <= 1024, f"Field value exceeds Discord's limit: {call}"
 
     def test_add_participant_fields_shows_open_slots_when_under_capacity(self):
         """Test that open slot placeholders appear when game is not full."""
@@ -899,7 +947,7 @@ class TestGameMessageFormatterHelpers:
         GameMessageFormatter._add_participant_fields(embed, ["111", "222"], [], 2, 5)
 
         calls = [call[1] for call in embed.add_field.call_args_list]
-        combined_value = "".join(c["value"] for c in calls[:3])
+        combined_value = "".join(c["value"] for c in calls[:_PARTICIPANT_COLUMNS])
         assert "open slot" in combined_value.lower()
 
     def test_add_participant_fields_shows_open_slots_when_no_participants(self):
@@ -909,9 +957,9 @@ class TestGameMessageFormatterHelpers:
         GameMessageFormatter._add_participant_fields(embed, [], [], 0, 4)
 
         calls = [call[1] for call in embed.add_field.call_args_list]
-        combined_value = "".join(c["value"] for c in calls[:3])
+        combined_value = "".join(c["value"] for c in calls[:_PARTICIPANT_COLUMNS])
         assert "open slot" in combined_value.lower()
-        assert "No participants yet" not in combined_value
+        assert "No players yet" not in combined_value
 
     def test_add_participant_fields_no_open_slots_when_at_capacity(self):
         """Test that no open slot placeholders appear when game is full."""
@@ -922,14 +970,14 @@ class TestGameMessageFormatterHelpers:
         )
 
         calls = [call[1] for call in embed.add_field.call_args_list]
-        combined_value = "".join(c["value"] for c in calls[:3])
+        combined_value = "".join(c["value"] for c in calls[:_PARTICIPANT_COLUMNS])
         assert "open slot" not in combined_value.lower()
 
     def test_add_participant_fields_no_participants_and_no_capacity(self):
         """Test the "no participants yet" branch when max_players is 0.
 
         Open-slot padding only fires when max_players > len(participant_ids),
-        so participant_ids stays empty (and the "No participants yet" branch
+        so participant_ids stays empty (and the "No players yet" branch
         is reached) only when max_players is 0.
         """
         embed = MagicMock()
@@ -937,10 +985,11 @@ class TestGameMessageFormatterHelpers:
         GameMessageFormatter._add_participant_fields(embed, [], [], 0, 0)
 
         calls = [call[1] for call in embed.add_field.call_args_list]
-        assert calls[0]["name"] == "Participants (0/0)"
-        assert calls[0]["value"] == "No participants yet"
-        assert calls[1]["value"] == "\u200b"
-        assert calls[2]["value"] == "\u200b"
+        assert len(calls) == _PARTICIPANT_COLUMNS
+        assert calls[0]["name"] == "Players (0/0)"
+        assert calls[0]["value"] == "No players yet"
+        for spacer_call in calls[1:]:
+            assert spacer_call["value"] == "\u200b"
 
     def test_split_into_columns_notes_truncation_at_last_populated_column(self):
         """Test that entries beyond the display cap are noted, not silently dropped."""
@@ -992,6 +1041,60 @@ class TestGameMessageFormatterHelpers:
 
         assert "1. @Alice" in columns[0]
         assert "2. <@222>" in columns[1]
+
+    def test_split_evenly_returns_blank_columns_for_no_lines(self):
+        """Test that _split_evenly returns all-blank columns when there are no lines."""
+        columns = GameMessageFormatter._split_evenly([], 3)
+
+        assert columns == [_ZERO_WIDTH_SPACE] * 3
+
+    def test_append_truncation_note_appends_when_it_fits(self):
+        """Test that the note is appended to the last populated column when it fits."""
+        texts = ["1. <@111>\n2. <@222>", _ZERO_WIDTH_SPACE]
+
+        GameMessageFormatter._append_truncation_note(texts, 3, None)
+
+        assert texts == ["1. <@111>\n2. <@222>\n... and 3 more", _ZERO_WIDTH_SPACE]
+
+    def test_append_truncation_note_uses_last_populated_column(self):
+        """Test that the note lands on the last non-blank column, not always the last one."""
+        texts = ["1. <@111>", "2. <@222>"]
+
+        GameMessageFormatter._append_truncation_note(texts, 1, None)
+
+        assert texts == ["1. <@111>", "2. <@222>\n... and 1 more"]
+
+    def test_append_truncation_note_links_to_game_url(self):
+        """Test that the note is a markdown link when game_url is given."""
+        texts = ["1. <@111>", _ZERO_WIDTH_SPACE]
+
+        GameMessageFormatter._append_truncation_note(texts, 2, "https://example.com/games/abc")
+
+        assert texts[0] == "1. <@111>\n[... and 2 more](https://example.com/games/abc)"
+
+    def test_append_truncation_note_shrinks_column_when_note_does_not_fit(self):
+        """Test that a too-full column gives up its last line to make room for the note.
+
+        Regression coverage for the retry loop in _append_truncation_note:
+        a column already at Discord's field-value limit has no room left
+        for a "... and N more" note, so its one line is popped back into
+        `remaining` (now 2, since that popped line no longer displays
+        either) and the column becomes blank, letting the note stand alone.
+        """
+        almost_full_line = "1. <@" + "1" * DISCORD_EMBED_FIELD_VALUE_LIMIT + ">"
+        texts = [almost_full_line, _ZERO_WIDTH_SPACE]
+
+        GameMessageFormatter._append_truncation_note(texts, 1, None)
+
+        assert texts == [_ZERO_WIDTH_SPACE, "... and 2 more"]
+
+    def test_append_truncation_note_falls_back_when_all_columns_blank(self):
+        """Test the defensive fallback when no column has any content to attach the note to."""
+        texts = [_ZERO_WIDTH_SPACE, _ZERO_WIDTH_SPACE]
+
+        GameMessageFormatter._append_truncation_note(texts, 5, None)
+
+        assert texts == [_ZERO_WIDTH_SPACE, "... and 5 more"]
 
     def test_add_footer_sets_status(self):
         """Test that _add_footer sets the footer and adds no fields."""
@@ -2062,9 +2165,10 @@ class TestEmbedNewFields:
             )
 
             calls = [call[1] for call in mock_embed.add_field.call_args_list]
-            waitlist_idx = next(i for i, c in enumerate(calls) if "Waitlisted" in c["name"])
-            # Waitlist is always split across three columns; combine them to check numbering.
-            waitlist_text = "".join(c["value"] for c in calls[waitlist_idx : waitlist_idx + 3])
+            waitlist_idx = next(i for i, c in enumerate(calls) if "Waitlist" in c["name"])
+            # Waitlist columns always follow the field found above; combine them to check numbering.
+            waitlist_calls = calls[waitlist_idx : waitlist_idx + _WAITLIST_COLUMNS]
+            waitlist_text = "".join(c["value"] for c in waitlist_calls)
 
             assert "1. <@444>" in waitlist_text
             assert "2. <@555>" in waitlist_text
@@ -2117,7 +2221,7 @@ class TestTrimEmbedIfNeeded:
         )
         embed.add_field(name="Game Time", value="<t:1234567890:F> (<t:1234567890:R>)", inline=False)
         embed.add_field(name="Host", value="<@123456789>", inline=True)
-        embed.add_field(name="Participants (0/5)", value="No participants yet", inline=True)
+        embed.add_field(name="Players (0/5)", value="No players yet", inline=True)
         embed.set_footer(text="Status: Scheduled")
         assert len(embed) <= DISCORD_EMBED_TOTAL_SAFE_LIMIT
         result = GameMessageFormatter._trim_embed_if_needed(embed)

@@ -46,6 +46,7 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import text
 
+from services.bot.formatters.game_message import _PARTICIPANT_COLUMNS, _WAITLIST_COLUMNS
 from tests.e2e.conftest import TimeoutType, wait_for_game_message_id
 
 pytestmark = pytest.mark.e2e
@@ -143,15 +144,16 @@ async def test_game_with_large_waitlist_shows_contiguous_columns(
     test_timeouts,
 ):
     """
-    E2E: A waitlist bigger than max_players renders as three contiguous columns.
+    E2E: A waitlist bigger than max_players renders as contiguous columns.
 
     Verifies:
-    - Participants field always spans three side-by-side columns, matching
-      the waitlist row's width below it (Discord sizes inline fields by how
-      many share a row, not by their content, so mismatched column counts
-      would make the two rows different widths)
-    - Waitlist field spans three side-by-side columns once there's overflow
-    - Waitlist numbering starts at 1 (does not continue from participant count)
+    - Players field always spans `_PARTICIPANT_COLUMNS` side-by-side
+      columns, matching the waitlist row's width below it (Discord sizes
+      inline fields by how many share a row, not by their content, so
+      mismatched column counts would make the two rows different widths)
+    - Waitlist field spans `_WAITLIST_COLUMNS` side-by-side columns once
+      there's overflow
+    - Waitlist numbering starts at 1 (does not continue from player count)
     - Waitlist entries are distributed as contiguous chunks (column 1:
       positions 1-3; column 2: positions 4-6; column 3: position 7) rather
       than row-major/interleaved, since Discord's mobile client stacks each
@@ -179,8 +181,9 @@ async def test_game_with_large_waitlist_shows_contiguous_columns(
     game_title = f"E2E Waitlist Columns {uuid4().hex[:8]}"
 
     # First 2 names fill max_players=2; the remaining 7 placeholders overflow
-    # onto the waitlist, which is enough to populate all three columns unevenly
-    # (column 1 gets positions 1-3, column 2 gets 4-6, column 3 gets 7).
+    # onto the waitlist, which is enough to populate all _WAITLIST_COLUMNS
+    # columns unevenly (column 1 gets positions 1-3, column 2 gets 4-6,
+    # column 3 gets 7).
     waitlist_names = [f"Waitlist {i}" for i in range(1, 8)]
     game_data = {
         "template_id": test_template_id,
@@ -214,26 +217,30 @@ async def test_game_with_large_waitlist_shows_contiguous_columns(
         expected_max_players=2,
     )
 
-    # Participants always span exactly three columns, matching the waitlist
-    # row's width below: with 2 confirmed participants, column 1 holds
-    # Player A, column 2 holds Player B, and column 3 is a blank spacer
-    # (contiguous split; see GameMessageFormatter._split_into_columns).
-    participants_fields = [f for f in embed.fields if f.name and "Participants" in f.name]
-    assert len(participants_fields) == 1, "Expected exactly one named Participants field"
+    # Players always span exactly _PARTICIPANT_COLUMNS columns, matching
+    # the waitlist row's width below: with 2 confirmed players, column 1
+    # holds Player A, column 2 holds Player B, and column 3 is a blank
+    # spacer (contiguous split; see GameMessageFormatter._split_into_columns).
+    participants_fields = [f for f in embed.fields if f.name and "Players" in f.name]
+    assert len(participants_fields) == 1, "Expected exactly one named Players field"
     participants_idx = embed.fields.index(participants_fields[0])
-    participants_columns = embed.fields[participants_idx : participants_idx + 3]
-    assert len(participants_columns) == 3, "Participants should render as three columns"
+    participants_columns = embed.fields[participants_idx : participants_idx + _PARTICIPANT_COLUMNS]
+    assert len(participants_columns) == _PARTICIPANT_COLUMNS, (
+        "Players should render as _PARTICIPANT_COLUMNS columns"
+    )
     assert "Player A" in participants_columns[0].value
     assert "Player B" in participants_columns[1].value
 
-    # Waitlist spans exactly three columns, contiguous, numbered from 1 -
-    # not continuing from the 2 confirmed participants.
-    waitlist_fields = [f for f in embed.fields if f.name and "Waitlisted" in f.name]
-    assert len(waitlist_fields) == 1, "Expected exactly one named Waitlisted field"
+    # Waitlist spans exactly _WAITLIST_COLUMNS columns, contiguous, numbered
+    # from 1 - not continuing from the 2 confirmed players.
+    waitlist_fields = [f for f in embed.fields if f.name and "Waitlist" in f.name]
+    assert len(waitlist_fields) == 1, "Expected exactly one named Waitlist field"
     assert "(7)" in waitlist_fields[0].name
     waitlist_idx = embed.fields.index(waitlist_fields[0])
-    waitlist_columns = embed.fields[waitlist_idx : waitlist_idx + 3]
-    assert len(waitlist_columns) == 3, "Waitlist should render as three side-by-side columns"
+    waitlist_columns = embed.fields[waitlist_idx : waitlist_idx + _WAITLIST_COLUMNS]
+    assert len(waitlist_columns) == _WAITLIST_COLUMNS, (
+        "Waitlist should render as _WAITLIST_COLUMNS side-by-side columns"
+    )
 
     col1, col2, col3 = (f.value for f in waitlist_columns)
     assert "1. Waitlist 1" in col1
@@ -243,4 +250,4 @@ async def test_game_with_large_waitlist_shows_contiguous_columns(
     assert "5. Waitlist 5" in col2
     assert "6. Waitlist 6" in col2
     assert "7. Waitlist 7" in col3
-    print("✓ Waitlist renders as three contiguous columns numbered from 1")
+    print(f"✓ Waitlist renders as {_WAITLIST_COLUMNS} contiguous columns numbered from 1")

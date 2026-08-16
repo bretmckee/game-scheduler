@@ -159,11 +159,11 @@ async def test_waitlist_promotion_sends_dm(
     # Find participants field
     participants_field = None
     for field in initial_embed.fields:
-        if field.name and "Participants" in field.name:
+        if field.name and "Players" in field.name:
             participants_field = field
             break
 
-    assert participants_field is not None, "Participants field not found"
+    assert participants_field is not None, "Players field not found"
     assert "1/1" in participants_field.name, (
         f"Expected 1/1 in field name, got: {participants_field.name}"
     )
@@ -208,7 +208,7 @@ async def test_waitlist_promotion_sends_dm(
             and any(
                 expected_player_count in field.name
                 for field in msg.embeds[0].fields
-                if field.name and "Participants" in field.name
+                if field.name and "Players" in field.name
             )
         ),
         timeout=test_timeouts[TimeoutType.MESSAGE_UPDATE] + 5,
@@ -221,11 +221,11 @@ async def test_waitlist_promotion_sends_dm(
     # Find participants field for verification
     participants_field = None
     for field in promoted_embed.fields:
-        if field.name and "Participants" in field.name:
+        if field.name and "Players" in field.name:
             participants_field = field
             break
 
-    assert participants_field is not None, "Participants field not found"
+    assert participants_field is not None, "Players field not found"
     print(f"✓ Discord message shows {expected_player_count} with test user promoted")
 
     # Verify promotion DM content

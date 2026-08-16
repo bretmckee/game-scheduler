@@ -38,12 +38,15 @@ from services.bot.utils.discord_format import (
     format_discord_mention,
     format_discord_timestamp,
     format_duration,
-    format_participant_list,
     format_user_or_placeholder,
 )
 from services.bot.views.game_view import GameView
 from shared.models import GameStatus
-from shared.utils.limits import DISCORD_EMBED_TOTAL_SAFE_LIMIT, EMBED_FIELD_REWARDS
+from shared.utils.limits import (
+    DISCORD_EMBED_FIELD_VALUE_LIMIT,
+    DISCORD_EMBED_TOTAL_SAFE_LIMIT,
+    EMBED_FIELD_REWARDS,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -54,22 +57,39 @@ _MIME_TO_EXT: dict[str, str] = {
     "image/webp": ".webp",
 }
 
-# Participants and the waitlist (when present) each get their own row split
-# across three side-by-side columns - matching column counts keeps both rows
-# the same width, since Discord sizes inline fields by how many share a row,
-# not by their content. See _add_participant_fields.
+# Discord embed fields require a non-empty name and value, so this invisible
+# character stands in for "nothing here" - as a blank spacer field, a
+# not-yet-populated column, and the "no more columns to append to" sentinel
+# in _append_truncation_note.
+_ZERO_WIDTH_SPACE = "\u200b"
+
+# Players and the waitlist (when present) each get their own row split
+# across side-by-side columns - matching column counts keeps both rows the
+# same width, since Discord sizes inline fields by how many share a row, not
+# by their content. 3 columns each so the two rows form two complete,
+# self-contained rows (Discord packs consecutive inline fields up to 3 per
+# row, continuing that count across unrelated fields until something breaks
+# it - 3 + 3 = 6 divides evenly into two rows with nothing left over to
+# spill into/out of either row). See _add_participant_fields.
 _PARTICIPANT_COLUMNS = 3
 _WAITLIST_COLUMNS = 3
 
-# Participants effectively always show in full: GameCreateRequest and
-# GameUpdateRequest both cap max_players at 100 (shared/schemas/game.py), so
-# this display cap is a defensive backstop, not something real games hit.
-# The waitlist's cap is dynamic (_TOTAL_DISPLAY_BUDGET - max_players, floored
-# at _MIN_WAITLIST_DISPLAY) so the two sections share one overall name
-# budget - each field is independently well under Discord's 1024-char
-# field-value limit at these sizes, but a fixed high cap on both regardless
-# of max_players could let their combined text meaningfully eat into
-# Discord's 6000-char whole-embed total (see DISCORD_EMBED_TOTAL_SAFE_LIMIT).
+# These are soft caps on how many entries _split_into_columns even considers
+# packing into columns - NOT what keeps a column's field value under
+# Discord's DISCORD_EMBED_FIELD_VALUE_LIMIT (1024 chars, separate from the
+# whole-embed 6000-char budget - see DISCORD_EMBED_TOTAL_SAFE_LIMIT). That
+# guarantee comes from _split_into_columns itself, which packs by each
+# numbered line's actual rendered length (a line can be a short `<@id>`
+# mention, a resolved display name, or a long host-entered placeholder name -
+# game_participants.display_name is a free-form varchar(100) - so a fixed
+# entries-per-column count can't safely predict a column's length). These
+# caps exist only to bound how much work _split_into_columns does and how
+# large a waitlist we're willing to enumerate at all; GameCreateRequest/
+# GameUpdateRequest cap max_players at 100 (shared/schemas/game.py), so
+# _PARTICIPANT_MAX_DISPLAY is effectively always enough for the confirmed
+# list. The waitlist's cap is dynamic (_TOTAL_DISPLAY_BUDGET - max_players,
+# floored at _MIN_WAITLIST_DISPLAY) so a small game still shows a bigger
+# waitlist and a large game a smaller one.
 _PARTICIPANT_MAX_DISPLAY = 100
 _TOTAL_DISPLAY_BUDGET = 105
 _MIN_WAITLIST_DISPLAY = 15
@@ -153,8 +173,8 @@ class GameMessageFormatter:
         Host, Run Time (or a blank spacer), and Links (or a blank spacer)
         share one row. Where and Voice Channel each get their own full-width
         row when present, rather than competing for space in that row - this
-        also leaves the Participants row below free to be two full-width
-        columns instead of sharing space with Links (see
+        also leaves the Players row below free to be its own three-column
+        row instead of sharing space with Links (see
         _add_participant_fields).
 
         Args:
@@ -184,7 +204,7 @@ class GameMessageFormatter:
             duration_text = format_duration(expected_duration_minutes)
             embed.add_field(name="Run Time", value=duration_text, inline=True)
         else:
-            embed.add_field(name="\u200b", value="\u200b", inline=True)
+            embed.add_field(name=_ZERO_WIDTH_SPACE, value=_ZERO_WIDTH_SPACE, inline=True)
 
         if calendar_url:
             links_value = f"\ud83d\udcc5 [Add to Calendar]({calendar_url})"
@@ -192,7 +212,7 @@ class GameMessageFormatter:
                 links_value += f"\n\ud83d\udcc5 [Google Calendar]({google_calendar_url})"
             embed.add_field(name="Links", value=links_value, inline=True)
         else:
-            embed.add_field(name="\u200b", value="\u200b", inline=True)
+            embed.add_field(name=_ZERO_WIDTH_SPACE, value=_ZERO_WIDTH_SPACE, inline=True)
 
         if where:
             embed.add_field(name="Where", value=where, inline=False)
@@ -210,26 +230,36 @@ class GameMessageFormatter:
         overflow_display_names: dict[str, str] | None = None,
         game_url: str | None = None,
     ) -> None:
-        """Add participant and waitlist fields to embed.
+        """Add player and waitlist fields to embed.
 
-        Participants and the waitlist (when present) each get their own row,
-        split into three contiguous columns and numbered independently -
-        matching column counts keeps both rows the same width, since Discord
-        sizes inline fields by how many share a row, not by their content.
-        Links now lives up in the Host/Run Time row instead (see
-        _add_game_time_fields). Waitlist numbering always starts at 1 rather
-        than continuing from the participant count (see
+        Players and the waitlist (when present) each get their own row,
+        split into `_PARTICIPANT_COLUMNS`/`_WAITLIST_COLUMNS` contiguous
+        columns and numbered independently - matching column counts keeps
+        both rows the same width, since Discord sizes inline fields by how
+        many share a row, not by their content. Discord has no explicit
+        "row" concept of its own: it just lays out consecutive `inline=True`
+        fields left to right, up to 3 per row, continuing that count across
+        unrelated fields until something breaks it (an `inline=False` field,
+        or hitting 3) - both blocks using exactly 3 columns means the
+        players row is already a complete row of 3 on its own, so the
+        waitlist's own 3 columns start counting fresh at 0 without needing
+        an explicit break. Links now lives up in the Host/Run Time row
+        instead (see _add_game_time_fields). Waitlist numbering always
+        starts at 1 rather than continuing from the player count (see
         _split_into_columns).
 
-        Participants are shown in full up to `_PARTICIPANT_MAX_DISPLAY`
-        (effectively always, since max_players is capped at 100 - see
-        shared/schemas/game.py); the waitlist shares a `_TOTAL_DISPLAY_BUDGET`
-        pool with however many participant slots are in play, so a small game
-        shows a bigger waitlist and a large game shows a smaller one, floored
-        at `_MIN_WAITLIST_DISPLAY`. If either list is truncated, the "... and
-        N more" note links to the game's full, untruncated participant list
-        on the website (when game_url is available) rather than just naming
-        an unreachable count.
+        Players are shown up to `_PARTICIPANT_MAX_DISPLAY`; the waitlist
+        shares a `_TOTAL_DISPLAY_BUDGET` pool with however many participant
+        slots are in play, so a small game shows a bigger waitlist and a
+        large game shows a smaller one, floored at `_MIN_WAITLIST_DISPLAY`.
+        These are soft caps on how much `_split_into_columns` even attempts
+        to display - it's `_split_into_columns` itself that guarantees each
+        column's rendered value stays under Discord's per-field character
+        limit, by packing based on actual rendered length rather than a
+        guessed entry count (see its docstring). If either list is
+        truncated, the "... and N more" note links to the game's full,
+        untruncated participant list on the website (when game_url is
+        available) rather than just naming an unreachable count.
 
         Args:
             embed: Discord embed to configure
@@ -251,16 +281,16 @@ class GameMessageFormatter:
         if open_slots > 0:
             participant_ids = list(participant_ids) + ["open slot"] * open_slots
 
-        participants_name = f"Participants ({current_count}/{max_players})"
+        players_name = f"Players ({current_count}/{max_players})"
         if participant_ids:
             columns = GameMessageFormatter._split_into_columns(
                 participant_ids, _PARTICIPANT_COLUMNS, _PARTICIPANT_MAX_DISPLAY, game_url=game_url
             )
         else:
-            columns = ["No participants yet", *(["\u200b"] * (_PARTICIPANT_COLUMNS - 1))]
+            columns = ["No players yet", *([_ZERO_WIDTH_SPACE] * (_PARTICIPANT_COLUMNS - 1))]
 
         for index, text in enumerate(columns):
-            name = participants_name if index == 0 else "\u200b"
+            name = players_name if index == 0 else _ZERO_WIDTH_SPACE
             embed.add_field(name=name, value=text, inline=True)
 
         if overflow_ids:
@@ -273,7 +303,7 @@ class GameMessageFormatter:
                 game_url,
             )
             for index, text in enumerate(waitlist_columns):
-                name = f"Waitlisted ({len(overflow_ids)})" if index == 0 else "\u200b"
+                name = f"Waitlist ({len(overflow_ids)})" if index == 0 else _ZERO_WIDTH_SPACE
                 embed.add_field(name=name, value=text, inline=True)
 
     @staticmethod
@@ -286,22 +316,38 @@ class GameMessageFormatter:
     ) -> list[str]:
         """Split items into contiguous, sequentially-numbered columns.
 
-        The list is truncated to `max_display` entries, then split into
-        `num_columns` contiguous chunks - column 1 gets the first chunk,
-        column 2 the next, and so on - so reading column 1 top-to-bottom
-        then column 2 (etc.) recovers the original order. This can't be a
-        row-major/interleaved split (column 1 getting positions 1,
-        num_columns + 1, ...): Discord's desktop client renders the columns
-        side by side, but its mobile client stacks each field as a full
-        column one after another, so an interleaved split would read out of
-        order on mobile. Any excess is noted as "... and N more" at the end
-        of the last populated column, linking to `game_url` (the game's full
+        The list is truncated to `max_display` entries (a soft cap on work
+        done - see the module-level constants), each rendered as its own
+        numbered line. Those lines are then split into `num_columns`
+        contiguous chunks by even count first (column 1 gets the first
+        `ceil(n/num_columns)` lines, column 2 the next, and so on) - the
+        same balanced look every column count has always had - *provided*
+        every resulting column stays under `DISCORD_EMBED_FIELD_VALUE_LIMIT`
+        (see `_split_evenly`). Only when that would overflow some column
+        (long resolved display names, long host-entered placeholder names -
+        game_participants.display_name is a free-form varchar(100) - or
+        simply many entries) does packing fall back to filling columns by
+        actual rendered length instead (see `_pack_by_length`), which is
+        what actually guarantees no column exceeds the limit; an even count
+        can't predict a column's length, only bound it once it's known to
+        fit. Reading column 1 top-to-bottom then column 2 (etc.) recovers
+        the original order either way, since chunks stay contiguous - this
+        can't be a row-major/interleaved split (column 1 getting positions
+        1, num_columns + 1, ...): Discord's desktop client renders the
+        columns side by side, but its mobile client stacks each field as a
+        full column one after another, so an interleaved split would read
+        out of order on mobile.
+
+        Any items that don't fit - beyond `max_display`, or beyond what fits
+        under the per-column length limit in the fallback path - are noted
+        as "... and N more" at the end of the last populated column (see
+        `_append_truncation_note`), linking to `game_url` (the game's full
         participant list on the website) when one is available.
 
         Args:
             items: Participant IDs or placeholder names, in join order
             num_columns: Number of side-by-side columns to produce
-            max_display: Maximum total entries to display before truncating
+            max_display: Maximum total entries to consider before packing
             display_names: Optional map of user_id -> resolved display name
             game_url: Optional link to the game's page on the website, used
                 for the truncation note
@@ -309,39 +355,126 @@ class GameMessageFormatter:
         Returns:
             Exactly `num_columns` rendered column texts, numbered from 1
         """
-        displayed = items[:max_display]
-        remaining = len(items) - len(displayed)
-        chunk_size = math.ceil(len(displayed) / num_columns) if displayed else 0
+        lines = [
+            f"{i + 1}. {format_user_or_placeholder(uid, display_names)}"
+            for i, uid in enumerate(items[:max_display])
+        ]
 
+        even_texts = GameMessageFormatter._split_evenly(lines, num_columns)
+        if even_texts is not None:
+            texts, consumed = even_texts, len(lines)
+        else:
+            texts, consumed = GameMessageFormatter._pack_by_length(lines, num_columns)
+
+        remaining = len(items) - consumed
+        if remaining:
+            GameMessageFormatter._append_truncation_note(texts, remaining, game_url)
+
+        return texts
+
+    @staticmethod
+    def _split_evenly(lines: list[str], num_columns: int) -> list[str] | None:
+        """Split lines into even, contiguous chunks, or None if any chunk would overflow.
+
+        Args:
+            lines: Pre-rendered, already-numbered lines
+            num_columns: Number of side-by-side columns to produce
+
+        Returns:
+            Exactly `num_columns` rendered column texts if every one fits
+            under `DISCORD_EMBED_FIELD_VALUE_LIMIT`, else None
+        """
+        if not lines:
+            return [_ZERO_WIDTH_SPACE] * num_columns
+
+        chunk_size = math.ceil(len(lines) / num_columns)
         texts = []
         for column in range(num_columns):
-            start = column * chunk_size
-            chunk = displayed[start : start + chunk_size] if chunk_size else []
-            texts.append(
-                format_participant_list(
-                    chunk,
-                    max_display=len(chunk),
-                    start_number=start + 1,
-                    include_count=False,
-                    display_names=display_names,
-                )
-                if chunk
-                else "\u200b"
-            )
+            chunk = lines[column * chunk_size : (column + 1) * chunk_size]
+            texts.append("\n".join(chunk) if chunk else _ZERO_WIDTH_SPACE)
 
-        if remaining:
+        if any(len(text) > DISCORD_EMBED_FIELD_VALUE_LIMIT for text in texts):
+            return None
+        return texts
+
+    @staticmethod
+    def _pack_by_length(lines: list[str], num_columns: int) -> tuple[list[str], int]:
+        """Greedily fill columns by actual rendered length, contiguously.
+
+        Column 1 fills up first, then column 2, and so on, each stopping
+        just before the next line would push its value over
+        `DISCORD_EMBED_FIELD_VALUE_LIMIT` - this is the fallback for when
+        `_split_evenly` can't guarantee that on its own.
+
+        Args:
+            lines: Pre-rendered, already-numbered lines
+            num_columns: Number of side-by-side columns to produce
+
+        Returns:
+            Tuple of (exactly `num_columns` rendered column texts, how many
+            leading `lines` were actually placed - the rest didn't fit)
+        """
+        texts: list[str] = []
+        line_index = 0
+        for _ in range(num_columns):
+            column_lines: list[str] = []
+            column_length = 0
+            while line_index < len(lines):
+                line = lines[line_index]
+                # +1 accounts for the "\n" joining this line to the column so far.
+                added_length = len(line) + (1 if column_lines else 0)
+                if column_lines and column_length + added_length > DISCORD_EMBED_FIELD_VALUE_LIMIT:
+                    break
+                column_lines.append(line)
+                column_length += added_length
+                line_index += 1
+            texts.append("\n".join(column_lines) if column_lines else _ZERO_WIDTH_SPACE)
+        return texts, line_index
+
+    @staticmethod
+    def _append_truncation_note(texts: list[str], remaining: int, game_url: str | None) -> None:
+        """Append a "... and N more" note to the last populated column, in place.
+
+        If the note doesn't fit alongside that column's existing lines under
+        Discord's per-field character limit, the column's last line is
+        popped back into `remaining` (growing the count, and shrinking the
+        note by one line's worth of room) and the fit is retried - falling
+        back to an earlier column if this one empties out entirely.
+
+        Args:
+            texts: Column texts produced by `_split_into_columns`, mutated
+                in place
+            remaining: Number of items not shown in `texts`
+            game_url: Optional link to the game's page on the website
+        """
+        last_populated = next(
+            (i for i in range(len(texts) - 1, -1, -1) if texts[i] != _ZERO_WIDTH_SPACE), None
+        )
+        while last_populated is not None:
             note = f"... and {remaining} more"
             if game_url:
                 note = f"[{note}]({game_url})"
-            last_populated = next(
-                (i for i in range(len(texts) - 1, -1, -1) if texts[i] != "\u200b"), None
-            )
-            if last_populated is None:
-                texts[-1] = note
-            else:
-                texts[last_populated] += f"\n{note}"
+            candidate = f"{texts[last_populated]}\n{note}"
+            if len(candidate) <= DISCORD_EMBED_FIELD_VALUE_LIMIT:
+                texts[last_populated] = candidate
+                return
 
-        return texts
+            column_lines = texts[last_populated].split("\n")
+            column_lines.pop()
+            remaining += 1
+            texts[last_populated] = "\n".join(column_lines) if column_lines else _ZERO_WIDTH_SPACE
+            if texts[last_populated] == _ZERO_WIDTH_SPACE:
+                last_populated = next(
+                    (i for i in range(last_populated - 1, -1, -1) if texts[i] != _ZERO_WIDTH_SPACE),
+                    None,
+                )
+
+        # No column has room for even a single line (e.g. num_columns == 0) -
+        # fall back to a bare note as the last column's entire content.
+        note = f"... and {remaining} more"
+        if game_url:
+            note = f"[{note}]({game_url})"
+        texts[-1] = note
 
     @staticmethod
     def _add_footer(embed: discord.Embed, status: str) -> None:

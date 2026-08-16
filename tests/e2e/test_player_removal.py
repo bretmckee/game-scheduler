@@ -145,11 +145,11 @@ async def test_player_removal_sends_dm_and_updates_message(
 
     verify_participants_field = None
     for field in verify_embed.fields:
-        if field.name and "Participants" in field.name:
+        if field.name and "Players" in field.name:
             verify_participants_field = field
             break
 
-    assert verify_participants_field is not None, "Participants field should exist"
+    assert verify_participants_field is not None, "Players field should exist"
     assert "1/4" in verify_participants_field.name, (
         f"Should show 1/4 participants before removal: {verify_participants_field.name}"
     )
@@ -201,7 +201,7 @@ async def test_player_removal_sends_dm_and_updates_message(
             and any(
                 "0/4" in field.name
                 for field in msg.embeds[0].fields
-                if field.name and "Participants" in field.name
+                if field.name and "Players" in field.name
             )
         ),
         timeout=test_timeouts[TimeoutType.MESSAGE_UPDATE] + 5,
@@ -214,11 +214,11 @@ async def test_player_removal_sends_dm_and_updates_message(
     updated_embed = updated_message.embeds[0]
     updated_participants_field = None
     for field in updated_embed.fields:
-        if field.name and "Participants" in field.name:
+        if field.name and "Players" in field.name:
             updated_participants_field = field
             break
 
-    assert updated_participants_field is not None, "Participants field should exist after removal"
+    assert updated_participants_field is not None, "Players field should exist after removal"
     participant_list = updated_participants_field.value
     assert expected_participant_text not in participant_list, (
         f"Removed user should not appear in participant list: {participant_list}"

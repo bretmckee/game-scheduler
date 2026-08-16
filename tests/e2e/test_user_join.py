@@ -118,11 +118,11 @@ async def test_user_join_updates_participant_count(
     initial_embed = initial_message.embeds[0]
     participants_field = None
     for field in initial_embed.fields:
-        if field.name and "Participants" in field.name:
+        if field.name and "Players" in field.name:
             participants_field = field
             break
 
-    assert participants_field is not None, "Participants field should exist"
+    assert participants_field is not None, "Players field should exist"
     assert "0/4" in participants_field.name, (
         f"Should show 0/4 participants: {participants_field.name}"
     )
@@ -147,11 +147,11 @@ async def test_user_join_updates_participant_count(
     updated_embed = updated_message.embeds[0]
     updated_participants_field = None
     for field in updated_embed.fields:
-        if field.name and "Participants" in field.name:
+        if field.name and "Players" in field.name:
             updated_participants_field = field
             break
 
-    assert updated_participants_field is not None, "Participants field should still exist"
+    assert updated_participants_field is not None, "Players field should still exist"
     assert "1/4" in updated_participants_field.name, (
         f"Should show 1/4 participants after join: {updated_participants_field.name}"
     )

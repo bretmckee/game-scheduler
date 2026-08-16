@@ -27,6 +27,7 @@ from enum import StrEnum
 
 import discord
 
+from services.bot.formatters.game_message import _PARTICIPANT_COLUMNS, _WAITLIST_COLUMNS
 from shared.message_formats import DMPredicates
 
 
@@ -346,31 +347,31 @@ class DiscordTestHelper:
             )
 
     def _find_participants_field(self, embed: discord.Embed) -> tuple[str, str]:
-        """Find the participants field(s) and return (field_name, combined_value).
+        """Find the players field(s) and return (field_name, combined_value).
 
-        Participants always span three side-by-side embed columns (see
-        GameMessageFormatter._add_participant_fields), so the combined value
-        concatenates all three columns in display order (each column's
-        numbers are contiguous with the next, so this preserves 1..N
-        ordering).
+        Players always span _PARTICIPANT_COLUMNS side-by-side embed
+        columns (see GameMessageFormatter._add_participant_fields), so the
+        combined value concatenates all of them in display order (each
+        column's numbers are contiguous with the next, so this preserves
+        1..N ordering).
         """
         fields = embed.fields
         for i, field in enumerate(fields):
-            if field.name and "Participants" in field.name:
-                columns = [f.value or "" for f in fields[i : i + 3]]
+            if field.name and "Players" in field.name:
+                columns = [f.value or "" for f in fields[i : i + _PARTICIPANT_COLUMNS]]
                 combined = "\n".join(v for v in columns if v and v != "\u200b")
                 return field.name, combined
-        msg = "Participants field missing"
+        msg = "Players field missing"
         raise AssertionError(msg)
 
     def _verify_participants_numbering(
         self, participants_value: str, verify_numbered_participants: bool
     ) -> None:
-        """Verify participant list has correct numbering format."""
+        """Verify player list has correct numbering format."""
         if (
             verify_numbered_participants
             and participants_value
-            and participants_value not in ("None yet", "No participants yet")
+            and participants_value not in ("None yet", "No players yet")
         ):
             lines = participants_value.split("\n")
             for i, line in enumerate(lines, start=1):
@@ -382,13 +383,14 @@ class DiscordTestHelper:
     def _check_waitlist_numbering(self, waitlist_columns: list[str]) -> None:
         """Assert waitlist numbering starts at 1 and is contiguous across columns.
 
-        The waitlist always spans three columns (see
-        GameMessageFormatter._add_participant_fields), split into contiguous
-        chunks - column 1 holds the first chunk, column 2 the next, and so
-        on - so each column's numbers pick up exactly where the previous
-        column left off (not a row-major/interleaved split, which would read
-        as 1, 4, 7, 2, 5, 8, ... on Discord's mobile client, which stacks
-        fields as full columns instead of gridding them like desktop).
+        The waitlist always spans _WAITLIST_COLUMNS columns (see
+        GameMessageFormatter._add_participant_fields), split into
+        contiguous chunks - column 1 holds the first chunk, column 2 the
+        next, and so on - so each column's numbers pick up exactly where
+        the previous column left off (not a row-major/interleaved split,
+        which would read out of order on Discord's mobile client, which
+        stacks fields as full columns instead of gridding them like
+        desktop).
         """
         running_count = 0
         for column_value in waitlist_columns:
@@ -408,8 +410,8 @@ class DiscordTestHelper:
         fields = embed.fields
         waitlist_columns = None
         for i, field in enumerate(fields):
-            if field.name and "Waitlisted" in field.name:
-                waitlist_columns = [f.value or "" for f in fields[i : i + 3]]
+            if field.name and "Waitlist" in field.name:
+                waitlist_columns = [f.value or "" for f in fields[i : i + _WAITLIST_COLUMNS]]
                 break
         if waitlist_columns and verify_numbered_participants:
             self._check_waitlist_numbering(waitlist_columns)
