@@ -32,8 +32,12 @@ from slowapi.util import get_remote_address
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from services.api.auth import tokens
 from services.api.config import get_rate_limits
-from shared.database import get_db
+from services.api.routes.export import generate_calendar_filename
+from services.api.services.calendar_export import CalendarExportService
+from shared.database import get_bypass_db_session, get_db
+from shared.models.game import GameSession
 from shared.models.game_image import GameImage
 
 logger = logging.getLogger(__name__)
@@ -161,4 +165,57 @@ async def head_image(
             "Cache-Control": "public, max-age=3600",
             "Access-Control-Allow-Origin": "*",
         },
+    )
+
+
+calendar_router = APIRouter(prefix="/api/v1/public/calendar", tags=["public"])
+
+
+@calendar_router.get("/{token_with_ext}")
+@_apply_rate_limits
+async def get_calendar_export(
+    request: Request,  # Required by slowapi for rate limiting  # noqa: ARG001
+    token_with_ext: Annotated[str, Path(description="Calendar export token, optionally with .ics")],
+) -> Response:
+    """
+    Serve a game's .ics calendar export by opaque token, without authentication.
+
+    The token was minted by the authenticated mint-token route after that route
+    already verified export permission, so this route trusts the token and does
+    not re-run permission checks. Uses a BYPASSRLS session (like the SSE bridge
+    and background daemons) since there is no authenticated user/guild context
+    here to satisfy GameSession's RLS policy.
+
+    Args:
+        token_with_ext: Calendar export token, optionally suffixed with ``.ics``
+
+    Returns:
+        iCal file content with an inline Content-Disposition header
+
+    Raises:
+        HTTPException: 404 if the token is missing/expired or the game no longer exists
+    """
+    token = token_with_ext.split(".")[0]
+    game_id = await tokens.get_calendar_export_token(token)
+    if game_id is None:
+        raise HTTPException(status_code=404, detail="Calendar export link not found or expired")
+
+    async with get_bypass_db_session() as db:
+        result = await db.execute(select(GameSession).where(GameSession.id == game_id))
+        game = result.scalar_one_or_none()
+        if not game:
+            raise HTTPException(status_code=404, detail="Game not found")
+
+        service = CalendarExportService(db)
+        try:
+            ical_data = await service.export_game(game_id, "", "", can_export=True)
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e)) from e
+
+        filename = generate_calendar_filename(game.title, game.scheduled_at)
+
+    return Response(
+        content=ical_data,
+        media_type="text/calendar",
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
     )

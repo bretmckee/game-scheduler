@@ -149,6 +149,7 @@ def create_app() -> FastAPI:
     app.include_router(export.router)
     app.include_router(maintainers.router)
     app.include_router(public.router)
+    app.include_router(public.calendar_router)
     app.include_router(sse.router)
 
     @app.get("/health")

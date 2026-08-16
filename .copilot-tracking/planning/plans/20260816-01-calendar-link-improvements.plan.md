@@ -93,16 +93,18 @@ Add a self-contained "Add to Google Calendar" quick-add link to the Discord game
 - [x] Task 4.2: GREEN — implement `mint_calendar_token` reusing `can_export_game` unmodified, remove xfail markers
   - Details: .copilot-tracking/planning/details/20260816-01-calendar-link-improvements-details.md (Lines 376-400)
 
-### [ ] Phase 5: Public Unauthenticated `.ics` Route + App Registration + Integration Tests
+### [x] Phase 5: Public Unauthenticated `.ics` Route + App Registration + Integration Tests
 
-- [ ] Task 5.1: RED — add `calendar_router` (second `APIRouter`) to `services/api/routes/public.py`, stub `get_calendar_export`, write xfail unit tests (success, missing-extension token, token-not-found 404, game-deleted-after-mint 404, TestClient rate-limited path)
+- [x] Task 5.1: RED — add `calendar_router` (second `APIRouter`) to `services/api/routes/public.py`, stub `get_calendar_export`, write xfail unit tests (success, missing-extension token, token-not-found 404, game-deleted-after-mint 404, TestClient rate-limited path)
   - Details: .copilot-tracking/planning/details/20260816-01-calendar-link-improvements-details.md (Lines 404-445)
 
-- [ ] Task 5.2: GREEN — implement `get_calendar_export` (token→game_id, `CalendarExportService.export_game(..., can_export=True)`, `inline` Content-Disposition with `filename=`), register `public.calendar_router` in `services/api/app.py`, remove xfail markers
+- [x] Task 5.2: GREEN — implement `get_calendar_export` (token→game_id, `CalendarExportService.export_game(..., can_export=True)`, `inline` Content-Disposition with `filename=`), register `public.calendar_router` in `services/api/app.py`, remove xfail markers
   - Details: .copilot-tracking/planning/details/20260816-01-calendar-link-improvements-details.md (Lines 447-507)
+  - Deviation from plan pseudocode: `GameSession` has an RLS policy that blocks reads with no guild context, so a plain `Depends(get_db)` session (as the plan's pseudocode used) 404'd on every real row in integration testing. Switched to `get_bypass_db_session()` (the same BYPASSRLS session pattern already used by the SSE bridge and background daemons for system-level, no-user-context reads) opened inside the route body instead of as a FastAPI dependency.
 
-- [ ] Task 5.3: Add integration tests for the public `.ics` route under `tests/integration/services/api/routes/`, run via `scripts/run-integration-tests.sh`
+- [x] Task 5.3: Add integration tests for the public `.ics` route under `tests/integration/services/api/routes/`, run via `scripts/run-integration-tests.sh`
   - Details: .copilot-tracking/planning/details/20260816-01-calendar-link-improvements-details.md (Lines 509-528)
+  - Optional rate-limit test file (`test_public_calendar_rate_limit.py`) not added — out of scope for this pass
 
 ### [ ] Phase 6: Frontend Shared Mint Helper + `DownloadCalendar.tsx` Rewrite
 

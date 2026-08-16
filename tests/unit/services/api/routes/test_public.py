@@ -19,7 +19,9 @@
 # SOFTWARE.
 
 import uuid
-from unittest.mock import AsyncMock, MagicMock
+from contextlib import asynccontextmanager
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import FastAPI, HTTPException, Request
@@ -27,9 +29,23 @@ from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.status import HTTP_404_NOT_FOUND
 
-from services.api.routes.public import get_image, head_image, router
+from services.api.routes.export import generate_calendar_filename
+from services.api.routes.public import (
+    calendar_router,
+    get_calendar_export,
+    get_image,
+    head_image,
+    router,
+)
 from shared.database import get_db
+from shared.models.game import GameSession
 from shared.models.game_image import GameImage
+
+
+@asynccontextmanager
+async def _bypass_session_cm(session):
+    """Async context manager stand-in for `get_bypass_db_session()`."""
+    yield session
 
 
 @pytest.fixture
@@ -183,3 +199,160 @@ def test_head_image_with_invalid_uuid_returns_404(public_app):
     client = TestClient(public_app)
     response = client.head("/api/v1/public/images/not-a-uuid.gif")
     assert response.status_code == 404
+
+
+@pytest.fixture
+def sample_game():
+    """Create a sample GameSession for calendar-export tests."""
+    return GameSession(
+        id="game-123",
+        title="Test Game",
+        host_id="user-123",
+        guild_id="guild-123",
+        channel_id="channel-123",
+        scheduled_at=datetime(2025, 12, 15, 18, 0, 0, tzinfo=UTC),
+        max_players=5,
+        status="SCHEDULED",
+    )
+
+
+@pytest.fixture
+def calendar_app():
+    """FastAPI test app with calendar_router (no database dependency override)."""
+    app = FastAPI()
+    app.include_router(calendar_router)
+    return app
+
+
+@pytest.mark.asyncio
+async def test_get_calendar_export_success(mock_request, mock_db, sample_game):
+    """Test successful calendar export retrieval by token, with .ics extension."""
+    mock_ical = b"BEGIN:VCALENDAR\r\nVERSION:2.0\r\nEND:VCALENDAR\r\n"
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = sample_game
+    mock_db.execute.return_value = mock_result
+
+    with (
+        patch(
+            "services.api.auth.tokens.get_calendar_export_token",
+            new_callable=AsyncMock,
+            return_value=sample_game.id,
+        ),
+        patch(
+            "services.api.routes.public.get_bypass_db_session",
+            return_value=_bypass_session_cm(mock_db),
+        ),
+        patch(
+            "services.api.services.calendar_export.CalendarExportService.export_game",
+            new_callable=AsyncMock,
+            return_value=mock_ical,
+        ),
+    ):
+        response = await get_calendar_export(mock_request, "tok123.ics")
+
+    expected_filename = generate_calendar_filename(sample_game.title, sample_game.scheduled_at)
+    assert response.status_code == 200
+    assert response.media_type == "text/calendar"
+    assert response.headers["Content-Disposition"] == f'inline; filename="{expected_filename}"'
+    assert response.body == mock_ical
+
+
+@pytest.mark.asyncio
+async def test_get_calendar_export_missing_extension_still_works(
+    mock_request, mock_db, sample_game
+):
+    """Test calendar export retrieval works when the token has no .ics suffix."""
+    mock_ical = b"BEGIN:VCALENDAR\r\nVERSION:2.0\r\nEND:VCALENDAR\r\n"
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = sample_game
+    mock_db.execute.return_value = mock_result
+
+    with (
+        patch(
+            "services.api.auth.tokens.get_calendar_export_token",
+            new_callable=AsyncMock,
+            return_value=sample_game.id,
+        ),
+        patch(
+            "services.api.routes.public.get_bypass_db_session",
+            return_value=_bypass_session_cm(mock_db),
+        ),
+        patch(
+            "services.api.services.calendar_export.CalendarExportService.export_game",
+            new_callable=AsyncMock,
+            return_value=mock_ical,
+        ),
+    ):
+        response = await get_calendar_export(mock_request, "tok123")
+
+    assert response.status_code == 200
+    assert response.body == mock_ical
+
+
+@pytest.mark.asyncio
+async def test_get_calendar_export_token_not_found_returns_404(mock_request):
+    """Test unknown/expired token returns 404."""
+    with patch(
+        "services.api.auth.tokens.get_calendar_export_token",
+        new_callable=AsyncMock,
+        return_value=None,
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            await get_calendar_export(mock_request, "tok123.ics")
+
+    assert exc_info.value.status_code == HTTP_404_NOT_FOUND
+
+
+@pytest.mark.asyncio
+async def test_get_calendar_export_game_deleted_after_mint_returns_404(
+    mock_request, mock_db, sample_game
+):
+    """Test a token that resolves to a deleted game returns 404."""
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = None
+    mock_db.execute.return_value = mock_result
+
+    with (
+        patch(
+            "services.api.auth.tokens.get_calendar_export_token",
+            new_callable=AsyncMock,
+            return_value=sample_game.id,
+        ),
+        patch(
+            "services.api.routes.public.get_bypass_db_session",
+            return_value=_bypass_session_cm(mock_db),
+        ),
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            await get_calendar_export(mock_request, "tok123.ics")
+
+    assert exc_info.value.status_code == HTTP_404_NOT_FOUND
+
+
+def test_get_calendar_export_via_test_client_returns_200(calendar_app, mock_db, sample_game):
+    """Regression: the rate-limited route works end-to-end via TestClient."""
+    mock_ical = b"BEGIN:VCALENDAR\r\nVERSION:2.0\r\nEND:VCALENDAR\r\n"
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = sample_game
+    mock_db.execute.return_value = mock_result
+
+    with (
+        patch(
+            "services.api.auth.tokens.get_calendar_export_token",
+            new_callable=AsyncMock,
+            return_value=sample_game.id,
+        ),
+        patch(
+            "services.api.routes.public.get_bypass_db_session",
+            return_value=_bypass_session_cm(mock_db),
+        ),
+        patch(
+            "services.api.services.calendar_export.CalendarExportService.export_game",
+            new_callable=AsyncMock,
+            return_value=mock_ical,
+        ),
+    ):
+        client = TestClient(calendar_app)
+        response = client.get("/api/v1/public/calendar/tok123.ics")
+
+    assert response.status_code == 200
