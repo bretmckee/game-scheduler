@@ -49,12 +49,12 @@ Add a self-contained "Add to Google Calendar" quick-add link to the Discord game
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Google Calendar Quick-Add URL Builder (bot-side, self-contained)
+### [x] Phase 1: Google Calendar Quick-Add URL Builder (bot-side, self-contained)
 
-- [ ] Task 1.1: RED — stub `build_google_calendar_url` in `services/bot/utils/discord_format.py` and write xfail tests with exact-URL assertions (full data, missing description/location/duration, naive-vs-aware `scheduled_at`, title/location/description truncation, special-character encoding)
+- [x] Task 1.1: RED — stub `build_google_calendar_url` in `services/bot/utils/discord_format.py` and write xfail tests with exact-URL assertions (full data, missing description/location/duration, naive-vs-aware `scheduled_at`, title/location/description truncation, special-character encoding)
   - Details: .copilot-tracking/planning/details/20260816-01-calendar-link-improvements-details.md (Lines 11-55)
 
-- [ ] Task 1.2: GREEN — implement `build_google_calendar_url` and `_truncate_for_calendar_link`, remove xfail markers
+- [x] Task 1.2: GREEN — implement `build_google_calendar_url` and `_truncate_for_calendar_link`, remove xfail markers
   - Details: .copilot-tracking/planning/details/20260816-01-calendar-link-improvements-details.md (Lines 56-94)
 
 ### [ ] Phase 2: Wire Google Calendar Link into Discord Embed Links Field

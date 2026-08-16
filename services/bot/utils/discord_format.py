@@ -26,14 +26,24 @@ timestamps, and participant lists following Discord's native formatting patterns
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
+from urllib.parse import urlencode
 
 import discord
 
 from shared.cache import client as cache_client
 from shared.cache import projection as member_projection
+from shared.utils.limits import GAME_LIST_DESCRIPTION_SNIPPET_LENGTH
 
 logger = logging.getLogger(__name__)
+
+_GOOGLE_CALENDAR_BASE_URL = "https://calendar.google.com/calendar/render"
+# Matches CalendarExportService's default game duration (services/api/services/calendar_export.py).
+_GOOGLE_CALENDAR_DEFAULT_DURATION_MINUTES = 120
+# title is String(200) and where is unbounded Text in shared/models/game.py; these caps keep
+# the Discord embed's Links field under Discord's 1024-character field limit.
+_GOOGLE_CALENDAR_TITLE_MAX_LENGTH = 100
+_GOOGLE_CALENDAR_LOCATION_MAX_LENGTH = 100
 
 
 async def get_member_display_info(
@@ -265,3 +275,61 @@ def format_duration(minutes: int | None) -> str:
     if hours > 0:
         return f"{hours}h"
     return f"{remaining_minutes}m"
+
+
+def _truncate_for_calendar_link(text: str, max_length: int) -> str:
+    """Truncate text to max_length, appending an ellipsis when truncated.
+
+    Args:
+        text: Text to truncate
+        max_length: Maximum length before truncation
+
+    Returns:
+        Original text if within max_length, else text truncated with a "..." suffix
+    """
+    if len(text) > max_length:
+        return text[: max_length - 3] + "..."
+    return text
+
+
+def build_google_calendar_url(
+    game_title: str,
+    description: str | None,
+    scheduled_at: datetime,
+    expected_duration_minutes: int | None,
+    where: str | None,
+) -> str:
+    """Build a Google Calendar quick-add TEMPLATE URL for a game session.
+
+    Args:
+        game_title: Title of the game session
+        description: Game description, if any
+        scheduled_at: When the game is scheduled to start
+        expected_duration_minutes: Expected game duration in minutes, if any
+        where: Game location, if any
+
+    Returns:
+        A Google Calendar quick-add URL that pre-fills the event
+    """
+    # Google Calendar's TEMPLATE URL expects UTC timestamps; treat naive datetimes as UTC.
+    if scheduled_at.tzinfo is None:
+        scheduled_at = scheduled_at.replace(tzinfo=UTC)
+    start = scheduled_at.strftime("%Y%m%dT%H%M%SZ")
+    duration = expected_duration_minutes or _GOOGLE_CALENDAR_DEFAULT_DURATION_MINUTES
+    end = (scheduled_at + timedelta(minutes=duration)).strftime("%Y%m%dT%H%M%SZ")
+
+    params = {
+        "action": "TEMPLATE",
+        "text": _truncate_for_calendar_link(game_title, _GOOGLE_CALENDAR_TITLE_MAX_LENGTH),
+        "dates": f"{start}/{end}",
+    }
+    if description:
+        params["details"] = _truncate_for_calendar_link(
+            description, GAME_LIST_DESCRIPTION_SNIPPET_LENGTH
+        )
+    if where:
+        params["location"] = _truncate_for_calendar_link(
+            where, _GOOGLE_CALENDAR_LOCATION_MAX_LENGTH
+        )
+
+    return f"{_GOOGLE_CALENDAR_BASE_URL}?{urlencode(params)}"

@@ -28,6 +28,7 @@ import pytest
 
 from services.bot.utils.discord_format import (
     _build_avatar_url,
+    build_google_calendar_url,
     format_discord_mention,
     format_discord_timestamp,
     format_duration,
@@ -501,3 +502,120 @@ class TestGetMemberDisplayInfo:
         mock_get_member.assert_awaited_once_with("guild1", "user1", redis=mock_redis)
         assert name == "TestNick"
         assert avatar == "https://cdn.discordapp.com/avatars/user1/abc.png"
+
+
+class TestBuildGoogleCalendarUrl:
+    """Tests for build_google_calendar_url function."""
+
+    def test_full_data_builds_exact_url(self):
+        """Test that all fields provided produce the exact expected URL."""
+        dt = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
+        result = build_google_calendar_url(
+            "Weekly D&D Session", "Bring your own dice!", dt, 180, "The Game Room"
+        )
+        assert result == (
+            "https://calendar.google.com/calendar/render?action=TEMPLATE"
+            "&text=Weekly+D%26D+Session"
+            "&dates=20251115T190000Z%2F20251115T220000Z"
+            "&details=Bring+your+own+dice%21"
+            "&location=The+Game+Room"
+        )
+
+    def test_missing_description_omits_details_param(self):
+        """Test that a None description omits the details param entirely."""
+        dt = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
+        result = build_google_calendar_url("Weekly D&D Session", None, dt, 60, "The Game Room")
+        assert "details=" not in result
+        assert result == (
+            "https://calendar.google.com/calendar/render?action=TEMPLATE"
+            "&text=Weekly+D%26D+Session"
+            "&dates=20251115T190000Z%2F20251115T200000Z"
+            "&location=The+Game+Room"
+        )
+
+    def test_missing_where_omits_location_param(self):
+        """Test that a None where omits the location param entirely."""
+        dt = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
+        result = build_google_calendar_url("Weekly D&D Session", "desc", dt, 60, None)
+        assert "location=" not in result
+        assert result == (
+            "https://calendar.google.com/calendar/render?action=TEMPLATE"
+            "&text=Weekly+D%26D+Session"
+            "&dates=20251115T190000Z%2F20251115T200000Z"
+            "&details=desc"
+        )
+
+    def test_missing_duration_defaults_to_120_minutes(self):
+        """Test that omitting expected_duration_minutes defaults the end time to +120m."""
+        dt = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
+        result = build_google_calendar_url("Weekly D&D Session", None, dt, None, None)
+        assert result == (
+            "https://calendar.google.com/calendar/render?action=TEMPLATE"
+            "&text=Weekly+D%26D+Session"
+            "&dates=20251115T190000Z%2F20251115T210000Z"
+        )
+
+    def test_naive_and_aware_scheduled_at_produce_identical_dates(self):
+        """Test that a naive datetime is treated as UTC, matching an equivalent aware one."""
+        naive = datetime(2025, 11, 15, 19, 0, 0)
+        aware = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
+        naive_result = build_google_calendar_url("Title", None, naive, 60, None)
+        aware_result = build_google_calendar_url("Title", None, aware, 60, None)
+        assert naive_result == aware_result
+        assert naive_result == (
+            "https://calendar.google.com/calendar/render?action=TEMPLATE"
+            "&text=Title"
+            "&dates=20251115T190000Z%2F20251115T200000Z"
+        )
+
+    def test_long_title_is_truncated_before_encoding(self):
+        """Test that a title over the max length is truncated with an ellipsis suffix."""
+        dt = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
+        long_title = "T" * 150
+        result = build_google_calendar_url(long_title, None, dt, 60, None)
+        expected_text = "T" * 97 + "..."
+        assert f"text={expected_text}" in result
+        assert result == (
+            "https://calendar.google.com/calendar/render?action=TEMPLATE"
+            f"&text={expected_text}"
+            "&dates=20251115T190000Z%2F20251115T200000Z"
+        )
+
+    def test_long_where_is_truncated_before_encoding(self):
+        """Test that a location over the max length is truncated with an ellipsis suffix."""
+        dt = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
+        long_where = "W" * 150
+        result = build_google_calendar_url("Title", None, dt, 60, long_where)
+        expected_location = "W" * 97 + "..."
+        assert f"location={expected_location}" in result
+        assert result == (
+            "https://calendar.google.com/calendar/render?action=TEMPLATE"
+            "&text=Title"
+            "&dates=20251115T190000Z%2F20251115T200000Z"
+            f"&location={expected_location}"
+        )
+
+    def test_long_description_is_truncated_before_encoding(self):
+        """Test that a description over GAME_LIST_DESCRIPTION_SNIPPET_LENGTH is truncated."""
+        dt = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
+        long_desc = "D" * 150
+        result = build_google_calendar_url("Title", long_desc, dt, 60, None)
+        expected_details = "D" * 97 + "..."
+        assert f"details={expected_details}" in result
+        assert result == (
+            "https://calendar.google.com/calendar/render?action=TEMPLATE"
+            "&text=Title"
+            "&dates=20251115T190000Z%2F20251115T200000Z"
+            f"&details={expected_details}"
+        )
+
+    def test_special_characters_are_percent_encoded(self):
+        """Test that spaces, ampersands, and unicode are percent-encoded per urlencode defaults."""
+        dt = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
+        result = build_google_calendar_url("Title & Stuff", None, dt, 60, "Café & Bar")
+        assert result == (
+            "https://calendar.google.com/calendar/render?action=TEMPLATE"
+            "&text=Title+%26+Stuff"
+            "&dates=20251115T190000Z%2F20251115T200000Z"
+            "&location=Caf%C3%A9+%26+Bar"
+        )
