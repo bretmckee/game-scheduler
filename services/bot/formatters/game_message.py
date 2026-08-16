@@ -37,10 +37,8 @@ from services.bot.utils.discord_format import (
     format_discord_mention,
     format_discord_timestamp,
     format_duration,
-    format_numbered_participants,
     format_participant_list,
     format_user_or_placeholder,
-    split_row_major,
 )
 from services.bot.views.game_view import GameView
 from shared.models import GameStatus
@@ -55,10 +53,11 @@ _MIME_TO_EXT: dict[str, str] = {
     "image/webp": ".webp",
 }
 
-# Participants always occupy two side-by-side embed columns, leaving room for
-# the Links field to complete that row. The waitlist, when present, gets its
-# own row below split across three columns. See _add_participant_fields.
-_PARTICIPANT_COLUMNS = 2
+# Participants and the waitlist (when present) each get their own row split
+# across three side-by-side columns - matching column counts keeps both rows
+# the same width, since Discord sizes inline fields by how many share a row,
+# not by their content. See _add_participant_fields.
+_PARTICIPANT_COLUMNS = 3
 _WAITLIST_COLUMNS = 3
 _PARTICIPANT_MAX_DISPLAY = 15
 _WAITLIST_MAX_DISPLAY = 15
@@ -131,8 +130,16 @@ class GameMessageFormatter:
         expected_duration_minutes: int | None,
         where: str | None,
         channel_id: str | None,
+        calendar_url: str | None,
     ) -> None:
-        """Add game time, host, duration, location, and channel fields.
+        """Add game time, host, duration, links, location, and channel fields.
+
+        Host, Run Time (or a blank spacer), and Links (or a blank spacer)
+        share one row. Where and Voice Channel each get their own full-width
+        row when present, rather than competing for space in that row - this
+        also leaves the Participants row below free to be two full-width
+        columns instead of sharing space with Links (see
+        _add_participant_fields).
 
         Args:
             embed: Discord embed to configure
@@ -141,6 +148,7 @@ class GameMessageFormatter:
             expected_duration_minutes: Optional game duration
             where: Optional game location
             channel_id: Optional voice channel ID
+            calendar_url: Optional calendar download URL
         """
         game_time_value = (
             f"{format_discord_timestamp(scheduled_at, 'F')} "
@@ -160,10 +168,14 @@ class GameMessageFormatter:
         else:
             embed.add_field(name="\u200b", value="\u200b", inline=True)
 
-        if where:
-            embed.add_field(name="Where", value=where, inline=True)
+        if calendar_url:
+            links_value = f"\ud83d\udcc5 [Add to Calendar]({calendar_url})"
+            embed.add_field(name="Links", value=links_value, inline=True)
         else:
             embed.add_field(name="\u200b", value="\u200b", inline=True)
+
+        if where:
+            embed.add_field(name="Where", value=where, inline=False)
 
         if channel_id:
             embed.add_field(name="Voice Channel", value=f"<#{channel_id}>", inline=False)
@@ -175,16 +187,18 @@ class GameMessageFormatter:
         overflow_ids: list[str],
         current_count: int,
         max_players: int,
-        calendar_url: str | None = None,
         overflow_display_names: dict[str, str] | None = None,
     ) -> None:
-        """Add participant, waitlist, and links fields to embed.
+        """Add participant and waitlist fields to embed.
 
-        Participants always fill two side-by-side columns (split contiguously
-        in half), leaving room for the Links field to complete that row. When
-        there's a waitlist, it gets its own row below, split row-major across
-        three columns and numbered independently starting at 1 (see
-        split_row_major) rather than continuing from the participant count.
+        Participants and the waitlist (when present) each get their own row,
+        split into three contiguous columns and numbered independently -
+        matching column counts keeps both rows the same width, since Discord
+        sizes inline fields by how many share a row, not by their content.
+        Links now lives up in the Host/Run Time row instead (see
+        _add_game_time_fields). Waitlist numbering always starts at 1 rather
+        than continuing from the participant count (see
+        _split_into_columns).
 
         Args:
             embed: Discord embed to configure
@@ -192,8 +206,6 @@ class GameMessageFormatter:
             overflow_ids: List of waitlisted participant IDs
             current_count: Current participant count
             max_players: Maximum allowed participants
-            calendar_url: Optional calendar download URL, rendered as the
-                third column alongside the two participant columns
             overflow_display_names: Optional map of user_id -> resolved
                 display name for waitlisted participants, rendered instead of
                 a raw `<@id>` mention. Confirmed participants are always
@@ -208,89 +220,82 @@ class GameMessageFormatter:
 
         participants_name = f"Participants ({current_count}/{max_players})"
         if participant_ids:
-            left_text, right_text = GameMessageFormatter._format_participant_columns(
-                participant_ids
+            columns = GameMessageFormatter._split_into_columns(
+                participant_ids, _PARTICIPANT_COLUMNS, _PARTICIPANT_MAX_DISPLAY
             )
-            embed.add_field(name=participants_name, value=left_text, inline=True)
-            embed.add_field(name="\u200b", value=right_text, inline=True)
         else:
-            embed.add_field(name=participants_name, value="No participants yet", inline=True)
-            embed.add_field(name="\u200b", value="\u200b", inline=True)
+            columns = ["No participants yet", *(["\u200b"] * (_PARTICIPANT_COLUMNS - 1))]
 
-        if calendar_url:
-            links_value = f"📅 [Add to Calendar]({calendar_url})"
-            embed.add_field(name="Links", value=links_value, inline=True)
-        else:
-            embed.add_field(name="\u200b", value="\u200b", inline=True)
+        for index, text in enumerate(columns):
+            name = participants_name if index == 0 else "\u200b"
+            embed.add_field(name=name, value=text, inline=True)
 
         if overflow_ids:
-            for index, text in enumerate(
-                GameMessageFormatter._format_waitlist_columns(overflow_ids, overflow_display_names)
-            ):
+            waitlist_columns = GameMessageFormatter._split_into_columns(
+                overflow_ids, _WAITLIST_COLUMNS, _WAITLIST_MAX_DISPLAY, overflow_display_names
+            )
+            for index, text in enumerate(waitlist_columns):
                 name = f"Waitlisted ({len(overflow_ids)})" if index == 0 else "\u200b"
                 embed.add_field(name=name, value=text, inline=True)
 
     @staticmethod
-    def _format_participant_columns(participant_ids: list[str]) -> tuple[str, str]:
-        """Split a (already open-slot-padded) participant list into two columns.
-
-        The list is truncated to `_PARTICIPANT_MAX_DISPLAY` entries and split
-        contiguously in half, with any excess noted as "... and N more" at
-        the end of the second column.
-
-        Args:
-            participant_ids: Confirmed participant IDs, padded with "open
-                slot" placeholders up to capacity
-
-        Returns:
-            Tuple of (left_column_text, right_column_text)
-        """
-        displayed = participant_ids[:_PARTICIPANT_MAX_DISPLAY]
-        remaining = len(participant_ids) - len(displayed)
-        midpoint = math.ceil(len(displayed) / _PARTICIPANT_COLUMNS)
-        left, right = displayed[:midpoint], displayed[midpoint:]
-
-        left_text = format_participant_list(left, max_display=len(left), include_count=False)
-        right_text = (
-            format_participant_list(
-                right, max_display=len(right), start_number=midpoint + 1, include_count=False
-            )
-            if right
-            else "\u200b"
-        )
-        if remaining:
-            note = f"... and {remaining} more"
-            right_text = f"{right_text}\n{note}" if right_text != "\u200b" else note
-
-        return left_text, right_text
-
-    @staticmethod
-    def _format_waitlist_columns(
-        overflow_ids: list[str],
-        overflow_display_names: dict[str, str] | None,
+    def _split_into_columns(
+        items: list[str],
+        num_columns: int,
+        max_display: int,
+        display_names: dict[str, str] | None = None,
     ) -> list[str]:
-        """Split the waitlist into row-major columns, numbered independently from 1.
+        """Split items into contiguous, sequentially-numbered columns.
 
-        The list is truncated to `_WAITLIST_MAX_DISPLAY` entries before being
-        distributed across `_WAITLIST_COLUMNS` columns, with any excess noted
-        as "... and N more" at the end of the last column.
+        The list is truncated to `max_display` entries, then split into
+        `num_columns` contiguous chunks - column 1 gets the first chunk,
+        column 2 the next, and so on - so reading column 1 top-to-bottom
+        then column 2 (etc.) recovers the original order. This can't be a
+        row-major/interleaved split (column 1 getting positions 1,
+        num_columns + 1, ...): Discord's desktop client renders the columns
+        side by side, but its mobile client stacks each field as a full
+        column one after another, so an interleaved split would read out of
+        order on mobile. Any excess is noted as "... and N more" at the end
+        of the last populated column.
 
         Args:
-            overflow_ids: Waitlisted participant IDs, in join order
-            overflow_display_names: Optional map of user_id -> resolved
-                display name
+            items: Participant IDs or placeholder names, in join order
+            num_columns: Number of side-by-side columns to produce
+            max_display: Maximum total entries to display before truncating
+            display_names: Optional map of user_id -> resolved display name
 
         Returns:
-            One rendered column of text per waitlist column
+            Exactly `num_columns` rendered column texts, numbered from 1
         """
-        displayed = overflow_ids[:_WAITLIST_MAX_DISPLAY]
-        remaining = len(overflow_ids) - len(displayed)
-        columns = split_row_major(displayed, _WAITLIST_COLUMNS)
-        texts = [format_numbered_participants(column, overflow_display_names) for column in columns]
+        displayed = items[:max_display]
+        remaining = len(items) - len(displayed)
+        chunk_size = math.ceil(len(displayed) / num_columns) if displayed else 0
+
+        texts = []
+        for column in range(num_columns):
+            start = column * chunk_size
+            chunk = displayed[start : start + chunk_size] if chunk_size else []
+            texts.append(
+                format_participant_list(
+                    chunk,
+                    max_display=len(chunk),
+                    start_number=start + 1,
+                    include_count=False,
+                    display_names=display_names,
+                )
+                if chunk
+                else "\u200b"
+            )
 
         if remaining:
             note = f"... and {remaining} more"
-            texts[-1] = f"{texts[-1]}\n{note}" if texts[-1] != "\u200b" else note
+            last_populated = next(
+                (i for i in range(len(texts) - 1, -1, -1) if texts[i] != "\u200b"), None
+            )
+            if last_populated is None:
+                texts[-1] = note
+            else:
+                texts[last_populated] += f"\n{note}"
 
         return texts
 
@@ -298,8 +303,8 @@ class GameMessageFormatter:
     def _add_footer(embed: discord.Embed, status: str) -> None:
         """Add the status footer to embed.
 
-        The Links field is added earlier, alongside the participant columns
-        (see _add_participant_fields), so this only sets the footer.
+        The Links field is added earlier, alongside Host and Run Time (see
+        _add_game_time_fields), so this only sets the footer.
 
         Args:
             embed: Discord embed to configure
@@ -389,6 +394,7 @@ class GameMessageFormatter:
             expected_duration_minutes,
             where,
             channel_id,
+            calendar_url,
         )
 
         GameMessageFormatter._add_participant_fields(
@@ -397,7 +403,6 @@ class GameMessageFormatter:
             overflow_ids,
             current_count,
             max_players,
-            calendar_url,
             overflow_display_names,
         )
 

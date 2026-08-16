@@ -544,10 +544,56 @@ class TestGameMessageFormatterHelpers:
         scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
 
         GameMessageFormatter._add_game_time_fields(
-            embed, scheduled_at, "123456789", 120, "Online", "987654321"
+            embed,
+            scheduled_at,
+            "123456789",
+            120,
+            "Online",
+            "987654321",
+            "https://example.com/calendar",
         )
 
-        assert embed.add_field.call_count == 5
+        # Game Time, Host, Run Time, Links, Where, Voice Channel.
+        assert embed.add_field.call_count == 6
+
+    def test_add_game_time_fields_host_run_time_links_share_one_row(self):
+        """Test that Host, Run Time, and Links are the three fields right after Game Time."""
+        embed = MagicMock()
+        scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
+
+        GameMessageFormatter._add_game_time_fields(
+            embed,
+            scheduled_at,
+            "123456789",
+            120,
+            "Online",
+            None,
+            "https://example.com/calendar",
+        )
+
+        calls = [call[1] for call in embed.add_field.call_args_list]
+        assert calls[0]["name"] == "Game Time"
+        assert calls[0]["inline"] is False
+        assert calls[1]["name"] == "Host"
+        assert calls[2]["name"] == "Run Time"
+        assert calls[3]["name"] == "Links"
+        assert calls[1]["inline"] is True
+        assert calls[2]["inline"] is True
+        assert calls[3]["inline"] is True
+
+    def test_add_game_time_fields_where_is_full_width(self):
+        """Test that Where gets its own full-width row instead of sharing with Host."""
+        embed = MagicMock()
+        scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
+
+        GameMessageFormatter._add_game_time_fields(
+            embed, scheduled_at, "123456789", 120, "Game Room #1", None, None
+        )
+
+        calls = [call[1] for call in embed.add_field.call_args_list]
+        where_call = next(c for c in calls if c["name"] == "Where")
+        assert where_call["inline"] is False
+        assert where_call["value"] == "Game Room #1"
 
     def test_add_game_time_fields_without_duration(self):
         """Test adding fields without duration (uses empty field)."""
@@ -555,23 +601,53 @@ class TestGameMessageFormatterHelpers:
         scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
 
         GameMessageFormatter._add_game_time_fields(
-            embed, scheduled_at, "123456789", None, "Online", None
+            embed, scheduled_at, "123456789", None, "Online", None, None
         )
 
         calls = [call[1] for call in embed.add_field.call_args_list]
         assert any(c.get("name") == "\u200b" for c in calls)
 
     def test_add_game_time_fields_without_location(self):
-        """Test adding fields without location (uses empty field)."""
+        """Test adding fields without location (no Where field at all)."""
         embed = MagicMock()
         scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
 
         GameMessageFormatter._add_game_time_fields(
-            embed, scheduled_at, "123456789", 120, None, None
+            embed, scheduled_at, "123456789", 120, None, None, None
         )
 
         calls = [call[1] for call in embed.add_field.call_args_list]
-        assert any(c.get("name") == "\u200b" for c in calls)
+        assert not any(c.get("name") == "Where" for c in calls)
+
+    def test_add_game_time_fields_includes_links_when_calendar_url_given(self):
+        """Test that Links renders with the calendar URL when one is given."""
+        embed = MagicMock()
+        scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
+        calendar_url = "https://example.com/calendar"
+
+        GameMessageFormatter._add_game_time_fields(
+            embed, scheduled_at, "123456789", None, None, None, calendar_url
+        )
+
+        calls = [call[1] for call in embed.add_field.call_args_list]
+        links_call = next(c for c in calls if c["name"] == "Links")
+        assert calendar_url in links_call["value"]
+
+    def test_add_game_time_fields_links_spacer_when_no_calendar_url(self):
+        """Test that a blank spacer fills the Links slot when there's no calendar URL."""
+        embed = MagicMock()
+        scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
+
+        GameMessageFormatter._add_game_time_fields(
+            embed, scheduled_at, "123456789", None, None, None, None
+        )
+
+        calls = [call[1] for call in embed.add_field.call_args_list]
+        assert not any(c.get("name") == "Links" for c in calls)
+        # Host, then two blank spacers (Run Time absent, Links absent).
+        assert calls[1]["name"] == "Host"
+        assert calls[2]["name"] == "\u200b"
+        assert calls[3]["name"] == "\u200b"
 
     def test_add_participant_fields_with_participants(self):
         """Test adding participant fields with confirmed participants."""
@@ -579,13 +655,19 @@ class TestGameMessageFormatterHelpers:
 
         GameMessageFormatter._add_participant_fields(embed, ["111", "222", "333"], [], 3, 5)
 
-        # Two participant columns + a Links spacer (no calendar_url, no waitlist).
+        # Three participant columns (no waitlist).
         assert embed.add_field.call_count == 3
         first_call_kwargs = embed.add_field.call_args_list[0][1]
         assert "Participants (3/5)" in first_call_kwargs["name"]
 
-    def test_add_participant_fields_splits_into_two_columns(self):
-        """Test that participants are split contiguously in half across two fields."""
+    def test_add_participant_fields_splits_into_three_columns(self):
+        """Test that participants are split contiguously across three fields.
+
+        Three columns, not two, so the row is the same width as the
+        waitlist row below it - Discord sizes inline fields by how many
+        share a row, not by their content, so mismatched column counts
+        produce mismatched widths (see _split_into_columns).
+        """
         embed = MagicMock()
 
         GameMessageFormatter._add_participant_fields(
@@ -593,15 +675,16 @@ class TestGameMessageFormatterHelpers:
         )
 
         calls = [call[1] for call in embed.add_field.call_args_list]
-        left, right = calls[0], calls[1]
-        assert left["name"] == "Participants (6/6)"
-        assert right["name"] == "\u200b"
-        assert "1. <@111>" in left["value"]
-        assert "2. <@222>" in left["value"]
-        assert "3. <@333>" in left["value"]
-        assert "4. <@444>" in right["value"]
-        assert "5. <@555>" in right["value"]
-        assert "6. <@666>" in right["value"]
+        col1, col2, col3 = calls[0], calls[1], calls[2]
+        assert col1["name"] == "Participants (6/6)"
+        assert col2["name"] == "\u200b"
+        assert col3["name"] == "\u200b"
+        assert "1. <@111>" in col1["value"]
+        assert "2. <@222>" in col1["value"]
+        assert "3. <@333>" in col2["value"]
+        assert "4. <@444>" in col2["value"]
+        assert "5. <@555>" in col3["value"]
+        assert "6. <@666>" in col3["value"]
 
     def test_add_participant_fields_without_participants(self):
         """Test adding participant fields without any participants shows open slots."""
@@ -610,7 +693,7 @@ class TestGameMessageFormatterHelpers:
         GameMessageFormatter._add_participant_fields(embed, [], [], 0, 5)
 
         calls = [call[1] for call in embed.add_field.call_args_list]
-        combined_value = "".join(c["value"] for c in calls[:2])
+        combined_value = "".join(c["value"] for c in calls[:3])
         assert "Participants (0/5)" in calls[0]["name"]
         assert "open slot" in combined_value.lower()
         assert "No participants yet" not in combined_value
@@ -621,7 +704,7 @@ class TestGameMessageFormatterHelpers:
 
         GameMessageFormatter._add_participant_fields(embed, ["111", "222"], ["333", "444"], 2, 2)
 
-        # 2 participant columns + 1 Links spacer + 3 waitlist columns.
+        # 3 participant columns + 3 waitlist columns.
         assert embed.add_field.call_count == 6
         calls = [call[1] for call in embed.add_field.call_args_list]
         assert any("Waitlisted (2)" in c.get("name", "") for c in calls)
@@ -635,13 +718,13 @@ class TestGameMessageFormatterHelpers:
         )
 
         calls = [call[1] for call in embed.add_field.call_args_list]
-        # 2 participant columns + 1 Links spacer precede the 3 waitlist columns.
+        # 3 participant columns precede the 3 waitlist columns.
         waitlist_values = "".join(c["value"] for c in calls[-3:])
         assert "1. <@444>" in waitlist_values
         assert "2. <@555>" in waitlist_values
 
     def test_add_participant_fields_waitlist_spans_three_columns(self):
-        """Test that the waitlist is distributed row-major across three fields."""
+        """Test that the waitlist is distributed as contiguous chunks across three fields."""
         embed = MagicMock()
         overflow_ids = [str(i) for i in range(100, 100 + 8)]  # 8 waitlisted entries
 
@@ -652,14 +735,18 @@ class TestGameMessageFormatterHelpers:
         assert "Waitlisted (8)" in waitlist_calls[0]["name"]
         assert waitlist_calls[1]["name"] == "\u200b"
         assert waitlist_calls[2]["name"] == "\u200b"
-        # Row-major: column 1 gets positions 1,4,7; column 2 gets 2,5,8; column 3 gets 3,6.
+        # Contiguous chunks of ceil(8/3)=3: column 1 gets positions 1-3, column 2
+        # gets 4-6, column 3 gets 7-8 - reading column-by-column (not
+        # interleaved/row-major) recovers the original order on every Discord
+        # client, including mobile, which stacks fields instead of gridding them.
         assert "1. <@100>" in waitlist_calls[0]["value"]
-        assert "4. <@103>" in waitlist_calls[0]["value"]
-        assert "7. <@106>" in waitlist_calls[0]["value"]
-        assert "2. <@101>" in waitlist_calls[1]["value"]
-        assert "8. <@107>" in waitlist_calls[1]["value"]
-        assert "3. <@102>" in waitlist_calls[2]["value"]
-        assert "6. <@105>" in waitlist_calls[2]["value"]
+        assert "2. <@101>" in waitlist_calls[0]["value"]
+        assert "3. <@102>" in waitlist_calls[0]["value"]
+        assert "4. <@103>" in waitlist_calls[1]["value"]
+        assert "5. <@104>" in waitlist_calls[1]["value"]
+        assert "6. <@105>" in waitlist_calls[1]["value"]
+        assert "7. <@106>" in waitlist_calls[2]["value"]
+        assert "8. <@107>" in waitlist_calls[2]["value"]
 
     def test_add_participant_fields_shows_open_slots_when_under_capacity(self):
         """Test that open slot placeholders appear when game is not full."""
@@ -668,7 +755,7 @@ class TestGameMessageFormatterHelpers:
         GameMessageFormatter._add_participant_fields(embed, ["111", "222"], [], 2, 5)
 
         calls = [call[1] for call in embed.add_field.call_args_list]
-        combined_value = "".join(c["value"] for c in calls[:2])
+        combined_value = "".join(c["value"] for c in calls[:3])
         assert "open slot" in combined_value.lower()
 
     def test_add_participant_fields_shows_open_slots_when_no_participants(self):
@@ -678,7 +765,7 @@ class TestGameMessageFormatterHelpers:
         GameMessageFormatter._add_participant_fields(embed, [], [], 0, 4)
 
         calls = [call[1] for call in embed.add_field.call_args_list]
-        combined_value = "".join(c["value"] for c in calls[:2])
+        combined_value = "".join(c["value"] for c in calls[:3])
         assert "open slot" in combined_value.lower()
         assert "No participants yet" not in combined_value
 
@@ -691,7 +778,7 @@ class TestGameMessageFormatterHelpers:
         )
 
         calls = [call[1] for call in embed.add_field.call_args_list]
-        combined_value = "".join(c["value"] for c in calls[:2])
+        combined_value = "".join(c["value"] for c in calls[:3])
         assert "open slot" not in combined_value.lower()
 
     def test_add_participant_fields_no_participants_and_no_capacity(self):
@@ -709,49 +796,33 @@ class TestGameMessageFormatterHelpers:
         assert calls[0]["name"] == "Participants (0/0)"
         assert calls[0]["value"] == "No participants yet"
         assert calls[1]["value"] == "\u200b"
+        assert calls[2]["value"] == "\u200b"
 
-    def test_format_participant_columns_notes_truncation_past_display_cap(self):
-        """Test that participants beyond the display cap are noted, not silently dropped."""
+    def test_split_into_columns_notes_truncation_at_last_populated_column(self):
+        """Test that entries beyond the display cap are noted, not silently dropped."""
         participant_ids = [str(100 + i) for i in range(17)]  # 2 past the 15-entry cap
 
-        left_text, right_text = GameMessageFormatter._format_participant_columns(participant_ids)
+        columns = GameMessageFormatter._split_into_columns(participant_ids, 3, 15)
 
-        assert "... and 2 more" in right_text
-        assert "15. <@114>" in right_text
+        assert "... and 2 more" in columns[-1]
+        assert "15. <@114>" in columns[-1]
 
-    def test_format_waitlist_columns_notes_truncation_past_display_cap(self):
-        """Test that waitlisted entries beyond the display cap are noted, not silently dropped."""
-        overflow_ids = [str(200 + i) for i in range(17)]  # 2 past the 15-entry cap
+    def test_split_into_columns_leaves_trailing_columns_blank(self):
+        """Test that columns beyond the item count render as a blank spacer."""
+        columns = GameMessageFormatter._split_into_columns(["111", "222"], 3, 15)
 
-        texts = GameMessageFormatter._format_waitlist_columns(overflow_ids, None)
+        assert "1. <@111>" in columns[0]
+        assert "2. <@222>" in columns[1]
+        assert columns[2] == "\u200b"
 
-        assert "... and 2 more" in texts[-1]
-
-    def test_add_participant_fields_includes_links_field_when_calendar_url_given(self):
-        """Test that the Links field completes the participants' row when given a URL."""
-        embed = MagicMock()
-        calendar_url = "https://example.com/calendar"
-
-        GameMessageFormatter._add_participant_fields(
-            embed, ["111", "222"], [], 2, 2, calendar_url=calendar_url
+    def test_split_into_columns_passes_through_display_names(self):
+        """Test that display_names resolve waitlisted mentions to plain names."""
+        columns = GameMessageFormatter._split_into_columns(
+            ["111", "222"], 3, 15, display_names={"111": "Alice"}
         )
 
-        # Links is the third field, immediately after the two participant columns.
-        assert embed.add_field.call_count == 3
-        links_call = embed.add_field.call_args_list[2][1]
-        assert links_call["name"] == "Links"
-        assert calendar_url in links_call["value"]
-
-    def test_add_participant_fields_links_spacer_when_no_calendar_url(self):
-        """Test that a blank spacer field completes the row when there's no calendar URL."""
-        embed = MagicMock()
-
-        GameMessageFormatter._add_participant_fields(embed, ["111", "222"], [], 2, 2)
-
-        assert embed.add_field.call_count == 3
-        spacer_call = embed.add_field.call_args_list[2][1]
-        assert spacer_call["name"] == "\u200b"
-        assert spacer_call["value"] == "\u200b"
+        assert "1. @Alice" in columns[0]
+        assert "2. <@222>" in columns[1]
 
     def test_add_footer_sets_status(self):
         """Test that _add_footer sets the footer and adds no fields."""

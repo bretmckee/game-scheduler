@@ -348,17 +348,16 @@ class DiscordTestHelper:
     def _find_participants_field(self, embed: discord.Embed) -> tuple[str, str]:
         """Find the participants field(s) and return (field_name, combined_value).
 
-        Participants always span two side-by-side embed columns (see
+        Participants always span three side-by-side embed columns (see
         GameMessageFormatter._add_participant_fields), so the combined value
-        concatenates both columns in display order (left column's numbers are
-        contiguous with the right column's, so this preserves 1..N ordering).
+        concatenates all three columns in display order (each column's
+        numbers are contiguous with the next, so this preserves 1..N
+        ordering).
         """
         fields = embed.fields
         for i, field in enumerate(fields):
             if field.name and "Participants" in field.name:
-                columns = [field.value or ""]
-                if i + 1 < len(fields):
-                    columns.append(fields[i + 1].value or "")
+                columns = [f.value or "" for f in fields[i : i + 3]]
                 combined = "\n".join(v for v in columns if v and v != "\u200b")
                 return field.name, combined
         msg = "Participants field missing"
@@ -381,20 +380,23 @@ class DiscordTestHelper:
                     )
 
     def _check_waitlist_numbering(self, waitlist_columns: list[str]) -> None:
-        """Assert waitlist numbering starts at 1 and is distributed row-major.
+        """Assert waitlist numbering starts at 1 and is contiguous across columns.
 
         The waitlist always spans three columns (see
-        GameMessageFormatter._add_participant_fields), filled row-major: column
-        0 holds positions 1, 4, 7, ...; column 1 holds 2, 5, 8, ...; column 2
-        holds 3, 6, 9, ....
+        GameMessageFormatter._add_participant_fields), split into contiguous
+        chunks - column 1 holds the first chunk, column 2 the next, and so
+        on - so each column's numbers pick up exactly where the previous
+        column left off (not a row-major/interleaved split, which would read
+        as 1, 4, 7, 2, 5, 8, ... on Discord's mobile client, which stacks
+        fields as full columns instead of gridding them like desktop).
         """
-        num_columns = len(waitlist_columns)
-        for column_index, column_value in enumerate(waitlist_columns):
+        running_count = 0
+        for column_value in waitlist_columns:
             lines = [line for line in column_value.split("\n") if line.strip()]
-            for row, line in enumerate(lines):
-                expected_number = row * num_columns + column_index + 1
-                assert line.startswith(f"{expected_number}."), (
-                    f"Waitlist line should start with '{expected_number}.': {line}"
+            for line in lines:
+                running_count += 1
+                assert line.startswith(f"{running_count}."), (
+                    f"Waitlist line should start with '{running_count}.': {line}"
                 )
 
     def _verify_waitlist_field(

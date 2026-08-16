@@ -209,60 +209,6 @@ def format_participant_list(
     return result
 
 
-def split_row_major(
-    items: list[str], num_columns: int, start_number: int = 1
-) -> list[list[tuple[int, str]]]:
-    """Split items into columns for row-major (left-to-right) numbered display.
-
-    Item 0 goes in column 0, item 1 in column 1, ..., item `num_columns` wraps
-    back to column 0, and so on - so reading the columns left-to-right,
-    top-to-bottom recovers the original order. Each entry keeps its original
-    1-based position (offset by `start_number`), so columns after the first
-    are not numbered contiguously.
-
-    Args:
-        items: Participant IDs or placeholder names, in display order
-        num_columns: Number of columns to distribute items across
-        start_number: Number to assign to the first item (default: 1)
-
-    Returns:
-        A list of `num_columns` lists, each holding that column's
-        (display_number, item) pairs
-    """
-    columns: list[list[tuple[int, str]]] = [[] for _ in range(num_columns)]
-    for offset, item in enumerate(items):
-        columns[offset % num_columns].append((start_number + offset, item))
-    return columns
-
-
-def format_numbered_participants(
-    numbered_ids: list[tuple[int, str]],
-    display_names: dict[str, str] | None = None,
-) -> str:
-    """Format participants whose numbers are explicit and not necessarily contiguous.
-
-    Used for row-major multi-column layouts (see `split_row_major`), where a
-    single column's entries skip numbers (e.g. column 1 of a 3-column list
-    holds positions 1, 4, 7, ...).
-
-    Args:
-        numbered_ids: (display_number, user_id) pairs, in display order
-        display_names: Optional map of user_id -> resolved display name, used
-            in place of a raw `<@id>` mention (see `format_user_or_placeholder`)
-
-    Returns:
-        One "number. name" line per entry, joined with newlines, or a
-        zero-width space if `numbered_ids` is empty (Discord embed field
-        values can't be empty strings)
-    """
-    if not numbered_ids:
-        return "\u200b"
-    return "\n".join(
-        f"{number}. {format_user_or_placeholder(uid, display_names)}"
-        for number, uid in numbered_ids
-    )
-
-
 def format_game_status_emoji(status: str) -> str:
     """Get emoji for game status.
 
