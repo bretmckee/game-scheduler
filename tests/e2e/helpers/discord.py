@@ -422,6 +422,9 @@ class DiscordTestHelper:
             assert f"/download-calendar/{expected_game_id}" in links_field, (
                 f"Links field should contain calendar URL: {links_field}"
             )
+            assert "calendar.google.com" in links_field, (
+                f"Links field should contain Google Calendar quick-add URL: {links_field}"
+            )
 
     def verify_game_embed(
         self,

@@ -57,15 +57,15 @@ Add a self-contained "Add to Google Calendar" quick-add link to the Discord game
 - [x] Task 1.2: GREEN — implement `build_google_calendar_url` and `_truncate_for_calendar_link`, remove xfail markers
   - Details: .copilot-tracking/planning/details/20260816-01-calendar-link-improvements-details.md (Lines 56-94)
 
-### [ ] Phase 2: Wire Google Calendar Link into Discord Embed Links Field
+### [x] Phase 2: Wire Google Calendar Link into Discord Embed Links Field
 
-- [ ] Task 2.1: RED — add `google_calendar_url` parameter to `_add_game_time_fields`; write xfail tests for the two-link `Links` field, including a length-guard test with near-max title (200 chars) and long `where` asserting the field value stays under 1024 chars
+- [x] Task 2.1: RED — add `google_calendar_url` parameter to `_add_game_time_fields`; write xfail tests for the two-link `Links` field, including a length-guard test with near-max title (200 chars) and long `where` asserting the field value stays under 1024 chars
   - Details: .copilot-tracking/planning/details/20260816-01-calendar-link-improvements-details.md (Lines 97-118)
 
-- [ ] Task 2.2: GREEN — wire `build_google_calendar_url` into `create_game_embed`/`_add_game_time_fields`, remove xfail markers
+- [x] Task 2.2: GREEN — wire `build_google_calendar_url` into `create_game_embed`/`_add_game_time_fields`, remove xfail markers
   - Details: .copilot-tracking/planning/details/20260816-01-calendar-link-improvements-details.md (Lines 119-154)
 
-- [ ] Task 2.3: REFACTOR — optional e2e coverage for the Google Calendar link in `tests/e2e/helpers/discord.py`/`tests/e2e/test_game_announcement.py`
+- [x] Task 2.3: REFACTOR — optional e2e coverage for the Google Calendar link in `tests/e2e/helpers/discord.py`/`tests/e2e/test_game_announcement.py`
   - Details: .copilot-tracking/planning/details/20260816-01-calendar-link-improvements-details.md (Lines 155-166)
 
 ### [ ] Phase 3: Redis-Backed Calendar Export Token Helpers (API backend)

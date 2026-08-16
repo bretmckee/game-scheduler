@@ -34,6 +34,7 @@ import discord
 
 from services.bot.config import get_config
 from services.bot.utils.discord_format import (
+    build_google_calendar_url,
     format_discord_mention,
     format_discord_timestamp,
     format_duration,
@@ -145,6 +146,7 @@ class GameMessageFormatter:
         where: str | None,
         channel_id: str | None,
         calendar_url: str | None,
+        google_calendar_url: str | None = None,
     ) -> None:
         """Add game time, host, duration, links, location, and channel fields.
 
@@ -163,6 +165,8 @@ class GameMessageFormatter:
             where: Optional game location
             channel_id: Optional voice channel ID
             calendar_url: Optional calendar download URL
+            google_calendar_url: Optional Google Calendar quick-add URL,
+                rendered as a second line under calendar_url when present
         """
         game_time_value = (
             f"{format_discord_timestamp(scheduled_at, 'F')} "
@@ -184,6 +188,8 @@ class GameMessageFormatter:
 
         if calendar_url:
             links_value = f"\ud83d\udcc5 [Add to Calendar]({calendar_url})"
+            if google_calendar_url:
+                links_value += f"\n\ud83d\udcc5 [Google Calendar]({google_calendar_url})"
             embed.add_field(name="Links", value=links_value, inline=True)
         else:
             embed.add_field(name="\u200b", value="\u200b", inline=True)
@@ -409,6 +415,9 @@ class GameMessageFormatter:
                 description, game_id, thumbnail_url, image_url
             )
         )
+        google_calendar_url = build_google_calendar_url(
+            game_title, description, scheduled_at, expected_duration_minutes, where
+        )
 
         embed = discord.Embed(
             title=game_title,
@@ -433,6 +442,7 @@ class GameMessageFormatter:
             where,
             channel_id,
             calendar_url,
+            google_calendar_url,
         )
 
         GameMessageFormatter._add_participant_fields(

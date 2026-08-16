@@ -655,6 +655,80 @@ class TestGameMessageFormatterHelpers:
         assert calls[2]["name"] == "\u200b"
         assert calls[3]["name"] == "\u200b"
 
+    def test_add_game_time_fields_links_field_includes_google_calendar_link_when_provided(self):
+        """Test that Links renders both calendar links, on separate lines, when both are given."""
+        embed = MagicMock()
+        scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
+        calendar_url = "https://example.com/calendar"
+        google_calendar_url = "https://calendar.google.com/calendar/render?action=TEMPLATE"
+
+        GameMessageFormatter._add_game_time_fields(
+            embed,
+            scheduled_at,
+            "123456789",
+            None,
+            None,
+            None,
+            calendar_url,
+            google_calendar_url,
+        )
+
+        calls = [call[1] for call in embed.add_field.call_args_list]
+        links_call = next(c for c in calls if c["name"] == "Links")
+        expected_value = (
+            f"\ud83d\udcc5 [Add to Calendar]({calendar_url})"
+            f"\n\ud83d\udcc5 [Google Calendar]({google_calendar_url})"
+        )
+        assert links_call["value"] == expected_value
+
+    def test_add_game_time_fields_links_field_omits_google_calendar_link_when_not_provided(self):
+        """Test that Links omits the Google Calendar line when google_calendar_url is absent."""
+        embed = MagicMock()
+        scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
+        calendar_url = "https://example.com/calendar"
+
+        GameMessageFormatter._add_game_time_fields(
+            embed, scheduled_at, "123456789", None, None, None, calendar_url, None
+        )
+
+        calls = [call[1] for call in embed.add_field.call_args_list]
+        links_call = next(c for c in calls if c["name"] == "Links")
+        assert links_call["value"] == f"\ud83d\udcc5 [Add to Calendar]({calendar_url})"
+        assert "Google Calendar" not in links_call["value"]
+
+    def test_add_game_time_fields_links_field_stays_under_discord_limit_with_long_inputs(self):
+        """Test that the two-link Links field stays under Discord's 1024-char field cap."""
+        scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
+        long_title = "T" * 200  # shared/models/game.py: title is String(200)
+        long_where = "W" * 3000  # shared/models/game.py: where is unbounded Text
+        long_description = "D" * 3000
+
+        with patch("services.bot.formatters.game_message.discord.Embed") as mock_embed_class:
+            mock_embed = MagicMock()
+            mock_embed_class.return_value = mock_embed
+
+            GameMessageFormatter.create_game_embed(
+                game_title=long_title,
+                description=long_description,
+                scheduled_at=scheduled_at,
+                host_id="123456789",
+                participant_ids=[],
+                overflow_ids=[],
+                current_count=0,
+                max_players=5,
+                status="SCHEDULED",
+                where=long_where,
+                game_id="test-game-id",
+            )
+
+            calls = [call[1] for call in mock_embed.add_field.call_args_list]
+            links_call = next(c for c in calls if c["name"] == "Links")
+            assert "calendar.google.com/calendar/render" in links_call["value"]
+            assert len(links_call["value"]) < 1024
+            mock_embed_class.assert_called_once_with(
+                title=long_title, description=long_description, color=ANY
+            )
+
     def test_add_participant_fields_with_participants(self):
         """Test adding participant fields with confirmed participants."""
         embed = MagicMock()
@@ -1783,6 +1857,34 @@ class TestEmbedNewFields:
 
             calls = [str(call) for call in mock_embed.add_field.call_args_list]
             assert not any("Links" in str(call) for call in calls)
+            mock_embed_class.assert_called_once_with(title="Game", description="Desc", color=ANY)
+
+    def test_create_game_embed_threads_google_calendar_url_into_links_field(self):
+        """Test that create_game_embed includes a Google Calendar quick-add link with game_id."""
+        scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
+
+        with patch("services.bot.formatters.game_message.discord.Embed") as mock_embed_class:
+            mock_embed = MagicMock()
+            mock_embed_class.return_value = mock_embed
+
+            formatter = GameMessageFormatter()
+            formatter.create_game_embed(
+                game_title="Game",
+                description="Desc",
+                scheduled_at=scheduled_at,
+                host_id="123",
+                participant_ids=[],
+                overflow_ids=[],
+                current_count=0,
+                max_players=5,
+                status="SCHEDULED",
+                game_id="test-game-id",
+            )
+
+            calls = [str(call) for call in mock_embed.add_field.call_args_list]
+            assert any(
+                "Links" in call and "calendar.google.com/calendar/render" in call for call in calls
+            )
             mock_embed_class.assert_called_once_with(title="Game", description="Desc", color=ANY)
 
     def test_embed_includes_game_time_field(self):
