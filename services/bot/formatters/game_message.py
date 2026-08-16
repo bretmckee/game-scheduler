@@ -87,7 +87,7 @@ class GameMessageFormatter:
         game_id: str | None,
         thumbnail_url: str | None,
         image_url: str | None,
-    ) -> tuple[str, str | None, str | None, str | None]:
+    ) -> tuple[str, str | None, str | None, str | None, str | None]:
         """Prepare truncated description and URLs for embed.
 
         Args:
@@ -97,16 +97,19 @@ class GameMessageFormatter:
             image_url: Optional image URL
 
         Returns:
-            Tuple of (truncated_description, calendar_url, thumbnail_url, image_url)
+            Tuple of (truncated_description, calendar_url, game_url,
+            thumbnail_url, image_url)
         """
         truncated_description = description
 
         calendar_url = None
+        game_url = None
         if game_id:
             config = get_config()
             calendar_url = f"{config.frontend_url}/download-calendar/{game_id}"
+            game_url = f"{config.frontend_url}/games/{game_id}"
 
-        return truncated_description, calendar_url, thumbnail_url, image_url
+        return truncated_description, calendar_url, game_url, thumbnail_url, image_url
 
     @staticmethod
     def _configure_embed_author(
@@ -199,6 +202,7 @@ class GameMessageFormatter:
         current_count: int,
         max_players: int,
         overflow_display_names: dict[str, str] | None = None,
+        game_url: str | None = None,
     ) -> None:
         """Add participant and waitlist fields to embed.
 
@@ -216,7 +220,10 @@ class GameMessageFormatter:
         shared/schemas/game.py); the waitlist shares a `_TOTAL_DISPLAY_BUDGET`
         pool with however many participant slots are in play, so a small game
         shows a bigger waitlist and a large game shows a smaller one, floored
-        at `_MIN_WAITLIST_DISPLAY`.
+        at `_MIN_WAITLIST_DISPLAY`. If either list is truncated, the "... and
+        N more" note links to the game's full, untruncated participant list
+        on the website (when game_url is available) rather than just naming
+        an unreachable count.
 
         Args:
             embed: Discord embed to configure
@@ -231,6 +238,8 @@ class GameMessageFormatter:
                 message content (see format_game_announcement), which caches
                 them client-side; waitlisted participants aren't mentioned
                 there, so they still need the resolved-name workaround.
+            game_url: Optional link to the game's page on the website, used
+                for the "... and N more" truncation note
         """
         open_slots = max(0, max_players - len(participant_ids))
         if open_slots > 0:
@@ -239,7 +248,7 @@ class GameMessageFormatter:
         participants_name = f"Participants ({current_count}/{max_players})"
         if participant_ids:
             columns = GameMessageFormatter._split_into_columns(
-                participant_ids, _PARTICIPANT_COLUMNS, _PARTICIPANT_MAX_DISPLAY
+                participant_ids, _PARTICIPANT_COLUMNS, _PARTICIPANT_MAX_DISPLAY, game_url=game_url
             )
         else:
             columns = ["No participants yet", *(["\u200b"] * (_PARTICIPANT_COLUMNS - 1))]
@@ -251,7 +260,11 @@ class GameMessageFormatter:
         if overflow_ids:
             waitlist_max_display = max(_MIN_WAITLIST_DISPLAY, _TOTAL_DISPLAY_BUDGET - max_players)
             waitlist_columns = GameMessageFormatter._split_into_columns(
-                overflow_ids, _WAITLIST_COLUMNS, waitlist_max_display, overflow_display_names
+                overflow_ids,
+                _WAITLIST_COLUMNS,
+                waitlist_max_display,
+                overflow_display_names,
+                game_url,
             )
             for index, text in enumerate(waitlist_columns):
                 name = f"Waitlisted ({len(overflow_ids)})" if index == 0 else "\u200b"
@@ -263,6 +276,7 @@ class GameMessageFormatter:
         num_columns: int,
         max_display: int,
         display_names: dict[str, str] | None = None,
+        game_url: str | None = None,
     ) -> list[str]:
         """Split items into contiguous, sequentially-numbered columns.
 
@@ -275,13 +289,16 @@ class GameMessageFormatter:
         side by side, but its mobile client stacks each field as a full
         column one after another, so an interleaved split would read out of
         order on mobile. Any excess is noted as "... and N more" at the end
-        of the last populated column.
+        of the last populated column, linking to `game_url` (the game's full
+        participant list on the website) when one is available.
 
         Args:
             items: Participant IDs or placeholder names, in join order
             num_columns: Number of side-by-side columns to produce
             max_display: Maximum total entries to display before truncating
             display_names: Optional map of user_id -> resolved display name
+            game_url: Optional link to the game's page on the website, used
+                for the truncation note
 
         Returns:
             Exactly `num_columns` rendered column texts, numbered from 1
@@ -308,6 +325,8 @@ class GameMessageFormatter:
 
         if remaining:
             note = f"... and {remaining} more"
+            if game_url:
+                note = f"[{note}]({game_url})"
             last_populated = next(
                 (i for i in range(len(texts) - 1, -1, -1) if texts[i] != "\u200b"), None
             )
@@ -385,7 +404,7 @@ class GameMessageFormatter:
         Returns:
             Configured Discord embed
         """
-        truncated_description, calendar_url, thumb_url, img_url = (
+        truncated_description, calendar_url, game_url, thumb_url, img_url = (
             GameMessageFormatter._prepare_description_and_urls(
                 description, game_id, thumbnail_url, image_url
             )
@@ -423,6 +442,7 @@ class GameMessageFormatter:
             current_count,
             max_players,
             overflow_display_names,
+            game_url,
         )
 
         if rewards:

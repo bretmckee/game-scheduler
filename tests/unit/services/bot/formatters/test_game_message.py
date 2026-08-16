@@ -454,6 +454,7 @@ class TestGameMessageFormatterHelpers:
             (
                 truncated,
                 calendar_url,
+                game_url,
                 thumb,
                 img,
             ) = GameMessageFormatter._prepare_description_and_urls(
@@ -462,29 +463,32 @@ class TestGameMessageFormatterHelpers:
 
         assert truncated == long_description
         assert calendar_url == "https://example.com/download-calendar/test-game-id"
+        assert game_url == "https://example.com/games/test-game-id"
         mock_config.assert_called_once_with()  # assert-not-weak: get_config() has no parameters
 
     def test_prepare_description_and_urls_keeps_short_description(self):
         """Test that short descriptions are not truncated."""
         description = "Short description"
 
-        truncated, calendar_url, thumb, img = GameMessageFormatter._prepare_description_and_urls(
-            description, None, None, None
+        truncated, calendar_url, game_url, thumb, img = (
+            GameMessageFormatter._prepare_description_and_urls(description, None, None, None)
         )
 
         assert truncated == description
         assert calendar_url is None
+        assert game_url is None
 
     def test_prepare_description_and_urls_without_game_id(self):
-        """Test that calendar URL is None when game_id is not provided."""
+        """Test that calendar URL and game URL are None when game_id is not provided."""
         description = "Test"
 
-        truncated, calendar_url, thumb, img = GameMessageFormatter._prepare_description_and_urls(
-            description, None, None, None
+        truncated, calendar_url, game_url, thumb, img = (
+            GameMessageFormatter._prepare_description_and_urls(description, None, None, None)
         )
 
         assert truncated == description
         assert calendar_url is None
+        assert game_url is None
 
     def test_prepare_description_and_urls_preserves_image_urls(self):
         """Test that thumbnail and image URLs are preserved."""
@@ -492,8 +496,10 @@ class TestGameMessageFormatterHelpers:
         thumbnail_url = "https://example.com/thumb.jpg"
         image_url = "https://example.com/image.jpg"
 
-        truncated, calendar_url, thumb, img = GameMessageFormatter._prepare_description_and_urls(
-            description, None, thumbnail_url, image_url
+        truncated, calendar_url, game_url, thumb, img = (
+            GameMessageFormatter._prepare_description_and_urls(
+                description, None, thumbnail_url, image_url
+            )
         )
 
         assert thumb == thumbnail_url
@@ -782,6 +788,20 @@ class TestGameMessageFormatterHelpers:
         assert "15. <@14>" in waitlist_values
         assert "16. <@15>" not in waitlist_values
 
+    def test_add_participant_fields_waitlist_truncation_links_to_game_url(self):
+        """Test that a truncated waitlist's "... and N more" note links to game_url."""
+        embed = MagicMock()
+        overflow_ids = [str(i) for i in range(20)]
+        game_url = "https://example.com/games/abc-123"
+
+        GameMessageFormatter._add_participant_fields(
+            embed, ["111"], overflow_ids, 1, 100, game_url=game_url
+        )
+
+        calls = [call[1] for call in embed.add_field.call_args_list]
+        waitlist_values = "".join(c["value"] for c in calls[-3:])
+        assert f"[... and 5 more]({game_url})" in waitlist_values
+
     def test_add_participant_fields_waitlist_budget_grows_with_fewer_max_players(self):
         """Test that a small max_players leaves more waitlist display budget.
 
@@ -856,6 +876,31 @@ class TestGameMessageFormatterHelpers:
 
         assert "... and 2 more" in columns[-1]
         assert "15. <@114>" in columns[-1]
+
+    def test_split_into_columns_truncation_note_links_to_game_url(self):
+        """Test that the truncation note links to the game's page when game_url is given.
+
+        Everyone who can see the embed already has a Discord account, which
+        is also the website's auth system, so linking straight to the game's
+        full (untruncated) participant list is safe.
+        """
+        participant_ids = [str(100 + i) for i in range(17)]  # 2 past the 15-entry cap
+        game_url = "https://example.com/games/abc-123"
+
+        columns = GameMessageFormatter._split_into_columns(
+            participant_ids, 3, 15, game_url=game_url
+        )
+
+        assert f"[... and 2 more]({game_url})" in columns[-1]
+
+    def test_split_into_columns_truncation_note_plain_text_without_game_url(self):
+        """Test that the truncation note stays plain text when there's no game_url."""
+        participant_ids = [str(100 + i) for i in range(17)]  # 2 past the 15-entry cap
+
+        columns = GameMessageFormatter._split_into_columns(participant_ids, 3, 15, game_url=None)
+
+        assert "... and 2 more" in columns[-1]
+        assert "[" not in columns[-1]
 
     def test_split_into_columns_leaves_trailing_columns_blank(self):
         """Test that columns beyond the item count render as a blank spacer."""
