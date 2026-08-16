@@ -24,5 +24,17 @@ Adds a self-contained "Add to Google Calendar" quick-add link to the Discord gam
 - tests/unit/services/bot/formatters/test_game_message.py - removed `xfail` markers from the 4 Task 2.1 tests (assertions unchanged) (Task 2.2, GREEN)
 - tests/e2e/helpers/discord.py - `_verify_links_field` now also asserts `calendar.google.com` appears in the Links field when a `game_id` is expected (Task 2.3, optional e2e coverage)
 - tests/e2e/test_game_announcement.py - updated the announcement test's docstring to mention the Google Calendar quick-add URL assertion (Task 2.3, optional e2e coverage)
+- shared/cache/ttl.py - added `CacheTTL.CALENDAR_EXPORT_TOKEN = 300` (Task 3.1)
+- tests/unit/shared/cache/test_ttl.py - added `test_calendar_export_token_ttl` (Task 3.1)
+- shared/cache/operations.py - added `CacheOperation.CALENDAR_EXPORT_TOKEN_LOOKUP` member (Task 3.1)
+- tests/unit/shared/cache/test_operations.py - added the new member to `_EXPECTED_OPERATIONS` and a value-assertion test (Task 3.1)
+- shared/cache/keys.py - added `CacheKeys.calendar_export_token` stub (`NotImplementedError`) (Task 3.2, RED)
+- tests/unit/shared/cache/test_keys.py - added xfail `test_calendar_export_token_key` (Task 3.2, RED)
+- shared/cache/keys.py - implemented `CacheKeys.calendar_export_token` (Task 3.3, GREEN)
+- tests/unit/shared/cache/test_keys.py - removed xfail marker from `test_calendar_export_token_key` (Task 3.3, GREEN)
+- services/api/auth/tokens.py - added `mint_calendar_export_token`/`get_calendar_export_token` stubs (`NotImplementedError`) (Task 3.4, RED)
+- tests/unit/services/api/auth/test_tokens.py - added 5 xfail tests covering mint (exact `set_json` call args, UUID4-format token) and get (hit, miss, malformed data) (Task 3.4, RED)
+- services/api/auth/tokens.py - implemented `mint_calendar_export_token`/`get_calendar_export_token` (unencrypted, TTL-only expiry via `CacheTTL.CALENDAR_EXPORT_TOKEN`, no delete-on-read); added `CacheKeys` import (Task 3.5, GREEN)
+- tests/unit/services/api/auth/test_tokens.py - removed xfail markers from the 5 Task 3.4 tests (assertions unchanged) (Task 3.5, GREEN)
 
 ### Removed

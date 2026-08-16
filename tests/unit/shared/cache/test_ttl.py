@@ -50,3 +50,7 @@ class TestCacheTTL:
     def test_game_details_ttl(self):
         """Test game details TTL is 1 minute."""
         assert CacheTTL.GAME_DETAILS == 60
+
+    def test_calendar_export_token_ttl(self):
+        """Test calendar export token TTL is 5 minutes."""
+        assert CacheTTL.CALENDAR_EXPORT_TOKEN == 300

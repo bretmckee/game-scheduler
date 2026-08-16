@@ -43,3 +43,4 @@ class CacheTTL:
     DISCORD_MEMBER: int = 300  # 5 minutes - Discord guild member objects
     DISCORD_USER: int = 300  # 5 minutes - Discord user objects
     APP_INFO: int = 3600  # 1 hour - Discord application info
+    CALENDAR_EXPORT_TOKEN: int = 300  # 5 minutes - TTL-only expiry, no delete-on-read

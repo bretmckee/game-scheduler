@@ -68,21 +68,21 @@ Add a self-contained "Add to Google Calendar" quick-add link to the Discord game
 - [x] Task 2.3: REFACTOR — optional e2e coverage for the Google Calendar link in `tests/e2e/helpers/discord.py`/`tests/e2e/test_game_announcement.py`
   - Details: .copilot-tracking/planning/details/20260816-01-calendar-link-improvements-details.md (Lines 155-166)
 
-### [ ] Phase 3: Redis-Backed Calendar Export Token Helpers (API backend)
+### [x] Phase 3: Redis-Backed Calendar Export Token Helpers (API backend)
 
-- [ ] Task 3.1: Add `CacheTTL.CALENDAR_EXPORT_TOKEN` and `CacheOperation.CALENDAR_EXPORT_TOKEN_LOOKUP` constants with direct (non-xfail) tests
+- [x] Task 3.1: Add `CacheTTL.CALENDAR_EXPORT_TOKEN` and `CacheOperation.CALENDAR_EXPORT_TOKEN_LOOKUP` constants with direct (non-xfail) tests
   - Details: .copilot-tracking/planning/details/20260816-01-calendar-link-improvements-details.md (Lines 170-186)
 
-- [ ] Task 3.2: RED — stub `CacheKeys.calendar_export_token` and write xfail test
+- [x] Task 3.2: RED — stub `CacheKeys.calendar_export_token` and write xfail test
   - Details: .copilot-tracking/planning/details/20260816-01-calendar-link-improvements-details.md (Lines 188-217)
 
-- [ ] Task 3.3: GREEN — implement `CacheKeys.calendar_export_token`, remove xfail marker
+- [x] Task 3.3: GREEN — implement `CacheKeys.calendar_export_token`, remove xfail marker
   - Details: .copilot-tracking/planning/details/20260816-01-calendar-link-improvements-details.md (Lines 219-235)
 
-- [ ] Task 3.4: RED — stub `mint_calendar_export_token`/`get_calendar_export_token` in `services/api/auth/tokens.py` and write xfail tests (exact `set_json`/`get_json`/`cache_get` call-arg assertions, malformed-data handling)
+- [x] Task 3.4: RED — stub `mint_calendar_export_token`/`get_calendar_export_token` in `services/api/auth/tokens.py` and write xfail tests (exact `set_json`/`get_json`/`cache_get` call-arg assertions, malformed-data handling)
   - Details: .copilot-tracking/planning/details/20260816-01-calendar-link-improvements-details.md (Lines 237-279)
 
-- [ ] Task 3.5: GREEN — implement both token functions (unencrypted, TTL-only expiry, no delete-on-read), remove xfail markers
+- [x] Task 3.5: GREEN — implement both token functions (unencrypted, TTL-only expiry, no delete-on-read), remove xfail markers
   - Details: .copilot-tracking/planning/details/20260816-01-calendar-link-improvements-details.md (Lines 281-316)
 
 ### [ ] Phase 4: Authenticated Mint-Token Route (`services/api/routes/export.py`)

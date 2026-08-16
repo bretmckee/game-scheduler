@@ -40,6 +40,7 @@ _EXPECTED_OPERATIONS = {
     "oauth_state",
     "user_roles_bot",
     "guild_roles_bot",
+    "calendar_export_token_lookup",
 }
 
 
@@ -54,6 +55,10 @@ def test_cache_operation_members() -> None:
 
 def test_cache_operation_fetch_guild_value() -> None:
     assert CacheOperation.FETCH_GUILD == "fetch_guild"
+
+
+def test_cache_operation_calendar_export_token_lookup_value() -> None:
+    assert CacheOperation.CALENDAR_EXPORT_TOKEN_LOOKUP == "calendar_export_token_lookup"
 
 
 async def test_cache_get_hit_returns_value() -> None:

@@ -66,6 +66,7 @@ class CacheOperation(StrEnum):
     OAUTH_STATE = "oauth_state"
     USER_ROLES_BOT = "user_roles_bot"
     GUILD_ROLES_BOT = "guild_roles_bot"
+    CALENDAR_EXPORT_TOKEN_LOOKUP = "calendar_export_token_lookup"  # noqa: S105 - symbolic operation label, not a credential
 
 
 async def cache_get(key: str, operation: CacheOperation) -> Any | None:  # noqa: ANN401

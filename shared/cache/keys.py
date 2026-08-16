@@ -86,6 +86,11 @@ class CacheKeys:
         return f"discord:guild_emojis:{guild_id}"
 
     @staticmethod
+    def calendar_export_token(token: str) -> str:
+        """Return cache key for a calendar export token."""
+        return f"api:calendar_export:{token}"
+
+    @staticmethod
     def discord_member(guild_id: str, user_id: str) -> str:
         """Return cache key for Discord guild member information."""
         return f"api:member:{guild_id}:{user_id}"

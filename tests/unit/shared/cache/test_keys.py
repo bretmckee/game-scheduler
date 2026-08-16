@@ -96,3 +96,8 @@ class TestCacheKeys:
         """Test Discord guild emojis cache key generation."""
         key = CacheKeys.discord_guild_emojis("123")
         assert key == "discord:guild_emojis:123"
+
+    def test_calendar_export_token_key(self):
+        """Test calendar export token cache key generation."""
+        key = CacheKeys.calendar_export_token("abc123")
+        assert key == "api:calendar_export:abc123"

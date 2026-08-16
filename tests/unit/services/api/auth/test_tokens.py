@@ -21,11 +21,15 @@
 
 """Unit tests for tokens module."""
 
+import uuid
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from services.api.auth import tokens
+from shared.cache import ttl as cache_ttl
+from shared.cache.keys import CacheKeys
+from shared.cache.operations import CacheOperation
 
 BOT_TOKEN = "Bot.test.token"
 
@@ -282,3 +286,81 @@ async def test_delete_user_tokens_deletes_session_key():
         await tokens.delete_user_tokens(session_token)
 
     mock_redis.delete.assert_called_once_with(f"api:session:{session_token}")
+
+
+@pytest.mark.asyncio
+async def test_mint_calendar_export_token_stores_game_id_with_ttl():
+    """Test that mint_calendar_export_token stores {"game_id": ...} with the TTL constant."""
+    mock_redis = AsyncMock()
+    mock_redis.set_json = AsyncMock()
+
+    with patch(
+        "services.api.auth.tokens.cache_client.get_redis_client",
+        new_callable=AsyncMock,
+        return_value=mock_redis,
+    ):
+        token = await tokens.mint_calendar_export_token("game-123")
+
+    mock_redis.set_json.assert_called_once_with(
+        CacheKeys.calendar_export_token(token),
+        {"game_id": "game-123"},
+        ttl=cache_ttl.CacheTTL.CALENDAR_EXPORT_TOKEN,
+    )
+
+
+@pytest.mark.asyncio
+async def test_mint_calendar_export_token_returns_uuid4_token():
+    """Test that mint_calendar_export_token returns a UUID4-formatted token."""
+    mock_redis = AsyncMock()
+    mock_redis.set_json = AsyncMock()
+
+    with patch(
+        "services.api.auth.tokens.cache_client.get_redis_client",
+        new_callable=AsyncMock,
+        return_value=mock_redis,
+    ):
+        token = await tokens.mint_calendar_export_token("game-123")
+
+    assert uuid.UUID(token).version == 4
+
+
+@pytest.mark.asyncio
+async def test_get_calendar_export_token_returns_game_id_on_hit():
+    """Test that get_calendar_export_token resolves a cache hit to its game_id."""
+    with patch(
+        "services.api.auth.tokens.cache_get",
+        new_callable=AsyncMock,
+        return_value={"game_id": "game-456"},
+    ) as mock_cache_get:
+        result = await tokens.get_calendar_export_token("tok")
+
+    assert result == "game-456"
+    mock_cache_get.assert_called_once_with(
+        CacheKeys.calendar_export_token("tok"), CacheOperation.CALENDAR_EXPORT_TOKEN_LOOKUP
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_calendar_export_token_returns_none_on_miss():
+    """Test that get_calendar_export_token returns None on a cache miss."""
+    with patch(
+        "services.api.auth.tokens.cache_get",
+        new_callable=AsyncMock,
+        return_value=None,
+    ):
+        result = await tokens.get_calendar_export_token("tok")
+
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_get_calendar_export_token_returns_none_on_malformed_data():
+    """Test that get_calendar_export_token returns None when cached data isn't a dict."""
+    with patch(
+        "services.api.auth.tokens.cache_get",
+        new_callable=AsyncMock,
+        return_value="not-a-dict",
+    ):
+        result = await tokens.get_calendar_export_token("tok")
+
+    assert result is None

@@ -35,6 +35,7 @@ from cryptography.fernet import Fernet
 from services.api import config
 from shared.cache import client as cache_client
 from shared.cache import ttl as cache_ttl
+from shared.cache.keys import CacheKeys
 from shared.cache.operations import CacheOperation, cache_get
 from shared.utils.security_constants import ENCRYPTION_KEY_LENGTH
 
@@ -244,3 +245,23 @@ def get_guild_token(session_data: dict) -> str:
     if session_data.get("is_maintainer"):
         return config.get_api_config().discord_bot_token
     return session_data["access_token"]
+
+
+async def mint_calendar_export_token(game_id: str) -> str:
+    """Mint a short-lived opaque token for the public calendar export route."""
+    redis = await cache_client.get_redis_client()
+    token = str(uuid.uuid4())
+    key = CacheKeys.calendar_export_token(token)
+    await redis.set_json(key, {"game_id": game_id}, ttl=cache_ttl.CacheTTL.CALENDAR_EXPORT_TOKEN)
+    logger.info("Minted calendar export token for game %s", game_id)
+    return token
+
+
+async def get_calendar_export_token(token: str) -> str | None:
+    """Resolve a calendar export token to its game_id, or None if missing/expired."""
+    key = CacheKeys.calendar_export_token(token)
+    data = await cache_get(key, CacheOperation.CALENDAR_EXPORT_TOKEN_LOOKUP)
+    if not isinstance(data, dict) or "game_id" not in data:
+        logger.warning("No calendar export token found for %s", token)
+        return None
+    return str(data["game_id"])
