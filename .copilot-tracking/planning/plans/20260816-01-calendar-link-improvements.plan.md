@@ -85,12 +85,12 @@ Add a self-contained "Add to Google Calendar" quick-add link to the Discord game
 - [x] Task 3.5: GREEN — implement both token functions (unencrypted, TTL-only expiry, no delete-on-read), remove xfail markers
   - Details: .copilot-tracking/planning/details/20260816-01-calendar-link-improvements-details.md (Lines 281-316)
 
-### [ ] Phase 4: Authenticated Mint-Token Route (`services/api/routes/export.py`)
+### [x] Phase 4: Authenticated Mint-Token Route (`services/api/routes/export.py`)
 
-- [ ] Task 4.1: RED — add `CalendarExportTokenResponse` schema, stub `POST /api/v1/export/game/{game_id}/token`, write xfail tests (host success, not found, permission denied, participant success)
+- [x] Task 4.1: RED — add `CalendarExportTokenResponse` schema, stub `POST /api/v1/export/game/{game_id}/token`, write xfail tests (host success, not found, permission denied, participant success)
   - Details: .copilot-tracking/planning/details/20260816-01-calendar-link-improvements-details.md (Lines 320-374)
 
-- [ ] Task 4.2: GREEN — implement `mint_calendar_token` reusing `can_export_game` unmodified, remove xfail markers
+- [x] Task 4.2: GREEN — implement `mint_calendar_token` reusing `can_export_game` unmodified, remove xfail markers
   - Details: .copilot-tracking/planning/details/20260816-01-calendar-link-improvements-details.md (Lines 376-400)
 
 ### [ ] Phase 5: Public Unauthenticated `.ics` Route + App Registration + Integration Tests

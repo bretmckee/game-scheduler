@@ -13,6 +13,8 @@ Adds a self-contained "Add to Google Calendar" quick-add link to the Discord gam
 
 ### Added
 
+- shared/schemas/export.py - new file, `CalendarExportTokenResponse` Pydantic schema for the mint-token endpoint (Task 4.1, RED)
+
 ### Modified
 
 - services/bot/utils/discord_format.py - added `build_google_calendar_url` stub (raises `NotImplementedError`) and its supporting module constants (`_GOOGLE_CALENDAR_BASE_URL`, `_GOOGLE_CALENDAR_DEFAULT_DURATION_MINUTES`, `_GOOGLE_CALENDAR_TITLE_MAX_LENGTH`, `_GOOGLE_CALENDAR_LOCATION_MAX_LENGTH`) (Task 1.1, RED)
@@ -36,5 +38,9 @@ Adds a self-contained "Add to Google Calendar" quick-add link to the Discord gam
 - tests/unit/services/api/auth/test_tokens.py - added 5 xfail tests covering mint (exact `set_json` call args, UUID4-format token) and get (hit, miss, malformed data) (Task 3.4, RED)
 - services/api/auth/tokens.py - implemented `mint_calendar_export_token`/`get_calendar_export_token` (unencrypted, TTL-only expiry via `CacheTTL.CALENDAR_EXPORT_TOKEN`, no delete-on-read); added `CacheKeys` import (Task 3.5, GREEN)
 - tests/unit/services/api/auth/test_tokens.py - removed xfail markers from the 5 Task 3.4 tests (assertions unchanged) (Task 3.5, GREEN)
+- services/api/routes/export.py - added stub `POST /game/{game_id}/token` route (`mint_calendar_token`, raises `NotImplementedError`) and `CalendarExportTokenResponse` import (Task 4.1, RED)
+- tests/unit/services/api/routes/test_export.py - added 4 xfail tests: host success, not-found (404), permission-denied (403), participant success (Task 4.1, RED)
+- services/api/routes/export.py - implemented `mint_calendar_token`: fetches the game, reuses `permissions_deps.can_export_game(...)` unmodified, raises 403 when it returns `False`, then calls `tokens.mint_calendar_export_token(game_id)` and returns `CalendarExportTokenResponse`; added `tokens` import (Task 4.2, GREEN)
+- tests/unit/services/api/routes/test_export.py - removed xfail markers from the 4 Task 4.1 tests (assertions unchanged) (Task 4.2, GREEN)
 
 ### Removed

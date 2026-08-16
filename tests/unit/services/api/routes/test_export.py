@@ -328,6 +328,256 @@ def test_export_game_as_participant(app, mock_user, mock_game, mock_get_user_tok
         app.dependency_overrides.clear()
 
 
+def test_mint_calendar_token_as_host_success(app, mock_user, mock_game, mock_get_user_tokens):
+    """Test successful token mint as host."""
+    # Mock database session
+    mock_db = AsyncMock()
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = mock_game
+    mock_db.execute = AsyncMock(return_value=mock_result)
+    mock_db.commit = AsyncMock()
+
+    # Mock AsyncSessionLocal to return our mock session
+    mock_session_local = MagicMock()
+    mock_session_local.return_value.__aenter__ = AsyncMock(return_value=mock_db)
+    mock_session_local.return_value.__aexit__ = AsyncMock(return_value=None)
+
+    # Mock role service
+    mock_role_service = AsyncMock()
+
+    # Override dependencies
+
+    async def override_get_current_user():
+        return mock_user
+
+    async def override_get_role_service():
+        return mock_role_service
+
+    app.dependency_overrides[auth_deps.get_current_user] = override_get_current_user
+    app.dependency_overrides[permissions_deps.get_role_service] = override_get_role_service
+
+    try:
+        with (
+            patch("shared.database.AsyncSessionLocal", mock_session_local),
+            patch(
+                "shared.cache.client.get_redis_client",
+                new_callable=AsyncMock,
+                return_value=AsyncMock(),
+            ),
+            patch(
+                "shared.cache.projection.get_user_guilds",
+                new_callable=AsyncMock,
+                return_value=["987654321"],
+            ),
+            patch(
+                "services.api.dependencies.permissions.can_export_game",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+            patch(
+                "services.api.auth.tokens.mint_calendar_export_token",
+                new_callable=AsyncMock,
+                return_value="minted-token",
+            ) as mock_mint,
+        ):
+            client = TestClient(app)
+            response = client.post("/api/v1/export/game/game-123/token")
+
+            assert response.status_code == status.HTTP_200_OK
+            assert response.json() == {"token": "minted-token"}
+            mock_mint.assert_called_once_with("game-123")
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_mint_calendar_token_not_found(app, mock_user, mock_get_user_tokens):
+    """Test token mint for non-existent game returns 404."""
+    # Mock database session returning None
+    mock_db = AsyncMock()
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = None
+    mock_db.execute = AsyncMock(return_value=mock_result)
+    mock_db.commit = AsyncMock()
+
+    # Mock AsyncSessionLocal
+    mock_session_local = MagicMock()
+    mock_session_local.return_value.__aenter__ = AsyncMock(return_value=mock_db)
+    mock_session_local.return_value.__aexit__ = AsyncMock(return_value=None)
+
+    # Mock role service
+    mock_role_service = AsyncMock()
+
+    # Override dependencies
+
+    async def override_get_current_user():
+        return mock_user
+
+    async def override_get_role_service():
+        return mock_role_service
+
+    app.dependency_overrides[auth_deps.get_current_user] = override_get_current_user
+    app.dependency_overrides[permissions_deps.get_role_service] = override_get_role_service
+
+    try:
+        with (
+            patch("shared.database.AsyncSessionLocal", mock_session_local),
+            patch(
+                "shared.cache.client.get_redis_client",
+                new_callable=AsyncMock,
+                return_value=AsyncMock(),
+            ),
+            patch(
+                "shared.cache.projection.get_user_guilds",
+                new_callable=AsyncMock,
+                return_value=["987654321"],
+            ),
+        ):
+            client = TestClient(app)
+            response = client.post("/api/v1/export/game/game-999/token")
+
+            assert response.status_code == status.HTTP_404_NOT_FOUND
+            assert "not found" in response.json()["detail"].lower()
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_mint_calendar_token_permission_denied(app, mock_user, mock_game, mock_get_user_tokens):
+    """Test token mint without permission returns 403."""
+    # User is not host or participant
+    mock_game.host_id = "different-user"
+    mock_game.participants = []
+
+    # Mock database session
+    mock_db = AsyncMock()
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = mock_game
+    mock_db.execute = AsyncMock(return_value=mock_result)
+    mock_db.commit = AsyncMock()
+
+    # Mock AsyncSessionLocal
+    mock_session_local = MagicMock()
+    mock_session_local.return_value.__aenter__ = AsyncMock(return_value=mock_db)
+    mock_session_local.return_value.__aexit__ = AsyncMock(return_value=None)
+
+    # Mock role service
+    mock_role_service = AsyncMock()
+
+    # Override dependencies
+
+    async def override_get_current_user():
+        return mock_user
+
+    async def override_get_role_service():
+        return mock_role_service
+
+    app.dependency_overrides[auth_deps.get_current_user] = override_get_current_user
+    app.dependency_overrides[permissions_deps.get_role_service] = override_get_role_service
+
+    try:
+        with (
+            patch("shared.database.AsyncSessionLocal", mock_session_local),
+            patch(
+                "shared.cache.client.get_redis_client",
+                new_callable=AsyncMock,
+                return_value=AsyncMock(),
+            ),
+            patch(
+                "shared.cache.projection.get_user_guilds",
+                new_callable=AsyncMock,
+                return_value=["987654321"],
+            ),
+            patch(
+                "services.api.dependencies.permissions.can_export_game",
+                new_callable=AsyncMock,
+                return_value=False,
+            ),
+            patch(
+                "services.api.auth.tokens.mint_calendar_export_token",
+                new_callable=AsyncMock,
+            ) as mock_mint,
+        ):
+            client = TestClient(app)
+            response = client.post("/api/v1/export/game/game-123/token")
+
+            assert response.status_code == status.HTTP_403_FORBIDDEN
+            mock_mint.assert_not_called()
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_mint_calendar_token_as_participant(app, mock_user, mock_game, mock_get_user_tokens):
+    """Test successful token mint as participant."""
+    # User is participant but not host
+    mock_game.host_id = "different-user"
+    participant = GameParticipant(
+        id="part-123",
+        game_session_id="game-123",
+        user_id="123456789",
+        position_type=ParticipantType.SELF_ADDED,
+        position=0,
+    )
+    participant.user = mock_user.user
+    mock_game.participants = [participant]
+
+    # Mock database session
+    mock_db = AsyncMock()
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = mock_game
+    mock_db.execute = AsyncMock(return_value=mock_result)
+    mock_db.commit = AsyncMock()
+
+    # Mock AsyncSessionLocal
+    mock_session_local = MagicMock()
+    mock_session_local.return_value.__aenter__ = AsyncMock(return_value=mock_db)
+    mock_session_local.return_value.__aexit__ = AsyncMock(return_value=None)
+
+    # Mock role service
+    mock_role_service = AsyncMock()
+
+    # Override dependencies
+
+    async def override_get_current_user():
+        return mock_user
+
+    async def override_get_role_service():
+        return mock_role_service
+
+    app.dependency_overrides[auth_deps.get_current_user] = override_get_current_user
+    app.dependency_overrides[permissions_deps.get_role_service] = override_get_role_service
+
+    try:
+        with (
+            patch("shared.database.AsyncSessionLocal", mock_session_local),
+            patch(
+                "shared.cache.client.get_redis_client",
+                new_callable=AsyncMock,
+                return_value=AsyncMock(),
+            ),
+            patch(
+                "shared.cache.projection.get_user_guilds",
+                new_callable=AsyncMock,
+                return_value=["987654321"],
+            ),
+            patch(
+                "services.api.dependencies.permissions.can_export_game",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+            patch(
+                "services.api.auth.tokens.mint_calendar_export_token",
+                new_callable=AsyncMock,
+                return_value="minted-token",
+            ),
+        ):
+            client = TestClient(app)
+            response = client.post("/api/v1/export/game/game-123/token")
+
+            assert response.status_code == status.HTTP_200_OK
+            assert response.json() == {"token": "minted-token"}
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_generate_calendar_filename_basic():
     """Test filename generation with basic title."""
 

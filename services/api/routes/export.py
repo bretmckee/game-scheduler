@@ -37,6 +37,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from services.api.auth import roles as roles_module
+from services.api.auth import tokens
 from services.api.dependencies import auth as auth_deps
 from services.api.dependencies import permissions as permissions_deps
 from services.api.services.calendar_export import CalendarExportService
@@ -44,6 +45,7 @@ from shared import database
 from shared.models.game import GameSession
 from shared.models.participant import GameParticipant
 from shared.schemas import auth as auth_schemas
+from shared.schemas.export import CalendarExportTokenResponse
 from shared.utils.limits import GAME_LIST_DESCRIPTION_SNIPPET_LENGTH
 
 logger = logging.getLogger(__name__)
@@ -160,3 +162,64 @@ async def export_game(
             "Cache-Control": "no-cache",
         },
     )
+
+
+@router.post(
+    "/game/{game_id}/token",
+    summary="Mint a short-lived calendar export token",
+    description="Mint a token for the public, unauthenticated .ics download route",
+)
+async def mint_calendar_token(
+    game_id: str,
+    user: Annotated[auth_schemas.CurrentUser, Depends(auth_deps.get_current_user)],
+    db: Annotated[AsyncSession, Depends(database.get_db_with_user_guilds())],
+    role_service: Annotated[
+        roles_module.RoleVerificationService, Depends(permissions_deps.get_role_service)
+    ],
+) -> CalendarExportTokenResponse:
+    """
+    Mint a short-lived calendar export token.
+
+    Only the host, participants, administrators, or bot managers can export a game.
+    """
+    # Fetch game with relationships to check permissions
+    result = await db.execute(
+        select(GameSession)
+        .where(GameSession.id == game_id)
+        .options(
+            selectinload(GameSession.guild),
+            selectinload(GameSession.host),
+            selectinload(GameSession.participants).selectinload(GameParticipant.user),
+        )
+    )
+    game = result.scalar_one_or_none()
+
+    if not game:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Game not found",
+        )
+
+    # Check permission using centralized helper
+    can_export = await permissions_deps.can_export_game(
+        game_host_id=game.host_id,
+        game_participants=game.participants,
+        guild_id=game.guild.guild_id,
+        user_id=user.user.id,
+        discord_id=user.user.discord_id,
+        role_service=role_service,
+        db=db,
+        current_user=user,
+    )
+
+    if not can_export:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "You must be the host, a participant, or have admin/bot manager permissions "
+                "to export this game"
+            ),
+        )
+
+    token = await tokens.mint_calendar_export_token(game_id)
+    return CalendarExportTokenResponse(token=token)
