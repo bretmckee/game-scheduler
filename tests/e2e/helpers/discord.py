@@ -417,15 +417,15 @@ class DiscordTestHelper:
             self._check_waitlist_numbering(waitlist_columns)
 
     def _verify_links_field(self, field_map: dict[str, str], expected_game_id: str | None) -> None:
-        """Verify Links field contains calendar URL if game_id provided."""
+        """Verify Add to Calendar field contains calendar URLs if game_id provided."""
         if expected_game_id:
-            links_field = field_map.get("Links")
-            assert links_field is not None, "Links field missing when game_id provided"
+            links_field = field_map.get("Add to Calendar")
+            assert links_field is not None, "Add to Calendar field missing when game_id provided"
             assert f"/download-calendar/{expected_game_id}" in links_field, (
-                f"Links field should contain calendar URL: {links_field}"
+                f"Add to Calendar field should contain calendar URL: {links_field}"
             )
             assert "calendar.google.com" in links_field, (
-                f"Links field should contain Google Calendar quick-add URL: {links_field}"
+                f"Add to Calendar field should contain Google Calendar quick-add URL: {links_field}"
             )
 
     def verify_game_embed(

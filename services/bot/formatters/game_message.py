@@ -168,14 +168,14 @@ class GameMessageFormatter:
         calendar_url: str | None,
         google_calendar_url: str | None = None,
     ) -> None:
-        """Add game time, host, duration, links, location, and channel fields.
+        """Add game time, host, duration, calendar links, location, and channel fields.
 
-        Host, Run Time (or a blank spacer), and Links (or a blank spacer)
-        share one row. Where and Voice Channel each get their own full-width
-        row when present, rather than competing for space in that row - this
-        also leaves the Players row below free to be its own three-column
-        row instead of sharing space with Links (see
-        _add_participant_fields).
+        Host, Run Time (or a blank spacer), and Add to Calendar (or a blank
+        spacer) share one row. Where and Voice Channel each get their own
+        full-width row when present, rather than competing for space in
+        that row - this also leaves the Players row below free to be its
+        own three-column row instead of sharing space with Add to Calendar
+        (see _add_participant_fields).
 
         Args:
             embed: Discord embed to configure
@@ -186,7 +186,7 @@ class GameMessageFormatter:
             channel_id: Optional voice channel ID
             calendar_url: Optional calendar download URL
             google_calendar_url: Optional Google Calendar quick-add URL,
-                rendered as a second line under calendar_url when present
+                rendered as a first line above calendar_url when present
         """
         game_time_value = (
             f"{format_discord_timestamp(scheduled_at, 'F')} "
@@ -207,10 +207,11 @@ class GameMessageFormatter:
             embed.add_field(name=_ZERO_WIDTH_SPACE, value=_ZERO_WIDTH_SPACE, inline=True)
 
         if calendar_url:
-            links_value = f"\ud83d\udcc5 [Add to Calendar]({calendar_url})"
+            links_value = ""
             if google_calendar_url:
-                links_value += f"\n\ud83d\udcc5 [Google Calendar]({google_calendar_url})"
-            embed.add_field(name="Links", value=links_value, inline=True)
+                links_value = f"\ud83d\udcc5 [Google]({google_calendar_url})\n"
+            links_value += f"\ud83d\udcc5 [Others]({calendar_url})"
+            embed.add_field(name="Add to Calendar", value=links_value, inline=True)
         else:
             embed.add_field(name=_ZERO_WIDTH_SPACE, value=_ZERO_WIDTH_SPACE, inline=True)
 
@@ -480,8 +481,8 @@ class GameMessageFormatter:
     def _add_footer(embed: discord.Embed, status: str) -> None:
         """Add the status footer to embed.
 
-        The Links field is added earlier, alongside Host and Run Time (see
-        _add_game_time_fields), so this only sets the footer.
+        The Add to Calendar field is added earlier, alongside Host and Run
+        Time (see _add_game_time_fields), so this only sets the footer.
 
         Args:
             embed: Discord embed to configure

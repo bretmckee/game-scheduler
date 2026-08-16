@@ -566,11 +566,11 @@ class TestGameMessageFormatterHelpers:
             "https://example.com/calendar",
         )
 
-        # Game Time, Host, Run Time, Links, Where, Voice Channel.
+        # Game Time, Host, Run Time, Add to Calendar, Where, Voice Channel.
         assert embed.add_field.call_count == 6
 
     def test_add_game_time_fields_host_run_time_links_share_one_row(self):
-        """Test that Host, Run Time, and Links are the three fields right after Game Time."""
+        """Test that Host, Run Time, and Add to Calendar are the three fields after Game Time."""
         embed = MagicMock()
         scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
 
@@ -589,7 +589,7 @@ class TestGameMessageFormatterHelpers:
         assert calls[0]["inline"] is False
         assert calls[1]["name"] == "Host"
         assert calls[2]["name"] == "Run Time"
-        assert calls[3]["name"] == "Links"
+        assert calls[3]["name"] == "Add to Calendar"
         assert calls[1]["inline"] is True
         assert calls[2]["inline"] is True
         assert calls[3]["inline"] is True
@@ -633,7 +633,7 @@ class TestGameMessageFormatterHelpers:
         assert not any(c.get("name") == "Where" for c in calls)
 
     def test_add_game_time_fields_includes_links_when_calendar_url_given(self):
-        """Test that Links renders with the calendar URL when one is given."""
+        """Test that Add to Calendar renders with the calendar URL when one is given."""
         embed = MagicMock()
         scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
         calendar_url = "https://example.com/calendar"
@@ -643,11 +643,11 @@ class TestGameMessageFormatterHelpers:
         )
 
         calls = [call[1] for call in embed.add_field.call_args_list]
-        links_call = next(c for c in calls if c["name"] == "Links")
+        links_call = next(c for c in calls if c["name"] == "Add to Calendar")
         assert calendar_url in links_call["value"]
 
     def test_add_game_time_fields_links_spacer_when_no_calendar_url(self):
-        """Test that a blank spacer fills the Links slot when there's no calendar URL."""
+        """Test that a blank spacer fills the Add to Calendar slot when there's no calendar URL."""
         embed = MagicMock()
         scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
 
@@ -656,14 +656,14 @@ class TestGameMessageFormatterHelpers:
         )
 
         calls = [call[1] for call in embed.add_field.call_args_list]
-        assert not any(c.get("name") == "Links" for c in calls)
-        # Host, then two blank spacers (Run Time absent, Links absent).
+        assert not any(c.get("name") == "Add to Calendar" for c in calls)
+        # Host, then two blank spacers (Run Time absent, Add to Calendar absent).
         assert calls[1]["name"] == "Host"
         assert calls[2]["name"] == "\u200b"
         assert calls[3]["name"] == "\u200b"
 
     def test_add_game_time_fields_links_field_includes_google_calendar_link_when_provided(self):
-        """Test that Links renders both calendar links, on separate lines, when both are given."""
+        """Test that Add to Calendar renders both links, on separate lines, when both are given."""
         embed = MagicMock()
         scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
         calendar_url = "https://example.com/calendar"
@@ -681,15 +681,14 @@ class TestGameMessageFormatterHelpers:
         )
 
         calls = [call[1] for call in embed.add_field.call_args_list]
-        links_call = next(c for c in calls if c["name"] == "Links")
+        links_call = next(c for c in calls if c["name"] == "Add to Calendar")
         expected_value = (
-            f"\ud83d\udcc5 [Add to Calendar]({calendar_url})"
-            f"\n\ud83d\udcc5 [Google Calendar]({google_calendar_url})"
+            f"\ud83d\udcc5 [Google]({google_calendar_url})\n\ud83d\udcc5 [Others]({calendar_url})"
         )
         assert links_call["value"] == expected_value
 
     def test_add_game_time_fields_links_field_omits_google_calendar_link_when_not_provided(self):
-        """Test that Links omits the Google Calendar line when google_calendar_url is absent."""
+        """Test that Add to Calendar omits the Google line when google_calendar_url is absent."""
         embed = MagicMock()
         scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
         calendar_url = "https://example.com/calendar"
@@ -699,12 +698,12 @@ class TestGameMessageFormatterHelpers:
         )
 
         calls = [call[1] for call in embed.add_field.call_args_list]
-        links_call = next(c for c in calls if c["name"] == "Links")
-        assert links_call["value"] == f"\ud83d\udcc5 [Add to Calendar]({calendar_url})"
-        assert "Google Calendar" not in links_call["value"]
+        links_call = next(c for c in calls if c["name"] == "Add to Calendar")
+        assert links_call["value"] == f"\ud83d\udcc5 [Others]({calendar_url})"
+        assert "Google" not in links_call["value"]
 
     def test_add_game_time_fields_links_field_stays_under_discord_limit_with_long_inputs(self):
-        """Test that the two-link Links field stays under Discord's 1024-char field cap."""
+        """Test that the two-link Add to Calendar field stays under Discord's field-value cap."""
         scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
         long_title = "T" * 200  # shared/models/game.py: title is String(200)
         long_where = "W" * 3000  # shared/models/game.py: where is unbounded Text
@@ -729,7 +728,7 @@ class TestGameMessageFormatterHelpers:
             )
 
             calls = [call[1] for call in mock_embed.add_field.call_args_list]
-            links_call = next(c for c in calls if c["name"] == "Links")
+            links_call = next(c for c in calls if c["name"] == "Add to Calendar")
             assert "calendar.google.com/calendar/render" in links_call["value"]
             assert len(links_call["value"]) < 1024
             mock_embed_class.assert_called_once_with(
@@ -1911,7 +1910,7 @@ class TestEmbedNewFields:
     """Tests for new embed fields added to improve layout."""
 
     def test_embed_includes_links_field_with_calendar_url(self):
-        """Test that embed includes Links field when game_id is provided."""
+        """Test that embed includes Add to Calendar field when game_id is provided."""
         scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
 
         with patch("services.bot.formatters.game_message.discord.Embed") as mock_embed_class:
@@ -1933,11 +1932,11 @@ class TestEmbedNewFields:
             )
 
             calls = [str(call) for call in mock_embed.add_field.call_args_list]
-            assert any("Links" in str(call) and "Add to Calendar" in str(call) for call in calls)
+            assert any("Add to Calendar" in str(call) and "Others" in str(call) for call in calls)
             mock_embed_class.assert_called_once_with(title="Game", description="Desc", color=ANY)
 
     def test_embed_excludes_links_field_without_calendar_url(self):
-        """Test that embed excludes Links field when game_id is not provided."""
+        """Test that embed excludes Add to Calendar field when game_id is not provided."""
         scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
 
         with patch("services.bot.formatters.game_message.discord.Embed") as mock_embed_class:
@@ -1959,7 +1958,7 @@ class TestEmbedNewFields:
             )
 
             calls = [str(call) for call in mock_embed.add_field.call_args_list]
-            assert not any("Links" in str(call) for call in calls)
+            assert not any("Add to Calendar" in str(call) for call in calls)
             mock_embed_class.assert_called_once_with(title="Game", description="Desc", color=ANY)
 
     def test_create_game_embed_threads_google_calendar_url_into_links_field(self):
@@ -1986,7 +1985,8 @@ class TestEmbedNewFields:
 
             calls = [str(call) for call in mock_embed.add_field.call_args_list]
             assert any(
-                "Links" in call and "calendar.google.com/calendar/render" in call for call in calls
+                "Add to Calendar" in call and "calendar.google.com/calendar/render" in call
+                for call in calls
             )
             mock_embed_class.assert_called_once_with(title="Game", description="Desc", color=ANY)
 
