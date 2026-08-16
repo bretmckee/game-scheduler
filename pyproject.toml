@@ -51,7 +51,13 @@ dependencies = [
     "pytest>=8.3.5",
     "pytest-asyncio>=0.24.0",
     "pytest-cov>=6.0.0",
-    "pytest-timeout>=2.3.0",
+    # pytest-timeout>=2.5.0 calls parser.addini(type="float"), an ini type
+    # pytest has never supported (still an open feature request:
+    # https://github.com/pytest-dev/pytest/issues/11381). That release
+    # crashes plugin registration with AssertionError on every pytest
+    # version currently published. Cap below it until pytest gains support
+    # or pytest-timeout reverts the change.
+    "pytest-timeout>=2.3.0,<2.5.0",
     "coverage[toml]>=7.0.0",
 ]
 

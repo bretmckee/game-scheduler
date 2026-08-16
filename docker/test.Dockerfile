@@ -29,10 +29,17 @@ RUN mkdir -p /app/coverage
 # Copy dependency files including lock file for reproducible builds
 COPY pyproject.toml uv.lock ./
 
-# Install all dependencies including dev dependencies (pytest, etc.)
-# uv will use uv.lock for version resolution
+# Install all dependencies including the dev dependency group (pytest, etc.),
+# frozen from uv.lock. `uv export --frozen` resolves nothing live against
+# PyPI — it only reads uv.lock — so this always installs exactly the pinned
+# versions, the same ones `uv sync`/`uv run` use locally. This mirrors
+# api.Dockerfile/bot.Dockerfile/init.Dockerfile; app code is found via
+# PYTHONPATH rather than installing the project itself.
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install --system -e . && uv pip install --system --group dev
+    uv export --frozen --no-emit-local --no-hashes -o /tmp/requirements.txt \
+    && pip install --no-cache-dir -r /tmp/requirements.txt
+
+ENV PYTHONPATH=/app
 
 # Copy application code
 COPY shared/ ./shared/
