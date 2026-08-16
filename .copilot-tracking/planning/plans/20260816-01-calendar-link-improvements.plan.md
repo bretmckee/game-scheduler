@@ -106,12 +106,12 @@ Add a self-contained "Add to Google Calendar" quick-add link to the Discord game
   - Details: .copilot-tracking/planning/details/20260816-01-calendar-link-improvements-details.md (Lines 509-528)
   - Optional rate-limit test file (`test_public_calendar_rate_limit.py`) not added — out of scope for this pass
 
-### [ ] Phase 6: Frontend Shared Mint Helper + `DownloadCalendar.tsx` Rewrite
+### [x] Phase 6: Frontend Shared Mint Helper + `DownloadCalendar.tsx` Rewrite
 
-- [ ] Task 6.1: RED — create `frontend/src/api/calendarExport.ts` stub (`mintCalendarExportToken`, `buildCalendarExportUrl`); rewrite `DownloadCalendar.test.tsx` with `test.failing` cases (mint success/navigate, 403/404/generic mint failures, error-alert-close navigation); retain the unchanged loading-spinner test as-is
+- [x] Task 6.1: RED — create `frontend/src/api/calendarExport.ts` stub (`mintCalendarExportToken`, `buildCalendarExportUrl`); rewrite `DownloadCalendar.test.tsx` with `test.failing` cases (mint success/navigate, 403/404/generic mint failures, error-alert-close navigation); retain the unchanged loading-spinner test as-is
   - Details: .copilot-tracking/planning/details/20260816-01-calendar-link-improvements-details.md (Lines 532-565)
 
-- [ ] Task 6.2: GREEN — implement the mint helper and rewrite `DownloadCalendar.tsx` to mint-then-`window.location.href`-navigate, removing the old fetch+Blob code, remove `.failing` markers
+- [x] Task 6.2: GREEN — implement the mint helper and rewrite `DownloadCalendar.tsx` to mint-then-`window.location.href`-navigate, removing the old fetch+Blob code, remove `.failing` markers
   - Details: .copilot-tracking/planning/details/20260816-01-calendar-link-improvements-details.md (Lines 567-596)
 
 ### [ ] Phase 7: Frontend `ExportButton.tsx` / `GameDetails.tsx` Migration

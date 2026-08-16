@@ -23,7 +23,7 @@ import { StatusCodes } from 'http-status-codes';
 import { useParams, useNavigate } from 'react-router';
 import { Box, CircularProgress, Typography, Alert } from '@mui/material';
 import { useAuth } from '../hooks/useAuth';
-import { Time } from '../constants/time';
+import { mintCalendarExportToken, buildCalendarExportUrl } from '../api/calendarExport';
 
 export const DownloadCalendar: FC = () => {
   const { gameId } = useParams<{ gameId: string }>();
@@ -34,40 +34,21 @@ export const DownloadCalendar: FC = () => {
   const hasDownloaded = useRef(false);
 
   const downloadCalendar = async () => {
+    if (!gameId) return;
+
     setDownloading(true);
     try {
-      const response = await fetch(`/api/v1/export/game/${gameId}`, {
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        if (response.status === StatusCodes.FORBIDDEN) {
-          setError('You do not have permission to download this calendar.');
-        } else if (response.status === StatusCodes.NOT_FOUND) {
-          setError('Game not found.');
-        } else {
-          setError('Failed to download calendar.');
-        }
-        return;
-      }
-
-      const contentDisposition = response.headers.get('Content-Disposition');
-      const filenameMatch = contentDisposition?.match(/filename="?(.+)"?/i);
-      const filename = filenameMatch?.[1] || `game-${gameId}.ics`;
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-
-      setTimeout(() => navigate('/my-games'), Time.MILLISECONDS_PER_SECOND);
+      const token = await mintCalendarExportToken(gameId);
+      window.location.href = buildCalendarExportUrl(token);
     } catch (err) {
-      setError('An error occurred while downloading the calendar.');
+      const status = (err as { response?: { status?: number } }).response?.status;
+      if (status === StatusCodes.FORBIDDEN) {
+        setError('You do not have permission to download this calendar.');
+      } else if (status === StatusCodes.NOT_FOUND) {
+        setError('Game not found.');
+      } else {
+        setError('An error occurred while downloading the calendar.');
+      }
       console.error('Calendar download error:', err);
     } finally {
       setDownloading(false);

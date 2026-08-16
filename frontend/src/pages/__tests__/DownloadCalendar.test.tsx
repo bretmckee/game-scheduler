@@ -1,4 +1,4 @@
-// Copyright 2025-2026 Bret McKee
+// Copyright 2026 Bret McKee
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -25,6 +25,7 @@ import { MemoryRouter, Routes, Route } from 'react-router';
 import { DownloadCalendar } from '../DownloadCalendar';
 import { AuthContext } from '../../contexts/AuthContext';
 import { CurrentUser } from '../../types';
+import { apiClient } from '../../api/client';
 
 const mockNavigate = vi.fn();
 
@@ -36,9 +37,7 @@ vi.mock('react-router', async () => {
   };
 });
 
-globalThis.fetch = vi.fn();
-globalThis.URL.createObjectURL = vi.fn(() => 'blob:mock-url');
-globalThis.URL.revokeObjectURL = vi.fn();
+vi.mock('../../api/client');
 
 describe('DownloadCalendar', () => {
   const mockUser: CurrentUser = {
@@ -51,6 +50,12 @@ describe('DownloadCalendar', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // jsdom doesn't implement real navigation; replace `location` with a
+    // plain writable object so assigning `href` is observable in assertions.
+    Object.defineProperty(window, 'location', {
+      writable: true,
+      value: { href: '' },
+    });
   });
 
   afterEach(() => {
@@ -83,65 +88,28 @@ describe('DownloadCalendar', () => {
     expect(screen.getByRole('progressbar')).toBeInTheDocument();
   });
 
-  it('downloads calendar when authenticated', async () => {
-    const mockBlob = new Blob(['calendar data'], { type: 'text/calendar' });
-    const mockResponse = {
-      ok: true,
-      headers: {
-        get: vi.fn(() => 'attachment; filename="Test-Game_2025-12-19.ics"'),
-      },
-      blob: vi.fn().mockResolvedValue(mockBlob),
-    };
-
-    vi.mocked(globalThis.fetch).mockResolvedValue(mockResponse as any);
+  it('mints a token and navigates to the public calendar URL', async () => {
+    vi.mocked(apiClient.post).mockResolvedValue({ data: { token: 'abc123' } });
 
     renderWithAuth(mockUser, false);
 
     await waitFor(() => {
-      expect(screen.getByText('Downloading calendar...')).toBeInTheDocument();
+      expect(apiClient.post).toHaveBeenCalledWith('/api/v1/export/game/game-123/token');
     });
 
-    await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalledWith('/api/v1/export/game/game-123', {
-        credentials: 'include',
-      });
-    });
-
-    expect(globalThis.URL.createObjectURL).toHaveBeenCalledWith(mockBlob);
+    expect(window.location.href).toBe('/api/v1/public/calendar/abc123.ics');
   });
 
-  it('uses default filename when Content-Disposition header is missing', async () => {
-    const mockBlob = new Blob(['calendar data'], { type: 'text/calendar' });
-    const mockResponse = {
-      ok: true,
-      headers: {
-        get: vi.fn(() => null),
-      },
-      blob: vi.fn().mockResolvedValue(mockBlob),
-    };
-
-    vi.mocked(globalThis.fetch).mockResolvedValue(mockResponse as any);
+  it('shows permission denied message on 403', async () => {
+    vi.mocked(apiClient.post).mockRejectedValue({
+      response: { status: StatusCodes.FORBIDDEN },
+    });
 
     renderWithAuth(mockUser, false);
 
     await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalledWith('/api/v1/export/game/game-123', {
-        credentials: 'include',
-      });
+      expect(apiClient.post).toHaveBeenCalledWith('/api/v1/export/game/game-123/token');
     });
-
-    expect(globalThis.URL.createObjectURL).toHaveBeenCalledWith(mockBlob);
-  });
-
-  it('shows permission denied error for 403 response', async () => {
-    const mockResponse = {
-      ok: false,
-      status: StatusCodes.FORBIDDEN,
-    };
-
-    vi.mocked(globalThis.fetch).mockResolvedValue(mockResponse as any);
-
-    renderWithAuth(mockUser, false);
 
     await waitFor(
       () => {
@@ -153,15 +121,16 @@ describe('DownloadCalendar', () => {
     );
   });
 
-  it('shows not found error for 404 response', async () => {
-    const mockResponse = {
-      ok: false,
-      status: StatusCodes.NOT_FOUND,
-    };
-
-    vi.mocked(globalThis.fetch).mockResolvedValue(mockResponse as any);
+  it('shows not found message on 404', async () => {
+    vi.mocked(apiClient.post).mockRejectedValue({
+      response: { status: StatusCodes.NOT_FOUND },
+    });
 
     renderWithAuth(mockUser, false);
+
+    await waitFor(() => {
+      expect(apiClient.post).toHaveBeenCalledWith('/api/v1/export/game/game-123/token');
+    });
 
     await waitFor(
       () => {
@@ -171,30 +140,16 @@ describe('DownloadCalendar', () => {
     );
   });
 
-  it('shows generic error for other error status codes', async () => {
-    const mockResponse = {
-      ok: false,
-      status: StatusCodes.INTERNAL_SERVER_ERROR,
-    };
-
-    vi.mocked(globalThis.fetch).mockResolvedValue(mockResponse as any);
-
-    renderWithAuth(mockUser, false);
-
-    await waitFor(
-      () => {
-        expect(screen.getByText('Failed to download calendar.')).toBeInTheDocument();
-      },
-      { timeout: 3000 }
-    );
-  });
-
-  it('shows generic error when fetch throws exception', async () => {
-    vi.mocked(globalThis.fetch).mockRejectedValue(new Error('Network error'));
+  it('shows generic error message on other failures', async () => {
+    vi.mocked(apiClient.post).mockRejectedValue(new Error('Network error'));
 
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     renderWithAuth(mockUser, false);
+
+    await waitFor(() => {
+      expect(apiClient.post).toHaveBeenCalledWith('/api/v1/export/game/game-123/token');
+    });
 
     await waitFor(
       () => {
@@ -210,15 +165,16 @@ describe('DownloadCalendar', () => {
     consoleErrorSpy.mockRestore();
   });
 
-  it('navigates to my-games when error alert is closed', async () => {
-    const mockResponse = {
-      ok: false,
-      status: StatusCodes.NOT_FOUND,
-    };
-
-    vi.mocked(globalThis.fetch).mockResolvedValue(mockResponse as any);
+  it('closing the error alert navigates to /my-games', async () => {
+    vi.mocked(apiClient.post).mockRejectedValue({
+      response: { status: StatusCodes.NOT_FOUND },
+    });
 
     renderWithAuth(mockUser, false);
+
+    await waitFor(() => {
+      expect(apiClient.post).toHaveBeenCalledWith('/api/v1/export/game/game-123/token');
+    });
 
     await waitFor(
       () => {
