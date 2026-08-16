@@ -33,7 +33,6 @@ from services.bot.utils.discord_format import (
     format_discord_timestamp,
     format_duration,
     format_game_status_emoji,
-    format_participant_list,
     format_rules_section,
     format_user_or_placeholder,
     get_member_display_info,
@@ -126,80 +125,6 @@ class TestFormatDiscordTimestamp:
         dt = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
         result = format_discord_timestamp(dt, style="T")
         assert result == "<t:1763233200:T>"
-
-
-class TestFormatParticipantList:
-    """Tests for format_participant_list function."""
-
-    def test_formats_single_participant(self):
-        """Test formatting a single participant."""
-        participants = ["123456789012345678"]
-        result = format_participant_list(participants)
-        assert result == "1. <@123456789012345678>"
-
-    def test_formats_multiple_participants(self):
-        """Test formatting multiple participants."""
-        participants = [
-            "111111111111111111",
-            "222222222222222222",
-            "333333333333333333",
-        ]
-        result = format_participant_list(participants)
-        expected = "1. <@111111111111111111>\n2. <@222222222222222222>\n3. <@333333333333333333>"
-        assert result == expected
-
-    def test_handles_empty_list(self):
-        """Test handling empty participant list."""
-        result = format_participant_list([])
-        assert result == "No participants yet"
-
-    def test_truncates_long_list(self):
-        """Test truncation of long participant lists."""
-        participants = [f"{i:018d}" for i in range(15)]
-        result = format_participant_list(participants, max_display=10)
-        assert "... and 5 more" in result
-        assert result.count("<@") == 10
-
-    def test_truncates_without_count_when_disabled(self):
-        """Test truncation without count suffix."""
-        participants = [f"{i:018d}" for i in range(15)]
-        result = format_participant_list(participants, max_display=10, include_count=False)
-        assert "... and" not in result
-        assert result.count("<@") == 10
-
-    def test_custom_start_number(self):
-        """Test numbering starts from custom start_number."""
-        participants = ["111111111111111111", "222222222222222222"]
-        result = format_participant_list(participants, start_number=5)
-        assert "5. <@111111111111111111>" in result
-        assert "6. <@222222222222222222>" in result
-        assert "1." not in result
-
-    def test_start_number_for_waitlist_continuation(self):
-        """Test waitlist numbering continues from signup count."""
-        waitlist = ["999999999999999999"]
-        result = format_participant_list(waitlist, start_number=4)
-        assert "4. <@999999999999999999>" in result
-
-    def test_uses_resolved_display_names_when_available(self):
-        """Test that resolved display names replace raw mentions in the list."""
-        participants = ["111111111111111111", "222222222222222222"]
-        result = format_participant_list(
-            participants,
-            display_names={
-                "111111111111111111": "Alice",
-                "222222222222222222": "Bob",
-            },
-        )
-        assert result == "1. @Alice\n2. @Bob"
-
-    def test_missing_display_name_falls_back_to_mention(self):
-        """Test that a participant absent from display_names still renders as a mention."""
-        participants = ["111111111111111111", "222222222222222222"]
-        result = format_participant_list(
-            participants, display_names={"111111111111111111": "Alice"}
-        )
-        assert result == "1. @Alice\n2. <@222222222222222222>"
 
 
 class TestFormatGameStatusEmoji:

@@ -181,44 +181,6 @@ def format_discord_timestamp(dt: datetime, style: str = "F") -> str:
     return f"<t:{unix_timestamp}:{style}>"
 
 
-def format_participant_list(
-    participant_ids: list[str],
-    max_display: int = 10,
-    include_count: bool = True,
-    start_number: int = 1,
-    display_names: dict[str, str] | None = None,
-) -> str:
-    """Format a list of participants using resolved names, Discord mentions, or placeholders.
-
-    Args:
-        participant_ids: List of Discord user IDs or placeholder names
-        max_display: Maximum number of participants to display
-        include_count: Whether to include total count if truncated
-        start_number: Starting number for the numbered list (default: 1)
-        display_names: Optional map of user_id -> resolved display name, used
-            in place of a raw `<@id>` mention (see `format_user_or_placeholder`)
-
-    Returns:
-        Formatted participant list with resolved names, Discord mentions,
-        and/or placeholder names
-    """
-    if not participant_ids:
-        return "No participants yet"
-
-    # Format each participant with number: resolved name or mention for IDs, plain text otherwise
-    mentions = [
-        f"{start_number + i}. {format_user_or_placeholder(uid, display_names)}"
-        for i, uid in enumerate(participant_ids[:max_display])
-    ]
-    result = "\n".join(mentions)
-
-    if len(participant_ids) > max_display and include_count:
-        remaining = len(participant_ids) - max_display
-        result += f"\n... and {remaining} more"
-
-    return result
-
-
 def format_game_status_emoji(status: str) -> str:
     """Get emoji for game status.
 
