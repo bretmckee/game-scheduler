@@ -30,6 +30,12 @@ import re
 
 from shared.discord import client as discord_client_module
 
+# Discord channel types that behave like a text channel for location purposes:
+# GUILD_TEXT plus the three thread types (a thread has no channels of its own to
+# mention, but a link/mention to the thread itself should resolve the same way a
+# regular channel link does).
+_TEXT_LIKE_CHANNEL_TYPES = frozenset({0, 10, 11, 12})
+
 
 class ChannelResolver:
     """Resolves channel mentions in location text to Discord link format."""
@@ -83,7 +89,7 @@ class ChannelResolver:
             return location_text, []
 
         channels = await self.discord_client.get_guild_channels(guild_discord_id)
-        text_channels = [ch for ch in channels if ch.get("type") == 0]
+        text_channels = [ch for ch in channels if ch.get("type") in _TEXT_LIKE_CHANNEL_TYPES]
         text_channel_ids = {ch["id"] for ch in text_channels}
 
         resolved, errors = self._resolve_url_mentions(

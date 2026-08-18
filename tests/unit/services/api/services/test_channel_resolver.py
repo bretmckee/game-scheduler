@@ -650,6 +650,83 @@ async def test_non_integer_unknown_channel_still_errors(resolver, mock_discord_c
     assert errors[0]["input"] == "#unknown-channel"
 
 
+# ---------------------------------------------------------------------------
+# Thread link support (a link/mention to a Discord thread, not just a channel)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_resolve_discord_url_public_thread_resolves(resolver, mock_discord_client):
+    """A discord.com URL pointing at a public thread resolves like a regular channel."""
+    mock_discord_client.get_guild_channels = AsyncMock(
+        return_value=[
+            {"id": "406583674453098496", "name": "session-zero-planning", "type": 11},
+        ]
+    )
+
+    resolved_text, errors = await resolver.resolve_channel_mentions(
+        location_text="https://discord.com/channels/111222333444555666/406583674453098496",
+        guild_discord_id="111222333444555666",
+    )
+
+    assert resolved_text == "<#406583674453098496>"
+    assert len(errors) == 0
+
+
+@pytest.mark.asyncio
+async def test_resolve_discord_url_private_thread_resolves(resolver, mock_discord_client):
+    """A discord.com URL pointing at a private thread resolves like a regular channel."""
+    mock_discord_client.get_guild_channels = AsyncMock(
+        return_value=[
+            {"id": "406583674453098497", "name": "dm-thread", "type": 12},
+        ]
+    )
+
+    resolved_text, errors = await resolver.resolve_channel_mentions(
+        location_text="https://discord.com/channels/111222333444555666/406583674453098497",
+        guild_discord_id="111222333444555666",
+    )
+
+    assert resolved_text == "<#406583674453098497>"
+    assert len(errors) == 0
+
+
+@pytest.mark.asyncio
+async def test_resolve_discord_url_announcement_thread_resolves(resolver, mock_discord_client):
+    """A discord.com URL pointing at an announcement-channel thread also resolves."""
+    mock_discord_client.get_guild_channels = AsyncMock(
+        return_value=[
+            {"id": "406583674453098498", "name": "patch-notes-thread", "type": 10},
+        ]
+    )
+
+    resolved_text, errors = await resolver.resolve_channel_mentions(
+        location_text="https://discord.com/channels/111222333444555666/406583674453098498",
+        guild_discord_id="111222333444555666",
+    )
+
+    assert resolved_text == "<#406583674453098498>"
+    assert len(errors) == 0
+
+
+@pytest.mark.asyncio
+async def test_resolve_hash_mention_matches_thread_name(resolver, mock_discord_client):
+    """A #name mention can also resolve to a thread, not just a top-level text channel."""
+    mock_discord_client.get_guild_channels = AsyncMock(
+        return_value=[
+            {"id": "406583674453098496", "name": "session-zero-planning", "type": 11},
+        ]
+    )
+
+    resolved_text, errors = await resolver.resolve_channel_mentions(
+        location_text="Meet in #session-zero-planning",
+        guild_discord_id="guild123",
+    )
+
+    assert resolved_text == "Meet in <#406583674453098496>"
+    assert len(errors) == 0
+
+
 def test_render_where_display_none_input():
     """render_where_display returns None when where is None."""
     result = resolver_module.render_where_display(None, [{"id": "123", "name": "general"}])

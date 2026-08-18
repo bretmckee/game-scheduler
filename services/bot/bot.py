@@ -301,17 +301,33 @@ class GameSchedulerBot(commands.Bot):
                 self._test_server_task = asyncio.create_task(self._start_test_server())
 
     @staticmethod
-    def _channel_list(channels: Iterable[discord.abc.GuildChannel]) -> list[dict]:
+    def _channel_list(
+        channels: Iterable[discord.abc.GuildChannel | discord.Thread],
+    ) -> list[dict]:
         return [{"id": str(c.id), "name": c.name, "type": c.type.value} for c in channels]
 
     @staticmethod
-    def _postable_channels(guild: discord.Guild) -> list[discord.abc.GuildChannel]:
-        """Return only channels where the bot has send_messages permission."""
-        return [
+    def _postable_channels(
+        guild: discord.Guild,
+    ) -> list[discord.abc.GuildChannel | discord.Thread]:
+        """Return channels and active (joined) threads where the bot can send messages.
+
+        `guild.threads` only contains threads the gateway has told us about (created,
+        joined, or present in the initial GUILD_CREATE snapshot) and already excludes
+        archived ones, so this never needs a REST call to discover threads the bot
+        hasn't been made aware of — i.e. it covers active/joined threads only.
+        """
+        channels: list[discord.abc.GuildChannel | discord.Thread] = [
             c
             for c in guild.channels
             if isinstance(c, discord.TextChannel) and c.permissions_for(guild.me).send_messages
         ]
+        threads: list[discord.abc.GuildChannel | discord.Thread] = [
+            t
+            for t in guild.threads
+            if not t.archived and t.permissions_for(guild.me).send_messages_in_threads
+        ]
+        return channels + threads
 
     @staticmethod
     def _role_list(roles: Iterable[discord.Role]) -> list[dict]:
@@ -450,6 +466,61 @@ class GameSchedulerBot(commands.Bot):
         await redis.set_json(
             CacheKeys.discord_guild_channels(str(channel.guild.id)),
             self._channel_list(self._postable_channels(channel.guild)),
+            CacheTTL.DISCORD_GUILD_CHANNELS,
+        )
+
+    async def _sync_thread_cache(self, thread: discord.Thread) -> None:
+        """Write or clear one thread's cache entry and rewrite the guild channel list.
+
+        Mirrors the channel create/update handlers' write-or-clear-then-rewrite shape:
+        an archived or no-longer-postable thread has its single-entry key cleared, but
+        the full guild list is always rewritten from current gateway state so it stays
+        the single source of truth.
+        """
+        redis = await get_redis_client()
+        if not thread.archived and thread.permissions_for(thread.guild.me).send_messages_in_threads:
+            await redis.set_json(
+                CacheKeys.discord_channel(str(thread.id)),
+                {"name": thread.name},
+                CacheTTL.DISCORD_CHANNEL,
+            )
+        else:
+            await redis.delete(CacheKeys.discord_channel(str(thread.id)))
+        await redis.set_json(
+            CacheKeys.discord_guild_channels(str(thread.guild.id)),
+            self._channel_list(self._postable_channels(thread.guild)),
+            CacheTTL.DISCORD_GUILD_CHANNELS,
+        )
+
+    async def on_thread_create(self, thread: discord.Thread) -> None:
+        """Write a newly created thread to Redis and rewrite the guild channel list."""
+        await self._sync_thread_cache(thread)
+
+    async def on_thread_join(self, thread: discord.Thread) -> None:
+        """Write a thread the bot has just become aware of and rewrite the channel list.
+
+        Fires when the bot is added to an existing thread, or when a thread from the
+        guild's initial active-thread snapshot is not yet locally cached.
+        """
+        await self._sync_thread_cache(thread)
+
+    async def on_thread_update(self, _before: discord.Thread, after: discord.Thread) -> None:
+        """Update the cached thread entry and rewrite the guild channel list.
+
+        Also handles archival: `guild.threads` (discord.py) drops a thread once it
+        archives, so `_sync_thread_cache` naturally clears its single-entry key here
+        the same way `on_guild_channel_update` clears a channel's key when the bot
+        loses send_messages.
+        """
+        await self._sync_thread_cache(after)
+
+    async def on_thread_delete(self, thread: discord.Thread) -> None:
+        """Remove the deleted thread from Redis and rewrite the guild channel list."""
+        redis = await get_redis_client()
+        await redis.delete(CacheKeys.discord_channel(str(thread.id)))
+        await redis.set_json(
+            CacheKeys.discord_guild_channels(str(thread.guild.id)),
+            self._channel_list(self._postable_channels(thread.guild)),
             CacheTTL.DISCORD_GUILD_CHANNELS,
         )
 

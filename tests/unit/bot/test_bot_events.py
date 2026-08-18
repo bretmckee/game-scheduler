@@ -215,6 +215,168 @@ async def test_on_guild_channel_update_deletes_channel_key_when_no_send_messages
 
 
 # ---------------------------------------------------------------------------
+# Thread event handlers
+# ---------------------------------------------------------------------------
+
+
+def _make_thread(
+    thread_id: int,
+    guild_id: int,
+    name: str = "session-zero-planning",
+    guild_threads: list | None = None,
+    guild_channels: list | None = None,
+    send_messages_in_threads: bool = True,
+    archived: bool = False,
+) -> MagicMock:
+    th = MagicMock(spec=discord.Thread)
+    th.id = thread_id
+    th.name = name
+    th.archived = archived
+    th.type = MagicMock()
+    th.type.value = 11
+    perms = MagicMock(spec=discord.Permissions)
+    perms.send_messages_in_threads = send_messages_in_threads
+    th.permissions_for = MagicMock(return_value=perms)
+    guild = MagicMock()
+    guild.id = guild_id
+    guild.me = MagicMock()
+    guild.channels = guild_channels if guild_channels is not None else []
+    guild.threads = guild_threads if guild_threads is not None else [th]
+    th.guild = guild
+    return th
+
+
+async def test_on_thread_create_writes_thread_and_list(
+    bot: GameSchedulerBot, mock_redis: AsyncMock
+) -> None:
+    """on_thread_create writes discord:channel:{id} and rewrites the full channel list."""
+    thread = _make_thread(3001, 111)
+    expected_channels = [{"id": str(thread.id), "name": thread.name, "type": thread.type.value}]
+    with patch(
+        "services.bot.bot.get_redis_client", new_callable=AsyncMock, return_value=mock_redis
+    ):
+        await bot.on_thread_create(thread)
+
+    mock_redis.set_json.assert_any_call(
+        CacheKeys.discord_channel(str(thread.id)),
+        {"name": thread.name},
+        CacheTTL.DISCORD_CHANNEL,
+    )
+    mock_redis.set_json.assert_any_call(
+        CacheKeys.discord_guild_channels(str(thread.guild.id)),
+        expected_channels,
+        CacheTTL.DISCORD_GUILD_CHANNELS,
+    )
+    mock_redis.delete.assert_not_called()
+
+
+async def test_on_thread_create_skips_thread_key_when_no_send_permission(
+    bot: GameSchedulerBot, mock_redis: AsyncMock
+) -> None:
+    """on_thread_create skips writing discord:channel:{id} when bot can't post in the thread."""
+    thread = _make_thread(3001, 111, send_messages_in_threads=False, guild_threads=[])
+    with patch(
+        "services.bot.bot.get_redis_client", new_callable=AsyncMock, return_value=mock_redis
+    ):
+        await bot.on_thread_create(thread)
+
+    mock_redis.set_json.assert_called_once_with(
+        CacheKeys.discord_guild_channels(str(thread.guild.id)),
+        [],
+        CacheTTL.DISCORD_GUILD_CHANNELS,
+    )
+    mock_redis.delete.assert_called_once_with(CacheKeys.discord_channel(str(thread.id)))
+
+
+async def test_on_thread_join_writes_thread_and_list(
+    bot: GameSchedulerBot, mock_redis: AsyncMock
+) -> None:
+    """on_thread_join writes discord:channel:{id} and rewrites the full channel list."""
+    thread = _make_thread(3002, 111)
+    expected_channels = [{"id": str(thread.id), "name": thread.name, "type": thread.type.value}]
+    with patch(
+        "services.bot.bot.get_redis_client", new_callable=AsyncMock, return_value=mock_redis
+    ):
+        await bot.on_thread_join(thread)
+
+    mock_redis.set_json.assert_any_call(
+        CacheKeys.discord_channel(str(thread.id)),
+        {"name": thread.name},
+        CacheTTL.DISCORD_CHANNEL,
+    )
+    mock_redis.set_json.assert_any_call(
+        CacheKeys.discord_guild_channels(str(thread.guild.id)),
+        expected_channels,
+        CacheTTL.DISCORD_GUILD_CHANNELS,
+    )
+
+
+async def test_on_thread_update_writes_thread_and_list(
+    bot: GameSchedulerBot, mock_redis: AsyncMock
+) -> None:
+    """on_thread_update writes discord:channel:{id} and rewrites the full channel list."""
+    before = _make_thread(3001, 111, name="old-name", guild_threads=[])
+    after = _make_thread(3001, 111, name="new-name")
+    expected_channels = [{"id": str(after.id), "name": after.name, "type": after.type.value}]
+    with patch(
+        "services.bot.bot.get_redis_client", new_callable=AsyncMock, return_value=mock_redis
+    ):
+        await bot.on_thread_update(before, after)
+
+    mock_redis.set_json.assert_any_call(
+        CacheKeys.discord_channel(str(after.id)),
+        {"name": after.name},
+        CacheTTL.DISCORD_CHANNEL,
+    )
+    mock_redis.set_json.assert_any_call(
+        CacheKeys.discord_guild_channels(str(after.guild.id)),
+        expected_channels,
+        CacheTTL.DISCORD_GUILD_CHANNELS,
+    )
+
+
+async def test_on_thread_update_removes_archived_thread(
+    bot: GameSchedulerBot, mock_redis: AsyncMock
+) -> None:
+    """on_thread_update deletes discord:channel:{id} once a thread has been archived."""
+    after = _make_thread(3001, 111, archived=True, guild_threads=[])
+    with patch(
+        "services.bot.bot.get_redis_client", new_callable=AsyncMock, return_value=mock_redis
+    ):
+        await bot.on_thread_update(after, after)
+
+    mock_redis.delete.assert_called_once_with(CacheKeys.discord_channel(str(after.id)))
+    mock_redis.set_json.assert_called_once_with(
+        CacheKeys.discord_guild_channels(str(after.guild.id)),
+        [],
+        CacheTTL.DISCORD_GUILD_CHANNELS,
+    )
+
+
+async def test_on_thread_delete_removes_thread_and_rewrites_list(
+    bot: GameSchedulerBot, mock_redis: AsyncMock
+) -> None:
+    """on_thread_delete deletes discord:channel:{id} and rewrites the channel list."""
+    remaining = _make_thread(3002, 111, name="other", guild_threads=[])
+    thread = _make_thread(3001, 111, name="deleted", guild_threads=[remaining])
+    remaining.guild = thread.guild
+    expected_channels = [
+        {"id": str(remaining.id), "name": remaining.name, "type": remaining.type.value}
+    ]
+    with patch(
+        "services.bot.bot.get_redis_client", new_callable=AsyncMock, return_value=mock_redis
+    ):
+        await bot.on_thread_delete(thread)
+
+    mock_redis.delete.assert_called_once_with(CacheKeys.discord_channel(str(thread.id)))
+    mock_redis.set_json.assert_called_once_with(
+        CacheKeys.discord_guild_channels(str(thread.guild.id)),
+        expected_channels,
+        CacheTTL.DISCORD_GUILD_CHANNELS,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Role event handlers
 # ---------------------------------------------------------------------------
 

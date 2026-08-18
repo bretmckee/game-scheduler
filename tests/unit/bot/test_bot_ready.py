@@ -441,6 +441,93 @@ async def test_on_ready_excludes_non_postable_channels_from_guild_channels_key(
     )
 
 
+def _make_thread(
+    thread_id: int,
+    name: str = "session-zero-planning",
+    send_messages_in_threads: bool = True,
+    archived: bool = False,
+) -> MagicMock:
+    thread = MagicMock(spec=discord.Thread)
+    thread.id = thread_id
+    thread.name = name
+    thread.archived = archived
+    thread.type = MagicMock()
+    thread.type.value = 11  # public_thread
+    perms = MagicMock(spec=discord.Permissions)
+    perms.send_messages_in_threads = send_messages_in_threads
+    thread.permissions_for = MagicMock(return_value=perms)
+    return thread
+
+
+@pytest.mark.asyncio
+async def test_on_ready_includes_active_threads_in_guild_channels_key(bot, mock_redis) -> None:
+    """on_ready includes active, postable threads alongside channels in the cached list."""
+    guild = _make_guild(111, "Test Guild")
+    thread = _make_thread(3001)
+    guild.threads = [thread]
+    channel = guild.channels[0]
+
+    mock_user = MagicMock()
+    mock_user.id = 999
+
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch.object(type(bot), "guilds", new_callable=PropertyMock, return_value=[guild])
+        )
+        stack.enter_context(
+            patch.object(type(bot), "user", new_callable=PropertyMock, return_value=mock_user)
+        )
+        stack.enter_context(
+            patch(
+                "services.bot.bot.get_redis_client",
+                new_callable=AsyncMock,
+                return_value=mock_redis,
+            )
+        )
+        stack.enter_context(patch.object(bot, "_recover_pending_workers", new_callable=AsyncMock))
+        stack.enter_context(patch.object(bot, "_trigger_sweep", new_callable=AsyncMock))
+        stack.enter_context(patch.object(bot, "_sweep_orphaned_embeds", new_callable=AsyncMock))
+        stack.enter_context(
+            patch.object(bot, "_restore_recurrence_confirmation_views", new_callable=AsyncMock)
+        )
+        stack.enter_context(patch("services.bot.bot.tracer"))
+        stack.enter_context(patch("services.bot.bot.os.getenv", return_value=None))
+        stack.enter_context(
+            patch(
+                "services.bot.bot.sync_guilds_from_gateway",
+                new_callable=AsyncMock,
+                return_value={"new_guilds": 0, "new_channels": 0},
+            )
+        )
+        stack.enter_context(
+            patch(
+                "services.bot.bot.get_db_session",
+                return_value=MagicMock(
+                    __aenter__=AsyncMock(return_value=AsyncMock()),
+                    __aexit__=AsyncMock(return_value=None),
+                ),
+            )
+        )
+        stack.enter_context(
+            patch("services.bot.bot.guild_projection.repopulate_all", new_callable=AsyncMock)
+        )
+        await bot.on_ready()
+
+    mock_redis.set_json.assert_any_call(
+        CacheKeys.discord_guild_channels(str(guild.id)),
+        [
+            {"id": str(channel.id), "name": channel.name, "type": channel.type.value},
+            {"id": str(thread.id), "name": thread.name, "type": thread.type.value},
+        ],
+        CacheTTL.DISCORD_GUILD_CHANNELS,
+    )
+    mock_redis.set_json.assert_any_call(
+        CacheKeys.discord_channel(str(thread.id)),
+        {"name": thread.name},
+        CacheTTL.DISCORD_CHANNEL,
+    )
+
+
 @pytest.mark.asyncio
 async def test_on_ready_writes_guild_emojis_key(bot, mock_redis, on_ready_env) -> None:
     """on_ready writes discord:guild_emojis:{id} with emoji list for each guild."""
