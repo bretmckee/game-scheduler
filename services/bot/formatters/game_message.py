@@ -63,6 +63,27 @@ _MIME_TO_EXT: dict[str, str] = {
 # in _append_truncation_note.
 _ZERO_WIDTH_SPACE = "\u200b"
 
+# Wraps a line's leading number in _split_into_columns. Discord's markdown
+# auto-detects a bare "<digits>. " at the start of a line as an ordered-list
+# item - even though we're only using the number as plain numbering, not
+# asking for list formatting - and once it does, it renders single-digit
+# numbers right-aligned against any double-digit number sharing that column
+# (e.g. "6." padded with a leading space to line up under "10."), which
+# looks like stray whitespace we never wrote. Bolding the number is the fix
+# reported to work by other people hitting Discord's numbered-list
+# auto-formatting (see e.g. discord/discord-api-docs#6190): it keeps the
+# familiar "N." look but the line no longer starts with a bare digit
+# immediately followed by a period, which is what Discord's ordered-list
+# grammar requires to trigger - so it renders as plain (bold) text instead.
+# Two follow-on attempts to also re-pad single-digit numbers with a leading
+# space (once outside the bold markers, once inside them) were both tried
+# live against the real client and silently ignored either way - Discord
+# ate the padding regardless of exactly where it sat - so no padding is
+# applied; only the bolding, which is what actually stops the unwanted
+# auto-alignment, is kept.
+_LIST_NUMBER_PREFIX = "**"
+_LIST_NUMBER_SUFFIX = ".** "
+
 # Players and the waitlist (when present) each get their own row split
 # across side-by-side columns - matching column counts keeps both rows the
 # same width, since Discord sizes inline fields by how many share a row, not
@@ -357,7 +378,8 @@ class GameMessageFormatter:
             Exactly `num_columns` rendered column texts, numbered from 1
         """
         lines = [
-            f"{i + 1}. {format_user_or_placeholder(uid, display_names)}"
+            f"{_LIST_NUMBER_PREFIX}{i + 1}{_LIST_NUMBER_SUFFIX}"
+            f"{format_user_or_placeholder(uid, display_names)}"
             for i, uid in enumerate(items[:max_display])
         ]
 

@@ -27,7 +27,12 @@ from enum import StrEnum
 
 import discord
 
-from services.bot.formatters.game_message import _PARTICIPANT_COLUMNS, _WAITLIST_COLUMNS
+from services.bot.formatters.game_message import (
+    _LIST_NUMBER_PREFIX,
+    _LIST_NUMBER_SUFFIX,
+    _PARTICIPANT_COLUMNS,
+    _WAITLIST_COLUMNS,
+)
 from shared.message_formats import DMPredicates
 
 
@@ -376,8 +381,9 @@ class DiscordTestHelper:
             lines = participants_value.split("\n")
             for i, line in enumerate(lines, start=1):
                 if line.strip():
-                    assert line.startswith(f"{i}."), (
-                        f"Participant line {i} should start with '{i}.': {line}"
+                    expected = f"{_LIST_NUMBER_PREFIX}{i}{_LIST_NUMBER_SUFFIX}"
+                    assert line.startswith(expected), (
+                        f"Participant line {i} should start with '{expected}': {line}"
                     )
 
     def _check_waitlist_numbering(self, waitlist_columns: list[str]) -> None:
@@ -397,8 +403,9 @@ class DiscordTestHelper:
             lines = [line for line in column_value.split("\n") if line.strip()]
             for line in lines:
                 running_count += 1
-                assert line.startswith(f"{running_count}."), (
-                    f"Waitlist line should start with '{running_count}.': {line}"
+                expected = f"{_LIST_NUMBER_PREFIX}{running_count}{_LIST_NUMBER_SUFFIX}"
+                assert line.startswith(expected), (
+                    f"Waitlist line should start with '{expected}': {line}"
                 )
 
     def _verify_waitlist_field(

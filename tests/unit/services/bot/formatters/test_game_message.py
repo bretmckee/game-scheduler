@@ -27,6 +27,8 @@ from unittest.mock import ANY, MagicMock, patch
 import discord
 
 from services.bot.formatters.game_message import (
+    _LIST_NUMBER_PREFIX,
+    _LIST_NUMBER_SUFFIX,
     _PARTICIPANT_COLUMNS,
     _WAITLIST_COLUMNS,
     _ZERO_WIDTH_SPACE,
@@ -38,6 +40,11 @@ from shared.utils.limits import (
     DISCORD_EMBED_TOTAL_SAFE_LIMIT,
     MAX_DESCRIPTION_LENGTH,
 )
+
+
+def numbered(n: int, text: str) -> str:
+    """Build the expected rendered form of a numbered line, e.g. "**1.** <@111>"."""
+    return f"{_LIST_NUMBER_PREFIX}{n}{_LIST_NUMBER_SUFFIX}{text}"
 
 
 class TestGameMessageFormatter:
@@ -769,12 +776,12 @@ class TestGameMessageFormatterHelpers:
         assert col1["name"] == "Players (6/6)"
         assert col2["name"] == _ZERO_WIDTH_SPACE
         assert col3["name"] == _ZERO_WIDTH_SPACE
-        assert "1. <@111>" in col1["value"]
-        assert "2. <@222>" in col1["value"]
-        assert "3. <@333>" in col2["value"]
-        assert "4. <@444>" in col2["value"]
-        assert "5. <@555>" in col3["value"]
-        assert "6. <@666>" in col3["value"]
+        assert numbered(1, "<@111>") in col1["value"]
+        assert numbered(2, "<@222>") in col1["value"]
+        assert numbered(3, "<@333>") in col2["value"]
+        assert numbered(4, "<@444>") in col2["value"]
+        assert numbered(5, "<@555>") in col3["value"]
+        assert numbered(6, "<@666>") in col3["value"]
 
     def test_add_participant_fields_without_participants(self):
         """Test adding participant fields without any participants shows open slots."""
@@ -810,8 +817,8 @@ class TestGameMessageFormatterHelpers:
         calls = [call[1] for call in embed.add_field.call_args_list]
         # Participant columns precede the waitlist columns.
         waitlist_values = "".join(c["value"] for c in calls[-_WAITLIST_COLUMNS:])
-        assert "1. <@444>" in waitlist_values
-        assert "2. <@555>" in waitlist_values
+        assert numbered(1, "<@444>") in waitlist_values
+        assert numbered(2, "<@555>") in waitlist_values
 
     def test_add_participant_fields_waitlist_falls_back_to_length_packing_when_even_split_overflows(
         self,
@@ -841,13 +848,13 @@ class TestGameMessageFormatterHelpers:
         assert waitlist_calls[1]["name"] == _ZERO_WIDTH_SPACE
         assert waitlist_calls[2]["name"] == _ZERO_WIDTH_SPACE
         for n in range(1, 10):
-            assert f"{n}. @{'X' * 100}" in waitlist_calls[0]["value"]
+            assert numbered(n, f"@{'X' * 100}") in waitlist_calls[0]["value"]
         assert "10." not in waitlist_calls[0]["value"]
         for n in range(10, 19):
-            assert f"{n}. @{'X' * 100}" in waitlist_calls[1]["value"]
+            assert numbered(n, f"@{'X' * 100}") in waitlist_calls[1]["value"]
         assert "19." not in waitlist_calls[1]["value"]
         for n in range(19, 28):
-            assert f"{n}. @{'X' * 100}" in waitlist_calls[2]["value"]
+            assert numbered(n, f"@{'X' * 100}") in waitlist_calls[2]["value"]
         assert "28." not in waitlist_calls[2]["value"]
         assert "... and 3 more" in waitlist_calls[2]["value"]
         for call in waitlist_calls:
@@ -863,7 +870,7 @@ class TestGameMessageFormatterHelpers:
         calls = [call[1] for call in embed.add_field.call_args_list]
         combined_value = "".join(c["value"] for c in calls[:_PARTICIPANT_COLUMNS])
         assert "... and" not in combined_value
-        assert "40. <@39>" in combined_value
+        assert numbered(40, "<@39>") in combined_value
 
     def test_add_participant_fields_waitlist_budget_shrinks_with_more_max_players(self):
         """Test that a large max_players leaves less waitlist display budget.
@@ -880,7 +887,7 @@ class TestGameMessageFormatterHelpers:
         calls = [call[1] for call in embed.add_field.call_args_list]
         waitlist_values = "".join(c["value"] for c in calls[-_WAITLIST_COLUMNS:])
         assert "... and 5 more" in waitlist_values
-        assert "15. <@14>" in waitlist_values
+        assert numbered(15, "<@14>") in waitlist_values
         assert "16. <@15>" not in waitlist_values
 
     def test_add_participant_fields_waitlist_truncation_links_to_game_url(self):
@@ -912,7 +919,7 @@ class TestGameMessageFormatterHelpers:
         calls = [call[1] for call in embed.add_field.call_args_list]
         waitlist_values = "".join(c["value"] for c in calls[-_WAITLIST_COLUMNS:])
         assert "... and" not in waitlist_values
-        assert "50. <@49>" in waitlist_values
+        assert numbered(50, "<@49>") in waitlist_values
 
     def test_add_participant_fields_waitlist_column_values_stay_under_discord_field_limit(self):
         """Test that a large waitlist of real-length Discord IDs stays under Discord's field limit.
@@ -997,7 +1004,7 @@ class TestGameMessageFormatterHelpers:
         columns = GameMessageFormatter._split_into_columns(participant_ids, 3, 15)
 
         assert "... and 2 more" in columns[-1]
-        assert "15. <@114>" in columns[-1]
+        assert numbered(15, "<@114>") in columns[-1]
 
     def test_split_into_columns_truncation_note_links_to_game_url(self):
         """Test that the truncation note links to the game's page when game_url is given.
@@ -1028,8 +1035,8 @@ class TestGameMessageFormatterHelpers:
         """Test that columns beyond the item count render as a blank spacer."""
         columns = GameMessageFormatter._split_into_columns(["111", "222"], 3, 15)
 
-        assert "1. <@111>" in columns[0]
-        assert "2. <@222>" in columns[1]
+        assert numbered(1, "<@111>") in columns[0]
+        assert numbered(2, "<@222>") in columns[1]
         assert columns[2] == "\u200b"
 
     def test_split_into_columns_passes_through_display_names(self):
@@ -1038,8 +1045,8 @@ class TestGameMessageFormatterHelpers:
             ["111", "222"], 3, 15, display_names={"111": "Alice"}
         )
 
-        assert "1. @Alice" in columns[0]
-        assert "2. <@222>" in columns[1]
+        assert numbered(1, "@Alice") in columns[0]
+        assert numbered(2, "<@222>") in columns[1]
 
     def test_split_evenly_returns_blank_columns_for_no_lines(self):
         """Test that _split_evenly returns all-blank columns when there are no lines."""
@@ -2170,8 +2177,8 @@ class TestEmbedNewFields:
             waitlist_calls = calls[waitlist_idx : waitlist_idx + _WAITLIST_COLUMNS]
             waitlist_text = "".join(c["value"] for c in waitlist_calls)
 
-            assert "1. <@444>" in waitlist_text
-            assert "2. <@555>" in waitlist_text
+            assert numbered(1, "<@444>") in waitlist_text
+            assert numbered(2, "<@555>") in waitlist_text
             assert "3." not in waitlist_text
             mock_embed_class.assert_called_once_with(title="Game", description="Desc", color=ANY)
 

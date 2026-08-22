@@ -46,7 +46,12 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import text
 
-from services.bot.formatters.game_message import _PARTICIPANT_COLUMNS, _WAITLIST_COLUMNS
+from services.bot.formatters.game_message import (
+    _LIST_NUMBER_PREFIX,
+    _LIST_NUMBER_SUFFIX,
+    _PARTICIPANT_COLUMNS,
+    _WAITLIST_COLUMNS,
+)
 from tests.e2e.conftest import TimeoutType, wait_for_game_message_id
 
 pytestmark = pytest.mark.e2e
@@ -243,11 +248,11 @@ async def test_game_with_large_waitlist_shows_contiguous_columns(
     )
 
     col1, col2, col3 = (f.value for f in waitlist_columns)
-    assert "1. Waitlist 1" in col1
-    assert "2. Waitlist 2" in col1
-    assert "3. Waitlist 3" in col1
-    assert "4. Waitlist 4" in col2
-    assert "5. Waitlist 5" in col2
-    assert "6. Waitlist 6" in col2
-    assert "7. Waitlist 7" in col3
+    assert f"{_LIST_NUMBER_PREFIX}1{_LIST_NUMBER_SUFFIX}Waitlist 1" in col1
+    assert f"{_LIST_NUMBER_PREFIX}2{_LIST_NUMBER_SUFFIX}Waitlist 2" in col1
+    assert f"{_LIST_NUMBER_PREFIX}3{_LIST_NUMBER_SUFFIX}Waitlist 3" in col1
+    assert f"{_LIST_NUMBER_PREFIX}4{_LIST_NUMBER_SUFFIX}Waitlist 4" in col2
+    assert f"{_LIST_NUMBER_PREFIX}5{_LIST_NUMBER_SUFFIX}Waitlist 5" in col2
+    assert f"{_LIST_NUMBER_PREFIX}6{_LIST_NUMBER_SUFFIX}Waitlist 6" in col2
+    assert f"{_LIST_NUMBER_PREFIX}7{_LIST_NUMBER_SUFFIX}Waitlist 7" in col3
     print(f"✓ Waitlist renders as {_WAITLIST_COLUMNS} contiguous columns numbered from 1")
