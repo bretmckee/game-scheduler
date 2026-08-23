@@ -25,6 +25,7 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
+import discord
 import pytest
 
 from shared.models import participant as participant_model
@@ -489,6 +490,357 @@ async def test_handle_game_reminder_due_only_first_waitlist_reminded(event_handl
                     mock_db_session.assert_called()
                     mock_utc_now.assert_called()
                     mock_get_game.assert_awaited_once_with(mock_db, sample_game.id)
+
+
+def _reminder_flow_patches(
+    event_handlers,
+    sample_game,
+    get_bot_channel_return=None,
+    post_result=True,
+):
+    """Patch stack for driving _handle_notification_due through a reminder flow."""
+    db_patch = patch("services.bot.events.handlers.get_db_session")
+    utc_patch = patch("services.bot.events.handlers.utc_now")
+    game_patch = patch.object(event_handlers, "_get_game_with_participants", new_callable=AsyncMock)
+    channel_patch = patch.object(event_handlers, "_get_bot_channel", new_callable=AsyncMock)
+    post_patch = patch.object(event_handlers, "_post_reminder_to_channel", new_callable=AsyncMock)
+    dm_patch = patch.object(event_handlers, "_send_reminder_dm", new_callable=AsyncMock)
+
+    def start_all():
+        mock_db_session = db_patch.start()
+        mock_db = MagicMock()
+        mock_db.__aenter__ = AsyncMock(return_value=mock_db)
+        mock_db.__aexit__ = AsyncMock()
+        mock_db_session.return_value = mock_db
+
+        mock_utc_now = utc_patch.start()
+        mock_utc_now.return_value = datetime(2025, 12, 13, 10, 0, 0, tzinfo=UTC)
+
+        mock_get_game = game_patch.start()
+        mock_get_game.return_value = sample_game
+
+        mock_get_channel = channel_patch.start()
+        mock_get_channel.return_value = get_bot_channel_return
+
+        mock_post = post_patch.start()
+        mock_post.return_value = post_result
+
+        mock_send_reminder = dm_patch.start()
+        return (
+            mock_db_session,
+            mock_utc_now,
+            mock_get_game,
+            mock_get_channel,
+            mock_post,
+            mock_send_reminder,
+        )
+
+    def stop_all():
+        for p in (dm_patch, post_patch, channel_patch, game_patch, utc_patch, db_patch):
+            p.stop()
+
+    return start_all, stop_all
+
+
+def _make_participants(count: int, discord_ids: list[str]):
+    """Build MagicMock participants with real User objects."""
+    participants = []
+    for i in range(count):
+        user = User(id=str(uuid4()), discord_id=discord_ids[i])
+        mock_participant = MagicMock()
+        mock_participant.user_id = user.id
+        mock_participant.user = user
+        mock_participant.position_type = ParticipantType.SELF_ADDED
+        mock_participant.position = 0
+        mock_participant.joined_at = datetime(2025, 11, 1, 10 + i, 0, 0, tzinfo=UTC)
+        participants.append(mock_participant)
+    return participants
+
+
+@pytest.mark.asyncio
+async def test_post_reminder_to_channel_success(event_handlers, sample_game):
+    """Channel post mentions confirmed + host and returns True on success."""
+
+    host_user = User(id=str(uuid4()), discord_id="host123")
+    confirmed = _make_participants(2, ["confirmed1", "confirmed2"])
+    sample_game.host = host_user
+
+    mock_channel = MagicMock(spec=discord.TextChannel)
+    mock_channel.send = AsyncMock()
+    mock_channel.id = "channel-abc"
+
+    result = await event_handlers._post_reminder_to_channel(
+        channel=mock_channel,
+        game=sample_game,
+        confirmed=confirmed,
+        jump_url="https://discord.com/channels/1/2/3",
+    )
+
+    assert result is True
+    mock_channel.send.assert_awaited_once()
+    kwargs = mock_channel.send.call_args.kwargs
+    content = kwargs["content"]
+    assert "<@confirmed1>" in content
+    assert "<@confirmed2>" in content
+    assert "<@host123>" in content
+    embed: discord.Embed = kwargs["embed"]
+    assert isinstance(embed, discord.Embed)
+    assert embed.title == "🔔 Game Reminder"
+    field_names = [field.name for field in embed.fields]
+    assert "📅 Start Time" in field_names
+    assert "🎯 Host" in field_names
+    assert "🔗 View Game" in field_names
+    view_field = next(f for f in embed.fields if f.name == "🔗 View Game")
+    assert view_field.value == "https://discord.com/channels/1/2/3"
+    host_field = next(f for f in embed.fields if f.name == "🎯 Host")
+    assert host_field.value == "<@host123>"
+    allowed_mentions = kwargs["allowed_mentions"]
+    assert isinstance(allowed_mentions, discord.AllowedMentions)
+    assert allowed_mentions.everyone is False
+    assert allowed_mentions.roles is False
+    assert allowed_mentions.users is True
+
+
+@pytest.mark.asyncio
+async def test_post_reminder_to_channel_forbidden_returns_false(event_handlers, sample_game):
+    """Forbidden (missing send permission) returns False so caller falls back to DMs."""
+
+    host_user = User(id=str(uuid4()), discord_id="host123")
+    confirmed = _make_participants(1, ["confirmed1"])
+    sample_game.host = host_user
+
+    mock_channel = MagicMock(spec=discord.TextChannel)
+    mock_channel.send = AsyncMock(side_effect=discord.Forbidden(MagicMock(), ""))
+    mock_channel.id = "channel-abc"
+
+    result = await event_handlers._post_reminder_to_channel(
+        channel=mock_channel,
+        game=sample_game,
+        confirmed=confirmed,
+        jump_url=None,
+    )
+
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_post_reminder_to_channel_not_found_returns_false(event_handlers, sample_game):
+    """NotFound (deleted channel) returns False so caller falls back to DMs."""
+
+    host_user = User(id=str(uuid4()), discord_id="host123")
+    confirmed = _make_participants(1, ["confirmed1"])
+    sample_game.host = host_user
+
+    mock_channel = MagicMock(spec=discord.TextChannel)
+    mock_channel.send = AsyncMock(side_effect=discord.NotFound(MagicMock(), ""))
+    mock_channel.id = "channel-abc"
+
+    result = await event_handlers._post_reminder_to_channel(
+        channel=mock_channel,
+        game=sample_game,
+        confirmed=confirmed,
+        jump_url=None,
+    )
+
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_post_reminder_to_channel_no_host_omits_host_mention(event_handlers, sample_game):
+    """Without a host the post content mentions only confirmed participants."""
+
+    confirmed = _make_participants(1, ["confirmed1"])
+    sample_game.host = None
+
+    mock_channel = MagicMock(spec=discord.TextChannel)
+    mock_channel.send = AsyncMock()
+    mock_channel.id = "channel-abc"
+
+    result = await event_handlers._post_reminder_to_channel(
+        channel=mock_channel,
+        game=sample_game,
+        confirmed=confirmed,
+        jump_url=None,
+    )
+
+    assert result is True
+    content = mock_channel.send.call_args.kwargs["content"]
+    assert "<@confirmed1>" in content
+    assert "<@" not in content.replace("<@confirmed1>", "")
+
+
+@pytest.mark.asyncio
+async def test_handle_game_reminder_channel_post_success(event_handlers, sample_game):
+    """Single-channel location posts to the channel and DMs only first waitlisted."""
+    host_user = User(id=str(uuid4()), discord_id="host123")
+    # 3 participants with max_players=2: participant0/1 confirmed, participant2 waitlist
+    participants = _make_participants(3, ["participant0", "participant1", "participant2"])
+    sample_game.host = host_user
+    sample_game.participants = participants
+    sample_game.max_players = 2
+    sample_game.scheduled_at = datetime(2025, 12, 20, 18, 0, 0, tzinfo=UTC)
+    sample_game.where = "<#123456789>"
+
+    mock_channel = MagicMock()
+    start_all, stop_all = _reminder_flow_patches(
+        event_handlers, sample_game, get_bot_channel_return=mock_channel, post_result=True
+    )
+    try:
+        (
+            mock_db_session,
+            mock_utc_now,
+            mock_get_game,
+            mock_get_channel,
+            mock_post,
+            mock_send_reminder,
+        ) = start_all()
+
+        data = {"game_id": sample_game.id, "notification_type": "reminder"}
+        await event_handlers._handle_notification_due(data)
+
+        mock_get_channel.assert_awaited_once_with("123456789")
+        mock_post.assert_awaited_once()
+        # Only the first waitlisted participant receives a DM; no confirmed/host DMs
+        assert mock_send_reminder.await_count == 1
+        call_kwargs = mock_send_reminder.call_args.kwargs
+        assert call_kwargs["user_discord_id"] == "participant2"
+        assert call_kwargs["is_waitlist"] is True
+        assert call_kwargs.get("is_host", False) is False
+        mock_db_session.assert_called()
+        mock_utc_now.assert_called()
+        mock_get_game.assert_awaited_once_with(mock_db_session.return_value, sample_game.id)
+    finally:
+        stop_all()
+
+
+@pytest.mark.asyncio
+async def test_handle_game_reminder_channel_post_failed_falls_back_to_dms(
+    event_handlers, sample_game
+):
+    """Failed channel post falls back to full DM fan-out (confirmed + waitlist + host)."""
+    host_user = User(id=str(uuid4()), discord_id="host123")
+    participants = _make_participants(3, ["participant0", "participant1", "participant2"])
+    sample_game.host = host_user
+    sample_game.participants = participants
+    sample_game.max_players = 2
+    sample_game.scheduled_at = datetime(2025, 12, 20, 18, 0, 0, tzinfo=UTC)
+    sample_game.where = "<#123456789>"
+
+    mock_channel = MagicMock()
+    start_all, stop_all = _reminder_flow_patches(
+        event_handlers, sample_game, get_bot_channel_return=mock_channel, post_result=False
+    )
+    try:
+        (
+            mock_db_session,
+            mock_utc_now,
+            mock_get_game,
+            mock_get_channel,
+            mock_post,
+            mock_send_reminder,
+        ) = start_all()
+
+        data = {"game_id": sample_game.id, "notification_type": "reminder"}
+        await event_handlers._handle_notification_due(data)
+
+        mock_post.assert_awaited_once()
+        # Full fan-out: 2 confirmed + 1 waitlist + 1 host = 4 DMs
+        assert mock_send_reminder.await_count == 4
+
+        confirmed_calls = [
+            call
+            for call in mock_send_reminder.call_args_list
+            if not call.kwargs.get("is_waitlist", False) and not call.kwargs.get("is_host", False)
+        ]
+        assert len(confirmed_calls) == 2
+
+        waitlist_calls = [
+            call
+            for call in mock_send_reminder.call_args_list
+            if call.kwargs.get("is_waitlist", False)
+        ]
+        assert len(waitlist_calls) == 1
+        assert waitlist_calls[0].kwargs["user_discord_id"] == "participant2"
+
+        host_calls = [
+            call for call in mock_send_reminder.call_args_list if call.kwargs.get("is_host", False)
+        ]
+        assert len(host_calls) == 1
+        assert host_calls[0].kwargs["user_discord_id"] == "host123"
+    finally:
+        stop_all()
+
+
+@pytest.mark.asyncio
+async def test_handle_game_reminder_no_channel_falls_back_to_dms(event_handlers, sample_game):
+    """Unresolvable channel falls back to full DM fan-out without posting."""
+    host_user = User(id=str(uuid4()), discord_id="host123")
+    participants = _make_participants(3, ["participant0", "participant1", "participant2"])
+    sample_game.host = host_user
+    sample_game.participants = participants
+    sample_game.max_players = 2
+    sample_game.scheduled_at = datetime(2025, 12, 20, 18, 0, 0, tzinfo=UTC)
+    sample_game.where = "<#123456789>"
+
+    start_all, stop_all = _reminder_flow_patches(
+        event_handlers, sample_game, get_bot_channel_return=None, post_result=True
+    )
+    try:
+        (
+            mock_db_session,
+            mock_utc_now,
+            mock_get_game,
+            mock_get_channel,
+            mock_post,
+            mock_send_reminder,
+        ) = start_all()
+
+        data = {"game_id": sample_game.id, "notification_type": "reminder"}
+        await event_handlers._handle_notification_due(data)
+
+        mock_get_channel.assert_awaited_once_with("123456789")
+        mock_post.assert_not_awaited()
+        # Full fan-out: 2 confirmed + 1 waitlist + 1 host = 4 DMs
+        assert mock_send_reminder.await_count == 4
+    finally:
+        stop_all()
+
+
+@pytest.mark.asyncio
+async def test_handle_game_reminder_ambiguous_location_falls_back_to_dms(
+    event_handlers, sample_game
+):
+    """Multiple channel mentions in where fall back to full DM fan-out."""
+    host_user = User(id=str(uuid4()), discord_id="host123")
+    participants = _make_participants(3, ["participant0", "participant1", "participant2"])
+    sample_game.host = host_user
+    sample_game.participants = participants
+    sample_game.max_players = 2
+    sample_game.scheduled_at = datetime(2025, 12, 20, 18, 0, 0, tzinfo=UTC)
+    sample_game.where = "<#111> and <#222>"
+
+    start_all, stop_all = _reminder_flow_patches(
+        event_handlers, sample_game, get_bot_channel_return=None, post_result=True
+    )
+    try:
+        (
+            mock_db_session,
+            mock_utc_now,
+            mock_get_game,
+            mock_get_channel,
+            mock_post,
+            mock_send_reminder,
+        ) = start_all()
+
+        data = {"game_id": sample_game.id, "notification_type": "reminder"}
+        await event_handlers._handle_notification_due(data)
+
+        # No single channel resolves, so no lookup or post is attempted
+        mock_get_channel.assert_not_awaited()
+        mock_post.assert_not_awaited()
+        assert mock_send_reminder.await_count == 4
+    finally:
+        stop_all()
 
 
 @pytest.mark.asyncio

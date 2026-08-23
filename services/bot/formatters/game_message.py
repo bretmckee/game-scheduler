@@ -648,16 +648,18 @@ class GameMessageFormatter:
     def create_notification_embed(
         game_title: str,
         scheduled_at: datetime,
-        host_id: str,
+        host_id: str | None,
         time_until: str,
+        jump_url: str | None = None,
     ) -> discord.Embed:
         """Create notification embed for game reminders.
 
         Args:
             game_title: Game title
             scheduled_at: When game is scheduled
-            host_id: Discord ID of game host
+            host_id: Discord ID of game host, or None if the game has no host
             time_until: Human-readable time until game (e.g., "in 1 hour")
+            jump_url: Optional Discord jump URL to the game posting
 
         Returns:
             Configured notification embed
@@ -674,7 +676,11 @@ class GameMessageFormatter:
             inline=False,
         )
 
-        embed.add_field(name="🎯 Host", value=format_discord_mention(host_id), inline=False)
+        if host_id:
+            embed.add_field(name="🎯 Host", value=format_discord_mention(host_id), inline=False)
+
+        if jump_url:
+            embed.add_field(name="🔗 View Game", value=jump_url, inline=False)
 
         return embed
 

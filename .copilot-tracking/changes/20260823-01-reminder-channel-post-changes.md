@@ -23,3 +23,29 @@
 - Added `import re` to the module imports.
 
 **Verification**: `uv run pytest tests/unit` — 2525 passed; `uv run mypy shared/ services/` — clean.
+
+## Phase 2: Channel-Post Reminder Delivery
+
+### Task 2.1: Extend `create_notification_embed` for optional host + jump link
+
+- Changed signature to `create_notification_embed(game_title, scheduled_at, host_id: str | None, time_until, jump_url: str | None = None)` in `services/bot/formatters/game_message.py`. The Host field is now added only when `host_id` is truthy; a new `🔗 View Game` field is added only when `jump_url` is truthy.
+- Added 4 real-embed field-level tests to `tests/unit/services/bot/formatters/test_game_message.py` (no host → no Host field; host present → `<@id>` value; jump URL → View Game field; default → no View Game field). Existing mocked tests pass unchanged.
+
+### Task 2.2: Unit tests for `_post_reminder_to_channel` and the delivery branch (RED)
+
+- Added `_post_reminder_to_channel` stub (`raise NotImplementedError`) to `services/bot/events/handlers.py` so tests could reference it (forward-import prohibition).
+- Added 8 unit tests plus two small helpers (`_reminder_flow_patches`, `_make_participants`) to `tests/unit/services/bot/events/test_handlers_game_reminder.py`:
+  - `_post_reminder_to_channel`: success (content mentions confirmed + host, embed title/fields/jump link, allowed_mentions users-only), Forbidden → False, NotFound → False, no-host omits host mention
+  - `_handle_notification_due` branches: channel-post success (1 waitlist DM only), post-failed fallback (full fan-out of 4), no-channel fallback (full fan-out, no post), ambiguous location (full fan-out, no lookup/post)
+
+### Task 2.3: Implement `_post_reminder_to_channel` and wire the delivery branch (GREEN)
+
+- Implemented `_post_reminder_to_channel` in `services/bot/events/handlers.py`: builds the reminder embed via `GameMessageFormatter.create_notification_embed` (with jump URL), mentions confirmed participants + host as `<@id>` tokens, posts once with `allowed_mentions=discord.AllowedMentions(everyone=False, roles=False, users=True)`; returns False on `discord.Forbidden` / `discord.NotFound`.
+- Wired the hybrid branch into `_handle_game_reminder`: resolve a single channel ID from `game.where` via `extract_single_channel_id`, look it up with `_get_bot_channel`; on successful post DM only the first waitlisted participant and return; otherwise fall back to the existing full DM fan-out (confirmed + first waitlisted + host).
+- Added imports: `GameMessageFormatter`, `format_discord_timestamp`, `extract_single_channel_id`.
+
+### Task 2.4: Verify existing flow tests still pass via fallback path
+
+- All six pre-existing `_handle_notification_due` flow tests pass unchanged (`where=None` → full DM fan-out fallback, identical counts/kwargs).
+
+**Verification**: `uv run pytest tests/unit` — 2537 passed; `uv run mypy shared/ services/` — clean.

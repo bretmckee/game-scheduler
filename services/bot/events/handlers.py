@@ -34,9 +34,9 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.bot.config import get_config
-from services.bot.formatters.game_message import format_game_announcement
+from services.bot.formatters.game_message import GameMessageFormatter, format_game_announcement
 from services.bot.handlers.participant_drop import handle_participant_drop_due
-from services.bot.utils.discord_format import get_member_display_info
+from services.bot.utils.discord_format import format_discord_timestamp, get_member_display_info
 from services.bot.views.clone_confirmation_view import CloneConfirmationView
 from services.bot.views.recurrence_confirmation_view import RecurrenceConfirmationView
 from shared.cache.client import get_redis_client
@@ -60,6 +60,7 @@ from shared.schemas.events import (
 )
 from shared.services.game_metrics import record_game_completed, record_game_posted
 from shared.services.game_schedules import clone_game_for_recurrence
+from shared.utils.discord import extract_single_channel_id
 from shared.utils.games import resolve_max_players
 from shared.utils.participant_sorting import partition_participants
 from shared.utils.status_transitions import GameStatus, is_valid_transition
@@ -443,6 +444,52 @@ class EventHandlers:
                 e,
             )
 
+    async def _post_reminder_to_channel(
+        self,
+        channel: discord.TextChannel,
+        game: GameSession,
+        confirmed: list[GameParticipant],
+        jump_url: str | None,
+    ) -> bool:
+        """Post a reminder to the location channel mentioning confirmed + host.
+
+        Args:
+            channel: Resolved location channel or thread
+            game: Game session being reminded
+            confirmed: Confirmed (non-waitlist) participants
+            jump_url: Discord jump URL to the game posting, or None
+
+        Returns:
+            True if the post succeeded, False if it failed (caller falls back to DMs)
+        """
+        embed = GameMessageFormatter.create_notification_embed(
+            game_title=game.title,
+            scheduled_at=game.scheduled_at,
+            host_id=game.host.discord_id if game.host else None,
+            time_until=format_discord_timestamp(game.scheduled_at, "R"),
+            jump_url=jump_url,
+        )
+        mention_ids = [p.user.discord_id for p in confirmed if p.user and p.user.discord_id]
+        if game.host and game.host.discord_id:
+            mention_ids.append(game.host.discord_id)
+        content = " ".join(f"<@{mid}>" for mid in mention_ids)
+        try:
+            await channel.send(
+                content=content,
+                embed=embed,
+                allowed_mentions=discord.AllowedMentions(everyone=False, roles=False, users=True),
+            )
+            logger.info("Posted reminder to channel %s for game %s", channel.id, game.id)
+            return True
+        except (discord.Forbidden, discord.NotFound) as e:
+            logger.warning(
+                "Failed to post reminder to channel %s for game %s: %s",
+                channel.id,
+                game.id,
+                e,
+            )
+            return False
+
     async def _handle_game_reminder(self, reminder_event: NotificationDueEvent) -> None:
         """
         Handle game reminder notifications by sending DMs to all eligible participants.
@@ -484,34 +531,13 @@ class EventHandlers:
                         reminder_event.game_id,
                     )
 
-                await self._send_participant_reminders(
+                await self._deliver_game_reminders(
+                    game,
+                    str(reminder_event.game_id),
                     confirmed,
-                    game.title,
+                    overflow,
                     game_time_unix,
-                    is_waitlist=False,
-                    jump_url=jump_url,
-                )
-                # Only the first waitlisted participant gets a reminder DM
-                await self._send_participant_reminders(
-                    overflow[:_WAITLIST_REMINDER_COUNT],
-                    game.title,
-                    game_time_unix,
-                    is_waitlist=True,
-                    jump_url=jump_url,
-                )
-                await self._send_host_reminder(
-                    game.host,
-                    game.title,
-                    game_time_unix,
-                    jump_url=jump_url,
-                )
-
-                logger.info(
-                    "✓ Completed reminder notifications for game %s: "
-                    "%s confirmed, %s waitlist, host notified",
-                    reminder_event.game_id,
-                    len(confirmed),
-                    len(overflow),
+                    jump_url,
                 )
 
         except Exception as e:
@@ -519,6 +545,82 @@ class EventHandlers:
                 "Failed to handle game reminder due event: %s",
                 e,
             )
+
+    async def _deliver_game_reminders(
+        self,
+        game: GameSession,
+        game_id: str,
+        confirmed: list[GameParticipant],
+        overflow: list[GameParticipant],
+        game_time_unix: int,
+        jump_url: str | None,
+    ) -> None:
+        """Deliver a game reminder via channel post or DM fan-out.
+
+        Posts one reminder message to the location channel (mentioning
+        confirmed participants + host) when `game.where` resolves to exactly
+        one accessible channel; otherwise — and whenever the post fails —
+        falls back to the full DM fan-out so no reminder is ever lost.
+
+        Args:
+            game: Game session being reminded
+            game_id: Game ID for logging
+            confirmed: Confirmed (non-waitlist) participants
+            overflow: Waitlisted participants in queue order
+            game_time_unix: Scheduled time as Unix timestamp
+            jump_url: Discord jump URL to the game posting, or None
+        """
+        location_channel_id = extract_single_channel_id(game.where)
+        channel = await self._get_bot_channel(location_channel_id) if location_channel_id else None
+
+        if channel is not None:
+            posted = await self._post_reminder_to_channel(
+                channel=channel,
+                game=game,
+                confirmed=confirmed,
+                jump_url=jump_url,
+            )
+            if posted:
+                # Channel post reached confirmed + host; DM only the first waitlisted
+                await self._send_participant_reminders(
+                    overflow[:_WAITLIST_REMINDER_COUNT],
+                    game.title,
+                    game_time_unix,
+                    is_waitlist=True,
+                    jump_url=jump_url,
+                )
+                logger.info(
+                    "✓ Posted reminder to channel %s for game %s; waitlist DMs sent",
+                    channel.id,
+                    game_id,
+                )
+                return
+
+        # Fallback: full DM fan-out (no/ambiguous location, or channel post failed)
+        await self._send_participant_reminders(
+            confirmed,
+            game.title,
+            game_time_unix,
+            is_waitlist=False,
+            jump_url=jump_url,
+        )
+        # Only the first waitlisted participant gets a reminder DM
+        await self._send_participant_reminders(
+            overflow[:_WAITLIST_REMINDER_COUNT],
+            game.title,
+            game_time_unix,
+            is_waitlist=True,
+            jump_url=jump_url,
+        )
+        await self._send_host_reminder(game.host, game.title, game_time_unix, jump_url=jump_url)
+
+        logger.info(
+            "✓ Completed reminder notifications for game %s: "
+            "%s confirmed, %s waitlist, host notified",
+            game_id,
+            len(confirmed),
+            len(overflow),
+        )
 
     async def _fetch_join_notification_data(
         self,
