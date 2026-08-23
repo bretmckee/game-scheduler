@@ -432,6 +432,66 @@ async def test_handle_game_reminder_due_with_waitlist(event_handlers, sample_gam
 
 
 @pytest.mark.asyncio
+async def test_handle_game_reminder_due_only_first_waitlist_reminded(event_handlers, sample_game):
+    """Only the first waitlisted participant receives a reminder DM."""
+    host_user = User(id=str(uuid4()), discord_id="host123")
+
+    participants = []
+    for i in range(4):
+        user = User(id=str(uuid4()), discord_id=f"participant{i}")
+        mock_participant = MagicMock()
+        mock_participant.user_id = user.id
+        mock_participant.user = user
+        mock_participant.position_type = ParticipantType.SELF_ADDED
+        mock_participant.position = 0
+        mock_participant.joined_at = datetime(2025, 11, 1, 10 + i, 0, 0, tzinfo=UTC)
+        participants.append(mock_participant)
+
+    sample_game.host = host_user
+    sample_game.participants = participants
+    sample_game.max_players = 2
+    sample_game.scheduled_at = datetime(2025, 12, 20, 18, 0, 0, tzinfo=UTC)
+
+    with patch("services.bot.events.handlers.get_db_session") as mock_db_session:
+        mock_db = MagicMock()
+        mock_db.__aenter__ = AsyncMock(return_value=mock_db)
+        mock_db.__aexit__ = AsyncMock()
+        mock_db_session.return_value = mock_db
+
+        with patch("services.bot.events.handlers.utc_now") as mock_utc_now:
+            mock_utc_now.return_value = datetime(2025, 12, 13, 10, 0, 0, tzinfo=UTC)
+
+            with patch.object(
+                event_handlers, "_get_game_with_participants", new_callable=AsyncMock
+            ) as mock_get_game:
+                mock_get_game.return_value = sample_game
+
+                with patch.object(
+                    event_handlers, "_send_reminder_dm", new_callable=AsyncMock
+                ) as mock_send_reminder:
+                    data = {
+                        "game_id": sample_game.id,
+                        "notification_type": "reminder",
+                    }
+                    await event_handlers._handle_notification_due(data)
+
+                    # 2 confirmed + 1 waitlist (first only) + 1 host = 4
+                    assert mock_send_reminder.await_count == 4
+
+                    waitlist_calls = [
+                        call
+                        for call in mock_send_reminder.call_args_list
+                        if call.kwargs.get("is_waitlist", False)
+                    ]
+                    assert len(waitlist_calls) == 1
+                    # The first overflow participant (participant2) gets the DM
+                    assert waitlist_calls[0].kwargs["user_discord_id"] == "participant2"
+                    mock_db_session.assert_called()
+                    mock_utc_now.assert_called()
+                    mock_get_game.assert_awaited_once_with(mock_db, sample_game.id)
+
+
+@pytest.mark.asyncio
 async def test_validate_game_for_reminder_already_started(event_handlers):
     """Test validation rejects game that already started."""
     game = GameSession(

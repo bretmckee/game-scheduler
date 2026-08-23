@@ -67,6 +67,7 @@ from shared.utils.status_transitions import GameStatus, is_valid_transition
 _HTTP_TOO_MANY_REQUESTS = 429
 _MAX_EDIT_ATTEMPTS = 3
 _CHANNEL_WORKER_RETRY_DELAY_SECONDS = 1.0
+_WAITLIST_REMINDER_COUNT = 1
 
 logger = logging.getLogger(__name__)
 
@@ -490,8 +491,9 @@ class EventHandlers:
                     is_waitlist=False,
                     jump_url=jump_url,
                 )
+                # Only the first waitlisted participant gets a reminder DM
                 await self._send_participant_reminders(
-                    overflow,
+                    overflow[:_WAITLIST_REMINDER_COUNT],
                     game.title,
                     game_time_unix,
                     is_waitlist=True,
