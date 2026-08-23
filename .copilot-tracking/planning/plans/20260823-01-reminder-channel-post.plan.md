@@ -69,34 +69,34 @@ existing full DM fan-out preserved as a fallback.
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Location Channel Resolution Helper
+### [x] Phase 1: Location Channel Resolution Helper
 
-- [ ] Task 1.1: Add unit tests for `extract_single_channel_id` (RED)
+- [x] Task 1.1: Add unit tests for `extract_single_channel_id` (RED)
   - Details: .copilot-tracking/planning/details/20260823-01-reminder-channel-post-details.md (Lines 29-66)
 
-- [ ] Task 1.2: Implement `extract_single_channel_id` in `shared/utils/discord.py` (GREEN)
+- [x] Task 1.2: Implement `extract_single_channel_id` in `shared/utils/discord.py` (GREEN)
   - Details: .copilot-tracking/planning/details/20260823-01-reminder-channel-post-details.md (Lines 67-117)
 
-### [ ] Phase 2: Channel-Post Reminder Delivery
+### [x] Phase 2: Channel-Post Reminder Delivery
 
-- [ ] Task 2.1: Extend `create_notification_embed` for optional host + jump link (RED→GREEN)
+- [x] Task 2.1: Extend `create_notification_embed` for optional host + jump link (RED→GREEN)
   - Details: .copilot-tracking/planning/details/20260823-01-reminder-channel-post-details.md (Lines 120-159)
 
-- [ ] Task 2.2: Add unit tests for `_post_reminder_to_channel` and the `_handle_game_reminder` branch (RED)
+- [x] Task 2.2: Add unit tests for `_post_reminder_to_channel` and the `_handle_game_reminder` branch (RED)
   - Details: .copilot-tracking/planning/details/20260823-01-reminder-channel-post-details.md (Lines 160-213)
 
-- [ ] Task 2.3: Implement `_post_reminder_to_channel` and wire the delivery branch (GREEN)
+- [x] Task 2.3: Implement `_post_reminder_to_channel` and wire the delivery branch (GREEN)
   - Details: .copilot-tracking/planning/details/20260823-01-reminder-channel-post-details.md (Lines 214-337)
 
-- [ ] Task 2.4: Verify existing flow tests still pass via the fallback path
+- [x] Task 2.4: Verify existing flow tests still pass via the fallback path
   - Details: .copilot-tracking/planning/details/20260823-01-reminder-channel-post-details.md (Lines 338-363)
 
-### [ ] Phase 3: E2E Test Rewrite
+### [x] Phase 3: E2E Test Rewrite
 
-- [ ] Task 3.1: Add `wait_for_channel_message` helper to `tests/e2e/helpers/discord.py`
+- [x] Task 3.1: Add `wait_for_channel_message` helper to `tests/e2e/helpers/discord.py`
   - Details: .copilot-tracking/planning/details/20260823-01-reminder-channel-post-details.md (Lines 366-425)
 
-- [ ] Task 3.2: Rewrite `test_game_reminder_dm_delivery` for hybrid delivery
+- [x] Task 3.2: Rewrite `test_game_reminder_dm_delivery` for hybrid delivery
   - Details: .copilot-tracking/planning/details/20260823-01-reminder-channel-post-details.md (Lines 426-466)
 
 ## Dependencies

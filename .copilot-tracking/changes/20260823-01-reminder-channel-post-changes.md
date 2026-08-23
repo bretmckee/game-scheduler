@@ -49,3 +49,17 @@
 - All six pre-existing `_handle_notification_due` flow tests pass unchanged (`where=None` → full DM fan-out fallback, identical counts/kwargs).
 
 **Verification**: `uv run pytest tests/unit` — 2537 passed; `uv run mypy shared/ services/` — clean.
+
+## Phase 3: E2E Test Rewrite
+
+### Task 3.1: Add `wait_for_channel_message` helper
+
+- Added `wait_for_channel_message(channel_id, predicate, timeout=150, interval=5.0, limit=15, description)` to `tests/e2e/helpers/discord.py`, polling channel history via the existing `get_recent_messages` + `wait_for_condition` utilities (mirrors `wait_for_dm_matching`).
+
+### Task 3.2: Rewrite reminder e2e test for hybrid delivery
+
+- Renamed `test_game_reminder_dm_delivery` → `test_game_reminder_hybrid_delivery` in `tests/e2e/test_game_reminder.py`. The game is now created with `where=<#discord_channel_id>` (single-channel mention), `max_players="1"`, and Player A + the test user as initial participants so Player A is confirmed and the test user is waitlisted (same pattern as `test_waitlist_promotion.py`).
+- Assertions: a `🔔 Game Reminder` embed post appears in the location channel whose description contains the game title and whose content mentions `<@player_a_id>`; the waitlisted test user still receives a `DMType.REMINDER` DM.
+- Updated module docstring and test docstring to describe hybrid delivery.
+
+**Verification**: `uv run mypy shared/ services/` — clean; rewritten test collects cleanly (`pytest --collect-only`). Full e2e run pending per `.github/instructions/test-execution.instructions.md`.

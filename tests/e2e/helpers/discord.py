@@ -666,6 +666,48 @@ class DiscordTestHelper:
             description=description,
         )
 
+    async def wait_for_channel_message(
+        self,
+        channel_id: str,
+        predicate: Callable[[discord.Message], bool],
+        timeout: int = 150,
+        interval: float = 5.0,
+        limit: int = 15,
+        description: str = "channel message",
+    ) -> discord.Message:
+        """
+        Wait for a recent message in a channel matching a predicate.
+
+        Polls channel history until a message matching predicate is found.
+        Uses the same default timeout as DM waits since posts may be delayed
+        by notification daemon polling intervals.
+
+        Args:
+            channel_id: Discord channel snowflake
+            predicate: Function returning True for the matching message
+            timeout: Maximum seconds to wait (default 150s for daemon delays)
+            interval: Seconds between history scans
+            limit: Number of recent messages to scan each poll
+            description: Human-readable description for logging
+
+        Returns:
+            Matching Discord Message object
+        """
+
+        async def check_messages():
+            messages = await self.get_recent_messages(channel_id, limit)
+            for msg in messages:
+                if predicate(msg):
+                    return (True, msg)
+            return (False, None)
+
+        return await wait_for_condition(
+            check_messages,
+            timeout=timeout,
+            interval=interval,
+            description=description,
+        )
+
     async def wait_for_recent_dm(
         self,
         user_id: str,
