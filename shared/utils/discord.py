@@ -21,6 +21,34 @@
 
 """Discord API helper utilities."""
 
+import re
+
+# Matches Discord channel snowflake tokens (<#id>) as written by ChannelResolver
+_CHANNEL_SNOWFLAKE_TOKEN = re.compile(r"<#(\d+)>")
+
+
+def extract_single_channel_id(where: str | None) -> str | None:
+    """
+    Extract a single Discord channel ID from a location string.
+
+    Returns the channel ID only when `where` contains exactly one `<#id>`
+    snowflake token (the format ChannelResolver writes). Returns None for
+    None/empty input, plain text with no mention, or text with multiple
+    mentions, so callers can fall back to DM delivery.
+
+    Args:
+        where: Free-text location field (GameSession.where)
+
+    Returns:
+        Channel ID string, or None if not exactly one channel is referenced
+    """
+    if not where:
+        return None
+    matches = _CHANNEL_SNOWFLAKE_TOKEN.findall(where)
+    if len(matches) != 1:
+        return None
+    return matches[0]
+
 
 def format_discord_timestamp(unix_timestamp: int, format_type: str = "F") -> str:
     """

@@ -24,6 +24,7 @@
 from shared.utils.discord import (
     DiscordPermissions,
     build_oauth_url,
+    extract_single_channel_id,
     format_channel_mention,
     format_discord_timestamp,
     format_role_mention,
@@ -31,6 +32,41 @@ from shared.utils.discord import (
     has_permission,
     parse_mention,
 )
+
+
+def test_extract_single_channel_id_none_input():
+    """Test None location returns None."""
+    assert extract_single_channel_id(None) is None
+
+
+def test_extract_single_channel_id_empty_string():
+    """Test empty location returns None."""
+    assert extract_single_channel_id("") is None
+
+
+def test_extract_single_channel_id_plain_text():
+    """Test plain text with no mention returns None."""
+    assert extract_single_channel_id("Meet at the park") is None
+
+
+def test_extract_single_channel_id_single_mention():
+    """Test a bare channel mention returns its ID."""
+    assert extract_single_channel_id("<#123456789>") == "123456789"
+
+
+def test_extract_single_channel_id_mention_with_prose():
+    """Test one mention surrounded by prose returns its ID."""
+    assert extract_single_channel_id("Meet in <#123456789> after work") == "123456789"
+
+
+def test_extract_single_channel_id_multiple_mentions():
+    """Test two mentions return None (ambiguous location)."""
+    assert extract_single_channel_id("<#111> and <#222>") is None
+
+
+def test_extract_single_channel_id_unresolved_name_mention():
+    """Test an unresolved #name mention returns None (only snowflake tokens count)."""
+    assert extract_single_channel_id("Meet in #general") is None
 
 
 def test_format_discord_timestamp_default():
