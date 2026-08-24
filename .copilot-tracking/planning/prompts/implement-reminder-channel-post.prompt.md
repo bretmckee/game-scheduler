@@ -1,5 +1,6 @@
 ---
-description: 'Implement reminder channel-post delivery + host DM-only opt-out: Phases 1-3 hybrid delivery, then reminders_as_dms flag short-circuiting channel posts'
+mode: agent
+model: Claude Sonnet 4.6
 ---
 
 <!-- markdownlint-disable-file -->

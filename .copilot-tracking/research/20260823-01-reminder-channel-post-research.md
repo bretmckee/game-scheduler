@@ -169,6 +169,95 @@ This is the minimal, low-risk hybrid approach: it reuses the existing channel-po
   6. Optionally extend `create_notification_embed` with a jump-link field and update its unit tests.
 - **Dependencies**: None new. Uses existing `discord.py` APIs, `ChannelResolver` output format, and `GameMessageFormatter`.
 - **Success Criteria**:
-  - When `where` contains exactly one valid `<#id>` and the bot can access that channel/thread, exactly one reminder message is posted there mentioning confirmed participants + host, and the first `_WAITLIST_REMINDER_COUNT` waitlisted participant(s) receive reminder DMs (channel post + targeted waitlist DMs).
-  - When `where` is empty/ambiguous or the channel is inaccessible, the existing full DM fan-out still occurs: confirmed + first waitlisted + host (no regression).
-  - All unit tests pass (`uv run pytest tests/unit`); the rewritten e2e reminder test passes with `tee`-captured output.
+  - When `where` contains exactly one valid `<#id>` and the bot can access that
+    channel/thread, exactly one reminder message is posted there mentioning
+    confirmed participants + host, and the first `_WAITLIST_REMINDER_COUNT`
+    waitlisted participant(s) receive reminder DMs (channel post + targeted
+    waitlist DMs).
+  - When `where` is empty/ambiguous or the channel is inaccessible, the existing
+    full DM fan-out still occurs: confirmed + first waitlisted + host (no regression).
+  - All unit tests pass (`uv run pytest tests/unit`); the rewritten e2e reminder
+    test passes with `tee`-captured output.
+
+---
+
+## Extension (added 2026-08-23): Host opt-out "Always send reminders as DMs"
+
+Follow-up request after Phases 1–3 landed: give hosts a per-game checkbox
+(default off), "Always send reminders as DMs", that short-circuits the
+location-channel resolution in `_deliver_game_reminders` so every reminder for
+that game takes the full DM fan-out path unconditionally.
+
+### Design decisions (confirmed with user)
+
+- **Game-only flag — no template-level default.** Storing it on templates would
+  require extra schema surface; explicitly skipped for now. The column lives on
+  `game_sessions` only, defaults to `false`, and create requests omitting it get
+  `False`.
+- **Short-circuit semantics.** When the flag is true, skip the
+  `extract_single_channel_id` / `_get_bot_channel` / `_post_reminder_to_channel`
+  path entirely and go straight to the existing full DM fan-out (confirmed +
+  first waitlisted + host). Waitlist participants still receive their targeted
+  DM because the fallback already sends them one. No new delivery logic exists —
+  the guard clause reuses the Phase 2 fallback branch verbatim.
+
+### Verified precedent: `remind_host_rewards` end-to-end pattern
+
+The codebase already ships an identical shape of feature (host-facing boolean,
+default false, form-driven). Exact touch points verified:
+
+| Layer                | File / location                                                                                                                 | Pattern                                                                                                                                               |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Migration            | `alembic/versions/20260321_add_rewards_fields.py`                                                                               | `op.add_column("game_sessions", sa.Column(..., sa.Boolean(), nullable=False, server_default=sa.text("false")))`; symmetric `drop_column` in downgrade |
+| Model                | `shared/models/game.py` line ~71                                                                                                | `Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("false"))`                                                  |
+| Create schema        | `shared/schemas/game.py` line ~98 (`GameCreateRequest`)                                                                         | `bool \| None` Field with description; `None` means "use default"                                                                                     |
+| Update schema        | `shared/schemas/game.py` line ~160 (`GameUpdateRequest`)                                                                        | `bool \| None = None` (absent = no change)                                                                                                            |
+| Response schema      | `shared/schemas/game.py` lines 245–249 (`GameResponse`)                                                                         | plain `bool` field with `default=False`                                                                                                               |
+| Create route         | `services/api/routes/games.py` line ~390                                                                                        | `Annotated[bool \| None, Form()] = None`, passed through to service                                                                                   |
+| Update route         | `services/api/routes/games.py` line ~671                                                                                        | same Form() pattern on the PUT endpoint                                                                                                               |
+| Service create       | `services/api/services/games.py` `_build_game_session` lines 545–549                                                            | request value if not None else fallback                                                                                                               |
+| Service update       | `services/api/services/games.py` `_update_remaining_fields` lines 1280–1313                                                     | `if update_data.X is not None: game.X = ...`                                                                                                          |
+| Clone-for-recurrence | `shared/services/game_schedules.py` line ~231 and `services/api/services/games.py` line ~937                                    | explicit carry-over of host preferences into clones                                                                                                   |
+| Frontend type        | `frontend/src/types/index.ts` line ~124 (`GameSession`)                                                                         | optional boolean field                                                                                                                                |
+| Frontend form state  | `frontend/src/components/GameForm.tsx` lines 113 (interface), 310 + 343 (initializers)                                          | `remindHostRewards: initialData?.remind_host_rewards ?? false` in both useState init and the `useEffect` re-init                                      |
+| Frontend checkbox    | `frontend/src/components/GameForm.tsx` lines 963–975                                                                            | MUI `FormControlLabel` + `Checkbox`, `setFormData((prev) => ({...}))` onChange, `disabled={loading}`                                                  |
+| Frontend payloads    | `frontend/src/pages/CreateGame.tsx` line 234; `EditGame.tsx` lines 233 + 368                                                    | `payload.append('field', value ? 'true' : 'false')` — EditGame appends on two code paths (update + archive branch)                                    |
+| Frontend tests       | `frontend/src/components/__tests__/GameForm.rewards.test.tsx`; `frontend/src/pages/__tests__/CreateGame.test.tsx` lines 537–600 | checkbox reflects `initialData`; payload sends `'true'`/`'false'` strings                                                                             |
+
+### Bot-side change surface (minimal by design)
+
+- `_deliver_game_reminders` (`services/bot/events/handlers.py`) is the single
+  delivery decision point created in Phase 2. The new guard clause goes at its
+  top: if `game.reminders_as_dms` is true, log and fall through to the existing
+  full DM fan-out block without resolving any channel. Complexity stays well
+  under the complexipy limit (the method was just extracted for this reason).
+- All six pre-existing flow unit tests set no flag attribute on `sample_game`,
+  so they must keep passing unchanged (flag falsy → identical behavior). New
+  tests set `sample_game.reminders_as_dms = True` explicitly.
+
+### Migration mechanics
+
+- Current alembic head verified via `uv run alembic heads`: **`bf79aeffb6b0`** —
+  the new migration's `down_revision`.
+- Column name: `reminders_as_dms` (snake_case, matches the "send reminders as
+  DMs" phrasing; camelCase `remindersAsDms` in frontend form state).
+- `nullable=False, server_default=sa.text("false")` so existing rows are backfilled
+  with the default-off value by Postgres itself.
+
+### Test strategy per phase
+
+- **Phase 4 (backend)**: RED unit tests first — `_build_game_session` uses the
+  request override / defaults False when absent (`tests/unit/services/api/services/test_games_service.py`, mirroring `test_build_game_session_remind_host_rewards_request_overrides_template` at line ~1141); `_update_remaining_fields` sets/leaves-alone the field (mirrors `test_update_remaining_fields_updates_remind_host_rewards` at line ~459 of `tests/unit/services/api/services/test_update_game_fields_helpers.py`); clone carry-over (mirrors `tests/unit/services/test_system_clone_for_recurrence.py`). Integration test asserts the column exists and defaults false on a fresh game (pattern: `tests/integration/test_rewards_fields.py`).
+- **Phase 5 (bot)**: RED unit tests in `tests/unit/services/bot/events/test_handlers_game_reminder.py` driving `_handle_notification_due` with `sample_game.where="<#...>"` + `sample_game.reminders_as_dms = True`: assert `_get_bot_channel` never awaited, `_post_reminder_to_channel` never awaited, full DM fan-out counts; plus a flag-false control test proving channel-post path still taken.
+- **Phase 6 (frontend)**: vitest component/page tests mirroring the rewards-feature tests; gates are `cd frontend && npm run build` and `cd frontend && npm run test`.
+
+### Success criteria (extension)
+
+- Host can check "Always send reminders as DMs" when creating or editing a game;
+  unchecked is the default and changes nothing about existing behavior.
+- When checked, every reminder for that game delivers via the full DM fan-out
+  (confirmed + first waitlisted + host) regardless of what `where` contains —
+  no channel post is attempted.
+- Recurring clones carry the flag over from the source game.
+- All pre-commit gates green per phase (unit, mypy, complexipy, frontend
+  build+test where applicable).

@@ -464,6 +464,275 @@ Add `discord_player_a_id` to the test's fixture parameters.
 - **Dependencies**:
   - Task 3.1 completion
 
+## Phase 4: Backend "Always send reminders as DMs" Flag
+
+### Task 4.1: Migration + model column for `reminders_as_dms` (RED→GREEN)
+
+Add a new alembic migration creating `alembic/versions/<new_rev>_add_reminders_as_dms.py`
+with `down_revision = "bf79aeffb6b0"` (verified head via `uv run alembic heads`).
+Follow the exact structure of `alembic/versions/20260321_add_rewards_fields.py`:
+copyright header, docstring with revision IDs, `upgrade()` adds one column,
+`downgrade()` drops it.
+
+```python
+def upgrade() -> None:
+    """Add reminders_as_dms opt-out flag to game sessions."""
+    op.add_column(
+        "game_sessions",
+        sa.Column(
+            "reminders_as_dms",
+            sa.Boolean(),
+            nullable=False,
+            server_default=sa.text("false"),
+        ),
+    )
+
+
+def downgrade() -> None:
+    """Remove reminders_as_dms flag from game sessions."""
+    op.drop_column("game_sessions", "reminders_as_dms")
+```
+
+Then add the mapped column to `GameSession` in `shared/models/game.py`, next to
+`remind_host_rewards` (line ~71):
+
+```python
+reminders_as_dms: Mapped[bool] = mapped_column(
+    Boolean, nullable=False, default=False, server_default=text("false")
+)
+```
+
+- **Files**:
+  - `alembic/versions/<new_rev>_add_reminders_as_dms.py` - new migration
+  - `shared/models/game.py` - new column on `GameSession`
+- **Success**:
+  - `uv run alembic upgrade head` applies cleanly against a scratch DB (or the
+    integration test environment); `uv run mypy shared/ services/` passes
+- **Research References**:
+  - .copilot-tracking/research/20260823-01-reminder-channel-post-research.md
+    (Extension section) - Migration mechanics + verified precedent table
+- **Dependencies**:
+  - Phase 3 completion
+
+### Task 4.2: Schemas — create/update/response fields (RED→GREEN)
+
+Add the field to all three schemas in `shared/schemas/game.py`, mirroring
+`remind_host_rewards`:
+
+- `GameCreateRequest` (after `remind_host_rewards`, line ~98):
+  ```python
+  reminders_as_dms: bool | None = Field(
+      None,
+      description="Always deliver game reminders as DMs instead of posting to the location channel",
+  )
+  ```
+- `GameUpdateRequest` (next to `remind_host_rewards`, line ~160):
+  ```python
+  reminders_as_dms: bool | None = None
+  ```
+- `GameResponse` (next to `remind_host_rewards`, lines 245–249):
+  ```python
+  reminders_as_dms: bool = Field(
+      default=False,
+      description="When True, reminders are always delivered as DMs",
+  )
+  ```
+
+Write RED unit tests first where schema behavior is observable through service
+tests (Task 4.3); no standalone schema test file exists for these models.
+
+- **Files**:
+  - `shared/schemas/game.py` - three new fields
+- **Success**:
+  - `uv run mypy shared/ services/` passes
+- **Research References**:
+  - .copilot-tracking/research/20260823-01-reminder-channel-post-research.md
+    (Extension section) - Verified precedent table, schema rows
+- **Dependencies**:
+  - Task 4.1 completion
+
+### Task 4.3: API routes + service wiring with unit tests (RED→GREEN)
+
+**RED** — add unit tests mirroring the rewards-feature patterns:
+
+- `tests/unit/services/api/services/test_games_service.py`:
+  - `_build_game_session` uses `game_data.reminders_as_dms=True` when set;
+    defaults to `False` when absent (mirror
+    `test_build_game_session_remind_host_rewards_request_overrides_template`,
+    line ~1141). Assert on the constructed `GameSession.reminders_as_dms`.
+- `tests/unit/services/api/services/test_update_game_fields_helpers.py`:
+  - `_update_remaining_fields` sets `game.reminders_as_dms = True` from update
+    data and leaves it untouched when the field is None (mirror
+    `test_update_remaining_fields_updates_remind_host_rewards`, line ~459).
+- `tests/unit/services/test_system_clone_for_recurrence.py`:
+  - recurrence clone carries `reminders_as_dms` from source game (extend an
+    existing clone test or add one alongside the `remind_host_rewards`
+    assertions at line ~75).
+
+**GREEN** — wire the flag through:
+
+- `services/api/routes/games.py`:
+  - create endpoint (~line 390): add
+    `reminders_as_dms: Annotated[bool | None, Form()] = None` and pass it into
+    the service call next to `remind_host_rewards=remind_host_rewards`
+  - update endpoint (~line 671): same Form() parameter; it flows through
+    `GameUpdateRequest` automatically once the schema has the field
+- `services/api/services/games.py`:
+  - `_build_game_session` (~line 545): since there is no template default,
+    `reminders_as_dms=bool(game_data.reminders_as_dms)` (None → False)
+  - `_update_remaining_fields` (~line 1280):
+    ```python
+    if update_data.reminders_as_dms is not None:
+        game.reminders_as_dms = update_data.reminders_as_dms
+    ```
+  - manual clone path (~line 937): carry over
+    `reminders_as_dms=source_game.reminders_as_dms`
+- `shared/services/game_schedules.py` (`clone_game_for_recurrence`, ~line 231):
+  carry over `reminders_as_dms=source.reminders_as_dms`
+
+**Integration test**: add a case to `tests/integration/test_rewards_fields.py`
+(or a new focused file) asserting a freshly created game via the API has
+`reminders_as_dms = false` by default and that an explicit `true` round-trips
+through create + response.
+
+- **Files**:
+  - `services/api/routes/games.py` - form params on create/update
+  - `services/api/services/games.py` - build/update/clone wiring
+  - `shared/services/game_schedules.py` - recurrence clone carry-over
+  - `tests/unit/services/api/services/test_games_service.py` - RED tests
+  - `tests/unit/services/api/services/test_update_game_fields_helpers.py` - RED tests
+  - `tests/unit/services/test_system_clone_for_recurrence.py` - RED tests
+  - `tests/integration/test_rewards_fields.py` (or new file) - integration coverage
+- **Success**:
+  - New unit tests pass; `uv run pytest tests/unit` passes; mypy clean
+  - Integration test passes when run in the integration environment
+- **Research References**:
+  - .copilot-tracking/research/20260823-01-reminder-channel-post-research.md
+    (Extension section) - Verified precedent table, route/service rows
+- **Dependencies**:
+  - Task 4.2 completion
+
+## Phase 5: Bot Short-Circuit for DM-Only Reminders
+
+### Task 5.1: Unit tests for the flag short-circuit (RED)
+
+Add tests to `tests/unit/services/bot/events/test_handlers_game_reminder.py`
+using the existing `_reminder_flow_patches` helper and fixtures:
+
+- `test_handle_game_reminder_dms_only_flag_skips_channel_post`:
+  `sample_game.where = "<#123456789>"`, `sample_game.reminders_as_dms = True`,
+  3 participants / `max_players=2` + host. Assert `_get_bot_channel` never
+  awaited, `_post_reminder_to_channel` never awaited, and full DM fan-out of 4
+  (2 confirmed + 1 waitlist + 1 host) with correct kwargs — identical shape to
+  the fallback-path assertions already in this file.
+- `test_handle_game_reminder_dms_only_flag_false_still_posts`: control test —
+  same setup but `reminders_as_dms = False`; assert `_post_reminder_to_channel`
+  awaited once and only the waitlist DM is sent (channel-post success path).
+
+No stub needed: `_deliver_game_reminders` already exists; the RED state is that
+the guard clause does not yet exist (flag ignored → channel post attempted).
+
+- **Files**:
+  - `tests/unit/services/bot/events/test_handlers_game_reminder.py` - 2 new tests
+- **Success**:
+  - Flag-skip test fails (RED); control test passes
+- **Research References**:
+  - .copilot-tracking/research/20260823-01-reminder-channel-post-research.md
+    (Extension section) - Bot-side change surface
+- **Dependencies**:
+  - Phase 4 completion (model column must exist for mypy/tests)
+
+### Task 5.2: Implement the short-circuit in `_deliver_game_reminders` (GREEN)
+
+At the top of `_deliver_game_reminders` in `services/bot/events/handlers.py`,
+before `extract_single_channel_id(game.where)`:
+
+```python
+if game.reminders_as_dms:
+    logger.info(
+        "Game %s has reminders_as_dms enabled; skipping channel post",
+        game.id,
+    )
+    # fall through to full DM fan-out below
+else:
+    location_channel_id = extract_single_channel_id(game.where)
+    channel = (
+        await self._get_bot_channel(location_channel_id) if location_channel_id else None
+    )
+    ...existing channel-post branch...
+```
+
+Prefer an early structure that keeps cognitive complexity low — e.g. compute
+`channel = None` when the flag is set and let the existing
+`if channel is not None:` branch handle everything unchanged:
+
+```python
+location_channel_id = extract_single_channel_id(game.where) if not game.reminders_as_dms else None
+channel = (
+    await self._get_bot_channel(location_channel_id) if location_channel_id else None
+)
+```
+
+This single-line guard reuses the entire existing fallback path with zero
+duplication. Update the method docstring to document the opt-out.
+
+- **Files**:
+  - `services/bot/events/handlers.py` - guard clause + docstring note
+- **Success**:
+  - Both new tests pass; all pre-existing reminder flow tests pass unchanged
+  - `uv run pytest tests/unit` passes; mypy clean; complexipy clean
+- **Research References**:
+  - .copilot-tracking/research/20260823-01-reminder-channel-post-research.md
+    (Extension section) - Short-circuit semantics decision
+- **Dependencies**:
+  - Task 5.1 completion
+
+## Phase 6: Frontend Checkbox
+
+### Task 6.1: Type, form state, checkbox, payloads (RED→GREEN)
+
+**RED** — add vitest coverage mirroring the rewards-feature tests:
+
+- `frontend/src/components/__tests__/GameForm.rewards.test.tsx` pattern → new
+  describe block (same file or a sibling `GameForm.remindersAsDms.test.tsx`):
+  checkbox reflects `initialData.reminders_as_dms === true`; defaults unchecked
+  when absent.
+- `frontend/src/pages/__tests__/CreateGame.test.tsx` (pattern at lines 537–600):
+  payload sends `'true'` when checked and `'false'` when unchecked.
+
+**GREEN** — wire the field through the frontend:
+
+- `frontend/src/types/index.ts`: add `reminders_as_dms?: boolean;` to the
+  `GameSession` interface next to `remind_host_rewards` (~line 124).
+- `frontend/src/components/GameForm.tsx`:
+  - form-state interface (~line 113): `remindersAsDms: boolean;`
+  - both initializers (lines ~310 and ~343):
+    `remindersAsDms: initialData?.reminders_as_dms ?? false,`
+  - new MUI `FormControlLabel` + `Checkbox` next to the rewards checkbox
+    (lines ~963–975), label "Always send reminders as DMs", same
+    `setFormData((prev) => ({ ...prev, remindersAsDms: e.target.checked }))`
+    onChange and `disabled={loading}` pattern
+- `frontend/src/pages/CreateGame.tsx` (~line 234) and
+  `frontend/src/pages/EditGame.tsx` (both append sites, lines ~233 and ~368):
+
+  ```typescript
+  payload.append('reminders_as_dms', formData.remindersAsDms ? 'true' : 'false');
+  ```
+
+- **Files**:
+  - `frontend/src/types/index.ts` - type field
+  - `frontend/src/components/GameForm.tsx` - state + checkbox
+  - `frontend/src/pages/CreateGame.tsx`, `frontend/src/pages/EditGame.tsx` - payloads
+  - `frontend/src/components/__tests__/...`, `frontend/src/pages/__tests__/CreateGame.test.tsx` - tests
+- **Success**:
+  - New vitest cases pass; `cd frontend && npm run build` passes;
+    `cd frontend && npm run test` passes
+- **Research References**:
+  - .copilot-tracking/research/20260823-01-reminder-channel-post-research.md
+    (Extension section) - Verified precedent table, frontend rows
+- **Dependencies**:
+  - Phase 5 completion (API must accept the form field first)
+
 ## Dependencies
 
 - Python 3.x with `uv` (dependency + test runner)
@@ -484,3 +753,7 @@ Add `discord_player_a_id` to the test's fixture parameters.
   regression.
 - `uv run pytest tests/unit` passes; `uv run mypy shared/ services/` passes.
 - The rewritten e2e reminder test passes with `tee`-captured output.
+- Extension: when `reminders_as_dms` is true on a game, every reminder takes
+  the full DM fan-out path unconditionally — no channel lookup or post is
+  attempted regardless of `where`; default-off changes nothing for existing
+  games; recurring clones carry the flag over.

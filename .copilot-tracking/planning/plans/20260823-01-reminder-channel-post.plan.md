@@ -4,14 +4,16 @@ applyTo: '.copilot-tracking/changes/20260823-01-reminder-channel-post-changes.md
 
 <!-- markdownlint-disable-file -->
 
-# Task Checklist: Move Game Reminders from DMs to Location Channel/Thread Posts
+# Task Checklist: Move Game Reminders from DMs to Location Channel/Thread Posts (+ Host DM-Only Opt-Out)
 
 ## Overview
 
 Deliver game reminders as a single post in the game's location channel/thread
 (mentioning confirmed participants + host) when the location resolves to
 exactly one channel, plus a DM to the first waitlisted participant, with the
-existing full DM fan-out preserved as a fallback.
+existing full DM fan-out preserved as a fallback; then give hosts a per-game
+"Always send reminders as DMs" checkbox (default off) that short-circuits the
+channel path entirely.
 
 ## Objectives
 
@@ -25,6 +27,11 @@ existing full DM fan-out preserved as a fallback.
   (`discord.Forbidden` / `discord.NotFound`)
 - Rewrite the e2e reminder test to verify hybrid delivery (channel post +
   waitlist DM)
+- Add a per-game `reminders_as_dms` boolean (default off, game-only — no
+  template default) that short-circuits channel resolution so every reminder
+  takes the full DM fan-out path
+- Expose "Always send reminders as DMs" as a checkbox in the create/edit game
+  forms; recurring clones carry the flag over
 
 ## Research Summary
 
@@ -45,6 +52,15 @@ existing full DM fan-out preserved as a fallback.
 - `tests/e2e/test_game_reminder.py` - e2e reminder test to rewrite
 - `tests/e2e/helpers/discord.py` - e2e helper to extend with
   `wait_for_channel_message`
+- `alembic/versions/<new_rev>_add_reminders_as_dms.py` - new migration for the
+  host opt-out flag (down_revision `bf79aeffb6b0`)
+- `shared/schemas/game.py` - create/update/response fields for
+  `reminders_as_dms` (mirrors `remind_host_rewards`)
+- `services/api/routes/games.py` + `services/api/services/games.py` - form
+  params, `_build_game_session`, `_update_remaining_fields`, clone carry-over
+- `shared/services/game_schedules.py` - recurrence clone carry-over
+- `frontend/src/types/index.ts`, `GameForm.tsx`, `CreateGame.tsx`,
+  `EditGame.tsx` - checkbox wiring (mirrors `remindHostRewards`)
 
 ### External References
 
@@ -99,6 +115,30 @@ existing full DM fan-out preserved as a fallback.
 - [x] Task 3.2: Rewrite `test_game_reminder_dm_delivery` for hybrid delivery
   - Details: .copilot-tracking/planning/details/20260823-01-reminder-channel-post-details.md (Lines 426-466)
 
+### [ ] Phase 4: Backend "Always send reminders as DMs" Flag
+
+- [ ] Task 4.1: Migration + model column for `reminders_as_dms` (RED→GREEN)
+  - Details: .copilot-tracking/planning/details/20260823-01-reminder-channel-post-details.md (Lines 469-516)
+
+- [ ] Task 4.2: Schemas — create/update/response fields (RED→GREEN)
+  - Details: .copilot-tracking/planning/details/20260823-01-reminder-channel-post-details.md (Lines 517-553)
+
+- [ ] Task 4.3: API routes + service wiring with unit tests (RED→GREEN)
+  - Details: .copilot-tracking/planning/details/20260823-01-reminder-channel-post-details.md (Lines 554-614)
+
+### [ ] Phase 5: Bot Short-Circuit for DM-Only Reminders
+
+- [ ] Task 5.1: Unit tests for the flag short-circuit (RED)
+  - Details: .copilot-tracking/planning/details/20260823-01-reminder-channel-post-details.md (Lines 617-644)
+
+- [ ] Task 5.2: Implement the short-circuit in `_deliver_game_reminders` (GREEN)
+  - Details: .copilot-tracking/planning/details/20260823-01-reminder-channel-post-details.md (Lines 645-689)
+
+### [ ] Phase 6: Frontend Checkbox
+
+- [ ] Task 6.1: Type, form state, checkbox, payloads (RED→GREEN)
+  - Details: .copilot-tracking/planning/details/20260823-01-reminder-channel-post-details.md (Lines 692-757)
+
 ## Dependencies
 
 - Python 3.x with `uv` (dependency + test runner)
@@ -107,6 +147,9 @@ existing full DM fan-out preserved as a fallback.
 - `pytest` + `pytest-asyncio` (existing)
 - E2E: full stack via `compose.e2e.yaml`, Discord test guild, notification
   daemon (existing e2e prerequisites)
+- Alembic migrations (existing tooling; new migration chains from head
+  `bf79aeffb6b0`)
+- Frontend: React + MUI + vitest (existing) for the opt-out checkbox
 
 ## Success Criteria
 
@@ -119,3 +162,10 @@ existing full DM fan-out preserved as a fallback.
   regression
 - `uv run pytest tests/unit` passes; `uv run mypy shared/ services/` passes
 - The rewritten e2e reminder test passes with `tee`-captured output
+- Extension: when `reminders_as_dms` is true on a game, every reminder takes
+  the full DM fan-out path unconditionally — no channel lookup or post is
+  attempted regardless of `where`; default-off changes nothing for existing
+  games; recurring clones carry the flag over
+- Extension: "Always send reminders as DMs" checkbox renders in create/edit
+  forms, defaults unchecked, and round-trips through the API; frontend build
+  and unit tests pass

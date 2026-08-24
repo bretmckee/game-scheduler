@@ -1,5 +1,10 @@
 {
   "entries": {
+    ".copilot-tracking/planning/prompts/implement-reminder-channel-post.prompt.md": {
+      "source_hash": "67d14b5fcf4fec96030b17a2b746776fc44b15e1b577561ec39e16d7d6aedbd4",
+      "output": ".claude/commands/implement-reminder-channel-post.md",
+      "output_hash": "054cf3d8bd5ea1947913edb2e3383f0f5858abd031eab994e295fa5c56353e77"
+    },
     ".github/agents/task-planner.agent.md": {
       "source_hash": "692c4f6532834d6ff165e6ea8f3c5e8ac7634a44692b6a77a290e24e35521881",
       "output": ".claude/agents/task-planner.md",
