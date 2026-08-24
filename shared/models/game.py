@@ -71,6 +71,9 @@ class GameSession(Base):
     remind_host_rewards: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=text("false")
     )
+    reminders_as_dms: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
     message_id: Mapped[str | None] = mapped_column(String(20), nullable=True)
     post_at: Mapped[datetime | None] = mapped_column(nullable=True)
     recur_rule: Mapped[str | None] = mapped_column(String(200), nullable=True)

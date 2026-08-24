@@ -473,6 +473,43 @@ def test_update_remaining_fields_updates_remind_host_rewards(game_service):
     assert result is False
 
 
+def test_update_remaining_fields_updates_reminders_as_dms(game_service):
+    """_update_remaining_fields sets reminders_as_dms from update data."""
+    game = game_model.GameSession(
+        id=str(uuid.uuid4()),
+        title="Test Game",
+        remind_host_rewards=False,
+        scheduled_at=datetime.datetime.now(UTC).replace(tzinfo=None),
+        status="SCHEDULED",
+    )
+
+    update_data = game_schemas.GameUpdateRequest(reminders_as_dms=True)
+
+    result = game_service._update_remaining_fields(game, update_data)
+
+    assert game.reminders_as_dms is True
+    assert result is False
+
+
+def test_update_remaining_fields_leaves_reminders_as_dms_when_none(game_service):
+    """_update_remaining_fields leaves reminders_as_dms untouched when field is None."""
+    game = game_model.GameSession(
+        id=str(uuid.uuid4()),
+        title="Test Game",
+        remind_host_rewards=False,
+        scheduled_at=datetime.datetime.now(UTC).replace(tzinfo=None),
+        status="SCHEDULED",
+    )
+    game.reminders_as_dms = True
+
+    update_data = game_schemas.GameUpdateRequest(title="New Title")
+
+    result = game_service._update_remaining_fields(game, update_data)
+
+    assert game.reminders_as_dms is True
+    assert result is False
+
+
 def test_update_remaining_fields_archive_delay_triggers_status_schedule(game_service):
     game = game_model.GameSession(
         id=str(uuid.uuid4()),

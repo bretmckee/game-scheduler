@@ -99,6 +99,12 @@ class GameCreateRequest(BaseModel):
         None,
         description="Send host a DM reminder when game completes with no rewards set",
     )
+    reminders_as_dms: bool | None = Field(
+        None,
+        description=(
+            "Always deliver game reminders as DMs instead of posting to the location channel"
+        ),
+    )
     post_at: datetime | None = Field(
         None,
         description="When to post the Discord announcement. None or past = post immediately.",
@@ -158,6 +164,7 @@ class GameUpdateRequest(BaseModel):
     )
     rewards: str | None = Field(None, max_length=2000)
     remind_host_rewards: bool | None = None
+    reminders_as_dms: bool | None = None
     archive_delay_seconds: int | None = Field(None, ge=0)
     post_at: datetime | None = Field(
         None,
@@ -246,6 +253,10 @@ class GameResponse(BaseModel):
     remind_host_rewards: bool = Field(
         default=False,
         description="Send host a DM reminder when completed with no rewards",
+    )
+    reminders_as_dms: bool = Field(
+        default=False,
+        description="When True, reminders are always delivered as DMs",
     )
     archive_channel_id: str | None = Field(None, description="Archive channel ID (UUID)")
     recur_rule: str | None = Field(None, description="RFC 5545 RRULE string for recurring games")

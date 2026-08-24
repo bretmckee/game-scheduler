@@ -73,6 +73,7 @@ def source_game(confirmed_player):
     game.message_id = "discord-msg-id"
     game.recur_rule = RRULE
     game.remind_host_rewards = False
+    game.reminders_as_dms = True
     game.rewards = None
     game.participants = [confirmed_player]
     return game
@@ -165,3 +166,15 @@ async def test_system_clone_creates_status_schedules(game_service, source_game):
     call_args = mock_schedules.call_args
     assert isinstance(call_args[0][1], game_model.GameSession)
     assert call_args[0][2] == source_game.expected_duration_minutes
+
+
+@pytest.mark.asyncio
+async def test_system_clone_carries_over_reminders_as_dms(game_service, source_game):
+    """Recurrence clone must inherit reminders_as_dms from the source game."""
+    with patch.object(game_service, "_create_game_status_schedules", new=AsyncMock()):
+        await game_service._system_clone_for_recurrence(game_service.db, source_game, NEXT_AT)
+
+    add_calls = game_service.db.add.call_args_list
+    game_calls = [c[0][0] for c in add_calls if isinstance(c[0][0], game_model.GameSession)]
+    assert len(game_calls) == 1
+    assert game_calls[0].reminders_as_dms is True

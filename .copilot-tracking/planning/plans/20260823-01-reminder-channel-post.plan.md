@@ -115,15 +115,15 @@ channel path entirely.
 - [x] Task 3.2: Rewrite `test_game_reminder_dm_delivery` for hybrid delivery
   - Details: .copilot-tracking/planning/details/20260823-01-reminder-channel-post-details.md (Lines 426-466)
 
-### [ ] Phase 4: Backend "Always send reminders as DMs" Flag
+### [x] Phase 4: Backend "Always send reminders as DMs" Flag
 
-- [ ] Task 4.1: Migration + model column for `reminders_as_dms` (RED→GREEN)
+- [x] Task 4.1: Migration + model column for `reminders_as_dms` (RED→GREEN)
   - Details: .copilot-tracking/planning/details/20260823-01-reminder-channel-post-details.md (Lines 469-516)
 
-- [ ] Task 4.2: Schemas — create/update/response fields (RED→GREEN)
+- [x] Task 4.2: Schemas — create/update/response fields (RED→GREEN)
   - Details: .copilot-tracking/planning/details/20260823-01-reminder-channel-post-details.md (Lines 517-553)
 
-- [ ] Task 4.3: API routes + service wiring with unit tests (RED→GREEN)
+- [x] Task 4.3: API routes + service wiring with unit tests (RED→GREEN)
   - Details: .copilot-tracking/planning/details/20260823-01-reminder-channel-post-details.md (Lines 554-614)
 
 ### [ ] Phase 5: Bot Short-Circuit for DM-Only Reminders

@@ -521,3 +521,117 @@ async def test_archive_delay_seconds_not_in_game_update_for_non_archive_case(
         )
     finally:
         await cleanup_test_session(session_token)
+
+
+# ============================================================================
+# reminders_as_dms round-trip
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_reminders_as_dms_defaults_false_and_round_trips_true(
+    admin_db_sync,
+    create_user,
+    create_guild,
+    create_channel,
+    create_template,
+    seed_redis_cache,
+    api_base_url,
+):
+    """A fresh game defaults to reminders_as_dms=false; explicit true round-trips."""
+    ctx = await _setup_context(
+        create_user, create_guild, create_channel, create_template, seed_redis_cache
+    )
+    session_token, _ = await create_test_session(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+
+    try:
+        async with httpx.AsyncClient(
+            base_url=api_base_url,
+            timeout=10.0,
+            cookies={"session_token": session_token},
+        ) as client:
+            # Default-off on a freshly created game
+            default_game = await _create_game(client, ctx["template_id"])
+            assert default_game.get("reminders_as_dms") is False
+
+            row = admin_db_sync.execute(
+                text("SELECT reminders_as_dms FROM game_sessions WHERE id = :id"),
+                {"id": default_game["id"]},
+            ).fetchone()
+            assert row is not None
+            assert row[0] is False, "Newly created game should have reminders_as_dms = false"
+
+            # Explicit true round-trips through create + response
+            flagged_game = await _create_game(client, ctx["template_id"], reminders_as_dms="true")
+            assert flagged_game.get("reminders_as_dms") is True
+
+            row = admin_db_sync.execute(
+                text("SELECT reminders_as_dms FROM game_sessions WHERE id = :id"),
+                {"id": flagged_game["id"]},
+            ).fetchone()
+            assert row is not None
+            assert row[0] is True, "Game created with reminders_as_dms=true should persist it"
+
+            # Update flips the flag back to false and persists
+            response = await client.put(
+                f"/api/v1/games/{flagged_game['id']}",
+                data={"reminders_as_dms": "false"},
+            )
+            assert response.status_code == 200, response.text
+            assert response.json()["reminders_as_dms"] is False
+
+            row = admin_db_sync.execute(
+                text("SELECT reminders_as_dms FROM game_sessions WHERE id = :id"),
+                {"id": flagged_game["id"]},
+            ).fetchone()
+            assert row is not None
+            assert row[0] is False, "Update to reminders_as_dms=false should persist"
+    finally:
+        await cleanup_test_session(session_token)
+
+
+@pytest.mark.asyncio
+async def test_clone_game_copies_reminders_as_dms(
+    admin_db_sync,
+    create_user,
+    create_guild,
+    create_channel,
+    create_template,
+    seed_redis_cache,
+    api_base_url,
+):
+    """Cloning a game preserves reminders_as_dms on the new game."""
+    ctx = await _setup_context(
+        create_user, create_guild, create_channel, create_template, seed_redis_cache
+    )
+    session_token, _ = await create_test_session(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+
+    try:
+        async with httpx.AsyncClient(
+            base_url=api_base_url,
+            timeout=10.0,
+            cookies={"session_token": session_token},
+        ) as client:
+            game = await _create_game(client, ctx["template_id"], reminders_as_dms="true")
+            game_id = game["id"]
+
+            clone_at = (datetime.now(UTC) + timedelta(days=7)).isoformat()
+            clone_response = await client.post(
+                f"/api/v1/games/{game_id}/clone",
+                json={
+                    "scheduled_at": clone_at,
+                    "player_carryover": "NO",
+                    "waitlist_carryover": "NO",
+                },
+            )
+            assert clone_response.status_code == 201, clone_response.text
+            clone_id = clone_response.json()["id"]
+
+        row = admin_db_sync.execute(
+            text("SELECT reminders_as_dms FROM game_sessions WHERE id = :id"),
+            {"id": clone_id},
+        ).fetchone()
+        assert row is not None
+        assert row[0] is True, "Cloned game should inherit reminders_as_dms = True"
+    finally:
+        await cleanup_test_session(session_token)

@@ -63,3 +63,79 @@
 - Updated module docstring and test docstring to describe hybrid delivery.
 
 **Verification**: `uv run mypy shared/ services/` — clean; rewritten test collects cleanly (`pytest --collect-only`). Full e2e run pending per `.github/instructions/test-execution.instructions.md`.
+
+## Phase 4: Backend "Always send reminders as DMs" Flag
+
+### Task 4.1: Migration + model column for `reminders_as_dms`
+
+- Created `alembic/versions/07db1045a251_add_reminders_as_dms.py` via
+  `uv run alembic revision`, chained from head `bf79aeffb6b0`. `upgrade()` adds
+  `game_sessions.reminders_as_dms BOOLEAN NOT NULL DEFAULT false`;
+  `downgrade()` drops the column (mirrors `20260321_add_rewards_fields.py`).
+- Added mapped column to `GameSession` in `shared/models/game.py` next to
+  `remind_host_rewards`: `Mapped[bool] = mapped_column(Boolean, nullable=False,
+default=False, server_default=text("false"))`.
+- Verified single alembic head is now `07db1045a251`; offline DDL generation
+  (`alembic upgrade bf79aeffb6b0:07db1045a251 --sql`) emits exactly
+  `ALTER TABLE game_sessions ADD COLUMN reminders_as_dms BOOLEAN DEFAULT false
+NOT NULL;`. Live-DB application happens with the integration environment.
+
+### Task 4.2: Schemas — create/update/response fields
+
+- `GameCreateRequest`: added `reminders_as_dms: bool | None` Field after
+  `remind_host_rewards` (None → off; no template default exists).
+- `GameUpdateRequest`: added `reminders_as_dms: bool | None = None` (absent =
+  no change).
+- `GameResponse`: added `reminders_as_dms: bool` with `default=False`.
+
+### Task 4.3: API routes + service wiring with unit tests (RED→GREEN)
+
+**RED** — 5 new unit tests written first and verified as failing/expected-failure:
+
+- `tests/unit/services/api/services/test_games_service.py`:
+  - `_build_game_session` sets `reminders_as_dms=True` from request (strict
+    xfail RED — kwarg not yet accepted by the constructor call)
+  - `_build_game_session` defaults to `False` when absent (strict xfail RED —
+    unflushed instance reads `None`, proving explicit wiring is required rather
+    than relying on the column-level SQLAlchemy default)
+- `tests/unit/services/api/services/test_update_game_fields_helpers.py`:
+  - `_update_remaining_fields` sets `game.reminders_as_dms = True` from update
+    data (strict xfail RED)
+  - `_update_remaining_fields` leaves the flag untouched when the field is
+    None (regression guard, passes in both phases)
+- `tests/unit/services/test_system_clone_for_recurrence.py`: recurrence clone
+  carries `reminders_as_dms` from source game (strict xfail RED; fixture now
+  sets `source_game.reminders_as_dms = True`)
+
+**GREEN** — wired the flag through (xfail markers removed, assertions
+unchanged):
+
+- `services/api/routes/games.py`: create endpoint gained
+  `reminders_as_dms: Annotated[bool | None, Form()] = None` passed into
+  `GameCreateRequest`; update endpoint gained the same Form() param passed into
+  `GameUpdateRequest`; `_build_game_response` returns
+  `reminders_as_dms=bool(game.reminders_as_dms)`.
+- `services/api/services/games.py`:
+  - `_build_game_session`: `reminders_as_dms=bool(game_data.reminders_as_dms)`
+    (no template default; None → False)
+  - `_update_remaining_fields`: `if update_data.reminders_as_dms is not None:`
+    assignment (docstring field list updated)
+  - manual `clone_game` path: carries over
+    `reminders_as_dms=source_game.reminders_as_dms`
+- `shared/services/game_schedules.py`: `clone_game_for_recurrence` carries over
+  `reminders_as_dms=source.reminders_as_dms`
+
+**Integration coverage** (`tests/integration/test_rewards_fields.py`, written
+after implementation per TDD integration-test rules — no xfail):
+
+- `test_reminders_as_dms_defaults_false_and_round_trips_true`: fresh game via
+  API has `reminders_as_dms=false` in response and DB row; explicit `"true"`
+  round-trips through create + response + DB; PUT to `"false"` persists.
+- `test_clone_game_copies_reminders_as_dms`: clone of a flagged game inherits
+  `reminders_as_dms=true`.
+
+**Verification**: `uv run pytest tests/unit` — 2542 passed (+5 new);
+`uv run mypy shared/ services/` — clean; ruff check + format clean on all
+changed files; both new integration tests pass against the live Docker stack
+(`scripts/run-integration-tests.sh <node ids>` → `2 passed`, migration applied
+cleanly at environment startup; output in `output-integration.txt`).

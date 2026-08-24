@@ -229,6 +229,7 @@ async def clone_game_for_recurrence(
         signup_method=source.signup_method,
         recur_rule=source.recur_rule,
         remind_host_rewards=source.remind_host_rewards,
+        reminders_as_dms=source.reminders_as_dms,
         thumbnail_id=source.thumbnail_id,
         banner_image_id=source.banner_image_id,
         status=game_model.GameStatus.SCHEDULED.value,

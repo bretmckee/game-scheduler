@@ -1203,6 +1203,69 @@ async def test_build_game_session_remind_host_rewards_falls_back_to_template(
 
 
 @pytest.mark.asyncio
+async def test_build_game_session_reminders_as_dms_request_sets_flag(
+    game_service,
+    sample_template,
+    sample_guild,
+):
+    """Test _build_game_session uses game_data.reminders_as_dms when set."""
+    host_user = user_model.User(id=str(uuid.uuid4()), discord_id="123456")
+
+    game_data = game_schemas.GameCreateRequest(
+        template_id=sample_template.id,
+        title="Test Game",
+        description="Test description",
+        scheduled_at=datetime.datetime(2026, 6, 15, 12, 0, 0, tzinfo=UTC),
+        reminders_as_dms=True,
+    )
+    resolved_fields = {
+        "max_players": 5,
+        "reminder_minutes": [60],
+        "expected_duration_minutes": 120,
+        "where": "Online",
+        "signup_instructions": "Sign up here",
+        "signup_method": SignupMethod.SELF_SIGNUP.value,
+    }
+
+    game = await game_service._build_game_session(
+        game_data, sample_template, sample_guild, host_user, resolved_fields, GameMediaAttachments()
+    )
+
+    assert game.reminders_as_dms is True
+
+
+@pytest.mark.asyncio
+async def test_build_game_session_reminders_as_dms_defaults_false_when_absent(
+    game_service,
+    sample_template,
+    sample_guild,
+):
+    """Test _build_game_session defaults reminders_as_dms to False when absent from request."""
+    host_user = user_model.User(id=str(uuid.uuid4()), discord_id="123456")
+
+    game_data = game_schemas.GameCreateRequest(
+        template_id=sample_template.id,
+        title="Test Game",
+        description="Test description",
+        scheduled_at=datetime.datetime(2026, 6, 15, 12, 0, 0, tzinfo=UTC),
+    )
+    resolved_fields = {
+        "max_players": 5,
+        "reminder_minutes": [60],
+        "expected_duration_minutes": 120,
+        "where": "Online",
+        "signup_instructions": "Sign up here",
+        "signup_method": SignupMethod.SELF_SIGNUP.value,
+    }
+
+    game = await game_service._build_game_session(
+        game_data, sample_template, sample_guild, host_user, resolved_fields, GameMediaAttachments()
+    )
+
+    assert game.reminders_as_dms is False
+
+
+@pytest.mark.asyncio
 async def test_build_game_session_post_at_stored_as_naive_utc(
     game_service,
     sample_template,

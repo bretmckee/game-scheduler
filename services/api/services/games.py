@@ -547,6 +547,8 @@ class GameService:
                 if game_data.remind_host_rewards is not None
                 else template.remind_host_rewards
             ),
+            # No template default exists for this flag; absent means off.
+            reminders_as_dms=bool(game_data.reminders_as_dms),
             host_id=host_user.id,
             max_players=resolved_fields["max_players"],
             reminder_minutes=resolved_fields["reminder_minutes"],
@@ -935,6 +937,7 @@ class GameService:
             thumbnail_id=source_game.thumbnail_id,
             banner_image_id=source_game.banner_image_id,
             remind_host_rewards=source_game.remind_host_rewards,
+            reminders_as_dms=source_game.reminders_as_dms,
             rewards=None,
             recur_rule=source_game.recur_rule,
         )
@@ -1284,7 +1287,7 @@ class GameService:
     ) -> bool:
         """
         Update remaining fields (max_players, duration, roles, status, signup_method,
-        remind_host_rewards, archive_delay_seconds).
+        remind_host_rewards, reminders_as_dms, archive_delay_seconds).
 
         Args:
             game: Game session to update
@@ -1309,6 +1312,8 @@ class GameService:
             game.signup_method = update_data.signup_method
         if update_data.remind_host_rewards is not None:
             game.remind_host_rewards = update_data.remind_host_rewards
+        if update_data.reminders_as_dms is not None:
+            game.reminders_as_dms = update_data.reminders_as_dms
         if update_data.archive_delay_seconds is not None:
             game.archive_delay_seconds = update_data.archive_delay_seconds
             status_schedule_needs_update = True
