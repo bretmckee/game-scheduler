@@ -648,41 +648,37 @@ class GameMessageFormatter:
     def create_notification_embed(
         game_title: str,
         scheduled_at: datetime,
-        host_id: str | None,
-        time_until: str,
         jump_url: str | None = None,
+        where: str | None = None,
     ) -> discord.Embed:
-        """Create notification embed for game reminders.
+        """Create a compact notification embed for game reminders.
+
+        Embed fields always render their name on its own line above the value, so
+        this layout uses markdown lines in the description instead to keep the
+        reminder to four short lines: title / start + countdown / where / link.
+        Host mentions stay in the message content, not the embed.
 
         Args:
             game_title: Game title
             scheduled_at: When game is scheduled
-            host_id: Discord ID of game host, or None if the game has no host
-            time_until: Human-readable time until game (e.g., "in 1 hour")
             jump_url: Optional Discord jump URL to the game posting
+            where: Location text as stored on the game (typically a single <#id>)
 
         Returns:
             Configured notification embed
         """
-        embed = discord.Embed(
+        ts = int(scheduled_at.timestamp())
+        lines = [f"**{game_title}**", f"**Starts:** <t:{ts}:F> (<t:{ts}:R>)"]
+        if where:
+            lines.append(f"**Where:** {where}")
+        if jump_url:
+            lines.append(f"[View in scheduler]({jump_url})")
+
+        return discord.Embed(
             title="🔔 Game Reminder",
-            description=f"**{game_title}** starts {time_until}!",
+            description="\n".join(lines),
             color=discord.Color.blue(),
         )
-
-        embed.add_field(
-            name="📅 Start Time",
-            value=format_discord_timestamp(scheduled_at, "F"),
-            inline=False,
-        )
-
-        if host_id:
-            embed.add_field(name="🎯 Host", value=format_discord_mention(host_id), inline=False)
-
-        if jump_url:
-            embed.add_field(name="🔗 View Game", value=jump_url, inline=False)
-
-        return embed
 
 
 def format_game_announcement(

@@ -189,6 +189,37 @@ class DiscordTestHelper:
         message = await channel.fetch_message(int(message_id))
         await message.delete()
 
+    async def create_thread(
+        self, channel_id: str, name: str, auto_archive_duration: int = 60
+    ) -> discord.Thread:
+        """
+        Create a public thread in a text channel.
+
+        Args:
+            channel_id: Discord channel snowflake ID of the parent text channel
+            name: Thread name (3-100 characters)
+            auto_archive_duration: Minutes before an idle thread archives (60/1440/4320/10080)
+
+        Returns:
+            The created Thread object
+        """
+        channel = await self.client.fetch_channel(int(channel_id))
+        if not isinstance(channel, discord.TextChannel):
+            msg = f"Channel {channel_id} is not a text channel; cannot start a thread"
+            raise ValueError(msg)
+        # Without an explicit type (or seed message), discord.py creates a PRIVATE
+        # thread, which non-participant bots cannot see via REST or gateway events.
+        thread = await channel.create_thread(
+            name=name,
+            auto_archive_duration=auto_archive_duration,
+            type=discord.ChannelType.public_thread,
+        )
+        assert thread.type == discord.ChannelType.public_thread, (
+            f"Expected public thread but got {thread.type!r}; private threads are "
+            "invisible to non-participating bots and would break downstream assertions"
+        )
+        return thread
+
     async def get_recent_messages(self, channel_id: str, limit: int = 10) -> list[discord.Message]:
         """
         Fetch recent messages from channel.

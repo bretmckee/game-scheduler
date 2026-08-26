@@ -139,3 +139,78 @@ after implementation per TDD integration-test rules — no xfail):
 changed files; both new integration tests pass against the live Docker stack
 (`scripts/run-integration-tests.sh <node ids>` → `2 passed`, migration applied
 cleanly at environment startup; output in `output-integration.txt`).
+
+## Phase 5: Bot Short-Circuit for DM-Only Reminders (Tasks 5.1–5.2)
+
+When a game has `reminders_as_dms=True`, `_deliver_game_reminders` skips the
+location-channel resolution entirely so every reminder takes the full DM
+fan-out path (confirmed + first waitlisted + host). Default-off changes
+nothing for existing games.
+
+**RED** (`tests/unit/services/bot/events/test_handlers_game_reminder.py`,
+using the existing `_reminder_flow_patches` helper):
+
+- `test_handle_game_reminder_dms_only_flag_skips_channel_post`: valid single
+  channel in `where` + flag set → asserts `_get_bot_channel` and
+  `_post_reminder_to_channel` never awaited, and full fan-out of 4 DMs with
+  correct kwargs (strict xfail RED — guard clause did not exist yet)
+- `test_handle_game_reminder_dms_only_flag_false_still_posts`: control test,
+  same setup with flag off → channel post awaited once, only the waitlist DM
+  sent (passes in both phases)
+
+**GREEN** (`services/bot/events/handlers.py`, xfail marker removed,
+assertions unchanged):
+
+- `_deliver_game_reminders`: `location_channel_id = None if
+game.reminders_as_dms else extract_single_channel_id(game.where)` — the
+  existing `if channel is not None:` branch handles everything downstream
+  with zero duplication; docstring documents the opt-out.
+
+**Verification**: `uv run pytest tests/unit` — 2544 passed (+2 new);
+`uv run mypy shared/ services/` — clean; ruff check + format clean on all
+changed files; all pre-existing reminder flow tests pass unchanged.
+
+## Thread Location Fix (follow-up to Phase 5)
+
+User-reported gap: `_get_bot_channel` rejected `discord.Thread` objects even
+though threads are valid game locations (`where=<#thread id>`). Verified in
+installed discord.py 2.6.4 that `Thread` does NOT subclass `TextChannel`
+(MRO: `Thread → Messageable → Hashable → EqualityComparable → object`) while
+`bot.get_channel()` returns `Union[GuildChannel, Thread, PrivateChannel]` —
+so a thread ID resolved from cache was silently discarded by the
+`isinstance(channel, discord.TextChannel)` guard and reminders fell back to
+full DM fan-out instead of posting into the thread.
+
+**RED** (`tests/unit/services/bot/events/test_handlers_game_created.py`):
+
+- `test_get_bot_channel_accepts_thread`: cached `MagicMock(spec=discord.Thread)`
+  resolves through `_get_bot_channel` (strict xfail RED — guard rejected it)
+
+**GREEN** (`services/bot/events/handlers.py`, marker removed):
+
+- New module-level alias `_PostableChannel = discord.TextChannel |
+discord.Thread`; `_get_bot_channel` return type widened to
+  `_PostableChannel | None` and its isinstance check now accepts both;
+  `_post_reminder_to_channel` parameter widened to match (docstring already
+  said "channel or thread"). All three other call sites (game-created post,
+  archive original, archive repost) type-check unchanged because `Thread`
+  provides `send`/`get_partial_message`.
+
+**E2E coverage** (`tests/e2e/helpers/discord.py` +
+`tests/e2e/test_game_reminder.py`):
+
+- `DiscordTestHelper.create_thread()`: creates a public thread in a text
+  channel via `fetch_channel(...).create_thread(...)`.
+- `test_game_reminder_hybrid_delivery_thread_location`: mirrors the existing
+  channel test but with `where=<#thread id>` — admin bot creates the thread,
+  game is created against it, reminder embed must land inside the thread
+  itself (verified via `wait_for_channel_message(channel_id=str(thread.id))`)
+  mentioning Player A, plus waitlist DM. Thread archived in cleanup. The
+  pre-existing `test_game_reminder_hybrid_delivery` covers the plain-channel
+  case.
+
+**Verification**: `uv run pytest tests/unit` — 2545 passed (+1 new);
+`uv run mypy shared/ services/` — clean; ruff check + format clean on all
+changed files. E2E verification of both channel and thread cases pending a
+full `scripts/run-e2e-tests.sh` run (≥900000ms, tee-captured per test-execution
+rules) before this work is committed.

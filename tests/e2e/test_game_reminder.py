@@ -48,15 +48,18 @@ import json
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
+import discord
 import pytest
 from sqlalchemy import text
 
+from shared.cache import keys as cache_keys
+from shared.cache.client import RedisClient
 from tests.e2e.conftest import (
     TimeoutType,
     wait_for_db_condition,
     wait_for_game_message_id,
 )
-from tests.e2e.helpers.discord import DMType
+from tests.e2e.helpers.discord import DMType, wait_for_condition
 
 pytestmark = pytest.mark.e2e
 
@@ -188,3 +191,174 @@ async def test_game_reminder_hybrid_delivery(
     print("[TEST] ✓ Waitlist reminder DM contains game title")
     print(f"[TEST] DM Content: {reminder_dm.content}")
     print("[TEST] ✓ Game reminder hybrid delivery verified successfully")
+
+
+@pytest.mark.timeout(300)
+@pytest.mark.asyncio
+async def test_game_reminder_hybrid_delivery_thread_location(
+    authenticated_admin_client,
+    admin_db,
+    main_bot_helper,
+    discord_helper,
+    discord_channel_id,
+    discord_user_id,
+    discord_player_a_id,
+    discord_guild_id,
+    synced_guild,
+    test_timeouts,
+):
+    """
+    E2E: A thread used as the location receives the reminder post.
+
+    Mirrors test_game_reminder_hybrid_delivery but with where=<#thread id>:
+    - Admin bot creates a public thread in the location channel
+    - Game created with where pointing at that thread (single <#id> mention)
+    - Notification daemon processes the reminder schedule
+    - Main bot posts one reminder embed into the thread mentioning the
+      confirmed participant (Player A) — proves _get_bot_channel accepts
+      discord.Thread objects from the gateway cache
+    - Main bot sends a reminder DM to the first waitlisted participant
+    """
+    result = await admin_db.execute(
+        text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
+        {"guild_id": discord_guild_id},
+    )
+    row = result.fetchone()
+    assert row, f"Test guild {discord_guild_id} not found"
+    test_guild_id = row[0]
+
+    result = await admin_db.execute(
+        text("SELECT id FROM game_templates WHERE guild_id = :guild_id AND is_default = true"),
+        {"guild_id": test_guild_id},
+    )
+    row = result.fetchone()
+    assert row, f"Default template not found for guild {test_guild_id}"
+    test_template_id = row[0]
+
+    # The announcement post goes to the parent channel; only the reminder
+    # targets the thread, so the two are unambiguous in their respective histories.
+    thread = await discord_helper.create_thread(
+        channel_id=discord_channel_id, name=f"e2e-reminder-{uuid4().hex[:8]}"
+    )
+    try:
+        # The main bot learns about new threads via its gateway THREAD_CREATE event;
+        # until _sync_thread_cache runs, the API's channel resolver cannot validate
+        # <#thread_id> against the Redis cache and game creation fails with 422.
+        # Wait for that sync to land instead of racing the event delivery.
+        redis = RedisClient()
+        await redis.connect()
+        try:
+
+            async def check_thread_cached() -> tuple[bool, str | None]:
+                channels = (
+                    await redis.get_json(
+                        cache_keys.CacheKeys.discord_guild_channels(discord_guild_id)
+                    )
+                    or []
+                )
+                if any(ch.get("id") == str(thread.id) for ch in channels):
+                    return True, str(thread.id)
+                return False, None
+
+            await wait_for_condition(
+                check_thread_cached,
+                timeout=15,
+                interval=0.5,
+                description=f"main bot gateway cache to include thread {thread.id}",
+            )
+        finally:
+            await redis.disconnect()
+
+        scheduled_time = datetime.now(UTC) + timedelta(minutes=2)
+        game_title = f"E2E Reminder Thread Test {uuid4().hex[:8]}"
+        game_description = "Test game for thread-location reminder verification"
+
+        # Player A is confirmed (slot 1 of max_players=1); the test user overflows
+        # to waitlist and receives the reminder DM instead of a thread mention.
+        game_data = {
+            "template_id": test_template_id,
+            "title": game_title,
+            "description": game_description,
+            "where": f"<#{thread.id}>",
+            "scheduled_at": scheduled_time.isoformat(),
+            "max_players": "1",
+            "reminder_minutes": json.dumps([1]),
+            "initial_participants": json.dumps([
+                f"<@{discord_player_a_id}>",
+                f"<@{discord_user_id}>",
+            ]),
+        }
+
+        response = await authenticated_admin_client.post("/api/v1/games", data=game_data)
+        assert response.status_code == 201, f"Failed to create game: {response.text}"
+        game_id = response.json()["id"]
+        print(f"\n[TEST] Game created with ID: {game_id}")
+        print(f"[TEST] Game scheduled at: {scheduled_time.isoformat()}")
+        print("[TEST] Reminder set for 1 minute before game")
+        print(f"[TEST] Location thread: {thread.id} (single <#id> mention)")
+        print(f"[TEST] Player A confirmed (discord_id: {discord_player_a_id})")
+        print(f"[TEST] Test user waitlisted (discord_id: {discord_user_id})")
+
+        message_id = await wait_for_game_message_id(
+            admin_db, game_id, timeout=test_timeouts[TimeoutType.DB_WRITE]
+        )
+        await main_bot_helper.wait_for_message(
+            channel_id=discord_channel_id,
+            message_id=message_id,
+            timeout=test_timeouts[TimeoutType.MESSAGE_CREATE],
+        )
+
+        row = await wait_for_db_condition(
+            admin_db,
+            "SELECT COUNT(*) FROM notification_schedule "
+            "WHERE game_id = :game_id AND reminder_minutes = 1",
+            {"game_id": game_id},
+            lambda row: row[0] > 0,
+            timeout=test_timeouts[TimeoutType.DB_WRITE],
+            interval=1,
+            description="reminder schedule creation",
+        )
+        reminder_count = row[0]
+        print(f"[TEST] Reminder scheduled in database (count: {reminder_count})")
+
+        def is_reminder_post(msg) -> bool:
+            return (
+                msg.embeds
+                and msg.embeds[0].title == "🔔 Game Reminder"
+                and game_title in (msg.embeds[0].description or "")
+            )
+
+        # The reminder must land inside the thread itself, not the parent channel.
+        reminder_post = await main_bot_helper.wait_for_channel_message(
+            channel_id=str(thread.id),
+            predicate=is_reminder_post,
+            timeout=test_timeouts[TimeoutType.DM_SCHEDULED],
+            interval=5,
+            description=f"reminder thread post for '{game_title}'",
+        )
+
+        assert f"<@{discord_player_a_id}>" in reminder_post.content, (
+            f"Thread post should mention confirmed participant Player A; content: "
+            f"{reminder_post.content!r}"
+        )
+        print("[TEST] ✓ Reminder posted to location thread with confirmed participant mentioned")
+        print(f"[TEST] Post Content: {reminder_post.content}")
+
+        reminder_dm = await main_bot_helper.wait_for_recent_dm(
+            user_id=discord_user_id,
+            game_title=game_title,
+            dm_type=DMType.REMINDER,
+            timeout=test_timeouts[TimeoutType.DM_SCHEDULED],
+            interval=5,
+        )
+
+        print("[TEST] ✓ Waitlist reminder DM contains game title")
+        print(f"[TEST] DM Content: {reminder_dm.content}")
+        print("[TEST] ✓ Game reminder hybrid delivery verified successfully for thread location")
+    finally:
+        # Archive the test thread so it does not accumulate in the guild;
+        # cleanup failures must not mask an otherwise passing test.
+        try:
+            await thread.edit(archived=True)
+        except discord.HTTPException as e:
+            print(f"[TEST] Could not archive thread {thread.id}: {e}")

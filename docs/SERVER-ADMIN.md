@@ -27,6 +27,7 @@ When you open the invitation URL, Discord will display the list of permissions t
 
 - **View Channels** - Read channel list for game announcements
 - **Send Messages** - Post game announcements and updates
+- **Send Messages in Threads** - Post announcements and reminders into threads used as game locations (Discord does not apply "Send Messages" inside threads)
 - **Embed Links** - Display game announcements as rich Discord embeds with formatted details, images, and signup buttons
 
 For information on what data the bot stores, see [Data Privacy](#data-privacy).
@@ -93,6 +94,7 @@ The bot posts game announcements in specific channels you designate.
 - Bot must have "Send Messages" permission in the channel
 - Bot must have "Embed Links" permission to display rich game cards
 - Bot must have "Attach Files" permission if games include images
+- If a game uses a **thread** as its location, the bot must also have "Send Messages in Threads" (inherited from the parent channel). Private threads additionally require the bot to be added as a member of the thread; the bot cannot see or post in private threads it has not been invited to
 
 **Note**: The bot is granted these permissions by default when it joins your server. You only need to take action if these permissions have been explicitly removed or overridden for a specific channel.
 

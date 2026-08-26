@@ -204,8 +204,20 @@ async def test_get_bot_channel_not_in_cache_returns_none(event_handlers, mock_bo
 
 
 @pytest.mark.asyncio
+async def test_get_bot_channel_accepts_thread(event_handlers, mock_bot):
+    """A cached Thread resolves like a TextChannel since threads are valid locations."""
+    mock_thread = MagicMock(spec=discord.Thread)
+    mock_bot.get_channel.return_value = mock_thread
+
+    result = await event_handlers._get_bot_channel("123")
+
+    assert result == mock_thread
+    mock_bot.fetch_channel.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_get_bot_channel_invalid_type(event_handlers, mock_bot):
-    """Test get_bot_channel returns None when channel is not a TextChannel."""
+    """Test get_bot_channel returns None for non-postable channel types."""
     mock_channel = MagicMock()
     mock_bot.get_channel.return_value = mock_channel
 

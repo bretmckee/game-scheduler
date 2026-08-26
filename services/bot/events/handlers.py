@@ -36,7 +36,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from services.bot.config import get_config
 from services.bot.formatters.game_message import GameMessageFormatter, format_game_announcement
 from services.bot.handlers.participant_drop import handle_participant_drop_due
-from services.bot.utils.discord_format import format_discord_timestamp, get_member_display_info
+from services.bot.utils.discord_format import get_member_display_info
 from services.bot.views.clone_confirmation_view import CloneConfirmationView
 from services.bot.views.recurrence_confirmation_view import RecurrenceConfirmationView
 from shared.cache.client import get_redis_client
@@ -69,6 +69,9 @@ _HTTP_TOO_MANY_REQUESTS = 429
 _MAX_EDIT_ATTEMPTS = 3
 _CHANNEL_WORKER_RETRY_DELAY_SECONDS = 1.0
 _WAITLIST_REMINDER_COUNT = 1
+
+# Channels that can receive game posts: regular text channels and threads.
+_PostableChannel = discord.TextChannel | discord.Thread
 
 logger = logging.getLogger(__name__)
 
@@ -104,11 +107,13 @@ class EventHandlers:
             return False
         return True
 
-    async def _get_bot_channel(self, channel_id: str) -> discord.TextChannel | None:
-        """Get Discord channel object from the gateway cache."""
+    async def _get_bot_channel(self, channel_id: str) -> _PostableChannel | None:
+        """Get a postable Discord channel (text channel or thread) from the gateway cache."""
         channel = self.bot.get_channel(int(channel_id))
 
-        if not channel or not isinstance(channel, discord.TextChannel):
+        # Threads are valid game locations but do not subclass TextChannel,
+        # so they must be accepted explicitly here.
+        if not isinstance(channel, _PostableChannel):
             logger.error("Invalid channel: %s", channel_id)
             return None
         return channel
@@ -446,7 +451,7 @@ class EventHandlers:
 
     async def _post_reminder_to_channel(
         self,
-        channel: discord.TextChannel,
+        channel: _PostableChannel,
         game: GameSession,
         confirmed: list[GameParticipant],
         jump_url: str | None,
@@ -465,13 +470,15 @@ class EventHandlers:
         embed = GameMessageFormatter.create_notification_embed(
             game_title=game.title,
             scheduled_at=game.scheduled_at,
-            host_id=game.host.discord_id if game.host else None,
-            time_until=format_discord_timestamp(game.scheduled_at, "R"),
             jump_url=jump_url,
+            where=game.where,
         )
         mention_ids = [p.user.discord_id for p in confirmed if p.user and p.user.discord_id]
         if game.host and game.host.discord_id:
             mention_ids.append(game.host.discord_id)
+        # A host who is also a confirmed player must be pinged only once;
+        # dict.fromkeys dedupes while preserving first-seen order
+        mention_ids = list(dict.fromkeys(mention_ids))
         content = " ".join(f"<@{mid}>" for mid in mention_ids)
         try:
             await channel.send(
@@ -562,6 +569,9 @@ class EventHandlers:
         one accessible channel; otherwise — and whenever the post fails —
         falls back to the full DM fan-out so no reminder is ever lost.
 
+        When ``game.reminders_as_dms`` is set, the location-channel lookup is
+        skipped entirely and every reminder takes the full DM fan-out path.
+
         Args:
             game: Game session being reminded
             game_id: Game ID for logging
@@ -570,7 +580,11 @@ class EventHandlers:
             game_time_unix: Scheduled time as Unix timestamp
             jump_url: Discord jump URL to the game posting, or None
         """
-        location_channel_id = extract_single_channel_id(game.where)
+        # Host opt-out: skip the location-channel resolution entirely so the
+        # existing fallback branch below performs the full DM fan-out unchanged.
+        location_channel_id = (
+            None if game.reminders_as_dms else extract_single_channel_id(game.where)
+        )
         channel = await self._get_bot_channel(location_channel_id) if location_channel_id else None
 
         if channel is not None:

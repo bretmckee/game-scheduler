@@ -126,12 +126,12 @@ channel path entirely.
 - [x] Task 4.3: API routes + service wiring with unit tests (RED→GREEN)
   - Details: .copilot-tracking/planning/details/20260823-01-reminder-channel-post-details.md (Lines 554-614)
 
-### [ ] Phase 5: Bot Short-Circuit for DM-Only Reminders
+### [x] Phase 5: Bot Short-Circuit for DM-Only Reminders
 
-- [ ] Task 5.1: Unit tests for the flag short-circuit (RED)
+- [x] Task 5.1: Unit tests for the flag short-circuit (RED)
   - Details: .copilot-tracking/planning/details/20260823-01-reminder-channel-post-details.md (Lines 617-644)
 
-- [ ] Task 5.2: Implement the short-circuit in `_deliver_game_reminders` (GREEN)
+- [x] Task 5.2: Implement the short-circuit in `_deliver_game_reminders` (GREEN)
   - Details: .copilot-tracking/planning/details/20260823-01-reminder-channel-post-details.md (Lines 645-689)
 
 ### [ ] Phase 6: Frontend Checkbox

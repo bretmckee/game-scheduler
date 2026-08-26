@@ -410,8 +410,8 @@ class TestGameMessageFormatter:
         result = GameMessageFormatter._get_status_color("UNKNOWN")
         assert result == discord.Color.greyple()
 
-    def test_creates_notification_embed(self):
-        """Test creating a notification embed."""
+    def test_creates_notification_embed_compact_layout(self):
+        """Compact embed: no fields; title, start, where, and link live in the description."""
         scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
 
         with patch("services.bot.formatters.game_message.discord.Embed") as mock_embed_class:
@@ -422,16 +422,26 @@ class TestGameMessageFormatter:
             result = formatter.create_notification_embed(
                 game_title="D&D Session",
                 scheduled_at=scheduled_at,
-                host_id="123456789",
-                time_until="in 1 hour",
+                where="<#987654321>",
+                jump_url="https://discord.com/channels/1/2/3",
             )
 
             assert result == mock_embed
-            mock_embed_class.assert_called_once_with(
-                title="🔔 Game Reminder",
-                description="**D&D Session** starts in 1 hour!",
-                color=ANY,
-            )
+            call_kwargs = mock_embed_class.call_args[1]
+            # Compact layout: all content lives in the description, never in fields
+            assert "fields" not in call_kwargs
+            assert call_kwargs["title"] == "🔔 Game Reminder"
+            desc = call_kwargs["description"]
+            assert "**D&D Session**" in desc
+            assert "<t:" in desc and ":F>" in desc and ":R>" in desc
+            # No host mention or emoji decoration anywhere in the description
+            assert "<@" not in desc
+            assert "📅" not in desc
+            assert "🎯" not in desc
+            assert "📍" not in desc
+            assert "🔗" not in desc
+            assert "<#987654321>" in desc
+            assert "[View in scheduler](https://discord.com/channels/1/2/3)" in desc
 
     def test_notification_embed_has_reminder_title(self):
         """Test that notification embed has reminder title."""
@@ -445,73 +455,68 @@ class TestGameMessageFormatter:
             formatter.create_notification_embed(
                 game_title="Game",
                 scheduled_at=scheduled_at,
-                host_id="123",
-                time_until="soon",
             )
 
             call_kwargs = mock_embed_class.call_args[1]
             assert "Reminder" in call_kwargs["title"]
             mock_embed_class.assert_called_once_with(title=ANY, description=ANY, color=ANY)
 
-    def test_notification_embed_without_host_omits_host_field(self):
-        """Test that a missing host omits the Host field but keeps Start Time."""
+    def test_notification_embed_omits_host_from_description(self):
+        """The embed never shows the host; mentions stay in message content only."""
         scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
 
         result = GameMessageFormatter.create_notification_embed(
             game_title="D&D Session",
             scheduled_at=scheduled_at,
-            host_id=None,
-            time_until="in 1 hour",
-        )
-
-        field_names = [field.name for field in result.fields]
-        assert "🎯 Host" not in field_names
-        assert "📅 Start Time" in field_names
-
-    def test_notification_embed_with_host_includes_host_mention(self):
-        """Test that a present host adds a Host field with the user mention."""
-        scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
-
-        result = GameMessageFormatter.create_notification_embed(
-            game_title="D&D Session",
-            scheduled_at=scheduled_at,
-            host_id="123456789",
-            time_until="in 1 hour",
-        )
-
-        host_fields = [f for f in result.fields if f.name == "🎯 Host"]
-        assert len(host_fields) == 1
-        assert host_fields[0].value == "<@123456789>"
-
-    def test_notification_embed_with_jump_url_includes_view_game_field(self):
-        """Test that a jump URL adds a View Game field with that URL."""
-        scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
-
-        result = GameMessageFormatter.create_notification_embed(
-            game_title="D&D Session",
-            scheduled_at=scheduled_at,
-            host_id=None,
-            time_until="in 1 hour",
+            where="<#987654321>",
             jump_url="https://discord.com/channels/1/2/3",
         )
 
-        view_fields = [f for f in result.fields if f.name == "🔗 View Game"]
-        assert len(view_fields) == 1
-        assert view_fields[0].value == "https://discord.com/channels/1/2/3"
+        desc = result.description or ""
+        assert "<@" not in desc
+        assert "**Starts:**" in desc
+        assert "**Where:**" in desc
+        assert "[View in scheduler]" in desc
 
-    def test_notification_embed_without_jump_url_omits_view_game_field(self):
-        """Test that the default (no jump URL) omits the View Game field."""
+    def test_notification_embed_without_where_omits_location_line(self):
+        """A game without a channel location omits the Where line only."""
         scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
 
         result = GameMessageFormatter.create_notification_embed(
             game_title="D&D Session",
             scheduled_at=scheduled_at,
-            host_id=None,
-            time_until="in 1 hour",
+            jump_url="https://discord.com/channels/1/2/3",
         )
 
-        field_names = [field.name for field in result.fields]
-        assert "🔗 View Game" not in field_names
+        desc = result.description or ""
+        assert "**Where:**" not in desc
+        assert "**Starts:**" in desc
+        assert "[View in scheduler]" in desc
+
+    def test_notification_embed_with_jump_url_includes_link(self):
+        """A jump URL adds a 'View in scheduler' markdown link to the description."""
+        scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
+
+        result = GameMessageFormatter.create_notification_embed(
+            game_title="D&D Session",
+            scheduled_at=scheduled_at,
+            jump_url="https://discord.com/channels/1/2/3",
+        )
+
+        desc = result.description or ""
+        assert "[View in scheduler](https://discord.com/channels/1/2/3)" in desc
+
+    def test_notification_embed_without_jump_url_omits_link(self):
+        """The default (no jump URL) omits the View in scheduler line."""
+        scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
+
+        result = GameMessageFormatter.create_notification_embed(
+            game_title="D&D Session",
+            scheduled_at=scheduled_at,
+        )
+
+        desc = result.description or ""
+        assert "View in scheduler" not in desc
 
 
 class TestGameMessageFormatterHelpers:
