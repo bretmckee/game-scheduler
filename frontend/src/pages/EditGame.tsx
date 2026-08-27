@@ -231,6 +231,7 @@ export const EditGame: FC = () => {
       // Add rewards fields
       payload.append('rewards', formData.rewards || '');
       payload.append('remind_host_rewards', formData.remindHostRewards ? 'true' : 'false');
+      payload.append('reminders_as_dms', formData.remindersAsDms ? 'true' : 'false');
 
       if (formData.recurRule) {
         payload.append('recur_rule', formData.recurRule);
@@ -366,6 +367,7 @@ export const EditGame: FC = () => {
     }
     payload.append('rewards', formData.rewards || '');
     payload.append('remind_host_rewards', formData.remindHostRewards ? 'true' : 'false');
+    payload.append('reminders_as_dms', formData.remindersAsDms ? 'true' : 'false');
 
     if (formData.clearPostAt) {
       payload.append('clear_post_at', 'true');

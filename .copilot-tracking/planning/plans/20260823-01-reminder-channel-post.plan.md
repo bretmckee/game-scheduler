@@ -134,9 +134,9 @@ channel path entirely.
 - [x] Task 5.2: Implement the short-circuit in `_deliver_game_reminders` (GREEN)
   - Details: .copilot-tracking/planning/details/20260823-01-reminder-channel-post-details.md (Lines 645-689)
 
-### [ ] Phase 6: Frontend Checkbox
+### [x] Phase 6: Frontend Checkbox
 
-- [ ] Task 6.1: Type, form state, checkbox, payloads (RED→GREEN)
+- [x] Task 6.1: Type, form state, checkbox, payloads (RED→GREEN)
   - Details: .copilot-tracking/planning/details/20260823-01-reminder-channel-post-details.md (Lines 692-757)
 
 ## Dependencies

@@ -20,7 +20,9 @@
 
 import { useState } from 'react';
 import {
+  Checkbox,
   FormControl,
+  FormControlLabel,
   InputLabel,
   Select,
   MenuItem,
@@ -38,6 +40,9 @@ export interface ReminderSelectorProps {
   error?: boolean;
   helperText?: string;
   scheduledAt?: Date | null;
+  remindersAsDms?: boolean;
+  onRemindersAsDmsChange?: (checked: boolean) => void;
+  dmsCheckboxDisabled?: boolean;
 }
 
 const PRESET_OPTIONS = [
@@ -57,6 +62,9 @@ export function ReminderSelector({
   error,
   helperText,
   scheduledAt,
+  remindersAsDms = false,
+  onRemindersAsDmsChange,
+  dmsCheckboxDisabled = false,
 }: ReminderSelectorProps) {
   const [showCustom, setShowCustom] = useState(false);
   const [customMinutes, setCustomMinutes] = useState('');
@@ -131,6 +139,21 @@ export function ReminderSelector({
           <MenuItem value="custom">Custom...</MenuItem>
         </Select>
       </FormControl>
+
+      {/* Only meaningful when at least one reminder time is set */}
+      {safeValue.length > 0 && onRemindersAsDmsChange && (
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={remindersAsDms}
+              disabled={dmsCheckboxDisabled}
+              onChange={(e) => onRemindersAsDmsChange(e.target.checked)}
+            />
+          }
+          label="Always send reminders as DMs"
+          sx={{ mt: 1, mb: 1 }}
+        />
+      )}
 
       {showCustom && (
         <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>

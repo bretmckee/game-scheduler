@@ -122,6 +122,7 @@ export interface GameSession {
   can_manage?: boolean;
   rewards?: string | null;
   remind_host_rewards?: boolean;
+  reminders_as_dms?: boolean;
   archive_channel_id?: string | null;
   where_display?: string | null;
   recur_rule?: string | null;

@@ -111,6 +111,7 @@ export interface GameFormData {
   removeImage: boolean;
   rewards: string;
   remindHostRewards: boolean;
+  remindersAsDms: boolean;
   recurRule: string | null;
 }
 
@@ -308,6 +309,8 @@ export const GameForm: FC<GameFormProps> = ({
     removeImage: false,
     rewards: initialData?.rewards || '',
     remindHostRewards: initialData?.remind_host_rewards ?? false,
+    // DM-only delivery is the preferred reminder mode, so new games default on
+    remindersAsDms: initialData?.reminders_as_dms ?? true,
     recurRule: initialData?.recur_rule ?? null,
   });
 
@@ -341,6 +344,7 @@ export const GameForm: FC<GameFormProps> = ({
         removeImage: false,
         rewards: initialData.rewards || '',
         remindHostRewards: initialData.remind_host_rewards ?? false,
+        remindersAsDms: initialData.reminders_as_dms ?? true,
         recurRule: initialData.recur_rule ?? null,
       });
     }
@@ -834,6 +838,11 @@ export const GameForm: FC<GameFormProps> = ({
                 scheduledAt={formData.scheduledAt}
                 error={!!reminderError}
                 helperText={reminderError || 'Select one or more reminder times'}
+                remindersAsDms={formData.remindersAsDms}
+                onRemindersAsDmsChange={(checked) =>
+                  setFormData((prev) => ({ ...prev, remindersAsDms: checked }))
+                }
+                dmsCheckboxDisabled={loading}
               />
             </Box>
           </Box>

@@ -601,6 +601,80 @@ describe('CreateGame', () => {
     });
   });
 
+  describe('reminders_as_dms in form submission', () => {
+    const setupMocksAndRender = () => {
+      vi.mocked(apiClient.get).mockImplementation((url: string) => {
+        if (url === '/api/v1/guilds') {
+          return Promise.resolve({ data: { guilds: [mockGuild] } });
+        }
+        if (url === '/api/v1/guilds/1/templates') {
+          return Promise.resolve({ data: [mockTemplate] });
+        }
+        if (url.includes('/config')) {
+          return Promise.resolve({ status: StatusCodes.FORBIDDEN });
+        }
+        return Promise.resolve({ data: [] });
+      });
+
+      vi.mocked(apiClient.post).mockResolvedValue({ data: { id: 'new-game-id' } });
+
+      renderWithAuth();
+    };
+
+    const fillRequiredFields = async (user: ReturnType<typeof userEvent.setup>) => {
+      await waitFor(() => {
+        expect(screen.getByRole('textbox', { name: /game title/i })).toBeInTheDocument();
+      });
+
+      const titleInput = screen.getByRole('textbox', { name: /game title/i });
+      await user.clear(titleInput);
+      await user.paste('Test Game');
+
+      const descriptionInput = screen.getByRole('textbox', { name: /description/i });
+      await user.clear(descriptionInput);
+      await user.paste('Test Description');
+    };
+
+    it('sends reminders_as_dms=false when checkbox is unchecked', async () => {
+      const user = userEvent.setup();
+      setupMocksAndRender();
+      await fillRequiredFields(user);
+
+      // Checked by default; uncheck to verify the false payload
+      const checkbox = screen.getByLabelText('Always send reminders as DMs') as HTMLInputElement;
+      expect(checkbox.checked).toBe(true);
+      await user.click(checkbox);
+
+      await user.click(screen.getByRole('button', { name: /create game/i }));
+
+      await waitFor(() => {
+        expect(apiClient.post).toHaveBeenCalled();
+      });
+
+      const formData = vi.mocked(apiClient.post).mock.calls[0]![1] as FormData;
+      expect(formData.get('reminders_as_dms')).toBe('false');
+    });
+
+    it('sends reminders_as_dms=true by default without touching the checkbox', async () => {
+      const user = userEvent.setup();
+      setupMocksAndRender();
+      await fillRequiredFields(user);
+
+      // The mocked template carries reminder_minutes, so the checkbox is visible
+      const checkbox = screen.getByLabelText('Always send reminders as DMs') as HTMLInputElement;
+      expect(checkbox.checked).toBe(true);
+
+      await user.click(screen.getByRole('button', { name: /create game/i }));
+
+      await waitFor(() => {
+        expect(apiClient.post).toHaveBeenCalled();
+      });
+
+      const formData = vi.mocked(apiClient.post).mock.calls[0]![1] as FormData;
+      expect(formData.get('reminders_as_dms')).toBe('true');
+    });
+  });
+
   it('uses resolvedMention (<@uid>) in submission after disambiguation', async () => {
     const user = userEvent.setup();
 
