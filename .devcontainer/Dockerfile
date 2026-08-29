@@ -12,26 +12,41 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     software-properties-common \
     && rm -rf /var/lib/apt/lists/*
 
-# Add git-core PPA (git 2.48+ for relative worktree path support) and deadsnakes PPA (Python 3.13)
+# Add git-core PPA (git 2.48+ for relative worktree path support) and deadsnakes PPA (Python 3.13).
+# No `apt-get update` here: the install step below refreshes indexes in its own layer so the
+# package list can never go stale between an update and a cached install.
 RUN add-apt-repository -y ppa:git-core/ppa \
-    && add-apt-repository -y ppa:deadsnakes/ppa \
-    && apt-get update
+    && add-apt-repository -y ppa:deadsnakes/ppa
 
-# Install system dependencies and development tools
-RUN apt-get install -y --no-install-recommends \
-    gcc \
-    g++ \
-    make \
-    postgresql-client \
-    curl \
-    git \
-    vim \
-    less \
-    sudo \
-    locales \
-    python3.13 \
-    python3.13-venv \
-    python3.13-dev \
+# Install system dependencies and development tools.
+# `apt-get update` runs in this same RUN as the install so the index is always fresh when
+# packages are resolved — otherwise a BuildKit-cached install layer can reference .deb files
+# that have since been purged from the pools, failing with "404 Not Found" / exit code 100.
+# The retry loop guards against transient mirror/PPA fetch failures; `$ok` ensures the build
+# still fails if every attempt does.
+RUN apt-get update \
+    && ok=0 \
+    && for i in 1 2 3; do \
+         if apt-get install -y --no-install-recommends \
+             gcc \
+             g++ \
+             make \
+             postgresql-client \
+             curl \
+             git \
+             vim \
+             less \
+             tmux \
+             sudo \
+             locales \
+             python3.13 \
+             python3.13-venv \
+             python3.13-dev; then \
+           ok=1; break; \
+         fi; \
+         echo "apt-get install failed on attempt $i, refreshing indexes..." >&2; sleep 5; apt-get update; \
+       done \
+    && [ "$ok" = "1" ] \
     && sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen \
     && locale-gen \
     && rm -rf /var/lib/apt/lists/*
