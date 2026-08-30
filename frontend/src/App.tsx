@@ -30,6 +30,7 @@ import { GuildListPage } from './pages/GuildListPage';
 import { GuildDashboard } from './pages/GuildDashboard';
 import { GuildConfig } from './pages/GuildConfig';
 import { GameDetails } from './pages/GameDetails';
+import { ParticipantSeatsPage } from './pages/ParticipantSeatsPage';
 import { CreateGame } from './pages/CreateGame';
 import { EditGame } from './pages/EditGame';
 import { CloneGame } from './pages/CloneGame';
@@ -63,6 +64,7 @@ function App() {
                 <Route path="/guilds/:guildId/games/new" element={<CreateGame />} />
                 <Route path="/games/new" element={<CreateGame />} />
                 <Route path="/games/:gameId" element={<GameDetails />} />
+                <Route path="/games/:gameId/participant-seats" element={<ParticipantSeatsPage />} />
                 <Route path="/games/:gameId/edit" element={<EditGame />} />
                 <Route path="/games/:gameId/clone" element={<CloneGame />} />
                 <Route path="/my-games" element={<MyGames />} />

@@ -407,3 +407,91 @@ async def test_get_display_name_resolver_returns_instance():
 
     assert isinstance(resolver, display_names.DisplayNameResolver)
     assert resolver.cache is mock_redis
+
+
+# Primary name resolution tests (guild nicknames must never be returned)
+
+
+def test_resolve_primary_name_ignores_nickname():
+    """Primary name prefers global_name and skips the guild nickname entirely."""
+    member = {
+        "nick": "GuildNickname",
+        "global_name": "GlobalName",
+        "username": "username",
+    }
+
+    result = display_names.DisplayNameResolver._resolve_primary_name(member)
+
+    assert result == "GlobalName"
+
+
+def test_resolve_primary_name_falls_back_to_username():
+    """Primary name falls back to username when global_name is absent or null."""
+    member = {
+        "nick": "GuildNickname",
+        "global_name": None,
+        "username": "username",
+    }
+
+    result = display_names.DisplayNameResolver._resolve_primary_name(member)
+
+    assert result == "username"
+
+
+def test_resolve_primary_name_missing_global_field():
+    """Primary name handles a projection member dict with no global_name key at all."""
+    member = {
+        "nick": "GuildNickname",
+        "username": "username",
+    }
+
+    result = display_names.DisplayNameResolver._resolve_primary_name(member)
+
+    assert result == "username"
+
+
+@pytest.mark.asyncio
+async def test_resolve_primary_names_from_projection(mock_cache):
+    """resolve_primary_names maps every user ID to its primary (non-nick) name."""
+    resolver = display_names.DisplayNameResolver(mock_cache)
+
+    async def fake_get_member(gid, uid, *, redis):
+        if uid == "user1":
+            return {"nick": "Nick1", "global_name": "Bret", "username": "brett"}
+        return {"nick": "Nick2", "global_name": None, "username": "tester"}
+
+    with patch(
+        "services.api.services.display_names.member_projection.get_member",
+        new=AsyncMock(side_effect=fake_get_member),
+    ):
+        result = await resolver.resolve_primary_names("guild123", ["user1", "user2"])
+
+    assert result == {"user1": "Bret", "user2": "tester"}
+
+
+@pytest.mark.asyncio
+async def test_resolve_primary_names_absent_member_from_projection(mock_cache):
+    """resolve_primary_names returns 'Unknown User' for users missing from projection."""
+    resolver = display_names.DisplayNameResolver(mock_cache)
+
+    with patch(
+        "services.api.services.display_names.member_projection.get_member",
+        new=AsyncMock(return_value=None),
+    ):
+        result = await resolver.resolve_primary_names("guild123", ["ghost"])
+
+    assert result == {"ghost": "Unknown User"}
+
+
+@pytest.mark.asyncio
+async def test_resolve_primary_names_exception_returns_fallback(mock_cache):
+    """resolve_primary_names falls back to User#last4 names when projection reads fail."""
+    resolver = display_names.DisplayNameResolver(mock_cache)
+
+    with patch(
+        "services.api.services.display_names.member_projection.get_member",
+        side_effect=RuntimeError("redis down"),
+    ):
+        result = await resolver.resolve_primary_names("guild123", ["user1234", "ab567890"])
+
+    assert result == {"user1234": "User#1234", "ab567890": "User#7890"}

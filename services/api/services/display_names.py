@@ -66,6 +66,22 @@ class DisplayNameResolver:
         return member.get("nick") or member.get("global_name") or member["username"]
 
     @staticmethod
+    def _resolve_primary_name(member: dict) -> str:
+        """
+        Resolve a user's primary Discord name from projection member data.
+
+        Unlike :meth:`_resolve_display_name`, guild nicknames are intentionally
+        excluded so callers always receive the user's cross-server identity.
+
+        Args:
+            member: Flat projection member dict with keys: nick, global_name, username
+
+        Returns:
+            Primary name using fallback: global_name -> username
+        """
+        return member.get("global_name") or member["username"]
+
+    @staticmethod
     def _build_avatar_url(
         user_id: str,
         guild_id: str,
@@ -268,6 +284,38 @@ class DisplayNameResolver:
         """
         result = await self.resolve_display_names(guild_id, [user_id])
         return result.get(user_id, "Unknown User")
+
+    async def resolve_primary_names(self, guild_id: str, user_ids: list[str]) -> dict[str, str]:
+        """
+        Resolve Discord user IDs to their primary names for a guild.
+
+        Primary name is the user's cross-server identity (global display name,
+        falling back to username); guild nicknames are never used, unlike
+        :meth:`resolve_display_names`.
+
+        Args:
+            guild_id: Discord guild (server) ID
+            user_ids: List of Discord user IDs to resolve
+
+        Returns:
+            Dictionary mapping user IDs to primary names; unknown members fall
+            back to "Unknown User" and projection errors to "User#last4".
+        """
+        result = {}
+        try:
+            for user_id in user_ids:
+                member = await member_projection.get_member(guild_id, user_id, redis=self.cache)
+                if member is None:
+                    result[user_id] = "Unknown User"
+                    continue
+                result[user_id] = self._resolve_primary_name(member)
+        except Exception as e:
+            logger.error("Failed to fetch primary names: %s", e)
+            fallback_data = self._create_fallback_display_names(user_ids)
+            for user_id in user_ids:
+                result.setdefault(user_id, fallback_data[user_id])
+
+        return result
 
 
 async def get_display_name_resolver() -> DisplayNameResolver:

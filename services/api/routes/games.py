@@ -643,6 +643,102 @@ async def get_game(
     )
 
 
+@router.get(
+    "/{game_id}/participant-seats",
+    response_model=game_schemas.ParticipantSeatsResponse,
+)
+async def get_participant_seats(
+    game_id: str,
+    current_user: Annotated[auth_schemas.CurrentUser, Depends(auth_deps.get_current_user)],
+    game_service: Annotated[games_service.GameService, Depends(_get_game_service)],
+    role_service: Annotated[
+        roles_module.RoleVerificationService, Depends(permissions_deps.get_role_service)
+    ],
+) -> game_schemas.ParticipantSeatsResponse:
+    """Get ordered seating positions for the linked users of a game session.
+
+    Hosts and server managers only. Only participants with a linked Discord
+    user appear in the list — placeholder entries (host-entered seats without
+    a user) are excluded entirely, so positions run consecutively from 1 over
+    real users alone. Confirmed users are numbered first in the canonical
+    display order (matching Discord announcements), followed by the waitlist.
+    Names use each user's primary Discord name (global display name); guild
+    nicknames are never used.
+
+    Args:
+        game_id: Game session ID to look up
+        current_user: Authenticated user making the request
+        game_service: Service with database access to load the game
+        role_service: Role verification service for authorization checks
+
+    Returns:
+        ParticipantSeatsResponse with a 1-based position per linked user
+
+    Raises:
+        HTTPException: 404 if game not found or caller is outside the guild;
+            403 if caller lacks player roles or cannot manage this game.
+    """
+    game = await game_service.get_game(game_id)
+
+    if game is None:
+        raise HTTPException(
+            status_code=http_status.HTTP_404_NOT_FOUND, detail="Game not found"
+        ) from None
+
+    # Verify user has access (guild membership + player roles)
+    await permissions_deps.verify_game_access(
+        game=game,
+        user_discord_id=current_user.user.discord_id,
+        db=game_service.db,
+        role_service=role_service,
+    )
+
+    try:
+        can_manage = await permissions_deps.can_manage_game(
+            game_host_id=game.host.discord_id,
+            guild_id=game.guild.guild_id,
+            current_user=current_user,
+            role_service=role_service,
+            db=game_service.db,
+        )
+    except HTTPException:
+        can_manage = False
+
+    if not can_manage:
+        raise HTTPException(
+            status_code=http_status.HTTP_403_FORBIDDEN,
+            detail="Only the host or a server manager can view participant seats.",
+        ) from None
+
+    partitioned = participant_sorting.partition_participants(
+        game.participants, game.max_players, signup_method=game.signup_method
+    )
+    # Placeholders (host-entered seats with no linked user) are excluded so the
+    # list contains only real users; numbering restarts consecutively over them.
+    ordered = [
+        p
+        for p in (*partitioned.confirmed, *partitioned.overflow)
+        if p.user is not None and p.user.discord_id
+    ]
+
+    discord_user_ids = [p.user.discord_id for p in ordered]
+    primary_names = {}
+    if discord_user_ids and game.guild_id:
+        resolver = await display_names_module.get_display_name_resolver()
+        primary_names = await resolver.resolve_primary_names(game.guild.guild_id, discord_user_ids)
+
+    return game_schemas.ParticipantSeatsResponse(
+        seats=[
+            game_schemas.ParticipantSeatResponse(
+                position=index,
+                discord_id=participant.user.discord_id,
+                name=primary_names.get(participant.user.discord_id),
+            )
+            for index, participant in enumerate(ordered, start=1)
+        ]
+    )
+
+
 @router.put("/{game_id}", response_model=game_schemas.GameResponse)
 async def update_game(
     game_id: str,

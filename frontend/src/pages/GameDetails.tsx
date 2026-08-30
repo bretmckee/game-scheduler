@@ -39,7 +39,7 @@ import {
   Link,
 } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
-import { useParams, useNavigate } from 'react-router';
+import { Link as RouterLink, useParams, useNavigate } from 'react-router';
 import { apiClient } from '../api/client';
 import { mintCalendarExportToken, buildCalendarExportUrl } from '../api/calendarExport';
 import { GameSession, SignupMethod, SIGNUP_METHOD_INFO } from '../types';
@@ -391,10 +391,24 @@ export const GameDetails: FC = () => {
         <Divider sx={{ my: 3 }} />
 
         <Box sx={{ mb: 3 }}>
-          <Typography variant="h6" gutterBottom>
-            Participants ({game.participant_count || 0}/{game.max_players || UI.DEFAULT_MAX_PLAYERS}
-            )
-          </Typography>
+          {/* Hosts see the participants header as a link to a dedicated table of
+              players and their seat positions; everyone else sees plain text. */}
+          {canEdit ? (
+            <Typography variant="h6" gutterBottom color="primary.main">
+              <RouterLink
+                to={`/games/${gameId}/participant-seats`}
+                style={{ textDecoration: 'underline', textUnderlineOffset: 2 }}
+              >
+                Participants ({game.participant_count || 0}/
+                {game.max_players || UI.DEFAULT_MAX_PLAYERS})
+              </RouterLink>
+            </Typography>
+          ) : (
+            <Typography variant="h6" gutterBottom>
+              Participants ({game.participant_count || 0}/
+              {game.max_players || UI.DEFAULT_MAX_PLAYERS})
+            </Typography>
+          )}
           <ParticipantList
             confirmedParticipants={game.confirmed_participants || []}
             waitlistParticipants={game.waitlist_participants || []}

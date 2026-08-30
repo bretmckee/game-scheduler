@@ -279,6 +279,34 @@ class GameListResponse(BaseModel):
     offset: int = Field(..., description="Offset used for this request")
 
 
+class ParticipantSeatResponse(BaseModel):
+    """One entry of a host-facing participant seating list.
+
+    Only participants with a linked Discord user appear in the list;
+    placeholder entries are excluded server-side, so ``discord_id`` and
+    ``name`` are present for every seat.
+    """
+
+    position: int = Field(..., description="1-based row order over linked users only")
+    discord_id: str = Field(..., description="Discord snowflake ID of the linked user")
+    name: str | None = Field(
+        None,
+        description=(
+            "User's primary Discord name (global display name, never a guild nickname); "
+            "'Unknown User' if the projection has no data for the member"
+        ),
+    )
+
+
+class ParticipantSeatsResponse(BaseModel):
+    """Ordered seating positions for the linked users of a game session."""
+
+    seats: list[ParticipantSeatResponse] = Field(
+        default_factory=list,
+        description="Linked users only - confirmed first, then waitlist; placeholders excluded",
+    )
+
+
 # Import at end to avoid circular import
 from shared.schemas.participant import ParticipantResponse  # noqa: E402, TC001
 

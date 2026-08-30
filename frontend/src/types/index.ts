@@ -141,6 +141,22 @@ export interface Participant {
   position: number;
 }
 
+// NOTE: Mirrors shared/schemas/game.py (ParticipantSeatResponse /
+// ParticipantSeatsResponse) - keep field names in sync. Only users with a
+// linked Discord account appear; placeholder seats are excluded server-side.
+export interface ParticipantSeat {
+  /** 1-based row order over linked users; confirmed first, then waitlist */
+  position: number;
+  /** Discord snowflake ID of the linked user */
+  discord_id: string;
+  /** Primary Discord name (global name, never guild nickname) */
+  name: string | null;
+}
+
+export interface ParticipantSeats {
+  seats: ParticipantSeat[];
+}
+
 export interface GameListResponse {
   games: GameSession[];
   total: number;
