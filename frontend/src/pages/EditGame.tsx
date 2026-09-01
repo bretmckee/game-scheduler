@@ -28,6 +28,20 @@ import { GameForm, GameFormData } from '../components/GameForm';
 import { ParticipantInput } from '../components/EditableParticipantList';
 
 /**
+ * True if a persisted participant's mention was edited in place (text changed but the
+ * row kept its original, non-"temp-" id). The update API has no way to change who
+ * occupies an existing participant_id, so an edited row must be submitted as a removal
+ * of the old id plus a new mention, rather than the usual position-only update.
+ */
+function isReplacedParticipant(p: ParticipantInput): boolean {
+  return (
+    !p.id.startsWith('temp-') &&
+    p.originalMention !== undefined &&
+    p.mention.trim() !== p.originalMention
+  );
+}
+
+/**
  * Build the participants payload for a game-update submission.
  *
  * Includes every participant whose mention is non-empty and who is either
@@ -49,7 +63,7 @@ function buildParticipantsPayload(
       (p, idx) => p.mention.trim() && (p.isExplicitlyPositioned || idx <= highestExplicitIndex)
     )
     .map((p) => {
-      if (!p.id.startsWith('temp-')) {
+      if (!p.id.startsWith('temp-') && !isReplacedParticipant(p)) {
         return { participant_id: p.id, position: p.preFillPosition };
       }
       return { mention: p.resolvedMention ?? p.mention.trim(), position: p.preFillPosition };
@@ -147,12 +161,13 @@ export const EditGame: FC = () => {
 
     const maxPlayers = formData.maxPlayers ? parseInt(formData.maxPlayers) : null;
 
-    // Detect removed participants by comparing initial vs current
+    // Detect removed participants by comparing initial vs current. A row whose mention
+    // was edited in place no longer counts as "current" for its old id -- it's submitted
+    // as a new mention instead, so the stale record must be removed too.
     const currentParticipantIds = new Set(
       formData.participants
         .map((p) => {
-          // Extract participant ID if it exists (not a temp ID)
-          return p.id.startsWith('temp-') ? null : p.id;
+          return p.id.startsWith('temp-') || isReplacedParticipant(p) ? null : p.id;
         })
         .filter(Boolean)
     );
@@ -314,7 +329,9 @@ export const EditGame: FC = () => {
     const maxPlayers = formData.maxPlayers ? parseInt(formData.maxPlayers) : null;
 
     const currentParticipantIds = new Set(
-      formData.participants.map((p) => (p.id.startsWith('temp-') ? null : p.id)).filter(Boolean)
+      formData.participants
+        .map((p) => (p.id.startsWith('temp-') || isReplacedParticipant(p) ? null : p.id))
+        .filter(Boolean)
     );
 
     const removedParticipantIds = state.initialParticipants

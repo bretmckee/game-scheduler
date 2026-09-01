@@ -581,6 +581,67 @@ describe('EditGame', () => {
     position: 32767,
   });
 
+  const hostAddedPlaceholder = (id: string, name: string, position: number): Participant => ({
+    id,
+    game_session_id: 'game123',
+    user_id: null,
+    discord_id: null,
+    display_name: name,
+    joined_at: '2025-01-01T00:00:00Z',
+    position_type: ParticipantType.HOST_ADDED,
+    position,
+  });
+
+  it('replaces an edited placeholder with a new participant instead of silently keeping the old name', async () => {
+    const gameWithPlaceholder: GameSession = {
+      ...mockGame,
+      participants: [hostAddedPlaceholder('placeholder1', 'Guest Player', 1)],
+    };
+
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url.includes('/games/')) return Promise.resolve({ data: gameWithPlaceholder });
+      if (url.includes('/channels')) return Promise.resolve({ data: mockChannels });
+      if (url.includes('/roles')) return Promise.resolve({ data: [] });
+      return Promise.reject(new Error('Unknown URL'));
+    });
+    vi.mocked(apiClient.put).mockResolvedValueOnce({ data: gameWithPlaceholder });
+
+    const user = userEvent.setup();
+
+    render(
+      <AuthContext.Provider value={mockAuthContextValue}>
+        <BrowserRouter>
+          <EditGame />
+        </BrowserRouter>
+      </AuthContext.Provider>
+    );
+
+    const placeholderInput = await screen.findByDisplayValue('Guest Player');
+    await user.clear(placeholderInput);
+    await user.type(placeholderInput, '@realuser');
+
+    await user.click(screen.getByText('Save Changes'));
+
+    await waitFor(() => {
+      expect(apiClient.put).toHaveBeenCalled();
+    });
+
+    const formData = vi.mocked(apiClient.put).mock.calls[0]![1] as FormData;
+    const participantsPayload = JSON.parse(formData.get('participants') as string);
+    const removedParticipantIds = JSON.parse(
+      (formData.get('removed_participant_ids') as string) ?? '[]'
+    );
+
+    // The edited row must not be re-sent as a no-op position update on the old id ...
+    expect(participantsPayload).not.toContainEqual(
+      expect.objectContaining({ participant_id: 'placeholder1' })
+    );
+    // ... it must be submitted as a new mention at the same position ...
+    expect(participantsPayload).toContainEqual({ mention: '@realuser', position: 1 });
+    // ... and the stale placeholder record must be explicitly removed.
+    expect(removedParticipantIds).toEqual(['placeholder1']);
+  });
+
   it('includes the full disturbed prefix, not just the literally-moved participant, in the submitted payload', async () => {
     const gameWithParticipants: GameSession = {
       ...mockGame,

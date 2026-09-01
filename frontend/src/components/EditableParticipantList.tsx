@@ -38,6 +38,10 @@ export interface ParticipantInput {
   isReadOnly?: boolean; // Joined participants can't be edited, only reordered/removed
   isOpenSlot?: boolean; // Placeholder for an unfilled confirmed slot
   validationStatus?: 'valid' | 'unknown' | 'invalid'; // Track validation state
+  // Mention this row was pre-populated with, for a persisted (non-"temp-") id. Lets
+  // callers detect an in-place text edit, which the update API can't apply to an
+  // existing participant_id -- it must be submitted as remove-old + add-new instead.
+  originalMention?: string;
 }
 
 interface EditableParticipantListProps {

@@ -734,6 +734,88 @@ async def test_update_game_preserves_host_added_participant_omitted_from_payload
 
 
 @pytest.mark.asyncio
+async def test_update_game_replaces_placeholder_via_removed_and_mention_in_same_request(
+    create_user,
+    create_guild,
+    create_channel,
+    create_template,
+    seed_redis_cache,
+    api_base_url,
+    admin_db_sync,
+):
+    """A single PUT with `removed_participant_ids` + a new `participants` mention
+    replaces a participant's identity at the same position.
+
+    Regression test for a bug report: a host edited an existing placeholder's name
+    in the edit-game UI, saved with no error, and the name never changed. The
+    frontend has no way to update an existing participant_id's identity, so an
+    in-place edit must be submitted as remove-old + add-new in one request. This
+    verifies that combination actually replaces the participant rather than, e.g.,
+    leaving both the old and new rows behind or losing the position.
+    """
+    ctx = await _setup_game_context(
+        create_user, create_guild, create_channel, create_template, seed_redis_cache
+    )
+    session_token, _ = await create_test_session(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+
+    try:
+        async with httpx.AsyncClient(
+            base_url=api_base_url,
+            timeout=10.0,
+            cookies={"session_token": session_token},
+        ) as client:
+            game = await _create_game_via_api(client, ctx, title="Placeholder Replace Game")
+
+            placeholder_id = str(uuid.uuid4())
+            admin_db_sync.execute(
+                text(
+                    "INSERT INTO game_participants "
+                    "(id, game_session_id, user_id, display_name, joined_at, "
+                    "position_type, position) "
+                    "VALUES (:id, :game_session_id, NULL, :display_name, :joined_at, "
+                    ":position_type, :position)"
+                ),
+                {
+                    "id": placeholder_id,
+                    "game_session_id": game["id"],
+                    "display_name": "Guest Player",
+                    "joined_at": datetime.now(UTC),
+                    "position_type": 8000,  # HOST_ADDED
+                    "position": 1,
+                },
+            )
+            admin_db_sync.commit()
+
+            response = await client.put(
+                f"/api/v1/games/{game['id']}",
+                data={
+                    "removed_participant_ids": json.dumps([placeholder_id]),
+                    "participants": json.dumps([{"mention": "Real Player", "position": 1}]),
+                },
+            )
+
+        assert response.status_code == 200, (
+            f"Expected 200, got {response.status_code}: {response.text}"
+        )
+
+        rows = admin_db_sync.execute(
+            text(
+                "SELECT id, display_name, position_type, position FROM game_participants "
+                "WHERE game_session_id = :game_id"
+            ),
+            {"game_id": game["id"]},
+        ).fetchall()
+
+        assert len(rows) == 1, f"Expected exactly 1 participant after replace, got: {rows}"
+        assert rows[0][0] != placeholder_id, "Old placeholder record must be deleted, not reused"
+        assert rows[0][1] == "Real Player"
+        assert rows[0][2] == 8000  # HOST_ADDED
+        assert rows[0][3] == 1
+    finally:
+        await cleanup_test_session(session_token)
+
+
+@pytest.mark.asyncio
 async def test_update_game_remove_thumbnail(
     create_user,
     create_guild,

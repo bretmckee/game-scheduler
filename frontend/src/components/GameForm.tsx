@@ -190,6 +190,7 @@ function buildParticipantList(
     const confirmed = (data.confirmed_participants ?? []).map((p, index) => ({
       id: p.id,
       mention: formatParticipantDisplay(p.display_name, p.discord_id),
+      originalMention: formatParticipantDisplay(p.display_name, p.discord_id),
       isValid: true,
       preFillPosition: index + 1,
       isExplicitlyPositioned: true,
@@ -209,6 +210,7 @@ function buildParticipantList(
     const waitlisted = (data.waitlist_participants ?? []).map((p, index) => ({
       id: p.id,
       mention: formatParticipantDisplay(p.display_name, p.discord_id),
+      originalMention: formatParticipantDisplay(p.display_name, p.discord_id),
       isValid: true,
       preFillPosition: confirmed.length + openSlotCount + index + 1,
       isExplicitlyPositioned: false,
@@ -228,6 +230,7 @@ function buildParticipantList(
     .map((p, index) => ({
       id: p.id,
       mention: formatParticipantDisplay(p.display_name, p.discord_id),
+      originalMention: formatParticipantDisplay(p.display_name, p.discord_id),
       isValid: true,
       preFillPosition: index + 1,
       isExplicitlyPositioned: p.position_type === ParticipantType.HOST_ADDED,
