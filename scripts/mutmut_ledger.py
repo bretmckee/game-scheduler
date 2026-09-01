@@ -73,6 +73,10 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 LEDGER_DEFAULT = REPO_ROOT / "mutmut-baseline.json"
 BLOCKING_CLASS = "logic"
 SCOPE_PREFIXES = ("services/", "shared/")
+TEST_SCOPE_PREFIX = "tests/"
+UNMAPPED_PREVIEW_LIMIT = 5
+REGRESSION_PREVIEW_LIMIT = 8
+HEURISTIC_TEST_PATH_MIN_PARTS = 3
 EDIT_SUMMARY_LIMIT = 240
 LEDGER_MAX_BYTES = 950_000  # stays under the 1MB pre-commit large-file cap
 STALE_PREVIEW_LIMIT = 40
@@ -120,17 +124,27 @@ def resolve_base_ref(explicit: str | None) -> str:
     raise SystemExit(message)
 
 
-def changed_python_files(base: str) -> list[str]:
-    """Repo-relative Python files differing between `base` and the worktree.
-
-    Two-dot form on purpose: includes uncommitted local changes so pre-commit
-    sees exactly what CI will see after the pending commits land.
-    """
+def _diff_py_files(base: str) -> list[str]:
+    """Repo-relative Python files differing between `base` and the worktree."""
     proc = _run_git("diff", "--name-only", "-U0", base, "--", "*.py")
     if proc.returncode != 0:
         message = f"[ledger] git diff failed against {base}: {proc.stderr}"
         raise SystemExit(message)
-    return [line for line in proc.stdout.splitlines() if line.startswith(SCOPE_PREFIXES)]
+    return [line for line in proc.stdout.splitlines() if line.strip()]
+
+
+def changed_python_files(base: str) -> list[str]:
+    """Source files under services/ or shared/ that differ relative to base.
+
+    Two-dot form on purpose: includes uncommitted local changes so pre-commit
+    sees exactly what CI will see after the pending commits land.
+    """
+    return [f for f in _diff_py_files(base) if f.startswith(SCOPE_PREFIXES)]
+
+
+def changed_test_files(base: str) -> list[str]:
+    """Test files under tests/ that differ relative to base."""
+    return [f for f in _diff_py_files(base) if f.startswith(TEST_SCOPE_PREFIX)]
 
 
 class FunctionSpan:
@@ -293,10 +307,17 @@ EDIT_SUMMARY_LIMIT = 240
 
 
 def compute_scope(base: str) -> tuple[list[str], dict[str, set[str]]]:
-    """Patterns plus family sets per scoped file; '*' sentinel means whole-file."""
+    """Patterns plus family sets per scoped file; '*' sentinel means whole-file.
+
+    Scope is the union of (a) function families of changed source lines and
+    (b) every mutant of modules that changed test files import. Part (b)
+    catches tests-only PRs weakening killers of untouched code.
+    """
     files = changed_python_files(base)
-    if not files:
-        _note("no services/ or shared/ Python changes relative to base; nothing to check")
+    test_files = changed_test_files(base)
+    test_modules, unmapped_tests = map_test_modules(test_files, base)
+    if not files and not test_modules:
+        _note("no services/shared or attributable test changes relative to base")
         return [], {}
     patterns: list[str] = []
     families_by_file: dict[str, set[str]] = {}
@@ -305,14 +326,113 @@ def compute_scope(base: str) -> tuple[list[str], dict[str, set[str]]]:
         if file_patterns:
             patterns.extend(file_patterns)
             families_by_file[relpath] = fams
+    for relpath in test_modules:
+        dotted = Path(relpath).with_suffix("").as_posix().replace("/", ".")
+        patterns.append(f"{dotted}.*")
+        families_by_file.setdefault(relpath, set()).add("*")
+    if unmapped_tests:
+        preview = ", ".join(unmapped_tests[:UNMAPPED_PREVIEW_LIMIT]) + (
+            " ..." if len(unmapped_tests) > UNMAPPED_PREVIEW_LIMIT else ""
+        )
+        _note(
+            f"WARN: {len(unmapped_tests)} changed test path(s) could not be mapped to a "
+            f"source module (attribution skipped): {preview}"
+        )
     patterns = sorted(set(patterns))
-    _note(f"scope resolved: {len(patterns)} pattern(s) across {len(files)} changed file(s)")
+    _note(
+        f"scope resolved: {len(patterns)} pattern(s) across {len(files)} source and "
+        f"{len(test_files)} test file(s)"
+    )
     return patterns, families_by_file
 
 
 def resolve_scope(base: str) -> list[str]:
     """Backwards-compatible wrapper returning patterns only."""
     return compute_scope(base)[0]
+
+
+def _imported_dotted_modules(source_text: str) -> set[str]:
+    """Dotted module names a Python file imports, restricted to app packages."""
+    try:
+        tree = ast.parse(source_text)
+    except SyntaxError:
+        return set()
+    modules: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module:
+            modules.add(node.module)
+        elif isinstance(node, ast.Import):
+            modules.update(alias.name for alias in node.names)
+    return {m for m in modules if m.startswith(("services.", "shared."))}
+
+
+def _module_relpaths(dotted: str) -> list[str]:
+    """Concrete source paths one imported dotted name can refer to.
+
+    An exact module wins; otherwise the package's direct child modules are
+    returned so a package-level import still bounds re-check cost sensibly.
+    """
+    base_dir = REPO_ROOT / dotted.replace(".", "/")
+    exact = base_dir.with_suffix(".py")
+    if exact.is_file():
+        return [str(exact.relative_to(REPO_ROOT))]
+    if base_dir.is_dir():
+        return sorted(str(p.relative_to(REPO_ROOT)) for p in base_dir.glob("*.py"))
+    return []
+
+
+def _heuristic_module_relpath(test_path: str) -> str | None:
+    """Mirror-layout guess: tests/unit/<pkg>/test_<mod>.py <-> <pkg>/<mod>.py."""
+    parts = test_path.split("/")
+    if len(parts) >= HEURISTIC_TEST_PATH_MIN_PARTS and parts[0] == "tests" and parts[1] == "unit":
+        leaf = parts[-1].removesuffix(".py").removeprefix("test_")
+        candidate = f"{'/'.join(parts[2:-1])}/{leaf}.py"
+        if (REPO_ROOT / candidate).is_file() and candidate.startswith(SCOPE_PREFIXES):
+            return candidate
+    return None
+
+
+def _test_file_texts(base: str, test_path: str) -> list[str]:
+    """A test file's content from the worktree and from base, whichever exist.
+
+    Deletions and renames lose their import lists unless we also read the base
+    version: kills in the baseline were produced by the suite that existed at
+    snapshot time, so attribution must span both sides of a changed test file.
+    """
+    texts: list[str] = []
+    path = REPO_ROOT / test_path
+    if path.is_file():
+        with contextlib.suppress(OSError):
+            texts.append(path.read_text(encoding="utf-8"))
+    show = _run_git("show", f"{base}:{test_path}")
+    if show.returncode == 0 and show.stdout.strip() and (not texts or show.stdout != texts[0]):
+        texts.append(show.stdout)
+    return texts
+
+
+def map_test_modules(test_paths: list[str], base: str) -> tuple[list[str], list[str]]:
+    """Map changed test files onto the source modules their imports exercise.
+
+    Imports are unioned over the worktree AND the base version of each test so
+    deleted/renamed files still attribute to what they used to kill. Returns
+    (source relpaths, unmapped test paths); unmapped keeps a documented WARN
+    instead of a silent skip so coverage loss is visible at commit time.
+    """
+    mapped: set[str] = set()
+    unmapped: list[str] = []
+    for test_path in test_paths:
+        candidates: set[str] = set()
+        for text in _test_file_texts(base, test_path):
+            for dotted in _imported_dotted_modules(text):
+                candidates.update(_module_relpaths(dotted))
+        heuristic = _heuristic_module_relpath(test_path)
+        if heuristic:
+            candidates.add(heuristic)
+        if candidates:
+            mapped.update(candidates)
+        else:
+            unmapped.append(test_path)
+    return sorted(mapped), unmapped
 
 
 def run_scoped(patterns: list[str]) -> None:
@@ -407,22 +527,32 @@ def summarize_edit(diff_text: str) -> str:
     return collator.render()
 
 
+def _mutant_num(key: str) -> int:
+    """Numeric suffix of a ``...__mutmut_N`` store key."""
+    return int(key.rpartition("__mutmut_")[2])
+
+
 def _file_entries(
     relpath: str, fams: set[str], classifier: ModuleType
-) -> tuple[dict[str, list] | None, int, int]:
-    """Extract surviving entries from one source file's mutation store record."""
+) -> tuple[dict[str, list] | None, int, int, list[str]]:
+    """Extract surviving entries plus currently-killed keys for one file's record."""
     meta_path = REPO_ROOT / "mutants" / f"{relpath}.meta"
     mutant_src = REPO_ROOT / "mutants" / relpath
     if not meta_path.exists():
         _note(f"{relpath}: no result data in store; skipped")
-        return None, 0, 0
+        return None, 0, 0, []
     raw_meta = json.loads(meta_path.read_text(encoding="utf-8"))
     codes = raw_meta["exit_code_by_key"]
     keys = [k for k in codes if fams == {"*"} or family_of(k) in fams]
     if not keys:
-        return None, 0, 0
+        return None, 0, 0, []
     module = cst.parse_module(mutant_src.read_text(encoding="utf-8"))
     unchecked = sum(1 for key in keys if codes[key] is None)
+    killed_keys = [
+        key
+        for key in keys
+        if codes[key] is not None and STATUS_TO_CLASS.get(codes[key]) == "killed"
+    ]
     file_entries: dict[str, list] = {}
     seen_pairs: set[tuple[str, str]] = set()
     for key in keys:
@@ -442,55 +572,73 @@ def _file_entries(
         if pair not in seen_pairs:
             seen_pairs.add(pair)
             file_entries.setdefault(family_of(key), []).append(list(pair))
-    return file_entries, len(keys), unchecked
+    return file_entries, len(keys), unchecked, killed_keys
 
 
 def extract_entries(
     families_by_file: dict[str, set[str]], classifier: ModuleType
-) -> tuple[dict[str, dict[str, list]], dict[str, int]]:
+) -> tuple[dict[str, dict[str, list]], dict[str, dict[str, list[int]]], dict[str, int]]:
     """Read live store results restricted to scoped files/families.
 
-    Returns (entries, stats); entries maps relpath -> family prefix -> [[cls, summary]].
-    Only non-killed verdicts are recorded; 'survived' splits into logic (blocking
-    class) vs string via the classifier predicate.
+    Returns (entries, live_killed, stats). entries maps relpath -> family prefix
+    -> [[cls, summary]]; only non-killed verdicts are recorded, 'survived' splits
+    into logic (blocking class) vs string via the classifier predicate.
+    live_killed maps relpath -> family prefix -> sorted list of mutant numbers
+    currently reporting killed, used by the kill-regression check.
     """
     entries: dict[str, dict[str, list]] = {}
+    live_killed: dict[str, dict[str, list[int]]] = {}
     stats = {"scanned": 0, "recorded": 0, "unchecked_in_scope": 0}
     for relpath, fams in sorted(families_by_file.items()):
-        file_entries, scanned, unchecked = _file_entries(relpath, fams, classifier)
+        file_entries, scanned, unchecked, killed_keys = _file_entries(relpath, fams, classifier)
         if file_entries is None:
             continue
         entries[relpath] = file_entries
         stats["scanned"] += scanned
         stats["recorded"] += sum(len(v) for v in file_entries.values())
         stats["unchecked_in_scope"] += unchecked
-    return entries, stats
+        if killed_keys:
+            per_family: dict[str, set[int]] = {}
+            for key in killed_keys:
+                per_family.setdefault(family_of(key), set()).add(_mutant_num(key))
+            live_killed[relpath] = {fam: sorted(ns) for fam, ns in per_family.items()}
+    return entries, live_killed, stats
 
 
 def load_ledger(path: Path) -> dict:
     if not path.exists():
         _note(f"baseline {path.name} missing; every survivor will count as NEW")
-        return {"entries": {}}
+        return {"entries": {}, "killed": {}}
     data = json.loads(path.read_text(encoding="utf-8"))
     total = sum(
         len(rows) for fam_map in data.get("entries", {}).values() for rows in fam_map.values()
     )
-    _note(f"loaded baseline {path.name}: {total} recorded entry(ies)")
+    killed_total = sum(
+        len(ns) for fam_map in data.get("killed", {}).values() for ns in fam_map.values()
+    )
+    note = (
+        f"loaded baseline {path.name}: {total} recorded entry(ies), {killed_total} tracked kill(s)"
+    )
+    if "killed" not in data:
+        note += "; pre-v2 ledger, kill-regression check disabled"
+    _note(note)
     return data
 
 
-def write_ledger(entries: dict, out_path: Path, source_commit: str) -> None:
+def write_ledger(entries: dict, killed: dict, out_path: Path, source_commit: str) -> None:
     entry_count = sum(len(rows) for fam_map in entries.values() for rows in fam_map.values())
     payload = {
         "_readme": (
-            "Mutant debt ledger (ratchet baseline). Regenerate ONLY after a complete "
+            "Mutant debt ledger v2 (ratchet baseline). Regenerate ONLY after a complete "
             "cold run: .venv/bin/python scripts/mutmut_ledger.py snapshot. "
-            "The gate blocks NEW 'logic' entries not present in this file."
+            "'entries' gates NEW non-killed logic survivors; 'killed' tracks which "
+            "__mutmut_N were killed so weakened tests that resurrect them are blocked."
         ),
-        "version": 1,
+        "version": 2,
         "generated_utc": datetime.datetime.now(datetime.UTC).isoformat(timespec="seconds"),
         "source_commit": source_commit,
         "entries": entries,
+        "killed": killed,
     }
     text = json.dumps(payload, indent=1, sort_keys=True)
     size = len(text.encode("utf-8"))
@@ -557,6 +705,38 @@ def _ratchet_family(
     return fail_lines, warn_lines, stale_lines
 
 
+def kill_regressions(
+    base_killed: dict[str, dict[str, list[int]]], live_killed: dict[str, dict[str, list[int]]]
+) -> list[str]:
+    """Baseline-killed mutants that no longer report killed within this run scope.
+
+    Only families actually re-run this time are compared; out-of-scope families
+    stay excluded so a clobbered store cannot manufacture false positives.
+    """
+    lines: list[str] = []
+    for relpath, fams_base in sorted(base_killed.items()):
+        live_fams = live_killed.get(relpath)
+        if not live_fams:
+            continue
+        for fam, base_ns in sorted(fams_base.items()):
+            live_ns = set(live_fams.get(fam) or [])
+            lost = [n for n in base_ns if n not in live_ns]
+            if not lost:
+                continue
+            label = _family_func_label(fam)
+            preview = ", ".join(f"__mutmut_{n}" for n in lost[:REGRESSION_PREVIEW_LIMIT])
+            more = (
+                f" (+{len(lost) - REGRESSION_PREVIEW_LIMIT} more)"
+                if len(lost) > REGRESSION_PREVIEW_LIMIT
+                else ""
+            )
+            lines.append(
+                f"{relpath} | {label} | {len(lost)} previously-killed mutant(s) now survive: "
+                f"{preview}{more}"
+            )
+    return lines
+
+
 def _git_source_commit() -> str:
     sha = _run_git("rev-parse", "--short", "HEAD").stdout.strip()
     dirty = _run_git("status", "--porcelain").stdout.strip()
@@ -585,17 +765,18 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
     for meta in metas:
         rel = str(meta.relative_to(REPO_ROOT / "mutants"))[: -len(".meta")]
         families_by_file[rel] = {"*"}
-    entries, stats = extract_entries(families_by_file, classifier)
+    entries, live_killed, stats = extract_entries(families_by_file, classifier)
     out_path = Path(args.out) if args.out else LEDGER_DEFAULT
-    write_ledger(entries, out_path, _git_source_commit())
+    write_ledger(entries, live_killed, out_path, _git_source_commit())
     by_class: dict[str, int] = {}
     for fam_map in entries.values():
         for rows in fam_map.values():
             for cls, _ in rows:
                 by_class[cls] = by_class.get(cls, 0) + 1
+    killed_total = sum(len(ns) for fams in live_killed.values() for ns in fams.values())
     summary = (
         f"snapshot complete: scanned={stats['scanned']} "
-        f"recorded={stats['recorded']} classes={by_class}"
+        f"recorded={stats['recorded']} classes={by_class} tracked-kills={killed_total}"
     )
     print(summary)
     return 0
@@ -609,17 +790,22 @@ def cmd_gate(args: argparse.Namespace) -> int:
         print("OK: no mutation surface changed relative to base")
         return 0
     run_scoped(patterns)
-    live, stats = extract_entries(families_by_file, classifier)
+    live, live_killed, stats = extract_entries(families_by_file, classifier)
     if stats["unchecked_in_scope"]:
         _note(
             f"WARN: {stats['unchecked_in_scope']} scoped mutant(s) have no verdict; "
             "the ratchet below may under-report new failures this time"
         )
-    baseline = load_ledger(Path(args.baseline) if args.baseline else LEDGER_DEFAULT)["entries"]
-    fail_lines, warn_lines, stale_lines = ratchet(baseline, live)
+    ledger_data = load_ledger(Path(args.baseline) if args.baseline else LEDGER_DEFAULT)
+    base_entries = ledger_data.get("entries", {})
+    base_killed = ledger_data.get("killed") or {}
+    fail_lines, warn_lines, stale_lines = ratchet(base_entries, live)
+    regressions = kill_regressions(base_killed, live_killed) if base_killed else []
     print(f"\n=== mutation gate report (scope: {len(patterns)} pattern(s)) ===")
     for line in fail_lines:
         print(f"[FAIL] NEW logic survivor: {line}")
+    for line in regressions:
+        print(f"[FAIL] KILL REGRESSION (weakened test?): {line}")
     for line in warn_lines:
         print(f"[WARN] new non-blocking entry: {line}")
     for line in stale_lines[:STALE_PREVIEW_LIMIT]:
@@ -627,11 +813,17 @@ def cmd_gate(args: argparse.Namespace) -> int:
     if len(stale_lines) > STALE_PREVIEW_LIMIT:
         print(f"... and {len(stale_lines) - STALE_PREVIEW_LIMIT} more stale entries")
     print(
-        f"totals: new-logic={len(fail_lines)} new-other={len(warn_lines)} "
-        f"stale={len(stale_lines)} recorded-now={stats['recorded']}"
+        f"totals: new-logic={len(fail_lines)} kill-regressions={len(regressions)} "
+        f"new-other={len(warn_lines)} stale={len(stale_lines)} recorded-now={stats['recorded']}"
     )
-    if fail_lines:
-        print("\nGATE FAILED: fix or test the new logic survivors above before merging.")
+    if fail_lines or regressions:
+        hint = ""
+        if regressions and not fail_lines:
+            hint = (
+                "\nKilled mutants that survive again mean a changed test lost teeth; "
+                "restore/strengthen it (or consciously accept via a fresh cold snapshot)."
+            )
+        print("\nGATE FAILED: see FAIL lines above." + hint)
         return 1
     print("\nGATE PASSED")
     return 0
