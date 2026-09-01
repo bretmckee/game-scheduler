@@ -182,7 +182,9 @@ repos:
         entry: .venv/bin/python scripts/mutmut_ledger.py gate
         language: system
         pass_filenames: false
-        files: ^(services|shared)/.*\.py$
+        # Fires on app source changes AND on test-file changes: tests-only PRs can
+        # weaken killers of untouched code, so changed tests pull in imported modules.
+        files: ^((services)|(shared))/.*\.py$|^tests/.*\.py$
 
   # TypeScript/Frontend: linting, formatting, type checking, build, testing, and coverage
   - repo: local
