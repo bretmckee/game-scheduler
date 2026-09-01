@@ -246,6 +246,15 @@ min-lines = 0
 [tool.check-test-assertions]
 no-arg-methods = ["flush", "commit", "rollback", "close", "get_config", "get_redis_client", "get_db_session", "get_role_service", "connect", "start_consuming", "touch", "get_discord_client", "instrument", "flush_telemetry", "get_api_config", "disconnect", "serve"]
 
+# Mutation testing scope for full-repo audits. Per-PR CI gating uses
+# per-function wildcards generated from AST hashes (see research notes), so the
+# config below stays at production width. `scripts` is required in also_copy
+# because unit tests import scripts by path via importlib (mutants/ sandbox).
+[tool.mutmut]
+paths_to_mutate = ["services/", "shared/"]
+tests_dir = ["tests/unit"]
+also_copy = ["services", "shared", "scripts"]
+
 [tool.setuptools_scm]
 fallback_version = "0.0.0+unknown"
 
