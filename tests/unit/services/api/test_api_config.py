@@ -37,9 +37,20 @@ def reset_config_singleton():
     config._config_instance = None
 
 
+# Mutation-testing harness marker. These hermetic tests clear os.environ entirely
+# (patch.dict(clear=True)), which would remove the variable mutmut's mutant
+# trampolines read during test execution. Their current value is therefore carried
+# through each cleared scope explicitly; outside a mutmut run it is empty and every
+# wrapped call routes to the original function unchanged.
+
+
 def test_api_config_loads_defaults():
     """Test that APIConfig raises when required env vars are not set."""
-    with patch.dict(os.environ, {}, clear=True):
+    with patch.dict(
+        os.environ,
+        {"MUTANT_UNDER_TEST": os.environ.get("MUTANT_UNDER_TEST", "")},
+        clear=True,
+    ):
         with pytest.raises(ValueError):
             config.APIConfig()
 
@@ -47,6 +58,7 @@ def test_api_config_loads_defaults():
 def test_api_config_loads_optional_defaults():
     """Test that optional fields have correct defaults when required fields are set."""
     required = {
+        "MUTANT_UNDER_TEST": os.environ.get("MUTANT_UNDER_TEST", ""),
         "DISCORD_BOT_CLIENT_ID": "id",
         "DISCORD_BOT_CLIENT_SECRET": "secret",
         "DISCORD_BOT_TOKEN": "token",
@@ -84,7 +96,11 @@ def test_api_config_loads_from_environment():
         "LOG_LEVEL": "DEBUG",
     }
 
-    with patch.dict(os.environ, env_vars, clear=True):
+    with patch.dict(
+        os.environ,
+        {**env_vars, "MUTANT_UNDER_TEST": os.environ.get("MUTANT_UNDER_TEST", "")},
+        clear=True,
+    ):
         cfg = config.APIConfig()
 
         assert cfg.discord_client_id == "test_client_id"
@@ -105,6 +121,7 @@ def test_api_config_loads_from_environment():
 def test_get_api_config_returns_singleton():
     """Test that get_api_config returns the same instance on multiple calls."""
     required = {
+        "MUTANT_UNDER_TEST": os.environ.get("MUTANT_UNDER_TEST", ""),
         "DISCORD_BOT_CLIENT_ID": "id",
         "DISCORD_BOT_CLIENT_SECRET": "secret",
         "DISCORD_BOT_TOKEN": "token",
@@ -126,7 +143,11 @@ def test_api_config_debug_mode_in_development():
         "JWT_SECRET": "a-valid-jwt-secret",
         "ENVIRONMENT": "development",
     }
-    with patch.dict(os.environ, required, clear=True):
+    with patch.dict(
+        os.environ,
+        {**required, "MUTANT_UNDER_TEST": os.environ.get("MUTANT_UNDER_TEST", "")},
+        clear=True,
+    ):
         cfg = config.APIConfig()
         assert cfg.debug is True
 
@@ -140,7 +161,11 @@ def test_api_config_debug_mode_in_production():
         "JWT_SECRET": "a-valid-jwt-secret",
         "ENVIRONMENT": "production",
     }
-    with patch.dict(os.environ, required, clear=True):
+    with patch.dict(
+        os.environ,
+        {**required, "MUTANT_UNDER_TEST": os.environ.get("MUTANT_UNDER_TEST", "")},
+        clear=True,
+    ):
         cfg = config.APIConfig()
         assert cfg.debug is False
 
@@ -188,7 +213,11 @@ def test_api_config_cookie_domain_derived():
         "FRONTEND_URL": "https://app.example.com",
         "BACKEND_URL": "https://api.example.com",
     }
-    with patch.dict(os.environ, env_vars, clear=True):
+    with patch.dict(
+        os.environ,
+        {**env_vars, "MUTANT_UNDER_TEST": os.environ.get("MUTANT_UNDER_TEST", "")},
+        clear=True,
+    ):
         cfg = config.APIConfig()
         assert cfg.cookie_domain == ".example.com"
 
@@ -203,21 +232,36 @@ def test_api_config_cookie_domain_localhost():
         "FRONTEND_URL": "http://localhost:3000",
         "BACKEND_URL": "http://localhost:8000",
     }
-    with patch.dict(os.environ, env_vars, clear=True):
+    with patch.dict(
+        os.environ,
+        {**env_vars, "MUTANT_UNDER_TEST": os.environ.get("MUTANT_UNDER_TEST", "")},
+        clear=True,
+    ):
         cfg = config.APIConfig()
         assert cfg.cookie_domain is None
 
 
 def test_api_config_raises_on_missing_discord_client_id():
     """Test that APIConfig raises ValueError when DISCORD_BOT_CLIENT_ID is not set."""
-    with patch.dict(os.environ, {}, clear=True):
+    with patch.dict(
+        os.environ,
+        {"MUTANT_UNDER_TEST": os.environ.get("MUTANT_UNDER_TEST", "")},
+        clear=True,
+    ):
         with pytest.raises(ValueError, match="DISCORD_BOT_CLIENT_ID"):
             config.APIConfig()
 
 
 def test_api_config_raises_on_missing_discord_client_secret():
     """Test that APIConfig raises ValueError when DISCORD_BOT_CLIENT_SECRET is not set."""
-    with patch.dict(os.environ, {"DISCORD_BOT_CLIENT_ID": "set"}, clear=True):
+    with patch.dict(
+        os.environ,
+        {
+            "DISCORD_BOT_CLIENT_ID": "set",
+            "MUTANT_UNDER_TEST": os.environ.get("MUTANT_UNDER_TEST", ""),
+        },
+        clear=True,
+    ):
         with pytest.raises(ValueError, match="DISCORD_BOT_CLIENT_SECRET"):
             config.APIConfig()
 
@@ -226,7 +270,11 @@ def test_api_config_raises_on_missing_discord_bot_token():
     """Test that APIConfig raises ValueError when DISCORD_BOT_TOKEN is not set."""
     with patch.dict(
         os.environ,
-        {"DISCORD_BOT_CLIENT_ID": "set", "DISCORD_BOT_CLIENT_SECRET": "set"},
+        {
+            "DISCORD_BOT_CLIENT_ID": "set",
+            "DISCORD_BOT_CLIENT_SECRET": "set",
+            "MUTANT_UNDER_TEST": os.environ.get("MUTANT_UNDER_TEST", ""),
+        },
         clear=True,
     ):
         with pytest.raises(ValueError, match="DISCORD_BOT_TOKEN"):
@@ -241,6 +289,10 @@ def test_api_config_raises_on_insecure_jwt_secret():
         "DISCORD_BOT_TOKEN": "set",
         "JWT_SECRET": "change-me-in-production",
     }
-    with patch.dict(os.environ, insecure_env, clear=True):
+    with patch.dict(
+        os.environ,
+        {**insecure_env, "MUTANT_UNDER_TEST": os.environ.get("MUTANT_UNDER_TEST", "")},
+        clear=True,
+    ):
         with pytest.raises(ValueError, match="JWT_SECRET"):
             config.APIConfig()

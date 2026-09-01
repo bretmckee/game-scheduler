@@ -21,6 +21,12 @@
 
 """Tests for bot configuration management."""
 
+# Mutation-testing harness marker. The hermetic tests below clear os.environ
+# entirely (patch.dict(clear=True)), which would remove the variable mutmut's
+# mutant trampolines read during test execution, so each cleared scope carries
+# its current value through explicitly; outside a mutmut run it is empty and
+# every wrapped call routes to the original function unchanged.
+
 import os
 from unittest.mock import patch
 
@@ -43,7 +49,11 @@ class TestBotConfig:
 
     def test_config_with_optional_defaults(self) -> None:
         """Test that optional fields have correct default values."""
-        with patch.dict(os.environ, {}, clear=True):
+        with patch.dict(
+            os.environ,
+            {"MUTANT_UNDER_TEST": os.environ.get("MUTANT_UNDER_TEST", "")},
+            clear=True,
+        ):
             config = BotConfig(
                 discord_bot_token="test_token",
                 discord_bot_client_id="123456789",
@@ -83,7 +93,11 @@ class TestBotConfig:
             "ENVIRONMENT": "staging",
         }
 
-        with patch.dict(os.environ, env_vars, clear=True):
+        with patch.dict(
+            os.environ,
+            {**env_vars, "MUTANT_UNDER_TEST": os.environ.get("MUTANT_UNDER_TEST", "")},
+            clear=True,
+        ):
             config = BotConfig()
 
             assert config.discord_bot_token == "env_token"
@@ -98,7 +112,11 @@ class TestBotConfig:
             "DISCORD_BOT_CLIENT_ID": "123456789",
         }
 
-        with patch.dict(os.environ, env_vars, clear=True):
+        with patch.dict(
+            os.environ,
+            {**env_vars, "MUTANT_UNDER_TEST": os.environ.get("MUTANT_UNDER_TEST", "")},
+            clear=True,
+        ):
             config = BotConfig()
 
             assert config.discord_bot_token == "lower_token"
