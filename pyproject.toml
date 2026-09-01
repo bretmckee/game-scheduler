@@ -258,6 +258,19 @@ no-arg-methods = ["flush", "commit", "rollback", "close", "get_config", "get_red
 source_paths = ["services/", "shared/"]
 pytest_add_cli_args_test_selection = ["tests/unit"]
 also_copy = ["services", "shared", "scripts"]
+# timeout keys are flagged "unstable" upstream but set deliberately here:
+# default budgets (~15 s for near-zero-estimate mutants) sat below the ~30-45 s
+# child walls produced by import-heavy workloads under 12-way load, causing
+# coin-flip SIGXCPU deaths every full run. Measured with the knob at 3.0 and
+# 4.0: all non-pathological children finish in <=33.8 s, while only two
+# genuine infinite-loop mutants (_projection_heartbeat, where sleep(None) is
+# swallowed by the broad except and never yields to the event loop) still hit
+# any finite deadline - those timeouts are correct watchdog behavior. The
+# 60 s floor (constant=4.0) leaves ~78% margin over the healthy worst case;
+# genuine hangs are still reaped per-child within that bound. Revisit if
+# upstream stabilizes these keys. See
+# 20260901-01-mutmut-upgrade-validation-research.md.
+timeout_constant = 4.0
 
 [tool.setuptools_scm]
 fallback_version = "0.0.0+unknown"
