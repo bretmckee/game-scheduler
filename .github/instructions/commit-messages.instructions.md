@@ -18,6 +18,11 @@ When creating git commits, use a multi-line message format:
 - **Subject line**: short, imperative summary (no trailing period)
 - **Body**: bullet list of notable changes
 - **Rationale**: include a brief reason when the change is non-obvious
+- **Line length**: keep every line at most 80 characters; long lines break
+  `git log`, terminal panes, and GitHub rendering. Enforced by the
+  `check-commit-message-lines` pre-commit hook (commit-msg stage); wrap long
+  bullets or sentences instead of bypassing it (see
+  `.github/instructions/quality-check-overrides.instructions.md`).
 
 ## Example
 

@@ -30,6 +30,18 @@ repos:
       - id: check-merge-conflict
       - id: detect-private-key
 
+  # Commit message quality: runs in the commit-msg stage so it validates the
+  # message while the user edits it (git log / terminal-friendly line lengths)
+  - repo: local
+    hooks:
+      # NOTE: keep pass_filenames enabled (default) — in the commit-msg stage
+      # pre-commit passes the commit message file path as the sole filename arg.
+      - id: check-commit-message-lines
+        name: Check commit message line lengths
+        entry: python scripts/check_commit_message_lines.py
+        language: python
+        stages: [commit-msg]
+
   # Copyright headers - using local wrapper to handle file arguments from pre-commit
   - repo: local
     hooks:
