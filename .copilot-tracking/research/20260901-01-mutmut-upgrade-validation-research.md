@@ -74,6 +74,7 @@
 3. Launcher wrapper `scripts/run-mutmut.py` remains valid and harmless; its original justification (unguarded import-time `set_start_method("fork")`) is fixed upstream (GH-466), so it is belt-and-braces only now.
 4. The v2 ratchet helper's API surface changed under us: `scripts/mutmut-logic-survivors.py` imported `SourceFileMutationData`/`ensure_config_loaded` from `mutmut.__main__`; since >= 3.6 the class lives in `mutmut.mutation.data` and config loading is lazy via `Config.get()`. The module loads only when `gate` executes, so the breakage stayed hidden until a real gate run in the heartbeat-fix series — imports ported there and the obsolete init call dropped. Lesson: upgrade validation must include one genuine gate invocation, not just store-schema checks.
 5. Ledger size grew with upstream store expansion (+488 tracked entries post-upgrade); regenerating baseline v8 required raising the large-file limit (user-approved per `.github/instructions/quality-check-overrides.instructions.md`: check-added-large-files --maxkb=1000 -> 2048; LEDGER_MAX_BYTES 950_000 -> 2_048_000). Regenerated ledger records zero timeout-class entries anywhere.
+6. The ratchet's regression check had a latent scope bug, surfaced only by running the gate on function-scoped change sets: `kill_regressions` compared every baseline-killed family of any in-scope _file_ against live results without skipping families that run never re-judged, so all out-of-scope kills reported as "regressed" (49 phantom FAILs on this tree while the store itself was verified byte-for-byte consistent). Guard added to match the documented contract via the TDD bug-fix cycle (strict xfail RED -> fix -> marker removal), with unit tests now covering both comparison semantics; full gate reports new-logic=0 kill-regressions=0 stale=0 against v8.
 
 ## Recommended Approach
 
@@ -82,6 +83,6 @@ Upgrade path adopted and validated (monkeypatch-in-launcher alternative dropped 
 ## Implementation Guidance
 
 - **Objectives**: keep mutation-gate numbers trustworthy (no false timeouts); track new mutator coverage into the baseline
-- **Key Tasks**: baseline ledger v8 regenerated from the audited live store and gate E2E verified against it (done); remaining: decide #518 comment; optional full-cold confirmation rerun (~15 min) that also restamps the ledger cleanly (`/tmp/mutmut-final-zero-20260901-173257/` holds the equivalent snapshot)
+- **Key Tasks**: baseline ledger v8 regenerated from the audited live store, gate E2E verified against it, and the `kill_regressions` out-of-scope comparison bug fixed with unit tests (all done); remaining: decide #518 comment; optional full-cold confirmation rerun (~15 min) that also restamps the ledger cleanly (`/tmp/mutmut-final-zero-20260901-173257/` holds the equivalent snapshot)
 - **Dependencies**: none outstanding for the upgrade itself
 - **Success Criteria (met)**: scoped + full runs on 3.7.0 complete rc=0 with zero spurious timeouts, and zero timeout verdicts repo-wide in total after the `_projection_heartbeat` code fix (final store {KILLED 8879, SURVIVED 5689, NO-TESTS 1601}); zero killed verdicts lost vs prior censuses on every join
