@@ -22,6 +22,8 @@
 """Tests for Discord bot implementation."""
 
 import asyncio
+import contextlib
+import threading
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -104,6 +106,84 @@ class TestGameSchedulerBot:
                     await bot.setup_hook()
 
                     mock_sync.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_projection_heartbeat_ends_promptly_when_sleep_fails(
+        self, bot_config: BotConfig
+    ) -> None:
+        """A failure in the pacing sleep must terminate the task promptly, not spin forever."""
+        bot = GameSchedulerBot(bot_config)
+        errors: list[BaseException] = []
+        finished = threading.Event()
+
+        def run_loop() -> None:
+            loop = asyncio.new_event_loop()
+            try:
+                # The buggy structure never yields once its sleep raises, so this
+                # runs on a dedicated thread with a bounded wait; the daemon flag
+                # bounds any residual spin to process exit.
+                loop.run_until_complete(bot._projection_heartbeat())
+            except BaseException as exc:
+                errors.append(exc)
+            finally:
+                finished.set()
+                loop.close()
+
+        worker = threading.Thread(target=run_loop, daemon=True)
+
+        async def failing_sleep(*args: object, **kwargs: object) -> None:
+            message = "unsupported sleep duration"
+            raise TypeError(message)
+
+        with patch("asyncio.sleep", new=failing_sleep):
+            worker.start()
+            terminated_in_time = finished.wait(timeout=2.0)
+
+        assert terminated_in_time is True, (
+            "heartbeat task never ended after its pacing sleep raised"
+        )
+        assert len(errors) == 1
+        assert isinstance(errors[0], TypeError)
+
+    @pytest.mark.asyncio
+    async def test_projection_heartbeat_keeps_interval_pacing_when_writes_fail(
+        self, bot_config: BotConfig
+    ) -> None:
+        """Every failed projection write must still be followed by the full interval delay."""
+        bot = GameSchedulerBot(bot_config)
+        delays: list[object] = []
+        real_sleep = asyncio.sleep
+
+        async def recording_sleep(delay: object, *args: object, **kwargs: object) -> None:
+            delays.append(delay)
+            await real_sleep(0)
+
+        mock_redis = MagicMock()
+        with (
+            patch("services.bot.bot.get_redis_client", new=AsyncMock(return_value=mock_redis)),
+            patch(
+                "services.bot.guild_projection.write_bot_last_seen",
+                side_effect=RuntimeError("db down"),
+            ) as mock_write,
+            patch("asyncio.sleep", new=recording_sleep),
+        ):
+            worker = asyncio.create_task(bot._projection_heartbeat())
+            spins = 0
+            while len(delays) < 2:
+                await real_sleep(0)
+                # Bound the wait so mutants that stop iterating (or die mid-loop)
+                # fail fast on the assertion instead of spinning until timeout.
+                spins += 1
+                if spins > 2000:
+                    break
+            worker.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await worker
+
+        assert delays == [30, 30], (
+            "pacing delay must stay at the full interval even when writes fail"
+        )
+        mock_write.assert_any_call(redis=mock_redis, heartbeat_interval=30)
 
     @pytest.mark.asyncio
     async def test_on_ready_event(self, bot_config: BotConfig) -> None:
