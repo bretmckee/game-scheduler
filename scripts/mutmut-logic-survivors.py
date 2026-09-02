@@ -36,13 +36,15 @@ from pathlib import Path
 
 import libcst as cst
 from mutmut.__main__ import (
-    SourceFileMutationData,
-    ensure_config_loaded,
     read_mutant_function,
     read_original_function,
     status_by_exit_code,
     walk_source_files,
 )
+
+# mutmut >= 3.6 moved this class out of __main__ and made config loading lazy
+# (Config.get()), so ensure_config_loaded no longer exists; nothing needs it now.
+from mutmut.mutation.data import SourceFileMutationData
 
 
 def get_survived_by_path() -> dict[Path, list[str]]:
@@ -101,8 +103,6 @@ def is_string_only_mutation(diff: str) -> bool:
 
 
 def main() -> None:
-    ensure_config_loaded()
-
     summary_only = "--summary" in sys.argv
 
     survived_by_path = get_survived_by_path()
