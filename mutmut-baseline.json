@@ -3398,39 +3398,27 @@
   "services/api/schemas/clone_game.py": {
    "services.api.schemas.clone_game.x\u01c1CloneGameRequest\u01c1_check_deadline": [
     [
-     "notests",
-     "L8: 'if carryover != CarryoverOption.YES_WITH_DEAD...' => 'if carryover == CarryoverOption.YES_WITH_DEAD...'"
-    ],
-    [
-     "notests",
-     "L10: 'if deadline is None:' => 'if deadline is not None:'"
-    ],
-    [
-     "notests",
+     "logic",
      "L11: 'msg = f\"{field}_deadline is required when {fi...' => 'msg = None'"
     ],
     [
-     "notests",
+     "logic",
      "L12: 'raise ValueError(msg)' => 'raise ValueError(None)'"
     ],
     [
-     "notests",
-     "L13: 'deadline_naive = (' => 'deadline_naive = None'; removed 'deadline.astimezone(dt.UTC).replace(tzinfo=No...'; removed ')'"
-    ],
-    [
-     "notests",
+     "logic",
      "L14: 'deadline.astimezone(dt.UTC).replace(tzinfo=No...' => 'deadline.astimezone(None).replace(tzinfo=None...'"
     ],
     [
-     "notests",
+     "logic",
      "L16: 'if deadline_naive <= now:' => 'if deadline_naive < now:'"
     ],
     [
-     "notests",
+     "logic",
      "L17: 'msg = f\"{field}_deadline must be in the future\"' => 'msg = None'"
     ],
     [
-     "notests",
+     "logic",
      "L18: 'raise ValueError(msg)' => 'raise ValueError(None)'"
     ]
    ]
@@ -4043,12 +4031,6 @@
   },
   "services/api/services/channel_service.py": {},
   "services/api/services/display_names.py": {
-   "services.api.services.display_names.x\u01c1DisplayNameResolver\u01c1_build_avatar_url": [
-    [
-     "notests",
-     "L7: 'size: int = 64,' => 'size: int = 65,'"
-    ]
-   ],
    "services.api.services.display_names.x\u01c1DisplayNameResolver\u01c1_check_cache_for_display_names": [
     [
      "logic",
@@ -4067,24 +4049,8 @@
    ],
    "services.api.services.display_names.x\u01c1DisplayNameResolver\u01c1_create_fallback_user_data": [
     [
-     "notests",
-     "L15: 'user_id: {\"display_name\": f\"User#{user_id[-4:...' => 'user_id: {\"XXdisplay_nameXX\": f\"User#{user_id...'"
-    ],
-    [
-     "notests",
-     "L15: 'user_id: {\"display_name\": f\"User#{user_id[-4:...' => 'user_id: {\"DISPLAY_NAME\": f\"User#{user_id[-4:...'"
-    ],
-    [
-     "notests",
+     "logic",
      "L15: 'user_id: {\"display_name\": f\"User#{user_id[-4:...' => 'user_id: {\"display_name\": f\"User#{user_id[+4:...'"
-    ],
-    [
-     "notests",
-     "L15: 'user_id: {\"display_name\": f\"User#{user_id[-4:...' => 'user_id: {\"display_name\": f\"User#{user_id[-5:...'"
-    ],
-    [
-     "notests",
-     "L15: 'user_id: {\"display_name\": f\"User#{user_id[-4:...' => 'user_id: {\"display_name\": f\"User#{user_id[-4:...'"
     ]
    ],
    "services.api.services.display_names.x\u01c1DisplayNameResolver\u01c1_fetch_and_cache_display_names": [
@@ -4141,66 +4107,6 @@
     [
      "logic",
      "L21: 'continue' => 'break'"
-    ]
-   ],
-   "services.api.services.display_names.x\u01c1DisplayNameResolver\u01c1_resolve_display_name": [
-    [
-     "notests",
-     "L12: 'return member.get(\"nick\") or member.get(\"glob...' => 'return member.get(\"nick\") or member.get(\"glob...'"
-    ],
-    [
-     "notests",
-     "L12: 'return member.get(\"nick\") or member.get(\"glob...' => 'return member.get(\"nick\") and member.get(\"glo...'"
-    ],
-    [
-     "notests",
-     "L12: 'return member.get(\"nick\") or member.get(\"glob...' => 'return member.get(None) or member.get(\"global...'"
-    ],
-    [
-     "notests",
-     "L12: 'return member.get(\"nick\") or member.get(\"glob...' => 'return member.get(\"XXnickXX\") or member.get(\"...'"
-    ],
-    [
-     "notests",
-     "L12: 'return member.get(\"nick\") or member.get(\"glob...' => 'return member.get(\"NICK\") or member.get(\"glob...'"
-    ],
-    [
-     "notests",
-     "L12: 'return member.get(\"nick\") or member.get(\"glob...' => 'return member.get(\"nick\") or member.get(None)...'"
-    ],
-    [
-     "notests",
-     "L12: 'return member.get(\"nick\") or member.get(\"glob...' => 'return member.get(\"nick\") or member.get(\"XXgl...'"
-    ],
-    [
-     "notests",
-     "L12: 'return member.get(\"nick\") or member.get(\"glob...' => 'return member.get(\"nick\") or member.get(\"GLOB...'"
-    ]
-   ],
-   "services.api.services.display_names.x\u01c1DisplayNameResolver\u01c1_resolve_primary_name": [
-    [
-     "notests",
-     "L15: 'return member.get(\"global_name\") or member[\"u...' => 'return member.get(\"global_name\") and member[\"...'"
-    ],
-    [
-     "notests",
-     "L15: 'return member.get(\"global_name\") or member[\"u...' => 'return member.get(None) or member[\"username\"]'"
-    ],
-    [
-     "notests",
-     "L15: 'return member.get(\"global_name\") or member[\"u...' => 'return member.get(\"XXglobal_nameXX\") or membe...'"
-    ],
-    [
-     "notests",
-     "L15: 'return member.get(\"global_name\") or member[\"u...' => 'return member.get(\"GLOBAL_NAME\") or member[\"u...'"
-    ],
-    [
-     "notests",
-     "L15: 'return member.get(\"global_name\") or member[\"u...' => 'return member.get(\"global_name\") or member[\"X...'"
-    ],
-    [
-     "notests",
-     "L15: 'return member.get(\"global_name\") or member[\"u...' => 'return member.get(\"global_name\") or member[\"U...'"
     ]
    ],
    "services.api.services.display_names.x\u01c1DisplayNameResolver\u01c1resolve_display_names": [
@@ -8456,107 +8362,25 @@
      "L16: 'logger.exception(\"Sweep: failed to cancel gam...' => 'logger.exception(\"SWEEP: FAILED TO CANCEL GAM...'"
     ]
    ],
-   "services.bot.bot.x\u01c1GameSchedulerBot\u01c1_channel_list": [
-    [
-     "notests",
-     "L5: 'return [{\"id\": str(c.id), \"name\": c.name, \"ty...' => 'return [{\"XXidXX\": str(c.id), \"name\": c.name,...'"
-    ],
-    [
-     "notests",
-     "L5: 'return [{\"id\": str(c.id), \"name\": c.name, \"ty...' => 'return [{\"ID\": str(c.id), \"name\": c.name, \"ty...'"
-    ],
-    [
-     "notests",
-     "L5: 'return [{\"id\": str(c.id), \"name\": c.name, \"ty...' => 'return [{\"id\": str(None), \"name\": c.name, \"ty...'"
-    ],
-    [
-     "notests",
-     "L5: 'return [{\"id\": str(c.id), \"name\": c.name, \"ty...' => 'return [{\"id\": str(c.id), \"XXnameXX\": c.name,...'"
-    ],
-    [
-     "notests",
-     "L5: 'return [{\"id\": str(c.id), \"name\": c.name, \"ty...' => 'return [{\"id\": str(c.id), \"NAME\": c.name, \"ty...'"
-    ],
-    [
-     "notests",
-     "L5: 'return [{\"id\": str(c.id), \"name\": c.name, \"ty...' => 'return [{\"id\": str(c.id), \"name\": c.name, \"XX...'"
-    ],
-    [
-     "notests",
-     "L5: 'return [{\"id\": str(c.id), \"name\": c.name, \"ty...' => 'return [{\"id\": str(c.id), \"name\": c.name, \"TY...'"
-    ]
-   ],
    "services.bot.bot.x\u01c1GameSchedulerBot\u01c1_extract_game_id": [
     [
-     "notests",
-     "L5: 'if not isinstance(row, discord.ActionRow):' => 'if isinstance(row, discord.ActionRow):'"
-    ],
-    [
-     "notests",
+     "logic",
      "L6: 'continue' => 'break'"
     ],
     [
-     "notests",
-     "L8: 'custom_id = getattr(child, \"custom_id\", None)' => 'custom_id = None'"
-    ],
-    [
-     "notests",
-     "L8: 'custom_id = getattr(child, \"custom_id\", None)' => 'custom_id = getattr(None, \"custom_id\", None)'"
-    ],
-    [
-     "notests",
-     "L8: 'custom_id = getattr(child, \"custom_id\", None)' => 'custom_id = getattr(child, None, None)'"
-    ],
-    [
-     "notests",
-     "L8: 'custom_id = getattr(child, \"custom_id\", None)' => 'custom_id = getattr(\"custom_id\", None)'"
-    ],
-    [
-     "notests",
-     "L8: 'custom_id = getattr(child, \"custom_id\", None)' => 'custom_id = getattr(child, None)'"
-    ],
-    [
-     "notests",
+     "logic",
      "L8: 'custom_id = getattr(child, \"custom_id\", None)' => 'custom_id = getattr(child, \"custom_id\", )'"
     ],
     [
-     "notests",
-     "L8: 'custom_id = getattr(child, \"custom_id\", None)' => 'custom_id = getattr(child, \"XXcustom_idXX\", N...'"
-    ],
-    [
-     "notests",
-     "L8: 'custom_id = getattr(child, \"custom_id\", None)' => 'custom_id = getattr(child, \"CUSTOM_ID\", None)'"
-    ],
-    [
-     "notests",
-     "L9: 'if custom_id and custom_id.startswith(\"join_g...' => 'if custom_id or custom_id.startswith(\"join_ga...'"
-    ],
-    [
-     "notests",
-     "L9: 'if custom_id and custom_id.startswith(\"join_g...' => 'if custom_id and custom_id.startswith(None):'"
-    ],
-    [
-     "notests",
-     "L9: 'if custom_id and custom_id.startswith(\"join_g...' => 'if custom_id and custom_id.startswith(\"XXjoin...'"
-    ],
-    [
-     "notests",
-     "L9: 'if custom_id and custom_id.startswith(\"join_g...' => 'if custom_id and custom_id.startswith(\"JOIN_G...'"
-    ],
-    [
-     "notests",
-     "L10: 'return custom_id.removeprefix(\"join_game_\")' => 'return custom_id.removeprefix(None)'"
-    ],
-    [
-     "notests",
+     "logic",
      "L10: 'return custom_id.removeprefix(\"join_game_\")' => 'return custom_id.removesuffix(\"join_game_\")'"
     ],
     [
-     "notests",
+     "string",
      "L10: 'return custom_id.removeprefix(\"join_game_\")' => 'return custom_id.removeprefix(\"XXjoin_game_XX\")'"
     ],
     [
-     "notests",
+     "string",
      "L10: 'return custom_id.removeprefix(\"join_game_\")' => 'return custom_id.removeprefix(\"JOIN_GAME_\")'"
     ]
    ],
@@ -8602,36 +8426,16 @@
    ],
    "services.bot.bot.x\u01c1GameSchedulerBot\u01c1_postable_channels": [
     [
-     "notests",
-     "L12: 'channels: list[discord.abc.GuildChannel | dis...' => 'channels: list[discord.abc.GuildChannel | dis...'; removed 'c'; removed 'for c in guild.channels'; removed 'if isinstance(c, discord.TextChannel) and c.p...'; removed ']'"
-    ],
-    [
-     "notests",
-     "L15: 'if isinstance(c, discord.TextChannel) and c.p...' => 'if isinstance(c, discord.TextChannel) or c.pe...'"
-    ],
-    [
-     "notests",
+     "logic",
      "L15: 'if isinstance(c, discord.TextChannel) and c.p...' => 'if isinstance(c, discord.TextChannel) and c.p...'"
     ],
     [
-     "notests",
-     "L17: 'threads: list[discord.abc.GuildChannel | disc...' => 'threads: list[discord.abc.GuildChannel | disc...'; removed 't'; removed 'for t in guild.threads'; removed 'if not t.archived and t.permissions_for(guild...'; removed ']'"
-    ],
-    [
-     "notests",
+     "logic",
      "L20: 'if not t.archived and t.permissions_for(guild...' => 'if not t.archived or t.permissions_for(guild....'"
     ],
     [
-     "notests",
-     "L20: 'if not t.archived and t.permissions_for(guild...' => 'if t.archived and t.permissions_for(guild.me)...'"
-    ],
-    [
-     "notests",
+     "logic",
      "L20: 'if not t.archived and t.permissions_for(guild...' => 'if not t.archived and t.permissions_for(None)...'"
-    ],
-    [
-     "notests",
-     "L22: 'return channels + threads' => 'return channels - threads'"
     ]
    ],
    "services.bot.bot.x\u01c1GameSchedulerBot\u01c1_projection_heartbeat": [
@@ -8994,60 +8798,6 @@
     [
      "logic",
      "L6: 'CacheTTL.DISCORD_GUILD_ROLES,' => 'None,'"
-    ]
-   ],
-   "services.bot.bot.x\u01c1GameSchedulerBot\u01c1_role_list": [
-    [
-     "notests",
-     "L5: '\"id\": str(r.id),' => '\"XXidXX\": str(r.id),'"
-    ],
-    [
-     "notests",
-     "L5: '\"id\": str(r.id),' => '\"ID\": str(r.id),'"
-    ],
-    [
-     "notests",
-     "L5: '\"id\": str(r.id),' => '\"id\": str(None),'"
-    ],
-    [
-     "notests",
-     "L6: '\"name\": r.name,' => '\"XXnameXX\": r.name,'"
-    ],
-    [
-     "notests",
-     "L6: '\"name\": r.name,' => '\"NAME\": r.name,'"
-    ],
-    [
-     "notests",
-     "L7: '\"color\": r.color.value,' => '\"XXcolorXX\": r.color.value,'"
-    ],
-    [
-     "notests",
-     "L7: '\"color\": r.color.value,' => '\"COLOR\": r.color.value,'"
-    ],
-    [
-     "notests",
-     "L8: '\"position\": r.position,' => '\"XXpositionXX\": r.position,'"
-    ],
-    [
-     "notests",
-     "L8: '\"position\": r.position,' => '\"POSITION\": r.position,'"
-    ],
-    [
-     "notests",
-     "L9: '\"managed\": r.managed,' => '\"XXmanagedXX\": r.managed,'"
-    ],
-    [
-     "notests",
-     "L9: '\"managed\": r.managed,' => '\"MANAGED\": r.managed,'"
-    ],
-    [
-     "notests",
-     "L10: '\"permissions\": r.permissions.value,' => '\"XXpermissionsXX\": r.permissions.value,'"
-    ],
-    [
-     "notests",
-     "L10: '\"permissions\": r.permissions.value,' => '\"PERMISSIONS\": r.permissions.value,'"
     ]
    ],
    "services.bot.bot.x\u01c1GameSchedulerBot\u01c1_run_sweep_worker": [
@@ -14904,1599 +14654,315 @@
    ],
    "services.bot.formatters.game_message.x\u01c1GameMessageFormatter\u01c1_add_footer": [
     [
-     "notests",
+     "logic",
      "L12: 'status_display = status' => 'status_display = None'"
     ],
     [
-     "notests",
+     "logic",
      "L13: 'with contextlib.suppress(ValueError, Attribut...' => 'with contextlib.suppress(None, AttributeError):'"
     ],
     [
-     "notests",
+     "logic",
      "L13: 'with contextlib.suppress(ValueError, Attribut...' => 'with contextlib.suppress(ValueError, None):'"
     ],
     [
-     "notests",
+     "logic",
      "L13: 'with contextlib.suppress(ValueError, Attribut...' => 'with contextlib.suppress(AttributeError):'"
     ],
     [
-     "notests",
+     "logic",
      "L13: 'with contextlib.suppress(ValueError, Attribut...' => 'with contextlib.suppress(ValueError, ):'"
-    ],
-    [
-     "notests",
-     "L14: 'status_display = GameStatus(status).display_name' => 'status_display = None'"
-    ],
-    [
-     "notests",
-     "L14: 'status_display = GameStatus(status).display_name' => 'status_display = GameStatus(None).display_name'"
-    ],
-    [
-     "notests",
-     "L16: 'embed.set_footer(text=f\"Status: {status_displ...' => 'embed.set_footer(text=None)'"
     ]
    ],
    "services.bot.formatters.game_message.x\u01c1GameMessageFormatter\u01c1_add_game_time_fields": [
     [
-     "notests",
-     "L32: 'game_time_value = (' => 'game_time_value = None'; removed 'f\"{format_discord_timestamp(scheduled_at, \\'F\\'...'; removed 'f\"({format_discord_timestamp(scheduled_at, \\'R...'; removed ')'"
-    ],
-    [
-     "notests",
-     "L33: 'f\"{format_discord_timestamp(scheduled_at, \\'F\\'...' => 'f\"{format_discord_timestamp(None, \\'F\\')} \"'"
-    ],
-    [
-     "notests",
+     "logic",
      "L33: 'f\"{format_discord_timestamp(scheduled_at, \\'F\\'...' => 'f\"{format_discord_timestamp(scheduled_at, Non...'"
     ],
     [
-     "notests",
-     "L33: 'f\"{format_discord_timestamp(scheduled_at, \\'F\\'...' => 'f\"{format_discord_timestamp(\\'F\\')} \"'"
-    ],
-    [
-     "notests",
+     "logic",
      "L33: 'f\"{format_discord_timestamp(scheduled_at, \\'F\\'...' => 'f\"{format_discord_timestamp(scheduled_at, )} \"'"
     ],
     [
-     "notests",
+     "string",
      "L33: 'f\"{format_discord_timestamp(scheduled_at, \\'F\\'...' => 'f\"{format_discord_timestamp(scheduled_at, \\'XX...'"
     ],
     [
-     "notests",
+     "string",
      "L33: 'f\"{format_discord_timestamp(scheduled_at, \\'F\\'...' => 'f\"{format_discord_timestamp(scheduled_at, \\'f\\'...'"
     ],
     [
-     "notests",
-     "L34: 'f\"({format_discord_timestamp(scheduled_at, \\'R...' => 'f\"({format_discord_timestamp(None, \\'R\\')})\"'"
-    ],
-    [
-     "notests",
+     "logic",
      "L34: 'f\"({format_discord_timestamp(scheduled_at, \\'R...' => 'f\"({format_discord_timestamp(scheduled_at, No...'"
     ],
     [
-     "notests",
-     "L34: 'f\"({format_discord_timestamp(scheduled_at, \\'R...' => 'f\"({format_discord_timestamp(\\'R\\')})\"'"
-    ],
-    [
-     "notests",
+     "logic",
      "L34: 'f\"({format_discord_timestamp(scheduled_at, \\'R...' => 'f\"({format_discord_timestamp(scheduled_at, )})\"'"
     ],
     [
-     "notests",
+     "string",
      "L34: 'f\"({format_discord_timestamp(scheduled_at, \\'R...' => 'f\"({format_discord_timestamp(scheduled_at, \\'X...'"
     ],
     [
-     "notests",
+     "string",
      "L34: 'f\"({format_discord_timestamp(scheduled_at, \\'R...' => 'f\"({format_discord_timestamp(scheduled_at, \\'r...'"
     ],
     [
-     "notests",
-     "L36: 'embed.add_field(name=\"Game Time\", value=game_...' => 'embed.add_field(name=None, value=game_time_va...'"
-    ],
-    [
-     "notests",
-     "L36: 'embed.add_field(name=\"Game Time\", value=game_...' => 'embed.add_field(name=\"Game Time\", value=None,...'"
-    ],
-    [
-     "notests",
-     "L36: 'embed.add_field(name=\"Game Time\", value=game_...' => 'embed.add_field(name=\"Game Time\", value=game_...'"
-    ],
-    [
-     "notests",
-     "L36: 'embed.add_field(name=\"Game Time\", value=game_...' => 'embed.add_field(value=game_time_value, inline...'"
-    ],
-    [
-     "notests",
-     "L36: 'embed.add_field(name=\"Game Time\", value=game_...' => 'embed.add_field(name=\"Game Time\", inline=False)'"
-    ],
-    [
-     "notests",
-     "L36: 'embed.add_field(name=\"Game Time\", value=game_...' => 'embed.add_field(name=\"XXGame TimeXX\", value=g...'"
-    ],
-    [
-     "notests",
-     "L36: 'embed.add_field(name=\"Game Time\", value=game_...' => 'embed.add_field(name=\"game time\", value=game_...'"
-    ],
-    [
-     "notests",
-     "L36: 'embed.add_field(name=\"Game Time\", value=game_...' => 'embed.add_field(name=\"GAME TIME\", value=game_...'"
-    ],
-    [
-     "notests",
-     "L41: 'formatted_host = format_user_or_placeholder(h...' => 'formatted_host = None'"
-    ],
-    [
-     "notests",
-     "L41: 'formatted_host = format_user_or_placeholder(h...' => 'formatted_host = format_user_or_placeholder(N...'"
-    ],
-    [
-     "notests",
-     "L42: 'embed.add_field(name=\"Host\", value=formatted_...' => 'embed.add_field(name=None, value=formatted_ho...'"
-    ],
-    [
-     "notests",
-     "L42: 'embed.add_field(name=\"Host\", value=formatted_...' => 'embed.add_field(name=\"Host\", value=None, inli...'"
-    ],
-    [
-     "notests",
-     "L42: 'embed.add_field(name=\"Host\", value=formatted_...' => 'embed.add_field(name=\"Host\", value=formatted_...'"
-    ],
-    [
-     "notests",
-     "L42: 'embed.add_field(name=\"Host\", value=formatted_...' => 'embed.add_field(value=formatted_host, inline=...'"
-    ],
-    [
-     "notests",
-     "L42: 'embed.add_field(name=\"Host\", value=formatted_...' => 'embed.add_field(name=\"Host\", inline=True)'"
-    ],
-    [
-     "notests",
-     "L42: 'embed.add_field(name=\"Host\", value=formatted_...' => 'embed.add_field(name=\"XXHostXX\", value=format...'"
-    ],
-    [
-     "notests",
-     "L42: 'embed.add_field(name=\"Host\", value=formatted_...' => 'embed.add_field(name=\"host\", value=formatted_...'"
-    ],
-    [
-     "notests",
-     "L42: 'embed.add_field(name=\"Host\", value=formatted_...' => 'embed.add_field(name=\"HOST\", value=formatted_...'"
-    ],
-    [
-     "notests",
+     "logic",
      "L45: 'duration_text = format_duration(expected_dura...' => 'duration_text = None'"
     ],
     [
-     "notests",
+     "logic",
      "L45: 'duration_text = format_duration(expected_dura...' => 'duration_text = format_duration(None)'"
     ],
     [
-     "notests",
-     "L46: 'embed.add_field(name=\"Run Time\", value=durati...' => 'embed.add_field(name=None, value=duration_tex...'"
-    ],
-    [
-     "notests",
+     "logic",
      "L46: 'embed.add_field(name=\"Run Time\", value=durati...' => 'embed.add_field(name=\"Run Time\", value=None, ...'"
     ],
     [
-     "notests",
-     "L46: 'embed.add_field(name=\"Run Time\", value=durati...' => 'embed.add_field(name=\"Run Time\", value=durati...'"
-    ],
-    [
-     "notests",
-     "L46: 'embed.add_field(name=\"Run Time\", value=durati...' => 'embed.add_field(value=duration_text, inline=T...'"
-    ],
-    [
-     "notests",
-     "L46: 'embed.add_field(name=\"Run Time\", value=durati...' => 'embed.add_field(name=\"Run Time\", inline=True)'"
-    ],
-    [
-     "notests",
-     "L46: 'embed.add_field(name=\"Run Time\", value=durati...' => 'embed.add_field(name=\"XXRun TimeXX\", value=du...'"
-    ],
-    [
-     "notests",
-     "L46: 'embed.add_field(name=\"Run Time\", value=durati...' => 'embed.add_field(name=\"run time\", value=durati...'"
-    ],
-    [
-     "notests",
-     "L46: 'embed.add_field(name=\"Run Time\", value=durati...' => 'embed.add_field(name=\"RUN TIME\", value=durati...'"
-    ],
-    [
-     "notests",
-     "L48: 'embed.add_field(name=_ZERO_WIDTH_SPACE, value...' => 'embed.add_field(name=None, value=_ZERO_WIDTH_...'"
-    ],
-    [
-     "notests",
+     "logic",
      "L48: 'embed.add_field(name=_ZERO_WIDTH_SPACE, value...' => 'embed.add_field(name=_ZERO_WIDTH_SPACE, value...'"
     ],
     [
-     "notests",
-     "L48: 'embed.add_field(name=_ZERO_WIDTH_SPACE, value...' => 'embed.add_field(value=_ZERO_WIDTH_SPACE, inli...'"
-    ],
-    [
-     "notests",
-     "L48: 'embed.add_field(name=_ZERO_WIDTH_SPACE, value...' => 'embed.add_field(name=_ZERO_WIDTH_SPACE, inlin...'"
-    ],
-    [
-     "notests",
-     "L51: 'links_value = \"\"' => 'links_value = None'"
-    ],
-    [
-     "notests",
-     "L51: 'links_value = \"\"' => 'links_value = \"XXXX\"'"
-    ],
-    [
-     "notests",
-     "L53: 'links_value = f\"\\\\ud83d\\\\udcc5 [Google]({google...' => 'links_value = None'"
-    ],
-    [
-     "notests",
-     "L54: 'links_value += f\"\\\\ud83d\\\\udcc5 [Others]({calen...' => 'links_value = f\"\\\\ud83d\\\\udcc5 [Others]({calend...'"
-    ],
-    [
-     "notests",
-     "L54: 'links_value += f\"\\\\ud83d\\\\udcc5 [Others]({calen...' => 'links_value -= f\"\\\\ud83d\\\\udcc5 [Others]({calen...'"
-    ],
-    [
-     "notests",
-     "L55: 'embed.add_field(name=\"Add to Calendar\", value...' => 'embed.add_field(name=None, value=links_value,...'"
-    ],
-    [
-     "notests",
-     "L55: 'embed.add_field(name=\"Add to Calendar\", value...' => 'embed.add_field(name=\"Add to Calendar\", value...'"
-    ],
-    [
-     "notests",
-     "L55: 'embed.add_field(name=\"Add to Calendar\", value...' => 'embed.add_field(value=links_value, inline=True)'"
-    ],
-    [
-     "notests",
-     "L55: 'embed.add_field(name=\"Add to Calendar\", value...' => 'embed.add_field(name=\"Add to Calendar\", inlin...'"
-    ],
-    [
-     "notests",
-     "L55: 'embed.add_field(name=\"Add to Calendar\", value...' => 'embed.add_field(name=\"XXAdd to CalendarXX\", v...'"
-    ],
-    [
-     "notests",
-     "L55: 'embed.add_field(name=\"Add to Calendar\", value...' => 'embed.add_field(name=\"add to calendar\", value...'"
-    ],
-    [
-     "notests",
-     "L55: 'embed.add_field(name=\"Add to Calendar\", value...' => 'embed.add_field(name=\"ADD TO CALENDAR\", value...'"
-    ],
-    [
-     "notests",
-     "L57: 'embed.add_field(name=_ZERO_WIDTH_SPACE, value...' => 'embed.add_field(name=None, value=_ZERO_WIDTH_...'"
-    ],
-    [
-     "notests",
+     "logic",
      "L57: 'embed.add_field(name=_ZERO_WIDTH_SPACE, value...' => 'embed.add_field(name=_ZERO_WIDTH_SPACE, value...'"
     ],
     [
-     "notests",
-     "L57: 'embed.add_field(name=_ZERO_WIDTH_SPACE, value...' => 'embed.add_field(value=_ZERO_WIDTH_SPACE, inli...'"
-    ],
-    [
-     "notests",
-     "L57: 'embed.add_field(name=_ZERO_WIDTH_SPACE, value...' => 'embed.add_field(name=_ZERO_WIDTH_SPACE, inlin...'"
-    ],
-    [
-     "notests",
-     "L60: 'embed.add_field(name=\"Where\", value=where, in...' => 'embed.add_field(name=None, value=where, inlin...'"
-    ],
-    [
-     "notests",
-     "L60: 'embed.add_field(name=\"Where\", value=where, in...' => 'embed.add_field(name=\"Where\", value=None, inl...'"
-    ],
-    [
-     "notests",
-     "L60: 'embed.add_field(name=\"Where\", value=where, in...' => 'embed.add_field(name=\"Where\", value=where, in...'"
-    ],
-    [
-     "notests",
-     "L60: 'embed.add_field(name=\"Where\", value=where, in...' => 'embed.add_field(value=where, inline=False)'"
-    ],
-    [
-     "notests",
-     "L60: 'embed.add_field(name=\"Where\", value=where, in...' => 'embed.add_field(name=\"Where\", inline=False)'"
-    ],
-    [
-     "notests",
-     "L60: 'embed.add_field(name=\"Where\", value=where, in...' => 'embed.add_field(name=\"Where\", value=where, )'"
-    ],
-    [
-     "notests",
-     "L60: 'embed.add_field(name=\"Where\", value=where, in...' => 'embed.add_field(name=\"XXWhereXX\", value=where...'"
-    ],
-    [
-     "notests",
-     "L60: 'embed.add_field(name=\"Where\", value=where, in...' => 'embed.add_field(name=\"where\", value=where, in...'"
-    ],
-    [
-     "notests",
-     "L60: 'embed.add_field(name=\"Where\", value=where, in...' => 'embed.add_field(name=\"WHERE\", value=where, in...'"
-    ],
-    [
-     "notests",
-     "L63: 'embed.add_field(name=\"Voice Channel\", value=f...' => 'embed.add_field(name=None, value=f\"<#{channel...'"
-    ],
-    [
-     "notests",
-     "L63: 'embed.add_field(name=\"Voice Channel\", value=f...' => 'embed.add_field(name=\"Voice Channel\", value=N...'"
-    ],
-    [
-     "notests",
+     "logic",
      "L63: 'embed.add_field(name=\"Voice Channel\", value=f...' => 'embed.add_field(name=\"Voice Channel\", value=f...'"
     ],
     [
-     "notests",
-     "L63: 'embed.add_field(name=\"Voice Channel\", value=f...' => 'embed.add_field(value=f\"<#{channel_id}>\", inl...'"
-    ],
-    [
-     "notests",
-     "L63: 'embed.add_field(name=\"Voice Channel\", value=f...' => 'embed.add_field(name=\"Voice Channel\", inline=...'"
-    ],
-    [
-     "notests",
+     "string",
      "L63: 'embed.add_field(name=\"Voice Channel\", value=f...' => 'embed.add_field(name=\"XXVoice ChannelXX\", val...'"
-    ],
-    [
-     "notests",
-     "L63: 'embed.add_field(name=\"Voice Channel\", value=f...' => 'embed.add_field(name=\"voice channel\", value=f...'"
-    ],
-    [
-     "notests",
-     "L63: 'embed.add_field(name=\"Voice Channel\", value=f...' => 'embed.add_field(name=\"VOICE CHANNEL\", value=f...'"
     ]
    ],
    "services.bot.formatters.game_message.x\u01c1GameMessageFormatter\u01c1_add_participant_fields": [
     [
-     "notests",
-     "L58: 'open_slots = max(0, max_players - len(partici...' => 'open_slots = None'"
-    ],
-    [
-     "notests",
-     "L58: 'open_slots = max(0, max_players - len(partici...' => 'open_slots = max(None, max_players - len(part...'"
-    ],
-    [
-     "notests",
-     "L58: 'open_slots = max(0, max_players - len(partici...' => 'open_slots = max(0, None)'"
-    ],
-    [
-     "notests",
-     "L58: 'open_slots = max(0, max_players - len(partici...' => 'open_slots = max(max_players - len(participan...'"
-    ],
-    [
-     "notests",
-     "L58: 'open_slots = max(0, max_players - len(partici...' => 'open_slots = max(0, )'"
-    ],
-    [
-     "notests",
-     "L58: 'open_slots = max(0, max_players - len(partici...' => 'open_slots = max(1, max_players - len(partici...'"
-    ],
-    [
-     "notests",
-     "L58: 'open_slots = max(0, max_players - len(partici...' => 'open_slots = max(0, max_players + len(partici...'"
-    ],
-    [
-     "notests",
+     "logic",
      "L59: 'if open_slots > 0:' => 'if open_slots >= 0:'"
     ],
     [
-     "notests",
+     "logic",
      "L59: 'if open_slots > 0:' => 'if open_slots > 1:'"
     ],
     [
-     "notests",
-     "L60: 'participant_ids = list(participant_ids) + [\"o...' => 'participant_ids = None'"
-    ],
-    [
-     "notests",
-     "L60: 'participant_ids = list(participant_ids) + [\"o...' => 'participant_ids = list(participant_ids) - [\"o...'"
-    ],
-    [
-     "notests",
-     "L60: 'participant_ids = list(participant_ids) + [\"o...' => 'participant_ids = list(None) + [\"open slot\"] ...'"
-    ],
-    [
-     "notests",
-     "L60: 'participant_ids = list(participant_ids) + [\"o...' => 'participant_ids = list(participant_ids) + [\"o...'"
-    ],
-    [
-     "notests",
+     "string",
      "L60: 'participant_ids = list(participant_ids) + [\"o...' => 'participant_ids = list(participant_ids) + [\"X...'"
     ],
     [
-     "notests",
+     "string",
      "L60: 'participant_ids = list(participant_ids) + [\"o...' => 'participant_ids = list(participant_ids) + [\"O...'"
     ],
     [
-     "notests",
-     "L62: 'players_name = f\"Players ({current_count}/{ma...' => 'players_name = None'"
-    ],
-    [
-     "notests",
-     "L64: 'columns = GameMessageFormatter._split_into_co...' => 'columns = None'; removed 'participant_ids, _PARTICIPANT_COLUMNS, _PARTI...'; removed ')'"
-    ],
-    [
-     "notests",
-     "L65: 'participant_ids, _PARTICIPANT_COLUMNS, _PARTI...' => 'None, _PARTICIPANT_COLUMNS, _PARTICIPANT_MAX_...'"
-    ],
-    [
-     "notests",
-     "L65: 'participant_ids, _PARTICIPANT_COLUMNS, _PARTI...' => 'participant_ids, None, _PARTICIPANT_MAX_DISPL...'"
-    ],
-    [
-     "notests",
+     "logic",
      "L65: 'participant_ids, _PARTICIPANT_COLUMNS, _PARTI...' => 'participant_ids, _PARTICIPANT_COLUMNS, None, ...'"
     ],
     [
-     "notests",
+     "logic",
      "L65: 'participant_ids, _PARTICIPANT_COLUMNS, _PARTI...' => 'participant_ids, _PARTICIPANT_COLUMNS, _PARTI...'"
     ],
     [
-     "notests",
-     "L65: 'participant_ids, _PARTICIPANT_COLUMNS, _PARTI...' => '_PARTICIPANT_COLUMNS, _PARTICIPANT_MAX_DISPLA...'"
-    ],
-    [
-     "notests",
-     "L65: 'participant_ids, _PARTICIPANT_COLUMNS, _PARTI...' => 'participant_ids, _PARTICIPANT_MAX_DISPLAY, ga...'"
-    ],
-    [
-     "notests",
-     "L65: 'participant_ids, _PARTICIPANT_COLUMNS, _PARTI...' => 'participant_ids, _PARTICIPANT_COLUMNS, game_u...'"
-    ],
-    [
-     "notests",
+     "logic",
      "L65: 'participant_ids, _PARTICIPANT_COLUMNS, _PARTI...' => 'participant_ids, _PARTICIPANT_COLUMNS, _PARTI...'; removed ')'"
     ],
     [
-     "notests",
-     "L68: 'columns = [\"No players yet\", *([_ZERO_WIDTH_S...' => 'columns = None'"
-    ],
-    [
-     "notests",
-     "L68: 'columns = [\"No players yet\", *([_ZERO_WIDTH_S...' => 'columns = [\"XXNo players yetXX\", *([_ZERO_WID...'"
-    ],
-    [
-     "notests",
-     "L68: 'columns = [\"No players yet\", *([_ZERO_WIDTH_S...' => 'columns = [\"no players yet\", *([_ZERO_WIDTH_S...'"
-    ],
-    [
-     "notests",
-     "L68: 'columns = [\"No players yet\", *([_ZERO_WIDTH_S...' => 'columns = [\"NO PLAYERS YET\", *([_ZERO_WIDTH_S...'"
-    ],
-    [
-     "notests",
-     "L68: 'columns = [\"No players yet\", *([_ZERO_WIDTH_S...' => 'columns = [\"No players yet\", *([_ZERO_WIDTH_S...'"
-    ],
-    [
-     "notests",
-     "L70: 'for index, text in enumerate(columns):' => 'for index, text in enumerate(None):'"
-    ],
-    [
-     "notests",
-     "L71: 'name = players_name if index == 0 else _ZERO_...' => 'name = None'"
-    ],
-    [
-     "notests",
-     "L71: 'name = players_name if index == 0 else _ZERO_...' => 'name = players_name if index != 0 else _ZERO_...'"
-    ],
-    [
-     "notests",
-     "L71: 'name = players_name if index == 0 else _ZERO_...' => 'name = players_name if index == 1 else _ZERO_...'"
-    ],
-    [
-     "notests",
-     "L72: 'embed.add_field(name=name, value=text, inline...' => 'embed.add_field(name=None, value=text, inline...'"
-    ],
-    [
-     "notests",
-     "L72: 'embed.add_field(name=name, value=text, inline...' => 'embed.add_field(name=name, value=None, inline...'"
-    ],
-    [
-     "notests",
+     "logic",
      "L72: 'embed.add_field(name=name, value=text, inline...' => 'embed.add_field(name=name, value=text, inline...'"
     ],
     [
-     "notests",
-     "L72: 'embed.add_field(name=name, value=text, inline...' => 'embed.add_field(value=text, inline=True)'"
-    ],
-    [
-     "notests",
-     "L72: 'embed.add_field(name=name, value=text, inline...' => 'embed.add_field(name=name, inline=True)'"
-    ],
-    [
-     "notests",
+     "logic",
      "L72: 'embed.add_field(name=name, value=text, inline...' => 'embed.add_field(name=name, value=text, )'"
     ],
     [
-     "notests",
-     "L75: 'waitlist_max_display = max(_MIN_WAITLIST_DISP...' => 'waitlist_max_display = None'"
-    ],
-    [
-     "notests",
-     "L75: 'waitlist_max_display = max(_MIN_WAITLIST_DISP...' => 'waitlist_max_display = max(None, _TOTAL_DISPL...'"
-    ],
-    [
-     "notests",
-     "L75: 'waitlist_max_display = max(_MIN_WAITLIST_DISP...' => 'waitlist_max_display = max(_MIN_WAITLIST_DISP...'"
-    ],
-    [
-     "notests",
-     "L75: 'waitlist_max_display = max(_MIN_WAITLIST_DISP...' => 'waitlist_max_display = max(_TOTAL_DISPLAY_BUD...'"
-    ],
-    [
-     "notests",
-     "L76: 'waitlist_columns = GameMessageFormatter._spli...' => 'waitlist_columns = None'; removed 'overflow_ids,'; removed '_WAITLIST_COLUMNS,'; removed 'waitlist_max_display,'; removed 'overflow_display_names,'; removed 'game_url,'; remove \u2026+"
-    ],
-    [
-     "notests",
-     "L77: 'overflow_ids,' => 'None,'"
-    ],
-    [
-     "notests",
-     "L78: '_WAITLIST_COLUMNS,' => 'None,'"
-    ],
-    [
-     "notests",
-     "L79: 'waitlist_max_display,' => 'None,'"
-    ],
-    [
-     "notests",
-     "L80: 'overflow_display_names,' => 'None,'"
-    ],
-    [
-     "notests",
-     "L81: 'game_url,' => 'None,'"
-    ],
-    [
-     "notests",
-     "removed 'overflow_ids,'"
-    ],
-    [
-     "notests",
-     "removed '_WAITLIST_COLUMNS,'"
-    ],
-    [
-     "notests",
-     "removed 'waitlist_max_display,'"
-    ],
-    [
-     "notests",
-     "removed 'overflow_display_names,'"
-    ],
-    [
-     "notests",
-     "L81: 'game_url,' => ')'; removed ')'"
-    ],
-    [
-     "notests",
-     "L83: 'for index, text in enumerate(waitlist_columns):' => 'for index, text in enumerate(None):'"
-    ],
-    [
-     "notests",
-     "L84: 'name = f\"Waitlist ({len(overflow_ids)})\" if i...' => 'name = None'"
-    ],
-    [
-     "notests",
-     "L84: 'name = f\"Waitlist ({len(overflow_ids)})\" if i...' => 'name = f\"Waitlist ({len(overflow_ids)})\" if i...'"
-    ],
-    [
-     "notests",
-     "L85: 'embed.add_field(name=name, value=text, inline...' => 'embed.add_field(name=None, value=text, inline...'"
-    ],
-    [
-     "notests",
-     "L85: 'embed.add_field(name=name, value=text, inline...' => 'embed.add_field(name=name, value=None, inline...'"
-    ],
-    [
-     "notests",
+     "logic",
      "L85: 'embed.add_field(name=name, value=text, inline...' => 'embed.add_field(name=name, value=text, inline...'"
     ],
     [
-     "notests",
-     "L85: 'embed.add_field(name=name, value=text, inline...' => 'embed.add_field(value=text, inline=True)'"
-    ],
-    [
-     "notests",
-     "L85: 'embed.add_field(name=name, value=text, inline...' => 'embed.add_field(name=name, inline=True)'"
-    ],
-    [
-     "notests",
+     "logic",
      "L85: 'embed.add_field(name=name, value=text, inline...' => 'embed.add_field(name=name, value=text, )'"
     ]
    ],
    "services.bot.formatters.game_message.x\u01c1GameMessageFormatter\u01c1_append_truncation_note": [
     [
-     "notests",
-     "L17: 'last_populated = next(' => 'last_populated = None'; removed '(i for i in range(len(texts) - 1, -1, -1) if ...'; removed ')'"
-    ],
-    [
-     "notests",
-     "L18: '(i for i in range(len(texts) - 1, -1, -1) if ...' => 'None, None'"
-    ],
-    [
-     "notests",
-     "L18: '(i for i in range(len(texts) - 1, -1, -1) if ...' => 'None'"
-    ],
-    [
-     "notests",
-     "L18: '(i for i in range(len(texts) - 1, -1, -1) if ...' => '(i for i in range(len(texts) - 1, -1, -1) if ...'; removed ')'"
-    ],
-    [
-     "notests",
-     "L18: '(i for i in range(len(texts) - 1, -1, -1) if ...' => '(i for i in range(None, -1, -1) if texts[i] !...'"
-    ],
-    [
-     "notests",
-     "L18: '(i for i in range(len(texts) - 1, -1, -1) if ...' => '(i for i in range(len(texts) - 1, None, -1) i...'"
-    ],
-    [
-     "notests",
-     "L18: '(i for i in range(len(texts) - 1, -1, -1) if ...' => '(i for i in range(len(texts) - 1, -1, None) i...'"
-    ],
-    [
-     "notests",
-     "L18: '(i for i in range(len(texts) - 1, -1, -1) if ...' => '(i for i in range(-1, -1) if texts[i] != _ZER...'"
-    ],
-    [
-     "notests",
-     "L18: '(i for i in range(len(texts) - 1, -1, -1) if ...' => '(i for i in range(len(texts) - 1, -1) if text...'"
-    ],
-    [
-     "notests",
-     "L18: '(i for i in range(len(texts) - 1, -1, -1) if ...' => '(i for i in range(len(texts) - 1, -1, ) if te...'"
-    ],
-    [
-     "notests",
-     "L18: '(i for i in range(len(texts) - 1, -1, -1) if ...' => '(i for i in range(len(texts) + 1, -1, -1) if ...'"
-    ],
-    [
-     "notests",
-     "L18: '(i for i in range(len(texts) - 1, -1, -1) if ...' => '(i for i in range(len(texts) - 2, -1, -1) if ...'"
-    ],
-    [
-     "notests",
-     "L18: '(i for i in range(len(texts) - 1, -1, -1) if ...' => '(i for i in range(len(texts) - 1, +1, -1) if ...'"
-    ],
-    [
-     "notests",
+     "logic",
      "L18: '(i for i in range(len(texts) - 1, -1, -1) if ...' => '(i for i in range(len(texts) - 1, -2, -1) if ...'"
     ],
     [
-     "notests",
-     "L18: '(i for i in range(len(texts) - 1, -1, -1) if ...' => '(i for i in range(len(texts) - 1, -1, +1) if ...'"
-    ],
-    [
-     "notests",
-     "L18: '(i for i in range(len(texts) - 1, -1, -1) if ...' => '(i for i in range(len(texts) - 1, -1, -2) if ...'"
-    ],
-    [
-     "notests",
-     "L18: '(i for i in range(len(texts) - 1, -1, -1) if ...' => '(i for i in range(len(texts) - 1, -1, -1) if ...'"
-    ],
-    [
-     "notests",
-     "L20: 'while last_populated is not None:' => 'while last_populated is None:'"
-    ],
-    [
-     "notests",
-     "L21: 'note = f\"... and {remaining} more\"' => 'note = None'"
-    ],
-    [
-     "notests",
-     "L23: 'note = f\"[{note}]({game_url})\"' => 'note = None'"
-    ],
-    [
-     "notests",
-     "L24: 'candidate = f\"{texts[last_populated]}\\\\n{note}\"' => 'candidate = None'"
-    ],
-    [
-     "notests",
+     "logic",
      "L25: 'if len(candidate) <= DISCORD_EMBED_FIELD_VALU...' => 'if len(candidate) < DISCORD_EMBED_FIELD_VALUE...'"
     ],
     [
-     "notests",
-     "L26: 'texts[last_populated] = candidate' => 'texts[last_populated] = None'"
-    ],
-    [
-     "notests",
-     "L29: 'column_lines = texts[last_populated].split(\"\\\\n\")' => 'column_lines = None'"
-    ],
-    [
-     "notests",
-     "L29: 'column_lines = texts[last_populated].split(\"\\\\n\")' => 'column_lines = texts[last_populated].split(None)'"
-    ],
-    [
-     "notests",
+     "string",
      "L29: 'column_lines = texts[last_populated].split(\"\\\\n\")' => 'column_lines = texts[last_populated].split(\"X...'"
     ],
     [
-     "notests",
-     "L31: 'remaining += 1' => 'remaining = 1'"
-    ],
-    [
-     "notests",
-     "L31: 'remaining += 1' => 'remaining -= 1'"
-    ],
-    [
-     "notests",
-     "L31: 'remaining += 1' => 'remaining += 2'"
-    ],
-    [
-     "notests",
-     "L32: 'texts[last_populated] = \"\\\\n\".join(column_line...' => 'texts[last_populated] = None'"
-    ],
-    [
-     "notests",
-     "L32: 'texts[last_populated] = \"\\\\n\".join(column_line...' => 'texts[last_populated] = \"\\\\n\".join(None) if co...'"
-    ],
-    [
-     "notests",
+     "string",
      "L32: 'texts[last_populated] = \"\\\\n\".join(column_line...' => 'texts[last_populated] = \"XX\\\\nXX\".join(column_...'"
     ],
     [
-     "notests",
-     "L33: 'if texts[last_populated] == _ZERO_WIDTH_SPACE:' => 'if texts[last_populated] != _ZERO_WIDTH_SPACE:'"
-    ],
-    [
-     "notests",
+     "logic",
      "L34: 'last_populated = next(' => 'last_populated = None'; removed '(i for i in range(last_populated - 1, -1, -1)...'; removed 'None,'; removed ')'"
     ],
     [
-     "notests",
-     "L35: '(i for i in range(last_populated - 1, -1, -1)...' => 'None,'"
-    ],
-    [
-     "notests",
-     "removed '(i for i in range(last_populated - 1, -1, -1)...'"
-    ],
-    [
-     "notests",
-     "L36: 'None,' => ')'; removed ')'"
-    ],
-    [
-     "notests",
-     "L35: '(i for i in range(last_populated - 1, -1, -1)...' => '(i for i in range(None, -1, -1) if texts[i] !...'"
-    ],
-    [
-     "notests",
-     "L35: '(i for i in range(last_populated - 1, -1, -1)...' => '(i for i in range(last_populated - 1, None, -...'"
-    ],
-    [
-     "notests",
-     "L35: '(i for i in range(last_populated - 1, -1, -1)...' => '(i for i in range(last_populated - 1, -1, Non...'"
-    ],
-    [
-     "notests",
+     "logic",
      "L35: '(i for i in range(last_populated - 1, -1, -1)...' => '(i for i in range(-1, -1) if texts[i] != _ZER...'"
     ],
     [
-     "notests",
+     "logic",
      "L35: '(i for i in range(last_populated - 1, -1, -1)...' => '(i for i in range(last_populated - 1, -1) if ...'"
     ],
     [
-     "notests",
+     "logic",
      "L35: '(i for i in range(last_populated - 1, -1, -1)...' => '(i for i in range(last_populated - 1, -1, ) i...'"
     ],
     [
-     "notests",
+     "logic",
      "L35: '(i for i in range(last_populated - 1, -1, -1)...' => '(i for i in range(last_populated + 1, -1, -1)...'"
     ],
     [
-     "notests",
+     "logic",
      "L35: '(i for i in range(last_populated - 1, -1, -1)...' => '(i for i in range(last_populated - 2, -1, -1)...'"
     ],
     [
-     "notests",
+     "logic",
      "L35: '(i for i in range(last_populated - 1, -1, -1)...' => '(i for i in range(last_populated - 1, +1, -1)...'"
     ],
     [
-     "notests",
+     "logic",
      "L35: '(i for i in range(last_populated - 1, -1, -1)...' => '(i for i in range(last_populated - 1, -2, -1)...'"
     ],
     [
-     "notests",
+     "logic",
      "L35: '(i for i in range(last_populated - 1, -1, -1)...' => '(i for i in range(last_populated - 1, -1, +1)...'"
     ],
     [
-     "notests",
+     "logic",
      "L35: '(i for i in range(last_populated - 1, -1, -1)...' => '(i for i in range(last_populated - 1, -1, -2)...'"
     ],
     [
-     "notests",
+     "logic",
      "L35: '(i for i in range(last_populated - 1, -1, -1)...' => '(i for i in range(last_populated - 1, -1, -1)...'"
     ],
     [
-     "notests",
-     "L41: 'note = f\"... and {remaining} more\"' => 'note = None'"
-    ],
-    [
-     "notests",
+     "logic",
      "L43: 'note = f\"[{note}]({game_url})\"' => 'note = None'"
     ],
     [
-     "notests",
-     "L44: 'texts[-1] = note' => 'texts[-1] = None'"
-    ],
-    [
-     "notests",
+     "logic",
      "L44: 'texts[-1] = note' => 'texts[+1] = note'"
-    ],
-    [
-     "notests",
-     "L44: 'texts[-1] = note' => 'texts[-2] = note'"
-    ]
-   ],
-   "services.bot.formatters.game_message.x\u01c1GameMessageFormatter\u01c1_configure_embed_author": [
-    [
-     "notests",
-     "L17: 'author_name = f\"@{host_display_name}\"' => 'author_name = None'"
-    ],
-    [
-     "notests",
-     "L19: 'author_name = host_id if not host_id.isdigit(...' => 'author_name = None'"
-    ],
-    [
-     "notests",
-     "L19: 'author_name = host_id if not host_id.isdigit(...' => 'author_name = host_id if host_id.isdigit() el...'"
-    ],
-    [
-     "notests",
-     "L19: 'author_name = host_id if not host_id.isdigit(...' => 'author_name = host_id if not host_id.isdigit(...'"
-    ],
-    [
-     "notests",
-     "L22: 'embed.set_author(name=author_name, icon_url=h...' => 'embed.set_author(name=None, icon_url=host_ava...'"
-    ],
-    [
-     "notests",
-     "L22: 'embed.set_author(name=author_name, icon_url=h...' => 'embed.set_author(name=author_name, icon_url=N...'"
-    ],
-    [
-     "notests",
-     "L22: 'embed.set_author(name=author_name, icon_url=h...' => 'embed.set_author(icon_url=host_avatar_url)'"
-    ],
-    [
-     "notests",
-     "L22: 'embed.set_author(name=author_name, icon_url=h...' => 'embed.set_author(name=author_name, )'"
-    ],
-    [
-     "notests",
-     "L24: 'embed.set_author(name=author_name)' => 'embed.set_author(name=None)'"
-    ]
-   ],
-   "services.bot.formatters.game_message.x\u01c1GameMessageFormatter\u01c1_get_status_color": [
-    [
-     "notests",
-     "L11: 'color_map = {' => 'color_map = None'; removed '\"SCHEDULED\": discord.Color.green(),'; removed '\"IN_PROGRESS\": discord.Color.blue(),'; removed '\"COMPLETED\": discord.Color.gold(),'; removed '\"CANCELLED\": discord.Color.red(),'; remove \u2026+"
-    ],
-    [
-     "notests",
-     "L12: '\"SCHEDULED\": discord.Color.green(),' => '\"XXSCHEDULEDXX\": discord.Color.green(),'"
-    ],
-    [
-     "notests",
-     "L12: '\"SCHEDULED\": discord.Color.green(),' => '\"scheduled\": discord.Color.green(),'"
-    ],
-    [
-     "notests",
-     "L13: '\"IN_PROGRESS\": discord.Color.blue(),' => '\"XXIN_PROGRESSXX\": discord.Color.blue(),'"
-    ],
-    [
-     "notests",
-     "L13: '\"IN_PROGRESS\": discord.Color.blue(),' => '\"in_progress\": discord.Color.blue(),'"
-    ],
-    [
-     "notests",
-     "L14: '\"COMPLETED\": discord.Color.gold(),' => '\"XXCOMPLETEDXX\": discord.Color.gold(),'"
-    ],
-    [
-     "notests",
-     "L14: '\"COMPLETED\": discord.Color.gold(),' => '\"completed\": discord.Color.gold(),'"
-    ],
-    [
-     "notests",
-     "L15: '\"CANCELLED\": discord.Color.red(),' => '\"XXCANCELLEDXX\": discord.Color.red(),'"
-    ],
-    [
-     "notests",
-     "L15: '\"CANCELLED\": discord.Color.red(),' => '\"cancelled\": discord.Color.red(),'"
-    ],
-    [
-     "notests",
-     "L17: 'return color_map.get(status, discord.Color.gr...' => 'return color_map.get(None, discord.Color.grey...'"
-    ],
-    [
-     "notests",
-     "L17: 'return color_map.get(status, discord.Color.gr...' => 'return color_map.get(status, None)'"
-    ],
-    [
-     "notests",
-     "L17: 'return color_map.get(status, discord.Color.gr...' => 'return color_map.get(discord.Color.greyple())'"
-    ],
-    [
-     "notests",
-     "L17: 'return color_map.get(status, discord.Color.gr...' => 'return color_map.get(status, )'"
     ]
    ],
    "services.bot.formatters.game_message.x\u01c1GameMessageFormatter\u01c1_pack_by_length": [
     [
-     "notests",
-     "L18: 'texts: list[str] = []' => 'texts: list[str] = None'"
-    ],
-    [
-     "notests",
-     "L19: 'line_index = 0' => 'line_index = None'"
-    ],
-    [
-     "notests",
-     "L19: 'line_index = 0' => 'line_index = 1'"
-    ],
-    [
-     "notests",
-     "L20: 'for _ in range(num_columns):' => 'for _ in range(None):'"
-    ],
-    [
-     "notests",
-     "L21: 'column_lines: list[str] = []' => 'column_lines: list[str] = None'"
-    ],
-    [
-     "notests",
-     "L22: 'column_length = 0' => 'column_length = None'"
-    ],
-    [
-     "notests",
+     "logic",
      "L22: 'column_length = 0' => 'column_length = 1'"
     ],
     [
-     "notests",
+     "logic",
      "L23: 'while line_index < len(lines):' => 'while line_index <= len(lines):'"
     ],
     [
-     "notests",
-     "L24: 'line = lines[line_index]' => 'line = None'"
-    ],
-    [
-     "notests",
-     "L26: 'added_length = len(line) + (1 if column_lines...' => 'added_length = None'"
-    ],
-    [
-     "notests",
+     "logic",
      "L26: 'added_length = len(line) + (1 if column_lines...' => 'added_length = len(line) - (1 if column_lines...'"
     ],
     [
-     "notests",
+     "logic",
      "L26: 'added_length = len(line) + (1 if column_lines...' => 'added_length = len(line) + (2 if column_lines...'"
     ],
     [
-     "notests",
+     "logic",
      "L26: 'added_length = len(line) + (1 if column_lines...' => 'added_length = len(line) + (1 if column_lines...'"
     ],
     [
-     "notests",
-     "L27: 'if column_lines and column_length + added_len...' => 'if column_lines or column_length + added_leng...'"
-    ],
-    [
-     "notests",
-     "L27: 'if column_lines and column_length + added_len...' => 'if column_lines and column_length - added_len...'"
-    ],
-    [
-     "notests",
+     "logic",
      "L27: 'if column_lines and column_length + added_len...' => 'if column_lines and column_length + added_len...'"
-    ],
-    [
-     "notests",
-     "L28: 'break' => 'return'"
-    ],
-    [
-     "notests",
-     "L29: 'column_lines.append(line)' => 'column_lines.append(None)'"
-    ],
-    [
-     "notests",
-     "L30: 'column_length += added_length' => 'column_length = added_length'"
-    ],
-    [
-     "notests",
-     "L30: 'column_length += added_length' => 'column_length -= added_length'"
-    ],
-    [
-     "notests",
-     "L31: 'line_index += 1' => 'line_index = 1'"
-    ],
-    [
-     "notests",
-     "L31: 'line_index += 1' => 'line_index -= 1'"
-    ],
-    [
-     "notests",
-     "L31: 'line_index += 1' => 'line_index += 2'"
-    ],
-    [
-     "notests",
-     "L32: 'texts.append(\"\\\\n\".join(column_lines) if colum...' => 'texts.append(None)'"
-    ],
-    [
-     "notests",
-     "L32: 'texts.append(\"\\\\n\".join(column_lines) if colum...' => 'texts.append(\"\\\\n\".join(None) if column_lines ...'"
-    ],
-    [
-     "notests",
-     "L32: 'texts.append(\"\\\\n\".join(column_lines) if colum...' => 'texts.append(\"XX\\\\nXX\".join(column_lines) if c...'"
-    ]
-   ],
-   "services.bot.formatters.game_message.x\u01c1GameMessageFormatter\u01c1_prepare_description_and_urls": [
-    [
-     "notests",
-     "L20: 'truncated_description = description' => 'truncated_description = None'"
-    ],
-    [
-     "notests",
-     "L22: 'calendar_url = None' => 'calendar_url = \"\"'"
-    ],
-    [
-     "notests",
-     "L23: 'game_url = None' => 'game_url = \"\"'"
-    ],
-    [
-     "notests",
-     "L25: 'config = get_config()' => 'config = None'"
-    ],
-    [
-     "notests",
-     "L26: 'calendar_url = f\"{config.frontend_url}/downlo...' => 'calendar_url = None'"
-    ],
-    [
-     "notests",
-     "L27: 'game_url = f\"{config.frontend_url}/games/{gam...' => 'game_url = None'"
     ]
    ],
    "services.bot.formatters.game_message.x\u01c1GameMessageFormatter\u01c1_split_evenly": [
     [
-     "notests",
-     "L13: 'if not lines:' => 'if lines:'"
-    ],
-    [
-     "notests",
-     "L14: 'return [_ZERO_WIDTH_SPACE] * num_columns' => 'return [_ZERO_WIDTH_SPACE] / num_columns'"
-    ],
-    [
-     "notests",
-     "L16: 'chunk_size = math.ceil(len(lines) / num_columns)' => 'chunk_size = None'"
-    ],
-    [
-     "notests",
-     "L16: 'chunk_size = math.ceil(len(lines) / num_columns)' => 'chunk_size = math.ceil(None)'"
-    ],
-    [
-     "notests",
-     "L16: 'chunk_size = math.ceil(len(lines) / num_columns)' => 'chunk_size = math.ceil(len(lines) * num_columns)'"
-    ],
-    [
-     "notests",
-     "L17: 'texts = []' => 'texts = None'"
-    ],
-    [
-     "notests",
-     "L18: 'for column in range(num_columns):' => 'for column in range(None):'"
-    ],
-    [
-     "notests",
-     "L19: 'chunk = lines[column * chunk_size : (column +...' => 'chunk = None'"
-    ],
-    [
-     "notests",
-     "L19: 'chunk = lines[column * chunk_size : (column +...' => 'chunk = lines[column / chunk_size : (column +...'"
-    ],
-    [
-     "notests",
+     "logic",
      "L19: 'chunk = lines[column * chunk_size : (column +...' => 'chunk = lines[column * chunk_size : (column +...'"
     ],
     [
-     "notests",
-     "L19: 'chunk = lines[column * chunk_size : (column +...' => 'chunk = lines[column * chunk_size : (column -...'"
-    ],
-    [
-     "notests",
-     "L20: 'texts.append(\"\\\\n\".join(chunk) if chunk else _...' => 'texts.append(None)'"
-    ],
-    [
-     "notests",
-     "L20: 'texts.append(\"\\\\n\".join(chunk) if chunk else _...' => 'texts.append(\"\\\\n\".join(None) if chunk else _Z...'"
-    ],
-    [
-     "notests",
+     "string",
      "L20: 'texts.append(\"\\\\n\".join(chunk) if chunk else _...' => 'texts.append(\"XX\\\\nXX\".join(chunk) if chunk el...'"
     ],
     [
-     "notests",
-     "L22: 'if any(len(text) > DISCORD_EMBED_FIELD_VALUE_...' => 'if any(None):'"
-    ],
-    [
-     "notests",
+     "logic",
      "L22: 'if any(len(text) > DISCORD_EMBED_FIELD_VALUE_...' => 'if any(len(text) >= DISCORD_EMBED_FIELD_VALUE...'"
-    ]
-   ],
-   "services.bot.formatters.game_message.x\u01c1GameMessageFormatter\u01c1_split_into_columns": [
-    [
-     "notests",
-     "L50: 'lines = [' => 'lines = None'; removed 'f\"{_LIST_NUMBER_PREFIX}{i + 1}{_LIST_NUMBER_S...'; removed 'f\"{format_user_or_placeholder(uid, display_na...'; removed 'for i, uid in enumerate(items[:max_display])'; removed ']'"
-    ],
-    [
-     "notests",
-     "L51: 'f\"{_LIST_NUMBER_PREFIX}{i + 1}{_LIST_NUMBER_S...' => 'f\"{_LIST_NUMBER_PREFIX}{i - 1}{_LIST_NUMBER_S...'"
-    ],
-    [
-     "notests",
-     "L51: 'f\"{_LIST_NUMBER_PREFIX}{i + 1}{_LIST_NUMBER_S...' => 'f\"{_LIST_NUMBER_PREFIX}{i + 2}{_LIST_NUMBER_S...'"
-    ],
-    [
-     "notests",
-     "L52: 'f\"{format_user_or_placeholder(uid, display_na...' => 'f\"{format_user_or_placeholder(None, display_n...'"
-    ],
-    [
-     "notests",
-     "L52: 'f\"{format_user_or_placeholder(uid, display_na...' => 'f\"{format_user_or_placeholder(uid, None)}\"'"
-    ],
-    [
-     "notests",
-     "L52: 'f\"{format_user_or_placeholder(uid, display_na...' => 'f\"{format_user_or_placeholder(display_names)}\"'"
-    ],
-    [
-     "notests",
-     "L52: 'f\"{format_user_or_placeholder(uid, display_na...' => 'f\"{format_user_or_placeholder(uid, )}\"'"
-    ],
-    [
-     "notests",
-     "L53: 'for i, uid in enumerate(items[:max_display])' => 'for i, uid in enumerate(None)'"
-    ],
-    [
-     "notests",
-     "L56: 'even_texts = GameMessageFormatter._split_even...' => 'even_texts = None'"
-    ],
-    [
-     "notests",
-     "L56: 'even_texts = GameMessageFormatter._split_even...' => 'even_texts = GameMessageFormatter._split_even...'"
-    ],
-    [
-     "notests",
-     "L57: 'if even_texts is not None:' => 'if even_texts is None:'"
-    ],
-    [
-     "notests",
-     "L58: 'texts, consumed = even_texts, len(lines)' => 'texts, consumed = None'"
-    ],
-    [
-     "notests",
-     "L60: 'texts, consumed = GameMessageFormatter._pack_...' => 'texts, consumed = None'"
-    ],
-    [
-     "notests",
-     "L60: 'texts, consumed = GameMessageFormatter._pack_...' => 'texts, consumed = GameMessageFormatter._pack_...'"
-    ],
-    [
-     "notests",
-     "L62: 'remaining = len(items) - consumed' => 'remaining = None'"
-    ],
-    [
-     "notests",
-     "L62: 'remaining = len(items) - consumed' => 'remaining = len(items) + consumed'"
-    ],
-    [
-     "notests",
-     "L64: 'GameMessageFormatter._append_truncation_note(...' => 'GameMessageFormatter._append_truncation_note(...'"
     ]
    ],
    "services.bot.formatters.game_message.x\u01c1GameMessageFormatter\u01c1_trim_embed_if_needed": [
     [
-     "notests",
-     "L3: 'excess = len(embed) - DISCORD_EMBED_TOTAL_SAF...' => 'excess = None'"
-    ],
-    [
-     "notests",
-     "L3: 'excess = len(embed) - DISCORD_EMBED_TOTAL_SAF...' => 'excess = len(embed) + DISCORD_EMBED_TOTAL_SAF...'"
-    ],
-    [
-     "notests",
-     "L4: 'if excess > 0 and embed.description:' => 'if excess > 0 or embed.description:'"
-    ],
-    [
-     "notests",
+     "logic",
      "L4: 'if excess > 0 and embed.description:' => 'if excess >= 0 and embed.description:'"
     ],
     [
-     "notests",
+     "logic",
      "L4: 'if excess > 0 and embed.description:' => 'if excess > 1 and embed.description:'"
     ],
     [
-     "notests",
-     "L5: 'trim_to = len(embed.description) - excess - 3' => 'trim_to = None'"
-    ],
-    [
-     "notests",
-     "L5: 'trim_to = len(embed.description) - excess - 3' => 'trim_to = len(embed.description) - excess + 3'"
-    ],
-    [
-     "notests",
-     "L5: 'trim_to = len(embed.description) - excess - 3' => 'trim_to = len(embed.description) + excess - 3'"
-    ],
-    [
-     "notests",
+     "logic",
      "L5: 'trim_to = len(embed.description) - excess - 3' => 'trim_to = len(embed.description) - excess - 4'"
-    ],
-    [
-     "notests",
-     "L6: 'embed.description = embed.description[:trim_t...' => 'embed.description = None'"
-    ],
-    [
-     "notests",
-     "L6: 'embed.description = embed.description[:trim_t...' => 'embed.description = embed.description[:trim_t...'"
     ]
    ],
    "services.bot.formatters.game_message.x\u01c1GameMessageFormatter\u01c1create_game_embed": [
     [
-     "notests",
-     "L51: 'truncated_description, calendar_url, game_url...' => 'truncated_description, calendar_url, game_url...'; removed 'GameMessageFormatter._prepare_description_and...'; removed 'description, game_id, thumbnail_url, image_url'; removed \u2026+"
-    ],
-    [
-     "notests",
-     "L53: 'description, game_id, thumbnail_url, image_url' => 'None, game_id, thumbnail_url, image_url'"
-    ],
-    [
-     "notests",
-     "L53: 'description, game_id, thumbnail_url, image_url' => 'description, None, thumbnail_url, image_url'"
-    ],
-    [
-     "notests",
-     "L53: 'description, game_id, thumbnail_url, image_url' => 'description, game_id, None, image_url'"
-    ],
-    [
-     "notests",
-     "L53: 'description, game_id, thumbnail_url, image_url' => 'description, game_id, thumbnail_url, None'"
-    ],
-    [
-     "notests",
-     "L53: 'description, game_id, thumbnail_url, image_url' => 'game_id, thumbnail_url, image_url'"
-    ],
-    [
-     "notests",
-     "L53: 'description, game_id, thumbnail_url, image_url' => 'description, thumbnail_url, image_url'"
-    ],
-    [
-     "notests",
-     "L53: 'description, game_id, thumbnail_url, image_url' => 'description, game_id, image_url'"
-    ],
-    [
-     "notests",
-     "L53: 'description, game_id, thumbnail_url, image_url' => 'description, game_id, thumbnail_url, )'; removed ')'"
-    ],
-    [
-     "notests",
-     "L56: 'google_calendar_url = build_google_calendar_url(' => 'google_calendar_url = None'; removed 'game_title, description, scheduled_at, expect...'; removed ')'"
-    ],
-    [
-     "notests",
-     "L57: 'game_title, description, scheduled_at, expect...' => 'None, description, scheduled_at, expected_dur...'"
-    ],
-    [
-     "notests",
+     "logic",
      "L57: 'game_title, description, scheduled_at, expect...' => 'game_title, None, scheduled_at, expected_dura...'"
     ],
     [
-     "notests",
-     "L57: 'game_title, description, scheduled_at, expect...' => 'game_title, description, None, expected_durat...'"
-    ],
-    [
-     "notests",
+     "logic",
      "L57: 'game_title, description, scheduled_at, expect...' => 'game_title, description, scheduled_at, None, ...'"
     ],
     [
-     "notests",
+     "logic",
      "L57: 'game_title, description, scheduled_at, expect...' => 'game_title, description, scheduled_at, expect...'"
     ],
     [
-     "notests",
-     "L57: 'game_title, description, scheduled_at, expect...' => 'description, scheduled_at, expected_duration_...'"
-    ],
-    [
-     "notests",
-     "L57: 'game_title, description, scheduled_at, expect...' => 'game_title, scheduled_at, expected_duration_m...'"
-    ],
-    [
-     "notests",
-     "L57: 'game_title, description, scheduled_at, expect...' => 'game_title, description, expected_duration_mi...'"
-    ],
-    [
-     "notests",
-     "L57: 'game_title, description, scheduled_at, expect...' => 'game_title, description, scheduled_at, where'"
-    ],
-    [
-     "notests",
-     "L57: 'game_title, description, scheduled_at, expect...' => 'game_title, description, scheduled_at, expect...'; removed ')'"
-    ],
-    [
-     "notests",
-     "L60: 'embed = discord.Embed(' => 'embed = None'; removed 'title=game_title,'; removed 'description=truncated_description,'; removed 'color=GameMessageFormatter._get_status_color(...'; removed ')'"
-    ],
-    [
-     "notests",
-     "L61: 'title=game_title,' => 'title=None,'"
-    ],
-    [
-     "notests",
-     "L62: 'description=truncated_description,' => 'description=None,'"
-    ],
-    [
-     "notests",
+     "logic",
      "L63: 'color=GameMessageFormatter._get_status_color(...' => 'color=None,'"
     ],
     [
-     "notests",
-     "removed 'title=game_title,'"
-    ],
-    [
-     "notests",
-     "removed 'description=truncated_description,'"
-    ],
-    [
-     "notests",
-     "L63: 'color=GameMessageFormatter._get_status_color(...' => ')'; removed ')'"
-    ],
-    [
-     "notests",
+     "logic",
      "L63: 'color=GameMessageFormatter._get_status_color(...' => 'color=GameMessageFormatter._get_status_color(...'"
     ],
     [
-     "notests",
-     "L67: 'embed, host_id, host_display_name, host_avata...' => 'None, host_id, host_display_name, host_avatar...'"
-    ],
-    [
-     "notests",
-     "L67: 'embed, host_id, host_display_name, host_avata...' => 'embed, None, host_display_name, host_avatar_url'"
-    ],
-    [
-     "notests",
+     "logic",
      "L67: 'embed, host_id, host_display_name, host_avata...' => 'embed, host_id, None, host_avatar_url'"
     ],
     [
-     "notests",
+     "logic",
      "L67: 'embed, host_id, host_display_name, host_avata...' => 'embed, host_id, host_display_name, None'"
     ],
     [
-     "notests",
-     "L67: 'embed, host_id, host_display_name, host_avata...' => 'host_id, host_display_name, host_avatar_url'"
-    ],
-    [
-     "notests",
-     "L67: 'embed, host_id, host_display_name, host_avata...' => 'embed, host_display_name, host_avatar_url'"
-    ],
-    [
-     "notests",
-     "L67: 'embed, host_id, host_display_name, host_avata...' => 'embed, host_id, host_avatar_url'"
-    ],
-    [
-     "notests",
-     "L67: 'embed, host_id, host_display_name, host_avata...' => 'embed, host_id, host_display_name, )'; removed ')'"
-    ],
-    [
-     "notests",
-     "L71: 'embed.set_thumbnail(url=thumb_url)' => 'embed.set_thumbnail(url=None)'"
-    ],
-    [
-     "notests",
-     "L73: 'embed.set_image(url=img_url)' => 'embed.set_image(url=None)'"
-    ],
-    [
-     "notests",
-     "L76: 'embed,' => 'None,'"
-    ],
-    [
-     "notests",
-     "L77: 'scheduled_at,' => 'None,'"
-    ],
-    [
-     "notests",
-     "L78: 'host_id,' => 'None,'"
-    ],
-    [
-     "notests",
-     "L79: 'expected_duration_minutes,' => 'None,'"
-    ],
-    [
-     "notests",
-     "L80: 'where,' => 'None,'"
-    ],
-    [
-     "notests",
-     "L81: 'channel_id,' => 'None,'"
-    ],
-    [
-     "notests",
-     "L82: 'calendar_url,' => 'None,'"
-    ],
-    [
-     "notests",
-     "L83: 'google_calendar_url,' => 'None,'"
-    ],
-    [
-     "notests",
-     "removed 'embed,'"
-    ],
-    [
-     "notests",
-     "removed 'scheduled_at,'"
-    ],
-    [
-     "notests",
-     "removed 'host_id,'"
-    ],
-    [
-     "notests",
-     "removed 'expected_duration_minutes,'"
-    ],
-    [
-     "notests",
-     "removed 'where,'"
-    ],
-    [
-     "notests",
-     "removed 'channel_id,'"
-    ],
-    [
-     "notests",
-     "removed 'calendar_url,'"
-    ],
-    [
-     "notests",
-     "L83: 'google_calendar_url,' => ')'; removed ')'"
-    ],
-    [
-     "notests",
-     "L87: 'embed,' => 'None,'"
-    ],
-    [
-     "notests",
-     "L88: 'participant_ids,' => 'None,'"
-    ],
-    [
-     "notests",
-     "L89: 'overflow_ids,' => 'None,'"
-    ],
-    [
-     "notests",
-     "L90: 'current_count,' => 'None,'"
-    ],
-    [
-     "notests",
-     "L91: 'max_players,' => 'None,'"
-    ],
-    [
-     "notests",
-     "L92: 'overflow_display_names,' => 'None,'"
-    ],
-    [
-     "notests",
+     "logic",
      "L93: 'game_url,' => 'None,'"
     ],
     [
-     "notests",
-     "removed 'participant_ids,'"
-    ],
-    [
-     "notests",
-     "removed 'current_count,'"
-    ],
-    [
-     "notests",
-     "removed 'max_players,'"
-    ],
-    [
-     "notests",
+     "logic",
      "L93: 'game_url,' => ')'; removed ')'"
     ],
     [
-     "notests",
-     "L97: 'embed.add_field(name=EMBED_FIELD_REWARDS, val...' => 'embed.add_field(name=None, value=f\"||{rewards...'"
-    ],
-    [
-     "notests",
+     "logic",
      "L97: 'embed.add_field(name=EMBED_FIELD_REWARDS, val...' => 'embed.add_field(name=EMBED_FIELD_REWARDS, val...'"
     ],
     [
-     "notests",
-     "L97: 'embed.add_field(name=EMBED_FIELD_REWARDS, val...' => 'embed.add_field(value=f\"||{rewards}||\", inlin...'"
-    ],
-    [
-     "notests",
-     "L97: 'embed.add_field(name=EMBED_FIELD_REWARDS, val...' => 'embed.add_field(name=EMBED_FIELD_REWARDS, inl...'"
-    ],
-    [
-     "notests",
-     "L99: 'GameMessageFormatter._add_footer(embed, status)' => 'GameMessageFormatter._add_footer(None, status)'"
-    ],
-    [
-     "notests",
+     "logic",
      "L99: 'GameMessageFormatter._add_footer(embed, status)' => 'GameMessageFormatter._add_footer(embed, None)'"
-    ],
-    [
-     "notests",
-     "L99: 'GameMessageFormatter._add_footer(embed, status)' => 'GameMessageFormatter._add_footer(status)'"
-    ],
-    [
-     "notests",
-     "L99: 'GameMessageFormatter._add_footer(embed, status)' => 'GameMessageFormatter._add_footer(embed, )'"
-    ],
-    [
-     "notests",
-     "L101: 'return GameMessageFormatter._trim_embed_if_ne...' => 'return GameMessageFormatter._trim_embed_if_ne...'"
     ]
    ],
    "services.bot.formatters.game_message.x\u01c1GameMessageFormatter\u01c1create_notification_embed": [
     [
-     "notests",
+     "logic",
      "L24: 'ts = int(scheduled_at.timestamp())' => 'ts = None'"
     ],
     [
-     "notests",
-     "L24: 'ts = int(scheduled_at.timestamp())' => 'ts = int(None)'"
-    ],
-    [
-     "notests",
-     "L25: 'lines = [f\"**{game_title}**\", f\"**Starts:** <...' => 'lines = None'"
-    ],
-    [
-     "notests",
-     "L27: 'lines.append(f\"**Where:** {where}\")' => 'lines.append(None)'"
-    ],
-    [
-     "notests",
-     "L29: 'lines.append(f\"[View in scheduler]({jump_url})\")' => 'lines.append(None)'"
-    ],
-    [
-     "notests",
-     "L32: 'title=\"\ud83d\udd14 Game Reminder\",' => 'title=None,'"
-    ],
-    [
-     "notests",
-     "L33: 'description=\"\\\\n\".join(lines),' => 'description=None,'"
-    ],
-    [
-     "notests",
+     "logic",
      "L34: 'color=discord.Color.blue(),' => 'color=None,'"
     ],
     [
-     "notests",
-     "removed 'title=\"\ud83d\udd14 Game Reminder\",'"
-    ],
-    [
-     "notests",
-     "removed 'description=\"\\\\n\".join(lines),'"
-    ],
-    [
-     "notests",
-     "L34: 'color=discord.Color.blue(),' => ')'; removed ')'"
-    ],
-    [
-     "notests",
-     "L32: 'title=\"\ud83d\udd14 Game Reminder\",' => 'title=\"XX\ud83d\udd14 Game ReminderXX\",'"
-    ],
-    [
-     "notests",
-     "L32: 'title=\"\ud83d\udd14 Game Reminder\",' => 'title=\"\ud83d\udd14 game reminder\",'"
-    ],
-    [
-     "notests",
-     "L32: 'title=\"\ud83d\udd14 Game Reminder\",' => 'title=\"\ud83d\udd14 GAME REMINDER\",'"
-    ],
-    [
-     "notests",
-     "L33: 'description=\"\\\\n\".join(lines),' => 'description=\"\\\\n\".join(None),'"
-    ],
-    [
-     "notests",
+     "string",
      "L33: 'description=\"\\\\n\".join(lines),' => 'description=\"XX\\\\nXX\".join(lines),'"
     ]
    ]
@@ -19265,72 +17731,8 @@
   "services/bot/views/game_view.py": {
    "services.bot.views.game_view.x\u01c1GameView\u01c1from_game_data": [
     [
-     "notests",
-     "L22: 'is_full = current_players >= max_players' => 'is_full = None'"
-    ],
-    [
-     "notests",
-     "L22: 'is_full = current_players >= max_players' => 'is_full = current_players > max_players'"
-    ],
-    [
-     "notests",
-     "L23: 'is_started = status in (\"IN_PROGRESS\", \"COMPL...' => 'is_started = None'"
-    ],
-    [
-     "notests",
-     "L23: 'is_started = status in (\"IN_PROGRESS\", \"COMPL...' => 'is_started = status not in (\"IN_PROGRESS\", \"C...'"
-    ],
-    [
-     "notests",
-     "L23: 'is_started = status in (\"IN_PROGRESS\", \"COMPL...' => 'is_started = status in (\"XXIN_PROGRESSXX\", \"C...'"
-    ],
-    [
-     "notests",
-     "L23: 'is_started = status in (\"IN_PROGRESS\", \"COMPL...' => 'is_started = status in (\"in_progress\", \"COMPL...'"
-    ],
-    [
-     "notests",
-     "L23: 'is_started = status in (\"IN_PROGRESS\", \"COMPL...' => 'is_started = status in (\"IN_PROGRESS\", \"XXCOM...'"
-    ],
-    [
-     "notests",
-     "L23: 'is_started = status in (\"IN_PROGRESS\", \"COMPL...' => 'is_started = status in (\"IN_PROGRESS\", \"compl...'"
-    ],
-    [
-     "notests",
-     "L23: 'is_started = status in (\"IN_PROGRESS\", \"COMPL...' => 'is_started = status in (\"IN_PROGRESS\", \"COMPL...'"
-    ],
-    [
-     "notests",
+     "logic",
      "L24: 'return cls(game_id, is_full, is_started, sign...' => 'return cls(None, is_full, is_started, signup_...'"
-    ],
-    [
-     "notests",
-     "L24: 'return cls(game_id, is_full, is_started, sign...' => 'return cls(game_id, None, is_started, signup_...'"
-    ],
-    [
-     "notests",
-     "L24: 'return cls(game_id, is_full, is_started, sign...' => 'return cls(game_id, is_full, None, signup_met...'"
-    ],
-    [
-     "notests",
-     "L24: 'return cls(game_id, is_full, is_started, sign...' => 'return cls(game_id, is_full, is_started, None)'"
-    ],
-    [
-     "notests",
-     "L24: 'return cls(game_id, is_full, is_started, sign...' => 'return cls(is_full, is_started, signup_method)'"
-    ],
-    [
-     "notests",
-     "L24: 'return cls(game_id, is_full, is_started, sign...' => 'return cls(game_id, is_started, signup_method)'"
-    ],
-    [
-     "notests",
-     "L24: 'return cls(game_id, is_full, is_started, sign...' => 'return cls(game_id, is_full, signup_method)'"
-    ],
-    [
-     "notests",
-     "L24: 'return cls(game_id, is_full, is_started, sign...' => 'return cls(game_id, is_full, is_started, )'"
     ]
    ],
    "services.bot.views.game_view.x\u01c1GameView\u01c1update_button_states": [
@@ -19574,7 +17976,6 @@
     ]
    ]
   },
-  "services/e2e_probe/probe.py": {},
   "services/init/database_users.py": {
    "services.init.database_users.x__create_admin_user": [
     [
@@ -23823,38 +22224,7 @@
     ]
    ]
   },
-  "shared/cache/keys.py": {
-   "shared.cache.keys.x\u01c1CacheKeys\u01c1app_info": [
-    [
-     "notests",
-     "L4: 'return \"api:app_info\"' => 'return \"XXapi:app_infoXX\"'"
-    ],
-    [
-     "notests",
-     "L4: 'return \"api:app_info\"' => 'return \"API:APP_INFO\"'"
-    ]
-   ],
-   "shared.cache.keys.x\u01c1CacheKeys\u01c1bot_last_seen": [
-    [
-     "notests",
-     "L4: 'return \"bot:last_seen\"' => 'return \"XXbot:last_seenXX\"'"
-    ],
-    [
-     "notests",
-     "L4: 'return \"bot:last_seen\"' => 'return \"BOT:LAST_SEEN\"'"
-    ]
-   ],
-   "shared.cache.keys.x\u01c1CacheKeys\u01c1proj_gen": [
-    [
-     "notests",
-     "L4: 'return \"proj:gen\"' => 'return \"XXproj:genXX\"'"
-    ],
-    [
-     "notests",
-     "L4: 'return \"proj:gen\"' => 'return \"PROJ:GEN\"'"
-    ]
-   ]
-  },
+  "shared/cache/keys.py": {},
   "shared/cache/operations.py": {
    "shared.cache.operations.x_cache_get": [
     [
@@ -25101,212 +23471,80 @@
    ]
   },
   "shared/message_formats.py": {
-   "shared.message_formats.x\u01c1DMFormats\u01c1host_added_dropout": [
-    [
-     "notests",
-     "L8: 'base = (' => 'base = None'; removed 'f\"\u26a0\ufe0f {player_mention} (who you added) dropped...'; removed 'f\" which starts <t:{game_time_unix}:R>\"'; removed ')'"
-    ]
-   ],
-   "shared.message_formats.x\u01c1DMFormats\u01c1join_simple": [
-    [
-     "notests",
-     "L13: 'base = f\"\u2705 You\\'ve joined **{game_title}**!\"' => 'base = None'"
-    ]
-   ],
    "shared.message_formats.x\u01c1DMFormats\u01c1join_waitlist": [
     [
-     "notests",
-     "L6: 'host_selects: bool = False,' => 'host_selects: bool = True,'"
-    ],
-    [
-     "notests",
-     "L22: 'text = f\"\\\\U0001f3ab You\\'re on the waitlist fo...' => 'text = None'"
-    ],
-    [
-     "notests",
+     "logic",
      "L24: 'text += \"The host will select participants. Y...' => 'text = \"The host will select participants. Yo...'"
     ],
     [
-     "notests",
-     "L24: 'text += \"The host will select participants. Y...' => 'text -= \"The host will select participants. Y...'"
-    ],
-    [
-     "notests",
+     "string",
      "L24: 'text += \"The host will select participants. Y...' => 'text += \"XXThe host will select participants....'"
     ],
     [
-     "notests",
+     "string",
      "L24: 'text += \"The host will select participants. Y...' => 'text += \"the host will select participants. y...'"
     ],
     [
-     "notests",
+     "string",
      "L24: 'text += \"The host will select participants. Y...' => 'text += \"THE HOST WILL SELECT PARTICIPANTS. Y...'"
     ],
     [
-     "notests",
-     "L26: 'text += \"You\\'ll be automatically notified if ...' => 'text = \"You\\'ll be automatically notified if a...'"
-    ],
-    [
-     "notests",
-     "L26: 'text += \"You\\'ll be automatically notified if ...' => 'text -= \"You\\'ll be automatically notified if ...'"
-    ],
-    [
-     "notests",
+     "string",
      "L26: 'text += \"You\\'ll be automatically notified if ...' => 'text += \"XXYou\\'ll be automatically notified i...'"
     ],
     [
-     "notests",
+     "string",
      "L26: 'text += \"You\\'ll be automatically notified if ...' => 'text += \"you\\'ll be automatically notified if ...'"
     ],
     [
-     "notests",
+     "string",
      "L26: 'text += \"You\\'ll be automatically notified if ...' => 'text += \"YOU\\'LL BE AUTOMATICALLY NOTIFIED IF ...'"
     ],
     [
-     "notests",
+     "logic",
      "L28: 'text += f\"\\\\n[View game in Discord]({jump_url})\"' => 'text = f\"\\\\n[View game in Discord]({jump_url})\"'"
-    ],
-    [
-     "notests",
-     "L28: 'text += f\"\\\\n[View game in Discord]({jump_url})\"' => 'text -= f\"\\\\n[View game in Discord]({jump_url})\"'"
-    ]
-   ],
-   "shared.message_formats.x\u01c1DMFormats\u01c1join_with_instructions": [
-    [
-     "notests",
-     "L20: 'base = (' => 'base = None'; removed 'f\"\u2705 **You\\'ve joined {game_title}**\\\\n\\\\n\"'; removed 'f\"\ud83d\udccb **Signup Instructions**\\\\n\"'; removed 'f\"{signup_instructions}\\\\n\\\\n\"'; removed 'f\"Game starts <t:{scheduled_at_unix}:R>\"'; removed ')'"
     ]
    ],
    "shared.message_formats.x\u01c1DMFormats\u01c1promotion": [
     [
-     "notests",
-     "L24: 'base = (' => 'base = None'; removed 'f\"\u2705 Good news! You\\'ve advanced off of the wai...'; removed 'f\"scheduled for <t:{scheduled_at_unix}:F>!\"'; removed ')'"
-    ],
-    [
-     "notests",
+     "logic",
      "L29: 'base += f\"\\\\n\\\\n\ud83d\udccb **Signup Instructions**\\\\n{sig...' => 'base = f\"\\\\n\\\\n\ud83d\udccb **Signup Instructions**\\\\n{sign...'"
-    ],
-    [
-     "notests",
-     "L29: 'base += f\"\\\\n\\\\n\ud83d\udccb **Signup Instructions**\\\\n{sig...' => 'base -= f\"\\\\n\\\\n\ud83d\udccb **Signup Instructions**\\\\n{sig...'"
     ]
    ],
    "shared.message_formats.x\u01c1DMFormats\u01c1recurrence_confirmation": [
     [
-     "notests",
+     "string",
      "L6: '\"Confirm to announce it to players, or declin...' => '\"XXConfirm to announce it to players, or decl...'"
     ],
     [
-     "notests",
+     "string",
      "L6: '\"Confirm to announce it to players, or declin...' => '\"confirm to announce it to players, or declin...'"
     ],
     [
-     "notests",
+     "string",
      "L6: '\"Confirm to announce it to players, or declin...' => '\"CONFIRM TO ANNOUNCE IT TO PLAYERS, OR DECLIN...'"
     ],
     [
-     "notests",
+     "string",
      "L7: '\"If you don\\'t respond before the game starts,...' => '\"XXIf you don\\'t respond before the game start...'"
     ],
     [
-     "notests",
+     "string",
      "L7: '\"If you don\\'t respond before the game starts,...' => '\"if you don\\'t respond before the game starts,...'"
     ],
     [
-     "notests",
+     "string",
      "L7: '\"If you don\\'t respond before the game starts,...' => '\"IF YOU DON\\'T RESPOND BEFORE THE GAME STARTS,...'"
-    ]
-   ],
-   "shared.message_formats.x\u01c1DMFormats\u01c1reminder_host": [
-    [
-     "notests",
-     "L14: 'base = (' => 'base = None'; removed 'f\"\ud83c\udfae **[Host]** Your game \\'{game_title}\\' is sc...'; removed 'f\"<t:{game_time_unix}:F>, which starts <t:{ga...'; removed ')'"
     ]
    ],
    "shared.message_formats.x\u01c1DMFormats\u01c1reminder_participant": [
     [
-     "notests",
-     "L17: 'waitlist_prefix = \"\ud83c\udfab **[Waitlist]** \" if is_w...' => 'waitlist_prefix = None'"
-    ],
-    [
-     "notests",
+     "string",
      "L17: 'waitlist_prefix = \"\ud83c\udfab **[Waitlist]** \" if is_w...' => 'waitlist_prefix = \"XX\ud83c\udfab **[Waitlist]** XX\" if ...'"
     ],
     [
-     "notests",
-     "L17: 'waitlist_prefix = \"\ud83c\udfab **[Waitlist]** \" if is_w...' => 'waitlist_prefix = \"\ud83c\udfab **[waitlist]** \" if is_w...'"
-    ],
-    [
-     "notests",
-     "L17: 'waitlist_prefix = \"\ud83c\udfab **[Waitlist]** \" if is_w...' => 'waitlist_prefix = \"\ud83c\udfab **[WAITLIST]** \" if is_w...'"
-    ],
-    [
-     "notests",
+     "string",
      "L17: 'waitlist_prefix = \"\ud83c\udfab **[Waitlist]** \" if is_w...' => 'waitlist_prefix = \"\ud83c\udfab **[Waitlist]** \" if is_w...'"
-    ],
-    [
-     "notests",
-     "L18: 'base = (' => 'base = None'; removed 'f\"{waitlist_prefix}Your game \\'{game_title}\\' i...'; removed 'f\"<t:{game_time_unix}:F>, which starts <t:{ga...'; removed ')'"
-    ]
-   ],
-   "shared.message_formats.x\u01c1DMFormats\u01c1waitlist_demotion": [
-    [
-     "notests",
-     "L13: 'text = (' => 'text = None'; removed 'f\"\\\\u26a0\\\\ufe0f A change by the host has moved...'; removed ')'"
-    ],
-    [
-     "notests",
-     "L17: 'text += f\"\\\\n[View game in Discord]({jump_url})\"' => 'text = f\"\\\\n[View game in Discord]({jump_url})\"'"
-    ],
-    [
-     "notests",
-     "L17: 'text += f\"\\\\n[View game in Discord]({jump_url})\"' => 'text -= f\"\\\\n[View game in Discord]({jump_url})\"'"
-    ]
-   ],
-   "shared.message_formats.x\u01c1DMPredicates\u01c1host_added_dropout": [
-    [
-     "notests",
-     "L5: 'dm.content' => 'None'; removed 'and game_title in dm.content'; removed 'and \"dropped out\" in dm.content'; removed 'and \"who you added\" in dm.content'"
-    ],
-    [
-     "notests",
-     "L7: 'and \"dropped out\" in dm.content' => 'and \"dropped out\" in dm.content or \"who you a...'; removed 'and \"who you added\" in dm.content'"
-    ],
-    [
-     "notests",
-     "L6: 'and game_title in dm.content' => 'and game_title in dm.content or \"dropped out\"...'; removed 'and \"dropped out\" in dm.content'"
-    ],
-    [
-     "notests",
-     "L5: 'dm.content' => 'dm.content or game_title in dm.content'; removed 'and game_title in dm.content'"
-    ],
-    [
-     "notests",
-     "L6: 'and game_title in dm.content' => 'and game_title not in dm.content'"
-    ],
-    [
-     "notests",
-     "L7: 'and \"dropped out\" in dm.content' => 'and \"XXdropped outXX\" in dm.content'"
-    ],
-    [
-     "notests",
-     "L7: 'and \"dropped out\" in dm.content' => 'and \"DROPPED OUT\" in dm.content'"
-    ],
-    [
-     "notests",
-     "L7: 'and \"dropped out\" in dm.content' => 'and \"dropped out\" not in dm.content'"
-    ],
-    [
-     "notests",
-     "L8: 'and \"who you added\" in dm.content' => 'and \"XXwho you addedXX\" in dm.content'"
-    ],
-    [
-     "notests",
-     "L8: 'and \"who you added\" in dm.content' => 'and \"WHO YOU ADDED\" in dm.content'"
-    ],
-    [
-     "notests",
-     "L8: 'and \"who you added\" in dm.content' => 'and \"who you added\" not in dm.content'"
     ]
    ],
    "shared.message_formats.x\u01c1DMPredicates\u01c1join": [
@@ -25333,36 +23571,6 @@
     [
      "notests",
      "L14: 'return bool(dm.content and \"joined\" in dm.con...' => 'return bool(dm.content and \"joined\" not in dm...'"
-    ]
-   ],
-   "shared.message_formats.x\u01c1DMPredicates\u01c1join_waitlist": [
-    [
-     "notests",
-     "L15: 'dm.content and \"waitlist\" in dm.content.lower...' => 'None'"
-    ],
-    [
-     "notests",
-     "L15: 'dm.content and \"waitlist\" in dm.content.lower...' => 'dm.content and \"waitlist\" in dm.content.lower...'"
-    ],
-    [
-     "notests",
-     "L15: 'dm.content and \"waitlist\" in dm.content.lower...' => 'dm.content or \"waitlist\" in dm.content.lower(...'"
-    ],
-    [
-     "notests",
-     "L15: 'dm.content and \"waitlist\" in dm.content.lower...' => 'dm.content and \"XXwaitlistXX\" in dm.content.l...'"
-    ],
-    [
-     "notests",
-     "L15: 'dm.content and \"waitlist\" in dm.content.lower...' => 'dm.content and \"WAITLIST\" in dm.content.lower...'"
-    ],
-    [
-     "notests",
-     "L15: 'dm.content and \"waitlist\" in dm.content.lower...' => 'dm.content and \"waitlist\" not in dm.content.l...'"
-    ],
-    [
-     "notests",
-     "L15: 'dm.content and \"waitlist\" in dm.content.lower...' => 'dm.content and \"waitlist\" in dm.content.upper...'"
     ]
    ],
    "shared.message_formats.x\u01c1DMPredicates\u01c1promotion": [
@@ -25395,44 +23603,6 @@
      "L17: 'and \"advanced off of the waitlist\" in dm.content' => 'and \"advanced off of the waitlist\" not in dm....'"
     ]
    ],
-   "shared.message_formats.x\u01c1DMPredicates\u01c1reminder": [
-    [
-     "notests",
-     "L15: 'dm.content' => 'None'; removed 'and game_title in dm.content'; removed 'and \"starts <t:\" in dm.content'; removed 'and \":F>\" in dm.content'"
-    ],
-    [
-     "notests",
-     "L17: 'and \"starts <t:\" in dm.content' => 'and \"starts <t:\" in dm.content or \":F>\" in dm...'; removed 'and \":F>\" in dm.content'"
-    ],
-    [
-     "notests",
-     "L16: 'and game_title in dm.content' => 'and game_title in dm.content or \"starts <t:\" ...'; removed 'and \"starts <t:\" in dm.content'"
-    ],
-    [
-     "notests",
-     "L17: 'and \"starts <t:\" in dm.content' => 'and \"XXstarts <t:XX\" in dm.content'"
-    ],
-    [
-     "notests",
-     "L17: 'and \"starts <t:\" in dm.content' => 'and \"STARTS <T:\" in dm.content'"
-    ],
-    [
-     "notests",
-     "L17: 'and \"starts <t:\" in dm.content' => 'and \"starts <t:\" not in dm.content'"
-    ],
-    [
-     "notests",
-     "L18: 'and \":F>\" in dm.content' => 'and \"XX:F>XX\" in dm.content'"
-    ],
-    [
-     "notests",
-     "L18: 'and \":F>\" in dm.content' => 'and \":f>\" in dm.content'"
-    ],
-    [
-     "notests",
-     "L18: 'and \":F>\" in dm.content' => 'and \":F>\" not in dm.content'"
-    ]
-   ],
    "shared.message_formats.x\u01c1DMPredicates\u01c1removal": [
     [
      "notests",
@@ -25449,52 +23619,6 @@
     [
      "notests",
      "L14: 'return bool(dm.content and game_title in dm.c...' => 'return bool(dm.content and game_title not in ...'"
-    ]
-   ],
-   "shared.message_formats.x\u01c1DMPredicates\u01c1rewards_reminder": [
-    [
-     "notests",
-     "L15: 'dm.content' => 'None'; removed 'and game_title in dm.content'; removed 'and \"rewards\" in dm.content.lower()'; removed 'and \"completed\" in dm.content.lower()'"
-    ],
-    [
-     "notests",
-     "L17: 'and \"rewards\" in dm.content.lower()' => 'and \"rewards\" in dm.content.lower() or \"compl...'; removed 'and \"completed\" in dm.content.lower()'"
-    ],
-    [
-     "notests",
-     "L16: 'and game_title in dm.content' => 'and game_title in dm.content or \"rewards\" in ...'; removed 'and \"rewards\" in dm.content.lower()'"
-    ],
-    [
-     "notests",
-     "L17: 'and \"rewards\" in dm.content.lower()' => 'and \"XXrewardsXX\" in dm.content.lower()'"
-    ],
-    [
-     "notests",
-     "L17: 'and \"rewards\" in dm.content.lower()' => 'and \"REWARDS\" in dm.content.lower()'"
-    ],
-    [
-     "notests",
-     "L17: 'and \"rewards\" in dm.content.lower()' => 'and \"rewards\" not in dm.content.lower()'"
-    ],
-    [
-     "notests",
-     "L17: 'and \"rewards\" in dm.content.lower()' => 'and \"rewards\" in dm.content.upper()'"
-    ],
-    [
-     "notests",
-     "L18: 'and \"completed\" in dm.content.lower()' => 'and \"XXcompletedXX\" in dm.content.lower()'"
-    ],
-    [
-     "notests",
-     "L18: 'and \"completed\" in dm.content.lower()' => 'and \"COMPLETED\" in dm.content.lower()'"
-    ],
-    [
-     "notests",
-     "L18: 'and \"completed\" in dm.content.lower()' => 'and \"completed\" not in dm.content.lower()'"
-    ],
-    [
-     "notests",
-     "L18: 'and \"completed\" in dm.content.lower()' => 'and \"completed\" in dm.content.upper()'"
     ]
    ]
   },
@@ -26207,6 +24331,18 @@
     ],
     [
      "logic",
+     "L23: 'new_size = (max(1, round(img.width * ratio)),...' => 'new_size = (max(1, round(img.width * ratio)),...'"
+    ],
+    [
+     "string",
+     "L24: 'save_format = img.format or \"PNG\"' => 'save_format = img.format or \"XXPNGXX\"'"
+    ],
+    [
+     "string",
+     "L24: 'save_format = img.format or \"PNG\"' => 'save_format = img.format or \"png\"'"
+    ],
+    [
+     "logic",
      "L25: 'is_gif = save_format == \"GIF\"' => 'is_gif = None'"
     ],
     [
@@ -26310,8 +24446,40 @@
      "L44: 'if save_format == \"JPEG\" and single.mode != \"...' => 'if save_format == \"JPEG\" or single.mode != \"R...'"
     ],
     [
+     "logic",
+     "L44: 'if save_format == \"JPEG\" and single.mode != \"...' => 'if save_format != \"JPEG\" and single.mode != \"...'"
+    ],
+    [
      "string",
      "L44: 'if save_format == \"JPEG\" and single.mode != \"...' => 'if save_format == \"XXJPEGXX\" and single.mode ...'"
+    ],
+    [
+     "string",
+     "L44: 'if save_format == \"JPEG\" and single.mode != \"...' => 'if save_format == \"jpeg\" and single.mode != \"...'"
+    ],
+    [
+     "logic",
+     "L44: 'if save_format == \"JPEG\" and single.mode != \"...' => 'if save_format == \"JPEG\" and single.mode == \"...'"
+    ],
+    [
+     "string",
+     "L44: 'if save_format == \"JPEG\" and single.mode != \"...' => 'if save_format == \"JPEG\" and single.mode != \"...'"
+    ],
+    [
+     "logic",
+     "L45: 'single = single.convert(\"RGB\")' => 'single = None'"
+    ],
+    [
+     "logic",
+     "L45: 'single = single.convert(\"RGB\")' => 'single = single.convert(None)'"
+    ],
+    [
+     "string",
+     "L45: 'single = single.convert(\"RGB\")' => 'single = single.convert(\"XXRGBXX\")'"
+    ],
+    [
+     "string",
+     "L45: 'single = single.convert(\"RGB\")' => 'single = single.convert(\"rgb\")'"
     ],
     [
      "logic",
@@ -26366,12 +24534,36 @@
      "L49: '\"Downscaled oversized image from %sx%s to %sx...' => '\"XXDownscaled oversized image from %sx%s to %...'"
     ],
     [
+     "string",
+     "L49: '\"Downscaled oversized image from %sx%s to %sx...' => '\"downscaled oversized image from %sx%s to %sx...'"
+    ],
+    [
+     "string",
+     "L49: '\"Downscaled oversized image from %sx%s to %sx...' => '\"DOWNSCALED OVERSIZED IMAGE FROM %SX%S TO %SX...'"
+    ],
+    [
      "logic",
      "L52: 'new_size[0],' => 'new_size[1],'"
     ],
     [
+     "logic",
+     "L59: '\"Could not decode image data (mime=%s) for ov...' => '\"Could not decode image data (mime=%s) for ov...'"
+    ],
+    [
+     "logic",
+     "L59: '\"Could not decode image data (mime=%s) for ov...' => 'mime_type'"
+    ],
+    [
+     "logic",
+     "L59: '\"Could not decode image data (mime=%s) for ov...' => '\"Could not decode image data (mime=%s) for ov...'; removed ')'"
+    ],
+    [
      "string",
      "L59: '\"Could not decode image data (mime=%s) for ov...' => '\"XXCould not decode image data (mime=%s) for ...'"
+    ],
+    [
+     "string",
+     "L59: '\"Could not decode image data (mime=%s) for ov...' => '\"could not decode image data (mime=%s) for ov...'"
     ]
    ],
    "shared.services.image_storage.x__resize_frame": [
@@ -26631,6 +24823,22 @@
    "shared.services.image_storage.x_store_image": [
     [
      "logic",
+     "L22: 'image_data = _downscale_if_oversized(image_da...' => 'image_data = _downscale_if_oversized(image_da...'"
+    ],
+    [
+     "logic",
+     "L25: '\"store_image called: hash=%s... mime=%s size=...' => 'None,'"
+    ],
+    [
+     "logic",
+     "L26: 'content_hash[:8],' => 'None,'"
+    ],
+    [
+     "logic",
+     "L27: 'mime_type,' => 'None,'"
+    ],
+    [
+     "logic",
      "L28: 'len(image_data),' => 'None,'"
     ],
     [
@@ -26643,6 +24851,10 @@
     ],
     [
      "logic",
+     "removed 'mime_type,'"
+    ],
+    [
+     "logic",
      "L28: 'len(image_data),' => ')'; removed ')'"
     ],
     [
@@ -26652,6 +24864,10 @@
     [
      "string",
      "L25: '\"store_image called: hash=%s... mime=%s size=...' => '\"STORE_IMAGE CALLED: HASH=%S... MIME=%S SIZE=...'"
+    ],
+    [
+     "logic",
+     "L26: 'content_hash[:8],' => 'content_hash[:9],'"
     ],
     [
      "logic",
@@ -27477,7 +25693,7 @@
    ]
   }
  },
- "generated_utc": "2026-09-02T01:00:52+00:00",
+ "generated_utc": "2026-09-02T04:32:45+00:00",
  "killed": {
   "services/api/app.py": {
    "services.api.app.x_create_app": [
@@ -29180,6 +27396,13 @@
     59
    ]
   },
+  "services/api/schemas/clone_game.py": {
+   "services.api.schemas.clone_game.x\u01c1CloneGameRequest\u01c1_check_deadline": [
+    1,
+    2,
+    5
+   ]
+  },
   "services/api/services/calendar_export.py": {
    "services.api.services.calendar_export.x\u01c1CalendarExportService\u01c1__init__": [
     1
@@ -29622,6 +27845,9 @@
    "services.api.services.display_names.x\u01c1DisplayNameResolver\u01c1__init__": [
     1
    ],
+   "services.api.services.display_names.x\u01c1DisplayNameResolver\u01c1_build_avatar_url": [
+    1
+   ],
    "services.api.services.display_names.x\u01c1DisplayNameResolver\u01c1_check_cache_for_display_names": [
     1,
     2,
@@ -29638,6 +27864,13 @@
    ],
    "services.api.services.display_names.x\u01c1DisplayNameResolver\u01c1_create_fallback_display_names": [
     2
+   ],
+   "services.api.services.display_names.x\u01c1DisplayNameResolver\u01c1_create_fallback_user_data": [
+    1,
+    2,
+    4,
+    5,
+    6
    ],
    "services.api.services.display_names.x\u01c1DisplayNameResolver\u01c1_fetch_and_cache_display_names": [
     1,
@@ -29681,6 +27914,26 @@
     27,
     28,
     29
+   ],
+   "services.api.services.display_names.x\u01c1DisplayNameResolver\u01c1_resolve_display_name": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+   ],
+   "services.api.services.display_names.x\u01c1DisplayNameResolver\u01c1_resolve_primary_name": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
    ],
    "services.api.services.display_names.x\u01c1DisplayNameResolver\u01c1resolve_display_names": [
     1,
@@ -32108,9 +30361,40 @@
     30,
     31
    ],
+   "services.bot.bot.x\u01c1GameSchedulerBot\u01c1_channel_list": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "services.bot.bot.x\u01c1GameSchedulerBot\u01c1_extract_game_id": [
+    1,
+    3,
+    4,
+    5,
+    6,
+    7,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+   ],
    "services.bot.bot.x\u01c1GameSchedulerBot\u01c1_handle_sweep_request": [
     4,
     5
+   ],
+   "services.bot.bot.x\u01c1GameSchedulerBot\u01c1_postable_channels": [
+    1,
+    2,
+    4,
+    6,
+    8
    ],
    "services.bot.bot.x\u01c1GameSchedulerBot\u01c1_projection_heartbeat": [
     1,
@@ -32217,6 +30501,21 @@
     8,
     9,
     10
+   ],
+   "services.bot.bot.x\u01c1GameSchedulerBot\u01c1_role_list": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13
    ],
    "services.bot.bot.x\u01c1GameSchedulerBot\u01c1_run_sweep_worker": [
     1,
@@ -34194,6 +32493,385 @@
     89,
     90,
     91
+   ],
+   "services.bot.formatters.game_message.x\u01c1GameMessageFormatter\u01c1_add_footer": [
+    6,
+    7,
+    8
+   ],
+   "services.bot.formatters.game_message.x\u01c1GameMessageFormatter\u01c1_add_game_time_fields": [
+    1,
+    2,
+    4,
+    8,
+    10,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    38,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    51,
+    52,
+    55,
+    56,
+    57,
+    58,
+    59,
+    60,
+    61,
+    62,
+    63,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    73,
+    74,
+    77,
+    78,
+    79,
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    90,
+    91,
+    94,
+    95
+   ],
+   "services.bot.formatters.game_message.x\u01c1GameMessageFormatter\u01c1_add_participant_fields": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    10,
+    11,
+    12,
+    13,
+    16,
+    17,
+    18,
+    19,
+    22,
+    23,
+    24,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    40,
+    41,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54,
+    55,
+    56,
+    57,
+    58,
+    59,
+    60,
+    61,
+    62,
+    63,
+    64,
+    65,
+    66,
+    68,
+    69
+   ],
+   "services.bot.formatters.game_message.x\u01c1GameMessageFormatter\u01c1_append_truncation_note": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    23,
+    24,
+    25,
+    27,
+    28,
+    29,
+    30,
+    31,
+    33,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    51,
+    53,
+    55
+   ],
+   "services.bot.formatters.game_message.x\u01c1GameMessageFormatter\u01c1_configure_embed_author": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+   ],
+   "services.bot.formatters.game_message.x\u01c1GameMessageFormatter\u01c1_get_status_color": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13
+   ],
+   "services.bot.formatters.game_message.x\u01c1GameMessageFormatter\u01c1_pack_by_length": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    9,
+    10,
+    14,
+    15,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26
+   ],
+   "services.bot.formatters.game_message.x\u01c1GameMessageFormatter\u01c1_prepare_description_and_urls": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "services.bot.formatters.game_message.x\u01c1GameMessageFormatter\u01c1_split_evenly": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    13,
+    14,
+    16
+   ],
+   "services.bot.formatters.game_message.x\u01c1GameMessageFormatter\u01c1_split_into_columns": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28
+   ],
+   "services.bot.formatters.game_message.x\u01c1GameMessageFormatter\u01c1_trim_embed_if_needed": [
+    1,
+    2,
+    3,
+    6,
+    7,
+    8,
+    10,
+    11,
+    12
+   ],
+   "services.bot.formatters.game_message.x\u01c1GameMessageFormatter\u01c1create_game_embed": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    13,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    25,
+    26,
+    27,
+    29,
+    30,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54,
+    55,
+    56,
+    57,
+    58,
+    59,
+    60,
+    62,
+    63,
+    64,
+    65,
+    66,
+    67,
+    69,
+    70,
+    72,
+    73,
+    76,
+    78,
+    79,
+    80
+   ],
+   "services.bot.formatters.game_message.x\u01c1GameMessageFormatter\u01c1create_notification_embed": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
    ]
   },
   "services/bot/guild_projection.py": {
@@ -35378,6 +34056,25 @@
     33,
     34
    ],
+   "services.bot.views.game_view.x\u01c1GameView\u01c1from_game_data": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18
+   ],
    "services.bot.views.game_view.x\u01c1GameView\u01c1update_button_states": [
     3,
     4,
@@ -35423,18 +34120,6 @@
     5,
     6,
     10
-   ]
-  },
-  "services/e2e_probe/probe.py": {
-   "services.e2e_probe.probe.x_order_by_deadline": [
-    1,
-    2,
-    3,
-    4,
-    5,
-    6,
-    7,
-    8
    ]
   },
   "services/init/database_users.py": {
@@ -36002,6 +34687,20 @@
     17,
     20,
     21
+   ]
+  },
+  "shared/cache/keys.py": {
+   "shared.cache.keys.x\u01c1CacheKeys\u01c1app_info": [
+    1,
+    2
+   ],
+   "shared.cache.keys.x\u01c1CacheKeys\u01c1bot_last_seen": [
+    1,
+    2
+   ],
+   "shared.cache.keys.x\u01c1CacheKeys\u01c1proj_gen": [
+    1,
+    2
    ]
   },
   "shared/cache/operations.py": {
@@ -36762,6 +35461,94 @@
     27
    ]
   },
+  "shared/message_formats.py": {
+   "shared.message_formats.x\u01c1DMFormats\u01c1host_added_dropout": [
+    1
+   ],
+   "shared.message_formats.x\u01c1DMFormats\u01c1join_simple": [
+    1
+   ],
+   "shared.message_formats.x\u01c1DMFormats\u01c1join_waitlist": [
+    1,
+    2,
+    4,
+    8,
+    9,
+    14
+   ],
+   "shared.message_formats.x\u01c1DMFormats\u01c1join_with_instructions": [
+    1
+   ],
+   "shared.message_formats.x\u01c1DMFormats\u01c1promotion": [
+    1,
+    3
+   ],
+   "shared.message_formats.x\u01c1DMFormats\u01c1reminder_host": [
+    1
+   ],
+   "shared.message_formats.x\u01c1DMFormats\u01c1reminder_participant": [
+    1,
+    3,
+    4,
+    6
+   ],
+   "shared.message_formats.x\u01c1DMFormats\u01c1waitlist_demotion": [
+    1,
+    2,
+    3
+   ],
+   "shared.message_formats.x\u01c1DMPredicates\u01c1host_added_dropout": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+   ],
+   "shared.message_formats.x\u01c1DMPredicates\u01c1join_waitlist": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "shared.message_formats.x\u01c1DMPredicates\u01c1reminder": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+   ],
+   "shared.message_formats.x\u01c1DMPredicates\u01c1rewards_reminder": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13
+   ]
+  },
   "shared/models/base.py": {
    "shared.models.base.x_generate_uuid": [
     1
@@ -37086,13 +35873,10 @@
     22,
     23,
     24,
-    25,
     26,
     27,
     28,
     29,
-    30,
-    31,
     36,
     37,
     38,
@@ -37114,27 +35898,12 @@
     61,
     76,
     77,
-    79,
-    81,
-    82,
-    83,
-    84,
-    85,
-    86,
-    87,
-    88,
     89,
     90,
     91,
     92,
-    106,
-    107,
     109,
     110,
-    111,
-    112,
-    113,
-    115,
     116
    ],
    "shared.services.image_storage.x__resize_frame": [
@@ -37178,16 +35947,10 @@
    "shared.services.image_storage.x_store_image": [
     1,
     2,
-    3,
     4,
     5,
     6,
     7,
-    8,
-    9,
-    10,
-    14,
-    18,
     19,
     23,
     24,
@@ -37607,6 +36370,6 @@
    ]
   }
  },
- "source_commit": "ec39b3bb-dirty",
+ "source_commit": "0750f32b-dirty",
  "version": 2
 }
