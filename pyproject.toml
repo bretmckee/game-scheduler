@@ -61,21 +61,6 @@ dependencies = [
     "coverage[toml]>=7.0.0",
 ]
 
-[project.optional-dependencies]
-dev = [
-    "ruff==0.15.4",
-    "mypy>=1.10.0",
-    "boto3>=1.34.0",
-    "diff-cover>=9.2.0",
-    # Kept identical to [dependency-groups] dev so --extra dev and --group dev resolve the same;
-    # tilde-pinned for the same reason as there (gate threshold tuned to these majors).
-    "complexipy~=5.5.0",
-    "lizard~=1.20.0",
-    "pre-commit>=4.0.0",
-    "pytest-randomly>=3.16.0",
-    "pytest-order>=1.2.0",
-]
-
 [project.urls]
 Repository = "https://github.com/game-scheduler"
 Issues = "https://github.com/game-scheduler/issues"
@@ -229,9 +214,8 @@ dev = [
     "mutmut>=3.5.0",
     "jedi>=0.19.2",
     "types-python-dateutil>=2.9.0.20260518",
-    # Complexity checkers used by the pre-commit complexipy/lizard hooks; they must be in this
-    # group (not just the dev extra) because all provisioning flows install --group dev. Tilde-pinned:
-    # the gate threshold is tuned for these majors and newer scorers change function scores.
+    # Complexity checkers used by the pre-commit complexipy/lizard hooks; tilde-pinned because the
+    # gate threshold is tuned for these majors and newer scorers change function scores.
     "complexipy~=5.5.0",
     "lizard~=1.20.0",
 ]
