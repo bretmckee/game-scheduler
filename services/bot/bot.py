@@ -1060,8 +1060,11 @@ class GameSchedulerBot(commands.Bot):
 
         heartbeat_interval = 30
         while True:
+            # Pacing lives outside the guard on purpose: if it were inside, a
+            # persistent exception could delete the delay between retries and
+            # turn this periodic task into an undelayed event-loop hot spin.
+            await asyncio.sleep(heartbeat_interval)
             try:
-                await asyncio.sleep(heartbeat_interval)
                 redis = await get_redis_client()
                 await guild_projection.write_bot_last_seen(
                     redis=redis,

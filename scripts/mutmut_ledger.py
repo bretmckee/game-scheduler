@@ -719,7 +719,11 @@ def kill_regressions(
         if not live_fams:
             continue
         for fam, base_ns in sorted(fams_base.items()):
-            live_ns = set(live_fams.get(fam) or [])
+            # Families absent from this run's scope were not re-judged here, so
+            # comparing them would report every baseline kill as "lost".
+            if fam not in live_fams:
+                continue
+            live_ns = set(live_fams[fam])
             lost = [n for n in base_ns if n not in live_ns]
             if not lost:
                 continue
