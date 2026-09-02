@@ -723,6 +723,136 @@ class TestAddNewMentions:
         with pytest.raises(resolver_module.ValidationError):
             await game_service._add_new_mentions(game, [("@unknown", 0)])
 
+    def _make_seated_participant(self, participant_id: str, discord_id: str | None):
+        """Return a mock participant occupying an existing seat on the game."""
+        seated_user = MagicMock()
+        seated_user.discord_id = discord_id
+        seated = MagicMock(spec=participant_model.GameParticipant)
+        seated.id = participant_id
+        # Set user explicitly (including None for placeholders): an unset
+        # spec-mocked attribute would auto-create a truthy mock.
+        seated.user = seated_user if discord_id else None
+        return seated
+
+    @pytest.mark.asyncio
+    async def test_mention_of_user_already_seated_adopts_existing_row(self, game_service, mock_db):
+        """A mention resolving to a user who already holds a seat adopts that row --
+        converted to HOST_ADDED at the requested position -- instead of inserting a
+        second one, which would trip unique_game_participant at flush time and crash
+        the request with an unhandled IntegrityError (500). The join notification is
+        skipped because they were notified when they first seated."""
+        game = _make_game()
+        guild = MagicMock()
+        guild.guild_id = "discord-guild-id"
+        game.guild = guild
+        seated = self._make_seated_participant("seated-uuid", "discord-123")
+        # Simulate a player who joined on their own, now re-added by the host.
+        seated.position_type = ParticipantType.SELF_ADDED
+        seated.position = 10
+        game.participants = [seated]
+
+        game_service.participant_resolver.resolve_initial_participants = AsyncMock(
+            return_value=(
+                [
+                    {
+                        "type": "discord",
+                        "discord_id": "discord-123",
+                        "original_input": "@bret",
+                    }
+                ],
+                [],
+            )
+        )
+        mock_db.flush = AsyncMock()
+
+        with patch(
+            "services.api.services.games.schedule_join_notification",
+            new_callable=AsyncMock,
+        ) as mock_schedule:
+            await game_service._add_new_mentions(game, [("@bret", 1)])
+
+        # No second row may be created for a user who already sits on this game.
+        mock_db.add.assert_not_called()
+        # Their existing seat is converted and moved instead of duplicated.
+        assert seated.position_type == ParticipantType.HOST_ADDED
+        assert seated.position == 1
+        # No duplicate join notification -- they were notified when first seated.
+        mock_schedule.assert_not_awaited()
+        # The user record lookup is skipped: the seated user obviously exists.
+        game_service.participant_resolver.ensure_user_exists.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_same_user_mentioned_twice_in_request_raises_duplicate_error(
+        self, game_service, mock_db
+    ):
+        """Typing one user's @mention into two seats of the same submit fails
+        cleanly instead of producing two INSERTs that collide on the unique key."""
+        game = _make_game()
+        guild = MagicMock()
+        guild.guild_id = "discord-guild-id"
+        game.guild = guild
+        game.participants = []
+
+        resolved_entry = {
+            "type": "discord",
+            "discord_id": "discord-456",
+            "original_input": "@twice",
+        }
+        game_service.participant_resolver.resolve_initial_participants = AsyncMock(
+            return_value=([dict(resolved_entry), dict(resolved_entry)], [])
+        )
+        mock_db.flush = AsyncMock()
+
+        with pytest.raises(resolver_module.ValidationError) as exc_info:
+            await game_service._add_new_mentions(game, [("@twice", 1), ("@twice", 2)])
+
+        errors = exc_info.value.invalid_mentions
+        assert len(errors) == 1, errors
+        assert errors[0]["input"] == "@twice"
+        assert "more than once" in errors[0]["reason"].lower(), errors[0]
+        mock_db.add.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_seated_placeholder_and_other_user_do_not_block_new_mention(
+        self, game_service, mock_db
+    ):
+        """The duplicate guard must not reject a mention when the existing seats are
+        a placeholder (no linked user) or another Discord user."""
+        game = _make_game()
+        guild = MagicMock()
+        guild.guild_id = "discord-guild-id"
+        game.guild = guild
+        game.participants = [
+            self._make_seated_participant("placeholder-uuid", None),
+            self._make_seated_participant("other-uuid", "discord-other"),
+        ]
+
+        mock_user = MagicMock()
+        mock_user.id = "user-uuid"
+        game_service.participant_resolver.ensure_user_exists = AsyncMock(return_value=mock_user)
+        game_service.participant_resolver.resolve_initial_participants = AsyncMock(
+            return_value=(
+                [
+                    {
+                        "type": "discord",
+                        "discord_id": "discord-123",
+                        "original_input": "@free",
+                    }
+                ],
+                [],
+            )
+        )
+        mock_db.flush = AsyncMock()
+
+        with patch(
+            "services.api.services.games.schedule_join_notification",
+            new_callable=AsyncMock,
+        ):
+            await game_service._add_new_mentions(game, [("@free", 1)])
+
+        mock_db.add.assert_called_once()
+        assert mock_db.add.call_args[0][0].user_id == mock_user.id
+
     @pytest.mark.asyncio
     async def test_host_added_participant_uses_caller_supplied_position(
         self, game_service, mock_db

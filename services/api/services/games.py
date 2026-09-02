@@ -754,6 +754,13 @@ class GameService:
                 game_data.initial_participants,
             )
 
+            # A brand-new game has no seats yet, so only within-request duplicates
+            # are possible here -- but typing one user twice in pre-filled
+            # participants would still trip unique_game_participant at flush time
+            # as an unhandled IntegrityError (500), so reject it up front like the
+            # edit path does.
+            validation_errors.extend(self._within_request_duplicate_errors(valid_participants))
+
             if validation_errors:
                 # Raise validation error with all form data
                 raise resolver_module.ValidationError(
@@ -1449,7 +1456,8 @@ class GameService:
             participant_data_list: List of participant data dicts
 
         Raises:
-            ValidationError: If @mentions cannot be resolved
+            ValidationError: If @mentions cannot be resolved, or the same user's
+                 mention appears twice in this submit
         """
         # Separate existing participants (by ID) from new mentions
         (
@@ -1503,6 +1511,47 @@ class GameService:
                 mentions_with_positions=mentions_with_positions,
             )
 
+    def _within_request_duplicate_errors(
+        self, resolved_participants: list[dict[str, Any]]
+    ) -> list[dict]:
+        """
+        Find mentions that list the same Discord user more than once in one submit.
+
+        Two entries resolving to the same user produce two rows for one
+        (game_session_id, user_id) pair. Left unchecked the flush raises
+        IntegrityError past the route's narrow error mapping, crashing the submit
+        as a bare 500 / generic "Failed to submit" banner instead of an actionable
+        per-field validation error. Mentions resolving to users who already occupy
+        seats are NOT flagged here -- ``_add_new_mentions`` adopts their existing
+        row in place (converted and moved), so no second insert is ever created.
+
+        Args:
+            resolved_participants: Successfully resolved participant dicts from the
+                resolver (type/discord_id/display_name/original_input)
+
+        Returns:
+            List of invalid_mention error dicts (input/reason/suggestions); empty
+            when every resolved user appears at most once in this request
+        """
+        seen_this_request: set[str] = set()
+        errors: list[dict] = []
+
+        for participant_data in resolved_participants:
+            discord_id = participant_data.get("discord_id")
+            # Placeholder rows have no linked user and cannot collide on identity.
+            if not discord_id:
+                continue
+            if discord_id in seen_this_request:
+                errors.append({
+                    "input": str(participant_data.get("original_input", "")),
+                    "reason": "This user is listed more than once",
+                    "suggestions": [],
+                })
+            else:
+                seen_this_request.add(discord_id)
+
+        return errors
+
     async def _add_new_mentions(
         self,
         game: game_model.GameSession,
@@ -1516,7 +1565,11 @@ class GameService:
             mentions_with_positions: List of (mention, position) tuples
 
         Raises:
-            ValidationError: If @mentions cannot be resolved
+            ValidationError: If @mentions cannot be resolved, or the same user's
+                 mention appears twice in this request -- two rows for one participant
+                 violate the unique-participant constraint. A mention resolving to a
+                 user who already sits on the game is adopted in place instead
+                 (their existing row converts and moves); it is never rejected
         """
         mentions = [mention for mention, _ in mentions_with_positions]
 
@@ -1528,18 +1581,43 @@ class GameService:
             mentions,
         )
 
+        # A within-request duplicate is just as fatal as an unresolvable mention: without
+        # this pre-check the flush would raise IntegrityError past the route's narrow
+        # error mapping, crashing the whole edit with no useful message. It runs before
+        # any mutation below, so a rejected submit leaves every seat untouched.
+        validation_errors.extend(self._within_request_duplicate_errors(valid_participants))
+
         if validation_errors:
             raise resolver_module.ValidationError(
                 invalid_mentions=validation_errors,
                 valid_participants=[p["original_input"] for p in valid_participants],
             )
 
+        # Rows removed earlier in this request were flushed before we got here, so the
+        # current collection reflects exactly the seats that will remain -- index them
+        # by Discord ID so a mention of a seated user adopts their row instead of
+        # duplicating it.
+        seated_by_discord_id = {
+            p.user.discord_id: p for p in game.participants if p.user and p.user.discord_id
+        }
+
         new_participants: list[participant_model.GameParticipant] = []
 
-        # Create participant records
+        # Create participant records (adopting existing seats when they are mentioned)
         for idx, p_data in enumerate(valid_participants):
             position = mentions_with_positions[idx][1]
             if p_data["type"] == "discord":
+                seated_row = seated_by_discord_id.get(p_data["discord_id"])
+                if seated_row is not None:
+                    # A mention resolving to a user who already holds a seat on this game
+                    # adopts their existing row rather than inserting a second one that
+                    # would violate unique_game_participant: the host's mention moves and
+                    # converts them to HOST_ADDED at the requested position. The user
+                    # lookup and join notification below are skipped -- they obviously
+                    # exist, and were notified when they first sat down.
+                    seated_row.position_type = ParticipantType.HOST_ADDED
+                    seated_row.position = position
+                    continue
                 user = await self.participant_resolver.ensure_user_exists(
                     self.db, p_data["discord_id"]
                 )

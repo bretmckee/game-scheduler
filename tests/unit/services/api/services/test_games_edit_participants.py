@@ -45,10 +45,16 @@ async def test_update_game_with_discord_mention_format(
     sample_user,
 ):
     """
-    Test that updating a game with <@discord_id> format preserves Discord users.
+    Test that re-adding a <@discord_id> mention for a user who already sits on the
+    game adopts their existing seat.
 
-    This is the bug fix test: when editing a game, the frontend sends participants
-    in <@discord_id> format, which should be recognized as Discord users, not placeholders.
+    The <@id> format must be recognized as a Discord user (not turned into a
+    placeholder) -- resolution happens first and produces a discord-typed entry.
+    Instead of inserting a second row for the same user, which would violate
+    unique_game_participant at flush time (before adoption existed, the flush
+    raised an unhandled IntegrityError and the submit died with a bare 500), the
+    service converts the seated row in place: HOST_ADDED at the requested position,
+    without a duplicate join notification or a redundant user lookup.
     """
     # Create a game with a Discord participant
     game_id = str(uuid.uuid4())
@@ -124,7 +130,8 @@ async def test_update_game_with_discord_mention_format(
     mock_role_service = AsyncMock()
 
     with patch("services.api.dependencies.permissions.can_manage_game", return_value=True):
-        # Update the game
+        # Re-mentioning a seated user adopts their existing seat -- the update
+        # succeeds end to end instead of crashing or rejecting.
         await game_service.update_game(
             game_id=game_id,
             update_data=update_data,
@@ -132,17 +139,20 @@ async def test_update_game_with_discord_mention_format(
             role_service=mock_role_service,
         )
 
-    # Verify that resolve_initial_participants was called with Discord mention format
+    # The <@discord_id> format was recognized (resolution ran and produced a
+    # discord-typed entry) -- never demoted to a placeholder.
     mock_participant_resolver.resolve_initial_participants.assert_called_once()
     call_args = mock_participant_resolver.resolve_initial_participants.call_args
     assert "<@999888777666555444>" in call_args[0][1]
 
-    # Verify that the participant was treated as a Discord user, not a placeholder
-    resolved_participants = call_args[0][1]
-    assert len(resolved_participants) == 1
+    # No second participant row for the already-seated user, and no redundant user
+    # materialization -- adoption operates on the existing row only.
+    mock_db.add.assert_not_called()
+    mock_participant_resolver.ensure_user_exists.assert_not_awaited()
 
-    # With the fix, this should work and create a Discord participant
-    mock_participant_resolver.ensure_user_exists.assert_called()
+    # Their existing seat keeps its identity; type/position applied in place.
+    assert existing_participant.position_type == ParticipantType.HOST_ADDED
+    assert existing_participant.position == 1
 
 
 @pytest.mark.asyncio

@@ -815,6 +815,369 @@ async def test_update_game_replaces_placeholder_via_removed_and_mention_in_same_
         await cleanup_test_session(session_token)
 
 
+ALREADY_SEATED_UID_ALPHA = "111111111111111111"
+ALREADY_SEATED_UID_BETA = "222222222222222222"
+
+
+async def _seed_guild_member_projection(redis_client, guild_discord_id: str) -> None:
+    """Seed the username/member projection keys so '@alpha' and '@beta' resolve.
+
+    Mirrors what the bot's member sync writes to Redis; without these keys the
+    resolver cannot map user-friendly mentions to Discord users in tests.
+    """
+    from shared.cache.keys import CacheKeys  # noqa: PLC0415
+
+    gen = await redis_client.get(CacheKeys.proj_gen())
+    if gen is None:
+        gen = "1"
+        await redis_client.set(CacheKeys.proj_gen(), gen)
+
+    for username, uid in (
+        ("alpha", ALREADY_SEATED_UID_ALPHA),
+        ("beta", ALREADY_SEATED_UID_BETA),
+    ):
+        member = {
+            "roles": [],
+            "nick": None,
+            "global_name": None,
+            "username": username,
+            "avatar_url": None,
+        }
+        await redis_client.set_json(
+            CacheKeys.proj_member(gen, guild_discord_id, uid), member, ttl=3600
+        )
+        raw_client = redis_client._client
+        entry = f"{username}\x00{uid}"
+        await raw_client.zadd(CacheKeys.proj_usernames(gen, guild_discord_id), {entry: 0})
+
+
+@pytest.mark.asyncio
+async def test_update_game_replaces_two_entries_in_same_request(
+    create_user,
+    create_guild,
+    create_channel,
+    create_template,
+    seed_redis_cache,
+    api_base_url,
+    admin_db_sync,
+):
+    """A single PUT replacing two placeholder rows at once updates both.
+
+    Control case for the multi-edit failure: two non-colliding in-place edits
+    submitted together must both persist without error.
+    """
+    ctx = await _setup_game_context(
+        create_user, create_guild, create_channel, create_template, seed_redis_cache
+    )
+    session_token, _ = await create_test_session(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+
+    try:
+        async with httpx.AsyncClient(
+            base_url=api_base_url,
+            timeout=10.0,
+            cookies={"session_token": session_token},
+        ) as client:
+            game = await _create_game_via_api(client, ctx, title="Multi Replace Game")
+
+            placeholder_a = str(uuid.uuid4())
+            placeholder_b = str(uuid.uuid4())
+            for pid, name, position in (
+                (placeholder_a, "Seat One", 1),
+                (placeholder_b, "Seat Two", 2),
+            ):
+                admin_db_sync.execute(
+                    text(
+                        "INSERT INTO game_participants "
+                        "(id, game_session_id, user_id, display_name, joined_at, "
+                        "position_type, position) "
+                        "VALUES (:id, :game_session_id, NULL, :display_name, :joined_at, "
+                        ":position_type, :position)"
+                    ),
+                    {
+                        "id": pid,
+                        "game_session_id": game["id"],
+                        "display_name": name,
+                        "joined_at": datetime.now(UTC),
+                        "position_type": 8000,  # HOST_ADDED
+                        "position": position,
+                    },
+                )
+            admin_db_sync.commit()
+
+            response = await client.put(
+                f"/api/v1/games/{game['id']}",
+                data={
+                    "removed_participant_ids": json.dumps([placeholder_a, placeholder_b]),
+                    "participants": json.dumps([
+                        {"mention": "New Seat One", "position": 1},
+                        {"mention": "New Seat Two", "position": 2},
+                    ]),
+                },
+            )
+
+        assert response.status_code == 200, (
+            f"Expected 200, got {response.status_code}: {response.text}"
+        )
+
+        rows = admin_db_sync.execute(
+            text(
+                "SELECT id, display_name, position FROM game_participants "
+                "WHERE game_session_id = :game_id ORDER BY position"
+            ),
+            {"game_id": game["id"]},
+        ).fetchall()
+
+        assert len(rows) == 2, f"Expected exactly 2 participants after replace, got: {rows}"
+        names_by_position = {row[2]: row[1] for row in rows}
+        assert names_by_position == {1: "New Seat One", 2: "New Seat Two"}, rows
+    finally:
+        await cleanup_test_session(session_token)
+
+
+@pytest.mark.asyncio
+async def test_update_game_mention_of_user_already_seated_adopts_existing_seat(
+    create_user,
+    create_guild,
+    create_channel,
+    create_template,
+    seed_redis_cache,
+    api_base_url,
+    redis_client_async,
+    admin_db_sync,
+):
+    """Replacing another seat with the @mention of a user who already sits on the
+    game adopts their existing seat instead of duplicating it or crashing.
+
+    Regression lineage for the multi-edit failure: when an entered value resolves to
+    a user whose participant row already exists on this game, two INSERTs used to be
+    created that trip `unique_game_participant` at flush time; that IntegrityError is
+    not one of the exception types the PUT route maps, so hosts saw a bare 500 and
+    the generic 'Failed to submit' banner. Final contract: mentioning a seated user
+    moves their single row -- converted to HOST_ADDED at the requested position --
+    with no second row, no duplicate join notification, and no error.
+    """
+    ctx = await _setup_game_context(
+        create_user, create_guild, create_channel, create_template, seed_redis_cache
+    )
+    session_token, _ = await create_test_session(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+    await _seed_guild_member_projection(redis_client_async, ctx["guild_discord_id"])
+
+    try:
+        async with httpx.AsyncClient(
+            base_url=api_base_url,
+            timeout=10.0,
+            cookies={"session_token": session_token},
+        ) as client:
+            # Create the game with both seats held by real (already-seated) users,
+            # mirroring the edit-game flow's remove-old + add-new submission shape.
+            scheduled_at = (datetime.now(UTC) + timedelta(hours=2)).isoformat()
+            create_response = await client.post(
+                "/api/v1/games",
+                data={
+                    "template_id": ctx["template_id"],
+                    "title": "Duplicate Seat Game",
+                    "scheduled_at": scheduled_at,
+                    "initial_participants": json.dumps(["@alpha", "@beta"]),
+                },
+            )
+            assert create_response.status_code == 201, (
+                f"Game creation failed: {create_response.text}"
+            )
+            game = create_response.json()
+            participants = {p["discord_id"]: p for p in game["participants"]}
+            assert set(participants) == {
+                ALREADY_SEATED_UID_ALPHA,
+                ALREADY_SEATED_UID_BETA,
+            }, game["participants"]
+
+            # Edit alpha's seat to point at beta, who still holds their own seat:
+            # exactly what a host typing '@beta' into another entry submits.
+            response = await client.put(
+                f"/api/v1/games/{game['id']}",
+                data={
+                    "removed_participant_ids": json.dumps([
+                        participants[ALREADY_SEATED_UID_ALPHA]["id"]
+                    ]),
+                    "participants": json.dumps([{"mention": "@beta", "position": 1}]),
+                },
+            )
+
+        # Adoption succeeds end-to-end instead of crashing or rejecting the submit.
+        assert response.status_code == 200, (
+            f"Expected adoption success (200), got {response.status_code}: {response.text}"
+        )
+
+        # Exactly one participant row remains: beta's own, converted to HOST_ADDED
+        # at position 1. No second row exists for them and alpha's is gone.
+        rows = admin_db_sync.execute(
+            text(
+                "SELECT u.discord_id, gp.position_type, gp.position "
+                "FROM game_participants gp JOIN users u ON u.id = gp.user_id "
+                "WHERE gp.game_session_id = :game_id"
+            ),
+            {"game_id": game["id"]},
+        ).fetchall()
+        assert len(rows) == 1, f"Adoption must leave a single seat, not two: {rows}"
+        discord_id, position_type, position = rows[0]
+        assert discord_id == ALREADY_SEATED_UID_BETA, rows
+        assert position_type == 8000, f"HOST_ADDED expected: {rows}"  # 8000 == HOST_ADDED
+        assert position == 1, rows
+    finally:
+        await cleanup_test_session(session_token)
+
+
+@pytest.mark.asyncio
+async def test_update_game_replace_placeholder_with_seated_user_moves_existing_seat(
+    create_user,
+    create_guild,
+    create_channel,
+    create_template,
+    seed_redis_cache,
+    api_base_url,
+    redis_client_async,
+    admin_db_sync,
+):
+    """A host replacing a placeholder with the mention of a user who already sits on
+    the game moves that user's existing seat.
+
+    Mirrors the reported scenario as-is: a placeholder holds one entry while the
+    player holds a self-added seat further down the list. When the host types '@bret'
+    into the placeholder's field, their single participant record is converted from
+    SELF_ADDED to HOST_ADDED at the new position -- no rejection, no duplicate row.
+    """
+    ctx = await _setup_game_context(
+        create_user, create_guild, create_channel, create_template, seed_redis_cache
+    )
+    session_token, _ = await create_test_session(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+    await _seed_guild_member_projection(redis_client_async, ctx["guild_discord_id"])
+
+    try:
+        async with httpx.AsyncClient(
+            base_url=api_base_url,
+            timeout=10.0,
+            cookies={"session_token": session_token},
+        ) as client:
+            scheduled_at = (datetime.now(UTC) + timedelta(hours=2)).isoformat()
+            create_response = await client.post(
+                "/api/v1/games",
+                data={
+                    "template_id": ctx["template_id"],
+                    "title": "Placeholder Replace Game",
+                    "scheduled_at": scheduled_at,
+                    "initial_participants": json.dumps(["@beta", "Placeholder Two"]),
+                },
+            )
+            assert create_response.status_code == 201, (
+                f"Game creation failed: {create_response.text}"
+            )
+            game = create_response.json()
+            all_participants = game["participants"]
+            beta_entry = next(
+                p for p in all_participants if p.get("discord_id") == ALREADY_SEATED_UID_BETA
+            )
+            placeholder_entry = next(p for p in all_participants if not p.get("discord_id"))
+
+            # Simulate the player having signed up on their own: convert their seat
+            # to SELF_ADDED and move it down the list away from position one.
+            admin_db_sync.execute(
+                text(
+                    "UPDATE game_participants SET position_type = :self_added, position = 10 "
+                    "WHERE id = :pid"
+                ),
+                {"self_added": 24000, "pid": beta_entry["id"]},  # 24000 == SELF_ADDED
+            )
+            admin_db_sync.commit()
+
+            # The host replaces the placeholder's field with '@beta'.
+            response = await client.put(
+                f"/api/v1/games/{game['id']}",
+                data={
+                    "removed_participant_ids": json.dumps([placeholder_entry["id"]]),
+                    "participants": json.dumps([{"mention": "@beta", "position": 1}]),
+                },
+            )
+
+        assert response.status_code == 200, (
+            f"Expected adoption success (200), got {response.status_code}: {response.text}"
+        )
+
+        # Their single seat moved from SELF_ADDED@10 to HOST_ADDED@1.
+        rows = admin_db_sync.execute(
+            text(
+                "SELECT u.discord_id, gp.position_type, gp.position "
+                "FROM game_participants gp JOIN users u ON u.id = gp.user_id "
+                "WHERE gp.game_session_id = :game_id"
+            ),
+            {"game_id": game["id"]},
+        ).fetchall()
+        assert len(rows) == 1, f"Adoption must leave a single seat, not two: {rows}"
+        discord_id, position_type, position = rows[0]
+        assert discord_id == ALREADY_SEATED_UID_BETA, rows
+        assert position_type == 8000, f"HOST_ADDED expected after host mention: {rows}"
+        assert position == 1, rows
+    finally:
+        await cleanup_test_session(session_token)
+
+
+@pytest.mark.asyncio
+async def test_create_game_with_same_user_mentioned_twice_returns_invalid_mentions(
+    create_user,
+    create_guild,
+    create_channel,
+    create_template,
+    seed_redis_cache,
+    api_base_url,
+    redis_client_async,
+    admin_db_sync,
+):
+    """Creating a game whose pre-filled participants list mentions one user twice
+    fails cleanly (422 invalid_mentions), not with an unhandled duplicate-key crash.
+
+    Same root cause as the multi-edit failure, reached through POST /games instead of
+    PUT: two pre-filled entries resolving to the same user produce two INSERTs that
+    collide on `unique_game_participant` at flush time, which the create route does
+    not map -- hosts would see a bare 500 and lose the whole form submission.
+    """
+    ctx = await _setup_game_context(
+        create_user, create_guild, create_channel, create_template, seed_redis_cache
+    )
+    session_token, _ = await create_test_session(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+    await _seed_guild_member_projection(redis_client_async, ctx["guild_discord_id"])
+
+    try:
+        async with httpx.AsyncClient(
+            base_url=api_base_url,
+            timeout=10.0,
+            cookies={"session_token": session_token},
+        ) as client:
+            scheduled_at = (datetime.now(UTC) + timedelta(hours=2)).isoformat()
+            response = await client.post(
+                "/api/v1/games",
+                data={
+                    "template_id": ctx["template_id"],
+                    "title": "Double Mention Create Game",
+                    "scheduled_at": scheduled_at,
+                    "initial_participants": json.dumps(["@beta", "@beta"]),
+                },
+            )
+
+        assert response.status_code == 422, (
+            f"Expected 422 invalid_mentions, got {response.status_code}: {response.text}"
+        )
+        detail = response.json()["detail"]
+        assert detail["error"] == "invalid_mentions", detail
+        reasons = {(e.get("input"), e.get("reason")) for e in detail["invalid_mentions"]}
+        assert any(
+            input_ == "@beta" and "more than once" in reason.lower() for input_, reason in reasons
+        ), reasons
+
+        # The rejected submit must not leave a half-created game behind.
+        count = admin_db_sync.execute(text("SELECT COUNT(*) FROM game_sessions")).scalar_one()
+        assert count == 0, f"No game_sessions row should survive a rejected create: {count}"
+    finally:
+        await cleanup_test_session(session_token)
+
+
 @pytest.mark.asyncio
 async def test_update_game_remove_thumbnail(
     create_user,
