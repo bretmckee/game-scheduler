@@ -668,23 +668,6 @@ export const GameForm: FC<GameFormProps> = ({
           {mode === 'create' ? 'Create New Game' : 'Edit Game'}
         </Typography>
 
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
-
-        {validationErrors && (
-          <ValidationErrors errors={validationErrors} onSuggestionClick={handleSuggestionClick} />
-        )}
-
-        {channelValidationErrors && (
-          <ChannelValidationErrors
-            errors={channelValidationErrors}
-            onSuggestionClick={handleChannelSuggestionClick}
-          />
-        )}
-
         <Box component="form" onSubmit={handleSubmit} sx={{ mt: 3 }}>
           <TextField
             fullWidth
@@ -1077,6 +1060,26 @@ export const GameForm: FC<GameFormProps> = ({
               </Box>
             </Box>
           </Box>
+
+          {/* Aggregate submission errors render beside the action buttons instead of above the
+              title: the form is long enough that users scrolled down to click save cannot see
+              the top of the page, and this is where their attention already is. */}
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
+
+          {validationErrors && (
+            <ValidationErrors errors={validationErrors} onSuggestionClick={handleSuggestionClick} />
+          )}
+
+          {channelValidationErrors && (
+            <ChannelValidationErrors
+              errors={channelValidationErrors}
+              onSuggestionClick={handleChannelSuggestionClick}
+            />
+          )}
 
           <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
             <Button type="submit" variant="contained" disabled={loading} fullWidth>
