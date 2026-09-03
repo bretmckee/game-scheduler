@@ -18,7 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import userEvent from '@testing-library/user-event';
@@ -521,5 +521,121 @@ describe('GameCard display_status chip', () => {
     );
 
     expect(screen.getByText('SCHEDULED')).toBeInTheDocument();
+  });
+});
+
+describe('GameCard - schedule display (weekday + relative days)', () => {
+  // Pin "now" so the relative-days label is deterministic regardless of CI clock.
+  beforeAll(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-02T15:30:00Z'));
+  });
+
+  afterAll(() => {
+    vi.useRealTimers();
+  });
+
+  it('shows a future "in N days" label for an upcoming scheduled_at', () => {
+    const futureGame: GameSession = { ...mockGame, scheduled_at: '2026-10-02T18:00:00Z' };
+    renderWithAuth(<GameCard game={futureGame} showActions={false} />);
+
+    // Sep 2 -> Oct 2 is exactly 30 days out.
+    expect(screen.getByText('(in 30 days)')).toBeInTheDocument();
+    expect(screen.getByText(/When:/)).toBeInTheDocument();
+  });
+
+  it("labels a game starting within the next minute as '(now)'", () => {
+    const imminent: GameSession = { ...mockGame, scheduled_at: '2026-09-02T15:30:20Z' };
+    renderWithAuth(<GameCard game={imminent} showActions={false} />);
+    expect(screen.getByText('(now)')).toBeInTheDocument();
+  });
+
+  it('uses minutes under two hours away', () => {
+    const soon: GameSession = { ...mockGame, scheduled_at: '2026-09-02T16:15:00Z' };
+    renderWithAuth(<GameCard game={soon} showActions={false} />);
+    expect(screen.getByText('(in 45 minutes)')).toBeInTheDocument();
+  });
+
+  it('uses hours between two and twenty-four hours away', () => {
+    const laterToday: GameSession = { ...mockGame, scheduled_at: '2026-09-02T19:30:00Z' };
+    renderWithAuth(<GameCard game={laterToday} showActions={false} />);
+    expect(screen.getByText('(in 4 hours)')).toBeInTheDocument();
+  });
+
+  it('omits the relative label for games that have already started', () => {
+    // mockGame.scheduled_at (Dec 2025) is in the past from the pinned now, so no label shows.
+    renderWithAuth(<GameCard game={mockGame} showActions={false} />);
+
+    expect(screen.queryByText(/\(\s*(in \d+|yesterday|\d+ days ago)\s*\)/)).toBeNull();
+    expect(screen.getByText(/When:/)).toBeInTheDocument();
+  });
+});
+
+describe('GameCard - status border (seated vs waitlist)', () => {
+  const me = { id: 'u-me', user_uuid: 'uuid-me', username: 'me' };
+  const otherHost = { ...mockGame.host, user_id: 'uuid-other-host', discord_id: null };
+  const renderSeated = (game: GameSession, showStatusBorder = true) =>
+    render(
+      <AuthContext.Provider value={{ ...mockAuthContext, user: me }}>
+        <MemoryRouter>
+          <GameCard game={game} showStatusBorder={showStatusBorder} showActions={false} />
+        </MemoryRouter>
+      </AuthContext.Provider>
+    );
+
+  it('marks a confirmed participant with data-seat="seated"', () => {
+    const game: GameSession = {
+      ...mockGame,
+      host: otherHost,
+      confirmed_participants: [{ ...mockGame.host, user_id: 'uuid-me' }],
+      waitlist_participants: [],
+    };
+    const { container } = renderSeated(game);
+    expect(container.querySelector('[data-seat="seated"]')).not.toBeNull();
+    expect(container.querySelector('[data-seat="waitlist"]')).toBeNull();
+  });
+
+  it('treats the host as seated even when not in the participant arrays', () => {
+    const game: GameSession = {
+      ...mockGame,
+      host: { ...mockGame.host, user_id: 'uuid-me', discord_id: null },
+      confirmed_participants: [],
+      waitlist_participants: [],
+    };
+    const { container } = renderSeated(game);
+    expect(container.querySelector('[data-seat="seated"]')).not.toBeNull();
+  });
+
+  it('marks a waitlisted-only participant with data-seat="waitlist"', () => {
+    const game: GameSession = {
+      ...mockGame,
+      host: otherHost,
+      confirmed_participants: [{ ...mockGame.host, user_id: 'uuid-someone-else' }],
+      waitlist_participants: [{ ...mockGame.host, user_id: 'uuid-me' }],
+    };
+    const { container } = renderSeated(game);
+    expect(container.querySelector('[data-seat="waitlist"]')).not.toBeNull();
+    expect(container.querySelector('[data-seat="seated"]')).toBeNull();
+  });
+
+  it('renders no seating marker for an unrelated caller', () => {
+    const game: GameSession = {
+      ...mockGame,
+      host: otherHost,
+      confirmed_participants: [{ ...mockGame.host, user_id: 'uuid-stranger' }],
+      waitlist_participants: [],
+    };
+    const { container } = renderSeated(game);
+    expect(container.querySelector('[data-seat]')).toBeNull();
+  });
+
+  it('omits the border cue entirely when showStatusBorder is false', () => {
+    const game: GameSession = {
+      ...mockGame,
+      host: otherHost,
+      confirmed_participants: [{ ...mockGame.host, user_id: 'uuid-me' }],
+    };
+    const { container } = renderSeated(game, false);
+    expect(container.querySelector('[data-seat]')).toBeNull();
   });
 });

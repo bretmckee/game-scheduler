@@ -35,16 +35,32 @@ import { useNavigate } from 'react-router';
 import { GameSession, SignupMethod } from '../types';
 import { Time } from '../constants/time';
 import { UI } from '../constants/ui';
+import { formatScheduleDate, relativeScheduleLabel } from '../utils/dateDisplay';
+import { resolveMySeating } from '../utils/seating';
 import { useAuth } from '../hooks/useAuth';
 import { apiClient } from '../api/client';
+
+// Color-blind-safe accents for the caller's seating state. The pair is chosen to
+// stay distinguishable across protanopia/deuteranopia/tritanopia and reads well in
+// both light and dark themes. Hue is reinforced by line style (solid vs dashed) so
+// meaning never rests on color alone.
+const SEATED_BORDER_COLOR = '#009E73'; // bluish-green (Okabe-Ito): you are seated / on the table
+const WAITLIST_BORDER_COLOR = '#E8930C'; // amber-orange (Okabe-Ito): you are waitlisted
 
 interface GameCardProps {
   game: GameSession;
   showActions?: boolean;
+  /** When true, colors the card border to reflect how the current user is seated. */
+  showStatusBorder?: boolean;
   onGameUpdate?: (updatedGame: GameSession) => void;
 }
 
-export const GameCard: FC<GameCardProps> = ({ game, showActions = true, onGameUpdate }) => {
+export const GameCard: FC<GameCardProps> = ({
+  game,
+  showActions = true,
+  showStatusBorder = false,
+  onGameUpdate,
+}) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [actionLoading, setActionLoading] = useState(false);
@@ -142,6 +158,20 @@ export const GameCard: FC<GameCardProps> = ({ game, showActions = true, onGameUp
   const maxPlayers = game.max_players || UI.DEFAULT_MAX_PLAYERS;
   const playerDisplay = `${participantCount}/${maxPlayers}`;
 
+  // Seating of the current caller drives the optional status border:
+  // 'host'/'confirmed' => seated (solid), 'waitlist' => waitlisted (dashed).
+  const mySeating = user ? resolveMySeating(game, user) : null;
+  const scheduleRelativeLabel = relativeScheduleLabel(game.scheduled_at);
+  const statusBorderStyle =
+    !showStatusBorder || !mySeating
+      ? undefined
+      : mySeating === 'waitlist'
+        ? { border: `2px dashed ${WAITLIST_BORDER_COLOR}` }
+        : { border: `2px solid ${SEATED_BORDER_COLOR}` };
+  // Machine-readable echo of the visual cue (also useful for assistive tech/tests).
+  const seatAttribute =
+    !showStatusBorder || !mySeating ? undefined : mySeating === 'waitlist' ? 'waitlist' : 'seated';
+
   const truncateDescription = (
     text: string,
     maxLength: number = UI.DEFAULT_TRUNCATE_LENGTH
@@ -153,7 +183,7 @@ export const GameCard: FC<GameCardProps> = ({ game, showActions = true, onGameUp
   };
 
   return (
-    <Card sx={{ mb: 2 }}>
+    <Card data-seat={seatAttribute} sx={{ mb: 2, ...(statusBorderStyle ?? {}) }}>
       <CardContent>
         {game.host && game.host.display_name && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
@@ -195,8 +225,13 @@ export const GameCard: FC<GameCardProps> = ({ game, showActions = true, onGameUp
         )}
 
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 1 }}>
-          <Typography variant="body2">
-            <strong>When:</strong> {formatDateTime(game.scheduled_at)}
+          <Typography variant="body2" sx={{ whiteSpace: 'nowrap' }}>
+            <strong>When:</strong> {formatScheduleDate(game.scheduled_at)}
+            {scheduleRelativeLabel && (
+              <Box component="span" sx={{ ml: 0.5 }}>
+                ({scheduleRelativeLabel})
+              </Box>
+            )}
           </Typography>
           {(game.where_display ?? game.where) && (
             <Typography variant="body2">

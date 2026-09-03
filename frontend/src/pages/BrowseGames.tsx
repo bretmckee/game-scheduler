@@ -187,7 +187,7 @@ export const BrowseGames: FC = () => {
       ) : (
         <Box>
           {games.map((game) => (
-            <GameCard key={game.id} game={game} onGameUpdate={handleGameUpdate} />
+            <GameCard key={game.id} game={game} showStatusBorder onGameUpdate={handleGameUpdate} />
           ))}
         </Box>
       )}

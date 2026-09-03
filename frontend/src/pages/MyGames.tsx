@@ -205,7 +205,12 @@ export const MyGames: FC = () => {
           <TabPanel value={tabValue} index={0}>
             <Box>
               {hostedGames.map((game) => (
-                <GameCard key={game.id} game={game} onGameUpdate={handleGameUpdate} />
+                <GameCard
+                  key={game.id}
+                  game={game}
+                  showStatusBorder
+                  onGameUpdate={handleGameUpdate}
+                />
               ))}
             </Box>
             {hostedTotal > PAGE_SIZE && (
@@ -226,7 +231,12 @@ export const MyGames: FC = () => {
             ) : (
               <Box>
                 {joinedGames.map((game) => (
-                  <GameCard key={game.id} game={game} onGameUpdate={handleGameUpdate} />
+                  <GameCard
+                    key={game.id}
+                    game={game}
+                    showStatusBorder
+                    onGameUpdate={handleGameUpdate}
+                  />
                 ))}
               </Box>
             )}
@@ -250,7 +260,12 @@ export const MyGames: FC = () => {
                 Joined Games
               </Typography>
               {joinedGames.map((game) => (
-                <GameCard key={game.id} game={game} onGameUpdate={handleGameUpdate} />
+                <GameCard
+                  key={game.id}
+                  game={game}
+                  showStatusBorder
+                  onGameUpdate={handleGameUpdate}
+                />
               ))}
             </Box>
           )}
