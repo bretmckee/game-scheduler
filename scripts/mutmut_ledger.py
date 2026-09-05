@@ -595,7 +595,12 @@ def _file_entries(
         if codes[key] is not None and STATUS_TO_CLASS.get(codes[key]) == "killed"
     ]
     file_entries: dict[str, list] = {}
-    seen_pairs: set[tuple[str, str]] = set()
+    # Dedup must stay scoped to one function family. Two different functions
+    # can legitimately render byte-identical edit text (e.g., both delete a
+    # `user_id=None` kwarg line); a file-wide dedup set would let whichever
+    # family processed first suppress the other's rows in every stamped
+    # baseline, with results depending on processing order and scope mix.
+    seen_pairs: dict[str, set[tuple[str, str]]] = {}
     for key in keys:
         code = codes[key]
         if code is None:
@@ -610,9 +615,11 @@ def _file_entries(
             else base_cls
         )
         pair = (cls, summarize_edit(diff))
-        if pair not in seen_pairs:
-            seen_pairs.add(pair)
-            file_entries.setdefault(family_of(key), []).append(list(pair))
+        fam = family_of(key)
+        seen_for_fam = seen_pairs.setdefault(fam, set())
+        if pair not in seen_for_fam:
+            seen_for_fam.add(pair)
+            file_entries.setdefault(fam, []).append(list(pair))
     return file_entries, len(keys), unchecked, killed_keys
 
 

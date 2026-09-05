@@ -21,13 +21,20 @@
 
 """Unit tests for scripts/mutmut_ledger.py gate comparison helpers."""
 
+import json
 import sys
 from pathlib import Path
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 
-from mutmut_ledger import canonical_summary, kill_regressions, ratchet, resolve_base_ref
+from mutmut_ledger import (
+    _file_entries,
+    canonical_summary,
+    kill_regressions,
+    ratchet,
+    resolve_base_ref,
+)
 
 
 def _git_result(returncode: int, stdout: str = "", stderr: str = "") -> SimpleNamespace:
@@ -133,3 +140,53 @@ def test_resolve_base_explicit_arg_short_circuits(monkeypatch) -> None:
 
     monkeypatch.setattr("mutmut_ledger._run_git", explode)
     assert resolve_base_ref("v1.2.3-rc1") == "v1.2.3-rc1"
+
+
+def test_file_entries_dedup_is_per_function_not_file_wide(tmp_path, monkeypatch) -> None:
+    """Two functions rendering identical edit text must both keep their debt rows.
+
+    A file-wide dedup set lets whichever family is processed first silently
+    suppress the later one's pairs in every stamped baseline (measured incident:
+    games.py _add_new_mentions lost its removed-kwarg survivors to an earlier
+    _create_participant_* family with byte-identical summaries). Within-function
+    duplicates still collapse to a single row.
+    """
+    store_root = tmp_path / "mutants"
+    source_relpath = "pkg/mod.py"
+    (store_root / "pkg").mkdir(parents=True)
+    (store_root / source_relpath).write_text(
+        "def f():\n    user_id=None\n    return user_id\n\n\n"
+        "def g():\n    user_id=None\n    return user_id\n",
+        encoding="utf-8",
+    )
+    codes = {
+        # two different functions, byte-identical surviving mutant edits
+        "a.b.x_f__mutmut_1": 0,
+        "a.b.x_g__mutmut_1": 0,
+        # same function again with the identical edit: must collapse to one row
+        "a.b.x_f__mutmut_2": 0,
+    }
+    (store_root / f"{source_relpath}.meta").write_text(
+        json.dumps({"exit_code_by_key": codes}), encoding="utf-8"
+    )
+
+    classifier = ModuleType("fake_classifier")
+    # A real minimal unified diff so summarize_edit renders it deterministically;
+    # both families receive identical text so their pairs would collide under a
+    # file-wide dedup but must be kept separate per family.
+    hunk = "--- pkg/mod.py\n+++ pkg/mod.py\n@@ -1 +1 @@\n-user_id=None\n+user_id=1\n"
+    classifier.compute_diff = lambda module, name, path: hunk
+    classifier.is_string_only_mutation = lambda diff: False
+
+    monkeypatch.setattr("mutmut_ledger.REPO_ROOT", tmp_path)
+    entries, scanned, unchecked, _killed = _file_entries(source_relpath, {"*"}, classifier)
+
+    assert scanned == 3 and unchecked == 0
+    assert entries is not None
+    assert set(entries) == {"a.b.x_f", "a.b.x_g"}, "both families must be present"
+    assert len(entries["a.b.x_f"]) == 1, "within-function duplicate must still collapse"
+    assert len(entries["a.b.x_g"]) == 1, "cross-function identical text must NOT be suppressed"
+    row_f = entries["a.b.x_f"][0]
+    row_g = entries["a.b.x_g"][0]
+    assert row_f == row_g, "identical edits render identically (dedup collision candidate)"
+    assert row_f[0] == "logic"
