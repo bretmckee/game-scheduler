@@ -173,9 +173,12 @@ repos:
         additional_dependencies: ['diff-cover~=9.2.0']
 
       # Mutation testing ratchet gate: runs mutmut scoped to functions changed
-      # vs main and blocks NEW logic-class survivors not present in the checked-in
-      # baseline (./mutmut-baseline.json). Requires .venv (uv sync). Regenerate
-      # the baseline after paying down debt with a full cold run, then:
+      # against the branch's push upstream (falling back to origin/main / main)
+      # and blocks NEW logic-class survivors not present in the checked-in
+      # baseline (./mutmut-baseline.json). Entry summaries are compared without
+      # generation-time line numbers so line-position drift is not false debt.
+      # Requires .venv (uv sync). Regenerate the baseline only from a complete
+      # cold run with no interleaved filtered runs, then:
       #   .venv/bin/python scripts/mutmut_ledger.py snapshot
       - id: mutation-gate
         name: Mutation testing gate (function-scoped ratchet)

@@ -27,9 +27,10 @@ can block only NEW logic failures instead of demanding the debt be paid first.
 
 Subcommands:
     scope --base <ref>   print one mutmut name pattern per line for every
-                         function whose body changed between the merge-base
-                         and the current worktree (stdout); human notes go to
-                         stderr
+                          function whose body changed against the resolved
+                          base ref (push upstream first, else origin/main,
+                          else main) vs the current worktree; stdout carries
+                          patterns, human notes go to stderr
     snapshot [--out F]  rebuild the ledger from the live results store; refuses
                          to run while any verdict is missing (a partial store
                          would silently shrink recorded debt)
@@ -47,7 +48,10 @@ Locked design decisions:
 - Entry identity = (file, mangled family prefix, normalized edit summary).
   Family prefixes follow mutmut's deterministic mangling ({module}.x_{func}
   top-level, {module}.xǁClassǁmethod for methods), so identities survive
-  __mutmut_N renumbering when code shifts around.
+  __mutmut_N renumbering when code shifts around. Edit summaries additionally
+  carry no generation-time hunk line numbers: canonical_summary() strips the
+  per-segment "L<n>: " prefixes before storage and comparison, keeping entry
+  identity immune to line-position drift and generated-data regeneration.
 """
 
 from __future__ import annotations
@@ -58,6 +62,7 @@ import contextlib
 import datetime
 import json
 import os
+import re
 import subprocess  # noqa: S404 - invoked with shell=False and hardcoded argv lists
 import sys
 from importlib.util import module_from_spec, spec_from_file_location
@@ -109,17 +114,36 @@ def load_classifier() -> ModuleType:
     return module
 
 
+UPSTREAM_REF_QUERY = ("rev-parse", "--abbrev-ref", "@{upstream}")
+
+
 def resolve_base_ref(explicit: str | None) -> str:
-    """Return a commit-ish to diff against: explicit arg or merge-base with main."""
+    """Return a commit-ish to diff against for scope resolution.
+
+    An explicit argument wins verbatim. Otherwise prefer the current branch's
+    push upstream so the scope self-heals once work is pushed: while behind it
+    the scope covers exactly the pending delta, and at steady state it shrinks
+    to a single commit. Falls back to origin/main then local main when no
+    upstream is configured or resolvable. Returns the merge-base of HEAD with
+    the first candidate that resolves.
+    """
     if explicit:
         return explicit
+    candidates: list[str] = []
+    up = _run_git(*UPSTREAM_REF_QUERY)
+    if up.returncode == 0 and up.stdout.strip():
+        candidates.append(up.stdout.strip())
     for ref in ("origin/main", "main"):
+        if ref not in candidates:
+            candidates.append(ref)
+    for ref in candidates:
         proc = _run_git("merge-base", "HEAD", ref)
         if proc.returncode == 0 and proc.stdout.strip():
             _note(f"base ref: {ref} -> merge-base {proc.stdout.strip()[:12]}")
             return proc.stdout.strip()
     message = (
-        "[ledger] could not determine base ref (tried origin/main, main); pass --base explicitly"
+        "[ledger] could not determine base ref (tried push upstream, origin/main, main); "
+        "pass --base explicitly"
     )
     raise SystemExit(message)
 
@@ -519,6 +543,23 @@ class _DiffCollator:
         return joined
 
 
+_LINE_PREFIX_RE = re.compile(r"^L\d+: ")
+
+
+def canonical_summary(text: str) -> str:
+    """Strip per-segment generation-time hunk coordinates from an edit summary.
+
+    Entries are identified by (file, family, normalized edit summary). Some
+    segments carry an ``L<n>: `` prefix taken from the mutant's diff at
+    generation time; those coordinates drift whenever source lines above the
+    edit move or generated data regenerates with different hunk alignment,
+    which would otherwise make the ratchet report spurious NEW + STALE pairs
+    for edits whose semantics never changed. Comparing and storing summaries
+    in this coordinate-free form makes entry identity position-independent.
+    """
+    return "; ".join(_LINE_PREFIX_RE.sub("", seg) for seg in text.split("; "))
+
+
 def summarize_edit(diff_text: str) -> str:
     """Collapse a mutant's unified diff into one short readable line."""
     collator = _DiffCollator()
@@ -626,6 +667,15 @@ def load_ledger(path: Path) -> dict:
 
 
 def write_ledger(entries: dict, killed: dict, out_path: Path, source_commit: str) -> None:
+    # Stored identity must survive line-number drift, so ledger entries carry
+    # the coordinate-free summary form from day one of their life.
+    canonical_entries = {
+        relpath: {
+            family: [[cls, canonical_summary(summary)] for cls, summary in rows]
+            for family, rows in families.items()
+        }
+        for relpath, families in entries.items()
+    }
     entry_count = sum(len(rows) for fam_map in entries.values() for rows in fam_map.values())
     payload = {
         "_readme": (
@@ -637,7 +687,7 @@ def write_ledger(entries: dict, killed: dict, out_path: Path, source_commit: str
         "version": 2,
         "generated_utc": datetime.datetime.now(datetime.UTC).isoformat(timespec="seconds"),
         "source_commit": source_commit,
-        "entries": entries,
+        "entries": canonical_entries,
         "killed": killed,
     }
     text = json.dumps(payload, indent=1, sort_keys=True)
@@ -687,17 +737,21 @@ def _ratchet_family(
     fail_lines: list[str] = []
     warn_lines: list[str] = []
     stale_lines: list[str] = []
-    base_summaries = {row[1] for row in base_rows}
+    # Compare on coordinate-free form so hunk-position drift never reads as
+    # new debt; legacy baselines carrying L-prefixed entries match too.
+    base_summaries = {canonical_summary(row[1]) for row in base_rows}
     seen_new: set[str] = set()
     for cls, summary in rows:
-        if summary in base_summaries or summary in seen_new:
+        canon = canonical_summary(summary)
+        if canon in base_summaries or canon in seen_new:
             continue
-        seen_new.add(summary)
+        seen_new.add(canon)
         line = f"{relpath} | {func_label} | {cls} | {summary}"
         (fail_lines if cls == BLOCKING_CLASS else warn_lines).append(line)
-    live_summaries = {row[1] for row in rows}
+    live_summaries = {canonical_summary(row[1]) for row in rows}
     for cls_b, summary in base_rows:
-        if summary not in live_summaries:
+        # Same coordinate-free comparison as above; keep raw text only for display.
+        if canonical_summary(summary) not in live_summaries:
             note = "fixed/replaced; re-run snapshot after a full cold run to shrink the ledger"
             stale_lines.append(
                 f"[STALE] {relpath} | {func_label} | was:{cls_b} | {summary[:60]} | {note}"
@@ -839,7 +893,9 @@ def main() -> int:
 
     p_scope = subparsers.add_parser("scope", help="print mutmut name patterns per line")
     p_scope.add_argument(
-        "--base", default=None, help="explicit base ref (default: merge-base with main)"
+        "--base",
+        default=None,
+        help="explicit base ref (default: resolved via resolve_base_ref)",
     )
 
     p_snap = subparsers.add_parser("snapshot", help="rebuild the ledger from a complete store")
@@ -847,7 +903,9 @@ def main() -> int:
 
     p_gate = subparsers.add_parser("gate", help="scoped run + ratchet comparison")
     p_gate.add_argument(
-        "--base", default=None, help="explicit base ref (default: merge-base with main)"
+        "--base",
+        default=None,
+        help="explicit base ref (default: resolved via resolve_base_ref)",
     )
     p_gate.add_argument(
         "--baseline",
