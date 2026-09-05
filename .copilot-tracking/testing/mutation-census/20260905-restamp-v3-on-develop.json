@@ -1,0 +1,664 @@
+{
+ "wall_totals": {
+  "killed": 9382,
+  "survived": 5840,
+  "no tests": 981,
+  "timeout": 0
+ },
+ "files": [
+  {
+   "file": "services/__init__.py"
+  },
+  {
+   "file": "services/api/__init__.py"
+  },
+  {
+   "file": "services/api/app.py",
+   "killed": 40,
+   "survived": 13
+  },
+  {
+   "file": "services/api/auth/__init__.py"
+  },
+  {
+   "file": "services/api/auth/oauth2.py",
+   "killed": 71,
+   "survived": 65
+  },
+  {
+   "file": "services/api/auth/roles.py",
+   "survived": 41,
+   "no tests": 24,
+   "killed": 91
+  },
+  {
+   "file": "services/api/auth/tokens.py",
+   "no tests": 27,
+   "killed": 96,
+   "survived": 148
+  },
+  {
+   "file": "services/api/config.py",
+   "killed": 191,
+   "survived": 54
+  },
+  {
+   "file": "services/api/database/__init__.py"
+  },
+  {
+   "file": "services/api/database/queries.py",
+   "survived": 47,
+   "killed": 45,
+   "no tests": 33
+  },
+  {
+   "file": "services/api/dependencies/__init__.py"
+  },
+  {
+   "file": "services/api/dependencies/auth.py",
+   "killed": 26,
+   "survived": 27
+  },
+  {
+   "file": "services/api/dependencies/discord.py",
+   "killed": 8,
+   "survived": 3
+  },
+  {
+   "file": "services/api/dependencies/permissions.py",
+   "killed": 302,
+   "survived": 158
+  },
+  {
+   "file": "services/api/main.py",
+   "killed": 31,
+   "survived": 27
+  },
+  {
+   "file": "services/api/middleware/__init__.py"
+  },
+  {
+   "file": "services/api/middleware/authorization.py",
+   "killed": 23,
+   "survived": 63
+  },
+  {
+   "file": "services/api/middleware/cors.py",
+   "killed": 26,
+   "survived": 2
+  },
+  {
+   "file": "services/api/middleware/error_handler.py",
+   "killed": 63,
+   "survived": 39
+  },
+  {
+   "file": "services/api/routes/__init__.py"
+  },
+  {
+   "file": "services/api/routes/auth.py"
+  },
+  {
+   "file": "services/api/routes/channels.py",
+   "killed": 18
+  },
+  {
+   "file": "services/api/routes/export.py",
+   "killed": 23,
+   "survived": 5
+  },
+  {
+   "file": "services/api/routes/games.py",
+   "killed": 390,
+   "no tests": 16,
+   "survived": 106
+  },
+  {
+   "file": "services/api/routes/guilds.py",
+   "killed": 15
+  },
+  {
+   "file": "services/api/routes/maintainers.py"
+  },
+  {
+   "file": "services/api/routes/public.py",
+   "survived": 4
+  },
+  {
+   "file": "services/api/routes/sse.py"
+  },
+  {
+   "file": "services/api/routes/templates.py",
+   "killed": 52,
+   "survived": 7
+  },
+  {
+   "file": "services/api/schemas/__init__.py"
+  },
+  {
+   "file": "services/api/schemas/clone_game.py",
+   "killed": 3,
+   "survived": 6
+  },
+  {
+   "file": "services/api/services/__init__.py"
+  },
+  {
+   "file": "services/api/services/calendar_export.py",
+   "killed": 149,
+   "survived": 114
+  },
+  {
+   "file": "services/api/services/channel_resolver.py",
+   "killed": 231,
+   "survived": 41
+  },
+  {
+   "file": "services/api/services/channel_service.py",
+   "killed": 14
+  },
+  {
+   "file": "services/api/services/display_names.py",
+   "killed": 118,
+   "survived": 57
+  },
+  {
+   "file": "services/api/services/emoji_resolver.py",
+   "killed": 38,
+   "survived": 5
+  },
+  {
+   "file": "services/api/services/games.py",
+   "killed": 1403,
+   "survived": 585
+  },
+  {
+   "file": "services/api/services/guild_service.py",
+   "no tests": 5,
+   "killed": 61,
+   "survived": 12
+  },
+  {
+   "file": "services/api/services/notification_schedule.py",
+   "killed": 31,
+   "survived": 52
+  },
+  {
+   "file": "services/api/services/participant_resolver.py",
+   "killed": 197,
+   "survived": 42
+  },
+  {
+   "file": "services/api/services/sse_bridge.py",
+   "killed": 98,
+   "survived": 100
+  },
+  {
+   "file": "services/api/services/template_service.py",
+   "killed": 78,
+   "survived": 53
+  },
+  {
+   "file": "services/bot/__init__.py"
+  },
+  {
+   "file": "services/bot/announcement_loop.py",
+   "survived": 102,
+   "killed": 105
+  },
+  {
+   "file": "services/bot/auth/__init__.py"
+  },
+  {
+   "file": "services/bot/auth/cache.py",
+   "killed": 33,
+   "survived": 58
+  },
+  {
+   "file": "services/bot/auth/permissions.py",
+   "killed": 12
+  },
+  {
+   "file": "services/bot/auth/role_checker.py",
+   "killed": 55,
+   "survived": 50
+  },
+  {
+   "file": "services/bot/bot.py",
+   "killed": 659,
+   "survived": 544,
+   "no tests": 52
+  },
+  {
+   "file": "services/bot/bot_action_listener.py",
+   "killed": 134,
+   "survived": 20
+  },
+  {
+   "file": "services/bot/commands/__init__.py"
+  },
+  {
+   "file": "services/bot/commands/decorators.py",
+   "survived": 5,
+   "killed": 17
+  },
+  {
+   "file": "services/bot/commands/list_games.py",
+   "killed": 85,
+   "survived": 54,
+   "no tests": 4
+  },
+  {
+   "file": "services/bot/commands/my_games.py",
+   "survived": 68,
+   "killed": 55,
+   "no tests": 4
+  },
+  {
+   "file": "services/bot/commands/setup.py",
+   "killed": 2
+  },
+  {
+   "file": "services/bot/config.py",
+   "killed": 2
+  },
+  {
+   "file": "services/bot/dependencies/__init__.py"
+  },
+  {
+   "file": "services/bot/dependencies/discord_client.py",
+   "killed": 8,
+   "survived": 8
+  },
+  {
+   "file": "services/bot/events/__init__.py"
+  },
+  {
+   "file": "services/bot/events/handlers.py",
+   "killed": 901,
+   "survived": 832,
+   "no tests": 104
+  },
+  {
+   "file": "services/bot/formatters/__init__.py"
+  },
+  {
+   "file": "services/bot/formatters/game_message.py",
+   "killed": 415,
+   "survived": 115
+  },
+  {
+   "file": "services/bot/guild_projection.py",
+   "killed": 338,
+   "survived": 136,
+   "no tests": 10
+  },
+  {
+   "file": "services/bot/guild_sync.py",
+   "killed": 113,
+   "survived": 39
+  },
+  {
+   "file": "services/bot/handlers/__init__.py"
+  },
+  {
+   "file": "services/bot/handlers/button_handler.py",
+   "no tests": 86
+  },
+  {
+   "file": "services/bot/handlers/join_game.py",
+   "killed": 98,
+   "survived": 101
+  },
+  {
+   "file": "services/bot/handlers/leave_game.py",
+   "killed": 75,
+   "survived": 93
+  },
+  {
+   "file": "services/bot/handlers/participant_drop.py",
+   "killed": 40,
+   "survived": 56
+  },
+  {
+   "file": "services/bot/handlers/utils.py",
+   "killed": 38,
+   "survived": 30
+  },
+  {
+   "file": "services/bot/main.py",
+   "killed": 60,
+   "survived": 34
+  },
+  {
+   "file": "services/bot/message_refresh_listener.py",
+   "killed": 19
+  },
+  {
+   "file": "services/bot/scheduler_loop.py",
+   "survived": 36,
+   "killed": 55
+  },
+  {
+   "file": "services/bot/utils/__init__.py"
+  },
+  {
+   "file": "services/bot/utils/discord_format.py",
+   "killed": 147,
+   "survived": 32
+  },
+  {
+   "file": "services/bot/views/__init__.py"
+  },
+  {
+   "file": "services/bot/views/clone_confirmation_view.py",
+   "no tests": 20,
+   "survived": 64,
+   "killed": 20
+  },
+  {
+   "file": "services/bot/views/game_view.py",
+   "killed": 57,
+   "survived": 3
+  },
+  {
+   "file": "services/bot/views/recurrence_confirmation_view.py",
+   "killed": 26,
+   "survived": 71
+  },
+  {
+   "file": "services/init/__init__.py"
+  },
+  {
+   "file": "services/init/database_users.py",
+   "survived": 56,
+   "killed": 26,
+   "no tests": 207
+  },
+  {
+   "file": "services/init/main.py",
+   "killed": 97,
+   "survived": 141
+  },
+  {
+   "file": "services/init/migrations.py",
+   "no tests": 76
+  },
+  {
+   "file": "services/init/seed_e2e.py",
+   "killed": 146,
+   "survived": 263
+  },
+  {
+   "file": "services/init/verify_schema.py",
+   "no tests": 124
+  },
+  {
+   "file": "services/init/wait_postgres.py",
+   "no tests": 110
+  },
+  {
+   "file": "shared/__init__.py"
+  },
+  {
+   "file": "shared/cache/__init__.py"
+  },
+  {
+   "file": "shared/cache/client.py",
+   "killed": 224,
+   "survived": 125
+  },
+  {
+   "file": "shared/cache/keys.py",
+   "killed": 6
+  },
+  {
+   "file": "shared/cache/operations.py",
+   "killed": 31,
+   "survived": 12
+  },
+  {
+   "file": "shared/cache/projection.py",
+   "killed": 58,
+   "survived": 28,
+   "no tests": 6
+  },
+  {
+   "file": "shared/cache/ttl.py"
+  },
+  {
+   "file": "shared/data_access/__init__.py"
+  },
+  {
+   "file": "shared/data_access/guild_isolation.py",
+   "killed": 1
+  },
+  {
+   "file": "shared/data_access/guild_queries.py",
+   "killed": 214,
+   "survived": 59
+  },
+  {
+   "file": "shared/database.py",
+   "killed": 12,
+   "survived": 10
+  },
+  {
+   "file": "shared/database_objects.py"
+  },
+  {
+   "file": "shared/discord/__init__.py"
+  },
+  {
+   "file": "shared/discord/client.py",
+   "killed": 304,
+   "survived": 204,
+   "no tests": 12
+  },
+  {
+   "file": "shared/discord/game_embeds.py",
+   "killed": 26,
+   "survived": 1
+  },
+  {
+   "file": "shared/message_formats.py",
+   "killed": 62,
+   "survived": 17,
+   "no tests": 31
+  },
+  {
+   "file": "shared/models/__init__.py"
+  },
+  {
+   "file": "shared/models/backup_metadata.py"
+  },
+  {
+   "file": "shared/models/base.py",
+   "killed": 2
+  },
+  {
+   "file": "shared/models/bot_action_queue.py"
+  },
+  {
+   "file": "shared/models/channel.py"
+  },
+  {
+   "file": "shared/models/game.py"
+  },
+  {
+   "file": "shared/models/game_image.py",
+   "no tests": 1
+  },
+  {
+   "file": "shared/models/game_status_schedule.py"
+  },
+  {
+   "file": "shared/models/guild.py"
+  },
+  {
+   "file": "shared/models/message_refresh_queue.py"
+  },
+  {
+   "file": "shared/models/notification_schedule.py"
+  },
+  {
+   "file": "shared/models/participant.py",
+   "no tests": 1
+  },
+  {
+   "file": "shared/models/participant_action_schedule.py"
+  },
+  {
+   "file": "shared/models/signup_method.py"
+  },
+  {
+   "file": "shared/models/template.py"
+  },
+  {
+   "file": "shared/models/user.py"
+  },
+  {
+   "file": "shared/pg_listen.py",
+   "killed": 33,
+   "survived": 12
+  },
+  {
+   "file": "shared/schemas/__init__.py"
+  },
+  {
+   "file": "shared/schemas/auth.py"
+  },
+  {
+   "file": "shared/schemas/channel.py"
+  },
+  {
+   "file": "shared/schemas/events.py"
+  },
+  {
+   "file": "shared/schemas/export.py"
+  },
+  {
+   "file": "shared/schemas/game.py"
+  },
+  {
+   "file": "shared/schemas/guild.py"
+  },
+  {
+   "file": "shared/schemas/participant.py"
+  },
+  {
+   "file": "shared/schemas/template.py",
+   "killed": 10,
+   "survived": 24
+  },
+  {
+   "file": "shared/schemas/user.py"
+  },
+  {
+   "file": "shared/services/__init__.py"
+  },
+  {
+   "file": "shared/services/event_builders.py",
+   "no tests": 26
+  },
+  {
+   "file": "shared/services/game_cancellation.py",
+   "killed": 25,
+   "survived": 9
+  },
+  {
+   "file": "shared/services/game_metrics.py",
+   "killed": 92,
+   "survived": 2
+  },
+  {
+   "file": "shared/services/game_schedules.py",
+   "killed": 92,
+   "survived": 91
+  },
+  {
+   "file": "shared/services/image_storage.py",
+   "killed": 108,
+   "survived": 170
+  },
+  {
+   "file": "shared/services/leave_game.py",
+   "survived": 25,
+   "killed": 48
+  },
+  {
+   "file": "shared/services/participant_action_event_builder.py",
+   "killed": 11
+  },
+  {
+   "file": "shared/services/waitlist_transitions.py",
+   "killed": 72,
+   "survived": 66
+  },
+  {
+   "file": "shared/setup.py"
+  },
+  {
+   "file": "shared/telemetry.py",
+   "killed": 50,
+   "survived": 86
+  },
+  {
+   "file": "shared/utils/__init__.py"
+  },
+  {
+   "file": "shared/utils/datetime_utils.py",
+   "killed": 8
+  },
+  {
+   "file": "shared/utils/discord.py",
+   "killed": 23,
+   "survived": 2
+  },
+  {
+   "file": "shared/utils/discord_tokens.py",
+   "killed": 20,
+   "survived": 4
+  },
+  {
+   "file": "shared/utils/games.py",
+   "killed": 1
+  },
+  {
+   "file": "shared/utils/limits.py"
+  },
+  {
+   "file": "shared/utils/logging.py",
+   "killed": 7
+  },
+  {
+   "file": "shared/utils/participant_sorting.py",
+   "killed": 37
+  },
+  {
+   "file": "shared/utils/security_constants.py"
+  },
+  {
+   "file": "shared/utils/status_transitions.py",
+   "killed": 6,
+   "survived": 1,
+   "no tests": 2
+  },
+  {
+   "file": "shared/utils/template_signup_method_backfill.py"
+  },
+  {
+   "file": "shared/utils/time_constants.py"
+  },
+  {
+   "file": "shared/utils/timezone.py",
+   "killed": 26,
+   "survived": 2
+  },
+  {
+   "file": "shared/version.py",
+   "killed": 3,
+   "survived": 3
+  }
+ ]
+}
