@@ -172,6 +172,18 @@ repos:
         files: ^(services|shared|tests)/.*\.py$
         additional_dependencies: ['diff-cover~=9.2.0']
 
+      # Mutation testing ratchet gate: runs mutmut scoped to functions changed
+      # vs main and blocks NEW logic-class survivors not present in the checked-in
+      # baseline (./mutmut-baseline.json). Requires .venv (uv sync). Regenerate
+      # the baseline after paying down debt with a full cold run, then:
+      #   .venv/bin/python scripts/mutmut_ledger.py snapshot
+      - id: mutation-gate
+        name: Mutation testing gate (function-scoped ratchet)
+        entry: .venv/bin/python scripts/mutmut_ledger.py gate
+        language: system
+        pass_filenames: false
+        files: ^(services|shared)/.*\.py$
+
   # TypeScript/Frontend: linting, formatting, type checking, build, testing, and coverage
   - repo: local
     hooks:
