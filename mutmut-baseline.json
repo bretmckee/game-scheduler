@@ -4278,39 +4278,35 @@
    "services.api.services.games.x\u01c1GameService\u01c1_add_new_mentions": [
     [
      "logic",
-     "L29: 'valid_participants=[p[\"original_input\"] for p...' => 'valid_participants=None,'"
-    ],
-    [
-     "string",
-     "L29: 'valid_participants=[p[\"original_input\"] for p...' => 'valid_participants=[p[\"XXoriginal_inputXX\"] f...'"
-    ],
-    [
-     "string",
-     "L29: 'valid_participants=[p[\"original_input\"] for p...' => 'valid_participants=[p[\"ORIGINAL_INPUT\"] for p...'"
+     "L39: 'valid_participants=[p[\"original_input\"] for p...' => 'valid_participants=None,'"
     ],
     [
      "logic",
-     "L39: 'self.db, p_data[\"discord_id\"]' => 'None, p_data[\"discord_id\"]'"
+     "L66: 'continue' => 'break'"
     ],
     [
      "logic",
-     "L39: 'self.db, p_data[\"discord_id\"]' => 'self.db, None'"
+     "L68: 'self.db, p_data[\"discord_id\"]' => 'None, p_data[\"discord_id\"]'"
     ],
     [
      "logic",
-     "L39: 'self.db, p_data[\"discord_id\"]' => 'p_data[\"discord_id\"]'"
+     "L68: 'self.db, p_data[\"discord_id\"]' => 'self.db, None'"
     ],
     [
      "logic",
-     "L39: 'self.db, p_data[\"discord_id\"]' => 'self.db, )'; removed ')'"
+     "L68: 'self.db, p_data[\"discord_id\"]' => 'p_data[\"discord_id\"]'"
     ],
     [
      "logic",
-     "L50: 'game_session_id=game.id,' => 'game_session_id=None,'"
+     "L68: 'self.db, p_data[\"discord_id\"]' => 'self.db, )'; removed ')'"
     ],
     [
      "logic",
-     "L54: 'position=position,' => 'position=None,'"
+     "L79: 'game_session_id=game.id,' => 'game_session_id=None,'"
+    ],
+    [
+     "logic",
+     "L83: 'position=position,' => 'position=None,'"
     ],
     [
      "logic",
@@ -4318,11 +4314,11 @@
     ],
     [
      "logic",
-     "L54: 'position=position,' => ')'; removed ')'"
+     "L83: 'position=position,' => ')'; removed ')'"
     ],
     [
      "logic",
-     "L74: 'participant_id=new_participant.id,' => 'participant_id=None,'"
+     "L103: 'participant_id=new_participant.id,' => 'participant_id=None,'"
     ]
    ],
    "services.api.services.games.x\u01c1GameService\u01c1_add_participant_carryover_schedules": [
@@ -5400,23 +5396,23 @@
    "services.api.services.games.x\u01c1GameService\u01c1_update_prefilled_participants": [
     [
      "logic",
-     "L26: 'if p.id in existing_participant_ids' => 'if p.id in existing_participant_ids or p.posi...'; removed 'and p.position_type == ParticipantType.SELF_A...'"
+     "L27: 'if p.id in existing_participant_ids' => 'if p.id in existing_participant_ids or p.posi...'; removed 'and p.position_type == ParticipantType.SELF_A...'"
     ],
     [
      "logic",
-     "L30: 'position = next(' => 'position = None'; removed 'd[\"position\"] for d in participant_data_list ...'; removed ')'"
+     "L31: 'position = next(' => 'position = None'; removed 'd[\"position\"] for d in participant_data_list ...'; removed ')'"
     ],
     [
      "logic",
-     "L34: 'p.position = position' => 'p.position = None'"
+     "L35: 'p.position = position' => 'p.position = None'"
     ],
     [
      "logic",
-     "L44: 'position = next(' => 'position = None'; removed 'd[\"position\"] for d in participant_data_list ...'; removed ')'"
+     "L45: 'position = next(' => 'position = None'; removed 'd[\"position\"] for d in participant_data_list ...'; removed ')'"
     ],
     [
      "logic",
-     "L48: 'p.position = position' => 'p.position = None'"
+     "L49: 'p.position = position' => 'p.position = None'"
     ]
    ],
    "services.api.services.games.x\u01c1GameService\u01c1_update_status_schedules": [
@@ -5469,6 +5465,40 @@
     [
      "string",
      "L23: 'msg = \"Only bot managers can specify the game...' => 'msg = \"XXOnly bot managers can specify the ga...'"
+    ]
+   ],
+   "services.api.services.games.x\u01c1GameService\u01c1_within_request_duplicate_errors": [
+    [
+     "logic",
+     "L30: 'continue' => 'break'"
+    ],
+    [
+     "logic",
+     "L33: '\"input\": str(participant_data.get(\"original_i...' => '\"input\": str(participant_data.get(\"original_i...'"
+    ],
+    [
+     "string",
+     "L33: '\"input\": str(participant_data.get(\"original_i...' => '\"input\": str(participant_data.get(\"original_i...'"
+    ],
+    [
+     "string",
+     "L34: '\"reason\": \"This user is listed more than once\",' => '\"reason\": \"XXThis user is listed more than on...'"
+    ],
+    [
+     "string",
+     "L34: '\"reason\": \"This user is listed more than once\",' => '\"reason\": \"this user is listed more than once\",'"
+    ],
+    [
+     "string",
+     "L34: '\"reason\": \"This user is listed more than once\",' => '\"reason\": \"THIS USER IS LISTED MORE THAN ONCE\",'"
+    ],
+    [
+     "string",
+     "L35: '\"suggestions\": [],' => '\"XXsuggestionsXX\": [],'"
+    ],
+    [
+     "string",
+     "L35: '\"suggestions\": [],' => '\"SUGGESTIONS\": [],'"
     ]
    ],
    "services.api.services.games.x\u01c1GameService\u01c1clone_game": [
@@ -5788,31 +5818,31 @@
     ],
     [
      "logic",
-     "L85: 'valid_participants=[p[\"original_input\"] for p...' => 'valid_participants=None,'"
+     "L92: 'valid_participants=[p[\"original_input\"] for p...' => 'valid_participants=None,'"
     ],
     [
      "string",
-     "L85: 'valid_participants=[p[\"original_input\"] for p...' => 'valid_participants=[p[\"XXoriginal_inputXX\"] f...'"
+     "L92: 'valid_participants=[p[\"original_input\"] for p...' => 'valid_participants=[p[\"XXoriginal_inputXX\"] f...'"
     ],
     [
      "string",
-     "L85: 'valid_participants=[p[\"original_input\"] for p...' => 'valid_participants=[p[\"ORIGINAL_INPUT\"] for p...'"
+     "L92: 'valid_participants=[p[\"original_input\"] for p...' => 'valid_participants=[p[\"ORIGINAL_INPUT\"] for p...'"
     ],
     [
      "logic",
-     "L90: 'thumbnail_data=thumbnail_data,' => 'thumbnail_data=None,'"
+     "L97: 'thumbnail_data=thumbnail_data,' => 'thumbnail_data=None,'"
     ],
     [
      "logic",
-     "L91: 'thumbnail_mime_type=thumbnail_mime_type,' => 'thumbnail_mime_type=None,'"
+     "L98: 'thumbnail_mime_type=thumbnail_mime_type,' => 'thumbnail_mime_type=None,'"
     ],
     [
      "logic",
-     "L92: 'image_data=image_data,' => 'image_data=None,'"
+     "L99: 'image_data=image_data,' => 'image_data=None,'"
     ],
     [
      "logic",
-     "L93: 'image_mime_type=image_mime_type,' => 'image_mime_type=None,'"
+     "L100: 'image_mime_type=image_mime_type,' => 'image_mime_type=None,'"
     ],
     [
      "logic",
@@ -5828,7 +5858,7 @@
     ],
     [
      "logic",
-     "L93: 'image_mime_type=image_mime_type,' => ')'; removed ')'"
+     "L100: 'image_mime_type=image_mime_type,' => ')'; removed ')'"
     ]
    ],
    "services.api.services.games.x\u01c1GameService\u01c1delete_game": [
@@ -22933,6 +22963,10 @@
      "L36: 'self._log_request(method, url, operation_name)' => 'self._log_request(method, url, None)'"
     ],
     [
+     "timeout",
+     "L45: 'if wait_ms == 0:' => 'if wait_ms != 0:'"
+    ],
+    [
      "logic",
      "L47: 'await asyncio.sleep(wait_ms / 1000)' => 'await asyncio.sleep(wait_ms / 1001)'"
     ],
@@ -25693,7 +25727,7 @@
    ]
   }
  },
- "generated_utc": "2026-09-02T04:32:45+00:00",
+ "generated_utc": "2026-09-05T00:15:58+00:00",
  "killed": {
   "services/api/app.py": {
    "services.api.app.x_create_app": [
@@ -28054,8 +28088,10 @@
     5,
     6,
     7,
+    8,
     9,
-    10,
+    11,
+    12,
     13,
     14,
     15,
@@ -28066,37 +28102,48 @@
     20,
     21,
     22,
+    23,
+    24,
+    25,
+    26,
     27,
     28,
     29,
     30,
     31,
     32,
-    33,
     34,
-    35,
-    37,
-    38,
     39,
+    40,
     41,
     42,
+    43,
+    44,
+    45,
     46,
     47,
     49,
     50,
     51,
-    52,
     53,
     54,
-    55,
-    57,
     58,
     59,
-    60,
     61,
     62,
     63,
-    64
+    64,
+    65,
+    66,
+    67,
+    69,
+    70,
+    71,
+    72,
+    73,
+    74,
+    75,
+    76
    ],
    "services.api.services.games.x\u01c1GameService\u01c1_add_participant_carryover_schedules": [
     1,
@@ -29086,6 +29133,27 @@
     22,
     23
    ],
+   "services.api.services.games.x\u01c1GameService\u01c1_within_request_duplicate_errors": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    16,
+    18,
+    19,
+    21,
+    22,
+    28
+   ],
    "services.api.services.games.x\u01c1GameService\u01c1clone_game": [
     1,
     3,
@@ -29214,11 +29282,11 @@
     57,
     58,
     59,
+    60,
     61,
-    62,
-    65,
-    74,
-    75,
+    63,
+    64,
+    67,
     76,
     77,
     78,
@@ -29237,7 +29305,9 @@
     91,
     92,
     93,
-    94
+    94,
+    95,
+    96
    ],
    "services.api.services.games.x\u01c1GameService\u01c1delete_game": [
     1,
@@ -35207,7 +35277,6 @@
     15,
     16,
     17,
-    18,
     19,
     20,
     21,
@@ -36370,6 +36439,6 @@
    ]
   }
  },
- "source_commit": "0750f32b-dirty",
+ "source_commit": "94c6cb6c-dirty",
  "version": 2
 }
