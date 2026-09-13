@@ -570,6 +570,127 @@ describe('EditGame', () => {
     });
   });
 
+  it('resubmits the stored channel token when Location is untouched, not the rendered display text', async () => {
+    // where_display is reconstructed from the channel's *current* Discord name at GET
+    // time; it can drift from the name at game-creation time (e.g. the channel was
+    // renamed after this page loaded). Saving an untouched Location must not re-resolve
+    // that stale display string by name -- it must resend the stable <#id> token.
+    const gameWithChannelLocation: GameSession = {
+      ...mockGame,
+      where: '<#999888777>',
+      where_display: '#old-name',
+    };
+
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url.includes('/games/')) return Promise.resolve({ data: gameWithChannelLocation });
+      if (url.includes('/channels')) return Promise.resolve({ data: mockChannels });
+      if (url.includes('/roles')) return Promise.resolve({ data: [] });
+      return Promise.reject(new Error('Unknown URL'));
+    });
+    vi.mocked(apiClient.put).mockResolvedValueOnce({ data: gameWithChannelLocation });
+
+    const user = userEvent.setup();
+
+    render(
+      <AuthContext.Provider value={mockAuthContextValue}>
+        <BrowserRouter>
+          <EditGame />
+        </BrowserRouter>
+      </AuthContext.Provider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('#old-name')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Save Changes'));
+
+    await waitFor(() => {
+      expect(apiClient.put).toHaveBeenCalled();
+    });
+
+    const formData = vi.mocked(apiClient.put).mock.calls[0]![1] as FormData;
+    expect(formData.get('where')).toBe('<#999888777>');
+  });
+
+  it('resubmits the edited Location text verbatim when the user changes it', async () => {
+    const gameWithChannelLocation: GameSession = {
+      ...mockGame,
+      where: '<#999888777>',
+      where_display: '#old-name',
+    };
+
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url.includes('/games/')) return Promise.resolve({ data: gameWithChannelLocation });
+      if (url.includes('/channels')) return Promise.resolve({ data: mockChannels });
+      if (url.includes('/roles')) return Promise.resolve({ data: [] });
+      return Promise.reject(new Error('Unknown URL'));
+    });
+    vi.mocked(apiClient.put).mockResolvedValueOnce({ data: gameWithChannelLocation });
+
+    const user = userEvent.setup();
+
+    render(
+      <AuthContext.Provider value={mockAuthContextValue}>
+        <BrowserRouter>
+          <EditGame />
+        </BrowserRouter>
+      </AuthContext.Provider>
+    );
+
+    const locationInput = await screen.findByDisplayValue('#old-name');
+    await user.clear(locationInput);
+    await user.type(locationInput, '#new-name');
+
+    await user.click(screen.getByText('Save Changes'));
+
+    await waitFor(() => {
+      expect(apiClient.put).toHaveBeenCalled();
+    });
+
+    const formData = vi.mocked(apiClient.put).mock.calls[0]![1] as FormData;
+    expect(formData.get('where')).toBe('#new-name');
+  });
+
+  it('resubmits an unchanged plain-text Location as-is when there is no where_display', async () => {
+    const gameWithPlainLocation: GameSession = {
+      ...mockGame,
+      where: 'The Rusty Flagon, table 3',
+      where_display: null,
+    };
+
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url.includes('/games/')) return Promise.resolve({ data: gameWithPlainLocation });
+      if (url.includes('/channels')) return Promise.resolve({ data: mockChannels });
+      if (url.includes('/roles')) return Promise.resolve({ data: [] });
+      return Promise.reject(new Error('Unknown URL'));
+    });
+    vi.mocked(apiClient.put).mockResolvedValueOnce({ data: gameWithPlainLocation });
+
+    const user = userEvent.setup();
+
+    render(
+      <AuthContext.Provider value={mockAuthContextValue}>
+        <BrowserRouter>
+          <EditGame />
+        </BrowserRouter>
+      </AuthContext.Provider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('The Rusty Flagon, table 3')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Save Changes'));
+
+    await waitFor(() => {
+      expect(apiClient.put).toHaveBeenCalled();
+    });
+
+    const formData = vi.mocked(apiClient.put).mock.calls[0]![1] as FormData;
+    expect(formData.get('where')).toBe('The Rusty Flagon, table 3');
+  });
+
   const selfAddedParticipant = (id: string, name: string, joinedAt: string): Participant => ({
     id,
     game_session_id: 'game123',

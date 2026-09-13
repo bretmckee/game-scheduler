@@ -28,6 +28,27 @@ import { GameForm, GameFormData } from '../components/GameForm';
 import { ParticipantInput } from '../components/EditableParticipantList';
 
 /**
+ * Resolve the `where` field for a game-update submission.
+ *
+ * The Location input is pre-populated from `where_display` (see GameForm.tsx) -- a
+ * string with `<#id>` tokens rewritten to the channel's *current* Discord name, computed
+ * fresh on every GET. If the host never touches Location, resubmitting that display text
+ * makes the backend re-resolve it BY NAME against another, independently-fetched live
+ * channel snapshot at PUT time. Any rename of that channel between this page's GET and
+ * the submit -- entirely unrelated to whatever the host actually edited -- makes the
+ * exact-name match fail and blocks the whole save. The stored `where` token itself
+ * never changed, so when Location is untouched, resend that stable token instead of the
+ * display text that was only ever meant for showing to the user.
+ */
+function resolveWherePayload(currentWhere: string, game: GameSession): string {
+  const originalDisplay = (game.where_display ?? game.where ?? '').trim();
+  if (currentWhere.trim() === originalDisplay) {
+    return game.where ?? '';
+  }
+  return currentWhere;
+}
+
+/**
  * True if a persisted participant's mention was edited in place (text changed but the
  * row kept its original, non-"temp-" id). The update API has no way to change who
  * occupies an existing participant_id, so an edited row must be submitted as a removal
@@ -190,7 +211,7 @@ export const EditGame: FC = () => {
 
       // Add optional text fields (always include to allow clearing defaults)
       payload.append('signup_instructions', formData.signupInstructions || '');
-      payload.append('where', formData.where || '');
+      payload.append('where', resolveWherePayload(formData.where, state.game!));
 
       if (maxPlayers !== null) {
         payload.append('max_players', maxPlayers.toString());
@@ -344,7 +365,7 @@ export const EditGame: FC = () => {
     payload.append('scheduled_at', formData.scheduledAt!.toISOString());
     payload.append('channel_id', formData.channelId);
     payload.append('signup_instructions', formData.signupInstructions || '');
-    payload.append('where', formData.where || '');
+    payload.append('where', resolveWherePayload(formData.where, state.game!));
     if (maxPlayers !== null) {
       payload.append('max_players', maxPlayers.toString());
     }
