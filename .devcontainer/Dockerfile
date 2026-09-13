@@ -38,6 +38,9 @@ RUN apt-get update \
              less \
              tmux \
              sudo \
+             openssh-client \
+             openssh-server \
+             iputils-ping \
              locales \
              python3.13 \
              python3.13-venv \
@@ -117,6 +120,27 @@ RUN echo '# Enable git wrapper for quality check enforcement' >> /home/vscode/.b
     echo 'if [ -f ~/.bashrc_devcontainer ]; then' >> /home/vscode/.bashrc && \
     echo '    . ~/.bashrc_devcontainer' >> /home/vscode/.bashrc && \
     echo 'fi' >> /home/vscode/.bashrc
+
+# sshd, so `ssh -A -p 2222 vscode@localhost` gets real OpenSSH agent
+# forwarding -- a fresh, correctly-cleaned-up SSH_AUTH_SOCK per session,
+# managed by sshd itself instead of us guessing at a socket path.
+# Host keys are generated once at image build time (ssh-keygen -A is a
+# no-op for any key that already exists, so rebuilds are safe).
+RUN ssh-keygen -A \
+    && mkdir -p /etc/ssh/sshd_config.d \
+    && { \
+         echo 'PermitRootLogin no'; \
+         echo 'PasswordAuthentication no'; \
+         echo 'KbdInteractiveAuthentication no'; \
+         echo 'PubkeyAuthentication yes'; \
+         echo 'AllowAgentForwarding yes'; \
+         echo 'AllowUsers vscode'; \
+       } > /etc/ssh/sshd_config.d/devcontainer.conf \
+    && mkdir -p /home/vscode/.ssh /home/vscode/.ssh-import \
+    && chown vscode:vscode /home/vscode/.ssh /home/vscode/.ssh-import \
+    && chmod 700 /home/vscode/.ssh /home/vscode/.ssh-import
+
+EXPOSE 22
 
 USER vscode
 

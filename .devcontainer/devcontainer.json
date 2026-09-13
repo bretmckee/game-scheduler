@@ -17,6 +17,8 @@
     "source=${localEnv:HOME}/.profile,target=/home/vscode/.profile,type=bind,readonly",
     "source=${localEnv:HOME}/.bashrc,target=/home/vscode/.bashrc,type=bind,readonly",
     "source=${localEnv:HOME}/.bash_aliases,target=/home/vscode/.bash_aliases,type=bind,readonly",
+    "source=${localEnv:HOME}/.config/tmux,target=/home/vscode/.config/tmux,type=bind,readonly",
+    "source=${localEnv:HOME}/.ssh/authorized_keys,target=/home/vscode/.ssh-import/authorized_keys,type=bind,readonly",
     "source=${localEnv:HOME}/.tokens,target=/home/vscode/.tokens,type=bind,readonly",
     "source=${localEnv:HOME}/.claude,target=/home/vscode/.claude,type=bind",
     "source=/etc/localtime,target=/etc/localtime,type=bind,readonly",
@@ -70,9 +72,14 @@
   },
   "forwardPorts": [8000, 8001, 5432, 5672, 6379, 12345, 3080],
   "initializeCommand": "docker network create gamebot-dev-network 2>/dev/null || true && mkdir -p ~/.cache/uv ~/.npm ~/.claude",
-  "runArgs": ["--network=gamebot-dev-network", "--env-file=${localEnv:HOME}/.tokens"],
+  "runArgs": [
+    "--network=gamebot-dev-network",
+    "--env-file=${localEnv:HOME}/.tokens",
+    "-p",
+    "127.0.0.1:2222:22"
+  ],
   "postCreateCommand": "python --version && uv --version && node --version && npm --version && npm install -g --allow-scripts=@deepseek-ai/dsh-subprocess-local,koffi,node-pty,@google/genai,protobufjs prettier @deepseek-ai/dsh && curl -fsSL https://claude.ai/install.sh | bash && cd frontend && npm install && cd .. && mkdir -p \"${WORKSPACE_ROOT%/*}/.cache/pre-commit\" && pre-commit install && echo 'Dev container ready! Pre-commit hooks installed. Start infrastructure with: docker compose up postgres redis rabbitmq -d'",
-  "postStartCommand": "sudo chown -R vscode:vscode /home/vscode/.vscode-server 2>/dev/null || true",
+  "postStartCommand": "sudo chown -R vscode:vscode /home/vscode/.vscode-server 2>/dev/null || true; cp /home/vscode/.ssh-import/authorized_keys /home/vscode/.ssh/authorized_keys && chmod 600 /home/vscode/.ssh/authorized_keys; sudo mkdir -p /run/sshd && (pgrep -x sshd >/dev/null || sudo /usr/sbin/sshd)",
   "remoteUser": "vscode",
   "updateRemoteUserUID": true
 }
