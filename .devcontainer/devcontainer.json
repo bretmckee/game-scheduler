@@ -18,6 +18,7 @@
     "source=${localEnv:HOME}/.bashrc,target=/home/vscode/.bashrc,type=bind,readonly",
     "source=${localEnv:HOME}/.bash_aliases,target=/home/vscode/.bash_aliases,type=bind,readonly",
     "source=${localEnv:HOME}/.config/tmux,target=/home/vscode/.config/tmux,type=bind,readonly",
+    "source=${localEnv:HOME}/.config/git,target=/home/vscode/.config/git,type=bind,readonly",
     "source=${localEnv:HOME}/.ssh/authorized_keys,target=/home/vscode/.ssh-import/authorized_keys,type=bind,readonly",
     "source=${localEnv:HOME}/.tokens,target=/home/vscode/.tokens,type=bind,readonly",
     "source=${localEnv:HOME}/.claude,target=/home/vscode/.claude,type=bind",

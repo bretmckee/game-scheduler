@@ -114,7 +114,27 @@ RUN echo '# Enable git wrapper for quality check enforcement' >> /home/vscode/.b
     echo '' >> /home/vscode/.bashrc_devcontainer && \
     echo '# pre-commit cache shared across all worktrees, mounted via parent-dir bind mount' >> /home/vscode/.bashrc_devcontainer && \
     echo 'export PRE_COMMIT_HOME="${WORKSPACE_ROOT%/*}/.cache/pre-commit"' >> /home/vscode/.bashrc_devcontainer && \
+    echo '' >> /home/vscode/.bashrc_devcontainer && \
+    echo '# VS Code Server overwrites /etc/gitconfig and ~/.gitconfig with its own' >> /home/vscode/.bashrc_devcontainer && \
+    echo '# credential.helper on every connect; that helper only works from shells' >> /home/vscode/.bashrc_devcontainer && \
+    echo '# VS Code itself spawned (it needs REMOTE_CONTAINERS_IPC), so it just fails' >> /home/vscode/.bashrc_devcontainer && \
+    echo '# in a real sshd session. Point real ssh/tmux shells at the mounted host' >> /home/vscode/.bashrc_devcontainer && \
+    echo '# config instead, which git prefers over system config for the same key.' >> /home/vscode/.bashrc_devcontainer && \
+    echo 'if [ "${TERM_PROGRAM}" != "vscode" ] && [ -f "$HOME/.config/git/config" ]; then' >> /home/vscode/.bashrc_devcontainer && \
+    echo '    export GIT_CONFIG_GLOBAL="$HOME/.config/git/config"' >> /home/vscode/.bashrc_devcontainer && \
+    echo 'fi' >> /home/vscode/.bashrc_devcontainer && \
+    echo '' >> /home/vscode/.bashrc_devcontainer && \
+    echo '# Same VS Code Server injection, same failure, for Docker: it points' >> /home/vscode/.bashrc_devcontainer && \
+    echo '# ~/.docker/config.json credsStore at a helper that also needs' >> /home/vscode/.bashrc_devcontainer && \
+    echo '# REMOTE_CONTAINERS_IPC, which breaks even anonymous image pulls over' >> /home/vscode/.bashrc_devcontainer && \
+    echo '# plain ssh. Real ssh/tmux shells get a credsStore-free config instead.' >> /home/vscode/.bashrc_devcontainer && \
+    echo 'if [ "${TERM_PROGRAM}" != "vscode" ]; then' >> /home/vscode/.bashrc_devcontainer && \
+    echo '    export DOCKER_CONFIG="$HOME/.docker-ssh"' >> /home/vscode/.bashrc_devcontainer && \
+    echo 'fi' >> /home/vscode/.bashrc_devcontainer && \
     chown vscode:vscode /home/vscode/.bashrc_devcontainer && \
+    mkdir -p /home/vscode/.docker-ssh && \
+    echo '{}' > /home/vscode/.docker-ssh/config.json && \
+    chown -R vscode:vscode /home/vscode/.docker-ssh && \
     echo '' >> /home/vscode/.bashrc && \
     echo '# Source devcontainer-specific configuration' >> /home/vscode/.bashrc && \
     echo 'if [ -f ~/.bashrc_devcontainer ]; then' >> /home/vscode/.bashrc && \
