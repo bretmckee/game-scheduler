@@ -37,6 +37,7 @@ from typing import Any, TypeVar
 from uuid import uuid4
 
 import httpx
+import psycopg2
 import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -54,6 +55,76 @@ logger = logging.getLogger(__name__)
 __all__ = ["TimeoutType"]
 
 T = TypeVar("T")
+
+
+# --- Hermeticity check: stray `users` row detection -----------------------------
+#
+# E2E tests are supposed to be hermetic -- each one cleans up whatever it
+# creates, regardless of run order. This hook enforces that for the `users`
+# table: it checks the actual DB state after every single test's own fixture
+# teardown has finished and fails immediately, naming the exact offending
+# test, if a row was left behind that wasn't there at session start.
+#
+# Added after a full e2e run showed 25 tests cascading into
+# ix_users_discord_id UniqueViolationError at setup, all tracing back to one
+# leaked row -- traced with this hook's help to every test_game_reminder.py
+# test mentioning Player A's Discord ID as a participant without depending on
+# test_user_player_a, the fixture that owns cleaning up that identity (fixed
+# separately). Kept permanently since it catches this whole class of bug --
+# an untracked `users` row created as a side effect of participant
+# resolution -- immediately and by name, rather than as an opaque cascade
+# many tests later. Only covers the `users` table; a test that leaks some
+# other table's rows the same way won't be caught here.
+#
+# Single-element container (rather than a module-level name rebound via `global`)
+# holding the baseline set once pytest_sessionstart runs, or None before that.
+_baseline_state: dict[str, set[str] | None] = {"discord_ids": None}
+
+
+def _fetch_user_discord_ids() -> set[str]:
+    """Query the live `users.discord_id` set via a standalone sync connection.
+
+    Deliberately bypasses any test's own SQLAlchemy AsyncSession/admin_db
+    fixture so this check can never interfere with (or be corrupted by)
+    whatever state a test's own fixtures are in.
+    """
+    admin_url = os.environ["ADMIN_DATABASE_URL"].replace("postgresql+asyncpg://", "postgresql://")
+    conn = psycopg2.connect(admin_url)
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT discord_id FROM users")
+            return {row[0] for row in cur.fetchall()}
+    finally:
+        conn.close()
+
+
+def pytest_sessionstart(session: pytest.Session) -> None:
+    """Capture the seeded `users.discord_id` baseline before any test runs."""
+    if "ADMIN_DATABASE_URL" not in os.environ:
+        return
+    _baseline_state["discord_ids"] = _fetch_user_discord_ids()
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_runtest_teardown(item: pytest.Item, nextitem: pytest.Item | None) -> None:
+    """Fail loudly if a test leaves a stray `users` row behind.
+
+    Registered trylast so this runs strictly AFTER pytest's own default
+    pytest_runtest_teardown implementation -- the one that actually executes
+    every fixture's finalizer (test_user_a, test_user_b, test_user_player_a,
+    etc.). Without trylast, conftest hooks run before the core plugin's
+    default implementation, which would see each test's DB state mid-cleanup
+    instead of after it and produce false positives on every test.
+    """
+    baseline = _baseline_state["discord_ids"]
+    if baseline is None:
+        return
+    leaked = _fetch_user_discord_ids() - baseline
+    if leaked:
+        pytest.fail(
+            f"{item.nodeid} left stray users.discord_id row(s) behind: {sorted(leaked)}",
+            pytrace=False,
+        )
 
 
 @dataclass
