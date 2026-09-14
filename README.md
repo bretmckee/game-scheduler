@@ -9,6 +9,7 @@ A Discord game scheduling system with microservices architecture, featuring a Di
 - **[Server Administrators](docs/SERVER-ADMIN.md)** - Set up the bot in your Discord server, configure permissions, and manage game templates
 - **[Game Hosts](docs/HOST-GUIDE.md)** - Create and manage game sessions using the web dashboard
 - **[Players](docs/PLAYER-GUIDE.md)** - Join games, receive notifications, and manage your calendar
+- **[Release Notes](docs/RELEASE-NOTES.md)** - What's new and what's fixed in each release
 
 ### 💻 For Contributors
 
