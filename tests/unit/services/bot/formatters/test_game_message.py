@@ -35,6 +35,7 @@ from services.bot.formatters.game_message import (
     GameMessageFormatter,
     format_game_announcement,
 )
+from services.bot.utils.discord_format import format_discord_mention
 from shared.utils.limits import (
     DISCORD_EMBED_FIELD_VALUE_LIMIT,
     DISCORD_EMBED_TOTAL_SAFE_LIMIT,
@@ -1809,6 +1810,46 @@ class TestGameEmbedImages:
                 max_players=5,
                 status="SCHEDULED",
                 signup_method="SELF_SIGNUP",
+            )
+
+    def test_format_game_announcement_host_selected_suppresses_role_mention(self):
+        """Test format_game_announcement omits role mentions for HOST_SELECTED games."""
+        scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
+        role_id = "987654321"
+        host_id = "111111111"
+
+        with (
+            patch("services.bot.formatters.game_message.discord.Embed") as mock_embed_class,
+            patch("services.bot.formatters.game_message.GameView") as mock_view_class,
+        ):
+            mock_embed_class.return_value = MagicMock()
+            mock_view_class.from_game_data.return_value = MagicMock()
+
+            content, _embed, _view = format_game_announcement(
+                game_id="game-123",
+                game_title="Test Game",
+                description="Test description",
+                scheduled_at=scheduled_at,
+                host_id=host_id,
+                participant_ids=[],
+                overflow_ids=[],
+                current_count=0,
+                max_players=5,
+                status="SCHEDULED",
+                signup_method="HOST_SELECTED",
+                notify_role_ids=[role_id],
+            )
+
+            assert content == format_discord_mention(host_id)
+            mock_embed_class.assert_called_once_with(
+                title="Test Game", description="Test description", color=ANY
+            )
+            mock_view_class.from_game_data.assert_called_once_with(
+                game_id="game-123",
+                current_players=0,
+                max_players=5,
+                status="SCHEDULED",
+                signup_method="HOST_SELECTED",
             )
 
     def test_format_game_announcement_mentions_host_and_confirmed_participants(self):

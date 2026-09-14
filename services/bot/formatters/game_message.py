@@ -41,7 +41,7 @@ from services.bot.utils.discord_format import (
     format_user_or_placeholder,
 )
 from services.bot.views.game_view import GameView
-from shared.models import GameStatus
+from shared.models import GameStatus, SignupMethod
 from shared.utils.limits import (
     DISCORD_EMBED_FIELD_VALUE_LIMIT,
     DISCORD_EMBED_TOTAL_SAFE_LIMIT,
@@ -789,12 +789,13 @@ def format_game_announcement(
     # IDs. Placeholder participants (display_name only, no Discord account)
     # are excluded since they have no ID to mention.
     mentions = []
-    for role_id in notify_role_ids or []:
-        # Special handling: @everyone uses literal string, not <@&guild_id>
-        if guild_id and role_id == guild_id:
-            mentions.append("@everyone")
-        else:
-            mentions.append(f"<@&{role_id}>")
+    if signup_method != SignupMethod.HOST_SELECTED.value:
+        for role_id in notify_role_ids or []:
+            # Special handling: @everyone uses literal string, not <@&guild_id>
+            if guild_id and role_id == guild_id:
+                mentions.append("@everyone")
+            else:
+                mentions.append(f"<@&{role_id}>")
 
     if host_id.isdigit():
         mentions.append(format_discord_mention(host_id))
