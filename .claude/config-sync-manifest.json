@@ -1,5 +1,10 @@
 {
   "entries": {
+    ".copilot-tracking/planning/prompts/implement-phase1-security-paydown.prompt.md": {
+      "source_hash": "8cc408eac9a9e27307c7ced3610b16e2a73be7c5d57979a5fa278bf2cd2452e5",
+      "output": ".claude/commands/implement-phase1-security-paydown.md",
+      "output_hash": "6032b2095229ec9b22927a7fd592f1096b792cfaa2ff21888af99c2e908fb7ce"
+    },
     ".github/agents/task-planner.agent.md": {
       "source_hash": "692c4f6532834d6ff165e6ea8f3c5e8ac7634a44692b6a77a290e24e35521881",
       "output": ".claude/agents/task-planner.md",
