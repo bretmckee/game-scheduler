@@ -49,6 +49,18 @@ class DMType(StrEnum):
     HOST_ADDED_DROPOUT = "host_added_dropout"
 
 
+# Maps user_id -> resolved DM channel ID. A DM channel ID is a static fact about
+# the (bot, user) pair, not test-run state, so caching it at module (process)
+# scope doesn't make any test's outcome depend on execution order -- every test
+# still reads live message history fresh. What it does avoid is calling
+# create_dm() once per test: each test connects its own fresh discord.Client
+# (full hermeticity), so without this cache every DM-checking test re-triggers
+# Discord's create-DM-channel endpoint, which has a tight, undocumented abuse
+# limit (error 40003 "opening direct messages too fast") entirely separate from
+# normal rate-limit buckets.
+_dm_channel_ids: dict[str, int] = {}
+
+
 async def wait_for_condition[T](
     check_func: Callable[[], Awaitable[tuple[bool, T | None]]],
     timeout: int = 30,
@@ -261,6 +273,13 @@ class DiscordTestHelper:
         """
         Fetch recent DM messages sent to user by the bot.
 
+        Resolves the user's DM channel ID via create_dm() at most once per
+        user_id for the life of the process (see _dm_channel_ids) rather than
+        once per call -- repeated calls read history from the already-known
+        channel ID via get_partial_messageable, which requires no network round
+        trip to open/resolve, avoiding Discord's "opening direct messages too
+        fast" limit on the create-DM-channel endpoint.
+
         Args:
             user_id: Discord user snowflake ID
             limit: Maximum number of DMs to retrieve
@@ -268,11 +287,17 @@ class DiscordTestHelper:
         Returns:
             List of recent DM messages sent by bot
         """
-        user = await self.client.fetch_user(int(user_id))
-        dm_channel = await user.create_dm()
+        channel_id = _dm_channel_ids.get(user_id)
+        if channel_id is None:
+            user = await self.client.fetch_user(int(user_id))
+            dm_channel = await user.create_dm()
+            channel_id = dm_channel.id
+            _dm_channel_ids[user_id] = channel_id
+
+        channel = self.client.get_partial_messageable(channel_id, type=discord.ChannelType.private)
         return [
             msg
-            async for msg in dm_channel.history(limit=limit)
+            async for msg in channel.history(limit=limit)
             if msg.author.id == self.client.user.id
         ]
 

@@ -27,6 +27,7 @@ from unittest.mock import AsyncMock, Mock
 import discord
 import pytest
 
+from tests.e2e.helpers import discord as discord_helpers
 from tests.e2e.helpers.discord import DiscordTestHelper, DMType, wait_for_condition
 
 
@@ -378,6 +379,99 @@ class TestDiscordTestHelperWaitForRecentDM:
 
         call_args = helper.wait_for_dm_matching.call_args
         assert call_args[1]["timeout"] == 150
+
+
+class TestDiscordTestHelperGetUserRecentDMs:
+    """Tests for DiscordTestHelper.get_user_recent_dms DM-channel-ID caching.
+
+    A DM channel ID is a static fact about the (bot, user) pair, not per-test
+    mutable state, so resolving it via create_dm() at most once per user_id for
+    the whole process is safe to cache at module scope -- it doesn't make test
+    outcomes depend on execution order. Repeatedly calling create_dm() (one
+    fresh call per test, since each test gets its own freshly-connected client)
+    is what trips Discord's error 40003 ("opening direct messages too fast").
+    """
+
+    @pytest.fixture(autouse=True)
+    def _clear_dm_channel_id_cache(self):
+        """Reset the module-level cache so tests don't leak state into each other."""
+        discord_helpers._dm_channel_ids.clear()
+        yield
+        discord_helpers._dm_channel_ids.clear()
+
+    def _mock_helper_with_channel(self, messages):
+        """Build a DiscordTestHelper with a mocked client wired to return messages."""
+        helper = DiscordTestHelper("fake_token")
+        helper.client = Mock()
+        helper.client.user = Mock(id="bot-id")
+
+        mock_dm_channel = Mock(id=999)
+        mock_user = Mock()
+        mock_user.create_dm = AsyncMock(return_value=mock_dm_channel)
+        helper.client.fetch_user = AsyncMock(return_value=mock_user)
+
+        async def history(*_args, **_kwargs):
+            for msg in messages:
+                yield msg
+
+        mock_partial_channel = Mock()
+        mock_partial_channel.history = history
+        helper.client.get_partial_messageable = Mock(return_value=mock_partial_channel)
+
+        return helper, mock_user, mock_partial_channel
+
+    @pytest.mark.asyncio
+    async def test_first_call_resolves_channel_id_via_create_dm(self):
+        """First call for a user_id should resolve the channel via create_dm once."""
+        mock_msg = Mock(spec=discord.Message, author=Mock(id="bot-id"))
+        helper, mock_user, _ = self._mock_helper_with_channel([mock_msg])
+
+        result = await helper.get_user_recent_dms("111111111111111111", limit=5)
+
+        assert result == [mock_msg]
+        helper.client.fetch_user.assert_called_once_with(int("111111111111111111"))
+        # assert-not-weak: create_dm() takes no arguments
+        mock_user.create_dm.assert_called_once_with()
+        helper.client.get_partial_messageable.assert_called_once_with(
+            999, type=discord.ChannelType.private
+        )
+
+    @pytest.mark.asyncio
+    async def test_second_call_for_same_user_reuses_cached_channel_id(self):
+        """A second call for the same user_id must not call create_dm again."""
+        mock_msg = Mock(spec=discord.Message, author=Mock(id="bot-id"))
+        helper, mock_user, _ = self._mock_helper_with_channel([mock_msg])
+
+        await helper.get_user_recent_dms("111111111111111111", limit=5)
+        await helper.get_user_recent_dms("111111111111111111", limit=5)
+
+        helper.client.fetch_user.assert_called_once_with(int("111111111111111111"))
+        # assert-not-weak: create_dm() takes no arguments
+        mock_user.create_dm.assert_called_once_with()
+        assert helper.client.get_partial_messageable.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_different_users_resolve_independently(self):
+        """Two distinct user_ids should each resolve their own channel once."""
+        mock_msg = Mock(spec=discord.Message, author=Mock(id="bot-id"))
+        helper, mock_user, _ = self._mock_helper_with_channel([mock_msg])
+
+        await helper.get_user_recent_dms("111111111111111111", limit=5)
+        await helper.get_user_recent_dms("222222222222222222", limit=5)
+
+        assert helper.client.fetch_user.call_count == 2
+        assert mock_user.create_dm.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_filters_messages_to_bot_authored_only(self):
+        """Only messages authored by the bot itself should be returned."""
+        bot_msg = Mock(spec=discord.Message, author=Mock(id="bot-id"))
+        other_msg = Mock(spec=discord.Message, author=Mock(id="someone-else"))
+        helper, _, _ = self._mock_helper_with_channel([bot_msg, other_msg])
+
+        result = await helper.get_user_recent_dms("111111111111111111", limit=5)
+
+        assert result == [bot_msg]
 
 
 class TestDMTypeEnum:
