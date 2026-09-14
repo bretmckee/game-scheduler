@@ -1852,6 +1852,86 @@ class TestGameEmbedImages:
                 signup_method="HOST_SELECTED",
             )
 
+    def test_format_game_announcement_host_selected_with_waitlist_still_pings(self):
+        """Test format_game_announcement still pings notify_role_ids for waitlist games."""
+        scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
+        role_id = "987654321"
+
+        with (
+            patch("services.bot.formatters.game_message.discord.Embed") as mock_embed_class,
+            patch("services.bot.formatters.game_message.GameView") as mock_view_class,
+        ):
+            mock_embed_class.return_value = MagicMock()
+            mock_view_class.from_game_data.return_value = MagicMock()
+
+            content, _embed, _view = format_game_announcement(
+                game_id="game-123",
+                game_title="Test Game",
+                description="Test description",
+                scheduled_at=scheduled_at,
+                host_id="host-456",
+                participant_ids=[],
+                overflow_ids=[],
+                current_count=0,
+                max_players=5,
+                status="SCHEDULED",
+                signup_method="HOST_SELECTED_WITH_WAITLIST",
+                notify_role_ids=[role_id],
+            )
+
+            assert content is not None
+            assert f"<@&{role_id}>" in content
+            mock_embed_class.assert_called_once_with(
+                title="Test Game", description="Test description", color=ANY
+            )
+            mock_view_class.from_game_data.assert_called_once_with(
+                game_id="game-123",
+                current_players=0,
+                max_players=5,
+                status="SCHEDULED",
+                signup_method="HOST_SELECTED_WITH_WAITLIST",
+            )
+
+    def test_format_game_announcement_role_based_still_pings(self):
+        """Test format_game_announcement still pings notify_role_ids for ROLE_BASED games."""
+        scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
+        role_id = "987654321"
+
+        with (
+            patch("services.bot.formatters.game_message.discord.Embed") as mock_embed_class,
+            patch("services.bot.formatters.game_message.GameView") as mock_view_class,
+        ):
+            mock_embed_class.return_value = MagicMock()
+            mock_view_class.from_game_data.return_value = MagicMock()
+
+            content, _embed, _view = format_game_announcement(
+                game_id="game-123",
+                game_title="Test Game",
+                description="Test description",
+                scheduled_at=scheduled_at,
+                host_id="host-456",
+                participant_ids=[],
+                overflow_ids=[],
+                current_count=0,
+                max_players=5,
+                status="SCHEDULED",
+                signup_method="ROLE_BASED",
+                notify_role_ids=[role_id],
+            )
+
+            assert content is not None
+            assert f"<@&{role_id}>" in content
+            mock_embed_class.assert_called_once_with(
+                title="Test Game", description="Test description", color=ANY
+            )
+            mock_view_class.from_game_data.assert_called_once_with(
+                game_id="game-123",
+                current_players=0,
+                max_players=5,
+                status="SCHEDULED",
+                signup_method="ROLE_BASED",
+            )
+
     def test_format_game_announcement_mentions_host_and_confirmed_participants(self):
         """Test content mentions the host and confirmed (non-waitlisted) participants."""
         scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)

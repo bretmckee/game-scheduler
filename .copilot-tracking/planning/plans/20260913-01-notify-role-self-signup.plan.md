@@ -42,7 +42,7 @@ Suppress the `notify_role_ids` Discord role mention/ping in game announcements w
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Suppress `notify_role_ids` ping for `HOST_SELECTED` games
+### [x] Phase 1: Suppress `notify_role_ids` ping for `HOST_SELECTED` games
 
 - [x] Task 1.1: RED - Add a failing (xfail) test asserting no role mention for `HOST_SELECTED` games
   - Details: .copilot-tracking/planning/details/20260913-01-notify-role-self-signup-details.md (Lines 15-38)
@@ -50,10 +50,10 @@ Suppress the `notify_role_ids` Discord role mention/ping in game announcements w
 - [x] Task 1.2: GREEN - Gate the role-mention loop on `signup_method` and remove the xfail marker
   - Details: .copilot-tracking/planning/details/20260913-01-notify-role-self-signup-details.md (Lines 40-62)
 
-- [ ] Task 1.3: Add regression coverage confirming the other three signup methods still ping
+- [x] Task 1.3: Add regression coverage confirming the other three signup methods still ping
   - Details: .copilot-tracking/planning/details/20260913-01-notify-role-self-signup-details.md (Lines 64-87)
 
-- [ ] Task 1.4: Add e2e coverage proving the real Discord message omits/includes the ping, including across an edit transition
+- [x] Task 1.4: Add e2e coverage proving the real Discord message omits/includes the ping, including across an edit transition
   - Details: .copilot-tracking/planning/details/20260913-01-notify-role-self-signup-details.md (Lines 188-247)
 
 ## Dependencies

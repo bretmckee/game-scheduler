@@ -42,6 +42,8 @@ Signup Method Behavior:
 - HOST_SELECTED: Join button DISABLED (only host can add players)
 """
 
+import json
+import os
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
@@ -54,6 +56,17 @@ from tests.e2e.conftest import TimeoutType, wait_for_game_message_id
 pytestmark = pytest.mark.e2e
 
 
+@pytest.fixture(scope="session")
+def notify_role_id() -> str:
+    """Discord role ID used to verify notify-role ping presence/absence."""
+    value = os.environ.get("DISCORD_TEST_ROLE_A_ID", "")
+    if not value:
+        pytest.fail(
+            "DISCORD_TEST_ROLE_A_ID not set — see TESTING.md 'Role-Based Signup E2E Test Roles'"
+        )
+    return value
+
+
 @pytest.mark.asyncio
 async def test_self_signup_enables_join_button(
     authenticated_admin_client,
@@ -63,6 +76,7 @@ async def test_self_signup_enables_join_button(
     discord_channel_id,
     synced_guild,
     test_timeouts,
+    notify_role_id,
 ):
     """
     E2E: Game with SELF_SIGNUP method has enabled join button.
@@ -139,6 +153,27 @@ async def test_self_signup_enables_join_button(
     assert not refetched_join_button.disabled, "Join button should remain ENABLED after re-fetch"
     print("[TEST] ✓ Join button state persisted after re-fetch")
 
+    # notify_role_ids can only be set via PUT (POST /games does not accept it;
+    # games always inherit it from the template at creation time), so set it
+    # now and wait for the resulting message edit to confirm the ping appears.
+    response = await authenticated_admin_client.put(
+        f"/api/v1/games/{game_id}",
+        data={"notify_role_ids": json.dumps([notify_role_id])},
+    )
+    assert response.status_code == 200, f"Failed to set notify_role_ids: {response.text}"
+
+    role_pinged_message = await discord_helper.wait_for_message_update(
+        discord_channel_id,
+        message_id,
+        lambda msg: bool(msg.content) and f"<@&{notify_role_id}>" in msg.content,
+        timeout=test_timeouts[TimeoutType.MESSAGE_UPDATE],
+        description="notify_role_ids ping appears after setting notify_role_ids",
+    )
+    assert f"<@&{notify_role_id}>" in role_pinged_message.content, (
+        "SELF_SIGNUP game should still ping notify_role_ids"
+    )
+    print("[TEST] ✓ notify_role_ids ping present for SELF_SIGNUP")
+
 
 @pytest.mark.asyncio
 async def test_host_selected_disables_join_button(
@@ -149,6 +184,7 @@ async def test_host_selected_disables_join_button(
     discord_channel_id,
     synced_guild,
     test_timeouts,
+    notify_role_id,
 ):
     """
     E2E: Game with HOST_SELECTED method has disabled join button.
@@ -234,6 +270,30 @@ async def test_host_selected_disables_join_button(
     assert not refetched_leave_button.disabled, "Leave button should remain ENABLED after re-fetch"
     print("[TEST] ✓ Join button state persisted after re-fetch")
     print("[TEST] ✓ Leave button state persisted after re-fetch")
+
+    # notify_role_ids can only be set via PUT (POST /games does not accept it;
+    # games always inherit it from the template at creation time). Setting it
+    # here (still HOST_SELECTED) and confirming an edit landed via edited_at
+    # (content is expected to stay unchanged since the ping is suppressed)
+    # proves suppression against a real, non-empty notify_role_ids — not just
+    # the absence of any role ever being configured.
+    response = await authenticated_admin_client.put(
+        f"/api/v1/games/{game_id}",
+        data={"notify_role_ids": json.dumps([notify_role_id])},
+    )
+    assert response.status_code == 200, f"Failed to set notify_role_ids: {response.text}"
+
+    edited_message = await discord_helper.wait_for_message_update(
+        discord_channel_id,
+        message_id,
+        lambda msg: msg.edited_at is not None,
+        timeout=test_timeouts[TimeoutType.MESSAGE_UPDATE],
+        description="message edited after setting notify_role_ids",
+    )
+    assert f"<@&{notify_role_id}>" not in edited_message.content, (
+        "HOST_SELECTED game should not ping notify_role_ids"
+    )
+    print("[TEST] ✓ notify_role_ids ping suppressed for HOST_SELECTED")
 
 
 @pytest.mark.asyncio
@@ -326,6 +386,7 @@ async def test_edit_game_signup_method_self_to_host(
     discord_channel_id,
     synced_guild,
     test_timeouts,
+    notify_role_id,
 ):
     """
     E2E: Editing game from SELF_SIGNUP to HOST_SELECTED updates button state.
@@ -387,6 +448,26 @@ async def test_edit_game_signup_method_self_to_host(
     assert not initial_button.disabled, "Initial button should be ENABLED"
     print("[TEST] ✓ Initial button state: enabled")
 
+    # notify_role_ids can only be set via PUT (POST /games does not accept it;
+    # games always inherit it from the template at creation time).
+    response = await authenticated_admin_client.put(
+        f"/api/v1/games/{game_id}",
+        data={"notify_role_ids": json.dumps([notify_role_id])},
+    )
+    assert response.status_code == 200, f"Failed to set notify_role_ids: {response.text}"
+
+    role_pinged_message = await discord_helper.wait_for_message_update(
+        discord_channel_id,
+        message_id,
+        lambda msg: bool(msg.content) and f"<@&{notify_role_id}>" in msg.content,
+        timeout=test_timeouts[TimeoutType.MESSAGE_UPDATE],
+        description="notify_role_ids ping appears after setting notify_role_ids",
+    )
+    assert f"<@&{notify_role_id}>" in role_pinged_message.content, (
+        "SELF_SIGNUP game should ping notify_role_ids"
+    )
+    print("[TEST] ✓ Initial notify_role_ids ping present")
+
     # Edit game to HOST_SELECTED
     update_data = {
         "signup_method": SignupMethod.HOST_SELECTED.value,
@@ -426,6 +507,11 @@ async def test_edit_game_signup_method_self_to_host(
     assert updated_button.disabled, "Button should be DISABLED after edit to HOST_SELECTED"
     print("[TEST] ✓ Discord button updated to disabled")
 
+    assert f"<@&{notify_role_id}>" not in updated_message.content, (
+        "Editing to HOST_SELECTED should remove the notify_role_ids ping"
+    )
+    print("[TEST] ✓ notify_role_ids ping removed after edit to HOST_SELECTED")
+
 
 @pytest.mark.asyncio
 async def test_edit_game_signup_method_host_to_self(
@@ -436,6 +522,7 @@ async def test_edit_game_signup_method_host_to_self(
     discord_channel_id,
     synced_guild,
     test_timeouts,
+    notify_role_id,
 ):
     """
     E2E: Editing game from HOST_SELECTED to SELF_SIGNUP enables button.
@@ -497,6 +584,30 @@ async def test_edit_game_signup_method_host_to_self(
     assert initial_button.disabled, "Initial button should be DISABLED"
     print("[TEST] ✓ Initial button state: disabled")
 
+    # notify_role_ids can only be set via PUT (POST /games does not accept it;
+    # games always inherit it from the template at creation time). Setting it
+    # here (still HOST_SELECTED) and confirming an edit landed via edited_at
+    # (content is expected to stay unchanged since the ping is suppressed)
+    # proves suppression against a real, non-empty notify_role_ids — not just
+    # the absence of any role ever being configured.
+    response = await authenticated_admin_client.put(
+        f"/api/v1/games/{game_id}",
+        data={"notify_role_ids": json.dumps([notify_role_id])},
+    )
+    assert response.status_code == 200, f"Failed to set notify_role_ids: {response.text}"
+
+    suppressed_message = await discord_helper.wait_for_message_update(
+        discord_channel_id,
+        message_id,
+        lambda msg: msg.edited_at is not None,
+        timeout=test_timeouts[TimeoutType.MESSAGE_UPDATE],
+        description="message edited after setting notify_role_ids",
+    )
+    assert f"<@&{notify_role_id}>" not in suppressed_message.content, (
+        "HOST_SELECTED game should not ping notify_role_ids"
+    )
+    print("[TEST] ✓ Initial notify_role_ids ping suppressed")
+
     # Edit game to SELF_SIGNUP
     update_data = {
         "signup_method": SignupMethod.SELF_SIGNUP.value,
@@ -535,6 +646,11 @@ async def test_edit_game_signup_method_host_to_self(
     updated_button = updated_message.components[0].children[0]
     assert not updated_button.disabled, "Button should be ENABLED after edit to SELF_SIGNUP"
     print("[TEST] ✓ Discord button updated to enabled")
+
+    assert f"<@&{notify_role_id}>" in updated_message.content, (
+        "Editing to SELF_SIGNUP should restore the notify_role_ids ping"
+    )
+    print("[TEST] ✓ notify_role_ids ping restored after edit to SELF_SIGNUP")
 
 
 @pytest.mark.timeout(120)
