@@ -94,9 +94,9 @@ re-derived from the submitted roster.
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Fix `resolve_mentions_in_text`'s Regex To Skip Already-Resolved `<@id>` Tokens
+### [x] Phase 1: Fix `resolve_mentions_in_text`'s Regex To Skip Already-Resolved `<@id>` Tokens
 
-- [ ] Task 1.1: Add a `(?<!<)` lookbehind to the mention-token regex, matching the existing pattern in
+- [x] Task 1.1: Add a `(?<!<)` lookbehind to the mention-token regex, matching the existing pattern in
       `channel_resolver.py`'s `#`-mention regex; add regression tests
   - Details: .copilot-tracking/planning/details/20260915-01-clone-game-review-redesign-details.md (Lines 155-180)
 

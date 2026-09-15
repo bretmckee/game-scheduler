@@ -272,7 +272,9 @@ class ParticipantResolver:
 
         Scans `text` for `@word` tokens and replaces each resolved username with
         `<@discord_id>`. Tokens that cannot be resolved are left unchanged and
-        produce an error entry.
+        produce an error entry. An `@` already inside a resolved `<@discord_id>`
+        token is excluded from the scan, so re-running resolution against text
+        that already contains resolved mentions is a safe no-op for those tokens.
 
         Args:
             text: Free-form text that may contain @username tokens
@@ -286,8 +288,12 @@ class ParticipantResolver:
         # (\w = [a-zA-Z0-9_]) as well as interior periods (e.g. @foo.bar).
         # Using @\w+(?:\.\w+)* matches period-separated word segments, which
         # avoids consuming a trailing sentence-period (e.g. "...@bob." extracts
-        # @bob, not @bob.).
-        tokens = re.findall(r"@\w+(?:\.\w+)*", text)
+        # @bob, not @bob.). The (?<!<) lookbehind excludes an '@' immediately
+        # preceded by '<', so an already-resolved Discord mention token
+        # (<@discord_id>) is left untouched instead of being re-parsed as an
+        # unresolved @<id> username — mirrors channel_resolver.py's identical
+        # (?<!<)# exclusion for #channel mentions.
+        tokens = re.findall(r"(?<!<)@\w+(?:\.\w+)*", text)
         if not tokens:
             return text, []
 

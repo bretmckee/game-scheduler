@@ -1223,3 +1223,92 @@ async def test_resolve_mentions_in_text_prefix_and_dotted_variant_are_independen
 
     assert resolved == "Contact <@111> and <@222> today."
     assert errors == []
+
+
+@pytest.mark.asyncio
+async def test_resolve_mentions_in_text_skips_already_resolved_mention(resolver):
+    """An already-resolved <@discord_id> token must be left untouched, not re-parsed."""
+    with (
+        patch(
+            "services.api.services.participant_resolver.cache_client.get_redis_client",
+            new_callable=AsyncMock,
+            return_value=AsyncMock(),
+        ),
+        patch(
+            "services.api.services.participant_resolver.member_projection.search_members_by_prefix",
+            new_callable=AsyncMock,
+            return_value=[],
+        ),
+    ):
+        resolved, errors = await resolver.resolve_mentions_in_text(
+            "hi <@1234567890>, join us", "123456789"
+        )
+
+    assert resolved == "hi <@1234567890>, join us"
+    assert errors == []
+
+
+@pytest.mark.asyncio
+async def test_resolve_mentions_in_text_real_mention_still_resolved(resolver):
+    """A genuine @username mention still resolves normally (regression guard for the fix)."""
+    member = {
+        "uid": "987654321",
+        "username": "alice",
+        "global_name": "Alice",
+        "nick": None,
+        "roles": [],
+        "avatar_url": None,
+    }
+    with (
+        patch(
+            "services.api.services.participant_resolver.cache_client.get_redis_client",
+            new_callable=AsyncMock,
+            return_value=AsyncMock(),
+        ),
+        patch(
+            "services.api.services.participant_resolver.member_projection.search_members_by_prefix",
+            new_callable=AsyncMock,
+            return_value=[member],
+        ),
+    ):
+        resolved, errors = await resolver.resolve_mentions_in_text(
+            "hi @alice, join us", "123456789"
+        )
+
+    assert resolved == "hi <@987654321>, join us"
+    assert errors == []
+
+
+@pytest.mark.asyncio
+async def test_resolve_mentions_in_text_mixed_resolved_and_unresolved(resolver):
+    """Mixed already-resolved <@id> and new @username tokens: only the new one resolves."""
+    bob = {
+        "uid": "222",
+        "username": "bob",
+        "global_name": "Bob",
+        "nick": None,
+        "roles": [],
+        "avatar_url": None,
+    }
+
+    async def _search(guild_id, prefix, redis):
+        return [bob] if prefix == "bob" else []
+
+    with (
+        patch(
+            "services.api.services.participant_resolver.cache_client.get_redis_client",
+            new_callable=AsyncMock,
+            return_value=AsyncMock(),
+        ),
+        patch(
+            "services.api.services.participant_resolver.member_projection.search_members_by_prefix",
+            new_callable=AsyncMock,
+            side_effect=_search,
+        ),
+    ):
+        resolved, errors = await resolver.resolve_mentions_in_text(
+            "mixed <@111> and @bob", "123456789"
+        )
+
+    assert resolved == "mixed <@111> and <@222>"
+    assert errors == []
