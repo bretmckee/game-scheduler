@@ -93,3 +93,12 @@ output*.log
 
 # Git worktrees
 trees/
+
+# Mutation testing (mutmut) output
+mutants/
+
+# Personal/local tool state (not shared project config)
+.agents/
+.obsidian/
+.omo/
+opencode.json
