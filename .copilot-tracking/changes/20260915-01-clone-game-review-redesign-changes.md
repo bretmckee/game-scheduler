@@ -39,3 +39,47 @@ free-text fields that may already contain resolved mentions.
 
 - `uv run pytest tests/unit` — 2580 passed
 - `uv run mypy shared/ services/` — Success: no issues found in 155 source files
+
+## Phase 2: Extend `CloneGameRequest` With Override Fields, `post_at`, and `participants`
+
+Added 14 new optional fields to `CloneGameRequest` (13 nullable overrides plus `participants`,
+which defaults to `[]` rather than `None`), copied verbatim from `GameCreateRequest`'s field
+constraints (`shared/schemas/game.py`). These are pure schema additions — nothing reads them yet
+(that starts in Phase 4's `clone_game` delegation). No `channel_id`, `rewards`,
+`allowed_player_role_ids`, or `notify_role_ids` fields were added, per the details file's Design
+Note 4 (none of these are overridable anywhere in the system today). No `signup_method` value
+validator or `post_at < scheduled_at` validator was added to `CloneGameRequest` itself — both are
+already enforced for free when `clone_game` constructs the delegated `GameCreateRequest` in
+Phase 4.
+
+### Added
+
+- `tests/unit/schemas/test_clone_game_schema.py` — five new tests for the new fields (Task 2.2):
+  - `test_clone_request_accepts_override_fields` — RED case; written first with
+    `@pytest.mark.xfail(strict=True)`, confirmed `XFAIL` before the fields were added, marker
+    removed after; constructs a `CloneGameRequest` with all 14 new fields set and asserts each
+    stored value
+  - `test_clone_request_override_fields_default_to_none_when_omitted` — RED case; same
+    xfail→remove cycle; confirms the 13 nullable fields default to `None` when omitted
+    (backward compatibility with every existing caller)
+  - `test_clone_request_participants_defaults_to_empty_list` — RED case; same xfail→remove
+    cycle; confirms `participants` defaults to `[]`, not `None`, when omitted
+  - `test_clone_request_title_exceeds_max_length_is_rejected` — RED case; same xfail→remove
+    cycle; regression guard that `title`'s `max_length=200` constraint (copied from
+    `GameCreateRequest`) is actually enforced, not just a bare `str | None` type hint
+  - `test_clone_request_max_players_out_of_range_is_rejected` — RED case; same xfail→remove
+    cycle; same regression guard for `max_players`'s `ge=1, le=100` constraint
+
+### Modified
+
+- `services/api/schemas/clone_game.py` (`CloneGameRequest`) — added `title`, `description`,
+  `signup_instructions`, `where`, `max_players`, `reminder_minutes`, `expected_duration_minutes`,
+  `signup_method`, `participants`, `host`, `remind_host_rewards`, `reminders_as_dms`, `post_at`,
+  `recur_rule` fields (Task 2.1)
+
+### Verification
+
+- `uv run pytest tests/unit/schemas/test_clone_game_schema.py -v` — 5 new tests confirmed
+  `XFAIL` before the field additions, all 12 tests `PASSED` after (xfail markers removed)
+- `uv run pytest tests/unit` — 2585 passed
+- `uv run mypy shared/ services/` — Success: no issues found in 155 source files

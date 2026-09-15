@@ -100,12 +100,12 @@ re-derived from the submitted roster.
       `channel_resolver.py`'s `#`-mention regex; add regression tests
   - Details: .copilot-tracking/planning/details/20260915-01-clone-game-review-redesign-details.md (Lines 155-180)
 
-### [ ] Phase 2: Extend `CloneGameRequest` With Override Fields, `post_at`, and `participants`
+### [x] Phase 2: Extend `CloneGameRequest` With Override Fields, `post_at`, and `participants`
 
-- [ ] Task 2.1: Add the 13 new optional fields (no `channel_id`, `rewards`, `allowed_player_role_ids`, or
+- [x] Task 2.1: Add the 13 new optional fields (no `channel_id`, `rewards`, `allowed_player_role_ids`, or
       `notify_role_ids` — none are overridable anywhere in the system)
   - Details: .copilot-tracking/planning/details/20260915-01-clone-game-review-redesign-details.md (Lines 182-225)
-- [ ] Task 2.2: TDD cycle for the new schema tests
+- [x] Task 2.2: TDD cycle for the new schema tests
   - Details: .copilot-tracking/planning/details/20260915-01-clone-game-review-redesign-details.md (Lines 227-236)
 
 ### [ ] Phase 3: Add `default_host_user_id` To `create_game`/`_resolve_game_host`

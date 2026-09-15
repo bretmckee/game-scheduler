@@ -56,6 +56,24 @@ class CloneGameRequest(BaseModel):
         description="Confirmation deadline for waitlist; required for YES_WITH_DEADLINE",
     )
 
+    # Overrides of source-game fields, applied when constructing the delegated
+    # GameCreateRequest (Field constraints copied verbatim from GameCreateRequest,
+    # shared/schemas/game.py, for consistency).
+    title: str | None = Field(None, min_length=1, max_length=200)
+    description: str | None = Field(None, max_length=2000)
+    signup_instructions: str | None = Field(None, max_length=1000)
+    where: str | None = Field(None, max_length=500)
+    max_players: int | None = Field(None, ge=1, le=100)
+    reminder_minutes: list[int] | None = None
+    expected_duration_minutes: int | None = Field(None, ge=1)
+    signup_method: str | None = Field(None, max_length=50)
+    participants: list[str] = Field(default_factory=list)
+    host: str | None = Field(None, max_length=200)
+    remind_host_rewards: bool | None = None
+    reminders_as_dms: bool | None = None
+    post_at: dt.datetime | None = None
+    recur_rule: str | None = None
+
     @model_validator(mode="after")
     def validate_deadlines(self) -> "CloneGameRequest":
         """Validate that YES_WITH_DEADLINE carryover options include a future deadline."""
