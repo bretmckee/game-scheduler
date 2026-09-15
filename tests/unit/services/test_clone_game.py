@@ -31,9 +31,15 @@ step. Full-pipeline behaviors (template loading, real mention resolution,
 real permission role checks) are covered by
 tests/integration/test_clone_game_endpoint.py instead.
 
-_apply_deadline_carryover is unchanged by the Phase 4 rewrite (clone_game
-does not call it yet -- Phase 5 re-adds that as an additive step), so its
-direct-invocation tests are unchanged.
+Phase 5 adds one more orchestration behavior to verify: clone_game computes
+carryover-eligible groups from the source game's own confirmed/overflow
+partition, filtered down to the discord_ids actually present in the
+delegated create_game() call's returned roster, and passes those groups to
+the real (unmocked) _apply_deadline_carryover. Those tests patch only
+get_game/can_manage_game/create_game -- same as the rest of this file -- and
+assert on the ParticipantActionSchedule/NotificationSchedule rows added to
+self.db, exactly like _apply_deadline_carryover's own direct-invocation
+tests below.
 """
 
 import datetime
@@ -54,6 +60,7 @@ from shared.schemas import game as game_schemas
 
 SCHEDULED_AT = datetime.datetime(2026, 9, 1, 18, 0, 0, tzinfo=datetime.UTC)
 CLONE_AT = datetime.datetime(2026, 10, 1, 18, 0, 0, tzinfo=datetime.UTC)
+DEADLINE = datetime.datetime(2027, 1, 1, 12, 0, 0, tzinfo=datetime.UTC)
 CURRENT_USER_DB_ID = "current-user-db-uuid"
 
 
@@ -445,7 +452,188 @@ async def test_clone_game_propagates_create_game_validation_error(
             )
 
 
-DEADLINE = datetime.datetime(2027, 1, 1, 12, 0, 0, tzinfo=datetime.UTC)
+def _new_participant_mock(participant_id: str, user_id: str, discord_id: str) -> MagicMock:
+    """Build a submitted-roster participant as create_game would return it."""
+    participant = MagicMock(spec=participant_model.GameParticipant)
+    participant.id = participant_id
+    participant.user_id = user_id
+    participant.user = MagicMock()
+    participant.user.discord_id = discord_id
+    return participant
+
+
+def _schedules_from_add_calls(
+    db_add_mock,
+) -> tuple[list[ParticipantActionSchedule], list[NotificationSchedule]]:
+    """Split a mocked db.add's call args into action/notification schedules."""
+    added = [c[0][0] for c in db_add_mock.call_args_list]
+    action_schedules = [a for a in added if isinstance(a, ParticipantActionSchedule)]
+    notif_schedules = [a for a in added if isinstance(a, NotificationSchedule)]
+    return action_schedules, notif_schedules
+
+
+@pytest.mark.asyncio
+async def test_clone_game_deadline_carryover_omitted_participant_gets_no_schedule(
+    game_service, source_game, current_user, role_service
+):
+    """A source-confirmed participant left out of the submitted roster gets no
+    deadline schedule, even with player_carryover=YES_WITH_DEADLINE.
+    """
+    new_game = _new_game_mock()
+    new_game.participants = []  # host removed the previously-confirmed player
+
+    clone_data = _make_clone_request(
+        player_carryover=CarryoverOption.YES_WITH_DEADLINE,
+        player_deadline=DEADLINE,
+    )
+
+    with (
+        patch.object(game_service, "get_game", new=AsyncMock(return_value=source_game)),
+        patch("services.api.dependencies.permissions.can_manage_game", return_value=True),
+        patch.object(game_service, "create_game", new=AsyncMock(return_value=new_game)),
+        patch.object(
+            game_service,
+            "_apply_deadline_carryover",
+            new=AsyncMock(wraps=game_service._apply_deadline_carryover),
+        ) as mock_apply,
+    ):
+        await game_service.clone_game(
+            source_game_id=source_game.id,
+            clone_data=clone_data,
+            current_user=current_user,
+            role_service=role_service,
+        )
+
+    mock_apply.assert_called_once_with(
+        new_game=new_game, players_to_carry=[], waitlist_to_carry=[], clone_data=clone_data
+    )
+    action_schedules, notif_schedules = _schedules_from_add_calls(game_service.db.add)
+    assert action_schedules == []
+    assert notif_schedules == []
+
+
+@pytest.mark.asyncio
+async def test_clone_game_deadline_carryover_new_participant_gets_no_schedule(
+    game_service, source_game, current_user, role_service
+):
+    """A submitted participant with no match in the source game's confirmed/overflow
+    partition (a brand-new addition) gets no deadline schedule.
+    """
+    new_game = _new_game_mock()
+    new_game.participants = [
+        _new_participant_mock("new-participant-uuid", "new-user-uuid", "new-user-discord")
+    ]
+
+    clone_data = _make_clone_request(
+        player_carryover=CarryoverOption.YES_WITH_DEADLINE,
+        player_deadline=DEADLINE,
+    )
+
+    with (
+        patch.object(game_service, "get_game", new=AsyncMock(return_value=source_game)),
+        patch("services.api.dependencies.permissions.can_manage_game", return_value=True),
+        patch.object(game_service, "create_game", new=AsyncMock(return_value=new_game)),
+        patch.object(
+            game_service,
+            "_apply_deadline_carryover",
+            new=AsyncMock(wraps=game_service._apply_deadline_carryover),
+        ) as mock_apply,
+    ):
+        await game_service.clone_game(
+            source_game_id=source_game.id,
+            clone_data=clone_data,
+            current_user=current_user,
+            role_service=role_service,
+        )
+
+    mock_apply.assert_called_once_with(
+        new_game=new_game, players_to_carry=[], waitlist_to_carry=[], clone_data=clone_data
+    )
+    action_schedules, notif_schedules = _schedules_from_add_calls(game_service.db.add)
+    assert action_schedules == []
+    assert notif_schedules == []
+
+
+@pytest.mark.asyncio
+async def test_clone_game_deadline_carryover_excludes_group_regardless_of_match(
+    game_service, source_game, current_user, role_service
+):
+    """player_carryover=NO excludes the confirmed-player group entirely, even
+    when the source-confirmed player is resubmitted; the waitlist group (set to
+    YES_WITH_DEADLINE) is unaffected and still gets scheduled.
+    """
+    new_player = _new_participant_mock("new-participant-player", "user1-uuid", "player1-discord")
+    new_waitlisted = _new_participant_mock(
+        "new-participant-waitlist", "user2-uuid", "player2-discord"
+    )
+    new_game = _new_game_mock()
+    new_game.participants = [new_player, new_waitlisted]
+
+    clone_data = _make_clone_request(
+        player_carryover=CarryoverOption.NO,
+        waitlist_carryover=CarryoverOption.YES_WITH_DEADLINE,
+        waitlist_deadline=DEADLINE,
+    )
+
+    with (
+        patch.object(game_service, "get_game", new=AsyncMock(return_value=source_game)),
+        patch("services.api.dependencies.permissions.can_manage_game", return_value=True),
+        patch.object(game_service, "create_game", new=AsyncMock(return_value=new_game)),
+    ):
+        await game_service.clone_game(
+            source_game_id=source_game.id,
+            clone_data=clone_data,
+            current_user=current_user,
+            role_service=role_service,
+        )
+
+    action_schedules, notif_schedules = _schedules_from_add_calls(game_service.db.add)
+    assert [a.participant_id for a in action_schedules] == ["new-participant-waitlist"]
+    assert [n.participant_id for n in notif_schedules] == ["new-participant-waitlist"]
+
+
+@pytest.mark.asyncio
+async def test_clone_game_deadline_carryover_full_round_trip_schedules_both_groups(
+    game_service, source_game, current_user, role_service
+):
+    """With both groups resubmitted and both set to YES_WITH_DEADLINE, every
+    resubmitted source-confirmed/waitlisted participant gets a deadline schedule.
+    """
+    new_player = _new_participant_mock("new-participant-player", "user1-uuid", "player1-discord")
+    new_waitlisted = _new_participant_mock(
+        "new-participant-waitlist", "user2-uuid", "player2-discord"
+    )
+    new_game = _new_game_mock()
+    new_game.participants = [new_player, new_waitlisted]
+
+    clone_data = _make_clone_request(
+        player_carryover=CarryoverOption.YES_WITH_DEADLINE,
+        player_deadline=DEADLINE,
+        waitlist_carryover=CarryoverOption.YES_WITH_DEADLINE,
+        waitlist_deadline=DEADLINE,
+    )
+
+    with (
+        patch.object(game_service, "get_game", new=AsyncMock(return_value=source_game)),
+        patch("services.api.dependencies.permissions.can_manage_game", return_value=True),
+        patch.object(game_service, "create_game", new=AsyncMock(return_value=new_game)),
+    ):
+        await game_service.clone_game(
+            source_game_id=source_game.id,
+            clone_data=clone_data,
+            current_user=current_user,
+            role_service=role_service,
+        )
+
+    action_schedules, notif_schedules = _schedules_from_add_calls(game_service.db.add)
+    assert {a.participant_id for a in action_schedules} == {
+        "new-participant-player",
+        "new-participant-waitlist",
+    }
+    assert {n.participant_id for n in notif_schedules} == {
+        "new-participant-player",
+        "new-participant-waitlist",
+    }
 
 
 @pytest.mark.asyncio

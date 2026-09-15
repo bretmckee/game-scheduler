@@ -1018,6 +1018,47 @@ class GameService:
             self.db.add(new_game)
             await self.db.flush()
 
+        # Deadline-carryover eligibility is a fact about the source game alone:
+        # who was confirmed/waitlisted there, per the source's own max_players/
+        # signup_method -- independent of the new game's (possibly overridden)
+        # capacity. That eligible set is then intersected with the roster the
+        # host actually submitted (new_game.participants, already built "for
+        # free" by the delegated create_game() call above) by discord_id, since
+        # both point at the same canonical User row for a given Discord account.
+        partitioned = partition_participants(
+            source_game.participants,
+            source_game.max_players,
+            signup_method=source_game.signup_method,
+        )
+        submitted_discord_ids = {p.user.discord_id for p in new_game.participants if p.user}
+
+        carry_options = {CarryoverOption.YES, CarryoverOption.YES_WITH_DEADLINE}
+        players_to_carry = (
+            [
+                sp
+                for sp in partitioned.confirmed
+                if sp.user and sp.user.discord_id in submitted_discord_ids
+            ]
+            if clone_data.player_carryover in carry_options
+            else []
+        )
+        waitlist_to_carry = (
+            [
+                sp
+                for sp in partitioned.overflow
+                if sp.user and sp.user.discord_id in submitted_discord_ids
+            ]
+            if clone_data.waitlist_carryover in carry_options
+            else []
+        )
+
+        await self._apply_deadline_carryover(
+            new_game=new_game,
+            players_to_carry=players_to_carry,
+            waitlist_to_carry=waitlist_to_carry,
+            clone_data=clone_data,
+        )
+
         return new_game
 
     async def _system_clone_for_recurrence(

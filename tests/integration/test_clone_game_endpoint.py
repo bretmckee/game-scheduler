@@ -29,11 +29,14 @@ Tests that:
 - Non-host users receive 403 Forbidden
 """
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import text
 
+from shared.cache.client import RedisClient
+from shared.cache.keys import CacheKeys
 from shared.models import GameStatus
 from shared.models.participant import ParticipantType
 from shared.utils.discord_tokens import extract_bot_discord_id
@@ -45,6 +48,37 @@ TEST_BOT_DISCORD_ID = extract_bot_discord_id(TEST_DISCORD_TOKEN)
 
 OTHER_DISCORD_TOKEN = "MTQ0NDA3ODM4NjM4MDAxMzYxMQ.Hxyzab.other_fake_token_for_tests"
 OTHER_BOT_DISCORD_ID = extract_bot_discord_id(OTHER_DISCORD_TOKEN)
+
+
+def _seed_guild_member(guild_discord_id: str, user_discord_id: str) -> None:
+    """Seed a minimal member-projection entry for one Discord user.
+
+    Phase 5's carryover tests submit a clone request's `participants` list
+    using Discord internal mention format (`<@discord_id>`), which
+    create_game's real participant-resolution pipeline resolves via the
+    guild member projection cache rather than the database -- so the
+    resubmitted source participant must exist there too.
+    """
+
+    async def _seed() -> None:
+        redis_client = RedisClient()
+        await redis_client.connect()
+        try:
+            gen = await redis_client.get(CacheKeys.proj_gen()) or "1"
+            await redis_client.set_json(
+                CacheKeys.proj_member(gen, guild_discord_id, user_discord_id),
+                {
+                    "roles": [],
+                    "nick": None,
+                    "global_name": None,
+                    "username": user_discord_id,
+                    "avatar_url": None,
+                },
+            )
+        finally:
+            await redis_client.disconnect()
+
+    asyncio.run(_seed())
 
 
 def _setup_environment(
@@ -237,15 +271,6 @@ def test_clone_game_endpoint_publishes_game_created_event(
     assert bot_row[1] == cloned_game_id, "bot_action_queue must reference the new cloned game ID"
 
 
-@pytest.mark.skip(
-    reason=(
-        "clone_game no longer performs server-side player_carryover/waitlist_carryover roster "
-        "construction as of Phase 4 (games.py clone_game now delegates entirely to create_game, "
-        "which only honors the submitted CloneGameRequest.participants list). Phase 5 re-adds "
-        "submitted-list-driven carryover matching against the source game's partition; Phase 7 "
-        "restores/rewrites this scenario against the final contract."
-    )
-)
 def test_clone_game_endpoint_yes_carryover_copies_new_game_participants(
     admin_db_sync,
     create_user,
@@ -256,7 +281,14 @@ def test_clone_game_endpoint_yes_carryover_copies_new_game_participants(
     seed_redis_cache,
     create_authenticated_client,
 ):
-    """POST /{game_id}/clone with YES player carryover must copy participants to the new game."""
+    """POST /{game_id}/clone with YES player carryover must copy participants to the new game.
+
+    As of Phase 5, roster membership on the new game comes from the submitted
+    `participants` list (create_game's own initial_participants pipeline);
+    player_carryover=YES only determines whether the resubmitted source
+    participant is *eligible* for deadline carryover, matched by discord_id
+    against the source game's own confirmed/overflow partition.
+    """
     env = _setup_environment(
         create_user, create_guild, create_channel, create_template, seed_redis_cache
     )
@@ -288,6 +320,7 @@ def test_clone_game_endpoint_yes_carryover_copies_new_game_participants(
         },
     )
     admin_db_sync.commit()
+    _seed_guild_member(env["guild_discord_id"], participant_user["discord_id"])
 
     clone_at = (datetime.now(UTC) + timedelta(days=14)).isoformat()
 
@@ -297,6 +330,7 @@ def test_clone_game_endpoint_yes_carryover_copies_new_game_participants(
             "scheduled_at": clone_at,
             "player_carryover": "YES",
             "waitlist_carryover": "NO",
+            "participants": [f"<@{participant_user['discord_id']}>"],
         },
     )
 
@@ -317,13 +351,6 @@ def test_clone_game_endpoint_yes_carryover_copies_new_game_participants(
     assert participants[0][2] == ParticipantType.HOST_ADDED
 
 
-@pytest.mark.skip(
-    reason=(
-        "clone_game no longer calls _apply_deadline_carryover as of Phase 4 (it delegates entirely "
-        "to create_game, which has no deadline-carryover concept). Phase 5 re-adds this as an "
-        "additive, submitted-list-driven step; this test is restored/rewritten there."
-    )
-)
 def test_clone_game_endpoint_yes_with_deadline_creates_action_and_notification_schedules(
     admin_db_sync,
     create_user,
@@ -336,6 +363,13 @@ def test_clone_game_endpoint_yes_with_deadline_creates_action_and_notification_s
 ):
     """YES_WITH_DEADLINE carryover creates ParticipantActionSchedule
     and clone_confirmation records.
+
+    As of Phase 5, the resubmitted source participant must also appear in the
+    clone request's `participants` list -- create_game's own
+    initial_participants pipeline builds the new game's roster "for free",
+    and _apply_deadline_carryover only fires for participants present in
+    both that submission and the source game's matching carryover-eligible
+    group (matched by discord_id).
     """
     env = _setup_environment(
         create_user, create_guild, create_channel, create_template, seed_redis_cache
@@ -367,6 +401,7 @@ def test_clone_game_endpoint_yes_with_deadline_creates_action_and_notification_s
         },
     )
     admin_db_sync.commit()
+    _seed_guild_member(env["guild_discord_id"], participant_user["discord_id"])
 
     deadline = (datetime.now(UTC) + timedelta(days=1)).isoformat()
     clone_at = (datetime.now(UTC) + timedelta(days=14)).isoformat()
@@ -378,6 +413,7 @@ def test_clone_game_endpoint_yes_with_deadline_creates_action_and_notification_s
             "player_carryover": "YES_WITH_DEADLINE",
             "player_deadline": deadline,
             "waitlist_carryover": "NO",
+            "participants": [f"<@{participant_user['discord_id']}>"],
         },
     )
 

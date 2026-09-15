@@ -124,9 +124,9 @@ re-derived from the submitted roster.
       DB call it makes)
   - Details: .copilot-tracking/planning/details/20260915-01-clone-game-review-redesign-details.md (Lines 472-502)
 
-### [ ] Phase 5: Re-Add Deadline-Carryover Scheduling (Additive, Submitted-List-Driven)
+### [x] Phase 5: Re-Add Deadline-Carryover Scheduling (Additive, Submitted-List-Driven)
 
-- [ ] Task 5.1: Compute carryover-eligible groups from the source game's own partition, filtered to the
+- [x] Task 5.1: Compute carryover-eligible groups from the source game's own partition, filtered to the
       final submitted roster by `discord_id`, and call `_apply_deadline_carryover` unchanged
   - Details: .copilot-tracking/planning/details/20260915-01-clone-game-review-redesign-details.md (Lines 504-566)
 

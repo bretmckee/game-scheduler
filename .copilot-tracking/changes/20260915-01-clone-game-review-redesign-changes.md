@@ -247,3 +247,114 @@ silently left broken:
 - `scripts/run-integration-tests.sh` (scoped to `tests/integration/test_recurrence_clone.py`) —
   4 passed
 - `scripts/run-integration-tests.sh` (full suite) — 347 passed, 2 skipped, 2731 deselected
+
+## Phase 5: Re-Add Deadline-Carryover Scheduling (Additive, Submitted-List-Driven)
+
+Added the one additive block Phase 4 deliberately deferred: after the delegated
+`create_game()` call returns, `clone_game` now computes carryover-eligible
+groups from the **source game's own** confirmed/overflow partition
+(`partition_participants(source_game.participants, source_game.max_players,
+signup_method=source_game.signup_method)` — the source's own values, not any
+resolved/overridden value, since this answers "who was confirmed/waitlisted in
+the game being cloned," a fact about the source game alone), filters each
+group down to the discord_ids actually present in `new_game.participants`
+(the roster `create_game` already built "for free" from the submitted
+`clone_data.participants` list), and calls the unchanged
+`_apply_deadline_carryover` with the two filtered lists. `partition_participants`
+and `_apply_deadline_carryover`/`_add_participant_carryover_schedules`/
+`_process_carryover_group` required no changes — the latter three already only
+need two lists of source `GameParticipant` rows matched into
+`new_game.participants` by `user_id`, which works unchanged since both point
+to the same canonical `User` row for a given Discord account. Roster
+membership was already fully determined by `clone_data.participants` as of
+Phase 4; this phase makes deadline-schedule creation match that same
+submitted-list-driven model, rather than the old carryover-flag-driven
+roster-construction model Phase 4 removed.
+
+### Added
+
+- `tests/unit/services/test_clone_game.py` — 4 new tests (Task 5.1), all
+  written first against the not-yet-updated `clone_game` and confirmed
+  `XFAIL` (`strict=True`) before the change, then confirmed `PASSED` after —
+  the two negative-outcome tests use `patch.object(game_service,
+"_apply_deadline_carryover", new=AsyncMock(wraps=...))` (rather than a bare
+  "nothing was added" assertion, which would have trivially held even before
+  Phase 5 wired the call at all) so the RED phase is a genuine signal:
+  - `test_clone_game_deadline_carryover_omitted_participant_gets_no_schedule`
+    — a source-confirmed participant left out of the submitted roster gets no
+    deadline schedule even with `player_carryover=YES_WITH_DEADLINE`
+    (`_apply_deadline_carryover` called with `players_to_carry=[]`)
+  - `test_clone_game_deadline_carryover_new_participant_gets_no_schedule` — a
+    submitted participant with no source-partition match (brand-new addition)
+    gets no deadline schedule
+  - `test_clone_game_deadline_carryover_excludes_group_regardless_of_match` —
+    `player_carryover=NO` excludes the confirmed-player group entirely even
+    when that source-confirmed player is resubmitted, while a sibling
+    `waitlist_carryover=YES_WITH_DEADLINE` group with its own resubmitted
+    participant is scheduled normally (proves group-level exclusion, not
+    merely "no deadlines configured at all")
+  - `test_clone_game_deadline_carryover_full_round_trip_schedules_both_groups`
+    — with both groups resubmitted and both `YES_WITH_DEADLINE`, every
+    resubmitted source-confirmed/waitlisted participant gets a
+    `ParticipantActionSchedule` and `clone_confirmation` `NotificationSchedule`
+- `tests/unit/services/test_clone_game.py` — `_new_participant_mock` and
+  `_schedules_from_add_calls` helpers for building submitted-roster
+  participant mocks and extracting typed schedule objects from
+  `db.add.call_args_list`, shared by the four new tests.
+
+### Modified
+
+- `services/api/services/games.py` (`clone_game`) — added the Task 5.1 block
+  after the existing image-carryover step: `partition_participants` call
+  against `source_game`, `submitted_discord_ids` set built from
+  `new_game.participants`, `players_to_carry`/`waitlist_to_carry` list
+  comprehensions gated on `clone_data.player_carryover`/`waitlist_carryover`
+  being `YES` or `YES_WITH_DEADLINE`, and the `_apply_deadline_carryover`
+  call — verbatim per the details file's Task 5.1 spec. No changes to
+  `_apply_deadline_carryover`, `_add_participant_carryover_schedules`, or
+  `_process_carryover_group`.
+- `tests/unit/services/test_clone_game.py` — moved the `DEADLINE` constant
+  next to `SCHEDULED_AT`/`CLONE_AT` (previously defined lower in the file,
+  just above the pre-existing `_apply_deadline_carryover` direct-invocation
+  tests) so the new Phase 5 tests can share it; updated the module docstring
+  to describe the Phase 5 additions.
+- `tests/integration/test_clone_game_endpoint.py` — removed the two
+  `@pytest.mark.skip` markers left by Phase 4 and updated both tests for the
+  submitted-list-driven contract (previously they only set
+  `player_carryover`/`waitlist_carryover` and relied on `clone_game` to
+  construct the roster server-side, which no longer happens as of Phase 4):
+  - `test_clone_game_endpoint_yes_carryover_copies_new_game_participants` —
+    added a `<@discord_id>` mention for the pre-inserted source participant
+    to the request's new `participants` field, and seeded a minimal guild
+    member-projection cache entry (via the new `_seed_guild_member` helper)
+    so `create_game`'s real participant-resolution pipeline can resolve that
+    mention without a real Discord call; updated the docstring to explain
+    that roster membership now comes from the submitted list, with
+    `player_carryover` only controlling deadline-carryover eligibility.
+  - `test_clone_game_endpoint_yes_with_deadline_creates_action_and_notification_schedules`
+    — same `participants` field + member-projection seeding addition;
+    updated docstring accordingly.
+  - Added the `_seed_guild_member` module-level helper (mirrors the
+    `_seed_guild_member_projection` pattern already used by
+    `tests/integration/test_games_crud.py`, adapted for `<@discord_id>`
+    internal-mention-format resolution, which only needs the `proj_member`
+    cache key and not the `proj_usernames` sorted set that `@username`
+    resolution requires) and the `asyncio`/`RedisClient`/`CacheKeys` imports
+    it needs.
+
+### Verification
+
+- `uv run pytest tests/unit/services/test_clone_game.py -v` — the 4 new
+  tests confirmed `XFAIL` against pre-Task-5.1 `clone_game`, all 17 tests in
+  the file `PASSED` after the change
+- `uv run pytest tests/unit` — 2590 passed
+- `uv run mypy shared/ services/` — Success: no issues found in 155 source
+  files
+- `uv run ruff check services/api/services/games.py
+tests/unit/services/test_clone_game.py tests/integration/test_clone_game_endpoint.py`
+  — All checks passed
+- `scripts/run-integration-tests.sh tests/integration/test_clone_game_endpoint.py`
+  — 6 passed, 0 skipped (confirms both previously-skipped tests now pass for
+  real, un-skipped)
+- `scripts/run-integration-tests.sh` (full suite) — 349 passed, 0 skipped,
+  2735 deselected — no regressions elsewhere
