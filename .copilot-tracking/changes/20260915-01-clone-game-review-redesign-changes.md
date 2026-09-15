@@ -584,3 +584,124 @@ test below exercises a scenario none of those touched.
   previously-passing tests plus the 7 new ones)
 - `scripts/run-integration-tests.sh` (full suite) — 357 passed, 0 skipped, 2739 deselected -- no
   regressions elsewhere
+
+## Phase 8: Rebuild `CloneGame.tsx` — Two-Stage `GameForm`-Based Screen
+
+Replaced `CloneGame.tsx`'s bespoke small form (a single-stage `DateTimePicker` +
+carryover-`Select` form posting a small hand-rolled JSON payload) with a two-stage,
+`GameForm`-based screen. Stage 1 (unchanged from the old component visually: game
+summary, `player_carryover`/`waitlist_carryover` `Select`s reusing the existing
+`CARRYOVER_OPTIONS`, conditional `YES_WITH_DEADLINE` deadline `DateTimePicker`s, and a
+"Continue" button) gates entry to Stage 2, which mounts `<GameForm mode="create" ... />`
+with a frozen `initialData` object built once, at the moment "Continue" is clicked, by
+the new `buildStage2InitialData` helper: a shallow copy of `sourceGame` with `post_at`
+cleared (so `GameForm`'s own "leave empty = post now" default applies) and
+`scheduled_at` re-derived as `sourceGame.scheduled_at + 14 days` (preserving the old
+component's `DEFAULT_DAYS_AHEAD` behavior), plus either `confirmed_participants`/
+`waitlist_participants` (for a `HOST_SELECTED_WITH_WAITLIST` source game) or
+`participants` (every other signup method) included or stripped to `[]` depending on
+whether the frozen `playerCarryover`/`waitlistCarryover` selections were `NO` vs.
+`YES`/`YES_WITH_DEADLINE` at the moment Continue was clicked -- `GameForm`'s own
+`buildParticipantList` (unmodified) does the rest. The carryover `Select`s/pickers stay
+rendered and editable above `<GameForm>` after Stage 2 mounts, still bound to their own
+local state, so changing them post-Continue affects only what Phase 9's submit payload
+will send for deadline-carryover purposes, never the already-mounted `GameForm`'s
+participant editor -- verified by a direct regression test (Design Note 5's hazard).
+
+No `/guilds/{id}/channels` or `/guilds/{id}/roles` fetch was added: the `channels` prop
+is a single-item array synthesized directly from `sourceGame.channel_id`/
+`sourceGame.channel_name` (mirroring `CreateGame.tsx`'s single-channel synthesis
+pattern), and `GameForm` has no `roles` prop at all. `canChangeChannel={false}` is
+passed since clone has no channel-override field anywhere in the backend contract.
+`isBotManager` is resolved via `canUserManageBotSettings(sourceGame.guild_id)`
+(`frontend/src/utils/permissions.ts`, the same helper `CreateGame.tsx` uses) in a
+`useEffect` keyed on `sourceGame`, once the source game has loaded.
+
+`GameForm`'s `onSubmit` prop is wired to a stub (`throw new Error('Clone submission not
+yet implemented')`) since wiring the real multipart `POST /{gameId}/clone` submission is
+Phase 9's scope, not this phase's; Phase 8 covers Stage 1/Stage 2 rendering and
+pre-population only.
+
+**TDD process note (divergence from the details file's literal `test.failing` marker
+instruction):** this project's installed `vitest` is v4, which removed the `.failing()`
+test marker (already discovered and documented by a prior phase's
+`GameForm.errors-location.test.tsx`, written before this phase). Followed that same
+established convention instead: the five Task 8.1 tests were written first against a
+minimal RED-phase stub (`CloneGame.tsx` implementing only real fetch/loading/error
+handling plus a bare Stage 1 shell with no carryover selects/pickers and a `Continue`
+button that mounted nothing), run and confirmed failing for real reasons (missing
+selects/pickers, no Stage 2 mount), then the full Stage 1/Stage 2 implementation
+(Task 8.2) was written without changing any test assertion, and the tests were
+re-run and confirmed passing.
+
+### Added
+
+- `frontend/src/pages/__tests__/CloneGame.test.tsx` — full rewrite; all 16 tests against
+  the old bespoke single-stage UI deleted. 15 new tests (Tasks 8.1-8.3):
+  - `renders Stage 1 carryover selects, deadline pickers, and a Continue button` —
+    RED-first against the minimal stub, confirmed failing, then passing after Task 8.2
+  - `clicking Continue reveals GameForm fields pre-populated from the source game` — same
+    RED→GREEN cycle
+  - `does not pre-populate the participant editor when playerCarryover is NO (default)` —
+    same RED→GREEN cycle
+  - `pre-populates the participant editor when playerCarryover is YES before Continue` —
+    same RED→GREEN cycle
+  - `toggling playerCarryover after Stage 2 has mounted does not clear host-edited title
+text` — same RED→GREEN cycle; the direct regression test for Design Note 5's hazard
+  - `strips confirmed_participants/waitlist_participants -- not participants -- for a
+HOST_SELECTED_WITH_WAITLIST source game` (Task 8.3 edge case; retrofit test for
+    already-correct code, no RED phase per that instruction file's rule)
+  - `does not crash and leaves file inputs empty when the source game has a
+thumbnail/banner` (Task 8.3 edge case; same retrofit rule)
+  - `shows a loading spinner while fetching the source game` (Task 8.3; preserves the old
+    component's behavior)
+  - `shows an error and a Back button when the fetch fails` (Task 8.3; preserves the old
+    component's behavior)
+  - `blocks Continue with an error when the player deadline is missing` (Task 8.3;
+    retrofit test for the old component's carried-over `YES_WITH_DEADLINE` validation)
+  - `blocks Continue with an error when the player deadline is in the past` (Task 8.3;
+    same retrofit rule)
+  - `blocks Continue with an error when the waitlist deadline is missing` (Task 8.3; same
+    retrofit rule)
+  - `blocks Continue with an error when the waitlist deadline is in the past` (Task 8.3;
+    same retrofit rule)
+  - `clicking Cancel in Stage 2 navigates back to the source game` (Task 8.3; retrofit
+    test for `GameForm`'s `onCancel` wiring)
+  - `surfaces an error when Stage 2 is submitted (clone submission not yet wired)` (Task
+    8.3; retrofit test confirming the Phase 9 stub's error path renders correctly)
+
+  The six tests above were added while closing out Task 8.3's diff-coverage gate (added
+  to `.github/instructions/task-implementation.instructions.md`'s pre-commit-gate list,
+  not called out individually by the details file): the initial 9-test suite left
+  `handleContinue`'s four deadline-validation branches, the `handleSubmit` stub's
+  `throw`, and `GameForm`'s `onCancel` prop uncovered on `git diff` against
+  `origin/develop`, which `diff-cover`'s 90%-threshold pre-commit hook
+  (`scripts/check_diff_coverage_frontend.py`) caught at 80.6%. All six are retrofit tests
+  for already-correct code (no RED phase), consistent with Task 8.3's "add edge-case
+  tests" scope.
+
+### Modified
+
+- `frontend/src/pages/CloneGame.tsx` — full rewrite (Tasks 8.1-8.3): two-stage component
+  replacing the old single-stage bespoke form; added the `buildStage2InitialData` helper
+  function (pure, exported implicitly via the module, documented with its "compute
+  exactly once" invariant); `isBotManager` state resolved asynchronously via
+  `canUserManageBotSettings`; `handleContinue` retains the old component's
+  `YES_WITH_DEADLINE` deadline-required/deadline-must-be-future validation before
+  freezing Stage 2's `initialData`.
+
+### Verification
+
+- `npx vitest run src/pages/__tests__/CloneGame.test.tsx` — all 5 Task 8.1/8.2 tests
+  confirmed failing against the RED-phase stub, then all 15 tests (Task 8.1/8.2's 5, plus
+  Task 8.3's 10 edge-case/retrofit tests) `PASSED` after the full implementation
+- `cd frontend && npm run test` — 47 files, 509 tests passed (no regressions elsewhere)
+- `cd frontend && npm run build` — `tsc` + `vite build` succeeded, no TypeScript errors
+- `npx eslint src/pages/CloneGame.tsx src/pages/__tests__/CloneGame.test.tsx` — no issues
+- `npx prettier --check src/pages/CloneGame.tsx src/pages/__tests__/CloneGame.test.tsx` —
+  all matched files use Prettier code style
+- `scripts/run-frontend-coverage.sh` + `diff_cover.diff_cover_tool` against
+  `origin/develop` — `frontend/src/pages/CloneGame.tsx` 100% diff coverage (31/31 lines)
+- `uv run pytest tests/unit` — 2594 passed (unchanged from Phase 7 -- this phase touches
+  only frontend files)
+- `uv run mypy shared/ services/` — Success: no issues found in 155 source files

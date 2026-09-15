@@ -24,7 +24,8 @@ import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router';
 import { CloneGame } from '../CloneGame';
 import { apiClient } from '../../api/client';
-import { GameSession, ParticipantType } from '../../types';
+import { AuthContext, type AuthContextType } from '../../contexts/AuthContext';
+import { GameSession, ParticipantType, SignupMethod } from '../../types';
 
 const mockNavigate = vi.fn();
 const mockParams = { gameId: 'game123' };
@@ -69,11 +70,30 @@ vi.mock('@mui/x-date-pickers/AdapterDateFns', () => ({
   AdapterDateFns: class {},
 }));
 
+const mockAuthContextValue: AuthContextType = {
+  user: { id: '1', user_uuid: 'uuid1', username: 'testuser' },
+  loading: false,
+  login: vi.fn(),
+  logout: vi.fn(),
+  refreshUser: vi.fn(),
+};
+
 describe('CloneGame', () => {
+  const existingParticipant = {
+    id: 'participant1',
+    game_session_id: 'game123',
+    user_id: 'user111',
+    discord_id: '111',
+    display_name: 'ExistingPlayer',
+    joined_at: '2026-01-01T00:00:00Z',
+    position_type: ParticipantType.SELF_ADDED,
+    position: 0,
+  };
+
   const mockGame: GameSession = {
     id: 'game123',
     title: 'Test Game To Clone',
-    description: 'A game',
+    description: 'A game description',
     signup_instructions: null,
     scheduled_at: '2026-09-01T18:00:00Z',
     where: null,
@@ -97,11 +117,21 @@ describe('CloneGame', () => {
     notify_role_ids: [],
     expected_duration_minutes: null,
     status: 'SCHEDULED',
-    signup_method: 'SELF_SIGNUP',
-    participant_count: 0,
-    participants: [],
+    signup_method: SignupMethod.SELF_SIGNUP,
+    participant_count: 1,
+    participants: [existingParticipant],
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
+  };
+
+  const mockGetImpl = (url: string) => {
+    if (url.includes('/games/')) {
+      return Promise.resolve({ data: mockGame });
+    }
+    if (url.includes('/config')) {
+      return Promise.resolve({ status: 200, data: {} });
+    }
+    return Promise.reject(new Error(`Unexpected URL: ${url}`));
   };
 
   beforeEach(() => {
@@ -110,140 +140,31 @@ describe('CloneGame', () => {
 
   const renderCloneGame = () =>
     render(
-      <BrowserRouter>
-        <CloneGame />
-      </BrowserRouter>
+      <AuthContext.Provider value={mockAuthContextValue}>
+        <BrowserRouter>
+          <CloneGame />
+        </BrowserRouter>
+      </AuthContext.Provider>
     );
 
-  it('shows loading spinner while fetching source game', () => {
-    vi.mocked(apiClient.get).mockImplementation(() => new Promise(() => {}));
-    renderCloneGame();
-    expect(screen.getByRole('progressbar')).toBeInTheDocument();
-  });
-
-  it('shows error when fetch fails', async () => {
-    vi.mocked(apiClient.get).mockRejectedValueOnce(new Error('Network error'));
-    renderCloneGame();
-    await waitFor(() => {
-      expect(screen.getByText('Failed to load game. Please try again.')).toBeInTheDocument();
-    });
-  });
-
-  it('shows back button on fetch error', async () => {
-    const user = userEvent.setup();
-    vi.mocked(apiClient.get).mockRejectedValueOnce(new Error('Network error'));
-    renderCloneGame();
-    await waitFor(() => {
-      expect(screen.getByText('Back')).toBeInTheDocument();
-    });
-    await user.click(screen.getByText('Back'));
-    expect(mockNavigate).toHaveBeenCalledWith(-1);
-  });
-
-  it('renders form with source game title after fetch', async () => {
-    vi.mocked(apiClient.get).mockResolvedValueOnce({ data: mockGame });
-    renderCloneGame();
-    await waitFor(() => {
-      expect(screen.getByText('Test Game To Clone')).toBeInTheDocument();
-    });
-    expect(screen.getAllByText('Clone Game').length).toBeGreaterThan(0);
-  });
-
-  it('renders carryover dropdowns', async () => {
-    vi.mocked(apiClient.get).mockResolvedValueOnce({ data: mockGame });
-    renderCloneGame();
-    await waitFor(() => {
-      expect(screen.getByLabelText('Player Carryover')).toBeInTheDocument();
-      expect(screen.getByLabelText('Waitlist Carryover')).toBeInTheDocument();
-    });
-  });
-
-  it('cancel button navigates back to source game', async () => {
-    const user = userEvent.setup();
-    vi.mocked(apiClient.get).mockResolvedValueOnce({ data: mockGame });
-    renderCloneGame();
-    await waitFor(() => {
-      expect(screen.getByText('Cancel')).toBeInTheDocument();
-    });
-    await user.click(screen.getByText('Cancel'));
-    expect(mockNavigate).toHaveBeenCalledWith('/games/game123');
-  });
-
-  it('submits clone request and navigates to new game on success', async () => {
-    const user = userEvent.setup();
-    const newGame = { ...mockGame, id: 'new-game-456' };
-    vi.mocked(apiClient.get).mockResolvedValueOnce({ data: mockGame });
-    vi.mocked(apiClient.post).mockResolvedValueOnce({ data: newGame });
-
-    renderCloneGame();
-
-    await waitFor(() => {
-      expect(screen.getByText('Test Game To Clone')).toBeInTheDocument();
-    });
-
-    const cloneButton = screen.getByRole('button', { name: 'Clone Game' });
-    await user.click(cloneButton);
-
-    await waitFor(() => {
-      expect(apiClient.post).toHaveBeenCalledWith(
-        '/api/v1/games/game123/clone',
-        expect.objectContaining({
-          player_carryover: 'NO',
-          waitlist_carryover: 'NO',
-        })
-      );
-      expect(mockNavigate).toHaveBeenCalledWith('/games/new-game-456');
-    });
-  });
-
-  it('shows error message when clone request fails', async () => {
-    const user = userEvent.setup();
-    vi.mocked(apiClient.get).mockResolvedValueOnce({ data: mockGame });
-    vi.mocked(apiClient.post).mockRejectedValueOnce({
-      response: { data: { detail: 'Permission denied' } },
-    });
-
-    renderCloneGame();
-
-    await waitFor(() => {
-      expect(screen.getByText('Test Game To Clone')).toBeInTheDocument();
-    });
-
-    const cloneButton = screen.getByRole('button', { name: 'Clone Game' });
-    await user.click(cloneButton);
-
-    await waitFor(() => {
-      expect(screen.getByText('Permission denied')).toBeInTheDocument();
-    });
-  });
-
-  it('shows generic error when clone request fails without detail', async () => {
-    const user = userEvent.setup();
-    vi.mocked(apiClient.get).mockResolvedValueOnce({ data: mockGame });
-    vi.mocked(apiClient.post).mockRejectedValueOnce(new Error('Network error'));
-
-    renderCloneGame();
-
-    await waitFor(() => {
-      expect(screen.getByText('Test Game To Clone')).toBeInTheDocument();
-    });
-
-    const cloneButton = screen.getByRole('button', { name: 'Clone Game' });
-    await user.click(cloneButton);
-
-    await waitFor(() => {
-      expect(screen.getByText('Failed to clone game. Please try again.')).toBeInTheDocument();
-    });
-  });
-
-  describe('YES_WITH_DEADLINE carryover', () => {
-    it('player deadline picker renders when player carryover is YES_WITH_DEADLINE', async () => {
-      vi.mocked(apiClient.get).mockResolvedValueOnce({ data: mockGame });
+  // Task 8.1: written RED-first against the minimal Stage-1-shell stub (vitest 4 removed
+  // the `.failing()` marker, see GameForm.errors-location.test.tsx for the same
+  // convention), confirmed failing for real reasons (no carryover selects/pickers, no
+  // Stage 2 mount), then implemented GREEN in Task 8.2 without changing any assertion
+  // below.
+  describe('two-stage GameForm-based screen (Task 8.1/8.2)', () => {
+    it('renders Stage 1 carryover selects, deadline pickers, and a Continue button', async () => {
+      vi.mocked(apiClient.get).mockImplementation(mockGetImpl);
       const user = userEvent.setup();
       renderCloneGame();
+
       await waitFor(() => {
         expect(screen.getByText('Test Game To Clone')).toBeInTheDocument();
       });
+
+      expect(screen.getByLabelText('Player Carryover')).toBeInTheDocument();
+      expect(screen.getByLabelText('Waitlist Carryover')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Continue' })).toBeInTheDocument();
 
       const playerSelect = screen.getByLabelText('Player Carryover');
       await user.click(playerSelect);
@@ -253,26 +174,208 @@ describe('CloneGame', () => {
       expect(screen.getByLabelText('Player Confirmation Deadline')).toBeInTheDocument();
     });
 
-    it('waitlist deadline picker renders when waitlist carryover is YES_WITH_DEADLINE', async () => {
-      vi.mocked(apiClient.get).mockResolvedValueOnce({ data: mockGame });
+    it('clicking Continue reveals GameForm fields pre-populated from the source game', async () => {
+      vi.mocked(apiClient.get).mockImplementation(mockGetImpl);
       const user = userEvent.setup();
       renderCloneGame();
+
       await waitFor(() => {
         expect(screen.getByText('Test Game To Clone')).toBeInTheDocument();
       });
 
-      const waitlistSelect = screen.getByLabelText('Waitlist Carryover');
-      await user.click(waitlistSelect);
-      const option = await screen.findByRole('option', { name: /confirmation deadline/i });
-      await user.click(option);
+      await user.click(screen.getByRole('button', { name: 'Continue' }));
 
-      expect(screen.getByLabelText('Waitlist Confirmation Deadline')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Create Game' })).toBeInTheDocument();
+      });
+      expect(screen.getByDisplayValue('Test Game To Clone')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('A game description')).toBeInTheDocument();
     });
 
-    it('shows validation error when player deadline is missing with YES_WITH_DEADLINE', async () => {
-      vi.mocked(apiClient.get).mockResolvedValueOnce({ data: mockGame });
+    it('does not pre-populate the participant editor when playerCarryover is NO (default)', async () => {
+      vi.mocked(apiClient.get).mockImplementation(mockGetImpl);
       const user = userEvent.setup();
       renderCloneGame();
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Game To Clone')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Create Game' })).toBeInTheDocument();
+      });
+      expect(screen.queryByDisplayValue('@ExistingPlayer')).not.toBeInTheDocument();
+    });
+
+    it('pre-populates the participant editor when playerCarryover is YES before Continue', async () => {
+      vi.mocked(apiClient.get).mockImplementation(mockGetImpl);
+      const user = userEvent.setup();
+      renderCloneGame();
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Game To Clone')).toBeInTheDocument();
+      });
+
+      const playerSelect = screen.getByLabelText('Player Carryover');
+      await user.click(playerSelect);
+      const option = await screen.findByRole('option', { name: /carry over existing players/i });
+      await user.click(option);
+
+      await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+      await waitFor(() => {
+        expect(screen.getByDisplayValue('@ExistingPlayer')).toBeInTheDocument();
+      });
+    });
+
+    it('toggling playerCarryover after Stage 2 has mounted does not clear host-edited title text', async () => {
+      vi.mocked(apiClient.get).mockImplementation(mockGetImpl);
+      const user = userEvent.setup();
+      renderCloneGame();
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Game To Clone')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Create Game' })).toBeInTheDocument();
+      });
+
+      // MUI's required-field label renders a literal " *" text node, so match loosely.
+      const titleInput = await screen.findByLabelText(/^Game Title/);
+      await user.clear(titleInput);
+      await user.type(titleInput, 'Edited Title');
+      expect(screen.getByDisplayValue('Edited Title')).toBeInTheDocument();
+
+      const playerSelect = screen.getByLabelText('Player Carryover');
+      await user.click(playerSelect);
+      const option = await screen.findByRole('option', { name: /carry over existing players/i });
+      await user.click(option);
+
+      expect(screen.getByDisplayValue('Edited Title')).toBeInTheDocument();
+    });
+  });
+
+  // Task 8.3: tests for behavior already implemented by Task 8.2 (no RED phase needed --
+  // see .github/instructions/test-driven-development.instructions.md's "Writing Tests for
+  // Already-Correct Code" section).
+  describe('edge cases (Task 8.3)', () => {
+    it('strips confirmed_participants/waitlist_participants -- not participants -- for a HOST_SELECTED_WITH_WAITLIST source game', async () => {
+      const confirmedParticipant = {
+        id: 'confirmed1',
+        game_session_id: 'game123',
+        user_id: 'user222',
+        discord_id: '222',
+        display_name: 'ConfirmedPlayer',
+        joined_at: '2026-01-01T00:00:00Z',
+        position_type: ParticipantType.SELF_ADDED,
+        position: 0,
+      };
+      const waitlistedParticipant = {
+        id: 'waitlisted1',
+        game_session_id: 'game123',
+        user_id: 'user333',
+        discord_id: '333',
+        display_name: 'WaitlistedPlayer',
+        joined_at: '2026-01-01T00:00:00Z',
+        position_type: ParticipantType.SELF_ADDED,
+        position: 1,
+      };
+      const waitlistGame: GameSession = {
+        ...mockGame,
+        signup_method: SignupMethod.HOST_SELECTED_WITH_WAITLIST,
+        max_players: 1,
+        participants: [],
+        confirmed_participants: [confirmedParticipant],
+        waitlist_participants: [waitlistedParticipant],
+      };
+      vi.mocked(apiClient.get).mockImplementation((url: string) => {
+        if (url.includes('/games/')) return Promise.resolve({ data: waitlistGame });
+        if (url.includes('/config')) return Promise.resolve({ status: 200, data: {} });
+        return Promise.reject(new Error(`Unexpected URL: ${url}`));
+      });
+      const user = userEvent.setup();
+      renderCloneGame();
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Game To Clone')).toBeInTheDocument();
+      });
+
+      // Player carryover YES (keep confirmed); waitlist carryover stays NO (drop waitlisted).
+      const playerSelect = screen.getByLabelText('Player Carryover');
+      await user.click(playerSelect);
+      const option = await screen.findByRole('option', { name: /carry over existing players/i });
+      await user.click(option);
+
+      await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+      await waitFor(() => {
+        expect(screen.getByDisplayValue('@ConfirmedPlayer')).toBeInTheDocument();
+      });
+      expect(screen.queryByDisplayValue('@WaitlistedPlayer')).not.toBeInTheDocument();
+    });
+
+    it('does not crash and leaves file inputs empty when the source game has a thumbnail/banner', async () => {
+      const imageGame: GameSession = {
+        ...mockGame,
+        has_thumbnail: true,
+        has_image: true,
+      };
+      vi.mocked(apiClient.get).mockImplementation((url: string) => {
+        if (url.includes('/games/')) return Promise.resolve({ data: imageGame });
+        if (url.includes('/config')) return Promise.resolve({ status: 200, data: {} });
+        return Promise.reject(new Error(`Unexpected URL: ${url}`));
+      });
+      const user = userEvent.setup();
+      renderCloneGame();
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Game To Clone')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Create Game' })).toBeInTheDocument();
+      });
+
+      // Images carry over by reference server-side (Phase 6); GameForm's file inputs stay
+      // empty/optional so the host can still attach a genuinely new file (create mode
+      // never shows the "Remove Thumbnail/Banner" buttons, which are edit-mode-only).
+      expect(screen.getByRole('button', { name: 'Choose Thumbnail' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Choose Banner' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Remove Thumbnail' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Remove Banner' })).not.toBeInTheDocument();
+    });
+
+    it('shows a loading spinner while fetching the source game', () => {
+      vi.mocked(apiClient.get).mockImplementation(() => new Promise(() => {}));
+      renderCloneGame();
+      expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    });
+
+    it('shows an error and a Back button when the fetch fails', async () => {
+      const user = userEvent.setup();
+      vi.mocked(apiClient.get).mockRejectedValueOnce(new Error('Network error'));
+      renderCloneGame();
+
+      await waitFor(() => {
+        expect(screen.getByText('Failed to load game. Please try again.')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText('Back'));
+      expect(mockNavigate).toHaveBeenCalledWith(-1);
+    });
+
+    it('blocks Continue with an error when the player deadline is missing', async () => {
+      vi.mocked(apiClient.get).mockImplementation(mockGetImpl);
+      const user = userEvent.setup();
+      renderCloneGame();
+
       await waitFor(() => {
         expect(screen.getByText('Test Game To Clone')).toBeInTheDocument();
       });
@@ -282,24 +385,19 @@ describe('CloneGame', () => {
       const option = await screen.findByRole('option', { name: /confirmation deadline/i });
       await user.click(option);
 
-      const deadlinePicker = await screen.findByLabelText('Player Confirmation Deadline');
-      expect(deadlinePicker).toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: 'Continue' }));
 
-      const form = deadlinePicker.closest('form');
-      fireEvent.submit(form!);
-
-      await waitFor(
-        () => {
-          expect(screen.getByText(/player deadline is required/i)).toBeInTheDocument();
-        },
-        { timeout: 5000 }
-      );
+      await waitFor(() => {
+        expect(screen.getByText(/player deadline is required/i)).toBeInTheDocument();
+      });
+      expect(screen.queryByRole('button', { name: 'Create Game' })).not.toBeInTheDocument();
     });
 
-    it('shows validation error when player deadline is in the past', async () => {
-      vi.mocked(apiClient.get).mockResolvedValueOnce({ data: mockGame });
+    it('blocks Continue with an error when the player deadline is in the past', async () => {
+      vi.mocked(apiClient.get).mockImplementation(mockGetImpl);
       const user = userEvent.setup();
       renderCloneGame();
+
       await waitFor(() => {
         expect(screen.getByText('Test Game To Clone')).toBeInTheDocument();
       });
@@ -313,53 +411,19 @@ describe('CloneGame', () => {
       const pastDate = new Date(Date.now() - 3600000);
       fireEvent.change(deadlineInput, { target: { value: pastDate.toISOString() } });
 
-      const cloneButton = screen.getByRole('button', { name: 'Clone Game' });
-      await user.click(cloneButton);
+      await user.click(screen.getByRole('button', { name: 'Continue' }));
 
       await waitFor(() => {
         expect(screen.getByText(/player deadline must be in the future/i)).toBeInTheDocument();
       });
+      expect(screen.queryByRole('button', { name: 'Create Game' })).not.toBeInTheDocument();
     });
 
-    it('API call includes player_deadline when YES_WITH_DEADLINE selected', async () => {
-      const newGame = { ...mockGame, id: 'new-game-456' };
-      vi.mocked(apiClient.get).mockResolvedValueOnce({ data: mockGame });
-      vi.mocked(apiClient.post).mockResolvedValueOnce({ data: newGame });
+    it('blocks Continue with an error when the waitlist deadline is missing', async () => {
+      vi.mocked(apiClient.get).mockImplementation(mockGetImpl);
       const user = userEvent.setup();
       renderCloneGame();
-      await waitFor(() => {
-        expect(screen.getByText('Test Game To Clone')).toBeInTheDocument();
-      });
 
-      const playerSelect = screen.getByLabelText('Player Carryover');
-      await user.click(playerSelect);
-      const option = await screen.findByRole('option', { name: /confirmation deadline/i });
-      await user.click(option);
-
-      const futureDate = new Date(Date.now() + 3 * 24 * 3600000);
-      const deadlineInput = screen.getByLabelText('Player Confirmation Deadline');
-      fireEvent.change(deadlineInput, { target: { value: futureDate.toISOString() } });
-
-      const cloneButton = screen.getByRole('button', { name: 'Clone Game' });
-      await user.click(cloneButton);
-
-      await waitFor(() => {
-        expect(apiClient.post).toHaveBeenCalledWith(
-          '/api/v1/games/game123/clone',
-          expect.objectContaining({
-            player_carryover: 'YES_WITH_DEADLINE',
-            player_deadline: expect.any(String),
-          })
-        );
-      });
-    });
-
-    it('API call includes waitlist_deadline when YES_WITH_DEADLINE selected', async () => {
-      const newGame = { ...mockGame, id: 'new-game-456' };
-      vi.mocked(apiClient.get).mockResolvedValueOnce({ data: mockGame });
-      vi.mocked(apiClient.post).mockResolvedValueOnce({ data: newGame });
-      const user = userEvent.setup();
-      renderCloneGame();
       await waitFor(() => {
         expect(screen.getByText('Test Game To Clone')).toBeInTheDocument();
       });
@@ -369,21 +433,75 @@ describe('CloneGame', () => {
       const option = await screen.findByRole('option', { name: /confirmation deadline/i });
       await user.click(option);
 
-      const futureDate = new Date(Date.now() + 3 * 24 * 3600000);
-      const deadlineInput = screen.getByLabelText('Waitlist Confirmation Deadline');
-      fireEvent.change(deadlineInput, { target: { value: futureDate.toISOString() } });
-
-      const cloneButton = screen.getByRole('button', { name: 'Clone Game' });
-      await user.click(cloneButton);
+      await user.click(screen.getByRole('button', { name: 'Continue' }));
 
       await waitFor(() => {
-        expect(apiClient.post).toHaveBeenCalledWith(
-          '/api/v1/games/game123/clone',
-          expect.objectContaining({
-            waitlist_carryover: 'YES_WITH_DEADLINE',
-            waitlist_deadline: expect.any(String),
-          })
-        );
+        expect(screen.getByText(/waitlist deadline is required/i)).toBeInTheDocument();
+      });
+      expect(screen.queryByRole('button', { name: 'Create Game' })).not.toBeInTheDocument();
+    });
+
+    it('blocks Continue with an error when the waitlist deadline is in the past', async () => {
+      vi.mocked(apiClient.get).mockImplementation(mockGetImpl);
+      const user = userEvent.setup();
+      renderCloneGame();
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Game To Clone')).toBeInTheDocument();
+      });
+
+      const waitlistSelect = screen.getByLabelText('Waitlist Carryover');
+      await user.click(waitlistSelect);
+      const option = await screen.findByRole('option', { name: /confirmation deadline/i });
+      await user.click(option);
+
+      const deadlineInput = await screen.findByLabelText('Waitlist Confirmation Deadline');
+      const pastDate = new Date(Date.now() - 3600000);
+      fireEvent.change(deadlineInput, { target: { value: pastDate.toISOString() } });
+
+      await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+      await waitFor(() => {
+        expect(screen.getByText(/waitlist deadline must be in the future/i)).toBeInTheDocument();
+      });
+      expect(screen.queryByRole('button', { name: 'Create Game' })).not.toBeInTheDocument();
+    });
+
+    it('clicking Cancel in Stage 2 navigates back to the source game', async () => {
+      vi.mocked(apiClient.get).mockImplementation(mockGetImpl);
+      const user = userEvent.setup();
+      renderCloneGame();
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Game To Clone')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Create Game' })).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: 'Cancel' }));
+      expect(mockNavigate).toHaveBeenCalledWith('/games/game123');
+    });
+
+    it('surfaces an error when Stage 2 is submitted (clone submission not yet wired)', async () => {
+      vi.mocked(apiClient.get).mockImplementation(mockGetImpl);
+      const user = userEvent.setup();
+      renderCloneGame();
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Game To Clone')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+      const submitButton = await screen.findByRole('button', { name: 'Create Game' });
+      await user.click(submitButton);
+
+      await waitFor(() => {
+        expect(screen.getByText('Failed to submit. Please try again.')).toBeInTheDocument();
       });
     });
   });

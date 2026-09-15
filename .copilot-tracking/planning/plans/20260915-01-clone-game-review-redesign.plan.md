@@ -145,15 +145,15 @@ re-derived from the submitted roster.
       upload vs. ref-copy, and `post_at` deferred/immediate behavior end-to-end
   - Details: .copilot-tracking/planning/details/20260915-01-clone-game-review-redesign-details.md (Lines 686-709)
 
-### [ ] Phase 8: Rebuild `CloneGame.tsx` — Two-Stage `GameForm`-Based Screen
+### [x] Phase 8: Rebuild `CloneGame.tsx` — Two-Stage `GameForm`-Based Screen
 
-- [ ] Task 8.1: Stub the two-stage page shape (carryover/deadline preamble → frozen-`initialData`
+- [x] Task 8.1: Stub the two-stage page shape (carryover/deadline preamble → frozen-`initialData`
       `GameForm` mount, no `/channels` or `/roles` fetch needed) and write failing (`test.failing`)
       component tests, deleting the 16 tests against the old bespoke UI
   - Details: .copilot-tracking/planning/details/20260915-01-clone-game-review-redesign-details.md (Lines 711-766)
-- [ ] Task 8.2: Implement Stage 1/Stage 2 rendering; remove `test.failing` markers
+- [x] Task 8.2: Implement Stage 1/Stage 2 rendering; remove `test.failing` markers
   - Details: .copilot-tracking/planning/details/20260915-01-clone-game-review-redesign-details.md (Lines 768-776)
-- [ ] Task 8.3: Refactor and add edge-case tests (`HOST_SELECTED_WITH_WAITLIST` source, image-carryover
+- [x] Task 8.3: Refactor and add edge-case tests (`HOST_SELECTED_WITH_WAITLIST` source, image-carryover
       no-crash, fetch-error/loading states)
   - Details: .copilot-tracking/planning/details/20260915-01-clone-game-review-redesign-details.md (Lines 778-788)
 

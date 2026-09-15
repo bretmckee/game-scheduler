@@ -18,7 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import { FC, useState, useEffect } from 'react';
+import { FC, useEffect, useState } from 'react';
 import {
   Box,
   Button,
@@ -39,17 +39,11 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { addDays } from 'date-fns';
 import { useNavigate, useParams } from 'react-router';
 import { apiClient } from '../api/client';
-import { GameSession } from '../types';
+import { Channel, GameSession, SignupMethod } from '../types';
+import { GameForm, GameFormData } from '../components/GameForm';
+import { canUserManageBotSettings } from '../utils/permissions';
 
 type CarryoverOption = 'NO' | 'YES' | 'YES_WITH_DEADLINE';
-
-interface CloneGameRequest {
-  scheduled_at: string;
-  player_carryover: CarryoverOption;
-  player_deadline?: string;
-  waitlist_carryover: CarryoverOption;
-  waitlist_deadline?: string;
-}
 
 const CARRYOVER_OPTIONS: { value: CarryoverOption; label: string }[] = [
   { value: 'NO', label: 'No — start with an empty roster' },
@@ -59,22 +53,62 @@ const CARRYOVER_OPTIONS: { value: CarryoverOption; label: string }[] = [
 
 const DEFAULT_DAYS_AHEAD = 14;
 
+/**
+ * Build the frozen `GameForm` `initialData` for Stage 2, snapshotting the carryover
+ * selections as they stood the moment "Continue" was clicked.
+ *
+ * `GameForm` rebuilds its internal form state whenever the `initialData` object it
+ * receives changes identity (see its `initialData`-keyed `useEffect`), so this object
+ * must be computed exactly once per Stage-2 mount rather than re-derived from live
+ * carryover state -- otherwise toggling a carryover select after Stage 2 has mounted
+ * would silently discard any host edits already made to the form (title, description,
+ * etc.). Callers must store the result in state and never recompute it while Stage 2 is
+ * mounted.
+ */
+function buildStage2InitialData(
+  sourceGame: GameSession,
+  playerCarryover: CarryoverOption,
+  waitlistCarryover: CarryoverOption
+): Partial<GameSession> {
+  const keepPlayers = playerCarryover !== 'NO';
+  const keepWaitlist = waitlistCarryover !== 'NO';
+
+  const initialData: Partial<GameSession> = {
+    ...sourceGame,
+    // Cleared so GameForm's own "leave empty = post now" default applies, instead of
+    // inheriting the source game's own post time.
+    post_at: null,
+    scheduled_at: addDays(new Date(sourceGame.scheduled_at), DEFAULT_DAYS_AHEAD).toISOString(),
+  };
+
+  if (sourceGame.signup_method === SignupMethod.HOST_SELECTED_WITH_WAITLIST) {
+    initialData.confirmed_participants = keepPlayers ? sourceGame.confirmed_participants : [];
+    initialData.waitlist_participants = keepWaitlist ? sourceGame.waitlist_participants : [];
+  } else {
+    initialData.participants = keepPlayers ? sourceGame.participants : [];
+  }
+
+  return initialData;
+}
+
 export const CloneGame: FC = () => {
   const { gameId } = useParams<{ gameId: string }>();
   const navigate = useNavigate();
 
   const [sourceGame, setSourceGame] = useState<GameSession | null>(null);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isBotManager, setIsBotManager] = useState(false);
 
-  const [scheduledAt, setScheduledAt] = useState<Date | null>(null);
   const [playerCarryover, setPlayerCarryover] = useState<CarryoverOption>('NO');
   const [waitlistCarryover, setWaitlistCarryover] = useState<CarryoverOption>('NO');
   const [playerDeadline, setPlayerDeadline] = useState<Date | null>(null);
   const [waitlistDeadline, setWaitlistDeadline] = useState<Date | null>(null);
-  const [validationError, setValidationError] = useState<string | null>(null);
+  const [continueError, setContinueError] = useState<string | null>(null);
+
+  // Non-null once "Continue" has been clicked -- Stage 2's frozen GameForm initialData,
+  // and the flag for whether Stage 2 is mounted.
+  const [stage2InitialData, setStage2InitialData] = useState<Partial<GameSession> | null>(null);
 
   useEffect(() => {
     if (!gameId) return;
@@ -84,9 +118,7 @@ export const CloneGame: FC = () => {
         setLoading(true);
         setFetchError(null);
         const response = await apiClient.get<GameSession>(`/api/v1/games/${gameId}`);
-        const game = response.data;
-        setSourceGame(game);
-        setScheduledAt(addDays(new Date(game.scheduled_at), DEFAULT_DAYS_AHEAD));
+        setSourceGame(response.data);
       } catch {
         setFetchError('Failed to load game. Please try again.');
       } finally {
@@ -97,59 +129,55 @@ export const CloneGame: FC = () => {
     fetchGame();
   }, [gameId]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!gameId || !scheduledAt) return;
+  // No /guilds/{id}/roles or /guilds/{id}/channels fetch is needed here (GameForm has no
+  // roles prop, and the clone screen's single channel is synthesized from sourceGame
+  // below) -- only the bot-manager check CreateGame.tsx already makes the same way.
+  useEffect(() => {
+    if (!sourceGame) return;
+    let cancelled = false;
 
-    setValidationError(null);
-    setSubmitError(null);
+    canUserManageBotSettings(sourceGame.guild_id).then((result) => {
+      if (!cancelled) setIsBotManager(result);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sourceGame]);
+
+  const handleContinue = () => {
+    if (!sourceGame) return;
 
     const now = new Date();
     if (playerCarryover === 'YES_WITH_DEADLINE') {
       if (!playerDeadline) {
-        setValidationError('Player deadline is required when using deadline carryover.');
+        setContinueError('Player deadline is required when using deadline carryover.');
         return;
       }
       if (playerDeadline <= now) {
-        setValidationError('Player deadline must be in the future.');
+        setContinueError('Player deadline must be in the future.');
         return;
       }
     }
     if (waitlistCarryover === 'YES_WITH_DEADLINE') {
       if (!waitlistDeadline) {
-        setValidationError('Waitlist deadline is required when using deadline carryover.');
+        setContinueError('Waitlist deadline is required when using deadline carryover.');
         return;
       }
       if (waitlistDeadline <= now) {
-        setValidationError('Waitlist deadline must be in the future.');
+        setContinueError('Waitlist deadline must be in the future.');
         return;
       }
     }
 
-    setSubmitting(true);
+    setContinueError(null);
+    setStage2InitialData(buildStage2InitialData(sourceGame, playerCarryover, waitlistCarryover));
+  };
 
-    const payload: CloneGameRequest = {
-      scheduled_at: scheduledAt.toISOString(),
-      player_carryover: playerCarryover,
-      ...(playerCarryover === 'YES_WITH_DEADLINE' && playerDeadline
-        ? { player_deadline: playerDeadline.toISOString() }
-        : {}),
-      waitlist_carryover: waitlistCarryover,
-      ...(waitlistCarryover === 'YES_WITH_DEADLINE' && waitlistDeadline
-        ? { waitlist_deadline: waitlistDeadline.toISOString() }
-        : {}),
-    };
-
-    try {
-      const response = await apiClient.post<GameSession>(`/api/v1/games/${gameId}/clone`, payload);
-      navigate(`/games/${response.data.id}`);
-    } catch (err: unknown) {
-      const message =
-        (err as any).response?.data?.detail ?? 'Failed to clone game. Please try again.';
-      setSubmitError(typeof message === 'string' ? message : JSON.stringify(message));
-    } finally {
-      setSubmitting(false);
-    }
+  // Phase 9 wires this to POST /api/v1/games/{gameId}/clone as multipart form data; Phase
+  // 8 covers Stage 1/Stage 2 rendering only.
+  const handleSubmit = async (_formData: GameFormData): Promise<void> => {
+    throw new Error('Clone submission not yet implemented');
   };
 
   if (loading) {
@@ -171,9 +199,24 @@ export const CloneGame: FC = () => {
     );
   }
 
+  // Design Note 7: a single-item channel list synthesized directly from the source
+  // game's own channel, not a /guilds/{id}/channels fetch (clone has no channel-override
+  // field, per the backend contract).
+  const channels: Channel[] = [
+    {
+      id: sourceGame.channel_id,
+      guild_id: sourceGame.guild_id,
+      channel_id: sourceGame.channel_id,
+      channel_name: sourceGame.channel_name ?? '',
+      is_active: true,
+      created_at: '',
+      updated_at: '',
+    },
+  ];
+
   return (
-    <Container maxWidth="sm" sx={{ mt: 4, mb: 4 }}>
-      <Paper sx={{ p: 4 }}>
+    <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
+      <Paper sx={{ p: 4, mb: 3 }}>
         <Typography variant="h5" gutterBottom>
           Clone Game
         </Typography>
@@ -181,27 +224,14 @@ export const CloneGame: FC = () => {
           Cloning: <strong>{sourceGame.title}</strong>
         </Typography>
 
-        {(validationError || submitError) && (
+        {continueError && (
           <Alert severity="error" sx={{ mb: 3 }}>
-            {validationError ?? submitError}
+            {continueError}
           </Alert>
         )}
 
         <LocalizationProvider dateAdapter={AdapterDateFns}>
-          <Box
-            component="form"
-            onSubmit={handleSubmit}
-            sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}
-          >
-            <DateTimePicker
-              label="Scheduled Date & Time"
-              value={scheduledAt}
-              onChange={(value) => setScheduledAt(value)}
-              slotProps={{
-                textField: { required: true, fullWidth: true },
-              }}
-            />
-
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             <FormControl fullWidth>
               <InputLabel id="player-carryover-label">Player Carryover</InputLabel>
               <Select
@@ -260,21 +290,32 @@ export const CloneGame: FC = () => {
               />
             )}
 
-            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
-              <Button
-                variant="text"
-                onClick={() => navigate(`/games/${gameId}`)}
-                disabled={submitting}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" variant="contained" disabled={submitting || !scheduledAt}>
-                {submitting ? <CircularProgress size={20} /> : 'Clone Game'}
-              </Button>
-            </Box>
+            {/* Continue is only needed to move from Stage 1 to Stage 2; once Stage 2 has
+                mounted, the carryover controls above stay editable in place. */}
+            {!stage2InitialData && (
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <Button variant="contained" onClick={handleContinue}>
+                  Continue
+                </Button>
+              </Box>
+            )}
           </Box>
         </LocalizationProvider>
       </Paper>
+
+      {stage2InitialData && (
+        <GameForm
+          mode="create"
+          initialData={stage2InitialData}
+          guildId={sourceGame.guild_id}
+          guildName={sourceGame.guild_name ?? undefined}
+          canChangeChannel={false}
+          isBotManager={isBotManager}
+          channels={channels}
+          onSubmit={handleSubmit}
+          onCancel={() => navigate(`/games/${gameId}`)}
+        />
+      )}
     </Container>
   );
 };
