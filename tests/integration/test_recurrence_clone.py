@@ -199,7 +199,7 @@ async def test_recur_rule_propagated_through_clone_endpoint(
             clone_at = (datetime.now(UTC) + timedelta(days=7)).isoformat()
             response = await client.post(
                 f"/api/v1/games/{source_id}/clone",
-                json={
+                data={
                     "scheduled_at": clone_at,
                     "player_carryover": "NO",
                     "waitlist_carryover": "NO",

@@ -21,18 +21,27 @@
 
 """Unit tests for game routes error handling."""
 
+import io
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from fastapi import HTTPException
+from fastapi import HTTPException, UploadFile
 from starlette import status as http_status
 
 from services.api.routes import games as games_routes
-from services.api.schemas.clone_game import CarryoverOption, CloneGameRequest
 from services.api.services import participant_resolver as resolver_module
 from services.api.services.display_names import DisplayNameResolver
 from shared.schemas import game as game_schemas
+
+
+def _mock_upload_file(content: bytes, content_type: str) -> UploadFile:
+    """Build a real UploadFile backed by an in-memory buffer for route tests."""
+    return UploadFile(
+        filename="test.png",
+        file=io.BytesIO(content),
+        headers={"content-type": content_type},
+    )
 
 
 @pytest.fixture
@@ -847,16 +856,8 @@ class TestUpdateGameRouteRecurRule:
 class TestCloneGameRouteCanManage:
     """Tests for can_manage passthrough in clone_game route."""
 
-    @pytest.fixture
-    def clone_data(self):
-        return CloneGameRequest(
-            scheduled_at=datetime(2026, 7, 1, 20, 0, tzinfo=UTC),
-            player_carryover=CarryoverOption.NO,
-            waitlist_carryover=CarryoverOption.NO,
-        )
-
     @pytest.mark.asyncio
-    async def test_clone_game_route_passes_can_manage_to_build_response(self, clone_data):
+    async def test_clone_game_route_passes_can_manage_to_build_response(self):
         """clone_game route passes can_manage_game result to _build_game_response."""
         mock_current_user = MagicMock()
         mock_game = MagicMock()
@@ -882,7 +883,7 @@ class TestCloneGameRouteCanManage:
         ):
             await games_routes.clone_game(
                 game_id="game-123",
-                clone_data=clone_data,
+                scheduled_at="2026-07-01T20:00:00Z",
                 current_user=mock_current_user,
                 game_service=mock_game_service,
                 role_service=MagicMock(),
@@ -891,7 +892,7 @@ class TestCloneGameRouteCanManage:
         assert captured_kwargs.get("can_manage") is True
 
     @pytest.mark.asyncio
-    async def test_clone_game_route_can_manage_defaults_false_on_http_exception(self, clone_data):
+    async def test_clone_game_route_can_manage_defaults_false_on_http_exception(self):
         """clone_game route uses can_manage=False when can_manage_game raises HTTPException."""
         mock_current_user = MagicMock()
         mock_game = MagicMock()
@@ -917,13 +918,55 @@ class TestCloneGameRouteCanManage:
         ):
             await games_routes.clone_game(
                 game_id="game-123",
-                clone_data=clone_data,
+                scheduled_at="2026-07-01T20:00:00Z",
                 current_user=mock_current_user,
                 game_service=mock_game_service,
                 role_service=MagicMock(),
             )
 
         assert captured_kwargs.get("can_manage") is False
+
+    @pytest.mark.asyncio
+    async def test_clone_game_route_reads_and_forwards_uploaded_images(self):
+        """clone_game route validates, reads, and forwards a real thumbnail/image
+        upload's bytes and MIME type to game_service.clone_game, mirroring
+        create_game's own route behavior for the same fields.
+        """
+        mock_current_user = MagicMock()
+        mock_game_service = MagicMock()
+        mock_game_service.clone_game = AsyncMock(return_value=MagicMock())
+        mock_game_service.db = MagicMock()
+
+        thumbnail_file = _mock_upload_file(b"thumb-bytes", "image/png")
+        image_file = _mock_upload_file(b"image-bytes", "image/jpeg")
+
+        with (
+            patch(
+                "services.api.routes.games._build_game_response",
+                new=AsyncMock(return_value=MagicMock()),
+            ),
+            patch(
+                "services.api.dependencies.permissions.can_manage_game",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+        ):
+            await games_routes.clone_game(
+                game_id="game-123",
+                scheduled_at="2026-07-01T20:00:00Z",
+                thumbnail=thumbnail_file,
+                image=image_file,
+                current_user=mock_current_user,
+                game_service=mock_game_service,
+                role_service=MagicMock(),
+            )
+
+        mock_game_service.clone_game.assert_called_once()
+        kwargs = mock_game_service.clone_game.call_args.kwargs
+        assert kwargs["thumbnail_data"] == b"thumb-bytes"
+        assert kwargs["thumbnail_mime_type"] == "image/png"
+        assert kwargs["image_data"] == b"image-bytes"
+        assert kwargs["image_mime_type"] == "image/jpeg"
 
 
 class TestListGamesPendingAnnouncementFilter:

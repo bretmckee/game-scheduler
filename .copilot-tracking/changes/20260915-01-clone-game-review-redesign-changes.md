@@ -358,3 +358,158 @@ tests/unit/services/test_clone_game.py tests/integration/test_clone_game_endpoin
   real, un-skipped)
 - `scripts/run-integration-tests.sh` (full suite) — 349 passed, 0 skipped,
   2735 deselected — no regressions elsewhere
+
+## Phase 6: Multipart Route + Raw Image Upload, With Ref-Copy Fallback
+
+Widened `clone_game`'s signature with the same four media parameters
+`create_game` already accepts (`thumbnail_data`/`thumbnail_mime_type`/
+`image_data`/`image_mime_type`, all optional, default `None`), forwarded
+straight through to the delegated `self.create_game(...)` call unchanged.
+Replaced the unconditional image-reference-copy block (added in Phase 4)
+with two independent per-field guards, each keyed on `thumbnail_data is
+None`/`image_data is None`: when a new file is uploaded for a field,
+`create_game`'s own `_build_game_session` has already called `store_image`
+and set that field on the returned game, so the guard leaves it alone and
+skips `increment_image_ref` for that field; when no new file is uploaded for
+a field and the source game has an image there, the prior ref-copy-and-
+increment behavior applies unchanged. The `db.add`/`db.flush` step now only
+runs when at least one field actually needed a ref-copy. Rewrote the
+`POST /{game_id}/clone` route from a plain-JSON-body handler to a
+`Form()`/`File()` multipart handler, field-for-field mirroring
+`create_game`'s own route: every `CloneGameRequest` field becomes a `Form()`
+parameter (parsing `reminder_minutes`/`participants` as JSON via
+`json.loads`, `scheduled_at`/`post_at`/`player_deadline`/`waitlist_deadline`
+via `datetime.fromisoformat(x.replace("Z", "+00:00"))`, and
+`player_carryover`/`waitlist_carryover` explicitly coerced to
+`CarryoverOption` for mypy), plus `thumbnail`/`image` `File()` params read
+and validated via the existing `_validate_image_upload` helper exactly as
+`create_game`'s route already does, all inside the same
+`try: ... except (resolver_module.ValidationError, ValueError) as e:
+_handle_game_operation_errors(e, clone_data)` block from Phase 4.
+
+Converting the route to multipart broke every other test that posted to the
+clone endpoint with a JSON body (`Content-Type: application/json` against a
+handler now expecting `multipart/form-data`/`application/x-www-form-urlencoded`
+Form fields). Fixed by switching each to `data={...}` (JSON-encoding any list
+field, e.g. `participants`, via `json.dumps`) and updating two route-level
+unit test files that called `games_routes.clone_game(...)` directly with the
+old `clone_data=` keyword argument:
+
+- `tests/integration/test_clone_game_endpoint.py` — all six existing
+  `json={...}` clone POSTs switched to `data={...}`; `participants` fields
+  JSON-encoded via `json.dumps`.
+- `tests/integration/test_recurrence_clone.py` — one clone POST switched
+  from `json=` to `data=`.
+- `tests/integration/test_games_crud.py` — `test_clone_game_not_found`'s
+  clone POST switched from `json=` to `data=`.
+- `tests/integration/test_rewards_fields.py` — three clone POSTs (rewards,
+  `remind_host_rewards`, `reminders_as_dms` carryover tests) switched from
+  `json=` to `data=`.
+- `tests/e2e/test_clone_game_e2e.py` — one clone POST switched from `json=`
+  to `data=` (mechanical fix only, tied directly to this phase's route
+  content-type change; the file's deeper rewrite, including the post-clone
+  rename workaround, remains Phase 10's scope and this test is not part of
+  Phase 6's gates).
+- `tests/unit/services/api/routes/test_games_endpoint_errors.py` and
+  `tests/unit/services/api/routes/test_games_routes.py` — the four
+  `TestCloneGame`/`TestCloneGameRouteCanManage` tests that called
+  `games_routes.clone_game(...)` directly now pass `scheduled_at=` (a plain
+  Form-shaped string) instead of a `clone_data=CloneGameRequest(...)` object;
+  the now-unused `clone_data` fixture and `CloneGameRequest`/
+  `CarryoverOption` imports were removed from both files.
+
+The Python diff-coverage pre-commit gate (unit-test coverage only, measured
+against `origin/develop`) initially failed at 81% on
+`services/api/routes/games.py`: the new route's `if thumbnail:`/`if image:`
+truthy branches (validate, read, log) were exercised only by the Phase 6
+integration test, which doesn't feed unit-test coverage.xml. Fixed by adding
+`test_clone_game_route_reads_and_forwards_uploaded_images` to
+`tests/unit/services/api/routes/test_games_routes.py` (retrofit test for
+already-correct code, per that instruction file's rule — no xfail needed):
+builds two real `UploadFile`s via a new local `_mock_upload_file` helper
+(mirroring `test_games_image_validation.py`'s pattern), calls
+`games_routes.clone_game(...)` directly with both, and asserts
+`thumbnail_data`/`thumbnail_mime_type`/`image_data`/`image_mime_type` are
+forwarded correctly to the mocked `game_service.clone_game`. Diff coverage
+is 100% after this addition.
+
+The `complexipy` pre-commit gate then failed on the route's `clone_game`
+function (cognitive complexity 18, threshold 15) because of the two
+duplicated validate-read-log blocks for thumbnail/image. Fixed by reusing
+the existing `_process_image_upload` helper (already used by `update_game`'s
+route for the same purpose, with `remove_flag=False` since clone has no
+image-removal option) instead of inlining the logic a second time --
+`complexipy` reports no functions over the threshold afterward.
+
+### Added
+
+- `tests/unit/services/test_clone_game.py` — 3 new tests (Task 6.1), all
+  written first against the not-yet-widened `clone_game` and confirmed
+  `XFAIL` (`strict=True`) before the change, then confirmed `PASSED` after:
+  - `test_clone_game_forwards_media_params_to_create_game` — asserts
+    `thumbnail_data`/`thumbnail_mime_type`/`image_data`/`image_mime_type`
+    are forwarded unchanged to the mocked `create_game` call
+  - `test_clone_game_skips_ref_copy_for_fields_with_new_upload` — with both
+    a new thumbnail and a new image uploaded (and the mocked `create_game`
+    return value already carrying freshly-uploaded ids, simulating its own
+    `_build_game_session`/`store_image` step), asserts both fields are left
+    untouched, `increment_image_ref` is never awaited, and no `db.add`/
+    `db.flush` occurs
+  - `test_clone_game_ref_copies_banner_only_when_only_thumbnail_uploaded` —
+    a mixed case (new thumbnail uploaded, no new banner image) asserts the
+    thumbnail is left alone while the banner is still ref-copied from the
+    source by reference, proving the two guards are independent
+- `tests/integration/test_clone_game_endpoint.py` —
+  `test_clone_game_endpoint_with_uploaded_thumbnail_uses_new_image_not_ref_copy`:
+  creates a source game with a real thumbnail via `POST /api/v1/games`,
+  clones it with a different thumbnail file attached, and asserts the new
+  game's `thumbnail_id` differs from the source's and that the source
+  image's `reference_count` stays at 1 (proving no ref-copy occurred for the
+  uploaded field).
+
+### Modified
+
+- `services/api/services/games.py` (`clone_game`) — signature gained
+  `thumbnail_data`/`thumbnail_mime_type`/`image_data`/`image_mime_type`
+  (all optional, default `None`), forwarded to the delegated `create_game`
+  call; the Phase 4 unconditional image-ref-copy block replaced with the
+  two independent conditional guards described above (Task 6.1).
+- `services/api/routes/games.py` — `clone_game` route rewritten from a
+  `clone_data: CloneGameRequest` JSON-body parameter to the full set of
+  `Form()`/`File()` parameters mirroring `create_game`'s route, including
+  parsing, `CloneGameRequest` construction, and forwarding the media data
+  to `game_service.clone_game(...)` (Task 6.2); thumbnail/image validation
+  and reading reuses the existing `_process_image_upload` helper (already
+  used by `update_game`'s route) with `remove_flag=False`, rather than
+  inlining the validate-read-log logic a second time -- required to keep
+  `clone_game`'s cognitive complexity under the `complexipy` gate's
+  threshold; added `CarryoverOption` to the existing
+  `from services.api.schemas.clone_game import ...` import.
+- `tests/unit/services/api/routes/test_games_endpoint_errors.py`,
+  `tests/unit/services/api/routes/test_games_routes.py` — updated direct
+  route-function calls and pruned now-unused fixtures/imports, as described
+  above.
+- `tests/integration/test_clone_game_endpoint.py`,
+  `tests/integration/test_recurrence_clone.py`,
+  `tests/integration/test_games_crud.py`,
+  `tests/integration/test_rewards_fields.py`,
+  `tests/e2e/test_clone_game_e2e.py` — clone-endpoint POST calls switched
+  from `json=` to `data=` (multipart/form-encoded), as described above.
+
+### Verification
+
+- `uv run pytest tests/unit/services/test_clone_game.py -v` — the 3 new
+  tests confirmed `XFAIL` against pre-Task-6.1 `clone_game`, all 20 tests in
+  the file `PASSED` after the change
+- `uv run pytest tests/unit` — 2594 passed
+- `uv run mypy shared/ services/` — Success: no issues found in 155 source
+  files
+- `uv run ruff check services/ tests/` — All checks passed
+- `scripts/run-integration-tests.sh tests/integration/test_clone_game_endpoint.py`
+  — 7 passed (6 previously-passing tests plus the new upload-vs-ref-copy
+  test)
+- `scripts/run-integration-tests.sh` (full suite) — 350 passed, 0 skipped,
+  2738 deselected — no regressions elsewhere
+- diff-cover against `origin/develop`: `services/api/routes/games.py`,
+  `services/api/schemas/clone_game.py`, `services/api/services/games.py`,
+  `services/api/services/participant_resolver.py` all 100% (54/54 lines)

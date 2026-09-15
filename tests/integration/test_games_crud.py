@@ -1343,7 +1343,7 @@ async def test_clone_game_not_found(
             scheduled_at = (datetime.now(UTC) + timedelta(hours=2)).isoformat()
             response = await client.post(
                 f"/api/v1/games/{uuid.uuid4()}/clone",
-                json={"title": "Cloned Game", "scheduled_at": scheduled_at},
+                data={"title": "Cloned Game", "scheduled_at": scheduled_at},
             )
 
         assert response.status_code == 404, (

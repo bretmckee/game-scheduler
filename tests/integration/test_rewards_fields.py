@@ -217,7 +217,7 @@ async def test_clone_game_does_not_copy_rewards(
             clone_at = (datetime.now(UTC) + timedelta(days=7)).isoformat()
             clone_response = await client.post(
                 f"/api/v1/games/{game_id}/clone",
-                json={
+                data={
                     "scheduled_at": clone_at,
                     "player_carryover": "NO",
                     "waitlist_carryover": "NO",
@@ -270,7 +270,7 @@ async def test_clone_game_copies_remind_host_rewards(
             clone_at = (datetime.now(UTC) + timedelta(days=7)).isoformat()
             clone_response = await client.post(
                 f"/api/v1/games/{game_id}/clone",
-                json={
+                data={
                     "scheduled_at": clone_at,
                     "player_carryover": "NO",
                     "waitlist_carryover": "NO",
@@ -618,7 +618,7 @@ async def test_clone_game_copies_reminders_as_dms(
             clone_at = (datetime.now(UTC) + timedelta(days=7)).isoformat()
             clone_response = await client.post(
                 f"/api/v1/games/{game_id}/clone",
-                json={
+                data={
                     "scheduled_at": clone_at,
                     "player_carryover": "NO",
                     "waitlist_carryover": "NO",

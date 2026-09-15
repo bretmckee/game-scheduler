@@ -43,7 +43,7 @@ from services.api.auth import roles as roles_module
 from services.api.dependencies import auth as auth_deps
 from services.api.dependencies import permissions as permissions_deps
 from services.api.dependencies.discord import get_discord_client
-from services.api.schemas.clone_game import CloneGameRequest
+from services.api.schemas.clone_game import CarryoverOption, CloneGameRequest
 from services.api.services import channel_resolver as channel_resolver_module
 from services.api.services import display_names as display_names_module
 from services.api.services import emoji_resolver as emoji_resolver_module
@@ -902,7 +902,27 @@ async def delete_game(
 )
 async def clone_game(
     game_id: str,
-    clone_data: CloneGameRequest,
+    scheduled_at: Annotated[str, Form()],
+    title: Annotated[str | None, Form()] = None,
+    description: Annotated[str | None, Form()] = None,
+    where: Annotated[str | None, Form()] = None,
+    signup_instructions: Annotated[str | None, Form()] = None,
+    max_players: Annotated[int | None, Form()] = None,
+    expected_duration_minutes: Annotated[int | None, Form()] = None,
+    reminder_minutes: Annotated[str | None, Form()] = None,
+    signup_method: Annotated[str | None, Form()] = None,
+    participants: Annotated[str | None, Form()] = None,
+    host: Annotated[str | None, Form()] = None,
+    remind_host_rewards: Annotated[bool | None, Form()] = None,
+    reminders_as_dms: Annotated[bool | None, Form()] = None,
+    post_at: Annotated[str | None, Form()] = None,
+    recur_rule: Annotated[str | None, Form()] = None,
+    player_carryover: Annotated[str, Form()] = "NO",
+    player_deadline: Annotated[str | None, Form()] = None,
+    waitlist_carryover: Annotated[str, Form()] = "NO",
+    waitlist_deadline: Annotated[str | None, Form()] = None,
+    thumbnail: Annotated[UploadFile | None, File()] = None,
+    image: Annotated[UploadFile | None, File()] = None,
     *,
     current_user: _CurrentUserDep,
     game_service: _GameServiceDep,
@@ -915,9 +935,73 @@ async def clone_game(
     - Game host can clone their own game
     - Bot Managers can clone any game in the guild
     - Maintainers can clone any game
+
+    Accepts multipart/form-data, mirroring create_game's route, so a host can
+    attach a genuinely new thumbnail/banner image while cloning; when no file
+    is attached for a field, that image carries over from the source game by
+    reference.
     """
     try:
-        game = await game_service.clone_game(game_id, clone_data, current_user, role_service)
+        # Parse JSON fields from form data
+        reminder_minutes_list = json.loads(reminder_minutes) if reminder_minutes else None
+        participants_list = json.loads(participants) if participants else []
+
+        scheduled_at_datetime = datetime.fromisoformat(scheduled_at.replace("Z", "+00:00"))
+        post_at_datetime = (
+            datetime.fromisoformat(post_at.replace("Z", "+00:00")) if post_at else None
+        )
+        player_deadline_datetime = (
+            datetime.fromisoformat(player_deadline.replace("Z", "+00:00"))
+            if player_deadline
+            else None
+        )
+        waitlist_deadline_datetime = (
+            datetime.fromisoformat(waitlist_deadline.replace("Z", "+00:00"))
+            if waitlist_deadline
+            else None
+        )
+
+        # Build request object
+        clone_data = CloneGameRequest(
+            scheduled_at=scheduled_at_datetime,
+            player_carryover=CarryoverOption(player_carryover),
+            player_deadline=player_deadline_datetime,
+            waitlist_carryover=CarryoverOption(waitlist_carryover),
+            waitlist_deadline=waitlist_deadline_datetime,
+            title=title,
+            description=description,
+            signup_instructions=signup_instructions,
+            where=where,
+            max_players=max_players,
+            reminder_minutes=reminder_minutes_list,
+            expected_duration_minutes=expected_duration_minutes,
+            signup_method=signup_method,
+            participants=participants_list,
+            host=host,
+            remind_host_rewards=remind_host_rewards,
+            reminders_as_dms=reminders_as_dms,
+            post_at=post_at_datetime,
+            recur_rule=recur_rule or None,
+        )
+
+        # Validate and read thumbnail/image uploads (no removal option on clone)
+        thumbnail_data, thumbnail_mime = await _process_image_upload(
+            thumbnail, remove_flag=False, field_name="thumbnail", game_id=game_id
+        )
+        image_data, image_mime = await _process_image_upload(
+            image, remove_flag=False, field_name="image", game_id=game_id
+        )
+
+        game = await game_service.clone_game(
+            game_id,
+            clone_data,
+            current_user,
+            role_service,
+            thumbnail_data=thumbnail_data,
+            thumbnail_mime_type=thumbnail_mime,
+            image_data=image_data,
+            image_mime_type=image_mime,
+        )
     except (resolver_module.ValidationError, ValueError) as e:
         _handle_game_operation_errors(e, clone_data)
     try:

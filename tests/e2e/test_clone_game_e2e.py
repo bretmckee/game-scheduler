@@ -140,7 +140,7 @@ async def test_clone_game_yes_with_deadline_sends_confirmation_dm_and_auto_drops
 
     clone_response = await authenticated_admin_client.post(
         f"/api/v1/games/{source_game_id}/clone",
-        json={
+        data={
             "scheduled_at": clone_at.isoformat(),
             "player_carryover": "YES_WITH_DEADLINE",
             "player_deadline": deadline.isoformat(),

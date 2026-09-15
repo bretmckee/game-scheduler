@@ -30,6 +30,7 @@ Tests that:
 """
 
 import asyncio
+import json
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -146,7 +147,7 @@ def test_clone_game_endpoint_returns_201_with_new_game(
 
     response = authenticated_client.post(
         f"/api/v1/games/{source_game['id']}/clone",
-        json={
+        data={
             "scheduled_at": clone_at,
             "player_carryover": "NO",
             "waitlist_carryover": "NO",
@@ -209,7 +210,7 @@ def test_clone_game_endpoint_non_host_receives_403(
 
     response = non_host_client.post(
         f"/api/v1/games/{source_game['id']}/clone",
-        json={
+        data={
             "scheduled_at": clone_at,
             "player_carryover": "NO",
             "waitlist_carryover": "NO",
@@ -249,7 +250,7 @@ def test_clone_game_endpoint_publishes_game_created_event(
 
     response = authenticated_client.post(
         f"/api/v1/games/{source_game['id']}/clone",
-        json={
+        data={
             "scheduled_at": clone_at,
             "player_carryover": "NO",
             "waitlist_carryover": "NO",
@@ -326,11 +327,11 @@ def test_clone_game_endpoint_yes_carryover_copies_new_game_participants(
 
     response = authenticated_client.post(
         f"/api/v1/games/{source_game['id']}/clone",
-        json={
+        data={
             "scheduled_at": clone_at,
             "player_carryover": "YES",
             "waitlist_carryover": "NO",
-            "participants": [f"<@{participant_user['discord_id']}>"],
+            "participants": json.dumps([f"<@{participant_user['discord_id']}>"]),
         },
     )
 
@@ -408,12 +409,12 @@ def test_clone_game_endpoint_yes_with_deadline_creates_action_and_notification_s
 
     response = authenticated_client.post(
         f"/api/v1/games/{source_game['id']}/clone",
-        json={
+        data={
             "scheduled_at": clone_at,
             "player_carryover": "YES_WITH_DEADLINE",
             "player_deadline": deadline,
             "waitlist_carryover": "NO",
-            "participants": [f"<@{participant_user['discord_id']}>"],
+            "participants": json.dumps([f"<@{participant_user['discord_id']}>"]),
         },
     )
 
@@ -488,7 +489,7 @@ def test_clone_game_endpoint_unresolvable_mention_in_override_returns_422(
 
     response = authenticated_client.post(
         f"/api/v1/games/{source_game['id']}/clone",
-        json={
+        data={
             "scheduled_at": clone_at,
             "player_carryover": "NO",
             "waitlist_carryover": "NO",
@@ -501,3 +502,68 @@ def test_clone_game_endpoint_unresolvable_mention_in_override_returns_422(
     )
     detail = response.json()["detail"]
     assert detail["error"] == "invalid_mentions", detail
+
+
+def test_clone_game_endpoint_with_uploaded_thumbnail_uses_new_image_not_ref_copy(
+    admin_db_sync,
+    create_user,
+    create_guild,
+    create_channel,
+    create_template,
+    seed_redis_cache,
+    create_authenticated_client,
+):
+    """POST /{game_id}/clone with a real thumbnail file attached must store a freshly
+    uploaded image on the new game rather than carrying over the source's thumbnail
+    by reference.
+    """
+    env = _setup_environment(
+        create_user, create_guild, create_channel, create_template, seed_redis_cache
+    )
+    authenticated_client = create_authenticated_client(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+
+    source_scheduled_at = (datetime.now(UTC) + timedelta(days=7)).isoformat()
+    source_response = authenticated_client.post(
+        "/api/v1/games",
+        data={
+            "template_id": env["template"]["id"],
+            "title": "Source Game With Thumbnail",
+            "scheduled_at": source_scheduled_at,
+        },
+        files={"thumbnail": ("source.png", b"\x89PNG\r\n\x1a\n" + b"\x00" * 16, "image/png")},
+    )
+    assert source_response.status_code == 201, (
+        f"Expected 201, got {source_response.status_code}: {source_response.text}"
+    )
+    source_game = source_response.json()
+    source_thumbnail_id = source_game["thumbnail_id"]
+    assert source_thumbnail_id is not None, "Source game must have a stored thumbnail"
+
+    clone_at = (datetime.now(UTC) + timedelta(days=14)).isoformat()
+
+    response = authenticated_client.post(
+        f"/api/v1/games/{source_game['id']}/clone",
+        data={
+            "scheduled_at": clone_at,
+            "player_carryover": "NO",
+            "waitlist_carryover": "NO",
+        },
+        files={"thumbnail": ("clone.png", b"\x89PNG\r\n\x1a\n" + b"\x11" * 16, "image/png")},
+    )
+
+    assert response.status_code == 201, f"Expected 201, got {response.status_code}: {response.text}"
+    new_game = response.json()
+    new_thumbnail_id = new_game["thumbnail_id"]
+
+    assert new_thumbnail_id is not None, "Cloned game must have a stored thumbnail"
+    assert new_thumbnail_id != source_thumbnail_id, (
+        "A new thumbnail upload must not be a reference copy of the source's thumbnail"
+    )
+
+    source_image_ref_count = admin_db_sync.execute(
+        text("SELECT reference_count FROM game_images WHERE id = :id"),
+        {"id": source_thumbnail_id},
+    ).scalar_one()
+    assert source_image_ref_count == 1, (
+        "Source thumbnail's reference count must stay at 1 -- it was not ref-copied"
+    )

@@ -894,6 +894,10 @@ class GameService:
         clone_data: CloneGameRequest,
         current_user: auth_schemas.CurrentUser,
         role_service: roles_module.RoleVerificationService,
+        thumbnail_data: bytes | None = None,
+        thumbnail_mime_type: str | None = None,
+        image_data: bytes | None = None,
+        image_mime_type: str | None = None,
     ) -> game_model.GameSession:
         """
         Clone an existing game session by delegating to create_game.
@@ -903,9 +907,11 @@ class GameService:
         did not override) and delegates the entire mechanical pipeline --
         template loading, host resolution and permission checks, free-text
         mention/channel resolution, participant resolution, roster creation,
-        and deferred/immediate publish -- to create_game. Image carry-over by
-        reference is layered on top afterward, since create_game has no
-        equivalent concept.
+        and deferred/immediate publish -- to create_game. Raw thumbnail/image
+        bytes are forwarded straight through to create_game's own raw-upload
+        path unchanged; image carry-over by reference is layered on top
+        afterward only for whichever of thumbnail/image had no new upload,
+        since create_game has no ref-copy concept of its own.
 
         Does not commit. Caller must commit transaction.
 
@@ -915,6 +921,14 @@ class GameService:
                 carryover options
             current_user: Authenticated user making the request
             role_service: Role verification service for permission check
+            thumbnail_data: Optional new thumbnail image binary data;
+                forwarded to create_game unchanged. When None, the source
+                game's thumbnail (if any) is carried over by reference.
+            thumbnail_mime_type: Optional new thumbnail MIME type
+            image_data: Optional new banner image binary data; forwarded to
+                create_game unchanged. When None, the source game's banner
+                image (if any) is carried over by reference.
+            image_mime_type: Optional new banner image MIME type
 
         Returns:
             New game session
@@ -1006,15 +1020,26 @@ class GameService:
             game_data,
             host_user_id=current_user.user.id,
             default_host_user_id=source_game.host_id,
+            thumbnail_data=thumbnail_data,
+            thumbnail_mime_type=thumbnail_mime_type,
+            image_data=image_data,
+            image_mime_type=image_mime_type,
         )
 
-        # Images carry over by reference unconditionally in this phase; Phase 6 makes
-        # this conditional on "no new file uploaded."
-        new_game.thumbnail_id = source_game.thumbnail_id
-        new_game.banner_image_id = source_game.banner_image_id
-        if source_game.thumbnail_id is not None or source_game.banner_image_id is not None:
+        # Images carry over by reference only for whichever field had no new
+        # upload -- when thumbnail_data/image_data is provided, create_game's own
+        # _build_game_session already called store_image and set
+        # thumbnail_id/banner_image_id on new_game, so these guards correctly
+        # leave those fields alone.
+        if thumbnail_data is None and source_game.thumbnail_id is not None:
+            new_game.thumbnail_id = source_game.thumbnail_id
             await increment_image_ref(self.db, source_game.thumbnail_id)
+        if image_data is None and source_game.banner_image_id is not None:
+            new_game.banner_image_id = source_game.banner_image_id
             await increment_image_ref(self.db, source_game.banner_image_id)
+        if (thumbnail_data is None and source_game.thumbnail_id) or (
+            image_data is None and source_game.banner_image_id
+        ):
             self.db.add(new_game)
             await self.db.flush()
 

@@ -130,12 +130,12 @@ re-derived from the submitted roster.
       final submitted roster by `discord_id`, and call `_apply_deadline_carryover` unchanged
   - Details: .copilot-tracking/planning/details/20260915-01-clone-game-review-redesign-details.md (Lines 504-566)
 
-### [ ] Phase 6: Multipart Route + Raw Image Upload, With Ref-Copy Fallback
+### [x] Phase 6: Multipart Route + Raw Image Upload, With Ref-Copy Fallback
 
-- [ ] Task 6.1: `clone_game` accepts raw image bytes forwarded to `create_game`; ref-copy becomes
+- [x] Task 6.1: `clone_game` accepts raw image bytes forwarded to `create_game`; ref-copy becomes
       conditional on "no new file uploaded"
   - Details: .copilot-tracking/planning/details/20260915-01-clone-game-review-redesign-details.md (Lines 568-608)
-- [ ] Task 6.2: Rewrite the clone route to multipart `Form()`/`File()`, mirroring `create_game`'s route
+- [x] Task 6.2: Rewrite the clone route to multipart `Form()`/`File()`, mirroring `create_game`'s route
   - Details: .copilot-tracking/planning/details/20260915-01-clone-game-review-redesign-details.md (Lines 610-684)
 
 ### [ ] Phase 7: Full Integration Test Pass Against the New Request Contract

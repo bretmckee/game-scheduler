@@ -29,7 +29,6 @@ from fastapi import HTTPException
 from starlette import status as http_status
 
 from services.api.routes import games as games_routes
-from services.api.schemas.clone_game import CarryoverOption, CloneGameRequest
 from services.api.services import participant_resolver as resolver_module
 
 
@@ -38,15 +37,6 @@ def mock_game_service():
     svc = AsyncMock()
     svc.db = AsyncMock()
     return svc
-
-
-@pytest.fixture
-def clone_data():
-    return CloneGameRequest(
-        scheduled_at=datetime(2026, 7, 1, 20, 0, tzinfo=UTC),
-        player_carryover=CarryoverOption.NO,
-        waitlist_carryover=CarryoverOption.NO,
-    )
 
 
 class TestCreateGame:
@@ -250,14 +240,14 @@ class TestDeleteGame:
 class TestCloneGame:
     @pytest.mark.asyncio
     async def test_clone_game_not_found(
-        self, mock_current_user_unit, mock_game_service, mock_role_service, clone_data
+        self, mock_current_user_unit, mock_game_service, mock_role_service
     ):
         mock_game_service.clone_game.side_effect = ValueError("Game not found")
 
         with pytest.raises(HTTPException) as exc_info:
             await games_routes.clone_game(
                 game_id="game-1",
-                clone_data=clone_data,
+                scheduled_at="2026-07-01T20:00:00Z",
                 current_user=mock_current_user_unit,
                 game_service=mock_game_service,
                 role_service=mock_role_service,
@@ -267,14 +257,14 @@ class TestCloneGame:
 
     @pytest.mark.asyncio
     async def test_clone_game_forbidden(
-        self, mock_current_user_unit, mock_game_service, mock_role_service, clone_data
+        self, mock_current_user_unit, mock_game_service, mock_role_service
     ):
         mock_game_service.clone_game.side_effect = ValueError("Not the host")
 
         with pytest.raises(HTTPException) as exc_info:
             await games_routes.clone_game(
                 game_id="game-1",
-                clone_data=clone_data,
+                scheduled_at="2026-07-01T20:00:00Z",
                 current_user=mock_current_user_unit,
                 game_service=mock_game_service,
                 role_service=mock_role_service,

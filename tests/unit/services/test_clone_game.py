@@ -399,6 +399,112 @@ async def test_clone_game_skips_image_ref_increment_when_source_has_no_images(
 
 
 @pytest.mark.asyncio
+async def test_clone_game_forwards_media_params_to_create_game(
+    game_service, source_game, current_user, role_service
+):
+    """clone_game forwards raw thumbnail/image bytes straight through to the
+    delegated create_game call, exactly as create_game's own route does for itself.
+    """
+    new_game = _new_game_mock()
+
+    with (
+        patch.object(game_service, "get_game", new=AsyncMock(return_value=source_game)),
+        patch("services.api.dependencies.permissions.can_manage_game", return_value=True),
+        patch.object(
+            game_service, "create_game", new=AsyncMock(return_value=new_game)
+        ) as mock_create,
+    ):
+        await game_service.clone_game(
+            source_game_id=source_game.id,
+            clone_data=_make_clone_request(),
+            current_user=current_user,
+            role_service=role_service,
+            thumbnail_data=b"thumb-bytes",
+            thumbnail_mime_type="image/png",
+            image_data=b"image-bytes",
+            image_mime_type="image/jpeg",
+        )
+
+    assert mock_create.call_args.kwargs["thumbnail_data"] == b"thumb-bytes"
+    assert mock_create.call_args.kwargs["thumbnail_mime_type"] == "image/png"
+    assert mock_create.call_args.kwargs["image_data"] == b"image-bytes"
+    assert mock_create.call_args.kwargs["image_mime_type"] == "image/jpeg"
+
+
+@pytest.mark.asyncio
+async def test_clone_game_skips_ref_copy_for_fields_with_new_upload(
+    game_service, source_game, current_user, role_service
+):
+    """When new thumbnail/image data is supplied, create_game's own upload path
+    already set thumbnail_id/banner_image_id on the returned game, so clone_game's
+    ref-copy step must leave those fields alone and never call increment_image_ref
+    for them.
+    """
+    source_game.thumbnail_id = "source-thumbnail-uuid"
+    source_game.banner_image_id = "source-banner-uuid"
+    new_game = _new_game_mock()
+    new_game.thumbnail_id = "freshly-uploaded-thumbnail-uuid"
+    new_game.banner_image_id = "freshly-uploaded-banner-uuid"
+
+    with (
+        patch.object(game_service, "get_game", new=AsyncMock(return_value=source_game)),
+        patch("services.api.dependencies.permissions.can_manage_game", return_value=True),
+        patch.object(game_service, "create_game", new=AsyncMock(return_value=new_game)),
+        patch("services.api.services.games.increment_image_ref", new=AsyncMock()) as mock_increment,
+    ):
+        result = await game_service.clone_game(
+            source_game_id=source_game.id,
+            clone_data=_make_clone_request(),
+            current_user=current_user,
+            role_service=role_service,
+            thumbnail_data=b"thumb-bytes",
+            thumbnail_mime_type="image/png",
+            image_data=b"image-bytes",
+            image_mime_type="image/jpeg",
+        )
+
+    assert result.thumbnail_id == "freshly-uploaded-thumbnail-uuid"
+    assert result.banner_image_id == "freshly-uploaded-banner-uuid"
+    mock_increment.assert_not_awaited()
+    game_service.db.add.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_clone_game_ref_copies_banner_only_when_only_thumbnail_uploaded(
+    game_service, source_game, current_user, role_service
+):
+    """A new thumbnail upload with no new banner image results in a mixed outcome:
+    the thumbnail is left alone (create_game already set it) while the banner is
+    still ref-copied from the source game by reference.
+    """
+    source_game.thumbnail_id = "source-thumbnail-uuid"
+    source_game.banner_image_id = "source-banner-uuid"
+    new_game = _new_game_mock()
+    new_game.thumbnail_id = "freshly-uploaded-thumbnail-uuid"
+
+    with (
+        patch.object(game_service, "get_game", new=AsyncMock(return_value=source_game)),
+        patch("services.api.dependencies.permissions.can_manage_game", return_value=True),
+        patch.object(game_service, "create_game", new=AsyncMock(return_value=new_game)),
+        patch("services.api.services.games.increment_image_ref", new=AsyncMock()) as mock_increment,
+    ):
+        result = await game_service.clone_game(
+            source_game_id=source_game.id,
+            clone_data=_make_clone_request(),
+            current_user=current_user,
+            role_service=role_service,
+            thumbnail_data=b"thumb-bytes",
+            thumbnail_mime_type="image/png",
+        )
+
+    assert result.thumbnail_id == "freshly-uploaded-thumbnail-uuid"
+    assert result.banner_image_id == "source-banner-uuid"
+    mock_increment.assert_awaited_once_with(game_service.db, "source-banner-uuid")
+    game_service.db.add.assert_called_once_with(new_game)
+    game_service.db.flush.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_clone_game_propagates_create_game_value_error(
     game_service, source_game, current_user, role_service
 ):
