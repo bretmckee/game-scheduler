@@ -157,15 +157,15 @@ re-derived from the submitted roster.
       no-crash, fetch-error/loading states)
   - Details: .copilot-tracking/planning/details/20260915-01-clone-game-review-redesign-details.md (Lines 778-788)
 
-### [ ] Phase 9: Wire `CloneGame.tsx`'s Submit Handler to the Extended Clone Endpoint
+### [x] Phase 9: Wire `CloneGame.tsx`'s Submit Handler to the Extended Clone Endpoint
 
-- [ ] Task 9.1: Write failing submit-handler tests covering the full `GameFormData` → multipart
+- [x] Task 9.1: Write failing submit-handler tests covering the full `GameFormData` → multipart
       `CloneGameRequest` field mapping (including raw file uploads) and the `invalid_mentions`
       error-handling path
   - Details: .copilot-tracking/planning/details/20260915-01-clone-game-review-redesign-details.md (Lines 790-820)
-- [ ] Task 9.2: Implement the submit handler; remove `test.failing` markers
+- [x] Task 9.2: Implement the submit handler; remove `test.failing` markers
   - Details: .copilot-tracking/planning/details/20260915-01-clone-game-review-redesign-details.md (Lines 822-828)
-- [ ] Task 9.3: Refactor and full end-to-end frontend flow verification
+- [x] Task 9.3: Refactor and full end-to-end frontend flow verification
   - Details: .copilot-tracking/planning/details/20260915-01-clone-game-review-redesign-details.md (Lines 830-838)
 
 ### [ ] Phase 10: Update the E2E Test to Reflect Title-At-Clone-Time

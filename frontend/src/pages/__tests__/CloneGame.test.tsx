@@ -486,8 +486,13 @@ describe('CloneGame', () => {
       expect(mockNavigate).toHaveBeenCalledWith('/games/game123');
     });
 
-    it('surfaces an error when Stage 2 is submitted (clone submission not yet wired)', async () => {
+    // Renamed from the Phase 8 stub-era "clone submission not yet wired" test now that
+    // Phase 9 wires a real submit handler; the assertion is unchanged -- a generic
+    // (non-invalid_mentions) submission failure still surfaces via GameForm's own
+    // fallback error banner (Task 9.3 refactor).
+    it('shows GameForm generic error banner when the clone request fails for an unhandled reason', async () => {
       vi.mocked(apiClient.get).mockImplementation(mockGetImpl);
+      vi.mocked(apiClient.post).mockRejectedValueOnce(new Error('Network error'));
       const user = userEvent.setup();
       renderCloneGame();
 
@@ -503,6 +508,196 @@ describe('CloneGame', () => {
       await waitFor(() => {
         expect(screen.getByText('Failed to submit. Please try again.')).toBeInTheDocument();
       });
+      expect(mockNavigate).not.toHaveBeenCalled();
+    });
+  });
+
+  // Task 9.1: written first against Task 8's `throw new Error('Clone submission not yet
+  // implemented')` stub (vitest 4 has no `.failing()` marker -- see CloneGame.test.tsx's
+  // own Task 8.1 note and GameForm.errors-location.test.tsx for the established
+  // convention), run and confirmed failing for a real reason (handleSubmit unconditionally
+  // threw, so apiClient.post was never called and the payload assertions below never ran),
+  // then Task 9.2 implemented the real handler without changing any assertion, and the
+  // tests were re-run and confirmed passing.
+  describe('submit handler (Task 9.1/9.2/9.3)', () => {
+    const richGame: GameSession = {
+      ...mockGame,
+      where: 'The Tavern',
+      signup_instructions: 'Bring your own dice',
+      // 120 (a DurationSelector preset) rather than a custom value -- a non-preset value
+      // mounts DurationSelector in "custom" mode, which has a pre-existing infinite
+      // render loop bug (an unmemoized onChange prop feeding a useCallback/useEffect
+      // pair) unrelated to this phase; see the changes-tracking file's Phase 9 note.
+      expected_duration_minutes: 120,
+      recur_rule: 'FREQ=WEEKLY',
+      remind_host_rewards: true,
+      reminders_as_dms: false,
+      reminder_minutes: [15, 60],
+    };
+
+    const richGetImpl = (url: string) => {
+      if (url.includes('/games/')) return Promise.resolve({ data: richGame });
+      if (url.includes('/config')) return Promise.resolve({ status: 200, data: {} });
+      return Promise.reject(new Error(`Unexpected URL: ${url}`));
+    };
+
+    it('posts a multipart clone request mapping every GameFormData field plus Stage 1 carryover/deadline state, and navigates to the new game on success', async () => {
+      vi.mocked(apiClient.get).mockImplementation(richGetImpl);
+      vi.mocked(apiClient.post).mockResolvedValue({ data: { id: 'cloned-game-id' } });
+      const user = userEvent.setup();
+      renderCloneGame();
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Game To Clone')).toBeInTheDocument();
+      });
+
+      // Player carryover: YES_WITH_DEADLINE with a future deadline.
+      const playerSelect = screen.getByLabelText('Player Carryover');
+      await user.click(playerSelect);
+      await user.click(await screen.findByRole('option', { name: /confirmation deadline/i }));
+      const playerDeadlineInput = await screen.findByLabelText('Player Confirmation Deadline');
+      const playerDeadlineDate = new Date(Date.now() + 3600_000);
+      fireEvent.change(playerDeadlineInput, {
+        target: { value: playerDeadlineDate.toISOString() },
+      });
+
+      // Waitlist carryover: YES (no deadline) -- exercises the sibling carryover field
+      // independently of the player deadline set above.
+      const waitlistSelect = screen.getByLabelText('Waitlist Carryover');
+      await user.click(waitlistSelect);
+      await user.click(await screen.findByRole('option', { name: /carry over existing players/i }));
+
+      await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Create Game' })).toBeInTheDocument();
+      });
+
+      // Edit a couple of GameForm fields and attach a new thumbnail to confirm live host
+      // edits -- not just carried-over defaults -- round-trip into the outgoing payload.
+      const titleInput = await screen.findByLabelText(/^Game Title/);
+      await user.clear(titleInput);
+      await user.type(titleInput, 'Cloned Title');
+
+      const hostInput = screen.getByLabelText('Game Host');
+      await user.type(hostInput, '@newhost');
+
+      const thumbnailInput = screen.getByLabelText(/thumbnail/i) as HTMLInputElement;
+      const thumbnailFile = new File(['data'], 'thumb.png', { type: 'image/png' });
+      await user.upload(thumbnailInput, thumbnailFile);
+
+      await user.click(screen.getByRole('button', { name: 'Create Game' }));
+
+      await waitFor(() => {
+        expect(apiClient.post).toHaveBeenCalled();
+      });
+      expect(mockNavigate).toHaveBeenCalledWith('/games/cloned-game-id');
+
+      const postCall = vi.mocked(apiClient.post).mock.calls[0];
+      expect(postCall).toBeDefined();
+      const [url, body, config] = postCall!;
+      expect(url).toBe('/api/v1/games/game123/clone');
+      expect(config).toEqual({ headers: { 'Content-Type': 'multipart/form-data' } });
+
+      const formData = body as FormData;
+      expect(formData.get('scheduled_at')).toBeTruthy();
+      expect(formData.get('title')).toBe('Cloned Title');
+      expect(formData.get('description')).toBe('A game description');
+      expect(formData.get('where')).toBe('The Tavern');
+      expect(formData.get('signup_instructions')).toBe('Bring your own dice');
+      expect(formData.get('max_players')).toBe('4');
+      expect(formData.get('expected_duration_minutes')).toBe('120');
+      expect(formData.get('signup_method')).toBe('SELF_SIGNUP');
+      expect(formData.get('reminder_minutes')).toBe(JSON.stringify([15, 60]));
+      expect(formData.get('participants')).toBe(JSON.stringify(['@ExistingPlayer']));
+      expect(formData.get('host')).toBe('@newhost');
+      expect(formData.get('remind_host_rewards')).toBe('true');
+      expect(formData.get('reminders_as_dms')).toBe('false');
+      expect(formData.get('recur_rule')).toBe('FREQ=WEEKLY');
+      expect(formData.get('player_carryover')).toBe('YES_WITH_DEADLINE');
+      expect(formData.get('waitlist_carryover')).toBe('YES');
+      expect(formData.get('player_deadline')).toBe(playerDeadlineDate.toISOString());
+      expect(formData.get('waitlist_deadline')).toBeNull();
+
+      const thumbnail = formData.get('thumbnail') as File;
+      expect(thumbnail).toBeInstanceOf(File);
+      expect(thumbnail.name).toBe('thumb.png');
+    });
+
+    it('omits optional text fields and the host override, and sends an empty participants list, when nothing was carried over or edited', async () => {
+      vi.mocked(apiClient.get).mockImplementation(mockGetImpl);
+      vi.mocked(apiClient.post).mockResolvedValue({ data: { id: 'cloned-game-id-2' } });
+      const user = userEvent.setup();
+      renderCloneGame();
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Game To Clone')).toBeInTheDocument();
+      });
+
+      // Default Stage 1 state: both carryovers NO.
+      await user.click(screen.getByRole('button', { name: 'Continue' }));
+      await user.click(await screen.findByRole('button', { name: 'Create Game' }));
+
+      await waitFor(() => {
+        expect(apiClient.post).toHaveBeenCalled();
+      });
+
+      const formData = vi.mocked(apiClient.post).mock.calls[0]![1] as FormData;
+      expect(formData.get('participants')).toBe('[]');
+      expect(formData.get('player_carryover')).toBe('NO');
+      expect(formData.get('waitlist_carryover')).toBe('NO');
+      expect(formData.get('player_deadline')).toBeNull();
+      expect(formData.get('waitlist_deadline')).toBeNull();
+      expect(formData.get('host')).toBeNull();
+      expect(formData.get('thumbnail')).toBeNull();
+      expect(formData.get('image')).toBeNull();
+      expect(formData.get('post_at')).toBeNull();
+    });
+
+    it('populates GameForm validation state and does not navigate when the clone request returns an invalid_mentions 422 response', async () => {
+      vi.mocked(apiClient.get).mockImplementation(mockGetImpl);
+      vi.mocked(apiClient.post).mockRejectedValueOnce({
+        response: {
+          status: 422,
+          data: {
+            detail: {
+              error: 'invalid_mentions',
+              message: 'Some mentions could not be resolved',
+              invalid_mentions: [
+                {
+                  input: '@unknownuser',
+                  reason: "User '@unknownuser' not found",
+                  suggestions: [],
+                },
+                {
+                  type: 'not_found',
+                  input: '#nonexistent',
+                  reason: "Channel '#nonexistent' not found",
+                  suggestions: [],
+                },
+              ],
+              valid_participants: [],
+            },
+          },
+        },
+      });
+      const user = userEvent.setup();
+      renderCloneGame();
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Game To Clone')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: 'Continue' }));
+      await user.click(await screen.findByRole('button', { name: 'Create Game' }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Could not resolve some @mentions')).toBeInTheDocument();
+      });
+      expect(screen.getByText(/User '@unknownuser' not found/)).toBeInTheDocument();
+      expect(screen.getByText('Invalid channel reference')).toBeInTheDocument();
+      expect(screen.getByText(/Channel '#nonexistent' not found/)).toBeInTheDocument();
+      expect(mockNavigate).not.toHaveBeenCalled();
     });
   });
 });

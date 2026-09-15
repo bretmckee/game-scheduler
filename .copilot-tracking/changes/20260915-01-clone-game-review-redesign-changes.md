@@ -705,3 +705,111 @@ thumbnail/banner` (Task 8.3 edge case; same retrofit rule)
 - `uv run pytest tests/unit` — 2594 passed (unchanged from Phase 7 -- this phase touches
   only frontend files)
 - `uv run mypy shared/ services/` — Success: no issues found in 155 source files
+
+## Phase 9: Wire `CloneGame.tsx`'s Submit Handler to the Extended Clone Endpoint
+
+Replaced Phase 8's `handleSubmit` stub (`throw new Error('Clone submission not yet
+implemented')`) with a real handler that maps the full `GameFormData` (plus Stage 1's live
+`playerCarryover`/`waitlistCarryover`/`playerDeadline`/`waitlistDeadline` state at submit
+time) onto a `multipart/form-data` `FormData` payload matching the Phase 6 `POST
+/api/v1/games/{gameId}/clone` route's `Form()`/`File()` contract field-for-field, mirroring
+`CreateGame.tsx`'s `handleSubmit` almost verbatim: `scheduled_at` always sent; `title`/
+`description`/`where`/`signup_instructions`/`max_players`/`expected_duration_minutes`/
+`signup_method`/`recur_rule`/`post_at` sent only when non-empty/non-null (omit-if-unset, so
+the backend inherits the source game's value); `reminder_minutes` and `participants` always
+sent as JSON-stringified arrays (`participants` mapped via `p.resolvedMention ?? p.mention
+.trim()`, filtered to non-empty, exactly as `CreateGame.tsx` does -- not `EditGame.tsx`'s
+`participant_id`-based payload, since the cloned game has no pre-existing `GameParticipant`
+rows to reference); `host` sent only when `isBotManager` and non-empty; `thumbnail`/`image`
+raw `File` objects sent only when a new file was attached; `remind_host_rewards`/
+`reminders_as_dms` always sent as `'true'`/`'false'`; `player_carryover`/`waitlist_carryover`
+always sent, `player_deadline`/`waitlist_deadline` sent only when set. On success, navigates
+to `/games/{response.data.id}` (unchanged target). On an `invalid_mentions` 422 response,
+partitions `invalid_mentions` into participant vs. channel errors (deduplicated by input,
+mirroring `CreateGame.tsx` lines 253-288 almost verbatim) and populates new local
+`validationErrors`/`channelValidationErrors`/`validParticipants` state, now passed into
+`<GameForm>`, without rethrowing (leaves the form open for corrections). Any other error
+(network failure, a plain-message 4xx/5xx) is rethrown unchanged so `GameForm`'s own
+existing submit handler surfaces its generic fallback error banner -- no duplicate
+CloneGame-level error banner was added, since `GameForm` already renders one.
+
+**Notable finding, out of scope for this phase:** while writing Task 9.1's tests, a
+pre-existing infinite-render-loop bug was discovered in `DurationSelector.tsx` (used by
+`GameForm`, and therefore by `CreateGame.tsx`/`EditGame.tsx`/`CloneGame.tsx` alike): when a
+game's `expected_duration_minutes` is a non-preset custom value (anything other than `120`,
+`240`, or `null`) at mount time, `DurationSelector` starts in "custom" mode, and its
+`useEffect`/`useCallback` pair depends on the unmemoized `onChange` prop (`GameForm`'s
+`handleDurationChange`, a fresh function identity every render) -- calling it triggers a
+parent re-render, which creates a new `onChange` identity, which re-fires the effect,
+forming a synchronous infinite loop that pegs the CPU and hangs the whole page (reproduced
+and bisected down to this single field via a throwaway repro test; not a vitest/jsdom
+quirk). No test anywhere in the existing suite had ever set a non-preset
+`expected_duration_minutes` on a game mounted into `GameForm`, so this had never
+surfaced before. Not fixed here (out of Phase 9's scope -- `DurationSelector.tsx` is
+unrelated to the clone-game redesign); this phase's own test data uses `120` (a preset) to
+avoid triggering it. Flagged for a future, separately-scoped fix.
+
+### Added
+
+- `frontend/src/pages/__tests__/CloneGame.test.tsx` — new `describe('submit handler (Task
+9.1/9.2/9.3)')` block, written first against Task 8's stub (this project's vitest 4 has no
+  `.failing()` marker; followed the same established RED-stub convention as Task 8.1: run
+  and confirmed failing for a real reason -- `apiClient.post` never called, all payload
+  assertions failing -- then Task 9.2 implemented the real handler with no assertion
+  changes, tests re-run and confirmed passing):
+  - `posts a multipart clone request mapping every GameFormData field plus Stage 1
+carryover/deadline state, and navigates to the new game on success` — sets both
+    carryover selects (`YES_WITH_DEADLINE` with a deadline, and `YES`), edits the title and
+    host fields, attaches a new thumbnail file, and asserts every `FormData` field
+    (including the `thumbnail` file part, satisfying Task 9.3's explicit file-upload
+    assertion) matches
+  - `omits optional text fields and the host override, and sends an empty participants
+list, when nothing was carried over or edited` — default Stage 1 state (`NO`/`NO`),
+    confirms the omit-if-unset fields are absent and `participants`/carryover fields reflect
+    the empty/default state
+  - `populates GameForm validation state and does not navigate when the clone request
+returns an invalid_mentions 422 response` — asserts both the participant-mention
+    (`ValidationErrors`) and channel-mention (`ChannelValidationErrors`) error UI render and
+    that `mockNavigate` is never called
+  - `richGame`/`richGetImpl` fixtures (a source game with `where`/`signup_instructions`/
+    `expected_duration_minutes`/`recur_rule`/`remind_host_rewards`/`reminders_as_dms`/
+    `reminder_minutes` all set to non-default values) shared by the first two new tests, to
+    exercise the omit-if-unset fields' truthy branches without needing fragile UI
+    interaction with `DurationSelector`/`RecurrenceSelector`/`ReminderSelector`
+- Renamed the pre-existing Task 8.3 test `surfaces an error when Stage 2 is submitted
+(clone submission not yet wired)` to `shows GameForm generic error banner when the clone
+request fails for an unhandled reason` (Task 9.3 refactor -- the old name described the
+  Phase 8 stub, which Phase 9 replaced) and gave it an explicit
+  `apiClient.post.mockRejectedValueOnce(new Error('Network error'))` instead of relying on
+  the implicit auto-mock-returns-`undefined` `TypeError` it exercised before; the assertion
+  (`'Failed to submit. Please try again.'` renders, via `GameForm`'s own fallback banner) is
+  unchanged and still passes against the real handler, since a non-`invalid_mentions` error
+  is still rethrown.
+
+### Modified
+
+- `frontend/src/pages/CloneGame.tsx` — added `StatusCodes` import and the
+  `ValidationError`/`ChannelValidationError`/`ValidationErrorResponse` local interfaces
+  (duplicated per-page, matching `CreateGame.tsx`/`EditGame.tsx`'s existing convention
+  rather than a shared module); added `validationErrors`/`validParticipants`/
+  `channelValidationErrors` state, now passed into `<GameForm>`; replaced the Phase 8
+  `handleSubmit` stub with the real implementation described above (Task 9.2).
+
+### Verification
+
+- `npx vitest run src/pages/__tests__/CloneGame.test.tsx` — the 3 new Task 9.1 tests
+  confirmed failing against Task 8's stub (genuine RED: `apiClient.post` never called),
+  all 18 tests in the file `PASSED` after Task 9.2's implementation
+- `cd frontend && npm run test` — 47 files, 512 tests passed (509 Phase-8 baseline + 3 net
+  new; no regressions elsewhere)
+- `cd frontend && npm run build` — `tsc` + `vite build` succeeded, no TypeScript errors
+- `npx eslint src/pages/CloneGame.tsx src/pages/__tests__/CloneGame.test.tsx` — no issues
+- `npx prettier --check src/pages/CloneGame.tsx src/pages/__tests__/CloneGame.test.tsx` —
+  all matched files use Prettier code style
+- `scripts/run-frontend-coverage.sh` + `python3 scripts/check_diff_coverage_frontend.py`
+  (staged diff against `origin/develop`) — exits 0 (no output); `CloneGame.tsx` file-level
+  line coverage 100% (statement coverage 96.66%, the few uncovered statements are pre-Phase-9
+  Stage 1 lines outside this phase's diff)
+- `uv run pytest tests/unit` — 2594 passed (unchanged from Phase 8 -- this phase touches
+  only frontend files)
+- `uv run mypy shared/ services/` — Success: no issues found in 155 source files
