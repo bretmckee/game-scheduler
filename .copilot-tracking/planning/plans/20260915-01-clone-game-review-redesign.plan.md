@@ -168,9 +168,9 @@ re-derived from the submitted roster.
 - [x] Task 9.3: Refactor and full end-to-end frontend flow verification
   - Details: .copilot-tracking/planning/details/20260915-01-clone-game-review-redesign-details.md (Lines 830-838)
 
-### [ ] Phase 10: Update the E2E Test to Reflect Title-At-Clone-Time
+### [x] Phase 10: Update the E2E Test to Reflect Title-At-Clone-Time
 
-- [ ] Task 10.1: Remove the post-clone rename workaround from `tests/e2e/test_clone_game_e2e.py`; set the
+- [x] Task 10.1: Remove the post-clone rename workaround from `tests/e2e/test_clone_game_e2e.py`; set the
       title directly via the clone request's override field
   - Details: .copilot-tracking/planning/details/20260915-01-clone-game-review-redesign-details.md (Lines 840-857)
 

@@ -813,3 +813,76 @@ request fails for an unhandled reason` (Task 9.3 refactor -- the old name descri
 - `uv run pytest tests/unit` — 2594 passed (unchanged from Phase 8 -- this phase touches
   only frontend files)
 - `uv run mypy shared/ services/` — Success: no issues found in 155 source files
+
+## Phase 10: Update the E2E Test to Reflect Title-At-Clone-Time
+
+Removed `tests/e2e/test_clone_game_e2e.py`'s post-clone rename workaround (research doc
+line 55's "live illustration of exactly the UX problem this whole redesign fixes"): the
+follow-up `PUT /{new_game_id}` that renamed the cloned game "so our DM check can find it
+by title" is gone; the clone `POST` now sends the desired `title` directly as a Form
+field (the Phase 2 override field, submitted via Phase 6's multipart contract), and a new
+assertion confirms the clone response's `title` matches immediately, with no second
+request needed.
+
+Making the test pass end-to-end under the fully-delegated contract needed two more fixes,
+both surfaced only by actually running the file to completion (it was excluded from every
+prior phase's gates per Phase 6/7's notes):
+
+- Phase 5 made the new game's roster (and therefore deadline-carryover eligibility)
+  submitted-list-driven rather than carryover-flag-driven: a participant is only carried
+  over if their `<@discord_id>` mention is present in the clone request's own
+  `participants` field, matched back to the source game's confirmed/waitlist partition.
+  The e2e test's clone request never set `participants`, so under the new contract the
+  cloned game would have had zero participants and every downstream assertion (the
+  `ParticipantActionSchedule` row, the `clone_confirmation` DM, the auto-drop) would have
+  found nothing to act on. Fixed by adding the same `<@{discord_user_id}>` mention already
+  used for the source game's `initial_participants` to the clone request's `participants`
+  field.
+- Running the test for real (rather than the mechanical json-to-multipart swap Phase 6
+  made without executing it) surfaced a pre-existing hermeticity gap unrelated to the
+  title/participants changes: the test resolves `<@discord_id>` mentions (both for the
+  source game and, now, for the clone), which creates a `users` row as a side effect, but
+  the test never depended on the fixture that cleans that row up. `tests/e2e/conftest.py`'s
+  session-wide "stray `users.discord_id` row" hook (added to catch exactly this class of
+  bug) failed the test at teardown even though the test body itself passed. Fixed by adding
+  `test_user_discord_user_id` as a fixture dependency -- the same pre-existing,
+  hermetic-create-then-delete fixture already used identically by
+  `tests/e2e/test_join_notification.py` and `tests/e2e/test_waitlist_promotion.py` for the
+  same reason.
+
+### Added
+
+- (none -- no new files; Phase 10 only edits the existing e2e test)
+
+### Modified
+
+- `tests/e2e/test_clone_game_e2e.py` (Task 10.1):
+  - Removed the post-clone `PUT /{new_game_id}` rename call and its status-code assertion.
+  - Added `"title": clone_title` to the clone request's Form data.
+  - Added `"participants": json.dumps([f"<@{discord_user_id}>"])` to the clone request so
+    the carried-over participant is present in the submitted-list-driven roster and is
+    therefore deadline-carryover-eligible under the Phase 5 contract.
+  - Added `assert clone_data["title"] == clone_title` immediately after the clone response,
+    replacing the removed rename step's implicit confirmation.
+  - Added `test_user_discord_user_id` as a test fixture dependency to hermetically clean up
+    the `users` row created as a side effect of `<@discord_id>` mention resolution.
+
+### Verification
+
+- `uv run pytest tests/unit` -- 2594 passed (unchanged; Phase 10 touches only
+  `tests/e2e/test_clone_game_e2e.py`)
+- `uv run mypy shared/ services/` -- Success: no issues found in 155 source files
+- `cd frontend && npm run build` -- `tsc` + `vite build` succeeded (unchanged; no frontend
+  files touched)
+- `cd frontend && npm run test` -- 47 files, 512 tests passed (unchanged)
+- `uv run ruff check tests/e2e/test_clone_game_e2e.py` -- All checks passed
+- `uv run ruff format --check tests/e2e/test_clone_game_e2e.py` -- 1 file already formatted
+- `scripts/run-e2e-tests.sh tests/e2e/test_clone_game_e2e.py` (output captured with `tee`
+  per `.github/instructions/test-execution.instructions.md`) -- `1 passed in 139.17s`, no
+  teardown/hermeticity errors, exit code 0 (`End-to-end tests passed!`). An earlier attempt
+  (before the `test_user_discord_user_id` fixture fix) reproduced the stray-row teardown
+  failure described above; a couple of subsequent attempts failed only at container startup
+  with transient Discord Gateway `503 Invalid response status` errors on the bot's
+  websocket handshake (external Discord-side flakiness from repeated rapid
+  reconnects/re-identifies during iteration, unrelated to this change) before a clean run
+  succeeded.

@@ -74,6 +74,7 @@ async def test_clone_game_yes_with_deadline_sends_confirmation_dm_and_auto_drops
     discord_guild_id,
     synced_guild,
     test_timeouts,
+    test_user_discord_user_id,
 ):
     """
     E2E: YES_WITH_DEADLINE carryover sends confirmation DM; non-confirming participant is dropped.
@@ -141,9 +142,11 @@ async def test_clone_game_yes_with_deadline_sends_confirmation_dm_and_auto_drops
     clone_response = await authenticated_admin_client.post(
         f"/api/v1/games/{source_game_id}/clone",
         data={
+            "title": clone_title,
             "scheduled_at": clone_at.isoformat(),
             "player_carryover": "YES_WITH_DEADLINE",
             "player_deadline": deadline.isoformat(),
+            "participants": json.dumps([f"<@{discord_user_id}>"]),
         },
     )
     assert clone_response.status_code == 201, (
@@ -151,14 +154,8 @@ async def test_clone_game_yes_with_deadline_sends_confirmation_dm_and_auto_drops
     )
     clone_data = clone_response.json()
     new_game_id = clone_data["id"]
-
-    # Rename the cloned game so our DM check can find it by title
-    rename_response = await authenticated_admin_client.put(
-        f"/api/v1/games/{new_game_id}",
-        data={"title": clone_title},
-    )
-    assert rename_response.status_code == 200, (
-        f"Failed to rename cloned game: {rename_response.text}"
+    assert clone_data["title"] == clone_title, (
+        f"Cloned game title must be set at clone time: {clone_data['title']!r}"
     )
 
     print(f"[TEST] Cloned game created: {new_game_id}")
