@@ -706,6 +706,86 @@ async def test_resolve_game_host_resolution_failure_wraps_exception(
 
 
 @pytest.mark.asyncio
+async def test_resolve_game_host_default_host_user_id_used_when_no_override(
+    game_service, mock_db, sample_game_data, sample_guild
+):
+    """Test _resolve_game_host resolves to default_host_user_id, not requester, when no override."""
+    requester_user = user_model.User(id=str(uuid.uuid4()), discord_id="111")
+    default_host_user = user_model.User(id=str(uuid.uuid4()), discord_id="222")
+    sample_game_data.host = None
+
+    host_result = MagicMock()
+    host_result.scalar_one_or_none.return_value = default_host_user
+    mock_db.execute = AsyncMock(return_value=host_result)
+
+    host_user_id, host_user = await game_service._resolve_game_host(
+        sample_game_data,
+        sample_guild,
+        requester_user.id,
+        default_host_user_id=default_host_user.id,
+    )
+
+    assert host_user_id == default_host_user.id
+    assert host_user == default_host_user
+
+
+@pytest.mark.asyncio
+async def test_resolve_game_host_default_host_user_id_does_not_change_permission_subject(
+    game_service,
+    mock_db,
+    mock_participant_resolver,
+    sample_game_data,
+    sample_guild,
+    sample_user,
+):
+    """Test bot-manager permission check runs against the requester, not the default host."""
+    other_user = user_model.User(id=str(uuid.uuid4()), discord_id="999")
+    default_host_user = user_model.User(id=str(uuid.uuid4()), discord_id="222")
+    sample_game_data.host = "@otheruser"
+
+    requester_result = MagicMock()
+    requester_result.scalar_one_or_none.return_value = sample_user
+
+    resolved_host_result = MagicMock()
+    resolved_host_result.scalar_one_or_none.return_value = other_user
+
+    final_host_result = MagicMock()
+    final_host_result.scalar_one_or_none.return_value = other_user
+
+    mock_db.execute = AsyncMock(
+        side_effect=[requester_result, resolved_host_result, final_host_result]
+    )
+
+    mock_participant_resolver.resolve_initial_participants = AsyncMock(
+        return_value=(
+            [{"type": "discord", "discord_id": "999"}],
+            [],
+        )
+    )
+
+    mock_role_service = AsyncMock()
+    mock_role_service.check_bot_manager_permission = AsyncMock(return_value=True)
+
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
+        host_user_id, host_user = await game_service._resolve_game_host(
+            sample_game_data,
+            sample_guild,
+            sample_user.id,
+            default_host_user_id=default_host_user.id,
+        )
+
+    # The override wins regardless of default_host_user_id, and the permission
+    # check was verified against the requester (sample_user), not the default host.
+    assert host_user_id == other_user.id
+    assert host_user == other_user
+    mock_role_service.check_bot_manager_permission.assert_awaited_once_with(
+        sample_user.discord_id,
+        sample_guild.guild_id,
+        mock_db,
+    )
+
+
+@pytest.mark.asyncio
 async def test_create_participant_records_with_discord_user(
     game_service,
     mock_db,

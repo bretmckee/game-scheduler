@@ -237,6 +237,7 @@ class GameService:
         game_data: game_schemas.GameCreateRequest,
         guild_config: guild_model.GuildConfiguration,
         requester_user_id: str,
+        default_host_user_id: str | None = None,
     ) -> tuple[str, user_model.User]:
         """
         Resolve game host, handling override for bot managers.
@@ -244,7 +245,13 @@ class GameService:
         Args:
             game_data: Game creation data with optional host override
             guild_config: Guild configuration for permission checks
-            requester_user_id: Database user ID of request initiator
+            requester_user_id: Database user ID of request initiator; also the
+                bot-manager-permission-check subject when game_data.host is set
+            default_host_user_id: Database user ID to use as the host when
+                game_data.host is not set. Defaults to requester_user_id when
+                omitted, preserving prior behavior. Callers (e.g. clone_game)
+                can pass a different value to decouple "who is requesting this"
+                from "who should host by default".
 
         Returns:
             Tuple of (host_user_id, host_user_object)
@@ -253,7 +260,9 @@ class GameService:
             ValueError: If user lacks bot manager permission or host cannot be resolved
             ValidationError: If host mention is invalid or not a Discord user
         """
-        actual_host_user_id = requester_user_id
+        actual_host_user_id = (
+            default_host_user_id if default_host_user_id is not None else requester_user_id
+        )
 
         if game_data.host and game_data.host.strip():
             await self._verify_bot_manager_permission(
@@ -678,6 +687,7 @@ class GameService:
         self,
         game_data: game_schemas.GameCreateRequest,
         host_user_id: str,
+        default_host_user_id: str | None = None,
         thumbnail_data: bytes | None = None,
         thumbnail_mime_type: str | None = None,
         image_data: bytes | None = None,
@@ -690,7 +700,11 @@ class GameService:
 
         Args:
             game_data: Game creation data with template_id
-            host_user_id: Host's database user ID (UUID)
+            host_user_id: Requesting user's database user ID (UUID); also the
+                bot-manager-permission-check subject when game_data.host is set
+            default_host_user_id: Database user ID to use as the host when
+                game_data.host is not set. Defaults to host_user_id when
+                omitted, preserving prior behavior for existing callers.
             thumbnail_data: Optional thumbnail image binary data
             thumbnail_mime_type: Optional thumbnail MIME type
             image_data: Optional banner image binary data
@@ -715,7 +729,7 @@ class GameService:
         # Resolve host (handles bot manager override)
         host_override = bool(game_data.host and game_data.host.strip())
         _actual_host_user_id, host_user = await self._resolve_game_host(
-            game_data, guild_config, host_user_id
+            game_data, guild_config, host_user_id, default_host_user_id
         )
 
         # Check if user can host games with this template.

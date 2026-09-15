@@ -108,9 +108,9 @@ re-derived from the submitted roster.
 - [x] Task 2.2: TDD cycle for the new schema tests
   - Details: .copilot-tracking/planning/details/20260915-01-clone-game-review-redesign-details.md (Lines 227-236)
 
-### [ ] Phase 3: Add `default_host_user_id` To `create_game`/`_resolve_game_host`
+### [x] Phase 3: Add `default_host_user_id` To `create_game`/`_resolve_game_host`
 
-- [ ] Task 3.1: Thread a separate default-host identity through host resolution so the bot-manager
+- [x] Task 3.1: Thread a separate default-host identity through host resolution so the bot-manager
       permission-check subject (`current_user`) and the default host (`source_game.host_id`) can differ
   - Details: .copilot-tracking/planning/details/20260915-01-clone-game-review-redesign-details.md (Lines 238-305)
 

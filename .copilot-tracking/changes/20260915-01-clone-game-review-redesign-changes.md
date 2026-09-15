@@ -83,3 +83,52 @@ Phase 4.
   `XFAIL` before the field additions, all 12 tests `PASSED` after (xfail markers removed)
 - `uv run pytest tests/unit` — 2585 passed
 - `uv run mypy shared/ services/` — Success: no issues found in 155 source files
+
+## Phase 3: Add `default_host_user_id` To `create_game`/`_resolve_game_host`
+
+Added a new, optional `default_host_user_id: str | None = None` parameter to both
+`_resolve_game_host` and `create_game`, threaded through unchanged. This decouples "who is
+performing the request" (the bot-manager-permission-check subject, still `requester_user_id`/
+`host_user_id`) from "who the game's host should default to when no `host` override is
+specified" (previously always the requester). `clone_game` (Phase 4) will pass
+`source_game.host_id` as `default_host_user_id` while still passing `current_user`'s ID as
+`host_user_id`, so a bot-manager-only host override on a clone is still checked against the
+cloning user, not the source game's host. Purely additive: when the new parameter is omitted
+(both existing call sites — `services/api/routes/games.py`'s `create_game` route, and
+`create_game`'s internal call to `_resolve_game_host`), behavior is byte-for-byte identical to
+before, since `default_host_user_id` defaults to `None`, which falls back to
+`requester_user_id`/`host_user_id` exactly as the old unconditional assignment did.
+
+### Added
+
+- `tests/unit/services/api/services/test_games_service.py` — two new tests for
+  `_resolve_game_host` (Task 3.1):
+  - `test_resolve_game_host_default_host_user_id_used_when_no_override` — RED case; written
+    first with `@pytest.mark.xfail(strict=True)` (confirmed `XFAIL` against pre-Phase-3 code,
+    since `_resolve_game_host` didn't accept the keyword yet), marker removed after the change;
+    asserts that with no `host` override, the resolved host is `default_host_user_id`, not the
+    requester
+  - `test_resolve_game_host_default_host_user_id_does_not_change_permission_subject` — RED case;
+    same xfail→remove cycle; with a `host` override set and `default_host_user_id` also passed,
+    asserts the override still wins and `check_bot_manager_permission` was called with the
+    requester's `discord_id` (not the default host's) — confirming the two identities stay
+    decoupled
+
+### Modified
+
+- `services/api/services/games.py` — `_resolve_game_host` gained `default_host_user_id: str |
+None = None`; `actual_host_user_id` now initializes from
+  `default_host_user_id if default_host_user_id is not None else requester_user_id` instead of
+  unconditionally from `requester_user_id`. `create_game` gained the same parameter (positioned
+  after `host_user_id`) and forwards it to `_resolve_game_host`. Docstrings updated on both
+  methods. No call sites changed — both existing calls use keyword arguments unaffected by the
+  new parameter's position, or omit it and get identical behavior. Not yet wired to
+  `clone_game` (Phase 4's job).
+
+### Verification
+
+- `uv run pytest tests/unit/services/api/services/test_games_service.py -k default_host_user_id -v`
+  — 2 new tests confirmed `XFAIL` before the parameter was added, both `PASSED` after (xfail
+  markers removed)
+- `uv run pytest tests/unit` — 2587 passed
+- `uv run mypy shared/ services/` — Success: no issues found in 155 source files
