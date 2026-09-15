@@ -61,24 +61,31 @@ def _insert_game_with_recur_rule(
     recur_rule: str,
     post_at: datetime | None = None,
     message_id: str | None = None,
+    template_id: str | None = None,
 ) -> str:
-    """Insert a game row directly via admin session with recur_rule set."""
+    """Insert a game row directly via admin session with recur_rule set.
+
+    template_id must be a real game_templates.id (not None) for a game that will be
+    passed through the clone endpoint: clone_game (Phase 4) delegates to create_game,
+    which requires a resolvable template_id.
+    """
     game_id = str(uuid.uuid4())
     admin_db_sync.execute(
         text(
             "INSERT INTO game_sessions "
-            "(id, guild_id, channel_id, host_id, title, description, "
+            "(id, guild_id, channel_id, host_id, template_id, title, description, "
             "scheduled_at, max_players, status, recur_rule, post_at, message_id, "
             "created_at, updated_at) "
-            "VALUES (:id, :guild_id, :channel_id, :host_id, :title, :description, "
-            ":scheduled_at, :max_players, :status, :recur_rule, :post_at, :message_id, "
-            ":created_at, :updated_at)"
+            "VALUES (:id, :guild_id, :channel_id, :host_id, :template_id, :title, "
+            ":description, :scheduled_at, :max_players, :status, :recur_rule, "
+            ":post_at, :message_id, :created_at, :updated_at)"
         ),
         {
             "id": game_id,
             "guild_id": guild_id,
             "channel_id": channel_id,
             "host_id": host_id,
+            "template_id": template_id,
             "title": "Recurrence Integration Test Game",
             "description": "Integration test game for recurrence lifecycle",
             "scheduled_at": datetime.now(UTC) + timedelta(hours=2),
@@ -153,6 +160,7 @@ async def test_recur_rule_propagated_through_clone_endpoint(
     create_user,
     create_guild,
     create_channel,
+    create_template,
     seed_redis_cache,
     api_base_url,
 ):
@@ -163,6 +171,7 @@ async def test_recur_rule_propagated_through_clone_endpoint(
     )
     channel = create_channel(guild_id=guild["id"], discord_channel_id="610222222222222202")
     host = create_user(discord_user_id=HOST_DISCORD_ID)
+    template = create_template(guild_id=guild["id"], channel_id=channel["id"])
 
     source_id = _insert_game_with_recur_rule(
         admin_db_sync,
@@ -170,6 +179,7 @@ async def test_recur_rule_propagated_through_clone_endpoint(
         channel_id=channel["id"],
         host_id=host["id"],
         recur_rule=RECUR_RULE,
+        template_id=template["id"],
     )
 
     await seed_redis_cache(

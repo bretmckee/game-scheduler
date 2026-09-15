@@ -114,13 +114,13 @@ re-derived from the submitted roster.
       permission-check subject (`current_user`) and the default host (`source_game.host_id`) can differ
   - Details: .copilot-tracking/planning/details/20260915-01-clone-game-review-redesign-details.md (Lines 238-305)
 
-### [ ] Phase 4: Rewrite `clone_game` To Delegate To `create_game`; Wire Route-Level `ValidationError` Handling
+### [x] Phase 4: Rewrite `clone_game` To Delegate To `create_game`; Wire Route-Level `ValidationError` Handling
 
-- [ ] Task 4.1: Replace `clone_game`'s body with a `create_game` delegation plus unconditional
+- [x] Task 4.1: Replace `clone_game`'s body with a `create_game` delegation plus unconditional
       image-reference carry-over; widen `_handle_game_operation_errors`'s type union; rewrite the route's
       try/except
   - Details: .copilot-tracking/planning/details/20260915-01-clone-game-review-redesign-details.md (Lines 307-501)
-- [ ] Task 4.2: TDD cycle and test-file restructuring (mock `self.create_game` rather than every internal
+- [x] Task 4.2: TDD cycle and test-file restructuring (mock `self.create_game` rather than every internal
       DB call it makes)
   - Details: .copilot-tracking/planning/details/20260915-01-clone-game-review-redesign-details.md (Lines 472-502)
 

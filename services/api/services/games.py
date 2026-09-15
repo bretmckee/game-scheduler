@@ -896,11 +896,23 @@ class GameService:
         role_service: roles_module.RoleVerificationService,
     ) -> game_model.GameSession:
         """
-        Clone an existing game session with optional participant carry-over.
+        Clone an existing game session by delegating to create_game.
+
+        Builds a fully-resolved GameCreateRequest from the submitted clone
+        request (falling back to source_game's values for any field the host
+        did not override) and delegates the entire mechanical pipeline --
+        template loading, host resolution and permission checks, free-text
+        mention/channel resolution, participant resolution, roster creation,
+        and deferred/immediate publish -- to create_game. Image carry-over by
+        reference is layered on top afterward, since create_game has no
+        equivalent concept.
+
+        Does not commit. Caller must commit transaction.
 
         Args:
             source_game_id: ID of the game to clone
-            clone_data: Clone request with scheduled_at and carryover options
+            clone_data: Clone request with overrides, scheduled_at, and
+                carryover options
             current_user: Authenticated user making the request
             role_service: Role verification service for permission check
 
@@ -908,8 +920,11 @@ class GameService:
             New game session
 
         Raises:
-            ValueError: If source game not found, user lacks permission, or
-                YES_WITH_DEADLINE carryover is requested (not yet supported)
+            ValueError: If source game not found, user lacks permission to
+                clone, or create_game rejects the constructed request (e.g.
+                template not found, host lacks permission)
+            ValidationError: If an @mention in the constructed request cannot
+                be resolved
         """
         source_game = await self.get_game(source_game_id)
         if source_game is None:
@@ -934,96 +949,74 @@ class GameService:
             )
             raise ValueError(msg)
 
-        scheduled_at_naive = clone_data.scheduled_at.replace(tzinfo=None)
-
-        new_game = game_model.GameSession(
-            id=game_model.generate_uuid(),
-            title=source_game.title,
-            description=source_game.description,
-            signup_instructions=source_game.signup_instructions,
-            scheduled_at=scheduled_at_naive,
-            where=source_game.where,
+        game_data = game_schemas.GameCreateRequest(
             template_id=source_game.template_id,
-            guild_id=source_game.guild_id,
-            channel_id=source_game.channel_id,
-            host_id=source_game.host_id,
-            max_players=source_game.max_players,
-            reminder_minutes=source_game.reminder_minutes,
-            expected_duration_minutes=source_game.expected_duration_minutes,
-            notify_role_ids=source_game.notify_role_ids,
-            allowed_player_role_ids=source_game.allowed_player_role_ids,
-            signup_method=source_game.signup_method,
-            status=game_model.GameStatus.SCHEDULED.value,
-            message_id=None,
-            thumbnail_id=source_game.thumbnail_id,
-            banner_image_id=source_game.banner_image_id,
-            remind_host_rewards=source_game.remind_host_rewards,
-            reminders_as_dms=source_game.reminders_as_dms,
-            rewards=None,
-            recur_rule=source_game.recur_rule,
-        )
-        self.db.add(new_game)
-        await increment_image_ref(self.db, source_game.thumbnail_id)
-        await increment_image_ref(self.db, source_game.banner_image_id)
-        await self.db.flush()
-
-        partitioned = partition_participants(
-            source_game.participants,
-            source_game.max_players,
-            signup_method=source_game.signup_method,
-        )
-
-        carry_options = {CarryoverOption.YES, CarryoverOption.YES_WITH_DEADLINE}
-        players_to_carry = (
-            partitioned.confirmed if clone_data.player_carryover in carry_options else []
-        )
-        waitlist_to_carry = (
-            partitioned.overflow if clone_data.waitlist_carryover in carry_options else []
-        )
-
-        for position, source_participant in enumerate(
-            players_to_carry + waitlist_to_carry, start=1
-        ):
-            new_participant = participant_model.GameParticipant(
-                game_session_id=new_game.id,
-                user_id=source_participant.user_id,
-                display_name=source_participant.display_name,
-                position_type=source_participant.position_type,
-                position=position,
-            )
-            self.db.add(new_participant)
-
-        await self.db.flush()
-
-        result = await self.db.execute(
-            select(game_model.GameSession)
-            .where(game_model.GameSession.id == new_game.id)
-            .options(
-                selectinload(game_model.GameSession.participants).selectinload(
-                    participant_model.GameParticipant.user
-                )
-            )
-        )
-        new_game = result.scalar_one()
-
-        await self._setup_game_schedules(
-            new_game,
-            source_game.reminder_minutes,
+            title=clone_data.title if clone_data.title is not None else source_game.title,
+            scheduled_at=clone_data.scheduled_at,
+            description=(
+                clone_data.description
+                if clone_data.description is not None
+                else source_game.description
+            ),
+            max_players=(
+                clone_data.max_players
+                if clone_data.max_players is not None
+                else source_game.max_players
+            ),
+            expected_duration_minutes=(
+                clone_data.expected_duration_minutes
+                if clone_data.expected_duration_minutes is not None
+                else source_game.expected_duration_minutes
+            ),
+            reminder_minutes=(
+                clone_data.reminder_minutes
+                if clone_data.reminder_minutes is not None
+                else source_game.reminder_minutes
+            ),
+            where=clone_data.where if clone_data.where is not None else source_game.where,
+            signup_instructions=(
+                clone_data.signup_instructions
+                if clone_data.signup_instructions is not None
+                else source_game.signup_instructions
+            ),
+            initial_participants=clone_data.participants,
+            host=clone_data.host,
+            signup_method=(
+                clone_data.signup_method
+                if clone_data.signup_method is not None
+                else source_game.signup_method
+            ),
+            remind_host_rewards=(
+                clone_data.remind_host_rewards
+                if clone_data.remind_host_rewards is not None
+                else source_game.remind_host_rewards
+            ),
+            reminders_as_dms=(
+                clone_data.reminders_as_dms
+                if clone_data.reminders_as_dms is not None
+                else source_game.reminders_as_dms
+            ),
+            post_at=clone_data.post_at,
+            recur_rule=clone_data.recur_rule
+            if clone_data.recur_rule is not None
+            else source_game.recur_rule,
         )
 
-        await self._apply_deadline_carryover(
-            new_game=new_game,
-            players_to_carry=players_to_carry,
-            waitlist_to_carry=waitlist_to_carry,
-            clone_data=clone_data,
+        new_game = await self.create_game(
+            game_data,
+            host_user_id=current_user.user.id,
+            default_host_user_id=source_game.host_id,
         )
 
-        new_game = await self.get_game(new_game.id)
-        if new_game is None:
-            msg = "Failed to reload cloned game"
-            raise ValueError(msg)
-
-        await self._publish_game_created(new_game, source_game.channel)
+        # Images carry over by reference unconditionally in this phase; Phase 6 makes
+        # this conditional on "no new file uploaded."
+        new_game.thumbnail_id = source_game.thumbnail_id
+        new_game.banner_image_id = source_game.banner_image_id
+        if source_game.thumbnail_id is not None or source_game.banner_image_id is not None:
+            await increment_image_ref(self.db, source_game.thumbnail_id)
+            await increment_image_ref(self.db, source_game.banner_image_id)
+            self.db.add(new_game)
+            await self.db.flush()
 
         return new_game
 

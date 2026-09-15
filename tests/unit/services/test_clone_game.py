@@ -19,10 +19,21 @@
 # SOFTWARE.
 
 
-"""Unit tests for GameService.clone_game method.
+"""Unit tests for GameService.clone_game and _apply_deadline_carryover.
 
-These tests verify clone_game correctly copies source game fields, carries
-over participants in order when requested, and enforces permissions.
+clone_game now delegates its entire mechanical pipeline (template loading,
+host resolution, free-text/participant resolution, roster creation, and
+publish) to create_game. These tests therefore mock self.create_game itself
+and verify only clone_game's own orchestration: the permission gate, the
+GameCreateRequest payload constructed from clone_data/source_game, the
+default_host_user_id/host_user_id split, and the additive image-carryover
+step. Full-pipeline behaviors (template loading, real mention resolution,
+real permission role checks) are covered by
+tests/integration/test_clone_game_endpoint.py instead.
+
+_apply_deadline_carryover is unchanged by the Phase 4 rewrite (clone_game
+does not call it yet -- Phase 5 re-adds that as an additive step), so its
+direct-invocation tests are unchanged.
 """
 
 import datetime
@@ -31,6 +42,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from services.api.schemas.clone_game import CarryoverOption, CloneGameRequest
+from services.api.services import participant_resolver as resolver_module
 from services.api.services.games import GameService
 from shared.models import game as game_model
 from shared.models import participant as participant_model
@@ -38,9 +50,11 @@ from shared.models.notification_schedule import NotificationSchedule
 from shared.models.participant_action_schedule import ParticipantActionSchedule
 from shared.models.signup_method import SignupMethod
 from shared.schemas import auth as auth_schemas
+from shared.schemas import game as game_schemas
 
 SCHEDULED_AT = datetime.datetime(2026, 9, 1, 18, 0, 0, tzinfo=datetime.UTC)
 CLONE_AT = datetime.datetime(2026, 10, 1, 18, 0, 0, tzinfo=datetime.UTC)
+CURRENT_USER_DB_ID = "current-user-db-uuid"
 
 
 @pytest.fixture
@@ -67,6 +81,9 @@ def source_game():
     game.thumbnail_id = None
     game.banner_image_id = None
     game.message_id = "discord-message-id-999"
+    game.remind_host_rewards = True
+    game.reminders_as_dms = False
+    game.recur_rule = None
 
     game.host = MagicMock()
     game.host.discord_id = "host-discord-id"
@@ -96,9 +113,10 @@ def source_game():
 
 @pytest.fixture
 def current_user(source_game):
-    """Current user matching the game host."""
+    """Current user matching the game host, with a distinct database user id."""
     user = MagicMock()
     user.discord_id = source_game.host.discord_id
+    user.id = CURRENT_USER_DB_ID
     cu = MagicMock(spec=auth_schemas.CurrentUser)
     cu.user = user
     cu.access_token = "mock_token"
@@ -122,9 +140,6 @@ def game_service():
     execute_result.scalar_one = MagicMock(return_value=MagicMock(participants=[]))
     db.execute = AsyncMock(return_value=execute_result)
 
-    event_publisher = MagicMock()
-    event_publisher.publish_deferred = MagicMock()
-
     return GameService(
         db=db,
         discord_client=AsyncMock(),
@@ -133,162 +148,304 @@ def game_service():
     )
 
 
-def _make_clone_request(
-    player_carryover: CarryoverOption = CarryoverOption.NO,
-    waitlist_carryover: CarryoverOption = CarryoverOption.NO,
-) -> CloneGameRequest:
-    return CloneGameRequest(
-        scheduled_at=CLONE_AT,
-        player_carryover=player_carryover,
-        waitlist_carryover=waitlist_carryover,
-    )
+def _make_clone_request(**overrides) -> CloneGameRequest:
+    defaults: dict = {"scheduled_at": CLONE_AT}
+    defaults.update(overrides)
+    return CloneGameRequest(**defaults)
+
+
+def _new_game_mock(game_id: str = "new-game-uuid") -> MagicMock:
+    new_game = MagicMock(spec=game_model.GameSession)
+    new_game.id = game_id
+    new_game.thumbnail_id = None
+    new_game.banner_image_id = None
+    return new_game
 
 
 @pytest.mark.asyncio
-async def test_clone_game_copies_source_fields(
+async def test_clone_game_source_not_found_raises_value_error(
+    game_service, current_user, role_service
+):
+    """clone_game must raise ValueError when source game does not exist."""
+    with patch.object(game_service, "get_game", new=AsyncMock(return_value=None)):
+        with pytest.raises(ValueError, match="not found"):
+            await game_service.clone_game(
+                source_game_id="nonexistent-id",
+                clone_data=_make_clone_request(),
+                current_user=current_user,
+                role_service=role_service,
+            )
+
+
+@pytest.mark.asyncio
+async def test_clone_game_non_host_raises_value_error(
     game_service, source_game, current_user, role_service
 ):
-    """clone_game must create a new game copying all fields except excluded ones."""
-    new_game = MagicMock(spec=game_model.GameSession)
-    new_game.id = "new-game-uuid"
-
+    """clone_game must raise ValueError when user cannot manage the game."""
     with (
-        patch.object(game_service, "get_game", new=AsyncMock(side_effect=[source_game, new_game])),
-        patch("services.api.dependencies.permissions.can_manage_game", return_value=True),
-        patch.object(game_service, "_setup_game_schedules", new=AsyncMock()),
-        patch.object(game_service, "_publish_game_created", new=AsyncMock()),
+        patch.object(game_service, "get_game", new=AsyncMock(return_value=source_game)),
+        patch("services.api.dependencies.permissions.can_manage_game", return_value=False),
+        patch.object(game_service, "create_game", new=AsyncMock()) as mock_create,
     ):
-        await game_service.clone_game(
-            source_game_id=source_game.id,
-            clone_data=_make_clone_request(),
-            current_user=current_user,
-            role_service=role_service,
-        )
+        with pytest.raises(ValueError, match="permission"):
+            await game_service.clone_game(
+                source_game_id=source_game.id,
+                clone_data=_make_clone_request(),
+                current_user=current_user,
+                role_service=role_service,
+            )
 
-    # Capture the GameSession passed to db.add
-    add_calls = game_service.db.add.call_args_list
-    assert len(add_calls) >= 1, "db.add must be called at least once"
-    new_game_obj = add_calls[0][0][0]
-
-    assert isinstance(new_game_obj, game_model.GameSession), "First db.add must be a GameSession"
-    assert new_game_obj.title == source_game.title
-    assert new_game_obj.description == source_game.description
-    assert new_game_obj.signup_instructions == source_game.signup_instructions
-    assert new_game_obj.scheduled_at == CLONE_AT.replace(tzinfo=None)
-    assert new_game_obj.where == source_game.where
-    assert new_game_obj.max_players == source_game.max_players
-    assert new_game_obj.template_id == source_game.template_id
-    assert new_game_obj.guild_id == source_game.guild_id
-    assert new_game_obj.channel_id == source_game.channel_id
-    assert new_game_obj.host_id == source_game.host_id
-    assert new_game_obj.reminder_minutes == source_game.reminder_minutes
-    assert new_game_obj.notify_role_ids == source_game.notify_role_ids
-    assert new_game_obj.expected_duration_minutes == source_game.expected_duration_minutes
-    assert new_game_obj.signup_method == source_game.signup_method
-    # Excluded fields must not carry over
-    assert new_game_obj.id != source_game.id
-    assert new_game_obj.message_id is None
-    assert new_game_obj.status == game_model.GameStatus.SCHEDULED.value
+    mock_create.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_clone_game_yes_player_carryover_creates_participants(
+async def test_clone_game_builds_payload_from_source_when_no_overrides(
     game_service, source_game, current_user, role_service
 ):
-    """clone_game with YES player carryover must add player participants in order."""
-    new_game = MagicMock(spec=game_model.GameSession)
-    new_game.id = "new-game-uuid"
+    """With no clone_data overrides, every GameCreateRequest field falls back to source_game."""
+    new_game = _new_game_mock()
 
     with (
-        patch.object(game_service, "get_game", new=AsyncMock(side_effect=[source_game, new_game])),
+        patch.object(game_service, "get_game", new=AsyncMock(return_value=source_game)),
         patch("services.api.dependencies.permissions.can_manage_game", return_value=True),
-        patch.object(game_service, "_setup_game_schedules", new=AsyncMock()),
-        patch.object(game_service, "_publish_game_created", new=AsyncMock()),
-    ):
-        await game_service.clone_game(
-            source_game_id=source_game.id,
-            clone_data=_make_clone_request(player_carryover=CarryoverOption.YES),
-            current_user=current_user,
-            role_service=role_service,
-        )
-
-    add_calls = game_service.db.add.call_args_list
-    participant_adds = [
-        call[0][0]
-        for call in add_calls
-        if isinstance(call[0][0], participant_model.GameParticipant)
-    ]
-
-    # max_players=2 so source has 1 player (position 1) and 1 waitlist (position 2)
-    # YES player carryover should carry over the 1 player (confirmed slot)
-    assert len(participant_adds) == 1, "Should add exactly 1 player participant"
-    assert participant_adds[0].position == 1
-    assert participant_adds[0].user_id == source_game.participants[0].user_id
-    assert participant_adds[0].position_type == source_game.participants[0].position_type
-
-
-@pytest.mark.asyncio
-async def test_clone_game_no_carryover_creates_no_participants(
-    game_service, source_game, current_user, role_service
-):
-    """clone_game with NO carryover must not add any participants."""
-    new_game = MagicMock(spec=game_model.GameSession)
-    new_game.id = "new-game-uuid"
-
-    with (
-        patch.object(game_service, "get_game", new=AsyncMock(side_effect=[source_game, new_game])),
-        patch("services.api.dependencies.permissions.can_manage_game", return_value=True),
-        patch.object(game_service, "_setup_game_schedules", new=AsyncMock()),
-        patch.object(game_service, "_publish_game_created", new=AsyncMock()),
-    ):
-        await game_service.clone_game(
-            source_game_id=source_game.id,
-            clone_data=_make_clone_request(),
-            current_user=current_user,
-            role_service=role_service,
-        )
-
-    add_calls = game_service.db.add.call_args_list
-    participant_adds = [
-        call[0][0]
-        for call in add_calls
-        if isinstance(call[0][0], participant_model.GameParticipant)
-    ]
-    assert len(participant_adds) == 0, "NO carryover must add no participants"
-
-
-DEADLINE = datetime.datetime(2027, 1, 1, 12, 0, 0, tzinfo=datetime.UTC)
-
-
-@pytest.mark.asyncio
-async def test_clone_game_yes_with_deadline_completes_successfully(
-    game_service, source_game, current_user, role_service
-):
-    """YES_WITH_DEADLINE carryover must succeed without raising ValueError."""
-    new_game = MagicMock(spec=game_model.GameSession)
-    new_game.id = "new-game-uuid"
-
-    clone_data = CloneGameRequest(
-        scheduled_at=CLONE_AT,
-        player_carryover=CarryoverOption.YES_WITH_DEADLINE,
-        player_deadline=DEADLINE,
-    )
-
-    with (
-        patch.object(game_service, "get_game", new=AsyncMock(side_effect=[source_game, new_game])),
-        patch("services.api.dependencies.permissions.can_manage_game", return_value=True),
-        patch.object(game_service, "_setup_game_schedules", new=AsyncMock()),
-        patch.object(game_service, "_apply_deadline_carryover", new=AsyncMock()),
-        patch.object(game_service, "_publish_game_created", new=AsyncMock()),
+        patch.object(
+            game_service, "create_game", new=AsyncMock(return_value=new_game)
+        ) as mock_create,
     ):
         result = await game_service.clone_game(
+            source_game_id=source_game.id,
+            clone_data=_make_clone_request(),
+            current_user=current_user,
+            role_service=role_service,
+        )
+
+    assert result is new_game
+    mock_create.assert_called_once()
+    game_data = mock_create.call_args.args[0]
+    assert isinstance(game_data, game_schemas.GameCreateRequest)
+    assert game_data.template_id == source_game.template_id
+    assert game_data.title == source_game.title
+    assert game_data.scheduled_at == CLONE_AT
+    assert game_data.description == source_game.description
+    assert game_data.max_players == source_game.max_players
+    assert game_data.expected_duration_minutes == source_game.expected_duration_minutes
+    assert game_data.reminder_minutes == source_game.reminder_minutes
+    assert game_data.where == source_game.where
+    assert game_data.signup_instructions == source_game.signup_instructions
+    assert game_data.initial_participants == []
+    assert game_data.host is None
+    assert game_data.signup_method == source_game.signup_method
+    assert game_data.remind_host_rewards == source_game.remind_host_rewards
+    assert game_data.reminders_as_dms == source_game.reminders_as_dms
+    assert game_data.post_at is None
+    assert game_data.recur_rule == source_game.recur_rule
+
+    assert mock_create.call_args.kwargs["host_user_id"] == current_user.user.id
+    assert mock_create.call_args.kwargs["default_host_user_id"] == source_game.host_id
+
+
+@pytest.mark.asyncio
+async def test_clone_game_overridden_fields_use_clone_data(
+    game_service, source_game, current_user, role_service
+):
+    """Every clone_data override wins over the corresponding source_game value."""
+    new_game = _new_game_mock()
+    post_at_override = CLONE_AT - datetime.timedelta(hours=1)
+
+    clone_data = _make_clone_request(
+        title="New Title",
+        description="New Description",
+        max_players=5,
+        expected_duration_minutes=90,
+        reminder_minutes=[15],
+        where="New Location",
+        signup_instructions="New Instructions",
+        participants=["@bob"],
+        host="@carol",
+        signup_method=SignupMethod.HOST_SELECTED.value,
+        remind_host_rewards=False,
+        reminders_as_dms=True,
+        post_at=post_at_override,
+        recur_rule="FREQ=DAILY",
+    )
+
+    with (
+        patch.object(game_service, "get_game", new=AsyncMock(return_value=source_game)),
+        patch("services.api.dependencies.permissions.can_manage_game", return_value=True),
+        patch.object(
+            game_service, "create_game", new=AsyncMock(return_value=new_game)
+        ) as mock_create,
+    ):
+        await game_service.clone_game(
             source_game_id=source_game.id,
             clone_data=clone_data,
             current_user=current_user,
             role_service=role_service,
         )
 
-    assert result is new_game
+    game_data = mock_create.call_args.args[0]
+    assert game_data.title == "New Title"
+    assert game_data.description == "New Description"
+    assert game_data.max_players == 5
+    assert game_data.expected_duration_minutes == 90
+    assert game_data.reminder_minutes == [15]
+    assert game_data.where == "New Location"
+    assert game_data.signup_instructions == "New Instructions"
+    assert game_data.initial_participants == ["@bob"]
+    assert game_data.host == "@carol"
+    assert game_data.signup_method == SignupMethod.HOST_SELECTED.value
+    assert game_data.remind_host_rewards is False
+    assert game_data.reminders_as_dms is True
+    assert game_data.post_at == post_at_override
+    assert game_data.recur_rule == "FREQ=DAILY"
+
+
+@pytest.mark.asyncio
+async def test_clone_game_omitting_host_decouples_default_host_from_requester(
+    game_service, source_game, current_user, role_service
+):
+    """Omitting a host override passes source_game's host as default_host_user_id,
+    while host_user_id (the bot-manager-permission-check subject) stays the requester.
+    """
+    new_game = _new_game_mock()
+
+    with (
+        patch.object(game_service, "get_game", new=AsyncMock(return_value=source_game)),
+        patch("services.api.dependencies.permissions.can_manage_game", return_value=True),
+        patch.object(
+            game_service, "create_game", new=AsyncMock(return_value=new_game)
+        ) as mock_create,
+    ):
+        await game_service.clone_game(
+            source_game_id=source_game.id,
+            clone_data=_make_clone_request(),
+            current_user=current_user,
+            role_service=role_service,
+        )
+
+    assert current_user.user.id != source_game.host_id, (
+        "test fixture must use distinct requester/source-host ids to prove decoupling"
+    )
+    assert mock_create.call_args.kwargs["host_user_id"] == current_user.user.id
+    assert mock_create.call_args.kwargs["default_host_user_id"] == source_game.host_id
+
+
+@pytest.mark.asyncio
+async def test_clone_game_copies_images_by_reference_when_source_has_images(
+    game_service, source_game, current_user, role_service
+):
+    """When the source game has images, clone_game copies both ids onto the new game
+    and increments both images' reference counts.
+    """
+    source_game.thumbnail_id = "thumbnail-uuid"
+    source_game.banner_image_id = "banner-uuid"
+    new_game = _new_game_mock()
+
+    with (
+        patch.object(game_service, "get_game", new=AsyncMock(return_value=source_game)),
+        patch("services.api.dependencies.permissions.can_manage_game", return_value=True),
+        patch.object(game_service, "create_game", new=AsyncMock(return_value=new_game)),
+        patch("services.api.services.games.increment_image_ref", new=AsyncMock()) as mock_increment,
+    ):
+        result = await game_service.clone_game(
+            source_game_id=source_game.id,
+            clone_data=_make_clone_request(),
+            current_user=current_user,
+            role_service=role_service,
+        )
+
+    assert result.thumbnail_id == "thumbnail-uuid"
+    assert result.banner_image_id == "banner-uuid"
+    mock_increment.assert_any_await(game_service.db, "thumbnail-uuid")
+    mock_increment.assert_any_await(game_service.db, "banner-uuid")
+    assert mock_increment.await_count == 2
+    game_service.db.add.assert_called_once_with(new_game)
+    game_service.db.flush.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_clone_game_skips_image_ref_increment_when_source_has_no_images(
+    game_service, source_game, current_user, role_service
+):
+    """When the source game has neither image, clone_game performs no image-related
+    DB writes at all (both thumbnail_id and banner_image_id stay whatever create_game set).
+    """
+    source_game.thumbnail_id = None
+    source_game.banner_image_id = None
+    new_game = _new_game_mock()
+
+    with (
+        patch.object(game_service, "get_game", new=AsyncMock(return_value=source_game)),
+        patch("services.api.dependencies.permissions.can_manage_game", return_value=True),
+        patch.object(game_service, "create_game", new=AsyncMock(return_value=new_game)),
+        patch("services.api.services.games.increment_image_ref", new=AsyncMock()) as mock_increment,
+    ):
+        await game_service.clone_game(
+            source_game_id=source_game.id,
+            clone_data=_make_clone_request(),
+            current_user=current_user,
+            role_service=role_service,
+        )
+
+    mock_increment.assert_not_awaited()
+    game_service.db.add.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_clone_game_propagates_create_game_value_error(
+    game_service, source_game, current_user, role_service
+):
+    """A ValueError raised by the delegated create_game call (e.g. deleted template)
+    propagates unchanged from clone_game.
+    """
+    with (
+        patch.object(game_service, "get_game", new=AsyncMock(return_value=source_game)),
+        patch("services.api.dependencies.permissions.can_manage_game", return_value=True),
+        patch.object(
+            game_service,
+            "create_game",
+            new=AsyncMock(side_effect=ValueError("Template not found: template-uuid")),
+        ),
+    ):
+        with pytest.raises(ValueError, match="Template not found"):
+            await game_service.clone_game(
+                source_game_id=source_game.id,
+                clone_data=_make_clone_request(),
+                current_user=current_user,
+                role_service=role_service,
+            )
+
+
+@pytest.mark.asyncio
+async def test_clone_game_propagates_create_game_validation_error(
+    game_service, source_game, current_user, role_service
+):
+    """A ValidationError raised by the delegated create_game call (unresolvable @mention)
+    propagates unchanged from clone_game.
+    """
+    with (
+        patch.object(game_service, "get_game", new=AsyncMock(return_value=source_game)),
+        patch("services.api.dependencies.permissions.can_manage_game", return_value=True),
+        patch.object(
+            game_service,
+            "create_game",
+            new=AsyncMock(
+                side_effect=resolver_module.ValidationError(
+                    invalid_mentions=["@nobody"], valid_participants=[]
+                )
+            ),
+        ),
+    ):
+        with pytest.raises(resolver_module.ValidationError):
+            await game_service.clone_game(
+                source_game_id=source_game.id,
+                clone_data=_make_clone_request(),
+                current_user=current_user,
+                role_service=role_service,
+            )
+
+
+DEADLINE = datetime.datetime(2027, 1, 1, 12, 0, 0, tzinfo=datetime.UTC)
 
 
 @pytest.mark.asyncio
@@ -424,153 +581,3 @@ async def test_apply_deadline_carryover_skips_missing_participant(game_service, 
     )
 
     game_service.db.add.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_clone_game_source_not_found_raises_value_error(
-    game_service, current_user, role_service
-):
-    """clone_game must raise ValueError when source game does not exist."""
-    with patch.object(game_service, "get_game", new=AsyncMock(return_value=None)):
-        with pytest.raises(ValueError, match="not found"):
-            await game_service.clone_game(
-                source_game_id="nonexistent-id",
-                clone_data=_make_clone_request(),
-                current_user=current_user,
-                role_service=role_service,
-            )
-
-
-@pytest.mark.asyncio
-async def test_clone_game_non_host_raises_value_error(
-    game_service, source_game, current_user, role_service
-):
-    """clone_game must raise ValueError when user cannot manage the game."""
-    with (
-        patch.object(game_service, "get_game", new=AsyncMock(return_value=source_game)),
-        patch("services.api.dependencies.permissions.can_manage_game", return_value=False),
-    ):
-        with pytest.raises(ValueError, match="permission"):
-            await game_service.clone_game(
-                source_game_id=source_game.id,
-                clone_data=_make_clone_request(),
-                current_user=current_user,
-                role_service=role_service,
-            )
-
-
-@pytest.mark.asyncio
-async def test_clone_game_yes_carryover_empty_participant_list(
-    game_service, source_game, current_user, role_service
-):
-    """clone_game with YES carryover on a game with no participants adds none."""
-    source_game.participants = []
-    new_game = MagicMock(spec=game_model.GameSession)
-    new_game.id = "new-game-uuid"
-
-    with (
-        patch.object(game_service, "get_game", new=AsyncMock(side_effect=[source_game, new_game])),
-        patch("services.api.dependencies.permissions.can_manage_game", return_value=True),
-        patch.object(game_service, "_setup_game_schedules", new=AsyncMock()),
-        patch.object(game_service, "_publish_game_created", new=AsyncMock()),
-    ):
-        await game_service.clone_game(
-            source_game_id=source_game.id,
-            clone_data=_make_clone_request(player_carryover=CarryoverOption.YES),
-            current_user=current_user,
-            role_service=role_service,
-        )
-
-    add_calls = game_service.db.add.call_args_list
-    participant_adds = [
-        call[0][0]
-        for call in add_calls
-        if isinstance(call[0][0], participant_model.GameParticipant)
-    ]
-    assert len(participant_adds) == 0, "No participants to carry over when source is empty"
-
-
-@pytest.mark.asyncio
-async def test_clone_game_max_players_zero_does_not_raise(
-    game_service, source_game, current_user, role_service
-):
-    """clone_game with max_players=0 does not raise (partition_participants defaults to DEFAULT)."""
-    source_game.max_players = 0
-    new_game = MagicMock(spec=game_model.GameSession)
-    new_game.id = "new-game-uuid"
-
-    with (
-        patch.object(game_service, "get_game", new=AsyncMock(side_effect=[source_game, new_game])),
-        patch("services.api.dependencies.permissions.can_manage_game", return_value=True),
-        patch.object(game_service, "_setup_game_schedules", new=AsyncMock()),
-        patch.object(game_service, "_publish_game_created", new=AsyncMock()),
-    ):
-        result = await game_service.clone_game(
-            source_game_id=source_game.id,
-            clone_data=_make_clone_request(player_carryover=CarryoverOption.YES),
-            current_user=current_user,
-            role_service=role_service,
-        )
-
-    assert result is new_game, (
-        "clone_game must return the reloaded new game even when max_players=0"
-    )
-
-
-@pytest.mark.asyncio
-async def test_clone_game_clones_cancelled_source_game(
-    game_service, source_game, current_user, role_service
-):
-    """clone_game succeeds regardless of the source game status."""
-    source_game.status = game_model.GameStatus.CANCELLED.value
-    source_game.participants = []
-    new_game = MagicMock(spec=game_model.GameSession)
-    new_game.id = "new-game-uuid"
-
-    with (
-        patch.object(game_service, "get_game", new=AsyncMock(side_effect=[source_game, new_game])),
-        patch("services.api.dependencies.permissions.can_manage_game", return_value=True),
-        patch.object(game_service, "_setup_game_schedules", new=AsyncMock()),
-        patch.object(game_service, "_publish_game_created", new=AsyncMock()),
-    ):
-        result = await game_service.clone_game(
-            source_game_id=source_game.id,
-            clone_data=_make_clone_request(),
-            current_user=current_user,
-            role_service=role_service,
-        )
-
-    assert result is new_game, "clone_game must return the reloaded new game"
-
-    add_calls = game_service.db.add.call_args_list
-    new_game_obj = add_calls[0][0][0]
-    # New game must be SCHEDULED regardless of source status
-    assert new_game_obj.status == game_model.GameStatus.SCHEDULED.value
-
-
-@pytest.mark.asyncio
-async def test_clone_game_propagates_recur_rule(
-    game_service, source_game, current_user, role_service
-):
-    """clone_game must copy recur_rule from source to the new game."""
-    source_game.recur_rule = "FREQ=WEEKLY;BYDAY=SA"
-    new_game = MagicMock(spec=game_model.GameSession)
-    new_game.id = "new-game-uuid"
-
-    with (
-        patch.object(game_service, "get_game", new=AsyncMock(side_effect=[source_game, new_game])),
-        patch("services.api.dependencies.permissions.can_manage_game", return_value=True),
-        patch.object(game_service, "_setup_game_schedules", new=AsyncMock()),
-        patch.object(game_service, "_publish_game_created", new=AsyncMock()),
-    ):
-        await game_service.clone_game(
-            source_game_id=source_game.id,
-            clone_data=_make_clone_request(),
-            current_user=current_user,
-            role_service=role_service,
-        )
-
-    add_calls = game_service.db.add.call_args_list
-    new_game_obj = add_calls[0][0][0]
-    assert isinstance(new_game_obj, game_model.GameSession)
-    assert new_game_obj.recur_rule == "FREQ=WEEKLY;BYDAY=SA"

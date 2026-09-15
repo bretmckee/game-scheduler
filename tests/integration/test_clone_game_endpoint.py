@@ -104,6 +104,7 @@ def test_clone_game_endpoint_returns_201_with_new_game(
         guild_id=env["guild"]["id"],
         channel_id=env["channel"]["id"],
         host_id=env["user"]["id"],
+        template_id=env["template"]["id"],
         title="Source Game For Clone Test",
     )
 
@@ -154,6 +155,7 @@ def test_clone_game_endpoint_non_host_receives_403(
         guild_id=env["guild"]["id"],
         channel_id=env["channel"]["id"],
         host_id=env["user"]["id"],
+        template_id=env["template"]["id"],
         title="Source Game Forbidden Clone",
     )
 
@@ -205,6 +207,7 @@ def test_clone_game_endpoint_publishes_game_created_event(
         guild_id=env["guild"]["id"],
         channel_id=env["channel"]["id"],
         host_id=env["user"]["id"],
+        template_id=env["template"]["id"],
         title="Source Game For Event Test",
     )
 
@@ -234,6 +237,15 @@ def test_clone_game_endpoint_publishes_game_created_event(
     assert bot_row[1] == cloned_game_id, "bot_action_queue must reference the new cloned game ID"
 
 
+@pytest.mark.skip(
+    reason=(
+        "clone_game no longer performs server-side player_carryover/waitlist_carryover roster "
+        "construction as of Phase 4 (games.py clone_game now delegates entirely to create_game, "
+        "which only honors the submitted CloneGameRequest.participants list). Phase 5 re-adds "
+        "submitted-list-driven carryover matching against the source game's partition; Phase 7 "
+        "restores/rewrites this scenario against the final contract."
+    )
+)
 def test_clone_game_endpoint_yes_carryover_copies_new_game_participants(
     admin_db_sync,
     create_user,
@@ -254,6 +266,7 @@ def test_clone_game_endpoint_yes_carryover_copies_new_game_participants(
         guild_id=env["guild"]["id"],
         channel_id=env["channel"]["id"],
         host_id=env["user"]["id"],
+        template_id=env["template"]["id"],
         title="Source Game With Participants",
         max_players=4,
     )
@@ -304,6 +317,13 @@ def test_clone_game_endpoint_yes_carryover_copies_new_game_participants(
     assert participants[0][2] == ParticipantType.HOST_ADDED
 
 
+@pytest.mark.skip(
+    reason=(
+        "clone_game no longer calls _apply_deadline_carryover as of Phase 4 (it delegates entirely "
+        "to create_game, which has no deadline-carryover concept). Phase 5 re-adds this as an "
+        "additive, submitted-list-driven step; this test is restored/rewritten there."
+    )
+)
 def test_clone_game_endpoint_yes_with_deadline_creates_action_and_notification_schedules(
     admin_db_sync,
     create_user,
@@ -326,6 +346,7 @@ def test_clone_game_endpoint_yes_with_deadline_creates_action_and_notification_s
         guild_id=env["guild"]["id"],
         channel_id=env["channel"]["id"],
         host_id=env["user"]["id"],
+        template_id=env["template"]["id"],
         title="Source Game YES_WITH_DEADLINE",
         max_players=4,
     )
@@ -398,3 +419,49 @@ def test_clone_game_endpoint_yes_with_deadline_creates_action_and_notification_s
     assert notif_schedule[0] == "clone_confirmation", (
         "Notification type must be 'clone_confirmation'"
     )
+
+
+def test_clone_game_endpoint_unresolvable_mention_in_override_returns_422(
+    admin_db_sync,
+    create_user,
+    create_guild,
+    create_channel,
+    create_template,
+    create_game,
+    seed_redis_cache,
+    create_authenticated_client,
+):
+    """An unresolvable @mention in an overridden free-text field must surface as a 422
+    with error: "invalid_mentions", now that clone_game delegates free-text resolution
+    to create_game's own _resolve_free_text_fields_for_create pipeline.
+    """
+    env = _setup_environment(
+        create_user, create_guild, create_channel, create_template, seed_redis_cache
+    )
+    authenticated_client = create_authenticated_client(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+
+    source_game = create_game(
+        guild_id=env["guild"]["id"],
+        channel_id=env["channel"]["id"],
+        host_id=env["user"]["id"],
+        template_id=env["template"]["id"],
+        title="Source Game For Invalid Mention Test",
+    )
+
+    clone_at = (datetime.now(UTC) + timedelta(days=14)).isoformat()
+
+    response = authenticated_client.post(
+        f"/api/v1/games/{source_game['id']}/clone",
+        json={
+            "scheduled_at": clone_at,
+            "player_carryover": "NO",
+            "waitlist_carryover": "NO",
+            "description": "Come play with @nonexistent_user_xyz",
+        },
+    )
+
+    assert response.status_code == 422, (
+        f"Expected 422 invalid_mentions, got {response.status_code}: {response.text}"
+    )
+    detail = response.json()["detail"]
+    assert detail["error"] == "invalid_mentions", detail

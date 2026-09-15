@@ -303,7 +303,7 @@ async def _process_image_upload(
 
 def _handle_game_operation_errors(
     e: Exception,
-    form_data: game_schemas.GameCreateRequest | game_schemas.GameUpdateRequest,
+    form_data: game_schemas.GameCreateRequest | game_schemas.GameUpdateRequest | CloneGameRequest,
 ) -> NoReturn:
     """
     Handle ValidationError and ValueError exceptions from game operations.
@@ -918,10 +918,8 @@ async def clone_game(
     """
     try:
         game = await game_service.clone_game(game_id, clone_data, current_user, role_service)
-    except ValueError as e:
-        if "not found" in str(e).lower():
-            raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail=str(e)) from None
-        raise HTTPException(status_code=http_status.HTTP_403_FORBIDDEN, detail=str(e)) from None
+    except (resolver_module.ValidationError, ValueError) as e:
+        _handle_game_operation_errors(e, clone_data)
     try:
         can_manage = await permissions_deps.can_manage_game(
             game_host_id=game.host.discord_id,

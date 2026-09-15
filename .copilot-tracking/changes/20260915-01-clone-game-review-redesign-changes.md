@@ -132,3 +132,118 @@ None = None`; `actual_host_user_id` now initializes from
   markers removed)
 - `uv run pytest tests/unit` — 2587 passed
 - `uv run mypy shared/ services/` — Success: no issues found in 155 source files
+
+## Phase 4: Rewrite `clone_game` To Delegate To `create_game`; Wire Route-Level `ValidationError` Handling
+
+Replaced `clone_game`'s ~140-line body (verbatim field-copy `GameSession` construction, its own
+`partition_participants`-driven roster build, its own unconditional `_setup_game_schedules`/
+`_publish_game_created` calls) with construction of a fully-resolved `GameCreateRequest` (reusing
+`source_game.template_id`, falling back to `source_game`'s value for every field `clone_data` left
+unset) and delegation to `create_game`, passing `host_user_id=current_user.user.id` and the Phase
+3 `default_host_user_id=source_game.host_id`. This means `clone_game` now re-runs `create_game`'s
+own host-role-permission check against the carried-over/overridden host — an intentional behavior
+change per the research doc, not a bypass. Image carry-over-by-reference
+(`increment_image_ref`/`thumbnail_id`/`banner_image_id`) is layered on unconditionally afterward as
+the one still-irreducible additive step for this phase; deadline-carryover scheduling remains
+unwired until Phase 5 (`_apply_deadline_carryover`/`_add_participant_carryover_schedules`/
+`_process_carryover_group` were kept unchanged and unremoved, per the plan, for Phase 5 to reuse).
+The route's clone endpoint now shares `_handle_game_operation_errors` with the create/update
+routes instead of a hand-rolled `except ValueError` block, so a `resolver_module.ValidationError`
+raised by the delegated `create_game` call (e.g. an unresolvable `@mention` in an overridden field)
+now correctly surfaces as 422 `invalid_mentions` instead of an unhandled 500.
+
+Fixing this exposed a pre-existing test-fixture gap: `tests/integration/test_clone_game_endpoint.py`
+and `tests/integration/test_recurrence_clone.py` both created/inserted source games with
+`template_id=None` (harmless for the old field-copy `clone_game`, which never validated
+`template_id`, but a hard failure once `clone_game` builds a `GameCreateRequest`, whose
+`template_id` is a required string consumed by `create_game`'s real template-loading step). Fixed
+by passing a real `template_id` from each test's already-created template fixture.
+
+Two existing integration tests assert behavior this phase intentionally does not implement yet and
+are marked `@pytest.mark.skip` with a reason pointing at Phase 5/Phase 7, rather than deleted or
+silently left broken:
+
+- `test_clone_game_endpoint_yes_carryover_copies_new_game_participants` — asserted server-side
+  `player_carryover: YES` roster construction, which no longer exists in `clone_game` (Phase 5
+  re-adds a submitted-list-driven equivalent; Phase 7 restores/rewrites this scenario against the
+  final contract).
+- `test_clone_game_endpoint_yes_with_deadline_creates_action_and_notification_schedules` — asserted
+  `_apply_deadline_carryover` being invoked by `clone_game`, which Phase 5 re-adds as an additive
+  step.
+
+### Added
+
+- `tests/integration/test_clone_game_endpoint.py` —
+  `test_clone_game_endpoint_unresolvable_mention_in_override_returns_422`: new case per the details
+  file's Task 4.1 file list — an unresolvable `@mention` in an overridden `description` returns 422
+  with `error: "invalid_mentions"` (Task 4.1).
+- `tests/unit/services/test_clone_game.py` — 9 new tests replacing the delegation-mocking gap (Task
+  4.2), all written first against the not-yet-rewritten `clone_game` and confirmed as a genuine RED
+  signal (`mock_create.assert_called_once_with(...)`-style assertions failing outright since the old
+  `clone_game` never called `self.create_game`), then confirmed GREEN after Task 4.1:
+  - `test_clone_game_builds_payload_from_source_when_no_overrides` — every `GameCreateRequest` field
+    falls back to `source_game`'s value when `clone_data` leaves it unset
+  - `test_clone_game_overridden_fields_use_clone_data` — every override field wins over the
+    corresponding source value
+  - `test_clone_game_omitting_host_decouples_default_host_from_requester` — confirms
+    `host_user_id`/`default_host_user_id` stay decoupled (requester vs. source host)
+  - `test_clone_game_copies_images_by_reference_when_source_has_images` — both image ids copied
+    onto the returned game, `increment_image_ref` awaited twice, `db.add`/`db.flush` called
+  - `test_clone_game_skips_image_ref_increment_when_source_has_no_images` — no image-related DB
+    writes when the source has neither image
+  - `test_clone_game_propagates_create_game_value_error` — a `ValueError` from the delegated
+    `create_game` call (e.g. deleted template) propagates unchanged
+  - `test_clone_game_propagates_create_game_validation_error` — a `resolver_module.ValidationError`
+    from the delegated call propagates unchanged
+  - `test_clone_game_source_not_found_raises_value_error`, `test_clone_game_non_host_raises_value_error`
+    — retained/adapted permission-gate regression tests (now also assert `create_game` is never
+    called when the gate rejects)
+
+### Modified
+
+- `services/api/services/games.py` (`clone_game`) — full rewrite per Task 4.1: builds a
+  `GameCreateRequest` from `clone_data`/`source_game` fallbacks, delegates to
+  `self.create_game(game_data, host_user_id=current_user.user.id, default_host_user_id=source_game.host_id)`,
+  then unconditionally carries over `thumbnail_id`/`banner_image_id` by reference. Old body
+  (verbatim `GameSession(...)` construction, `partition_participants`-driven carryover loop,
+  `_setup_game_schedules`, `_apply_deadline_carryover` call, `_publish_game_created` call) deleted.
+  `_apply_deadline_carryover`, `_add_participant_carryover_schedules`, `_process_carryover_group`
+  left unchanged, per the plan, for Phase 5.
+- `services/api/routes/games.py` — `_handle_game_operation_errors`'s `form_data` type union widened
+  to include `CloneGameRequest`; the clone route's `try/except ValueError` replaced with
+  `except (resolver_module.ValidationError, ValueError) as e: _handle_game_operation_errors(e, clone_data)`,
+  matching the `create_game`/`update_game` routes' pattern (Task 4.1).
+- `tests/unit/services/test_clone_game.py` — near-total rewrite of fixtures and test bodies per
+  Task 4.2: `game_service` fixture no longer needs the old generic `db.execute` MagicMock tailored
+  to the old body (kept as-is since `_apply_deadline_carryover`'s direct-invocation tests still use
+  it); all `clone_game`-level tests now use `patch.object(game_service, "create_game", AsyncMock(...))`
+  instead of mocking every DB round-trip. The four `_apply_deadline_carryover` direct-invocation
+  tests (unaffected by the `clone_game` rewrite, since that method itself is untouched) were kept
+  unchanged. Net: 14 tests → 13 tests (11 old `clone_game`-body tests replaced by 9 new
+  delegation-mocking tests; 4 `_apply_deadline_carryover` tests retained as-is; 1 net fewer test in
+  the file, reflected in the `uv run pytest tests/unit` total below).
+- `tests/integration/test_clone_game_endpoint.py` — added `template_id=env["template"]["id"]` to
+  all five `create_game(...)` calls (previously omitted; harmless under the old `clone_game`, a hard
+  failure under the new `create_game`-delegating one); added `@pytest.mark.skip` (with reason) to
+  the two carryover/deadline tests described above; added the new
+  `test_clone_game_endpoint_unresolvable_mention_in_override_returns_422` case.
+- `tests/integration/test_recurrence_clone.py` — `_insert_game_with_recur_rule` gained an optional
+  `template_id: str | None = None` parameter, included in the raw `INSERT`;
+  `test_recur_rule_propagated_through_clone_endpoint` now creates a real template via
+  `create_template` and passes its id, since the source game it clones now goes through
+  `create_game`'s template-loading step (outside this task's originally-listed file set — called
+  out here as a divergence: this was a pre-existing test-fixture gap only exposed by Phase 4's
+  delegation, not a change anticipated by the details file's Task 4.1 file list).
+
+### Verification
+
+- `uv run pytest tests/unit/services/test_clone_game.py -v` — all 9 new orchestration tests
+  confirmed failing against the not-yet-rewritten `clone_game` (genuine RED: `create_game` never
+  called), then all 13 tests in the file `PASSED` after Task 4.1's rewrite
+- `uv run pytest tests/unit` — 2586 passed
+- `uv run mypy shared/ services/` — Success: no issues found in 155 source files
+- `scripts/run-integration-tests.sh` (scoped to `tests/integration/test_clone_game_endpoint.py`) —
+  4 passed, 2 skipped
+- `scripts/run-integration-tests.sh` (scoped to `tests/integration/test_recurrence_clone.py`) —
+  4 passed
+- `scripts/run-integration-tests.sh` (full suite) — 347 passed, 2 skipped, 2731 deselected
