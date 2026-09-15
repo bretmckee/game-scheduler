@@ -1,5 +1,5 @@
 ---
-description: 'Implement the clone-game review/edit-before-create redesign (GameForm-based clone screen, CloneGameRequest delegating to create_game, submitted-list-driven deadline carryover, real post_at via delegation)'
+description: 'Implement the clone-game review/edit-before-create redesign (GameForm-based clone screen delegating to create_game)'
 ---
 
 <!-- markdownlint-disable-file -->
