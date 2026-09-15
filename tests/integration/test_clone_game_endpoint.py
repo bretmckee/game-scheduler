@@ -30,6 +30,7 @@ Tests that:
 """
 
 import asyncio
+import base64
 import json
 from datetime import UTC, datetime, timedelta
 
@@ -49,6 +50,21 @@ TEST_BOT_DISCORD_ID = extract_bot_discord_id(TEST_DISCORD_TOKEN)
 
 OTHER_DISCORD_TOKEN = "MTQ0NDA3ODM4NjM4MDAxMzYxMQ.Hxyzab.other_fake_token_for_tests"
 OTHER_BOT_DISCORD_ID = extract_bot_discord_id(OTHER_DISCORD_TOKEN)
+
+
+def _make_discord_token(discord_id: str) -> str:
+    """Build a fake bot-token string whose first segment decodes to `discord_id`.
+
+    Used for Phase 7 tests needing a *non*-bot-manager host identity distinct
+    from TEST_BOT_DISCORD_ID/OTHER_BOT_DISCORD_ID (both of which are always
+    seeded as bot managers by `_setup_environment`).
+    """
+    encoded_id = base64.b64encode(discord_id.encode()).decode().rstrip("=")
+    return f"{encoded_id}.GvzzzZ.fake_token_for_integration_tests"
+
+
+HOST_ONLY_DISCORD_ID = "329555000000000099"
+HOST_ONLY_DISCORD_TOKEN = _make_discord_token(HOST_ONLY_DISCORD_ID)
 
 
 def _seed_guild_member(guild_discord_id: str, user_discord_id: str) -> None:
@@ -83,7 +99,12 @@ def _seed_guild_member(guild_discord_id: str, user_discord_id: str) -> None:
 
 
 def _setup_environment(
-    create_user, create_guild, create_channel, create_template, seed_redis_cache
+    create_user,
+    create_guild,
+    create_channel,
+    create_template,
+    seed_redis_cache,
+    allowed_signup_methods: list[str] | None = None,
 ):
     """Create guild, channel, user and Redis cache entries for one test."""
     guild_discord_id = "223456789012345678"
@@ -107,6 +128,7 @@ def _setup_environment(
         channel_id=channel["id"],
         name="Clone INT_TEST Template",
         description="Integration test template for clone tests",
+        allowed_signup_methods=allowed_signup_methods,
     )
 
     return {
@@ -567,3 +589,532 @@ def test_clone_game_endpoint_with_uploaded_thumbnail_uses_new_image_not_ref_copy
     assert source_image_ref_count == 1, (
         "Source thumbnail's reference count must stay at 1 -- it was not ref-copied"
     )
+
+
+def test_clone_game_endpoint_field_overrides_apply_and_unmentioned_fields_inherit(
+    admin_db_sync,
+    create_user,
+    create_guild,
+    create_channel,
+    create_template,
+    create_game,
+    seed_redis_cache,
+    create_authenticated_client,
+):
+    """Overriding a subset of fields must apply exactly those overrides while every
+    unmentioned field falls back to source_game's own resolved value.
+    """
+    env = _setup_environment(
+        create_user,
+        create_guild,
+        create_channel,
+        create_template,
+        seed_redis_cache,
+        allowed_signup_methods=["SELF_SIGNUP", "HOST_SELECTED"],
+    )
+    authenticated_client = create_authenticated_client(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+
+    source_game = create_game(
+        guild_id=env["guild"]["id"],
+        channel_id=env["channel"]["id"],
+        host_id=env["user"]["id"],
+        template_id=env["template"]["id"],
+        title="Original Title",
+        max_players=4,
+    )
+    # create_game's fixture has no `where` parameter -- set it directly so we
+    # have a distinguishing, source-only value to assert inheritance against.
+    admin_db_sync.execute(
+        text('UPDATE game_sessions SET "where" = :where WHERE id = :id'),
+        {"where": "Original Location", "id": source_game["id"]},
+    )
+    admin_db_sync.commit()
+
+    clone_at = (datetime.now(UTC) + timedelta(days=14)).isoformat()
+
+    response = authenticated_client.post(
+        f"/api/v1/games/{source_game['id']}/clone",
+        data={
+            "scheduled_at": clone_at,
+            "player_carryover": "NO",
+            "waitlist_carryover": "NO",
+            "title": "Overridden Title",
+            "description": "Overridden description",
+            "max_players": "6",
+            "signup_method": "HOST_SELECTED",
+        },
+    )
+
+    assert response.status_code == 201, f"Expected 201, got {response.status_code}: {response.text}"
+    game_data = response.json()
+
+    assert game_data["title"] == "Overridden Title"
+    assert game_data["description"] == "Overridden description"
+    assert game_data["max_players"] == 6
+    assert game_data["signup_method"] == "HOST_SELECTED"
+    # Unmentioned field must inherit source_game's own value, not a default.
+    assert game_data["where"] == "Original Location"
+
+    persisted = admin_db_sync.execute(
+        text('SELECT max_players, signup_method, "where" FROM game_sessions WHERE id = :id'),
+        {"id": game_data["id"]},
+    ).fetchone()
+    assert persisted[0] == 6
+    assert persisted[1] == "HOST_SELECTED"
+    assert persisted[2] == "Original Location"
+
+
+def test_clone_game_endpoint_bot_manager_host_override_succeeds(
+    admin_db_sync,
+    create_user,
+    create_guild,
+    create_channel,
+    create_template,
+    create_game,
+    seed_redis_cache,
+    create_authenticated_client,
+):
+    """A bot manager overriding `host` with a valid mention must get that mentioned
+    user as the new game's host -- with no template role restrictions, the
+    Phase 3/4 host-role recheck is skipped entirely for an overridden host
+    (`create_game`'s `not host_override or template.allowed_host_role_ids` guard).
+    """
+    env = _setup_environment(
+        create_user, create_guild, create_channel, create_template, seed_redis_cache
+    )
+    authenticated_client = create_authenticated_client(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+
+    source_game = create_game(
+        guild_id=env["guild"]["id"],
+        channel_id=env["channel"]["id"],
+        host_id=env["user"]["id"],
+        template_id=env["template"]["id"],
+        title="Source Game For Host Override",
+    )
+
+    new_host_discord_id = "329555000000000001"
+    new_host_user = create_user(discord_user_id=new_host_discord_id)
+    _seed_guild_member(env["guild_discord_id"], new_host_discord_id)
+
+    clone_at = (datetime.now(UTC) + timedelta(days=14)).isoformat()
+
+    response = authenticated_client.post(
+        f"/api/v1/games/{source_game['id']}/clone",
+        data={
+            "scheduled_at": clone_at,
+            "player_carryover": "NO",
+            "waitlist_carryover": "NO",
+            "host": f"<@{new_host_discord_id}>",
+        },
+    )
+
+    assert response.status_code == 201, f"Expected 201, got {response.status_code}: {response.text}"
+    game_data = response.json()
+    assert game_data["host"]["discord_id"] == new_host_discord_id
+    assert game_data["host"]["user_id"] == new_host_user["id"]
+
+    persisted_host_id = admin_db_sync.execute(
+        text("SELECT host_id FROM game_sessions WHERE id = :id"),
+        {"id": game_data["id"]},
+    ).scalar_one()
+    assert persisted_host_id == new_host_user["id"]
+
+
+def test_clone_game_endpoint_non_bot_manager_host_override_returns_403(
+    admin_db_sync,
+    create_user,
+    create_guild,
+    create_channel,
+    create_template,
+    create_game,
+    seed_redis_cache,
+    create_authenticated_client,
+):
+    """A non-bot-manager host attempting to override `host` while cloning their own
+    game must be rejected exactly as create_game rejects it today
+    (`_verify_bot_manager_permission`'s "Only bot managers..." ValueError, 403).
+    """
+    env = _setup_environment(
+        create_user, create_guild, create_channel, create_template, seed_redis_cache
+    )
+
+    host_only_user = create_user(discord_user_id=HOST_ONLY_DISCORD_ID)
+    seed_redis_cache(
+        user_discord_id=HOST_ONLY_DISCORD_ID,
+        guild_discord_id=env["guild_discord_id"],
+        channel_discord_id=env["channel_discord_id"],
+        user_roles=[env["guild_discord_id"]],
+        bot_manager_roles=[],
+    )
+    host_only_client = create_authenticated_client(HOST_ONLY_DISCORD_TOKEN, HOST_ONLY_DISCORD_ID)
+
+    source_game = create_game(
+        guild_id=env["guild"]["id"],
+        channel_id=env["channel"]["id"],
+        host_id=host_only_user["id"],
+        template_id=env["template"]["id"],
+        title="Source Game Non-Manager Host Override Attempt",
+    )
+
+    other_discord_id = "329555000000000002"
+    create_user(discord_user_id=other_discord_id)
+    _seed_guild_member(env["guild_discord_id"], other_discord_id)
+
+    clone_at = (datetime.now(UTC) + timedelta(days=14)).isoformat()
+
+    response = host_only_client.post(
+        f"/api/v1/games/{source_game['id']}/clone",
+        data={
+            "scheduled_at": clone_at,
+            "player_carryover": "NO",
+            "waitlist_carryover": "NO",
+            "host": f"<@{other_discord_id}>",
+        },
+    )
+
+    assert response.status_code == 403, (
+        f"Expected 403 Forbidden, got {response.status_code}: {response.text}"
+    )
+    assert "bot manager" in response.json()["detail"].lower()
+
+
+def test_clone_game_endpoint_source_host_no_longer_eligible_returns_403(
+    admin_db_sync,
+    create_user,
+    create_guild,
+    create_channel,
+    create_template,
+    create_game,
+    seed_redis_cache,
+    create_authenticated_client,
+):
+    """Cloning without a host override re-checks the carried-over host against the
+    template's host-role requirements (Phase 4's intentional, new host-role
+    recheck) -- a non-bot-manager host with no qualifying role must be rejected
+    with the same "does not have permission" error create_game raises today,
+    even though today's clone_game (pre-redesign) never performed this check
+    at all.
+    """
+    env = _setup_environment(
+        create_user, create_guild, create_channel, create_template, seed_redis_cache
+    )
+
+    # A non-bot-manager host with no bot-manager role and (since the template
+    # has no allowed_host_role_ids) no qualifying role at all -- ineligible to
+    # host under create_game's own check_game_host_permission.
+    ineligible_host = create_user(discord_user_id=HOST_ONLY_DISCORD_ID)
+    seed_redis_cache(
+        user_discord_id=HOST_ONLY_DISCORD_ID,
+        guild_discord_id=env["guild_discord_id"],
+        channel_discord_id=env["channel_discord_id"],
+        user_roles=[env["guild_discord_id"]],
+        bot_manager_roles=[],
+    )
+    ineligible_host_client = create_authenticated_client(
+        HOST_ONLY_DISCORD_TOKEN, HOST_ONLY_DISCORD_ID
+    )
+
+    source_game = create_game(
+        guild_id=env["guild"]["id"],
+        channel_id=env["channel"]["id"],
+        host_id=ineligible_host["id"],
+        template_id=env["template"]["id"],
+        title="Source Game With Ineligible Host",
+    )
+
+    clone_at = (datetime.now(UTC) + timedelta(days=14)).isoformat()
+
+    # The ineligible host clones their own game (can_manage_game passes since
+    # they are the host); create_game's delegated host-role recheck must still
+    # reject it.
+    response = ineligible_host_client.post(
+        f"/api/v1/games/{source_game['id']}/clone",
+        data={
+            "scheduled_at": clone_at,
+            "player_carryover": "NO",
+            "waitlist_carryover": "NO",
+        },
+    )
+
+    assert response.status_code == 403, (
+        f"Expected 403 Forbidden, got {response.status_code}: {response.text}"
+    )
+    assert "permission" in response.json()["detail"].lower()
+
+    # No new game must have been created.
+    game_count = admin_db_sync.execute(
+        text("SELECT COUNT(*) FROM game_sessions WHERE host_id = :host_id AND id != :source_id"),
+        {"host_id": ineligible_host["id"], "source_id": source_game["id"]},
+    ).scalar_one()
+    assert game_count == 0
+
+
+def test_clone_game_endpoint_deleted_template_returns_404(
+    admin_db_sync,
+    create_user,
+    create_guild,
+    create_channel,
+    create_template,
+    create_game,
+    seed_redis_cache,
+    create_authenticated_client,
+):
+    """Cloning a game whose template is no longer available must surface as a 404
+    (Design Note 9's accepted trade-off), not a 500 or silent success.
+
+    game_sessions.template_id has a plain (non-cascading) foreign key to
+    game_templates, so a referenced template row cannot normally be deleted
+    out from under a game. This test genuinely deletes the template anyway,
+    momentarily dropping and restoring the FK constraint around the delete,
+    so the source game keeps a real (now-dangling) template_id string and
+    clone_game's delegated create_game() takes the exact same "Template not
+    found" ValueError path (via a real DB lookup miss) a production incident
+    of this kind would hit -- not the unrelated Pydantic input-validation
+    error a null template_id would raise instead.
+    """
+    env = _setup_environment(
+        create_user, create_guild, create_channel, create_template, seed_redis_cache
+    )
+    authenticated_client = create_authenticated_client(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+
+    source_game = create_game(
+        guild_id=env["guild"]["id"],
+        channel_id=env["channel"]["id"],
+        host_id=env["user"]["id"],
+        template_id=env["template"]["id"],
+        title="Source Game With Vanished Template",
+    )
+
+    fk_name = admin_db_sync.execute(
+        text(
+            "SELECT tc.constraint_name FROM information_schema.table_constraints tc "
+            "JOIN information_schema.key_column_usage kcu "
+            "ON tc.constraint_name = kcu.constraint_name "
+            "WHERE tc.table_name = 'game_sessions' AND tc.constraint_type = 'FOREIGN KEY' "
+            "AND kcu.column_name = 'template_id'"
+        )
+    ).scalar_one()
+    admin_db_sync.execute(text(f'ALTER TABLE game_sessions DROP CONSTRAINT "{fk_name}"'))
+    admin_db_sync.execute(
+        text("DELETE FROM game_templates WHERE id = :id"), {"id": env["template"]["id"]}
+    )
+    # NOT VALID: the source game's own template_id row is now intentionally
+    # dangling (that's the scenario under test), so a normal ADD CONSTRAINT
+    # would fail re-validating it against every existing row.
+    admin_db_sync.execute(
+        text(
+            f'ALTER TABLE game_sessions ADD CONSTRAINT "{fk_name}" '
+            "FOREIGN KEY (template_id) REFERENCES game_templates(id) NOT VALID"
+        )
+    )
+    admin_db_sync.commit()
+
+    clone_at = (datetime.now(UTC) + timedelta(days=14)).isoformat()
+
+    response = authenticated_client.post(
+        f"/api/v1/games/{source_game['id']}/clone",
+        data={
+            "scheduled_at": clone_at,
+            "player_carryover": "NO",
+            "waitlist_carryover": "NO",
+        },
+    )
+
+    assert response.status_code == 404, (
+        f"Expected 404 Not Found, got {response.status_code}: {response.text}"
+    )
+
+
+def test_clone_game_endpoint_submitted_roster_drops_one_adds_one_with_deadline_carryover(
+    admin_db_sync,
+    create_user,
+    create_guild,
+    create_channel,
+    create_template,
+    create_game,
+    seed_redis_cache,
+    create_authenticated_client,
+):
+    """A submitted participant list that drops one source participant and adds a
+    brand-new one must (a) build the new game's roster from exactly the
+    submitted list, in submitted order, and (b) only create a deadline-carryover
+    schedule for the resubmitted participant who also has a source-side
+    carryover-eligible match -- the dropped participant gets no schedule (never
+    even makes it onto the new game), and the brand-new participant gets no
+    schedule either (no source-side match), per Phase 5's submitted-list-driven
+    semantics.
+    """
+    env = _setup_environment(
+        create_user, create_guild, create_channel, create_template, seed_redis_cache
+    )
+    authenticated_client = create_authenticated_client(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+
+    source_game = create_game(
+        guild_id=env["guild"]["id"],
+        channel_id=env["channel"]["id"],
+        host_id=env["user"]["id"],
+        template_id=env["template"]["id"],
+        title="Source Game Roster Drop And Add",
+        max_players=4,
+    )
+
+    dropped_user = create_user(discord_user_id="329555000000000010")
+    kept_user = create_user(discord_user_id="329555000000000011")
+    admin_db_sync.execute(
+        text(
+            "INSERT INTO game_participants "
+            "(id, game_session_id, user_id, position, position_type) "
+            "VALUES (:id, :game_id, :user_id, :position, :position_type)"
+        ),
+        {
+            "id": "test-participant-uuid-dropped",
+            "game_id": source_game["id"],
+            "user_id": dropped_user["id"],
+            "position": 1,
+            "position_type": ParticipantType.HOST_ADDED,
+        },
+    )
+    admin_db_sync.execute(
+        text(
+            "INSERT INTO game_participants "
+            "(id, game_session_id, user_id, position, position_type) "
+            "VALUES (:id, :game_id, :user_id, :position, :position_type)"
+        ),
+        {
+            "id": "test-participant-uuid-kept",
+            "game_id": source_game["id"],
+            "user_id": kept_user["id"],
+            "position": 2,
+            "position_type": ParticipantType.HOST_ADDED,
+        },
+    )
+    admin_db_sync.commit()
+    _seed_guild_member(env["guild_discord_id"], kept_user["discord_id"])
+
+    new_user = create_user(discord_user_id="329555000000000012")
+    _seed_guild_member(env["guild_discord_id"], new_user["discord_id"])
+
+    deadline = (datetime.now(UTC) + timedelta(days=1)).isoformat()
+    clone_at = (datetime.now(UTC) + timedelta(days=14)).isoformat()
+
+    response = authenticated_client.post(
+        f"/api/v1/games/{source_game['id']}/clone",
+        data={
+            "scheduled_at": clone_at,
+            "player_carryover": "YES_WITH_DEADLINE",
+            "player_deadline": deadline,
+            "waitlist_carryover": "NO",
+            "participants": json.dumps([
+                f"<@{kept_user['discord_id']}>",
+                f"<@{new_user['discord_id']}>",
+            ]),
+        },
+    )
+
+    assert response.status_code == 201, f"Expected 201, got {response.status_code}: {response.text}"
+    new_game_id = response.json()["id"]
+
+    roster = admin_db_sync.execute(
+        text(
+            "SELECT user_id, position FROM game_participants "
+            "WHERE game_session_id = :game_id ORDER BY position"
+        ),
+        {"game_id": new_game_id},
+    ).fetchall()
+
+    assert [row[0] for row in roster] == [kept_user["id"], new_user["id"]], (
+        "Roster must contain exactly the submitted participants, in submitted order"
+    )
+
+    kept_participant_id = admin_db_sync.execute(
+        text(
+            "SELECT id FROM game_participants "
+            "WHERE game_session_id = :game_id AND user_id = :user_id"
+        ),
+        {"game_id": new_game_id, "user_id": kept_user["id"]},
+    ).scalar_one()
+    new_participant_id = admin_db_sync.execute(
+        text(
+            "SELECT id FROM game_participants "
+            "WHERE game_session_id = :game_id AND user_id = :user_id"
+        ),
+        {"game_id": new_game_id, "user_id": new_user["id"]},
+    ).scalar_one()
+
+    schedules = admin_db_sync.execute(
+        text(
+            "SELECT participant_id FROM participant_action_schedule "
+            "WHERE participant_id IN (:kept_id, :new_id)"
+        ),
+        {"kept_id": kept_participant_id, "new_id": new_participant_id},
+    ).fetchall()
+
+    assert [row[0] for row in schedules] == [kept_participant_id], (
+        "Only the resubmitted participant with a source-side carryover match "
+        "gets a deadline schedule; the brand-new participant must not"
+    )
+
+
+def test_clone_game_endpoint_future_post_at_defers_publish(
+    admin_db_sync,
+    create_user,
+    create_guild,
+    create_channel,
+    create_template,
+    create_game,
+    seed_redis_cache,
+    create_authenticated_client,
+):
+    """A future post_at must result in the cloned game being created with no
+    immediate bot_action_queue row -- create_game's existing deferred-publish
+    branch, exercised end-to-end through clone_game's delegation.
+    """
+    env = _setup_environment(
+        create_user, create_guild, create_channel, create_template, seed_redis_cache
+    )
+    authenticated_client = create_authenticated_client(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+
+    source_game = create_game(
+        guild_id=env["guild"]["id"],
+        channel_id=env["channel"]["id"],
+        host_id=env["user"]["id"],
+        template_id=env["template"]["id"],
+        title="Source Game For Deferred Publish",
+    )
+
+    post_at = (datetime.now(UTC) + timedelta(days=1)).isoformat()
+    clone_at = (datetime.now(UTC) + timedelta(days=14)).isoformat()
+
+    response = authenticated_client.post(
+        f"/api/v1/games/{source_game['id']}/clone",
+        data={
+            "scheduled_at": clone_at,
+            "post_at": post_at,
+            "player_carryover": "NO",
+            "waitlist_carryover": "NO",
+        },
+    )
+
+    assert response.status_code == 201, f"Expected 201, got {response.status_code}: {response.text}"
+    new_game_id = response.json()["id"]
+    assert response.json()["post_at"] is not None, (
+        "Deferred game must still have a concrete post_at"
+    )
+
+    bot_row = admin_db_sync.execute(
+        text(
+            "SELECT action_type FROM bot_action_queue "
+            "WHERE action_type = 'game_created' AND game_id = :game_id"
+        ),
+        {"game_id": new_game_id},
+    ).fetchone()
+
+    assert bot_row is None, (
+        "A deferred (future post_at) clone must not enqueue an immediate game_created event"
+    )
+
+    game_status = admin_db_sync.execute(
+        text("SELECT status FROM game_sessions WHERE id = :id"),
+        {"id": new_game_id},
+    ).scalar_one()
+    assert game_status == GameStatus.SCHEDULED

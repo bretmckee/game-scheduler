@@ -513,3 +513,74 @@ image-removal option) instead of inlining the logic a second time --
 - diff-cover against `origin/develop`: `services/api/routes/games.py`,
   `services/api/schemas/clone_game.py`, `services/api/services/games.py`,
   `services/api/services/participant_resolver.py` all 100% (54/54 lines)
+
+## Phase 7: Full Integration Test Pass Against the New Request Contract
+
+Expanded `tests/integration/test_clone_game_endpoint.py` (no TDD stub/xfail cycle -- integration
+tests are written after the implementation exists, per this phase's designation as
+integration-only) with 7 new end-to-end HTTP tests closing the coverage gaps Phases 1-6 left open
+per the details file's Task 7.1 spec. Reviewed the file's 7 existing tests first (basic 201, 403
+non-host, `game_created` event publish, YES carryover roster, YES_WITH_DEADLINE schedules,
+unresolvable-mention 422, uploaded-thumbnail-vs-ref-copy) to avoid duplicating coverage; every new
+test below exercises a scenario none of those touched.
+
+### Added
+
+- `tests/integration/test_clone_game_endpoint.py` — 7 new tests (Task 7.1):
+  - `test_clone_game_endpoint_field_overrides_apply_and_unmentioned_fields_inherit` — overrides
+    `title`/`description`/`max_players`/`signup_method` in one request and asserts the persisted
+    game reflects every override while an unmentioned field (`where`, set to a distinguishing
+    source-only value beforehand) inherits `source_game`'s own value, not a default
+  - `test_clone_game_endpoint_bot_manager_host_override_succeeds` — a bot manager overriding `host`
+    with a valid `<@discord_id>` mention gets that user as the new game's host; confirms the
+    Phase 3/4 host-role recheck is correctly skipped for an overridden host against a template with
+    no `allowed_host_role_ids`
+  - `test_clone_game_endpoint_non_bot_manager_host_override_returns_403` — a non-bot-manager host
+    attempting to override `host` while cloning their own game is rejected with
+    `_verify_bot_manager_permission`'s "Only bot managers..." error (403), exactly as `create_game`
+    rejects it today
+  - `test_clone_game_endpoint_source_host_no_longer_eligible_returns_403` — regression test for the
+    new, intentional host-role recheck (Design Note/"Verified Against Current Code" item 3): a
+    non-bot-manager source-game host with no qualifying role clones their own game (no host
+    override, so `can_manage_game`'s host-of-own-game path admits the request) and is rejected by
+    `create_game`'s delegated `check_game_host_permission` recheck; also asserts no new game row was
+    created
+  - `test_clone_game_endpoint_deleted_template_returns_404` — regression test for Design Note 9's
+    accepted trade-off. Since `game_sessions.template_id`'s plain FK normally prevents deleting a
+    referenced template, the test genuinely deletes the template anyway by momentarily dropping and
+    restoring (as `NOT VALID`, since the source game's own row is intentionally left dangling) the
+    FK constraint around the delete -- driving `clone_game`'s delegated `create_game()` through a
+    real DB-lookup-miss "Template not found" `ValueError`, not the unrelated Pydantic
+    input-validation error a merely-`NULL` `template_id` would raise instead
+  - `test_clone_game_endpoint_submitted_roster_drops_one_adds_one_with_deadline_carryover` — a
+    richer roster scenario than Phase 5's existing single-participant-resubmission tests: source
+    game has two confirmed participants; the clone's submitted `participants` list drops one and
+    adds a brand-new (no source-side match) participant. Asserts the new game's roster is built from
+    exactly the submitted list in submitted order, and that `_apply_deadline_carryover` creates a
+    schedule only for the resubmitted participant with a source-side carryover-eligible match --
+    neither the dropped participant (never makes it onto the new game) nor the brand-new one (no
+    source match) gets one
+  - `test_clone_game_endpoint_future_post_at_defers_publish` — a future `post_at` (before
+    `scheduled_at`) results in no immediate `bot_action_queue` `game_created` row, exercising
+    `create_game`'s existing deferred-publish branch end-to-end through `clone_game`'s delegation;
+    confirms the new game still gets a concrete `post_at` and `status=SCHEDULED`
+
+### Modified
+
+- `tests/integration/test_clone_game_endpoint.py` — added `base64` import and a
+  `_make_discord_token`/`HOST_ONLY_DISCORD_TOKEN`/`HOST_ONLY_DISCORD_ID` fixture-identity helper for
+  a third (non-bot-manager) authenticated identity needed by two of the new tests; extended
+  `_setup_environment` with an optional `allowed_signup_methods` parameter (passed through to
+  `create_template`, defaulting to `None` so every existing call site is unaffected) so the
+  field-overrides test can override `signup_method` to a value the default template wouldn't allow.
+
+### Verification
+
+- `uv run ruff check tests/integration/test_clone_game_endpoint.py` — All checks passed
+- `uv run pytest tests/unit` — 2594 passed (unchanged from Phase 6 -- this phase touches only
+  integration tests)
+- `uv run mypy shared/ services/` — Success: no issues found in 155 source files
+- `scripts/run-integration-tests.sh tests/integration/test_clone_game_endpoint.py` — 14 passed (7
+  previously-passing tests plus the 7 new ones)
+- `scripts/run-integration-tests.sh` (full suite) — 357 passed, 0 skipped, 2739 deselected -- no
+  regressions elsewhere

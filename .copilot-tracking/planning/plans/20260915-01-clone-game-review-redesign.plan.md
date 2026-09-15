@@ -138,9 +138,9 @@ re-derived from the submitted roster.
 - [x] Task 6.2: Rewrite the clone route to multipart `Form()`/`File()`, mirroring `create_game`'s route
   - Details: .copilot-tracking/planning/details/20260915-01-clone-game-review-redesign-details.md (Lines 610-684)
 
-### [ ] Phase 7: Full Integration Test Pass Against the New Request Contract
+### [x] Phase 7: Full Integration Test Pass Against the New Request Contract
 
-- [ ] Task 7.1: Expand `tests/integration/test_clone_game_endpoint.py` to exercise overrides, host
+- [x] Task 7.1: Expand `tests/integration/test_clone_game_endpoint.py` to exercise overrides, host
       override and its new permission recheck, submitted-participant roster/deadline behavior, image
       upload vs. ref-copy, and `post_at` deferred/immediate behavior end-to-end
   - Details: .copilot-tracking/planning/details/20260915-01-clone-game-review-redesign-details.md (Lines 686-709)
