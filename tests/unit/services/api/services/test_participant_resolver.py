@@ -21,7 +21,7 @@
 
 """Unit tests for participant resolver service."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -1280,24 +1280,20 @@ async def test_resolve_mentions_in_text_real_mention_still_resolved(resolver):
 
 
 @pytest.mark.asyncio
-async def test_resolve_mentions_in_text_malformed_adjacent_mention_is_silently_dropped(
+async def test_resolve_mentions_in_text_malformed_adjacent_mention_is_still_scanned(
     resolver,
 ):
     """
-    Documents current (believed-buggy) behavior for a bare '<' glued to '@mention'.
+    A stray '<' glued to a genuine '@mention' must not hide it from scanning.
 
-    The (?<!<)@\\w+(?:\\.\\w+)* scanner is meant to skip an '@' that is part of
-    an already-resolved <@discord_id> token, so re-running resolution is a
-    no-op for those. But the lookbehind only checks for a preceding '<' -- it
-    does not verify a valid <@digits> token actually follows. So malformed
+    The scanner must skip an '@' only when it is part of a genuine
+    already-resolved <@discord_id> token (so re-running resolution is a
+    no-op for those), not merely because some '<' precedes it. Malformed
     input like "<@bob" (a stray '<' immediately before a genuine @mention,
-    with no digits/'>' to close it) also has its '@' excluded from the scan.
-    The result: "@bob" is neither resolved nor reported as an unresolvable
-    mention -- it passes through completely unexamined. This looks like a
-    real gap (a typo'd '<' should not make a mention invisible to
-    validation), but per task instructions the regex is not being changed
-    here; this test only pins down today's actual behavior so a future fix
-    is a deliberate, visible change to this test.
+    with no digits/'>' to close it) does not form a valid <@digits> token,
+    so "@bob" must still be scanned as a real candidate mention -- and since
+    no member named "bob" exists here, it is reported as unresolved, exactly
+    like a normal standalone unknown @mention elsewhere in this file.
     """
     with (
         patch(
@@ -1308,15 +1304,48 @@ async def test_resolve_mentions_in_text_malformed_adjacent_mention_is_silently_d
         patch(
             "services.api.services.participant_resolver.member_projection.search_members_by_prefix",
             new_callable=AsyncMock,
+            return_value=[],
         ) as mock_search,
     ):
         resolved, errors = await resolver.resolve_mentions_in_text("text <@bob more", "123456789")
 
-    # Neither resolved (text unchanged) nor reported as an error -- the
-    # malformed "<@bob" token is invisible to the scanner entirely.
+    # "@bob" is left unresolved in the text (no match found) but is now
+    # actually scanned and reported, unlike before the fix.
     assert resolved == "text <@bob more"
+    assert len(errors) == 1
+    assert errors[0]["input"] == "@bob"
+    assert errors[0]["reason"] == "User not found in server"
+    mock_search.assert_called_once_with("123456789", "bob", redis=ANY)
+
+
+@pytest.mark.asyncio
+async def test_resolve_mentions_in_text_resolved_token_adjacent_to_new_mention(resolver):
+    """A resolved <@id> token directly abutting a new @mention: both handled independently."""
+    bob = {
+        "uid": "222",
+        "username": "bob",
+        "global_name": "Bob",
+        "nick": None,
+        "roles": [],
+        "avatar_url": None,
+    }
+    with (
+        patch(
+            "services.api.services.participant_resolver.cache_client.get_redis_client",
+            new_callable=AsyncMock,
+            return_value=AsyncMock(),
+        ),
+        patch(
+            "services.api.services.participant_resolver.member_projection.search_members_by_prefix",
+            new_callable=AsyncMock,
+            return_value=[bob],
+        ) as mock_search,
+    ):
+        resolved, errors = await resolver.resolve_mentions_in_text("<@111>@bob", "123456789")
+
+    assert resolved == "<@111><@222>"
     assert errors == []
-    mock_search.assert_not_called()
+    mock_search.assert_called_once_with("123456789", "bob", redis=ANY)
 
 
 @pytest.mark.asyncio

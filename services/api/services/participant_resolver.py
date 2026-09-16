@@ -64,6 +64,16 @@ class ParticipantResolver:
     def __init__(self) -> None:
         # Pattern to match Discord mention format: <@123456789012345678>
         self._discord_mention_pattern = re.compile(r"^<@(\d{17,20})>$")
+        # Pattern used by resolve_mentions_in_text() to scan free-form text.
+        # Discord's already-resolved mention shape is always <@digits>, so the
+        # first alternative matches and consumes that exact shape whole. The
+        # second alternative (captured in group 1) matches a candidate
+        # @username token. Trying the resolved-token shape first means a
+        # match with group(1) is None only when a genuine <@digits> token was
+        # consumed; anything else -- including a bare '@word' immediately
+        # preceded by a stray, unresolved '<' -- falls through and is
+        # captured as a real candidate mention instead of being hidden.
+        self._resolved_or_mention_pattern = re.compile(r"<@\d+>|(@\w+(?:\.\w+)*)")
 
     async def _resolve_discord_mention_format(
         self,
@@ -288,12 +298,18 @@ class ParticipantResolver:
         # (\w = [a-zA-Z0-9_]) as well as interior periods (e.g. @foo.bar).
         # Using @\w+(?:\.\w+)* matches period-separated word segments, which
         # avoids consuming a trailing sentence-period (e.g. "...@bob." extracts
-        # @bob, not @bob.). The (?<!<) lookbehind excludes an '@' immediately
-        # preceded by '<', so an already-resolved Discord mention token
-        # (<@discord_id>) is left untouched instead of being re-parsed as an
-        # unresolved @<id> username — mirrors channel_resolver.py's identical
-        # (?<!<)# exclusion for #channel mentions.
-        tokens = re.findall(r"(?<!<)@\w+(?:\.\w+)*", text)
+        # @bob, not @bob.). _resolved_or_mention_pattern tries the genuine
+        # already-resolved <@digits> shape first so that an already-resolved
+        # Discord mention token is consumed whole and skipped (left untouched
+        # instead of being re-parsed as an unresolved @<id> username), while a
+        # candidate @username is only skipped when it is truly part of such a
+        # token — not merely preceded by an unrelated '<' (e.g. malformed
+        # "<@bob" is still scanned as a real @bob candidate).
+        tokens = [
+            match.group(1)
+            for match in self._resolved_or_mention_pattern.finditer(text)
+            if match.group(1) is not None
+        ]
         if not tokens:
             return text, []
 
