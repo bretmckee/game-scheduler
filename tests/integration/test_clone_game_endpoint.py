@@ -1118,3 +1118,335 @@ def test_clone_game_endpoint_future_post_at_defers_publish(
         {"id": new_game_id},
     ).scalar_one()
     assert game_status == GameStatus.SCHEDULED
+
+
+def test_clone_game_endpoint_waitlist_carryover_with_real_overflow_partition(
+    admin_db_sync,
+    create_user,
+    create_guild,
+    create_channel,
+    create_template,
+    create_game,
+    seed_redis_cache,
+    create_authenticated_client,
+):
+    """YES_WITH_DEADLINE waitlist carryover must create deadline-carryover
+    schedules for participants in partition_participants' real *overflow*
+    group -- every other carryover integration test uses so few participants
+    that everyone lands in the `confirmed` group, so the overflow/waitlist
+    branch has never run against real DB-backed rows before. `player_carryover`
+    is left at NO so this also proves group-level exclusion still applies to
+    the confirmed group even though its members are resubmitted.
+    """
+    env = _setup_environment(
+        create_user, create_guild, create_channel, create_template, seed_redis_cache
+    )
+    authenticated_client = create_authenticated_client(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+
+    source_game = create_game(
+        guild_id=env["guild"]["id"],
+        channel_id=env["channel"]["id"],
+        host_id=env["user"]["id"],
+        template_id=env["template"]["id"],
+        title="Source Game With Real Overflow",
+        max_players=2,
+    )
+
+    # Four participants at positions 1-4; with max_players=2 and the source
+    # game's default SELF_SIGNUP method, partition_participants' default
+    # branch puts positions 1-2 in `confirmed` and positions 3-4 in the real
+    # `overflow` (waitlist) group.
+    participants = []
+    for i in range(1, 5):
+        user = create_user(discord_user_id=f"329777000000000{i:03d}")
+        admin_db_sync.execute(
+            text(
+                "INSERT INTO game_participants "
+                "(id, game_session_id, user_id, position, position_type) "
+                "VALUES (:id, :game_id, :user_id, :position, :position_type)"
+            ),
+            {
+                "id": f"test-participant-overflow-{i}",
+                "game_id": source_game["id"],
+                "user_id": user["id"],
+                "position": i,
+                "position_type": ParticipantType.HOST_ADDED,
+            },
+        )
+        _seed_guild_member(env["guild_discord_id"], user["discord_id"])
+        participants.append(user)
+    admin_db_sync.commit()
+
+    confirmed_users = participants[:2]
+    waitlisted_users = participants[2:]
+
+    waitlist_deadline = (datetime.now(UTC) + timedelta(days=1)).isoformat()
+    clone_at = (datetime.now(UTC) + timedelta(days=14)).isoformat()
+
+    response = authenticated_client.post(
+        f"/api/v1/games/{source_game['id']}/clone",
+        data={
+            "scheduled_at": clone_at,
+            "player_carryover": "NO",
+            "waitlist_carryover": "YES_WITH_DEADLINE",
+            "waitlist_deadline": waitlist_deadline,
+            "participants": json.dumps([f"<@{u['discord_id']}>" for u in participants]),
+        },
+    )
+
+    assert response.status_code == 201, f"Expected 201, got {response.status_code}: {response.text}"
+    new_game_id = response.json()["id"]
+
+    def _participant_id(user_id: str) -> str:
+        return admin_db_sync.execute(
+            text(
+                "SELECT id FROM game_participants "
+                "WHERE game_session_id = :game_id AND user_id = :user_id"
+            ),
+            {"game_id": new_game_id, "user_id": user_id},
+        ).scalar_one()
+
+    waitlisted_participant_ids = {_participant_id(u["id"]) for u in waitlisted_users}
+    confirmed_participant_ids = {_participant_id(u["id"]) for u in confirmed_users}
+
+    scheduled_participant_ids = {
+        row[0]
+        for row in admin_db_sync.execute(
+            text("SELECT participant_id FROM participant_action_schedule WHERE game_id = :game_id"),
+            {"game_id": new_game_id},
+        ).fetchall()
+    }
+
+    assert scheduled_participant_ids == waitlisted_participant_ids, (
+        "Only the source game's real overflow/waitlist partition must get a "
+        "deadline-carryover schedule when waitlist_carryover=YES_WITH_DEADLINE "
+        "and player_carryover=NO"
+    )
+    assert not (scheduled_participant_ids & confirmed_participant_ids), (
+        "Confirmed-group participants must not receive a waitlist deadline schedule"
+    )
+
+
+def test_clone_game_endpoint_host_override_lacking_required_role_returns_403(
+    admin_db_sync,
+    create_user,
+    create_guild,
+    create_channel,
+    create_template,
+    create_game,
+    seed_redis_cache,
+    create_authenticated_client,
+):
+    """A bot manager overriding `host` to a user who has none of the template's
+    `allowed_host_role_ids` must be rejected with 403 -- proving the Phase 3/4
+    host-role-permission recheck actually fires for a real role-restricted
+    template through the full clone pipeline. The existing
+    `test_clone_game_endpoint_bot_manager_host_override_succeeds` test's own
+    docstring notes it deliberately uses a template with no role restriction,
+    leaving this scenario (host override + role-restricted template) unexercised.
+    """
+    env = _setup_environment(
+        create_user, create_guild, create_channel, create_template, seed_redis_cache
+    )
+    authenticated_client = create_authenticated_client(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+
+    required_role_id = "555444333222111000"
+    admin_db_sync.execute(
+        text("UPDATE game_templates SET allowed_host_role_ids = :ids WHERE id = :id"),
+        {"ids": json.dumps([required_role_id]), "id": env["template"]["id"]},
+    )
+    admin_db_sync.commit()
+
+    source_game = create_game(
+        guild_id=env["guild"]["id"],
+        channel_id=env["channel"]["id"],
+        host_id=env["user"]["id"],
+        template_id=env["template"]["id"],
+        title="Source Game For Host Role Override Rejection",
+    )
+
+    new_host_discord_id = "329700000000000001"
+    create_user(discord_user_id=new_host_discord_id)
+    # _seed_guild_member seeds an empty roles list, so this user has neither
+    # the template's required role nor bot-manager status.
+    _seed_guild_member(env["guild_discord_id"], new_host_discord_id)
+
+    clone_at = (datetime.now(UTC) + timedelta(days=14)).isoformat()
+
+    response = authenticated_client.post(
+        f"/api/v1/games/{source_game['id']}/clone",
+        data={
+            "scheduled_at": clone_at,
+            "player_carryover": "NO",
+            "waitlist_carryover": "NO",
+            "host": f"<@{new_host_discord_id}>",
+        },
+    )
+
+    assert response.status_code == 403, (
+        f"Expected 403 Forbidden, got {response.status_code}: {response.text}"
+    )
+    assert "permission" in response.json()["detail"].lower()
+
+    game_count = admin_db_sync.execute(
+        text("SELECT COUNT(*) FROM game_sessions WHERE id != :source_id"),
+        {"source_id": source_game["id"]},
+    ).scalar_one()
+    assert game_count == 0, "No new game must have been created when the host override is rejected"
+
+
+def test_clone_game_endpoint_with_uploaded_banner_only_uses_new_image_and_carries_thumbnail(
+    admin_db_sync,
+    create_user,
+    create_guild,
+    create_channel,
+    create_template,
+    seed_redis_cache,
+    create_authenticated_client,
+):
+    """POST /{game_id}/clone with only a new banner (`image`) file attached, and
+    no `thumbnail` file, must store the freshly uploaded image as the new
+    game's banner while still carrying the source game's thumbnail over by
+    reference -- the symmetric case to the existing thumbnail-alone upload
+    test (`test_clone_game_endpoint_with_uploaded_thumbnail_uses_new_image_not_ref_copy`).
+    """
+    env = _setup_environment(
+        create_user, create_guild, create_channel, create_template, seed_redis_cache
+    )
+    authenticated_client = create_authenticated_client(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+
+    source_scheduled_at = (datetime.now(UTC) + timedelta(days=7)).isoformat()
+    source_response = authenticated_client.post(
+        "/api/v1/games",
+        data={
+            "template_id": env["template"]["id"],
+            "title": "Source Game With Thumbnail And Banner",
+            "scheduled_at": source_scheduled_at,
+        },
+        files={
+            "thumbnail": ("source_thumb.png", b"\x89PNG\r\n\x1a\n" + b"\x00" * 16, "image/png"),
+            "image": ("source_banner.png", b"\x89PNG\r\n\x1a\n" + b"\x22" * 16, "image/png"),
+        },
+    )
+    assert source_response.status_code == 201, (
+        f"Expected 201, got {source_response.status_code}: {source_response.text}"
+    )
+    source_game = source_response.json()
+    source_thumbnail_id = source_game["thumbnail_id"]
+    source_banner_id = source_game["banner_image_id"]
+    assert source_thumbnail_id is not None, "Source game must have a stored thumbnail"
+    assert source_banner_id is not None, "Source game must have a stored banner"
+
+    clone_at = (datetime.now(UTC) + timedelta(days=14)).isoformat()
+
+    response = authenticated_client.post(
+        f"/api/v1/games/{source_game['id']}/clone",
+        data={
+            "scheduled_at": clone_at,
+            "player_carryover": "NO",
+            "waitlist_carryover": "NO",
+        },
+        files={"image": ("clone_banner.png", b"\x89PNG\r\n\x1a\n" + b"\x33" * 16, "image/png")},
+    )
+
+    assert response.status_code == 201, f"Expected 201, got {response.status_code}: {response.text}"
+    new_game = response.json()
+
+    assert new_game["banner_image_id"] is not None, "Cloned game must have a stored banner"
+    assert new_game["banner_image_id"] != source_banner_id, (
+        "A new banner upload must not be a reference copy of the source's banner"
+    )
+    assert new_game["thumbnail_id"] == source_thumbnail_id, (
+        "With no thumbnail file attached, the source's thumbnail must be carried over by reference"
+    )
+
+    source_banner_ref_count = admin_db_sync.execute(
+        text("SELECT reference_count FROM game_images WHERE id = :id"),
+        {"id": source_banner_id},
+    ).scalar_one()
+    assert source_banner_ref_count == 1, (
+        "Source banner's reference count must stay at 1 -- it was not ref-copied"
+    )
+
+    source_thumbnail_ref_count = admin_db_sync.execute(
+        text("SELECT reference_count FROM game_images WHERE id = :id"),
+        {"id": source_thumbnail_id},
+    ).scalar_one()
+    assert source_thumbnail_ref_count == 2, (
+        "Source thumbnail's reference count must increment when carried over by reference"
+    )
+
+
+def test_clone_game_endpoint_creates_game_status_schedules(
+    admin_db_sync,
+    create_user,
+    create_guild,
+    create_channel,
+    create_template,
+    create_game,
+    seed_redis_cache,
+    create_authenticated_client,
+):
+    """POST /{game_id}/clone must create GameStatusSchedule rows (IN_PROGRESS and
+    COMPLETED transitions) for the new game. Delegating to create_game gives
+    clone_game this behavior for the first time -- the pre-redesign clone_game
+    built its own GameSession directly and never called
+    _create_game_status_schedules.
+    """
+    env = _setup_environment(
+        create_user, create_guild, create_channel, create_template, seed_redis_cache
+    )
+    authenticated_client = create_authenticated_client(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+
+    source_game = create_game(
+        guild_id=env["guild"]["id"],
+        channel_id=env["channel"]["id"],
+        host_id=env["user"]["id"],
+        template_id=env["template"]["id"],
+        title="Source Game For Status Schedule Test",
+    )
+
+    clone_at = (datetime.now(UTC) + timedelta(days=14)).isoformat()
+
+    response = authenticated_client.post(
+        f"/api/v1/games/{source_game['id']}/clone",
+        data={
+            "scheduled_at": clone_at,
+            "player_carryover": "NO",
+            "waitlist_carryover": "NO",
+        },
+    )
+
+    assert response.status_code == 201, f"Expected 201, got {response.status_code}: {response.text}"
+    new_game_id = response.json()["id"]
+
+    schedules = admin_db_sync.execute(
+        text(
+            "SELECT target_status, transition_time FROM game_status_schedule "
+            "WHERE game_id = :game_id ORDER BY target_status"
+        ),
+        {"game_id": new_game_id},
+    ).fetchall()
+
+    target_statuses = {row[0] for row in schedules}
+    assert target_statuses == {"COMPLETED", "IN_PROGRESS"}, (
+        "Cloning a game must create both IN_PROGRESS and COMPLETED "
+        "GameStatusSchedule rows, mirroring create_game's own behavior"
+    )
+
+    schedule_by_status = {row[0]: row[1] for row in schedules}
+    scheduled_at_dt = datetime.fromisoformat(clone_at)
+    in_progress_time = schedule_by_status["IN_PROGRESS"]
+    completed_time = schedule_by_status["COMPLETED"]
+    if in_progress_time.tzinfo is None:
+        in_progress_time = in_progress_time.replace(tzinfo=UTC)
+    if completed_time.tzinfo is None:
+        completed_time = completed_time.replace(tzinfo=UTC)
+
+    assert in_progress_time == scheduled_at_dt, (
+        "IN_PROGRESS transition must be scheduled at the new game's scheduled_at"
+    )
+    assert completed_time == scheduled_at_dt + timedelta(minutes=60), (
+        "COMPLETED transition must default to scheduled_at + 60 minutes when no "
+        "expected_duration_minutes is set on the template or clone request"
+    )
