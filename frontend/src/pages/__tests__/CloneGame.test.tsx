@@ -922,5 +922,67 @@ describe('CloneGame', () => {
       expect(screen.getByText(/Channel '#nonexistent' not found/)).toBeInTheDocument();
       expect(mockNavigate).not.toHaveBeenCalled();
     });
+
+    // CloneGame.tsx maps participants via `p.resolvedMention ?? p.mention.trim()`,
+    // copied verbatim from CreateGame.tsx's own submit handler. Every other test in
+    // this file only ever exercises the `?? p.mention.trim()` fallback; this pins
+    // down the `resolvedMention` branch itself, mirroring CreateGame.test.tsx's
+    // "uses resolvedMention (<@uid>) in submission after disambiguation" test.
+    it('uses resolvedMention (<@uid>) in the outgoing participants field after disambiguation', async () => {
+      vi.mocked(apiClient.get).mockImplementation(mockGetImpl);
+      vi.mocked(apiClient.post)
+        .mockRejectedValueOnce({
+          response: {
+            status: 422,
+            data: {
+              detail: {
+                error: 'invalid_mentions',
+                message: 'Multiple matches found',
+                invalid_mentions: [
+                  {
+                    input: '@user',
+                    reason: 'Multiple matches found',
+                    suggestions: [
+                      { discordId: '123', username: 'user', displayName: 'User Display' },
+                    ],
+                  },
+                ],
+                valid_participants: [],
+              },
+            },
+          },
+        })
+        .mockResolvedValueOnce({ data: { id: 'cloned-game-id' } });
+      const user = userEvent.setup();
+      renderCloneGame();
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Game To Clone')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: 'Continue' }));
+      await screen.findByRole('button', { name: 'Create Game' });
+
+      await user.click(screen.getByText('Add Participant'));
+      const participantInput = screen.getByPlaceholderText('@username or Discord user');
+      await user.clear(participantInput);
+      await user.type(participantInput, '@user');
+
+      await user.click(screen.getByRole('button', { name: 'Create Game' }));
+
+      await waitFor(() => {
+        expect(screen.getByText('@user (User Display)')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText('@user (User Display)'));
+      await user.click(screen.getByRole('button', { name: 'Create Game' }));
+
+      await waitFor(() => {
+        expect(apiClient.post).toHaveBeenCalledTimes(2);
+      });
+
+      const secondCallFormData = vi.mocked(apiClient.post).mock.calls[1]![1] as FormData;
+      expect(secondCallFormData.get('participants')).toBe('["<@123>"]');
+    });
   });
 });
