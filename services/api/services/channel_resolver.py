@@ -51,7 +51,16 @@ class ChannelResolver:
         # Excluding '#' from the captured name (Discord channel names can't contain '#')
         # keeps markdown headings ("## Section", "### Title") from being parsed as
         # channel-mention attempts.
-        self._channel_mention_pattern = re.compile(r"(?<!<)#([^\s<>#]+)")
+        #
+        # Discord's already-resolved channel-mention shape is always <#digits>, so the
+        # first alternative matches and consumes that exact shape whole. The second
+        # alternative (captured in group 1) matches a candidate #channel_name token.
+        # Trying the resolved-token shape first means a match with group(1) is None
+        # only when a genuine <#digits> token was consumed; anything else -- including
+        # a bare '#word' immediately preceded by a stray, unresolved '<' -- falls
+        # through and is captured as a real candidate mention instead of being hidden
+        # (mirrors participant_resolver.py's identical fix for @mentions).
+        self._channel_mention_pattern = re.compile(r"<#\d+>|#([^\s<>#]+)")
         self._discord_channel_url_pattern = re.compile(r"https://discord\.com/channels/(\d+)/(\d+)")
         self._snowflake_token_pattern = re.compile(r"<#(\d+)>")
 
@@ -82,7 +91,11 @@ class ChannelResolver:
             return location_text, []
 
         url_matches = list(self._discord_channel_url_pattern.finditer(location_text))
-        hash_matches = list(self._channel_mention_pattern.finditer(location_text))
+        hash_matches = [
+            match
+            for match in self._channel_mention_pattern.finditer(location_text)
+            if match.group(1) is not None
+        ]
         snowflake_matches = list(self._snowflake_token_pattern.finditer(location_text))
 
         if not url_matches and not hash_matches and not snowflake_matches:

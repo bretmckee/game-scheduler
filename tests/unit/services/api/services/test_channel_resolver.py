@@ -651,6 +651,64 @@ async def test_non_integer_unknown_channel_still_errors(resolver, mock_discord_c
 
 
 # ---------------------------------------------------------------------------
+# Stray '<' bug-fix regression tests (mirrors participant_resolver's @mention fix)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_resolve_malformed_stray_angle_bracket_mention_is_still_scanned(
+    resolver, mock_discord_client
+):
+    """
+    A stray '<' glued to a genuine #channel_name mention must not hide it from scanning.
+
+    The scanner must skip a '#' only when it is part of a genuine already-resolved
+    <#digits> token, not merely because some '<' precedes it. Malformed input like
+    "<#general" (a stray '<' immediately before a genuine #channel_name, with no
+    digits/'>' to close it) does not form a valid <#digits> token, so "#general"
+    must still be scanned as a real candidate mention -- and since no channel named
+    "general" exists here, it is reported as not_found, exactly like a normal
+    standalone unknown #mention elsewhere in this file.
+    """
+    mock_discord_client.get_guild_channels = AsyncMock(
+        return_value=[
+            {"id": "123456789", "name": "announcements", "type": 0},
+        ]
+    )
+
+    resolved_text, errors = await resolver.resolve_channel_mentions(
+        location_text="Meet in <#general more",
+        guild_discord_id="guild123",
+    )
+
+    # "#general" is left unresolved in the text (no match found) but is now
+    # actually scanned and reported, unlike before the fix.
+    assert resolved_text == "Meet in <#general more"
+    assert len(errors) == 1
+    assert errors[0]["type"] == "not_found"
+    assert errors[0]["input"] == "#general"
+
+
+@pytest.mark.asyncio
+async def test_resolve_snowflake_token_adjacent_to_new_hash_mention(resolver, mock_discord_client):
+    """A resolved <#id> token abutting a new #channel_name mention: both handled independently."""
+    mock_discord_client.get_guild_channels = AsyncMock(
+        return_value=[
+            {"id": "111111111", "name": "general", "type": 0},
+            {"id": "222222222", "name": "announcements", "type": 0},
+        ]
+    )
+
+    resolved_text, errors = await resolver.resolve_channel_mentions(
+        location_text="<#111111111>#announcements",
+        guild_discord_id="guild123",
+    )
+
+    assert resolved_text == "<#111111111><#222222222>"
+    assert errors == []
+
+
+# ---------------------------------------------------------------------------
 # Thread link support (a link/mention to a Discord thread, not just a channel)
 # ---------------------------------------------------------------------------
 
