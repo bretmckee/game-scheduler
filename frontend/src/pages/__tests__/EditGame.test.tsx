@@ -136,6 +136,43 @@ describe('EditGame', () => {
     });
   });
 
+  // Regression test: DurationSelector used to enter an infinite render loop
+  // (hanging the page) whenever it mounted with a non-preset duration, since
+  // EditGame/GameForm's onChange handler is not memoized. See
+  // DurationSelector.test.tsx for the isolated root-cause regression test.
+  it('renders without hanging when the game has a non-preset expected duration', async () => {
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url.includes('/games/')) {
+        return Promise.resolve({ data: { ...mockGame, expected_duration_minutes: 90 } });
+      }
+      if (url.includes('/channels')) {
+        return Promise.resolve({ data: mockChannels });
+      }
+      if (url.includes('/roles')) {
+        return Promise.resolve({ data: [] });
+      }
+      return Promise.reject(new Error('Unknown URL'));
+    });
+
+    render(
+      <AuthContext.Provider value={mockAuthContextValue}>
+        <BrowserRouter>
+          <EditGame />
+        </BrowserRouter>
+      </AuthContext.Provider>
+    );
+
+    // GameForm's own DateTimePicker also exposes MUI section spinbuttons
+    // named "Hours"/"Minutes", so scope to the actual <input type="number">
+    // elements rendered by DurationSelector's custom-duration fields.
+    await waitFor(() => {
+      const hoursInput = screen.getAllByLabelText('Hours').find((el) => el.tagName === 'INPUT');
+      const minutesInput = screen.getAllByLabelText('Minutes').find((el) => el.tagName === 'INPUT');
+      expect(hoursInput).toHaveValue(1);
+      expect(minutesInput).toHaveValue(30);
+    });
+  });
+
   it('displays loading state initially', () => {
     vi.mocked(apiClient.get).mockImplementation(() => new Promise(() => {}));
 

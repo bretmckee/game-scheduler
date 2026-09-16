@@ -192,6 +192,35 @@ describe('CloneGame', () => {
       expect(screen.getByDisplayValue('A game description')).toBeInTheDocument();
     });
 
+    // Regression test: DurationSelector used to enter an infinite render loop
+    // (hanging the page) whenever GameForm mounted with a non-preset
+    // duration, since CloneGame/GameForm's onChange handler is not
+    // memoized. Cloning a source game with a non-preset expected duration
+    // mounts GameForm this way as soon as Continue reveals Stage 2. See
+    // DurationSelector.test.tsx for the isolated root-cause regression test.
+    it('renders without hanging when the source game has a non-preset expected duration', async () => {
+      vi.mocked(apiClient.get).mockImplementation((url: string) =>
+        mockGetImpl(url).then((result) =>
+          url.includes('/games/')
+            ? { ...result, data: { ...mockGame, expected_duration_minutes: 90 } }
+            : result
+        )
+      );
+      const user = userEvent.setup();
+      renderCloneGame();
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Game To Clone')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+      await waitFor(() => {
+        expect(screen.getByLabelText('Hours')).toHaveValue(1);
+        expect(screen.getByLabelText('Minutes')).toHaveValue(30);
+      });
+    });
+
     it('does not pre-populate the participant editor when playerCarryover is NO (default)', async () => {
       vi.mocked(apiClient.get).mockImplementation(mockGetImpl);
       const user = userEvent.setup();

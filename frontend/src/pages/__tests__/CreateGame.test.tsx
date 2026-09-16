@@ -258,6 +258,44 @@ describe('CreateGame', () => {
     });
   });
 
+  // Regression test: DurationSelector used to enter an infinite render loop
+  // (hanging the page) whenever GameForm mounted with a non-preset duration,
+  // since CreateGame/GameForm's onChange handler is not memoized. A template
+  // with a non-preset expected_duration_minutes mounts GameForm this way as
+  // soon as it is auto-selected. See DurationSelector.test.tsx for the
+  // isolated root-cause regression test.
+  it('renders without hanging when the selected template has a non-preset expected duration', async () => {
+    const mockTemplateWithCustomDuration: GameTemplate = {
+      ...mockTemplate,
+      expected_duration_minutes: 90,
+    };
+
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url === '/api/v1/guilds') {
+        return Promise.resolve({ data: { guilds: [mockGuild] } });
+      }
+      if (url === '/api/v1/guilds/1/templates') {
+        return Promise.resolve({ data: [mockTemplateWithCustomDuration] });
+      }
+      if (url === '/api/v1/guilds/1/config') {
+        return Promise.resolve({ status: StatusCodes.FORBIDDEN });
+      }
+      return Promise.resolve({ data: [] });
+    });
+
+    renderWithAuth();
+
+    // GameForm's own DateTimePicker also exposes MUI section spinbuttons
+    // named "Hours"/"Minutes", so scope to the actual <input type="number">
+    // elements rendered by DurationSelector's custom-duration fields.
+    await waitFor(() => {
+      const hoursInput = screen.getAllByLabelText('Hours').find((el) => el.tagName === 'INPUT');
+      const minutesInput = screen.getAllByLabelText('Minutes').find((el) => el.tagName === 'INPUT');
+      expect(hoursInput).toHaveValue(1);
+      expect(minutesInput).toHaveValue(30);
+    });
+  });
+
   it('handles server selection change', async () => {
     const mockGuilds: Guild[] = [
       mockGuild,

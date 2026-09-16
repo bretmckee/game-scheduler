@@ -18,10 +18,57 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, test, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useEffect, useRef, useState } from 'react';
 import { DurationSelector } from '../DurationSelector';
+
+// A genuine infinite render loop never yields control back to the test
+// runner, so it would hang the process rather than fail fast. This budget
+// converts that hang into a fast, deterministic failure: any render count
+// past what a stabilizing component needs (a handful of renders) proves an
+// unbounded render/effect/setState cycle is underway.
+const RENDER_BUDGET = 50;
+
+/**
+ * Reproduces how GameForm actually wires DurationSelector: `onChange` is a
+ * plain (non-memoized) function that is recreated on every render, and it
+ * updates state via a spread into a *new* object even when the value it
+ * receives is unchanged (mirroring GameForm's
+ * `setFormData((prev) => ({ ...prev, expectedDurationMinutes: minutes }))`).
+ * A parent that behaves this way is a realistic, not contrived, caller.
+ */
+function NonMemoizedOnChangeHarness({ initial }: { initial: number | null }) {
+  const renderCount = useRef(0);
+
+  // Counting/checking happens in an effect (after commit), not during
+  // render, since refs may only be read or written outside of render (see
+  // the react-hooks/refs lint rule) - reading or mutating one during render
+  // is itself an impurity the rule flags.
+  useEffect(() => {
+    renderCount.current += 1;
+    if (renderCount.current > RENDER_BUDGET) {
+      throw new Error(
+        `NonMemoizedOnChangeHarness exceeded ${RENDER_BUDGET} renders - infinite render loop`
+      );
+    }
+  });
+
+  const [formState, setFormState] = useState<{ expectedDurationMinutes: number | null }>({
+    expectedDurationMinutes: initial,
+  });
+
+  // Intentionally NOT wrapped in useCallback - this is the real-world shape
+  // of GameForm.tsx's handleDurationChange.
+  const handleDurationChange = (minutes: number | null) => {
+    setFormState((prev) => ({ ...prev, expectedDurationMinutes: minutes }));
+  };
+
+  return (
+    <DurationSelector value={formState.expectedDurationMinutes} onChange={handleDurationChange} />
+  );
+}
 
 describe('DurationSelector', () => {
   it('should render with null value', () => {
@@ -217,5 +264,21 @@ describe('DurationSelector', () => {
 
     expect(onChange).toHaveBeenCalledWith(120);
     expect(screen.queryByLabelText('Hours')).not.toBeInTheDocument();
+  });
+
+  // Regression test for an infinite render loop: mounting with a non-preset
+  // (custom) duration while the parent's onChange is not memoized used to
+  // hang the page. See root-cause note in DurationSelector.tsx.
+  //
+  // Written RED-first against unmodified DurationSelector (vitest 4 removed
+  // the .failing() marker, see GameForm.errors-location.test.tsx for the same
+  // note), then implemented GREEN without changing any assertion below.
+  test('should not enter an infinite render loop when mounted with a non-preset value and a non-memoized onChange', () => {
+    expect(() => render(<NonMemoizedOnChangeHarness initial={90} />)).not.toThrow();
+
+    // The custom hours/minutes fields must reflect the initial non-preset
+    // value once rendering has stabilized.
+    expect(screen.getByLabelText('Hours')).toHaveValue(1);
+    expect(screen.getByLabelText('Minutes')).toHaveValue(30);
   });
 });

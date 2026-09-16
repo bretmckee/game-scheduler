@@ -18,7 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   FormControl,
   InputLabel,
@@ -89,12 +89,26 @@ export function DurationSelector({ value, onChange, error, helperText }: Duratio
     }
   };
 
+  // `onChange` is frequently passed as a fresh function on every parent
+  // render (e.g. GameForm's handleDurationChange is not wrapped in
+  // useCallback). Reading the latest callback through a ref - rather than
+  // depending on it directly - keeps handleCustomChange's identity (and the
+  // effect below that depends on it) stable across those renders. Without
+  // this, an unmemoized onChange would change handleCustomChange's identity
+  // every render, re-triggering the effect, which calls onChange again,
+  // which triggers another parent render: an infinite render loop whenever
+  // isCustomMode is true (i.e. the value is a non-preset/custom duration).
+  const onChangeRef = useRef(onChange);
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
   const handleCustomChange = useCallback(() => {
     const hours = customHours ? parseInt(customHours, 10) : 0;
     const minutes = customMinutes ? parseInt(customMinutes, 10) : 0;
     const totalMinutes = hours * MINUTES_PER_HOUR + minutes;
-    onChange(totalMinutes > 0 ? totalMinutes : null);
-  }, [customHours, customMinutes, onChange]);
+    onChangeRef.current(totalMinutes > 0 ? totalMinutes : null);
+  }, [customHours, customMinutes]);
 
   useEffect(() => {
     if (isCustomMode) {
