@@ -307,6 +307,32 @@ class TestDeleteGame:
 
 class TestCloneGame:
     @pytest.mark.asyncio
+    async def test_clone_game_validation_error(
+        self, mock_current_user_unit, mock_game_service, mock_role_service
+    ):
+        """clone_game's ValidationError path (widened error union) returns 422.
+
+        Exercises resolver_module.ValidationError specifically, mirroring the
+        create_game route's equivalent test -- previously only covered at
+        the integration level for the clone endpoint.
+        """
+        mock_game_service.clone_game.side_effect = resolver_module.ValidationError(
+            invalid_mentions=["@ghost"], valid_participants=[]
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await games_routes.clone_game(
+                game_id="game-1",
+                scheduled_at="2026-07-01T20:00:00Z",
+                current_user=mock_current_user_unit,
+                game_service=mock_game_service,
+                role_service=mock_role_service,
+            )
+
+        assert exc_info.value.status_code == http_status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert exc_info.value.detail["error"] == "invalid_mentions"
+
+    @pytest.mark.asyncio
     async def test_clone_game_not_found(
         self, mock_current_user_unit, mock_game_service, mock_role_service
     ):

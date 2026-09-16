@@ -683,6 +683,200 @@ describe('CloneGame', () => {
       expect(formData.get('post_at')).toBeNull();
     });
 
+    it('reflects an edited roster (removed carried-over participant, newly added one) in the outgoing participants field', async () => {
+      vi.mocked(apiClient.get).mockImplementation(mockGetImpl);
+      vi.mocked(apiClient.post).mockResolvedValue({ data: { id: 'cloned-game-id' } });
+      const user = userEvent.setup();
+      renderCloneGame();
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Game To Clone')).toBeInTheDocument();
+      });
+
+      // Carry over the source game's existing player into Stage 2's editor.
+      const playerSelect = screen.getByLabelText('Player Carryover');
+      await user.click(playerSelect);
+      await user.click(await screen.findByRole('option', { name: /carry over existing players/i }));
+
+      await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+      await waitFor(() => {
+        expect(screen.getByDisplayValue('@ExistingPlayer')).toBeInTheDocument();
+      });
+
+      // Remove the pristine carried-over participant via its row's delete icon.
+      const deleteIcon = screen.getByTestId('DeleteIcon');
+      const deleteButton = deleteIcon.closest('button');
+      expect(deleteButton).not.toBeNull();
+      await user.click(deleteButton!);
+      expect(screen.queryByDisplayValue('@ExistingPlayer')).not.toBeInTheDocument();
+
+      // Add a brand-new participant via the EditableParticipantList "Add Participant" UI.
+      await user.click(screen.getByText('Add Participant'));
+      const mentionInput = screen.getByPlaceholderText('@username or Discord user');
+      fireEvent.change(mentionInput, { target: { value: '@NewGuy' } });
+
+      await user.click(screen.getByRole('button', { name: 'Create Game' }));
+
+      await waitFor(() => {
+        expect(apiClient.post).toHaveBeenCalled();
+      });
+
+      const formData = vi.mocked(apiClient.post).mock.calls[0]![1] as FormData;
+      // The outgoing list reflects the edited roster -- the carried-over
+      // participant is gone and the newly added one is present -- not the
+      // original pristine carried-over list.
+      expect(formData.get('participants')).toBe(JSON.stringify(['@NewGuy']));
+    });
+
+    it('sends an uploaded banner image as the image field, alongside a thumbnail upload', async () => {
+      vi.mocked(apiClient.get).mockImplementation(mockGetImpl);
+      vi.mocked(apiClient.post).mockResolvedValue({ data: { id: 'cloned-game-id' } });
+      const user = userEvent.setup();
+      renderCloneGame();
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Game To Clone')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: 'Continue' }));
+      await screen.findByRole('button', { name: 'Create Game' });
+
+      const thumbnailInput = screen.getByLabelText(/thumbnail/i) as HTMLInputElement;
+      const thumbnailFile = new File(['thumb-data'], 'thumb.png', { type: 'image/png' });
+      await user.upload(thumbnailInput, thumbnailFile);
+
+      const bannerInput = screen.getByLabelText(/banner/i) as HTMLInputElement;
+      const bannerFile = new File(['banner-data'], 'banner.png', { type: 'image/png' });
+      await user.upload(bannerInput, bannerFile);
+
+      await user.click(screen.getByRole('button', { name: 'Create Game' }));
+
+      await waitFor(() => {
+        expect(apiClient.post).toHaveBeenCalled();
+      });
+
+      const formData = vi.mocked(apiClient.post).mock.calls[0]![1] as FormData;
+      const image = formData.get('image') as File;
+      expect(image).toBeInstanceOf(File);
+      expect(image.name).toBe('banner.png');
+
+      const thumbnail = formData.get('thumbnail') as File;
+      expect(thumbnail).toBeInstanceOf(File);
+      expect(thumbnail.name).toBe('thumb.png');
+    });
+
+    it('sends a real post_at ISO datetime when Schedule Posting is set to a future value', async () => {
+      vi.mocked(apiClient.get).mockImplementation(mockGetImpl);
+      vi.mocked(apiClient.post).mockResolvedValue({ data: { id: 'cloned-game-id' } });
+      const user = userEvent.setup();
+      renderCloneGame();
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Game To Clone')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: 'Continue' }));
+      await screen.findByRole('button', { name: 'Create Game' });
+
+      const postAtInput = screen.getByLabelText('Schedule Posting (optional)');
+      const postAtDate = new Date(Date.now() + 3600_000);
+      fireEvent.change(postAtInput, { target: { value: postAtDate.toISOString() } });
+
+      await user.click(screen.getByRole('button', { name: 'Create Game' }));
+
+      await waitFor(() => {
+        expect(apiClient.post).toHaveBeenCalled();
+      });
+
+      const formData = vi.mocked(apiClient.post).mock.calls[0]![1] as FormData;
+      expect(formData.get('post_at')).toBe(postAtDate.toISOString());
+    });
+
+    it('sends a real waitlist_deadline ISO datetime when Waitlist Carryover uses a deadline', async () => {
+      vi.mocked(apiClient.get).mockImplementation(mockGetImpl);
+      vi.mocked(apiClient.post).mockResolvedValue({ data: { id: 'cloned-game-id' } });
+      const user = userEvent.setup();
+      renderCloneGame();
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Game To Clone')).toBeInTheDocument();
+      });
+
+      const waitlistSelect = screen.getByLabelText('Waitlist Carryover');
+      await user.click(waitlistSelect);
+      await user.click(await screen.findByRole('option', { name: /confirmation deadline/i }));
+
+      const waitlistDeadlineInput = await screen.findByLabelText('Waitlist Confirmation Deadline');
+      const waitlistDeadlineDate = new Date(Date.now() + 3600_000);
+      fireEvent.change(waitlistDeadlineInput, {
+        target: { value: waitlistDeadlineDate.toISOString() },
+      });
+
+      await user.click(screen.getByRole('button', { name: 'Continue' }));
+      await screen.findByRole('button', { name: 'Create Game' });
+
+      await user.click(screen.getByRole('button', { name: 'Create Game' }));
+
+      await waitFor(() => {
+        expect(apiClient.post).toHaveBeenCalled();
+      });
+
+      const formData = vi.mocked(apiClient.post).mock.calls[0]![1] as FormData;
+      expect(formData.get('waitlist_deadline')).toBe(waitlistDeadlineDate.toISOString());
+    });
+
+    it('shows the server-provided detail message (not a crash) for a 403 axios-shaped error', async () => {
+      vi.mocked(apiClient.get).mockImplementation(mockGetImpl);
+      vi.mocked(apiClient.post).mockRejectedValueOnce({
+        response: {
+          status: 403,
+          data: { detail: 'You are not allowed to clone this game.' },
+        },
+      });
+      const user = userEvent.setup();
+      renderCloneGame();
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Game To Clone')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: 'Continue' }));
+      await user.click(await screen.findByRole('button', { name: 'Create Game' }));
+
+      await waitFor(() => {
+        expect(screen.getByText('You are not allowed to clone this game.')).toBeInTheDocument();
+      });
+      expect(mockNavigate).not.toHaveBeenCalled();
+    });
+
+    it('falls through to generic error handling for a 422 whose detail is a plain string, not the invalid_mentions object shape', async () => {
+      vi.mocked(apiClient.get).mockImplementation(mockGetImpl);
+      vi.mocked(apiClient.post).mockRejectedValueOnce({
+        response: {
+          status: 422,
+          data: { detail: 'plain string message' },
+        },
+      });
+      const user = userEvent.setup();
+      renderCloneGame();
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Game To Clone')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: 'Continue' }));
+      await user.click(await screen.findByRole('button', { name: 'Create Game' }));
+
+      // Not the invalid_mentions object shape, so it must not crash on
+      // `detail.error` access and must fall through to GameForm's generic
+      // error banner using the plain string message.
+      await waitFor(() => {
+        expect(screen.getByText('plain string message')).toBeInTheDocument();
+      });
+      expect(mockNavigate).not.toHaveBeenCalled();
+    });
+
     it('populates GameForm validation state and does not navigate when the clone request returns an invalid_mentions 422 response', async () => {
       vi.mocked(apiClient.get).mockImplementation(mockGetImpl);
       vi.mocked(apiClient.post).mockRejectedValueOnce({

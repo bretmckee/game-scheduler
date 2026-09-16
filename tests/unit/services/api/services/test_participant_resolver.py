@@ -1280,6 +1280,46 @@ async def test_resolve_mentions_in_text_real_mention_still_resolved(resolver):
 
 
 @pytest.mark.asyncio
+async def test_resolve_mentions_in_text_malformed_adjacent_mention_is_silently_dropped(
+    resolver,
+):
+    """
+    Documents current (believed-buggy) behavior for a bare '<' glued to '@mention'.
+
+    The (?<!<)@\\w+(?:\\.\\w+)* scanner is meant to skip an '@' that is part of
+    an already-resolved <@discord_id> token, so re-running resolution is a
+    no-op for those. But the lookbehind only checks for a preceding '<' -- it
+    does not verify a valid <@digits> token actually follows. So malformed
+    input like "<@bob" (a stray '<' immediately before a genuine @mention,
+    with no digits/'>' to close it) also has its '@' excluded from the scan.
+    The result: "@bob" is neither resolved nor reported as an unresolvable
+    mention -- it passes through completely unexamined. This looks like a
+    real gap (a typo'd '<' should not make a mention invisible to
+    validation), but per task instructions the regex is not being changed
+    here; this test only pins down today's actual behavior so a future fix
+    is a deliberate, visible change to this test.
+    """
+    with (
+        patch(
+            "services.api.services.participant_resolver.cache_client.get_redis_client",
+            new_callable=AsyncMock,
+            return_value=AsyncMock(),
+        ),
+        patch(
+            "services.api.services.participant_resolver.member_projection.search_members_by_prefix",
+            new_callable=AsyncMock,
+        ) as mock_search,
+    ):
+        resolved, errors = await resolver.resolve_mentions_in_text("text <@bob more", "123456789")
+
+    # Neither resolved (text unchanged) nor reported as an error -- the
+    # malformed "<@bob" token is invisible to the scanner entirely.
+    assert resolved == "text <@bob more"
+    assert errors == []
+    mock_search.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_resolve_mentions_in_text_mixed_resolved_and_unresolved(resolver):
     """Mixed already-resolved <@id> and new @username tokens: only the new one resolves."""
     bob = {

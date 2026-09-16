@@ -3410,6 +3410,95 @@ async def test_create_game_with_empty_host_defaults_to_current_user(
 
 
 @pytest.mark.asyncio
+async def test_create_game_uses_default_host_user_id_when_no_host_override(
+    game_service,
+    mock_db,
+    mock_participant_resolver,
+    mock_role_service,
+    sample_template,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """Test create_game hosts the game as default_host_user_id, not the requester.
+
+    Mirrors clone_game's usage: the requester (host_user_id) is the acting
+    user, but default_host_user_id (e.g. the source game's host) should end
+    up as the created game's host when the request has no explicit `host`
+    override.
+    """
+    requester_user = user_model.User(id=str(uuid.uuid4()), discord_id="555")
+    default_host_user = user_model.User(id=str(uuid.uuid4()), discord_id="666")
+
+    game_data = game_schemas.GameCreateRequest(
+        template_id=sample_template.id,
+        title="Test Game",
+        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        host=None,
+    )
+
+    created_game = game_model.GameSession(
+        id=str(uuid.uuid4()),
+        title="Test Game",
+        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        guild_id=sample_guild.id,
+        channel_id=sample_channel.id,
+        host_id=default_host_user.id,
+        status="SCHEDULED",
+        signup_method="SELF_SIGNUP",
+    )
+    created_game.host = default_host_user
+    created_game.participants = []
+
+    template_result = MagicMock()
+    template_result.scalar_one_or_none.return_value = sample_template
+    guild_result = MagicMock()
+    guild_result.scalar_one_or_none.return_value = sample_guild
+    channel_result = MagicMock()
+    channel_result.scalar_one_or_none.return_value = sample_channel
+    # _resolve_game_host looks up the user by default_host_user_id, not by
+    # host_user_id, when the request carries no host override.
+    host_result = MagicMock()
+    host_result.scalar_one_or_none.return_value = default_host_user
+    reload_result = MagicMock()
+    reload_result.scalar_one.return_value = created_game
+    get_game_result = MagicMock()
+    get_game_result.scalar_one_or_none.return_value = created_game
+
+    mock_db.execute = AsyncMock(
+        side_effect=[
+            template_result,
+            guild_result,
+            channel_result,
+            host_result,
+            reload_result,
+            get_game_result,
+        ]
+    )
+    mock_db.flush = AsyncMock()
+    mock_db.commit = AsyncMock()
+    mock_db.add = MagicMock()
+
+    with patch("services.api.auth.roles.get_role_service", return_value=mock_role_service):
+        game = await game_service.create_game(
+            game_data=game_data,
+            host_user_id=requester_user.id,
+            default_host_user_id=default_host_user.id,
+        )
+
+    assert game.host_id == default_host_user.id
+    # The permission check for host-worthiness runs against the resolved
+    # host (the default), confirming default_host_user_id -- not the
+    # requester -- was forwarded through host resolution.
+    mock_role_service.check_game_host_permission.assert_called_once_with(
+        default_host_user.discord_id,
+        sample_guild.guild_id,
+        mock_db,
+        sample_template.allowed_host_role_ids,
+    )
+
+
+@pytest.mark.asyncio
 async def test_create_game_regular_user_cannot_override_host(
     game_service,
     mock_db,
