@@ -77,6 +77,52 @@ class TestCreateGame:
 
         assert exc_info.value.status_code == http_status.HTTP_404_NOT_FOUND
 
+    @pytest.mark.asyncio
+    async def test_create_game_malformed_scheduled_at_raises_http_exception(
+        self, mock_current_user_unit, mock_game_service
+    ):
+        """A malformed scheduled_at must produce a clean HTTPException, not crash.
+
+        datetime.fromisoformat() raises ValueError before game_data is ever
+        assigned, so the except clause's reference to game_data must not blow
+        up with UnboundLocalError.
+        """
+        with pytest.raises(HTTPException) as exc_info:
+            await games_routes.create_game(
+                template_id="tmpl-1",
+                title="Test Game",
+                scheduled_at="not-a-date",
+                current_user=mock_current_user_unit,
+                game_service=mock_game_service,
+                role_service=MagicMock(),
+            )
+
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code >= http_status.HTTP_400_BAD_REQUEST
+
+    @pytest.mark.asyncio
+    async def test_create_game_malformed_reminder_minutes_json_raises_http_exception(
+        self, mock_current_user_unit, mock_game_service
+    ):
+        """Malformed JSON in reminder_minutes must not crash with UnboundLocalError.
+
+        json.loads() raises json.JSONDecodeError (a ValueError subclass) before
+        game_data is ever assigned.
+        """
+        with pytest.raises(HTTPException) as exc_info:
+            await games_routes.create_game(
+                template_id="tmpl-1",
+                title="Test Game",
+                scheduled_at="2026-06-01T20:00:00Z",
+                reminder_minutes="not-json",
+                current_user=mock_current_user_unit,
+                game_service=mock_game_service,
+                role_service=MagicMock(),
+            )
+
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code >= http_status.HTTP_400_BAD_REQUEST
+
 
 class TestListGames:
     @pytest.mark.asyncio
@@ -182,6 +228,28 @@ class TestUpdateGame:
 
         assert exc_info.value.status_code == http_status.HTTP_404_NOT_FOUND
 
+    @pytest.mark.asyncio
+    async def test_update_game_malformed_scheduled_at_raises_http_exception(
+        self, mock_current_user_unit, mock_game_service, mock_role_service
+    ):
+        """A malformed scheduled_at must produce a clean HTTPException, not crash.
+
+        _parse_update_form_data() raises ValueError via datetime.fromisoformat()
+        before update_data is ever assigned, so the except clause's reference to
+        update_data must not blow up with UnboundLocalError.
+        """
+        with pytest.raises(HTTPException) as exc_info:
+            await games_routes.update_game(
+                game_id="game-1",
+                scheduled_at="not-a-date",
+                current_user=mock_current_user_unit,
+                game_service=mock_game_service,
+                role_service=mock_role_service,
+            )
+
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code >= http_status.HTTP_400_BAD_REQUEST
+
 
 class TestDeleteGame:
     @pytest.mark.asyncio
@@ -271,6 +339,28 @@ class TestCloneGame:
             )
 
         assert exc_info.value.status_code == http_status.HTTP_403_FORBIDDEN
+
+    @pytest.mark.asyncio
+    async def test_clone_game_malformed_scheduled_at_raises_http_exception(
+        self, mock_current_user_unit, mock_game_service, mock_role_service
+    ):
+        """A malformed scheduled_at must produce a clean HTTPException, not crash.
+
+        datetime.fromisoformat() raises ValueError before clone_data is ever
+        assigned, so the except clause's reference to clone_data must not blow
+        up with UnboundLocalError.
+        """
+        with pytest.raises(HTTPException) as exc_info:
+            await games_routes.clone_game(
+                game_id="game-1",
+                scheduled_at="not-a-date",
+                current_user=mock_current_user_unit,
+                game_service=mock_game_service,
+                role_service=mock_role_service,
+            )
+
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code >= http_status.HTTP_400_BAD_REQUEST
 
 
 class TestJoinGame:

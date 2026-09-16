@@ -303,14 +303,19 @@ async def _process_image_upload(
 
 def _handle_game_operation_errors(
     e: Exception,
-    form_data: game_schemas.GameCreateRequest | game_schemas.GameUpdateRequest | CloneGameRequest,
+    form_data: game_schemas.GameCreateRequest
+    | game_schemas.GameUpdateRequest
+    | CloneGameRequest
+    | None,
 ) -> NoReturn:
     """
     Handle ValidationError and ValueError exceptions from game operations.
 
     Args:
         e: The exception to handle
-        form_data: Game form data to include in error response
+        form_data: Game form data to include in error response, or None when
+            the exception occurred before the request object could be built
+            (e.g. a malformed scheduled_at or malformed JSON field)
 
     Raises:
         HTTPException: Appropriate HTTP exception based on error type
@@ -323,7 +328,7 @@ def _handle_game_operation_errors(
                 "message": "Some @mentions could not be resolved",
                 "invalid_mentions": e.invalid_mentions,
                 "valid_participants": e.valid_participants,
-                "form_data": form_data.model_dump(mode="json"),
+                "form_data": form_data.model_dump(mode="json") if form_data is not None else None,
             },
         ) from None
 
@@ -405,6 +410,7 @@ async def create_game(
     Returns 422 if any @mentions cannot be resolved with disambiguation suggestions.
     Accepts multipart/form-data for file uploads.
     """
+    game_data: game_schemas.GameCreateRequest | None = None
     try:
         # Parse JSON fields from form data
         reminder_minutes_list = None
@@ -782,6 +788,7 @@ async def update_game(
     - Guild admins (MANAGE_GUILD) can update any game in the guild
     Accepts multipart/form-data for file uploads.
     """
+    update_data: game_schemas.GameUpdateRequest | None = None
     try:
         # Parse form data
         (
@@ -941,6 +948,7 @@ async def clone_game(
     is attached for a field, that image carries over from the source game by
     reference.
     """
+    clone_data: CloneGameRequest | None = None
     try:
         # Parse JSON fields from form data
         reminder_minutes_list = json.loads(reminder_minutes) if reminder_minutes else None
