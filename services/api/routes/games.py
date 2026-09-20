@@ -668,8 +668,8 @@ async def get_participant_seats(
     a user) are excluded entirely, so positions run consecutively from 1 over
     real users alone. Confirmed users are numbered first in the canonical
     display order (matching Discord announcements), followed by the waitlist.
-    Names use each user's primary Discord name (global display name); guild
-    nicknames are never used.
+    Names use each user's primary Discord name: username first, falling back
+    to global display name, then guild nickname.
 
     Args:
         game_id: Game session ID to look up

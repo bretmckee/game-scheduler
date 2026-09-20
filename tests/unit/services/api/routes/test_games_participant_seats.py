@@ -185,7 +185,7 @@ class TestGetParticipantSeats:
 
         Confirmed real users are numbered first (canonical order); waitlist
         numbering continues after them with no gaps left by placeholder slots.
-        Names come from the primary-name resolver, never guild nicknames.
+        Names come from the primary-name resolver (username-first order).
         """
         participants = [
             _make_participant(
@@ -212,7 +212,6 @@ class TestGetParticipantSeats:
         game_service.get_game = AsyncMock(return_value=game)
 
         mock_resolver = MagicMock()
-        # Deliberately different values than any nickname to prove non-nick resolution
         mock_resolver.resolve_primary_names = AsyncMock(
             return_value={"user-a": "Bret", "user-b": "Beth", "user-c": "Casey"}
         )

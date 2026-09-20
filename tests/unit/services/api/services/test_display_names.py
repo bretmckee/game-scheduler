@@ -409,11 +409,11 @@ async def test_get_display_name_resolver_returns_instance():
     assert resolver.cache is mock_redis
 
 
-# Primary name resolution tests (guild nicknames must never be returned)
+# Primary name resolution tests (reversed priority: username > global_name > nick)
 
 
-def test_resolve_primary_name_ignores_nickname():
-    """Primary name prefers global_name and skips the guild nickname entirely."""
+def test_resolve_primary_name_prefers_username():
+    """Primary name prefers username and skips global_name and nick entirely."""
     member = {
         "nick": "GuildNickname",
         "global_name": "GlobalName",
@@ -422,43 +422,44 @@ def test_resolve_primary_name_ignores_nickname():
 
     result = display_names.DisplayNameResolver._resolve_primary_name(member)
 
+    assert result == "username"
+
+
+def test_resolve_primary_name_falls_back_to_global_name():
+    """Primary name falls back to global_name when username is absent or null."""
+    member = {
+        "nick": "GuildNickname",
+        "global_name": "GlobalName",
+        "username": None,
+    }
+
+    result = display_names.DisplayNameResolver._resolve_primary_name(member)
+
     assert result == "GlobalName"
 
 
-def test_resolve_primary_name_falls_back_to_username():
-    """Primary name falls back to username when global_name is absent or null."""
+def test_resolve_primary_name_falls_back_to_nick():
+    """Primary name falls back to nick when both username and global_name are absent."""
     member = {
         "nick": "GuildNickname",
         "global_name": None,
-        "username": "username",
+        "username": None,
     }
 
     result = display_names.DisplayNameResolver._resolve_primary_name(member)
 
-    assert result == "username"
-
-
-def test_resolve_primary_name_missing_global_field():
-    """Primary name handles a projection member dict with no global_name key at all."""
-    member = {
-        "nick": "GuildNickname",
-        "username": "username",
-    }
-
-    result = display_names.DisplayNameResolver._resolve_primary_name(member)
-
-    assert result == "username"
+    assert result == "GuildNickname"
 
 
 @pytest.mark.asyncio
 async def test_resolve_primary_names_from_projection(mock_cache):
-    """resolve_primary_names maps every user ID to its primary (non-nick) name."""
+    """resolve_primary_names maps every user ID to its primary (username-first) name."""
     resolver = display_names.DisplayNameResolver(mock_cache)
 
     async def fake_get_member(gid, uid, *, redis):
         if uid == "user1":
             return {"nick": "Nick1", "global_name": "Bret", "username": "brett"}
-        return {"nick": "Nick2", "global_name": None, "username": "tester"}
+        return {"nick": "Nick2", "global_name": "Global2", "username": None}
 
     with patch(
         "services.api.services.display_names.member_projection.get_member",
@@ -466,7 +467,7 @@ async def test_resolve_primary_names_from_projection(mock_cache):
     ):
         result = await resolver.resolve_primary_names("guild123", ["user1", "user2"])
 
-    assert result == {"user1": "Bret", "user2": "tester"}
+    assert result == {"user1": "brett", "user2": "Global2"}
 
 
 @pytest.mark.asyncio

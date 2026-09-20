@@ -70,16 +70,18 @@ class DisplayNameResolver:
         """
         Resolve a user's primary Discord name from projection member data.
 
-        Unlike :meth:`_resolve_display_name`, guild nicknames are intentionally
-        excluded so callers always receive the user's cross-server identity.
+        Unlike :meth:`_resolve_display_name`, this reverses the usual
+        nick > global_name > username priority so callers see the user's
+        stable account identity first, only falling back toward the more
+        cosmetic (and more easily colliding) names when it's unavailable.
 
         Args:
             member: Flat projection member dict with keys: nick, global_name, username
 
         Returns:
-            Primary name using fallback: global_name -> username
+            Primary name using fallback: username -> global_name -> nick
         """
-        return member.get("global_name") or member["username"]
+        return member["username"] or member.get("global_name") or member.get("nick")
 
     @staticmethod
     def _build_avatar_url(
@@ -289,8 +291,8 @@ class DisplayNameResolver:
         """
         Resolve Discord user IDs to their primary names for a guild.
 
-        Primary name is the user's cross-server identity (global display name,
-        falling back to username); guild nicknames are never used, unlike
+        Primary name uses the reverse of the usual priority order: username
+        first, then global display name, then guild nickname last, unlike
         :meth:`resolve_display_names`.
 
         Args:
