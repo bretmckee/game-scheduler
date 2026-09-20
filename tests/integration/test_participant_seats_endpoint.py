@@ -29,9 +29,9 @@ services/api/routes/games.py::get_participant_seats):
   (user_id NULL) are excluded from the response entirely and positions run
   consecutively from 1 over real users alone - including across the
   confirmed/waitlist boundary.
-- Names come from the member projection primary name (global_name, falling
-  back to username); guild nicknames are never used. Members missing from
-  the projection resolve to "Unknown User".
+- Names come from the member projection primary name (username, falling back
+  to global_name, then guild nickname). Members missing from the projection
+  resolve to "Unknown User".
 - Authorization: unauthenticated requests get 401; authenticated guild
   members who are neither the host nor a configured bot manager get 403;
   a non-host holding a configured bot manager role gets 200.
@@ -224,9 +224,9 @@ async def test_host_sees_linked_users_only_with_consecutive_positions(
     With max_players=3 the seat order is [A, placeholder, B] confirmed and C
     waitlisted, so the response must number A=1, B=2, C=3 even though a
     placeholder sits inside the confirmed slice. Names exercise primary-name
-    resolution against seeded projection data (nick present but ignored),
-    username fallback when global_name is null, and "Unknown User" for a
-    member missing from the projection.
+    resolution against seeded projection data (username preferred over a
+    present nick/global_name), plain username resolution when nick/global_name
+    are null, and "Unknown User" for a member missing from the projection.
     """
     ctx = await _setup_environment(
         create_user,
@@ -292,8 +292,9 @@ async def test_host_sees_linked_users_only_with_consecutive_positions(
             )
 
             guild_discord_id = ctx["guild_discord_id"]
-            # Nick is deliberately different from global_name: primary names must
-            # never use the nick. B has no global_name so it falls back to username.
+            # Nick and global_name are deliberately different from username:
+            # primary names prefer username first. B has no global_name, so its
+            # username fallback would be unaffected either way.
             await _seed_member_projection(
                 guild_discord_id,
                 PLAYER_A_DISCORD_ID,
@@ -323,7 +324,7 @@ async def test_host_sees_linked_users_only_with_consecutive_positions(
             PLAYER_B_DISCORD_ID,
             PLAYER_C_DISCORD_ID,
         ]
-        assert [seat["name"] for seat in seats] == ["Global Alpha", "bravo", "Unknown User"], (
+        assert [seat["name"] for seat in seats] == ["alpha", "bravo", "Unknown User"], (
             f"Primary names resolved incorrectly: {seats}"
         )
     finally:
@@ -491,7 +492,7 @@ async def test_bot_manager_other_than_host_can_view_seats(
         seats = response.json()["seats"]
         assert [seat["position"] for seat in seats] == [1]
         assert seats[0]["discord_id"] == PLAYER_A_DISCORD_ID
-        assert seats[0]["name"] == "Global Alpha"
+        assert seats[0]["name"] == "alpha"
     finally:
         await cleanup_test_session(host_session)
         await cleanup_test_session(manager_session)
