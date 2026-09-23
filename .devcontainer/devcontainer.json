@@ -79,7 +79,7 @@
     "-p",
     "127.0.0.1:2222:22"
   ],
-  "postCreateCommand": "python --version && uv --version && node --version && npm --version && npm install -g --allow-scripts=@deepseek-ai/dsh-subprocess-local,koffi,node-pty,@google/genai,protobufjs prettier @deepseek-ai/dsh && curl -fsSL https://claude.ai/install.sh | bash && cd frontend && npm install && cd .. && mkdir -p \"${WORKSPACE_ROOT%/*}/.cache/pre-commit\" && pre-commit install && echo 'Dev container ready! Pre-commit hooks installed. Start infrastructure with: docker compose up postgres redis rabbitmq -d'",
+  "postCreateCommand": "python --version && uv --version && node --version && npm --version && npm install -g --allow-scripts=@deepseek-ai/dsh-subprocess-local,koffi,node-pty,@google/genai,protobufjs prettier @deepseek-ai/dsh@0.1.7-alpha.2 && curl -fsSL https://claude.ai/install.sh | bash && cd frontend && npm install && cd .. && mkdir -p \"${WORKSPACE_ROOT%/*}/.cache/pre-commit\" && pre-commit install && echo 'Dev container ready! Pre-commit hooks installed. Start infrastructure with: docker compose up postgres redis rabbitmq -d'",
   "postStartCommand": "sudo chown -R vscode:vscode /home/vscode/.vscode-server 2>/dev/null || true; cp /home/vscode/.ssh-import/authorized_keys /home/vscode/.ssh/authorized_keys && chmod 600 /home/vscode/.ssh/authorized_keys; sudo mkdir -p /run/sshd && (pgrep -x sshd >/dev/null || sudo /usr/sbin/sshd)",
   "remoteUser": "vscode",
   "updateRemoteUserUID": true
