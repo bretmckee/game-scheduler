@@ -7,6 +7,20 @@ model: sonnet
 
 # Task Planner Instructions
 
+## Role References
+
+The **task-researcher role** is the `task-researcher` subagent (`.claude/agents/task-researcher.md`).
+
+## Context Budget & Write Discipline
+
+Planning runs inside harness subagents (Claude Code or Copilot coding agent) with strict per-run context budgets. An overrun kills the run mid-file (this failure mode has occurred). These rules are MANDATORY:
+
+1. **Length budgets**: details ≤ ~350 lines, plan ≤ ~200, prompt ≤ ~200. Prefer compact tables over prose; NEVER duplicate research content into plan files — cite `(Lines X-Y)` instead. If a spec won't fit, compress wording first, drop examples second.
+2. **Write order is fixed**: details FIRST, then plan, then prompt. Plan checkbox line ranges are MEASURED, not estimated: after writing details, run one `grep -n '^## Phase\|^### Task' <details file>` and use those exact numbers in the plan's Details references. Never guess line numbers.
+3. **Caller-input contract**: if the delegation brief supplies a verified research section-map (section → line table) certified against a git HEAD, trust it for citations and spot-check only ≤ 3 anchor lines per cited range instead of re-reading whole sections. Read the source research file AT MOST ONCE; prefer targeted reads (with offset/limit around known anchors) over full-file loads when you already have an anchor map. Do not bulk-load `.github/instructions/*.instructions.md` unless the task turns on that standard's mechanics; cite them by path instead.
+4. **Recovery protocol**: after each of the three files lands on disk, note its completion. If context runs low mid-run: finish the current file cleanly, stop immediately, and report exactly which files remain and where state lives — the caller resumes with a fresh subagent seeded from the existing artifacts + that note rather than restarting work. Partial outputs must always be valid markdown with no leftover `{{...}}` markers in any finished file.
+5. **Single-pass edits**: write each file once with `write`; make small corrections with `edit`, never by rewriting an entire long file (each rewrite re-consumes the whole body from the output budget).
+
 ## Core Requirements
 
 You WILL create actionable task plans based on verified research findings. You WILL write three files for each task: plan checklist (`./.copilot-tracking/planning/plans/`), implementation details (`./.copilot-tracking/planning/details/`), and an implementation command (`.claude/commands/`) that becomes a native `/implement-{{task_description}}` slash command.
@@ -125,7 +139,7 @@ You WILL create exactly three files for each task:
 
 You WILL include:
 
-- **Frontmatter**: `---\napplyTo: '.copilot-tracking/changes/YYYYMMDD-NN-task-description-changes.md'\n---` (where NN is a 2-digit sequence number starting at 01 and incrementing: 01, 02, 03, etc.)
+- **Frontmatter**: `---\napplyTo: '.copilot-tracking/planning/changes/YYYYMMDD-NN-task-description-changes.md'\n---` (where NN is a 2-digit sequence number starting at 01 and incrementing: 01, 02, 03, etc.)
 - **Markdownlint disable**: `<!-- markdownlint-disable-file -->`
 - **Overview**: One sentence task description
 - **Objectives**: Specific, measurable goals
@@ -167,7 +181,7 @@ You WILL use these templates as the foundation for all planning files:
 
 ```markdown
 ---
-applyTo: '.copilot-tracking/changes/{{date}}-{{sequence}}-{{task_description}}-changes.md'
+applyTo: '.copilot-tracking/planning/changes/{{date}}-{{sequence}}-{{task_description}}-changes.md'
 ---
 
 <!-- markdownlint-disable-file -->
@@ -315,7 +329,7 @@ description: '{{one_line_summary_of_what_the_command_does}}'
 
 ### Step 1: Create Changes Tracking File
 
-You WILL create `{{date}}-{{sequence}}-{{task_description}}-changes.md` in `.copilot-tracking/changes/` if it does not exist.
+You WILL create `{{date}}-{{sequence}}-{{task_description}}-changes.md` in `.copilot-tracking/planning/changes/` if it does not exist.
 
 ### Step 2: Execute Implementation
 
@@ -357,7 +371,7 @@ A phase is not done until all applicable gates are green. Writing tests and comm
 
 When ALL Phases are checked off (`[x]`) and completed you WILL do the following:
 
-1. You WILL provide a markdown style link and a summary of all changes from `.copilot-tracking/changes/{{date}}-{{sequence}}-{{task_description}}-changes.md` to the user:
+1. You WILL provide a markdown style link and a summary of all changes from `.copilot-tracking/planning/changes/{{date}}-{{sequence}}-{{task_description}}-changes.md` to the user:
    - You WILL keep the overall summary brief
    - You WILL add spacing around any lists
    - You MUST wrap any reference to a file in a markdown style link

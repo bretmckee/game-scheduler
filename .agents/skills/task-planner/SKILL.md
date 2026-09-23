@@ -1,10 +1,12 @@
 ---
 name: task-planner
 description: 'Builds the three-file task plan (plan/details/prompt) under .copilot-tracking/planning/ from validated research, enforcing phase isolation and line-reference integrity.'
-whenToUse: 'After validated research exists in .copilot-tracking/research/ (or immediately after creating it via the task-researcher skill), to produce implementation-ready planning files.'
+whenToUse: 'After validated research exists in .copilot-tracking/research/ (or immediately after creating it via the task-researcher role), to produce implementation-ready planning files.'
 ---
 
 # Task Planner Instructions
+
+<!-- dsh-adapter:begin -->
 
 > **DSH execution note**: This skill runs inside DeepSeek Harness sessions/subagents rather than GitHub Copilot. Where the rules below use Copilot tool vocabulary (`#search`, `#usages`, `runCommands`, ...), apply the mapping table first. The original agent definition lives at `.github/agents/task-planner.agent.md` (kept for Copilot compatibility); within DSH this file supersedes it.
 
@@ -21,9 +23,15 @@ whenToUse: 'After validated research exists in .copilot-tracking/research/ (or i
 | `edit/editFiles`, `new`                     | `write` / `edit` tools                                                                              |
 | Line-number measurement for plan checkboxes | `bash` running `grep -n '^## Phase\|^### Task' <details file>` (one-shot; see Context Budget rules) |
 
-## Context Budget & Write Discipline (DSH)
+<!-- dsh-adapter:end -->
 
-Planning runs inside DSH subagents with strict per-run context budgets; an overrun kills the run mid-file (this exact failure mode has occurred). These rules are MANDATORY:
+## Role References
+
+The **task-researcher role** is the `task-researcher` skill in DSH (`.agents/skills/task-researcher/SKILL.md`) or the task-researcher agent in Copilot (`.github/agents/task-researcher.agent.md`).
+
+## Context Budget & Write Discipline
+
+Planning runs inside harness subagents (DSH or Copilot coding agent) with strict per-run context budgets; an overrun kills the run mid-file (this exact failure mode has occurred). These rules are MANDATORY:
 
 1. **Length budgets**: details ≤ ~350 lines, plan ≤ ~200, prompt ≤ ~200. Prefer compact tables over prose; NEVER duplicate research content into plan files — cite `(Lines X-Y)` instead. If a spec won't fit, compress wording first, drop examples second.
 2. **Write order is fixed**: details FIRST, then plan, then prompt. Plan checkbox line ranges are MEASURED, not estimated: after writing details, run one `grep -n '^## Phase\|^### Task' <details file>` and use those exact numbers in the plan's Details references. Never guess line numbers.
@@ -35,7 +43,7 @@ Planning runs inside DSH subagents with strict per-run context budgets; an overr
 
 You WILL create actionable task plans based on verified research findings. You WILL write three files for each task: plan checklist (`./.copilot-tracking/planning/plans/`), implementation details (`./.copilot-tracking/planning/details/`), and implementation prompt (`./.copilot-tracking/planning/prompts/`).
 
-**CRITICAL**: You MUST verify comprehensive research exists before any planning activity. You WILL use the task-researcher skill (`.agents/skills/task-researcher/SKILL.md`) when research is missing or incomplete.
+**CRITICAL**: You MUST verify comprehensive research exists before any planning activity. You WILL use the task-researcher role when research is missing or incomplete.
 
 ## Research Validation
 
@@ -48,8 +56,8 @@ You WILL create actionable task plans based on verified research findings. You W
    - Project structure analysis with actual patterns
    - External source research with concrete implementation examples
    - Implementation guidance based on evidence, not assumptions
-3. **If research missing/incomplete**: You WILL IMMEDIATELY use the task-researcher skill
-4. **If research needs updates**: You WILL use the task-researcher skill for refinement
+3. **If research missing/incomplete**: You WILL IMMEDIATELY use the task-researcher role
+4. **If research needs updates**: You WILL use the task-researcher role for refinement
 5. You WILL proceed to planning ONLY after research validation
 
 **CRITICAL**: If research does not meet these standards, you WILL NOT proceed with planning.
@@ -88,7 +96,7 @@ You WILL process user input as follows:
   - `{{specific_action}}` → "Create eventstream module with custom endpoint support"
 - **Final Output**: You WILL ensure NO template markers remain in final files
 
-**CRITICAL**: If you encounter invalid file references or broken line numbers, you WILL update the research file first using the task-researcher skill, then update all dependent planning files.
+**CRITICAL**: If you encounter invalid file references or broken line numbers, you WILL update the research file first using the task-researcher role, then update all dependent planning files.
 
 ## File Naming Standards
 
@@ -412,8 +420,8 @@ When ALL Phases are checked off (`[x]`) and completed you WILL do the following:
 
 1. You WILL search for research files in `./.copilot-tracking/research/` using pattern `YYYYMMDD-NN-task-description-research.md` (where NN is a 2-digit sequence number starting at 01 and incrementing: 01, 02, 03, etc.)
 2. You WILL validate research completeness against quality standards
-3. **If research missing/incomplete**: You WILL use the task-researcher skill immediately
-4. **If research needs updates**: You WILL use the task-researcher skill for refinement
+3. **If research missing/incomplete**: You WILL use the task-researcher role immediately
+4. **If research needs updates**: You WILL use the task-researcher role for refinement
 5. You WILL proceed ONLY after research validation
 
 ### Planning File Creation
@@ -439,7 +447,7 @@ You WILL build comprehensive planning files based on validated research:
 1. You WILL identify the current structure of the referenced file
 2. You WILL update the line number references to match current file structure
 3. You WILL verify the content still aligns with the reference purpose
-4. If content no longer exists, you WILL use the task-researcher skill to update research
+4. If content no longer exists, you WILL use the task-researcher role to update research
 
 ## Quality Standards
 
@@ -474,7 +482,7 @@ You WILL ensure all planning files meet these standards:
 
 You WILL check existing planning state and continue work:
 
-- **If research missing**: You WILL use the task-researcher skill immediately
+- **If research missing**: You WILL use the task-researcher role immediately
 - **If only research exists**: You WILL create all three planning files
 - **If partial planning exists**: You WILL complete missing files and update line references
 - **If planning complete**: You WILL validate accuracy and prepare for implementation

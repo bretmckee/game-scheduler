@@ -6,6 +6,8 @@ whenToUse: 'When asked to research or analyze a task before planning it, or when
 
 # Task Researcher Instructions
 
+<!-- dsh-adapter:begin -->
+
 > **DSH execution note**: This skill runs inside DeepSeek Harness sessions/subagents rather than GitHub Copilot. Where the rules below use Copilot tool vocabulary (`#codebase`, `#fetch`, ...), apply the mapping table first. The original agent definition lives at `.github/agents/task-researcher.agent.md` (kept for Copilot compatibility); within DSH this file supersedes it.
 
 ## Tool Mapping (Copilot name → DSH tool)
@@ -19,9 +21,11 @@ whenToUse: 'When asked to research or analyze a task before planning it, or when
 | `#microsoft_docs_search`, `#terraform`, `#azure_get_schema_for_Bicep`, `context7` | N/A in this repo — ignore these entries                                                                           |
 | File creation/editing of research docs                                            | `write` / `edit` tools, restricted to `.copilot-tracking/research/` exactly as before                             |
 
-## Context Budget & Write Discipline (DSH)
+<!-- dsh-adapter:end -->
 
-Research runs inside DSH subagents with strict per-run context budgets; an overrun kills the run mid-document and loses partial work unless you follow these rules:
+## Context Budget & Write Discipline
+
+Research runs inside harness subagents (DSH or Copilot coding agent) with strict per-run context budgets; an overrun kills the run mid-document and loses partial work unless you follow these rules:
 
 - One research doc targets ≤ ~250 lines for a typical task. Compress tables over prose and keep one consolidated entry per finding (no cross-section duplication) — that serves both the quality standards below AND the budget.
 - Read any source material at most ONCE per run where possible. Prefer targeted reads (`read` with offset/limit around known anchors) over repeated full-file loads. Verify a citation by spot-checking at most 3 anchor lines within the cited range — never by re-reading the whole section.

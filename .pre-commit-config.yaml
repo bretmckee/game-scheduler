@@ -244,6 +244,19 @@ repos:
         pass_filenames: false
         files: ^(\.github/(copilot-instructions\.md|agents/|instructions/|prompts/)|\.copilot-tracking/planning/prompts/|\.claude/config-sync-manifest\.json)
 
+  # DSH skill sync: .agents/skills/<name>/SKILL.md is the canonical source for
+  # the Copilot agent files (.github/agents/<name>.agent.md). The generator
+  # strips the dsh-adapter block and swaps in the sidecar Copilot frontmatter;
+  # this check blocks commits where the generated files have drifted.
+  - repo: local
+    hooks:
+      - id: sync-agent-skills-check
+        name: Check generated Copilot agent files match DSH skill sources
+        entry: python scripts/sync_agent_skills.py --check
+        language: python
+        pass_filenames: false
+        files: ^(\.agents/skills/|\.github/agents/.*\.agent\.md|scripts/agent-frontmatter/|scripts/sync_agent_skills\.py)$
+
   # Duplicate code detection
   - repo: local
     hooks:
