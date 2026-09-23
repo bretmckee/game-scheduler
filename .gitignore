@@ -98,7 +98,8 @@ trees/
 mutants/
 
 # Personal/local tool state (not shared project config)
-.agents/
+.agents/*
+!.agents/skills/
 .obsidian/
 .omo/
 opencode.json
