@@ -26,6 +26,7 @@ Catches and formats exceptions into consistent JSON responses.
 """
 
 import logging
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, cast
 
@@ -34,6 +35,7 @@ from fastapi.exception_handlers import http_exception_handler as default_http_ex
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
+from slowapi.errors import RateLimitExceeded
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -124,7 +126,7 @@ async def validation_exception_handler(
     )
 
 
-async def database_exception_handler(_request: Request, exc: SQLAlchemyError) -> JSONResponse:
+async def database_exception_handler(request: Request, exc: SQLAlchemyError) -> JSONResponse:
     """
     Handle database errors with appropriate error messages.
 
@@ -136,7 +138,14 @@ async def database_exception_handler(_request: Request, exc: SQLAlchemyError) ->
         JSON response with 500 status and error message
     """
     error_time = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
-    logger.error("Database error at %s: %s", error_time, exc)
+    logger.error(
+        "Database error at %s on %s %s: %s",
+        error_time,
+        request.method,
+        request.url.path,
+        exc,
+        exc_info=exc,
+    )
 
     config = get_api_config()
 
@@ -159,18 +168,24 @@ async def database_exception_handler(_request: Request, exc: SQLAlchemyError) ->
     )
 
 
-async def general_exception_handler(_request: Request, exc: Exception) -> JSONResponse:
+async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """
     Handle unexpected exceptions with generic error message.
 
     Args:
-        _request: HTTP request that caused the error (unused, required by FastAPI)
+        request: HTTP request that caused the error
         exc: Unhandled exception
 
     Returns:
         JSON response with 500 status and error message
     """
-    logger.error("Unhandled exception: %s", exc)
+    logger.error(
+        "Unhandled exception on %s %s: %s",
+        request.method,
+        request.url.path,
+        exc,
+        exc_info=exc,
+    )
 
     config = get_api_config()
 
@@ -186,6 +201,35 @@ async def general_exception_handler(_request: Request, exc: Exception) -> JSONRe
             "message": message,
         },
     )
+
+
+def with_rate_limit_logging(
+    delegate: Callable[[Request, RateLimitExceeded], Response],
+) -> Callable[[Request, Exception], Response]:
+    """
+    Wrap a rate-limit (429) handler so every throttled request is logged.
+
+    slowapi's own handler only builds the 429 response, so without this a throttled
+    user leaves no trace in the logs.
+
+    Args:
+        delegate: Handler that builds the actual 429 response
+
+    Returns:
+        Handler that logs method, path and the limit that was hit, then delegates
+    """
+
+    def handler(request: Request, exc: Exception) -> Response:
+        rate_limit_exc = cast("RateLimitExceeded", exc)
+        logger.warning(
+            "Rate limit exceeded on %s %s: %s",
+            request.method,
+            request.url.path,
+            rate_limit_exc.detail,
+        )
+        return delegate(request, rate_limit_exc)
+
+    return handler
 
 
 def configure_error_handlers(app: FastAPI) -> None:

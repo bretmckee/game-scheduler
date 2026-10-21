@@ -21,12 +21,13 @@
 
 """Tests for error handler middleware."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
+from slowapi.errors import RateLimitExceeded
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -131,10 +132,14 @@ async def test_database_exception_handler_logs_error(mock_request):
     with patch("services.api.middleware.error_handler.logger") as mock_logger:
         await error_handler.database_exception_handler(mock_request, mock_exc)
 
-        mock_logger.error.assert_called_once()
-        error_args = mock_logger.error.call_args.args
-        assert error_args[0] == "Database error at %s: %s"
-        assert error_args[2] is mock_exc
+        mock_logger.error.assert_called_once_with(
+            "Database error at %s on %s %s: %s",
+            ANY,
+            "POST",
+            "/api/v1/games",
+            mock_exc,
+            exc_info=mock_exc,
+        )
 
 
 @pytest.mark.asyncio
@@ -198,7 +203,13 @@ async def test_general_exception_handler_logs_error(mock_request):
     with patch("services.api.middleware.error_handler.logger") as mock_logger:
         await error_handler.general_exception_handler(mock_request, mock_exc)
 
-        mock_logger.error.assert_called_once_with("Unhandled exception: %s", mock_exc)
+        mock_logger.error.assert_called_once_with(
+            "Unhandled exception on %s %s: %s",
+            "POST",
+            "/api/v1/games",
+            mock_exc,
+            exc_info=mock_exc,
+        )
 
 
 @pytest.mark.asyncio
@@ -351,3 +362,20 @@ def test_configure_error_handlers_registers_http_exceptions(mock_app):
 
     registered = {call[0][0]: call[0][1] for call in mock_app.add_exception_handler.call_args_list}
     assert registered[StarletteHTTPException] is error_handler.http_exception_handler
+
+
+def test_rate_limit_handler_logs_and_returns_delegate_response(mock_request):
+    """429s are logged with method, path and limit, and the wrapped response is returned."""
+    exc = MagicMock(spec=RateLimitExceeded)
+    exc.detail = "5 per 1 minute"
+    delegate = MagicMock(return_value="delegate-response")
+
+    handler = error_handler.with_rate_limit_logging(delegate)
+    with patch("services.api.middleware.error_handler.logger") as mock_logger:
+        response = handler(mock_request, exc)
+
+    mock_logger.warning.assert_called_once_with(
+        "Rate limit exceeded on %s %s: %s", "POST", "/api/v1/games", "5 per 1 minute"
+    )
+    delegate.assert_called_once_with(mock_request, exc)
+    assert response == "delegate-response"
