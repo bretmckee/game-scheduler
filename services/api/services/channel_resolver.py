@@ -36,6 +36,10 @@ from shared.discord import client as discord_client_module
 # regular channel link does).
 _TEXT_LIKE_CHANNEL_TYPES = frozenset({0, 10, 11, 12})
 
+_BOT_ACCESS_HINT = (
+    "The bot must have access to it; private threads and channels it cannot view cannot be linked."
+)
+
 
 class ChannelResolver:
     """Resolves channel mentions in location text to Discord link format."""
@@ -60,7 +64,12 @@ class ChannelResolver:
         # a bare '#word' immediately preceded by a stray, unresolved '<' -- falls
         # through and is captured as a real candidate mention instead of being hidden
         # (mirrors participant_resolver.py's identical fix for @mentions).
-        self._channel_mention_pattern = re.compile(r"<#\d+>|#([^\s<>#]+)")
+        #
+        # Two more shapes are captured so a typed name never leaves doubled brackets:
+        # "<#name>" (name typed inside Discord's mention brackets; group 1) and a bare
+        # "#name" with an optional unclosed "<" glued to it (groups 2 and 3). The whole
+        # token, including those brackets, is what gets replaced or reported.
+        self._channel_mention_pattern = re.compile(r"<#\d+>|<#([^\s<>#]+)>|(<?)#([^\s<>#]+)")
         self._discord_channel_url_pattern = re.compile(r"https://discord\.com/channels/(\d+)/(\d+)")
         self._snowflake_token_pattern = re.compile(r"<#(\d+)>")
 
@@ -94,7 +103,7 @@ class ChannelResolver:
         hash_matches = [
             match
             for match in self._channel_mention_pattern.finditer(location_text)
-            if match.group(1) is not None
+            if match.group(1) is not None or match.group(3) is not None
         ]
         snowflake_matches = list(self._snowflake_token_pattern.finditer(location_text))
 
@@ -140,8 +149,8 @@ class ChannelResolver:
                     "field": field_label,
                     "input": full_url,
                     "reason": (
-                        f"Your {field_label} contains a link to a channel that is not a "
-                        "valid text channel in this server."
+                        f"Your {field_label} contains a link to a channel that is not a text "
+                        "channel or thread the bot can see in this server. " + _BOT_ACCESS_HINT
                     ),
                     "suggestions": [],
                 })
@@ -152,20 +161,30 @@ class ChannelResolver:
     def _resolve_single_hash_match(
         self,
         resolved: str,
-        channel_name: str,
+        match: re.Match,
         matching_channels: list[dict],
         text_channels: list[dict],
         field_label: str,
     ) -> tuple[str, dict | None]:
-        """Resolve one #channel_name match. Returns (updated_resolved, error_or_None)."""
+        """
+        Resolve one channel-name match. Returns (updated_resolved, error_or_None).
+
+        The whole matched token is replaced, including any "<" / ">" the user typed
+        around the name, so a resolved mention never ends up with doubled brackets.
+        An angle-wrapped "<#name>" is reported under its exact typed text so the UI can
+        substitute a suggestion for it; a bare "#name" is reported as "#name".
+        """
+        is_wrapped = match.group(1) is not None
+        channel_name = match.group(1) or match.group(3)
+        reported_input = match.group(0) if is_wrapped else f"#{channel_name}"
         if len(matching_channels) == 1:
-            resolved = resolved.replace(f"#{channel_name}", f"<#{matching_channels[0]['id']}>", 1)
+            resolved = resolved.replace(match.group(0), f"<#{matching_channels[0]['id']}>", 1)
             return resolved, None
         if len(matching_channels) > 1:
             error = {
                 "type": "ambiguous",
                 "field": field_label,
-                "input": f"#{channel_name}",
+                "input": reported_input,
                 "reason": (
                     f"Your {field_label} contains '#{channel_name}', which matches "
                     "multiple channels in this server."
@@ -178,21 +197,26 @@ class ChannelResolver:
         similar_channels = [
             ch for ch in text_channels if channel_name.lower() in ch["name"].lower()
         ][:5]
-        # Every match reaching this branch is a single '#' immediately followed by
-        # non-space text (a run of multiple '#' can never get here — see the pattern
-        # comment in __init__), which is exactly what a forgotten-space markdown
-        # heading looks like ("#heading" instead of "# heading"). Say so explicitly:
-        # this exact confusion previously cost real debugging time.
+        reason = (
+            f"Your {field_label} contains '#{channel_name}', which is not a valid "
+            "channel name in this server."
+        )
+        if not is_wrapped:
+            # A bare '#' immediately followed by non-space text (a run of multiple '#'
+            # can never get here -- see the pattern comment in __init__) is exactly what a
+            # forgotten-space markdown heading looks like ("#heading" instead of
+            # "# heading"). Say so explicitly: this exact confusion previously cost real
+            # debugging time.
+            reason += (
+                " If you meant this as a Markdown heading, "
+                f"Discord requires a space after the '#' — use '# {channel_name}' instead "
+                f"of '#{channel_name}'."
+            )
         error = {
             "type": "not_found",
             "field": field_label,
-            "input": f"#{channel_name}",
-            "reason": (
-                f"Your {field_label} contains '#{channel_name}', which is not a valid "
-                "channel name in this server. If you meant this as a Markdown heading, "
-                f"Discord requires a space after the '#' — use '# {channel_name}' instead "
-                f"of '#{channel_name}'."
-            ),
+            "input": reported_input,
+            "reason": reason,
             "suggestions": [{"id": ch["id"], "name": ch["name"]} for ch in similar_channels],
         }
         return resolved, error
@@ -206,12 +230,12 @@ class ChannelResolver:
     ) -> tuple[str, list[dict]]:
         errors: list[dict] = []
         for match in hash_matches:
-            channel_name = match.group(1)
+            channel_name = match.group(1) or match.group(3)
             matching_channels = [
                 ch for ch in text_channels if ch["name"].lower() == channel_name.lower()
             ]
             resolved, error = self._resolve_single_hash_match(
-                resolved, channel_name, matching_channels, text_channels, field_label
+                resolved, match, matching_channels, text_channels, field_label
             )
             if error is not None:
                 errors.append(error)
@@ -233,8 +257,8 @@ class ChannelResolver:
                     "field": field_label,
                     "input": f"<#{channel_id}>",
                     "reason": (
-                        f"Your {field_label} contains <#{channel_id}>, which is not a "
-                        "valid text channel in this server."
+                        f"Your {field_label} contains <#{channel_id}>, which is not a text "
+                        "channel or thread the bot can see in this server. " + _BOT_ACCESS_HINT
                     ),
                     "suggestions": [],
                 })

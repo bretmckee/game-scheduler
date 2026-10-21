@@ -263,8 +263,9 @@ async def test_resolve_discord_url_channel_not_found(resolver, mock_discord_clie
         errors[0]["input"] == "https://discord.com/channels/111222333444555666/999999999999999999"
     )
     assert errors[0]["reason"] == (
-        "Your Location contains a link to a channel that is not a valid text channel "
-        "in this server."
+        "Your Location contains a link to a channel that is not a text channel or thread "
+        "the bot can see in this server. The bot must have access to it; private "
+        "threads and channels it cannot view cannot be linked."
     )
     assert errors[0]["field"] == "Location"
     assert errors[0]["suggestions"] == []
@@ -504,8 +505,9 @@ async def test_resolve_snowflake_token_unknown_id(resolver, mock_discord_client)
     assert errors[0]["input"] == "<#999999999999999999>"
     assert errors[0]["field"] == "Description"
     assert errors[0]["reason"] == (
-        "Your Description contains <#999999999999999999>, which is not a valid text "
-        "channel in this server."
+        "Your Description contains <#999999999999999999>, which is not a text channel "
+        "or thread the bot can see in this server. The bot must have access to it; "
+        "private threads and channels it cannot view cannot be linked."
     )
 
 
@@ -705,6 +707,62 @@ async def test_resolve_snowflake_token_adjacent_to_new_hash_mention(resolver, mo
     )
 
     assert resolved_text == "<#111111111><#222222222>"
+    assert errors == []
+
+
+@pytest.mark.asyncio
+async def test_resolve_angle_wrapped_channel_name_resolves_to_single_token(
+    resolver, mock_discord_client
+):
+    """<#name> (name typed inside Discord's mention brackets) resolves to <#id>."""
+    mock_discord_client.get_guild_channels = AsyncMock(
+        return_value=[{"id": "111111111", "name": "general", "type": 0}]
+    )
+
+    resolved_text, errors = await resolver.resolve_channel_mentions(
+        location_text="Meet in <#general> tonight",
+        guild_discord_id="guild123",
+    )
+
+    assert resolved_text == "Meet in <#111111111> tonight"
+    assert errors == []
+
+
+@pytest.mark.asyncio
+async def test_unknown_angle_wrapped_channel_name_reports_typed_token(
+    resolver, mock_discord_client
+):
+    """The error input is the exact typed token so the UI can substitute a suggestion."""
+    mock_discord_client.get_guild_channels = AsyncMock(
+        return_value=[{"id": "123456789", "name": "announcements", "type": 0}]
+    )
+
+    resolved_text, errors = await resolver.resolve_channel_mentions(
+        location_text="Meet in <#general> tonight",
+        guild_discord_id="guild123",
+    )
+
+    assert resolved_text == "Meet in <#general> tonight"
+    assert len(errors) == 1
+    assert errors[0]["type"] == "not_found"
+    assert errors[0]["input"] == "<#general>"
+
+
+@pytest.mark.asyncio
+async def test_stray_open_bracket_before_known_channel_name_resolves_cleanly(
+    resolver, mock_discord_client
+):
+    """An unclosed '<' glued to a known #name is consumed, not left doubled."""
+    mock_discord_client.get_guild_channels = AsyncMock(
+        return_value=[{"id": "111111111", "name": "general", "type": 0}]
+    )
+
+    resolved_text, errors = await resolver.resolve_channel_mentions(
+        location_text="Meet in <#general more",
+        guild_discord_id="guild123",
+    )
+
+    assert resolved_text == "Meet in <#111111111> more"
     assert errors == []
 
 
