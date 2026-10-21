@@ -31,6 +31,7 @@ import sys
 
 import uvicorn
 
+from services.api import access_log
 from services.api.app import create_app
 from services.api.config import get_api_config
 from shared.telemetry import flush_telemetry, init_telemetry
@@ -80,8 +81,11 @@ async def main() -> None:
             host=config.api_host,
             port=config.api_port,
             log_level=config.log_level.lower(),
-            access_log=config.debug,
+            access_log=True,
         )
+
+        # Attached after uvicorn.Config, which reconfigures uvicorn's loggers.
+        logging.getLogger("uvicorn.access").addFilter(access_log.AccessLogRedactionFilter())
 
         server = uvicorn.Server(uvicorn_config)
         await server.serve()

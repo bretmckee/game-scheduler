@@ -22,7 +22,7 @@
 """Tests for API main entry point."""
 
 import logging
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -114,4 +114,38 @@ async def test_main_uses_config_values():
                         mock_config.assert_called_once_with()
                         mock_server.assert_called_once_with(mock_uvicorn_config.return_value)
                         assert call_kwargs["log_level"] == "debug"
-                        assert call_kwargs["access_log"] is False
+                        assert call_kwargs["access_log"] is True
+
+
+@pytest.mark.asyncio
+async def test_main_redacts_access_log_secrets():
+    """main() attaches the redaction filter to uvicorn's access logger."""
+    access_logger = logging.getLogger("uvicorn.access")
+    before = list(access_logger.filters)
+    try:
+        with patch("services.api.main.get_api_config") as mock_config:
+            mock_config.return_value.log_level = "INFO"
+            mock_config.return_value.debug = False
+            with (
+                patch("services.api.main.uvicorn.Config") as mock_uvicorn_config,
+                patch("services.api.main.uvicorn.Server") as mock_server,
+                patch("services.api.main.create_app"),
+                patch("services.api.main.setup_logging"),
+            ):
+                mock_server.return_value.serve = AsyncMock()
+                await main.main()
+
+        mock_config.assert_called_once_with()
+        mock_uvicorn_config.assert_called_once_with(
+            ANY,
+            host=mock_config.return_value.api_host,
+            port=mock_config.return_value.api_port,
+            log_level="info",
+            access_log=True,
+        )
+        mock_server.assert_called_once_with(mock_uvicorn_config.return_value)
+        mock_server.return_value.serve.assert_awaited_once_with()
+        added = [f for f in access_logger.filters if f not in before]
+        assert [type(f).__name__ for f in added] == ["AccessLogRedactionFilter"]
+    finally:
+        access_logger.filters[:] = before
