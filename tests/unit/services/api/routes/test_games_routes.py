@@ -617,6 +617,57 @@ class TestListGamesUsesDisplayNameResolver:
         )
 
 
+class TestOverLengthDescriptionRoutes:
+    """The real routes turn an over-length description into a readable 422.
+
+    Exercises the route functions themselves, so these prove the route catches
+    pydantic's ValidationError (a ValueError subclass) and maps it to 422, not just
+    that the error handler formats a hand-built exception correctly.
+    """
+
+    _EXPECTED_DETAIL = (
+        f"Description: String should have at most {limits.MAX_DESCRIPTION_LENGTH} characters"
+    )
+
+    @pytest.mark.asyncio
+    async def test_create_game_route_rejects_over_length_description(self):
+        mock_game_service = MagicMock()
+        mock_game_service.create_game = AsyncMock()
+
+        with pytest.raises(HTTPException) as exc_info:
+            await games_routes.create_game(
+                template_id="template-123",
+                title="Test Game",
+                scheduled_at="2026-07-01T18:00:00Z",
+                description="x" * (limits.MAX_DESCRIPTION_LENGTH + 1),
+                current_user=MagicMock(),
+                game_service=mock_game_service,
+                role_service=MagicMock(),
+            )
+
+        assert exc_info.value.status_code == http_status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert exc_info.value.detail == self._EXPECTED_DETAIL
+        mock_game_service.create_game.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_update_game_route_rejects_over_length_description(self):
+        mock_game_service = MagicMock()
+        mock_game_service.update_game = AsyncMock()
+
+        with pytest.raises(HTTPException) as exc_info:
+            await games_routes.update_game(
+                game_id="game-123",
+                description="x" * (limits.MAX_DESCRIPTION_LENGTH + 1),
+                current_user=MagicMock(),
+                game_service=mock_game_service,
+                role_service=MagicMock(),
+            )
+
+        assert exc_info.value.status_code == http_status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert exc_info.value.detail == self._EXPECTED_DETAIL
+        mock_game_service.update_game.assert_not_called()
+
+
 class TestCreateGameRoutePostAt:
     """Tests for create_game route post_at parameter handling."""
 

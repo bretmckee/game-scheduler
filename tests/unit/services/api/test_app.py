@@ -21,10 +21,11 @@
 
 """Tests for API application factory."""
 
+import logging
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
 from services.api import app
@@ -154,3 +155,82 @@ def test_middleware_configured():
         # Verify the app was passed to both middleware configurers
         assert mock_cors.call_args[0][0] == application
         assert mock_error.call_args[0][0] == application
+
+
+_ERROR_HANDLER_LOGGER = "services.api.middleware.error_handler"
+
+
+@pytest.fixture
+def client():
+    """In-process client for the real app (lifespan is not started)."""
+    with patch("services.api.app.redis_client.get_redis_client"):
+        application = app.create_app()
+    return application, TestClient(application, raise_server_exceptions=False)
+
+
+def _warnings(caplog) -> list[str]:
+    return [
+        r.getMessage()
+        for r in caplog.records
+        if r.name == _ERROR_HANDLER_LOGGER and r.levelno == logging.WARNING
+    ]
+
+
+def test_unknown_route_404_is_logged(client, caplog):
+    """A router-level 404 reaches the HTTPException handler registered by create_app."""
+    _, test_client = client
+
+    with caplog.at_level(logging.WARNING, logger=_ERROR_HANDLER_LOGGER):
+        response = test_client.get("/api/v1/does-not-exist")
+
+    assert response.status_code == 404
+    assert _warnings(caplog) == ["HTTP 404 on GET /api/v1/does-not-exist: Not Found"]
+
+
+def test_unauthenticated_request_401_is_logged(client, caplog):
+    """A real route's auth failure (no session cookie) is logged with its status and path."""
+    _, test_client = client
+
+    with caplog.at_level(logging.WARNING, logger=_ERROR_HANDLER_LOGGER):
+        response = test_client.get("/api/v1/games")
+
+    assert response.status_code == 401
+    assert _warnings(caplog) == ["HTTP 401 on GET /api/v1/games: Not authenticated"]
+
+
+def test_request_validation_failure_is_logged_by_field(client, caplog):
+    """A request failing FastAPI parameter validation is logged with field and error type."""
+    application, test_client = client
+
+    @application.get("/_validation_probe")
+    async def probe(count: int) -> dict[str, int]:
+        return {"count": count}
+
+    with caplog.at_level(logging.WARNING, logger=_ERROR_HANDLER_LOGGER):
+        response = test_client.get("/_validation_probe?count=not-a-number")
+
+    assert response.status_code == 422
+    assert _warnings(caplog) == [
+        "Request validation failed on GET /_validation_probe: query.count (int_parsing)"
+    ]
+
+
+def test_rate_limited_request_is_logged_and_still_returns_429(client, caplog):
+    """A throttled request is logged by the wrapped handler and keeps slowapi's response."""
+    application, test_client = client
+
+    @application.get("/_rate_limit_probe")
+    @app.limiter.limit("1/minute")
+    async def probe(request: Request) -> dict[str, int]:
+        return {"ok": 1}
+
+    try:
+        assert test_client.get("/_rate_limit_probe").status_code == 200
+        with caplog.at_level(logging.WARNING, logger=_ERROR_HANDLER_LOGGER):
+            response = test_client.get("/_rate_limit_probe")
+    finally:
+        app.limiter.reset()
+
+    assert response.status_code == 429
+    assert response.json() == {"error": "Rate limit exceeded: 1 per 1 minute"}
+    assert _warnings(caplog) == ["Rate limit exceeded on GET /_rate_limit_probe: 1 per 1 minute"]
