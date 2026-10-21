@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field, field_validator
 
+from shared.utils.limits import MAX_DESCRIPTION_LENGTH
 from shared.utils.security_constants import (
     DISCORD_SNOWFLAKE_MAX_LENGTH,
     DISCORD_SNOWFLAKE_MIN_LENGTH,
@@ -47,7 +48,7 @@ class GameCreateRequest(BaseModel):
 
     # Optional overrides of template defaults
     description: str | None = Field(
-        None, description="Game description (optional)", max_length=2000
+        None, description="Game description (optional)", max_length=MAX_DESCRIPTION_LENGTH
     )
     max_players: int | None = Field(
         None,
@@ -130,7 +131,7 @@ class GameUpdateRequest(BaseModel):
     """Update game session (all fields optional)."""
 
     title: str | None = Field(None, min_length=1, max_length=200)
-    description: str | None = Field(None, max_length=2000)
+    description: str | None = Field(None, max_length=MAX_DESCRIPTION_LENGTH)
     signup_instructions: str | None = Field(None, max_length=1000)
     scheduled_at: datetime | None = None
     where: str | None = Field(None, max_length=500)

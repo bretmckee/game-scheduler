@@ -27,6 +27,7 @@ import pytest
 from pydantic import ValidationError
 
 from services.api.schemas.clone_game import CarryoverOption, CloneGameRequest
+from shared.utils.limits import MAX_DESCRIPTION_LENGTH
 
 FUTURE = datetime.datetime(2027, 1, 1, 12, 0, 0)
 PAST = datetime.datetime(2020, 1, 1, 12, 0, 0)
@@ -174,3 +175,27 @@ def test_clone_request_max_players_out_of_range_is_rejected():
     """max_players over 100 must be rejected, matching GameCreateRequest's constraint."""
     with pytest.raises(ValidationError):
         CloneGameRequest(scheduled_at=SCHEDULED_AT, max_players=101)
+
+
+def test_clone_request_description_at_limit_is_accepted():
+    """A description of exactly MAX_DESCRIPTION_LENGTH characters is valid."""
+    req = CloneGameRequest(
+        scheduled_at=SCHEDULED_AT,
+        player_carryover=CarryoverOption.NO,
+        waitlist_carryover=CarryoverOption.NO,
+        description="A" * MAX_DESCRIPTION_LENGTH,
+    )
+    assert req.description is not None
+    assert len(req.description) == MAX_DESCRIPTION_LENGTH
+
+
+def test_clone_request_description_over_limit_is_rejected():
+    """A description longer than MAX_DESCRIPTION_LENGTH is rejected."""
+    with pytest.raises(ValidationError) as exc_info:
+        CloneGameRequest(
+            scheduled_at=SCHEDULED_AT,
+            player_carryover=CarryoverOption.NO,
+            waitlist_carryover=CarryoverOption.NO,
+            description="A" * (MAX_DESCRIPTION_LENGTH + 1),
+        )
+    assert exc_info.value.errors()[0]["loc"] == ("description",)

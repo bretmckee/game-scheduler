@@ -26,6 +26,8 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field, model_validator
 
+from shared.utils.limits import MAX_DESCRIPTION_LENGTH
+
 
 class CarryoverOption(StrEnum):
     """How participants from the source game should be carried over to the clone."""
@@ -60,7 +62,7 @@ class CloneGameRequest(BaseModel):
     # GameCreateRequest (Field constraints copied verbatim from GameCreateRequest,
     # shared/schemas/game.py, for consistency).
     title: str | None = Field(None, min_length=1, max_length=200)
-    description: str | None = Field(None, max_length=2000)
+    description: str | None = Field(None, max_length=MAX_DESCRIPTION_LENGTH)
     signup_instructions: str | None = Field(None, max_length=1000)
     where: str | None = Field(None, max_length=500)
     max_players: int | None = Field(None, ge=1, le=100)
