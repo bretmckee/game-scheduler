@@ -27,26 +27,72 @@ Catches and formats exceptions into consistent JSON responses.
 
 import logging
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING, cast
 
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, Request, Response, status
+from fastapi.exception_handlers import http_exception_handler as default_http_exception_handler
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from services.api.config import get_api_config
+
+if TYPE_CHECKING:
+    from starlette.types import HTTPExceptionHandler
 
 logger = logging.getLogger(__name__)
 
 
+def _summarize_http_detail(detail: object) -> str:
+    """
+    Reduce an HTTPException detail to a log-safe summary.
+
+    Structured details (e.g. invalid_mentions) echo the submitted form back to the
+    client; only the error code and message are logged so user-authored text never
+    reaches the logs.
+    """
+    if isinstance(detail, dict):
+        return f"{detail.get('error')}: {detail.get('message')}"
+    return str(detail)
+
+
+async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> Response:
+    """
+    Log HTTPException responses, then return FastAPI's standard response.
+
+    Without this, 4xx/5xx responses raised deliberately by routes leave no trace in
+    the logs, making user-reported failures impossible to diagnose.
+
+    Args:
+        request: HTTP request that caused the error
+        exc: HTTP exception raised by a route, dependency, or the router (e.g. 404)
+
+    Returns:
+        FastAPI's default response for the exception (status, body and headers unchanged)
+    """
+    log = (
+        logger.error if exc.status_code >= status.HTTP_500_INTERNAL_SERVER_ERROR else logger.warning
+    )
+    log(
+        "HTTP %s on %s %s: %s",
+        exc.status_code,
+        request.method,
+        request.url.path,
+        _summarize_http_detail(exc.detail),
+    )
+    return await default_http_exception_handler(request, exc)
+
+
 async def validation_exception_handler(
-    _request: Request, exc: RequestValidationError | ValidationError
+    request: Request, exc: RequestValidationError | ValidationError
 ) -> JSONResponse:
     """
     Handle Pydantic validation errors with detailed error messages.
 
     Args:
-        _request: HTTP request that caused the error (unused, required by FastAPI)
+        request: HTTP request that caused the error
         exc: Validation error with field-level details
 
     Returns:
@@ -60,6 +106,13 @@ async def validation_exception_handler(
         }
         for error in exc.errors()
     ]
+
+    logger.warning(
+        "Request validation failed on %s %s: %s",
+        request.method,
+        request.url.path,
+        "; ".join(f"{e['field']} ({e['type']})" for e in errors),
+    )
 
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -142,6 +195,9 @@ def configure_error_handlers(app: FastAPI) -> None:
     Args:
         app: FastAPI application instance
     """
+    app.add_exception_handler(
+        StarletteHTTPException, cast("HTTPExceptionHandler", http_exception_handler)
+    )
     app.add_exception_handler(RequestValidationError, validation_exception_handler)  # type: ignore[arg-type]
     app.add_exception_handler(ValidationError, validation_exception_handler)  # type: ignore[arg-type]
     app.add_exception_handler(SQLAlchemyError, database_exception_handler)  # type: ignore[arg-type]

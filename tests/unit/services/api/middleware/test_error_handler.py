@@ -24,10 +24,11 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from services.api.middleware import error_handler
 
@@ -43,7 +44,17 @@ def mock_app():
 @pytest.fixture
 def mock_request():
     """Mock HTTP request."""
-    return MagicMock(spec=Request)
+    request = MagicMock(spec=Request)
+    request.method = "POST"
+    request.url.path = "/api/v1/games"
+    return request
+
+
+def _logged_message(log_method) -> str:
+    """Render the single %-style log call on a patched logger method."""
+    log_method.assert_called_once()
+    template, *args = log_method.call_args.args
+    return template % tuple(args)
 
 
 @pytest.mark.asyncio
@@ -207,7 +218,7 @@ def test_configure_error_handlers_registers_all_handlers(mock_app):
     """Test that configure_error_handlers registers all exception handlers."""
     error_handler.configure_error_handlers(mock_app)
 
-    assert mock_app.add_exception_handler.call_count == 4
+    assert mock_app.add_exception_handler.call_count == 5
 
 
 def test_configure_error_handlers_registers_validation_errors(mock_app):
@@ -240,3 +251,103 @@ def test_configure_error_handlers_registers_general_errors(mock_app):
 
     calls = [call[0][0] for call in mock_app.add_exception_handler.call_args_list]
     assert Exception in calls
+
+
+@pytest.mark.asyncio
+async def test_http_exception_handler_logs_4xx_as_warning(mock_request):
+    """Client errors are logged at warning with status, method, path and detail."""
+    exc = HTTPException(status_code=403, detail="User does not have permission")
+
+    with patch("services.api.middleware.error_handler.logger") as mock_logger:
+        await error_handler.http_exception_handler(mock_request, exc)
+
+    message = _logged_message(mock_logger.warning)
+    assert "403" in message
+    assert "POST" in message
+    assert "/api/v1/games" in message
+    assert "User does not have permission" in message
+    mock_logger.error.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_http_exception_handler_logs_5xx_as_error(mock_request):
+    """Server errors are logged at error level."""
+    exc = HTTPException(status_code=503, detail="Guild channels not cached")
+
+    with patch("services.api.middleware.error_handler.logger") as mock_logger:
+        await error_handler.http_exception_handler(mock_request, exc)
+
+    message = _logged_message(mock_logger.error)
+    assert "503" in message
+    assert "Guild channels not cached" in message
+    mock_logger.warning.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_http_exception_handler_logs_structured_detail_without_form_data(mock_request):
+    """Dict details log error/message only; echoed form_data (user text) is excluded."""
+    exc = HTTPException(
+        status_code=422,
+        detail={
+            "error": "invalid_mentions",
+            "message": "Some @mentions could not be resolved",
+            "invalid_mentions": [{"input": "<#123>"}],
+            "form_data": {"description": "PRIVATE-USER-TEXT"},
+        },
+    )
+
+    with patch("services.api.middleware.error_handler.logger") as mock_logger:
+        await error_handler.http_exception_handler(mock_request, exc)
+
+    mock_logger.warning.assert_called_once_with(
+        "HTTP %s on %s %s: %s",
+        422,
+        "POST",
+        "/api/v1/games",
+        "invalid_mentions: Some @mentions could not be resolved",
+    )
+
+
+@pytest.mark.asyncio
+async def test_http_exception_handler_preserves_response(mock_request):
+    """The client still receives FastAPI's standard status, body and headers."""
+    exc = HTTPException(status_code=401, detail="Not authenticated", headers={"X-Test": "1"})
+
+    with patch("services.api.middleware.error_handler.logger"):
+        response = await error_handler.http_exception_handler(mock_request, exc)
+
+    assert response.status_code == 401
+    assert response.body == b'{"detail":"Not authenticated"}'
+    assert response.headers["x-test"] == "1"
+
+
+@pytest.mark.asyncio
+async def test_validation_exception_handler_logs_fields_without_input(mock_request):
+    """Validation failures are logged with field locations and types, not submitted values."""
+    mock_exc = MagicMock(spec=RequestValidationError)
+    mock_exc.errors.return_value = [
+        {
+            "loc": ("body", "max_players"),
+            "msg": "value is not a valid integer",
+            "type": "int_parsing",
+            "input": "PRIVATE-USER-TEXT",
+        }
+    ]
+
+    with patch("services.api.middleware.error_handler.logger") as mock_logger:
+        await error_handler.validation_exception_handler(mock_request, mock_exc)
+
+    mock_logger.warning.assert_called_once_with(
+        "Request validation failed on %s %s: %s",
+        "POST",
+        "/api/v1/games",
+        "body.max_players (int_parsing)",
+    )
+
+
+def test_configure_error_handlers_registers_http_exceptions(mock_app):
+    """Test that the Starlette HTTPException handler is registered."""
+    error_handler.configure_error_handlers(mock_app)
+
+    registered = {call[0][0]: call[0][1] for call in mock_app.add_exception_handler.call_args_list}
+    assert registered[StarletteHTTPException] is error_handler.http_exception_handler
