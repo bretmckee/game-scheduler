@@ -21,6 +21,7 @@
 
 """Unit tests for role verification service."""
 
+import logging
 from typing import ClassVar
 from unittest.mock import AsyncMock, patch
 
@@ -404,6 +405,32 @@ class TestHasPermissionsLocalBitfield:
             )
 
         assert result is True
+
+    @pytest.mark.asyncio
+    async def test_has_permissions_error_denies_and_logs_traceback(
+        self, role_service, mock_cache, caplog
+    ):
+        """An unexpected failure denies access and logs the error with its traceback."""
+        mock_cache.get_json = AsyncMock(
+            side_effect=lambda key: self._GUILD_ROLES if "guild_roles" in key else None
+        )
+        with (
+            patch.object(role_service, "_get_cache", return_value=mock_cache),
+            patch(
+                "services.api.auth.roles.member_projection.get_user_roles",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("redis down"),
+            ),
+        ):
+            result = await role_service.has_permissions(
+                "user123", "guild456", DiscordPermissions.MANAGE_GUILD
+            )
+
+        assert result is False
+        record = next(r for r in caplog.records if r.levelno == logging.ERROR)
+        assert record.getMessage() == "Error checking permissions"
+        assert record.exc_info is not None
+        assert str(record.exc_info[1]) == "redis down"
 
     @pytest.mark.asyncio
     async def test_has_permissions_user_lacks_flag(self, role_service, mock_cache):

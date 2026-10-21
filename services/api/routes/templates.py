@@ -132,7 +132,8 @@ async def list_templates(
     try:
         discord_channels = await discord_client.get_guild_channels(guild_config.guild_id)
         channel_name_map = {ch["id"]: ch["name"] for ch in discord_channels}
-    except DiscordAPIError:
+    except DiscordAPIError as exc:
+        logger.warning("Could not fetch channel names for guild %s: %s", guild_config.guild_id, exc)
         channel_name_map = {}
 
     result = []

@@ -21,6 +21,7 @@
 
 """Unit tests for guild configuration endpoints."""
 
+import logging
 import uuid
 from datetime import UTC, datetime
 from unittest.mock import ANY, AsyncMock, MagicMock, patch
@@ -484,7 +485,7 @@ class TestListGuildChannels:
 
     @pytest.mark.asyncio
     async def test_list_channels_discord_api_error_falls_back_to_unknown(
-        self, mock_db, mock_current_user_unit, mock_guild_config, mock_user_guilds
+        self, mock_db, mock_current_user_unit, mock_guild_config, mock_user_guilds, caplog
     ):
         """Test that a Discord API error falls back to 'Unknown Channel' names."""
 
@@ -517,6 +518,12 @@ class TestListGuildChannels:
             assert result[0].channel_name == "Unknown Channel"
             mock_get_guild.assert_called_once_with(
                 mock_db, mock_guild_config.id, mock_current_user_unit.user.discord_id
+            )
+            warning = next(r for r in caplog.records if r.levelno == logging.WARNING)
+            assert warning.name == "services.api.routes.guilds"
+            assert warning.getMessage() == (
+                f"Could not fetch channel names for guild {mock_guild_config.guild_id}: "
+                "Discord API error 403: Missing Access"
             )
             mock_get_channels.assert_called_once_with(mock_db, mock_guild_config.id)
 

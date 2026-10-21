@@ -21,6 +21,7 @@
 
 """Unit tests for template endpoints."""
 
+import logging
 import uuid
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, call, patch
@@ -366,7 +367,7 @@ class TestListTemplates:
 
     @pytest.mark.asyncio
     async def test_list_templates_discord_api_error_falls_back_to_unknown(
-        self, mock_db, mock_current_user_unit, mock_guild_config, mock_template
+        self, mock_db, mock_current_user_unit, mock_guild_config, mock_template, caplog
     ):
         """Test that a Discord API error falls back to 'Unknown Channel' names."""
 
@@ -409,6 +410,12 @@ class TestListTemplates:
             mock_get_role_service.assert_called_once_with()
             mock_template_service.assert_called_once_with(mock_db)
             mock_check_manager.assert_awaited_once()
+            warning = next(r for r in caplog.records if r.levelno == logging.WARNING)
+            assert warning.name == "services.api.routes.templates"
+            assert warning.getMessage() == (
+                f"Could not fetch channel names for guild {mock_guild_config.guild_id}: "
+                "Discord API error 403: Missing Access"
+            )
 
     @pytest.mark.asyncio
     async def test_list_templates_guild_not_found(self, mock_db, mock_current_user_unit):

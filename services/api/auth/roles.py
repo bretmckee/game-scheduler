@@ -176,8 +176,8 @@ class RoleVerificationService:
 
             return self._has_any_requested_permission(user_permissions, permissions)
 
-        except Exception as e:
-            logger.error("Error checking permissions: %s", e)
+        except Exception:
+            logger.exception("Error checking permissions")
             return False
 
     async def has_any_role(

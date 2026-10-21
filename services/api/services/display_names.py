@@ -195,8 +195,8 @@ class DisplayNameResolver:
             try:
                 fetched_data = await self._fetch_and_cache_display_names(guild_id, uncached_ids)
                 result.update(fetched_data)
-            except Exception as e:
-                logger.error("Failed to fetch display names: %s", e)
+            except Exception:
+                logger.exception("Failed to fetch display names")
                 fallback_data = self._create_fallback_display_names(uncached_ids)
                 result.update(fallback_data)
 
@@ -267,8 +267,8 @@ class DisplayNameResolver:
         """
         try:
             result = await self._fetch_and_cache_display_names_avatars(guild_id, user_ids)
-        except Exception as e:
-            logger.error("Failed to fetch display names and avatars: %s", e)
+        except Exception:
+            logger.exception("Failed to fetch display names and avatars")
             result = self._create_fallback_user_data(user_ids)
 
         return result
@@ -311,8 +311,8 @@ class DisplayNameResolver:
                     result[user_id] = "Unknown User"
                     continue
                 result[user_id] = self._resolve_primary_name(member)
-        except Exception as e:
-            logger.error("Failed to fetch primary names: %s", e)
+        except Exception:
+            logger.exception("Failed to fetch primary names")
             fallback_data = self._create_fallback_display_names(user_ids)
             for user_id in user_ids:
                 result.setdefault(user_id, fallback_data[user_id])

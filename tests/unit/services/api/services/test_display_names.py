@@ -21,6 +21,7 @@
 
 """Unit tests for display name resolution service."""
 
+import logging
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -361,7 +362,7 @@ async def test_fetch_display_names_avatars_absent_member_from_projection(mock_ca
 
 
 @pytest.mark.asyncio
-async def test_resolve_display_names_exception_returns_fallback(mock_cache):
+async def test_resolve_display_names_exception_returns_fallback(mock_cache, caplog):
     """resolve_display_names falls back to User#<suffix> on fetch exception."""
     resolver = display_names.DisplayNameResolver(mock_cache)
 
@@ -378,10 +379,14 @@ async def test_resolve_display_names_exception_returns_fallback(mock_cache):
         result = await resolver.resolve_display_names("guild1", ["user1234"])
 
     assert result == {"user1234": "User#1234"}
+    record = next(r for r in caplog.records if r.levelno == logging.ERROR)
+    assert record.getMessage() == "Failed to fetch display names"
+    assert record.exc_info is not None
+    assert str(record.exc_info[1]) == "redis down"
 
 
 @pytest.mark.asyncio
-async def test_resolve_display_names_and_avatars_exception_returns_fallback(mock_cache):
+async def test_resolve_display_names_and_avatars_exception_returns_fallback(mock_cache, caplog):
     """resolve_display_names_and_avatars falls back to User#<suffix> on fetch exception."""
     resolver = display_names.DisplayNameResolver(mock_cache)
 
@@ -392,6 +397,10 @@ async def test_resolve_display_names_and_avatars_exception_returns_fallback(mock
         result = await resolver.resolve_display_names_and_avatars("guild1", ["user1234"])
 
     assert result == {"user1234": {"display_name": "User#1234", "avatar_url": None}}
+    record = next(r for r in caplog.records if r.levelno == logging.ERROR)
+    assert record.getMessage() == "Failed to fetch display names and avatars"
+    assert record.exc_info is not None
+    assert str(record.exc_info[1]) == "redis down"
 
 
 @pytest.mark.asyncio
@@ -485,7 +494,7 @@ async def test_resolve_primary_names_absent_member_from_projection(mock_cache):
 
 
 @pytest.mark.asyncio
-async def test_resolve_primary_names_exception_returns_fallback(mock_cache):
+async def test_resolve_primary_names_exception_returns_fallback(mock_cache, caplog):
     """resolve_primary_names falls back to User#last4 names when projection reads fail."""
     resolver = display_names.DisplayNameResolver(mock_cache)
 
@@ -496,3 +505,7 @@ async def test_resolve_primary_names_exception_returns_fallback(mock_cache):
         result = await resolver.resolve_primary_names("guild123", ["user1234", "ab567890"])
 
     assert result == {"user1234": "User#1234", "ab567890": "User#7890"}
+    record = next(r for r in caplog.records if r.levelno == logging.ERROR)
+    assert record.getMessage() == "Failed to fetch primary names"
+    assert record.exc_info is not None
+    assert str(record.exc_info[1]) == "redis down"

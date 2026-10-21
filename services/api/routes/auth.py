@@ -61,7 +61,7 @@ async def login(
         auth_url, state = await oauth2.generate_authorization_url(redirect_uri)
         return auth_schemas.LoginResponse(authorization_url=auth_url, state=state)
     except Exception as e:
-        logger.error("Login initiation failed: %s", e)
+        logger.exception("Login initiation failed")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to initiate login",
@@ -99,7 +99,7 @@ async def callback(
         token_data = await oauth2.exchange_code_for_tokens(code, redirect_uri)
         user_data = await oauth2.get_user_from_token(token_data["access_token"])
     except Exception as e:
-        logger.error("OAuth2 callback failed: %s", e)
+        logger.exception("OAuth2 callback failed")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Authentication failed",
@@ -181,7 +181,7 @@ async def refresh(
             access_token=new_tokens["access_token"], expires_in=new_tokens["expires_in"]
         )
     except Exception as e:
-        logger.error("Token refresh failed: %s", e)
+        logger.exception("Token refresh failed")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Failed to refresh token"
         ) from e

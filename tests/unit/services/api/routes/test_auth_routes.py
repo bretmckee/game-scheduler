@@ -21,6 +21,7 @@
 
 """Unit tests for auth route error paths."""
 
+import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -32,7 +33,7 @@ from services.api.routes import auth as auth_routes
 
 class TestLogin:
     @pytest.mark.asyncio
-    async def test_login_exception(self):
+    async def test_login_exception(self, caplog):
         with patch(
             "services.api.auth.oauth2.generate_authorization_url",
             side_effect=RuntimeError("oauth service down"),
@@ -42,11 +43,15 @@ class TestLogin:
 
         assert exc_info.value.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
         assert exc_info.value.detail == "Failed to initiate login"
+        record = next(r for r in caplog.records if r.levelno == logging.ERROR)
+        assert record.getMessage() == "Login initiation failed"
+        assert record.exc_info is not None
+        assert str(record.exc_info[1]) == "oauth service down"
 
 
 class TestCallback:
     @pytest.mark.asyncio
-    async def test_callback_exchange_tokens_failure(self):
+    async def test_callback_exchange_tokens_failure(self, caplog):
         mock_db = AsyncMock()
         mock_response = MagicMock()
 
@@ -71,6 +76,10 @@ class TestCallback:
 
         assert exc_info.value.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
         assert exc_info.value.detail == "Authentication failed"
+        record = next(r for r in caplog.records if r.levelno == logging.ERROR)
+        assert record.getMessage() == "OAuth2 callback failed"
+        assert record.exc_info is not None
+        assert str(record.exc_info[1]) == "Discord unavailable"
 
     @pytest.mark.asyncio
     async def test_callback_maintainer_check_failure_defaults_false(self):
@@ -195,7 +204,7 @@ class TestRefresh:
         assert exc_info.value.detail == "No session found"
 
     @pytest.mark.asyncio
-    async def test_refresh_token_failure(self, mock_current_user_unit):
+    async def test_refresh_token_failure(self, mock_current_user_unit, caplog):
         token_data = {
             "refresh_token": "old-refresh-tok",
             "access_token": "old-access-tok",
@@ -217,6 +226,10 @@ class TestRefresh:
 
         assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
         assert exc_info.value.detail == "Failed to refresh token"
+        record = next(r for r in caplog.records if r.levelno == logging.ERROR)
+        assert record.getMessage() == "Token refresh failed"
+        assert record.exc_info is not None
+        assert str(record.exc_info[1]) == "refresh failed"
 
 
 class TestGetUserInfo:
