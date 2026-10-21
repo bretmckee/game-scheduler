@@ -114,7 +114,20 @@ class SSEGameUpdateBridge:
             return
         task = asyncio.create_task(self._broadcast_to_clients(data))
         self._active_broadcasts.add(task)
-        task.add_done_callback(self._active_broadcasts.discard)
+        task.add_done_callback(self._on_broadcast_done)
+
+    def _on_broadcast_done(self, task: asyncio.Task) -> None:
+        """Forget a finished broadcast and log it if it failed.
+
+        Without this a broadcast that raised would only surface as asyncio's
+        "Task exception was never retrieved" whenever the task was garbage collected.
+        """
+        self._active_broadcasts.discard(task)
+        if task.cancelled():
+            return
+        exc = task.exception()
+        if exc is not None:
+            logger.error("SSE broadcast failed", exc_info=exc)
 
     async def _send_to_connection(
         self,

@@ -23,6 +23,7 @@
 
 import asyncio
 import json
+import logging
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 from uuid import uuid4
 
@@ -128,6 +129,40 @@ def test_on_notify_schedules_broadcast():
 async def _run_on_notify(bridge: SSEGameUpdateBridge, payload: str) -> None:
     bridge._on_notify(None, 0, "game_updated_sse", payload)
     await asyncio.sleep(0)
+
+
+async def _run_failing_broadcast(bridge: SSEGameUpdateBridge, error: BaseException) -> None:
+    """Run _on_notify with a broadcast that raises, and let its done-callbacks run."""
+    payload = json.dumps({"game_id": "g1", "guild_id": "guild1"})
+    with patch.object(bridge, "_broadcast_to_clients", AsyncMock(side_effect=error)):
+        bridge._on_notify(None, 0, "game_updated_sse", payload)
+        await asyncio.gather(*bridge._active_broadcasts, return_exceptions=True)
+        await asyncio.sleep(0)
+
+
+@pytest.mark.asyncio
+async def test_failed_broadcast_is_logged_with_traceback(caplog):
+    """An exception in a broadcast task is logged at error level with its traceback."""
+    bridge = SSEGameUpdateBridge(_TEST_DB_URL)
+
+    await _run_failing_broadcast(bridge, RuntimeError("db down"))
+
+    record = next(r for r in caplog.records if r.levelno == logging.ERROR)
+    assert record.getMessage() == "SSE broadcast failed"
+    assert record.exc_info is not None
+    assert str(record.exc_info[1]) == "db down"
+    assert bridge._active_broadcasts == set()
+
+
+@pytest.mark.asyncio
+async def test_cancelled_broadcast_is_not_logged_as_an_error(caplog):
+    """A cancelled broadcast (shutdown) is discarded without an error log."""
+    bridge = SSEGameUpdateBridge(_TEST_DB_URL)
+
+    await _run_failing_broadcast(bridge, asyncio.CancelledError())
+
+    assert [r for r in caplog.records if r.levelno >= logging.ERROR] == []
+    assert bridge._active_broadcasts == set()
 
 
 def test_on_notify_ignores_empty_payload():
