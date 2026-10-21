@@ -766,6 +766,88 @@ async def test_stray_open_bracket_before_known_channel_name_resolves_cleanly(
     assert errors == []
 
 
+def _guild_with_general(mock_discord_client) -> None:
+    mock_discord_client.get_guild_channels = AsyncMock(
+        return_value=[{"id": "111111111", "name": "general", "type": 0}]
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("typed", ["<# 111111111>", "<#111111111 >", "<#  111111111  >"])
+async def test_spaced_channel_id_token_is_normalized(resolver, mock_discord_client, typed):
+    """Whitespace inside a <#id> token is removed so Discord renders the mention."""
+    _guild_with_general(mock_discord_client)
+
+    resolved_text, errors = await resolver.resolve_channel_mentions(
+        location_text=f"Meet in {typed} tonight",
+        guild_discord_id="guild123",
+    )
+
+    assert resolved_text == "Meet in <#111111111> tonight"
+    assert errors == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("typed", ["<# general>", "<#general >", "<#  general  >"])
+async def test_spaced_channel_name_token_resolves_to_id(resolver, mock_discord_client, typed):
+    """Whitespace inside a <#name> token is ignored and the name is resolved to <#id>."""
+    _guild_with_general(mock_discord_client)
+
+    resolved_text, errors = await resolver.resolve_channel_mentions(
+        location_text=f"Meet in {typed} tonight",
+        guild_discord_id="guild123",
+    )
+
+    assert resolved_text == "Meet in <#111111111> tonight"
+    assert errors == []
+
+
+@pytest.mark.asyncio
+async def test_unknown_spaced_channel_id_reports_typed_token(resolver, mock_discord_client):
+    """An unknown spaced ID is reported under the exact typed text, left unchanged."""
+    _guild_with_general(mock_discord_client)
+
+    resolved_text, errors = await resolver.resolve_channel_mentions(
+        location_text="Meet in <# 999999999> tonight",
+        guild_discord_id="guild123",
+    )
+
+    assert resolved_text == "Meet in <# 999999999> tonight"
+    assert len(errors) == 1
+    assert errors[0]["type"] == "not_found"
+    assert errors[0]["input"] == "<# 999999999>"
+
+
+@pytest.mark.asyncio
+async def test_unknown_spaced_channel_name_reports_typed_token(resolver, mock_discord_client):
+    """An unknown spaced name is reported under the exact typed text, left unchanged."""
+    _guild_with_general(mock_discord_client)
+
+    resolved_text, errors = await resolver.resolve_channel_mentions(
+        location_text="Meet in <# nowhere> tonight",
+        guild_discord_id="guild123",
+    )
+
+    assert resolved_text == "Meet in <# nowhere> tonight"
+    assert len(errors) == 1
+    assert errors[0]["type"] == "not_found"
+    assert errors[0]["input"] == "<# nowhere>"
+
+
+@pytest.mark.asyncio
+async def test_angle_text_with_inner_spaces_is_not_a_channel_mention(resolver, mock_discord_client):
+    """'<# 5 players>' is ordinary text, not a mention: no rewrite and no error."""
+    _guild_with_general(mock_discord_client)
+
+    resolved_text, errors = await resolver.resolve_channel_mentions(
+        location_text="Bring <# 5 players> along",
+        guild_discord_id="guild123",
+    )
+
+    assert resolved_text == "Bring <# 5 players> along"
+    assert errors == []
+
+
 # ---------------------------------------------------------------------------
 # Thread link support (a link/mention to a Discord thread, not just a channel)
 # ---------------------------------------------------------------------------

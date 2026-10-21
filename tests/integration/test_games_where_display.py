@@ -153,7 +153,7 @@ async def test_update_game_with_untouched_location_survives_channel_rename(
     resolveWherePayload): when Location is untouched, the client resends the stored
     <#id> token -- not the where_display string reconstructed from the channel's name
     at GET time. Validating an <#id> token only checks the ID still resolves to a text
-    channel (see ChannelResolver._check_snowflake_tokens), so a rename in between never
+    channel (see ChannelResolver._resolve_snowflake_tokens), so a rename in between never
     blocks an unrelated save.
     """
     guild = create_guild(bot_manager_roles=[BOT_MANAGER_ROLE_ID])

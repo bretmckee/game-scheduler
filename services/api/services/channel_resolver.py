@@ -69,9 +69,16 @@ class ChannelResolver:
         # "<#name>" (name typed inside Discord's mention brackets; group 1) and a bare
         # "#name" with an optional unclosed "<" glued to it (groups 2 and 3). The whole
         # token, including those brackets, is what gets replaced or reported.
-        self._channel_mention_pattern = re.compile(r"<#\d+>|<#([^\s<>#]+)>|(<?)#([^\s<>#]+)")
+        #
+        # Whitespace just inside the brackets ("<# 123>", "<#general >") is tolerated and
+        # removed when the token resolves: Discord only renders the exact "<#id>" form, so
+        # the stored text must always be normalized to it. The brackets must both be
+        # present, so "# Heading" and "<# 5 players>" are still ordinary text.
+        self._channel_mention_pattern = re.compile(
+            r"<#\s*\d+\s*>|<#\s*([^\s<>#]+)\s*>|(<?)#([^\s<>#]+)"
+        )
         self._discord_channel_url_pattern = re.compile(r"https://discord\.com/channels/(\d+)/(\d+)")
-        self._snowflake_token_pattern = re.compile(r"<#(\d+)>")
+        self._snowflake_token_pattern = re.compile(r"<#\s*(\d+)\s*>")
 
     async def resolve_channel_mentions(
         self,
@@ -117,9 +124,10 @@ class ChannelResolver:
         resolved, errors = self._resolve_url_mentions(
             location_text, url_matches, guild_discord_id, text_channel_ids, field_label
         )
-        errors.extend(
-            self._check_snowflake_tokens(snowflake_matches, text_channel_ids, field_label)
+        resolved, snowflake_errors = self._resolve_snowflake_tokens(
+            resolved, snowflake_matches, text_channel_ids, field_label
         )
+        errors.extend(snowflake_errors)
         resolved, hash_errors = self._resolve_hash_mentions(
             resolved, hash_matches, text_channels, field_label
         )
@@ -241,28 +249,37 @@ class ChannelResolver:
                 errors.append(error)
         return resolved, errors
 
-    def _check_snowflake_tokens(
+    def _resolve_snowflake_tokens(
         self,
+        resolved: str,
         snowflake_matches: list[re.Match],
         text_channel_ids: set[str],
         field_label: str,
-    ) -> list[dict]:
-        """Validate <#id> tokens against the guild's text channel list."""
+    ) -> tuple[str, list[dict]]:
+        """
+        Validate <#id> tokens against the guild's text channel list.
+
+        A valid token typed with inner whitespace is rewritten to the exact "<#id>" form;
+        an unknown one is left as typed and reported under that exact text.
+        """
         errors: list[dict] = []
         for m in snowflake_matches:
             channel_id = m.group(1)
-            if channel_id not in text_channel_ids:
-                errors.append({
-                    "type": "not_found",
-                    "field": field_label,
-                    "input": f"<#{channel_id}>",
-                    "reason": (
-                        f"Your {field_label} contains <#{channel_id}>, which is not a text "
-                        "channel or thread the bot can see in this server. " + _BOT_ACCESS_HINT
-                    ),
-                    "suggestions": [],
-                })
-        return errors
+            typed = m.group(0)
+            if channel_id in text_channel_ids:
+                resolved = resolved.replace(typed, f"<#{channel_id}>", 1)
+                continue
+            errors.append({
+                "type": "not_found",
+                "field": field_label,
+                "input": typed,
+                "reason": (
+                    f"Your {field_label} contains {typed}, which is not a text "
+                    "channel or thread the bot can see in this server. " + _BOT_ACCESS_HINT
+                ),
+                "suggestions": [],
+            })
+        return resolved, errors
 
 
 _USER_MENTION_PATTERN = re.compile(r"<@(\d+)>")
