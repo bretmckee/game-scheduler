@@ -35,6 +35,7 @@ import pytest
 from sqlalchemy import text
 
 from shared.utils.discord_tokens import extract_bot_discord_id
+from shared.utils.limits import MAX_DESCRIPTION_LENGTH
 from tests.shared.auth_helpers import cleanup_test_session, create_test_session
 
 pytestmark = pytest.mark.integration
@@ -1468,5 +1469,154 @@ async def test_leave_game_not_found(
         assert response.status_code == 404, (
             f"Expected 404, got {response.status_code}: {response.text}"
         )
+    finally:
+        await cleanup_test_session(session_token)
+
+
+# ============================================================================
+# Description length limit (MAX_DESCRIPTION_LENGTH)
+# ============================================================================
+
+_OVER_LENGTH_DETAIL = f"Description: String should have at most {MAX_DESCRIPTION_LENGTH} characters"
+
+
+def _authed_client(api_base_url: str, session_token: str) -> httpx.AsyncClient:
+    return httpx.AsyncClient(
+        base_url=api_base_url,
+        timeout=10.0,
+        cookies={"session_token": session_token},
+    )
+
+
+@pytest.mark.asyncio
+async def test_create_game_stores_max_length_description_and_reads_it_back(
+    create_user,
+    create_guild,
+    create_channel,
+    create_template,
+    seed_redis_cache,
+    api_base_url,
+):
+    """A description of exactly MAX_DESCRIPTION_LENGTH characters is saved and returned intact."""
+    ctx = await _setup_game_context(
+        create_user, create_guild, create_channel, create_template, seed_redis_cache
+    )
+    session_token, _ = await create_test_session(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+    description = "x" * MAX_DESCRIPTION_LENGTH
+
+    try:
+        async with _authed_client(api_base_url, session_token) as client:
+            created = await client.post(
+                "/api/v1/games",
+                data={
+                    "template_id": ctx["template_id"],
+                    "title": "Long Description",
+                    "scheduled_at": (datetime.now(UTC) + timedelta(hours=2)).isoformat(),
+                    "description": description,
+                },
+            )
+            assert created.status_code == 201, f"Game creation failed: {created.text}"
+            fetched = await client.get(f"/api/v1/games/{created.json()['id']}")
+
+        assert created.json()["description"] == description
+        assert fetched.status_code == 200, f"Fetch failed: {fetched.text}"
+        assert fetched.json()["description"] == description
+    finally:
+        await cleanup_test_session(session_token)
+
+
+@pytest.mark.asyncio
+async def test_create_game_over_length_description_returns_readable_422(
+    create_user,
+    create_guild,
+    create_channel,
+    create_template,
+    seed_redis_cache,
+    api_base_url,
+):
+    """One character over the limit is a 422 naming the field, not a 403 pydantic dump."""
+    ctx = await _setup_game_context(
+        create_user, create_guild, create_channel, create_template, seed_redis_cache
+    )
+    session_token, _ = await create_test_session(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+
+    try:
+        async with _authed_client(api_base_url, session_token) as client:
+            response = await client.post(
+                "/api/v1/games",
+                data={
+                    "template_id": ctx["template_id"],
+                    "title": "Too Long",
+                    "scheduled_at": (datetime.now(UTC) + timedelta(hours=2)).isoformat(),
+                    "description": "x" * (MAX_DESCRIPTION_LENGTH + 1),
+                },
+            )
+
+        assert response.status_code == 422, (
+            f"Expected 422, got {response.status_code}: {response.text}"
+        )
+        assert response.json()["detail"] == _OVER_LENGTH_DETAIL
+    finally:
+        await cleanup_test_session(session_token)
+
+
+@pytest.mark.asyncio
+async def test_update_game_accepts_max_length_description(
+    create_user,
+    create_guild,
+    create_channel,
+    create_template,
+    seed_redis_cache,
+    api_base_url,
+):
+    """Editing a game to a MAX_DESCRIPTION_LENGTH description saves it intact."""
+    ctx = await _setup_game_context(
+        create_user, create_guild, create_channel, create_template, seed_redis_cache
+    )
+    session_token, _ = await create_test_session(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+    description = "y" * MAX_DESCRIPTION_LENGTH
+
+    try:
+        async with _authed_client(api_base_url, session_token) as client:
+            game = await _create_game_via_api(client, ctx)
+            response = await client.put(
+                f"/api/v1/games/{game['id']}", data={"description": description}
+            )
+
+        assert response.status_code == 200, (
+            f"Expected 200, got {response.status_code}: {response.text}"
+        )
+        assert response.json()["description"] == description
+    finally:
+        await cleanup_test_session(session_token)
+
+
+@pytest.mark.asyncio
+async def test_update_game_over_length_description_returns_readable_422(
+    create_user,
+    create_guild,
+    create_channel,
+    create_template,
+    seed_redis_cache,
+    api_base_url,
+):
+    """Editing a description one character over the limit is a readable 422."""
+    ctx = await _setup_game_context(
+        create_user, create_guild, create_channel, create_template, seed_redis_cache
+    )
+    session_token, _ = await create_test_session(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+
+    try:
+        async with _authed_client(api_base_url, session_token) as client:
+            game = await _create_game_via_api(client, ctx)
+            response = await client.put(
+                f"/api/v1/games/{game['id']}",
+                data={"description": "y" * (MAX_DESCRIPTION_LENGTH + 1)},
+            )
+
+        assert response.status_code == 422, (
+            f"Expected 422, got {response.status_code}: {response.text}"
+        )
+        assert response.json()["detail"] == _OVER_LENGTH_DETAIL
     finally:
         await cleanup_test_session(session_token)

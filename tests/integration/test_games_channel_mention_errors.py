@@ -36,6 +36,7 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
+from sqlalchemy import text
 
 from shared.cache.client import RedisClient
 from shared.cache.keys import CacheKeys
@@ -181,5 +182,149 @@ async def test_create_game_accepts_markdown_heading_in_description(
 
         assert response.status_code == 201, f"Game creation failed: {response.text}"
         assert response.json()["description"] == "## What to bring\nDice and a character sheet"
+    finally:
+        await cleanup_test_session(session_token)
+
+
+async def _create_game_with_description(
+    api_base_url: str, ctx: dict, description: str
+) -> httpx.Response:
+    session_token, _ = await create_test_session(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+    try:
+        async with httpx.AsyncClient(
+            base_url=api_base_url,
+            timeout=10.0,
+            cookies={"session_token": session_token},
+        ) as client:
+            return await client.post(
+                "/api/v1/games",
+                data={
+                    "template_id": ctx["template"]["id"],
+                    "title": "Session Zero",
+                    "scheduled_at": (datetime.now(UTC) + timedelta(hours=2)).isoformat(),
+                    "description": description,
+                },
+            )
+    finally:
+        await cleanup_test_session(session_token)
+
+
+async def _stored_description(admin_db, game_id: str) -> str:
+    """Read the description as persisted; the API response renders <#id> as #name."""
+    result = await admin_db.execute(
+        text("SELECT description FROM game_sessions WHERE id = :id"), {"id": game_id}
+    )
+    return result.scalar_one()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("typed", ["<# general>", "<#general >", "<#general>"])
+async def test_create_game_normalizes_typed_channel_name_to_discord_form(
+    typed,
+    admin_db,
+    create_user,
+    create_guild,
+    create_channel,
+    create_template,
+    seed_redis_cache,
+    api_base_url,
+):
+    """A channel name typed inside angle brackets, with or without spaces, becomes <#id>.
+
+    Discord documents only <#CHANNEL_ID> for channel mentions, so anything else
+    would reach the embed as literal text.
+    """
+    ctx = await _setup_game_context(
+        create_user, create_guild, create_channel, create_template, seed_redis_cache
+    )
+
+    response = await _create_game_with_description(api_base_url, ctx, f"Meet in {typed} tonight")
+
+    assert response.status_code == 201, f"Game creation failed: {response.text}"
+    assert await _stored_description(admin_db, response.json()["id"]) == (
+        f"Meet in <#{ctx['channel']['channel_id']}> tonight"
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("typed", ["<# {id}>", "<#{id} >", "<#  {id}  >"])
+async def test_create_game_normalizes_spaced_channel_id_to_discord_form(
+    typed,
+    admin_db,
+    create_user,
+    create_guild,
+    create_channel,
+    create_template,
+    seed_redis_cache,
+    api_base_url,
+):
+    """A numeric channel ID with whitespace inside the brackets becomes <#id>."""
+    numeric_id = "111222333444555666"
+    ctx = await _setup_game_context(
+        create_user, create_guild, create_channel, create_template, seed_redis_cache
+    )
+    await _seed_guild_channels(
+        ctx["guild"]["guild_id"],
+        [
+            {"id": ctx["channel"]["channel_id"], "name": "general", "type": 0},
+            {"id": numeric_id, "name": "dnd-night", "type": 0},
+        ],
+    )
+
+    response = await _create_game_with_description(
+        api_base_url, ctx, f"Meet in {typed.format(id=numeric_id)} tonight"
+    )
+
+    assert response.status_code == 201, f"Game creation failed: {response.text}"
+    assert await _stored_description(admin_db, response.json()["id"]) == (
+        f"Meet in <#{numeric_id}> tonight"
+    )
+
+
+@pytest.mark.asyncio
+async def test_create_game_reports_unknown_spaced_channel_under_typed_text(
+    create_user,
+    create_guild,
+    create_channel,
+    create_template,
+    seed_redis_cache,
+    api_base_url,
+):
+    """An unknown spaced channel is reported with its exact typed text as the error input.
+
+    The form's suggestion buttons replace that input verbatim, so it must match what the
+    user typed, not a cleaned-up version.
+    """
+    ctx = await _setup_game_context(
+        create_user, create_guild, create_channel, create_template, seed_redis_cache
+    )
+    session_token, _ = await create_test_session(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+
+    try:
+        async with httpx.AsyncClient(
+            base_url=api_base_url,
+            timeout=10.0,
+            cookies={"session_token": session_token},
+        ) as client:
+            response = await client.post(
+                "/api/v1/games",
+                data={
+                    "template_id": ctx["template"]["id"],
+                    "title": "Session Zero",
+                    "scheduled_at": (datetime.now(UTC) + timedelta(hours=2)).isoformat(),
+                    "description": "Meet in <# nowhere> tonight",
+                },
+            )
+
+        assert response.status_code == 422, (
+            f"Expected 422, got {response.status_code}: {response.text}"
+        )
+        detail = response.json()["detail"]
+        assert detail["error"] == "invalid_mentions"
+        assert len(detail["invalid_mentions"]) == 1
+        error = detail["invalid_mentions"][0]
+        assert error["type"] == "not_found"
+        assert error["field"] == "Description"
+        assert error["input"] == "<# nowhere>"
     finally:
         await cleanup_test_session(session_token)
