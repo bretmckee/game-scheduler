@@ -36,6 +36,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status as http_status
 
@@ -301,6 +302,24 @@ async def _process_image_upload(
     return None, None
 
 
+def _format_field_errors(e: PydanticValidationError) -> str:
+    """
+    Summarize pydantic field-constraint failures as a user-readable message.
+
+    Only the field name and pydantic's message are used; the submitted values are
+    deliberately left out so user-authored text is never echoed or logged.
+    """
+    parts = []
+    for error in e.errors(include_input=False, include_url=False, include_context=False):
+        message = error["msg"].removeprefix("Value error, ")
+        if error["loc"]:
+            label = str(error["loc"][0]).replace("_", " ").capitalize()
+            parts.append(f"{label}: {message}")
+        else:
+            parts.append(message)
+    return "; ".join(parts)
+
+
 def _handle_game_operation_errors(
     e: Exception,
     form_data: game_schemas.GameCreateRequest
@@ -330,6 +349,14 @@ def _handle_game_operation_errors(
                 "valid_participants": e.valid_participants,
                 "form_data": form_data.model_dump(mode="json") if form_data is not None else None,
             },
+        ) from None
+
+    # pydantic's ValidationError subclasses ValueError, so it must be checked first or
+    # an over-length field is reported as a 403 carrying pydantic's raw message.
+    if isinstance(e, PydanticValidationError):
+        raise HTTPException(
+            status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=_format_field_errors(e),
         ) from None
 
     if isinstance(e, ValueError):

@@ -25,6 +25,7 @@ import io
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pydantic
 import pytest
 from fastapi import HTTPException, UploadFile
 from starlette import status as http_status
@@ -33,6 +34,7 @@ from services.api.routes import games as games_routes
 from services.api.services import participant_resolver as resolver_module
 from services.api.services.display_names import DisplayNameResolver
 from shared.schemas import game as game_schemas
+from shared.utils import limits
 
 
 def _mock_upload_file(content: bytes, content_type: str) -> UploadFile:
@@ -81,6 +83,67 @@ def test_handle_game_operation_errors_validation_error(sample_game_data):
     assert exc_info.value.detail["invalid_mentions"] == ["@unknown"]
     assert exc_info.value.detail["valid_participants"] == []
     assert "form_data" in exc_info.value.detail
+
+
+def _pydantic_error_for(**overrides) -> pydantic.ValidationError:
+    """Build the pydantic error GameCreateRequest raises for the given field values."""
+    fields = {
+        "template_id": "template-123",
+        "title": "Test Game",
+        "scheduled_at": datetime(2026, 2, 1, 14, 0, 0, tzinfo=UTC),
+        **overrides,
+    }
+    with pytest.raises(pydantic.ValidationError) as caught:
+        game_schemas.GameCreateRequest(**fields)
+    return caught.value
+
+
+def test_handle_game_operation_errors_pydantic_error_returns_readable_422(sample_game_data):
+    """Field-constraint failures return 422 naming the field, not a 403 pydantic dump."""
+    error = _pydantic_error_for(description="x" * (limits.MAX_DESCRIPTION_LENGTH + 1))
+
+    with pytest.raises(HTTPException) as exc_info:
+        games_routes._handle_game_operation_errors(error, sample_game_data)
+
+    assert exc_info.value.status_code == http_status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert exc_info.value.detail == (
+        f"Description: String should have at most {limits.MAX_DESCRIPTION_LENGTH} characters"
+    )
+
+
+def test_handle_game_operation_errors_pydantic_error_lists_every_field(sample_game_data):
+    """Every failing field is reported, in field order, separated by semicolons."""
+    error = _pydantic_error_for(
+        title="t" * 201, description="x" * (limits.MAX_DESCRIPTION_LENGTH + 1)
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        games_routes._handle_game_operation_errors(error, sample_game_data)
+
+    assert exc_info.value.status_code == http_status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert exc_info.value.detail == (
+        "Title: String should have at most 200 characters; "
+        f"Description: String should have at most {limits.MAX_DESCRIPTION_LENGTH} characters"
+    )
+
+
+def test_handle_game_operation_errors_pydantic_model_error_has_no_field_label(sample_game_data):
+    """Model-level validator failures have no field, so only the message is reported."""
+
+    class _Model(pydantic.BaseModel):
+        @pydantic.model_validator(mode="after")
+        def _always_fail(self):
+            msg = "Start must be before end"
+            raise ValueError(msg)
+
+    with pytest.raises(pydantic.ValidationError) as caught:
+        _Model()
+
+    with pytest.raises(HTTPException) as exc_info:
+        games_routes._handle_game_operation_errors(caught.value, sample_game_data)
+
+    assert exc_info.value.status_code == http_status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert exc_info.value.detail == "Start must be before end"
 
 
 def test_handle_game_operation_errors_value_error_not_found(sample_update_data):
