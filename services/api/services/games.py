@@ -61,7 +61,7 @@ from shared.models.participant_action_schedule import ParticipantActionSchedule
 from shared.models.signup_method import SignupMethod
 from shared.schemas import auth as auth_schemas
 from shared.schemas import game as game_schemas
-from shared.services import waitlist_transitions
+from shared.services import game_change_notifications, waitlist_transitions
 from shared.services.game_cancellation import cancel_game as cancel_game_service
 from shared.services.game_schedules import (
     clone_game_for_recurrence,
@@ -2182,6 +2182,7 @@ class GameService:
             _old_participants_snapshot,
             old_partitioned,
         ) = self._capture_old_state(game)
+        old_notify = game_change_notifications.capture_notify_snapshot(game)
 
         # Update game fields
         schedule_needs_update, status_schedule_needs_update = self._update_game_fields(
@@ -2247,6 +2248,9 @@ class GameService:
 
         # Only publish updated event for games that have already been announced
         if game.message_id is not None:
+            await game_change_notifications.notify_participants_of_changes(
+                self.db, game, old_notify
+            )
             await self._publish_game_updated(game)
 
         return game

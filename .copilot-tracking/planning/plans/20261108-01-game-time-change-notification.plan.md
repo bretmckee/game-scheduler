@@ -53,12 +53,12 @@ Send one DM per edit to every confirmed and waitlisted participant when a host c
 - [x] Task 1.3: Implement helper and format; remove xfail markers
   - Details: .copilot-tracking/planning/details/20261108-01-game-time-change-notification-details.md (Lines 60-79)
 
-### [ ] Phase 2: Wire the helper into `update_game` (TDD bug fix)
+### [x] Phase 2: Wire the helper into `update_game` (TDD bug fix)
 
-- [ ] Task 2.1: Write xfail regression tests for `GameService.update_game`
+- [x] Task 2.1: Write xfail regression tests for `GameService.update_game`
   - Details: .copilot-tracking/planning/details/20261108-01-game-time-change-notification-details.md (Lines 82-102)
 
-- [ ] Task 2.2: Call the helper from `update_game`; remove xfail markers
+- [x] Task 2.2: Call the helper from `update_game`; remove xfail markers
   - Details: .copilot-tracking/planning/details/20261108-01-game-time-change-notification-details.md (Lines 103-121)
 
 ### [ ] Phase 3: Integration test through the API and bot queue

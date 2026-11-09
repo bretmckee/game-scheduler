@@ -44,6 +44,7 @@ from shared.models.participant import ParticipantType
 from shared.models.signup_method import SignupMethod
 from shared.schemas import game as game_schemas
 from shared.schemas.auth import CurrentUser
+from shared.services.game_change_notifications import GameNotifySnapshot
 from shared.utils.games import DEFAULT_MAX_PLAYERS
 from shared.utils.participant_sorting import partition_participants
 
@@ -5759,3 +5760,180 @@ async def test_clear_post_at_is_no_op_for_null_post_at_non_recurrence(
     assert result.post_at is None, "post_at must remain None for non-recurrence game"
     mock_setup.assert_not_called()
     mock_publish_created.assert_not_called()
+
+
+# Tests for participant change notifications in update_game
+
+_NOTIFY_PATCH_TARGET = "shared.services.game_change_notifications.notify_participants_of_changes"
+
+
+@pytest.mark.asyncio
+async def test_update_game_notifies_participants_with_old_time_when_announced(
+    game_service,
+    mock_db,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """Announced game time change awaits the notify helper with a snapshot of the OLD time."""
+    game, mock_result = _make_update_game_mock(
+        sample_guild, sample_channel, sample_user, post_at=None, message_id="discord-msg-id"
+    )
+    old_time = game.scheduled_at
+    game.expected_duration_minutes = 90
+    game.where = "Old Location"
+    game.signup_instructions = "Bring dice"
+    new_time = old_time + datetime.timedelta(days=1)
+    mock_db.execute.return_value = mock_result
+    mock_db.refresh = AsyncMock()
+
+    mock_notify = AsyncMock(return_value=set())
+    mock_publish_updated = AsyncMock()
+    mock_current_user = MagicMock()
+    mock_current_user.user.discord_id = sample_user.discord_id
+
+    with (
+        patch("services.api.dependencies.permissions.can_manage_game", return_value=True),
+        patch.object(game_service, "_process_game_update_schedules", new=AsyncMock()),
+        patch.object(game_service, "_publish_game_updated", new=mock_publish_updated),
+        patch(_NOTIFY_PATCH_TARGET, new=mock_notify),
+    ):
+        await game_service.update_game(
+            game_id=game.id,
+            update_data=game_schemas.GameUpdateRequest(scheduled_at=new_time),
+            current_user=mock_current_user,
+            role_service=AsyncMock(),
+        )
+
+    mock_notify.assert_awaited_once_with(
+        mock_db,
+        game,
+        GameNotifySnapshot(
+            scheduled_at=old_time,
+            expected_duration_minutes=90,
+            where="Old Location",
+            signup_instructions="Bring dice",
+        ),
+    )
+    assert game.scheduled_at == new_time
+    mock_publish_updated.assert_called_once_with(game)
+
+
+@pytest.mark.asyncio
+async def test_update_game_notifies_before_publishing_update_event(
+    game_service,
+    mock_db,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """Change DMs are enqueued before the game-updated event is published."""
+    game, mock_result = _make_update_game_mock(
+        sample_guild, sample_channel, sample_user, post_at=None, message_id="discord-msg-id"
+    )
+    mock_db.execute.return_value = mock_result
+    mock_db.refresh = AsyncMock()
+
+    call_order = MagicMock()
+    call_order.notify = AsyncMock(return_value=set())
+    call_order.publish_updated = AsyncMock()
+    mock_current_user = MagicMock()
+    mock_current_user.user.discord_id = sample_user.discord_id
+
+    with (
+        patch("services.api.dependencies.permissions.can_manage_game", return_value=True),
+        patch.object(game_service, "_process_game_update_schedules", new=AsyncMock()),
+        patch.object(game_service, "_publish_game_updated", new=call_order.publish_updated),
+        patch(_NOTIFY_PATCH_TARGET, new=call_order.notify),
+    ):
+        await game_service.update_game(
+            game_id=game.id,
+            update_data=game_schemas.GameUpdateRequest(
+                scheduled_at=game.scheduled_at + datetime.timedelta(hours=2)
+            ),
+            current_user=mock_current_user,
+            role_service=AsyncMock(),
+        )
+
+    assert [c[0] for c in call_order.mock_calls] == ["notify", "publish_updated"]
+
+
+@pytest.mark.asyncio
+async def test_update_game_does_not_notify_when_not_yet_announced(
+    game_service,
+    mock_db,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """Unannounced game (message_id None) time change does not call the notify helper."""
+    future_post_at = datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=1)
+    game, mock_result = _make_update_game_mock(
+        sample_guild, sample_channel, sample_user, post_at=future_post_at, message_id=None
+    )
+    mock_db.execute.return_value = mock_result
+    mock_db.refresh = AsyncMock()
+
+    mock_notify = AsyncMock(return_value=set())
+    mock_current_user = MagicMock()
+    mock_current_user.user.discord_id = sample_user.discord_id
+
+    with (
+        patch("services.api.dependencies.permissions.can_manage_game", return_value=True),
+        patch.object(game_service, "_process_game_update_schedules", new=AsyncMock()),
+        patch.object(game_service, "_publish_game_updated", new=AsyncMock()),
+        patch(_NOTIFY_PATCH_TARGET, new=mock_notify),
+    ):
+        await game_service.update_game(
+            game_id=game.id,
+            update_data=game_schemas.GameUpdateRequest(
+                scheduled_at=game.scheduled_at + datetime.timedelta(days=1)
+            ),
+            current_user=mock_current_user,
+            role_service=AsyncMock(),
+        )
+
+    mock_notify.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_update_game_does_not_notify_on_clear_post_at_announce(
+    game_service,
+    mock_db,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """clear_post_at announce-now path with a time change does not call the notify helper."""
+    future_post_at = datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=1)
+    game, mock_result = _make_update_game_mock(
+        sample_guild, sample_channel, sample_user, post_at=future_post_at, message_id=None
+    )
+    mock_db.execute.return_value = mock_result
+    mock_db.refresh = AsyncMock()
+
+    mock_notify = AsyncMock(return_value=set())
+    mock_publish_created = AsyncMock()
+    mock_current_user = MagicMock()
+    mock_current_user.user.discord_id = sample_user.discord_id
+
+    with (
+        patch("services.api.dependencies.permissions.can_manage_game", return_value=True),
+        patch.object(game_service, "_process_game_update_schedules", new=AsyncMock()),
+        patch.object(game_service, "_setup_game_schedules", new=AsyncMock()),
+        patch.object(game_service, "_publish_game_created", new=mock_publish_created),
+        patch.object(game_service, "_publish_game_updated", new=AsyncMock()),
+        patch(_NOTIFY_PATCH_TARGET, new=mock_notify),
+    ):
+        await game_service.update_game(
+            game_id=game.id,
+            update_data=game_schemas.GameUpdateRequest(
+                clear_post_at=True,
+                scheduled_at=game.scheduled_at + datetime.timedelta(days=1),
+            ),
+            current_user=mock_current_user,
+            role_service=AsyncMock(),
+        )
+
+    mock_publish_created.assert_called_once_with(game, sample_channel)
+    mock_notify.assert_not_called()

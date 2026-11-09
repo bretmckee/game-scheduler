@@ -21,6 +21,8 @@ Send one DM per edit to every confirmed and waitlisted participant when a host c
 - shared/message_formats.py - added `DMFormats.game_updated`
 - shared/utils/games.py - added public `build_jump_url` (moved from waitlist_transitions; log message no longer says "waitlist")
 - shared/services/waitlist_transitions.py - uses `shared.utils.games.build_jump_url`
+- services/api/services/games.py - `update_game` captures a `GameNotifySnapshot` before `_update_game_fields` and, for announced games only, awaits `notify_participants_of_changes` after the reload (so resolved `where`/`signup_instructions` are compared) and before `_publish_game_updated`; the `clear_post_at` announce-now path returns before it
+- tests/unit/services/api/services/test_games_service.py - regression tests: announced time change awaits the helper with the OLD-value snapshot; helper runs before the update event is published; unannounced and `clear_post_at` announce-now edits do not call it (the two negative cases are guards that already passed, so they carry no xfail marker)
 
 ### Removed
 
