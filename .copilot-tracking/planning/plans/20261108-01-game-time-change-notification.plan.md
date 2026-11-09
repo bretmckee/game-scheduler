@@ -61,9 +61,9 @@ Send one DM per edit to every confirmed and waitlisted participant when a host c
 - [x] Task 2.2: Call the helper from `update_game`; remove xfail markers
   - Details: .copilot-tracking/planning/details/20261108-01-game-time-change-notification-details.md (Lines 103-121)
 
-### [ ] Phase 3: Integration test through the API and bot queue
+### [x] Phase 3: Integration test through the API and bot queue
 
-- [ ] Task 3.1: Add integration test (retrofit; no xfail)
+- [x] Task 3.1: Add integration test (retrofit; no xfail)
   - Details: .copilot-tracking/planning/details/20261108-01-game-time-change-notification-details.md (Lines 124-140)
 
 ### [ ] Phase 4: E2E test of DM delivery through the bot

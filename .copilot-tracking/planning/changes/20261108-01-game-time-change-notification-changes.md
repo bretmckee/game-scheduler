@@ -15,6 +15,7 @@ Send one DM per edit to every confirmed and waitlisted participant when a host c
 
 - shared/services/game_change_notifications.py - `GameNotifySnapshot`, `capture_notify_snapshot` and `notify_participants_of_changes` (one `send_dm` with `notification_type="game_updated"` per participant with a Discord user, listing each changed time/duration/location/signup-instructions field old -> new; empty and `None` text treated as equal)
 - tests/unit/shared/services/test_game_change_notifications.py - unit tests for the snapshot, the helper (time, each other field, multiple fields, no-op, placeholder, excluded field) and `DMFormats.game_updated`
+- tests/integration/test_game_change_notification.py - integration tests through `PUT /api/v1/games/{id}` and `bot_action_queue` on an announced max_players=1 game: a time change enqueues exactly one `game_updated` send_dm per confirmed and waitlisted participant (message shows old and new `<t:...:F>`, payload carries the new `game_time_unix`); resubmitting the same time and a title-only edit enqueue none
 
 ### Modified
 
