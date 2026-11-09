@@ -385,3 +385,33 @@ def test_recurrence_confirmation_contains_discord_timestamp():
 def test_recurrence_confirmation_mentions_confirmation_action():
     msg = DMFormats.recurrence_confirmation("Epic Quest", _NEXT_AT_UNIX)
     assert "confirm" in msg.lower()
+
+
+# ---------------------------------------------------------------------------
+# DMPredicates.game_updated
+# ---------------------------------------------------------------------------
+
+_GAME_UPDATED_CHANGES = [("Time", f"<t:{_UNIX}:F>", f"<t:{_UNIX + 3600}:F>")]
+
+
+def test_game_updated_predicate_matches_game_updated_dm():
+    msg = DMFormats.game_updated("Epic Quest", _GAME_UPDATED_CHANGES, _JUMP_URL)
+    predicate = DMPredicates.game_updated("Epic Quest")
+    assert predicate(_DM(msg)) is True
+
+
+def test_game_updated_predicate_rejects_promotion_dm_for_same_title():
+    msg = DMFormats.promotion("Epic Quest", _UNIX, _JUMP_URL)
+    predicate = DMPredicates.game_updated("Epic Quest")
+    assert predicate(_DM(msg)) is False
+
+
+def test_game_updated_predicate_rejects_wrong_title():
+    msg = DMFormats.game_updated("Epic Quest", _GAME_UPDATED_CHANGES, _JUMP_URL)
+    predicate = DMPredicates.game_updated("Other Game")
+    assert predicate(_DM(msg)) is False
+
+
+def test_game_updated_predicate_rejects_none_content():
+    predicate = DMPredicates.game_updated("Epic Quest")
+    assert predicate(_DM(None)) is False

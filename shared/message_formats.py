@@ -451,6 +451,23 @@ class DMPredicates:
         return predicate
 
     @staticmethod
+    def game_updated(game_title: str) -> Callable[[DiscordMessage], bool]:
+        """
+        Predicate to match DMs sent when the host changes a game's details.
+
+        Args:
+            game_title: Title of the game
+
+        Returns:
+            Predicate function for wait_for_dm_matching
+        """
+
+        def predicate(dm: DiscordMessage) -> bool:
+            return bool(dm.content and f"The host updated **{game_title}**" in dm.content)
+
+        return predicate
+
+    @staticmethod
     def host_added_dropout(game_title: str) -> Callable[[DiscordMessage], bool]:
         def predicate(dm: DiscordMessage) -> bool:
             return bool(

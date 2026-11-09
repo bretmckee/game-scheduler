@@ -47,6 +47,7 @@ class DMType(StrEnum):
     CLONE_CONFIRMATION = "clone_confirmation"
     REWARDS_REMINDER = "rewards_reminder"
     HOST_ADDED_DROPOUT = "host_added_dropout"
+    GAME_UPDATED = "game_updated"
 
 
 # Maps user_id -> resolved DM channel ID. A DM channel ID is a static fact about
@@ -798,6 +799,7 @@ class DiscordTestHelper:
             DMType.CLONE_CONFIRMATION: DMPredicates.clone_confirmation(game_title),
             DMType.REWARDS_REMINDER: DMPredicates.rewards_reminder(game_title),
             DMType.HOST_ADDED_DROPOUT: DMPredicates.host_added_dropout(game_title),
+            DMType.GAME_UPDATED: DMPredicates.game_updated(game_title),
         }
 
         return await self.wait_for_dm_matching(

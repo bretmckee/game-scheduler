@@ -39,6 +39,7 @@ E2E data seeded by init service:
 - Test host user (from DISCORD_USER_ID)
 """
 
+import json
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
@@ -46,6 +47,7 @@ import pytest
 from sqlalchemy import text
 
 from tests.e2e.conftest import TimeoutType, wait_for_game_message_id
+from tests.e2e.helpers.discord import DMType
 
 pytestmark = pytest.mark.e2e
 
@@ -172,3 +174,99 @@ async def test_game_update_refreshes_message(
     )
 
     print("[TEST] ✓ Message refreshed successfully with updated content")
+
+
+@pytest.mark.timeout(240)
+@pytest.mark.asyncio
+async def test_game_time_change_sends_dm(
+    authenticated_admin_client,
+    admin_db,
+    main_bot_helper,
+    discord_channel_id,
+    discord_user_id,
+    discord_guild_id,
+    synced_guild,
+    test_user_discord_user_id,
+    test_timeouts,
+):
+    """
+    E2E: Moving an announced game's time DMs its participants.
+
+    Verifies:
+    - Game created with the real test user as a participant and announced
+    - scheduled_at moved by one hour via PUT /games/{game_id}
+    - Test user receives a game_updated DM with the old time, new time and game link
+    """
+    result = await admin_db.execute(
+        text("SELECT id FROM guild_configurations WHERE guild_id = :guild_id"),
+        {"guild_id": discord_guild_id},
+    )
+    row = result.fetchone()
+    assert row, f"Test guild {discord_guild_id} not found"
+    test_guild_id = row[0]
+
+    result = await admin_db.execute(
+        text("SELECT id FROM game_templates WHERE guild_id = :guild_id AND is_default = true"),
+        {"guild_id": test_guild_id},
+    )
+    row = result.fetchone()
+    assert row, f"Default template not found for guild {test_guild_id}"
+    test_template_id = row[0]
+
+    game_title = f"E2E Time Change {uuid4().hex[:8]}"
+    old_scheduled_at = (datetime.now(UTC) + timedelta(hours=2)).replace(microsecond=0)
+    new_scheduled_at = old_scheduled_at + timedelta(hours=1)
+
+    game_data = {
+        "template_id": test_template_id,
+        "title": game_title,
+        "description": "Testing game time change DM",
+        "scheduled_at": old_scheduled_at.isoformat(),
+        "max_players": "4",
+        "initial_participants": json.dumps([f"<@{discord_user_id}>"]),
+    }
+
+    response = await authenticated_admin_client.post("/api/v1/games", data=game_data)
+    assert response.status_code == 201, f"Failed to create game: {response.text}"
+    game_id = response.json()["id"]
+    print(f"\n[TEST] Game created with ID: {game_id}")
+
+    message_id = await wait_for_game_message_id(
+        admin_db, game_id, timeout=test_timeouts[TimeoutType.DB_WRITE]
+    )
+    assert message_id is not None, "Message ID should be populated after announcement"
+    await main_bot_helper.wait_for_message(
+        channel_id=discord_channel_id,
+        message_id=message_id,
+        timeout=test_timeouts[TimeoutType.MESSAGE_CREATE],
+    )
+
+    update_response = await authenticated_admin_client.put(
+        f"/api/v1/games/{game_id}",
+        data={"scheduled_at": new_scheduled_at.isoformat()},
+    )
+    assert update_response.status_code == 200, f"Failed to update game: {update_response.text}"
+    print("[TEST] Game time moved by one hour")
+
+    change_dm = await main_bot_helper.wait_for_recent_dm(
+        user_id=discord_user_id,
+        game_title=game_title,
+        dm_type=DMType.GAME_UPDATED,
+        timeout=test_timeouts[TimeoutType.DM_IMMEDIATE],
+    )
+
+    old_unix = int(old_scheduled_at.timestamp())
+    new_unix = int(new_scheduled_at.timestamp())
+    assert f"<t:{old_unix}:F>" in change_dm.content, (
+        f"Change DM should show the old time <t:{old_unix}:F>: {change_dm.content}"
+    )
+    assert f"<t:{new_unix}:F>" in change_dm.content, (
+        f"Change DM should show the new time <t:{new_unix}:F>: {change_dm.content}"
+    )
+    expected_jump_url = (
+        f"https://discord.com/channels/{discord_guild_id}/{discord_channel_id}/{message_id}"
+    )
+    assert expected_jump_url in change_dm.content, (
+        f"Change DM should contain link to game embed: {expected_jump_url}"
+    )
+    print(f"[TEST] ✓ Participant received change DM: {change_dm.content[:100]}...")
