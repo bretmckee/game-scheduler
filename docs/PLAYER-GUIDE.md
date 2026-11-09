@@ -159,11 +159,16 @@ If the host cancels a game:
 
 ### Game Updates
 
-If the host makes significant changes to a game (time, location, etc.):
+When the host edits a game that has already been announced, every participant, including waitlisted players, receives one DM per edit if any of these change:
 
-- Participants may receive an update notification
-- Major changes (time/date) always trigger notifications
-- Minor description updates may not trigger notifications
+- Start time
+- Expected duration
+- Location
+- Signup instructions
+
+The DM lists each changed detail with its old and new value and links to the game in Discord.
+
+Edits to the title, description or rewards don't send a DM. If the host changes max players or the signup method and that moves you on or off the waitlist, you get the usual promotion or waitlist DM instead.
 
 ## Calendar Download Feature
 
@@ -220,7 +225,8 @@ Yes! You can join as many games as you want. There's no limit on concurrent game
 
 If the host changes the game time:
 
-- You'll receive an update notification in your DMs
+- You'll receive an update notification in your DMs showing the old and new times
+- Waitlisted players are notified too
 - The Discord announcement is updated automatically
 - Your calendar event does NOT update automatically - download a new .ics file if needed
 
