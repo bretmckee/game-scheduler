@@ -22,7 +22,7 @@ WORKDIR /app
 
 # Install uv for dependency management with cache mount
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --no-cache-dir uv==0.11.3
+    pip install --no-cache-dir uv==0.13.7
 
 # Copy dependency files
 COPY pyproject.toml uv.lock ./

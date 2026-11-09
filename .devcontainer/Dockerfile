@@ -82,7 +82,7 @@ RUN curl -L "https://github.com/nektos/act/releases/download/v${ACT_VERSION}/act
 WORKDIR /app
 
 # Install uv for dependency management
-ARG UV_VERSION=0.11.3
+ARG UV_VERSION=0.13.7
 RUN python3.13 -m pip install --no-cache-dir uv==${UV_VERSION}
 
 # Create common directories with proper permissions
