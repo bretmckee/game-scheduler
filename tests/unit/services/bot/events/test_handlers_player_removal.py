@@ -198,3 +198,12 @@ async def test_notify_removed_player_dm_failure(event_handlers):
         assert any(
             "Failed to send removal DM" in str(call) for call in mock_logger.warning.call_args_list
         )
+
+
+def test_build_removal_dm_message_treats_naive_iso_time_as_utc(
+    event_handlers, non_utc_local_timezone
+):
+    """The API sends scheduled_at.isoformat() of a naive UTC value; render it as UTC."""
+    message = event_handlers._build_removal_dm_message("Test Game", "2026-08-01T18:00:00")
+
+    assert message == "❌ You were removed from **Test Game** scheduled for <t:1785607200:F>"

@@ -32,6 +32,7 @@ from shared.models.participant import GameParticipant, ParticipantType
 from shared.services import waitlist_transitions
 from shared.utils.games import resolve_max_players
 from shared.utils.participant_sorting import partition_participants
+from shared.utils.timezone import to_unix_timestamp
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,7 @@ logger = logging.getLogger(__name__)
 async def _notify_host_added_dropout(
     db: AsyncSession, game: GameSession, participant: GameParticipant, host_discord_id: str
 ) -> None:
-    scheduled_unix = int(game.scheduled_at.timestamp())
+    scheduled_unix = to_unix_timestamp(game.scheduled_at)
     jump_url = (
         f"https://discord.com/channels/{game.guild.guild_id}/"
         f"{game.channel.channel_id}/{game.message_id}"

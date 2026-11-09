@@ -126,6 +126,11 @@ class TestFormatDiscordTimestamp:
         result = format_discord_timestamp(dt, style="T")
         assert result == "<t:1763233200:T>"
 
+    def test_treats_naive_datetime_as_utc(self, non_utc_local_timezone):
+        """Stored naive UTC datetimes render as the UTC instant."""
+        result = format_discord_timestamp(datetime(2026, 8, 1, 18, 0))
+        assert result == "<t:1785607200:F>"
+
 
 class TestFormatGameStatusEmoji:
     """Tests for format_game_status_emoji function."""

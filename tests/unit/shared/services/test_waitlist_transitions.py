@@ -212,3 +212,46 @@ class TestDetectAndNotifyTransitions:
         assert len(bot_rows) == 2
         assert {r.discord_id for r in bot_rows} == {"waitlisted-user-1", "waitlisted-user-2"}
         assert all(r.payload["notification_type"] == "waitlist_promotion" for r in bot_rows)
+
+
+class TestNaiveUtcScheduledAt:
+    """Stored scheduled_at values are naive UTC, whatever the process timezone."""
+
+    @pytest.mark.asyncio
+    async def test_promotion_dm_treats_naive_scheduled_at_as_utc(
+        self, mock_db: MagicMock, non_utc_local_timezone: None
+    ) -> None:
+        """The promotion DM time is the UTC instant, not the local-time reading."""
+        confirmed = _make_participant("host-user")
+        overflow = _make_participant(
+            "waitlisted-user", joined_at=datetime.datetime(2026, 1, 2, tzinfo=datetime.UTC)
+        )
+        old_partitioned = partition_participants([confirmed, overflow], max_players=1)
+        game = _make_game(max_players=1)
+        game.scheduled_at = datetime.datetime(2026, 8, 1, 18, 0)
+        game.participants = [overflow]
+
+        await detect_and_notify_transitions(mock_db, game, old_partitioned)
+
+        rows = [c.args[0] for c in mock_db.add.call_args_list]
+        assert len(rows) == 1
+        assert rows[0].payload["game_time_unix"] == 1785607200
+        assert "<t:1785607200:F>" in rows[0].payload["message"]
+
+    @pytest.mark.asyncio
+    async def test_demotion_payload_treats_naive_scheduled_at_as_utc(
+        self, mock_db: MagicMock, non_utc_local_timezone: None
+    ) -> None:
+        """The demotion payload carries the UTC instant of the game time."""
+        confirmed = _make_participant("original-user")
+        old_partitioned = partition_participants([confirmed], max_players=1)
+        host_added = _make_participant("host-added-user", position_type=ParticipantType.HOST_ADDED)
+        game = _make_game(max_players=1)
+        game.scheduled_at = datetime.datetime(2026, 8, 1, 18, 0)
+        game.participants = [host_added, confirmed]
+
+        await detect_and_notify_transitions(mock_db, game, old_partitioned)
+
+        rows = [c.args[0] for c in mock_db.add.call_args_list]
+        assert len(rows) == 1
+        assert rows[0].payload["game_time_unix"] == 1785607200

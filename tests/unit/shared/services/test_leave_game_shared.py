@@ -286,3 +286,26 @@ class TestLeaveGameAndNotify:
         ]
         assert len(promotion_rows) == 1
         assert promotion_rows[0].discord_id == "waitlisted-user-1"
+
+
+@pytest.mark.asyncio
+async def test_dropout_dm_treats_naive_scheduled_at_as_utc(
+    mock_db: MagicMock, non_utc_local_timezone: None
+) -> None:
+    """The host dropout DM time is the UTC instant, not the local-time reading."""
+    leaver = _make_participant("leaving-user", position_type=ParticipantType.HOST_ADDED)
+    game = _make_game(max_players=5, host_discord_id="host-discord-id")
+    game.scheduled_at = datetime.datetime(2026, 8, 1, 18, 0)
+    game.participants = [leaver]
+
+    async def refresh_side_effect(g: MagicMock, attribute_names: list[str] | None = None) -> None:
+        g.participants = []
+
+    mock_db.refresh = AsyncMock(side_effect=refresh_side_effect)
+
+    await leave_game_and_notify(mock_db, game, leaver)
+
+    rows = [r for r in _bot_rows(mock_db) if r.payload["notification_type"] == "host_added_dropout"]
+    assert len(rows) == 1
+    assert rows[0].payload["game_time_unix"] == 1785607200
+    assert "<t:1785607200:R>" in rows[0].payload["message"]

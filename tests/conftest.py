@@ -62,6 +62,7 @@ import asyncio
 import json
 import logging
 import os
+import time
 import uuid
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
@@ -105,6 +106,30 @@ os.environ.setdefault("JWT_SECRET", "test-jwt-secret-for-unit-tests")
 # ============================================================================
 # Auto-use Fixtures (Apply to all tests)
 # ============================================================================
+
+
+# ============================================================================
+# Process Timezone
+# ============================================================================
+
+
+@pytest.fixture
+def non_utc_local_timezone():
+    """Run the test with the process local timezone set to America/Los_Angeles.
+
+    Stored datetimes are naive UTC. Converting them with datetime.timestamp()
+    silently applies the process timezone, which is only correct when that is
+    UTC; this fixture exposes such conversions.
+    """
+    original = os.environ.get("TZ")
+    os.environ["TZ"] = "America/Los_Angeles"
+    time.tzset()
+    yield
+    if original is None:
+        del os.environ["TZ"]
+    else:
+        os.environ["TZ"] = original
+    time.tzset()
 
 
 # ============================================================================

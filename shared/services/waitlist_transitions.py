@@ -30,6 +30,7 @@ from shared.models.bot_action_queue import BotActionQueue
 from shared.models.game import GameSession
 from shared.utils.games import build_jump_url, resolve_max_players
 from shared.utils.participant_sorting import PartitionedParticipants, partition_participants
+from shared.utils.timezone import to_unix_timestamp
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +38,7 @@ logger = logging.getLogger(__name__)
 async def _notify_promoted_users(
     db: AsyncSession, game: GameSession, promoted_discord_ids: set[str]
 ) -> None:
-    scheduled_at_unix = int(game.scheduled_at.timestamp())
+    scheduled_at_unix = to_unix_timestamp(game.scheduled_at)
     jump_url = build_jump_url(game)
     message = DMFormats.promotion(
         game.title,
@@ -66,7 +67,7 @@ async def _notify_promoted_users(
 async def _notify_demoted_users(
     db: AsyncSession, game: GameSession, demoted_discord_ids: set[str]
 ) -> None:
-    scheduled_at_unix = int(game.scheduled_at.timestamp())
+    scheduled_at_unix = to_unix_timestamp(game.scheduled_at)
     jump_url = build_jump_url(game)
     message = DMFormats.waitlist_demotion(game.title, jump_url=jump_url)
 

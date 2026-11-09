@@ -674,3 +674,26 @@ class TestHandleJoinNotificationHelpers:
                 mock_formats.join_simple.assert_not_called()
                 mock_formats.join_with_instructions.assert_not_called()
                 assert message == "You're on the waitlist!"
+
+
+def test_join_instructions_dm_treats_naive_scheduled_at_as_utc(
+    event_handlers, sample_game, non_utc_local_timezone
+):
+    """The join DM game time is the UTC instant of the stored naive time."""
+    sample_game.scheduled_at = datetime(2026, 8, 1, 18, 0)
+    sample_game.signup_instructions = "Bring dice"
+    participant = MagicMock()
+    participant.id = str(uuid4())
+
+    with patch("services.bot.events.handlers.DMFormats") as mock_formats:
+        event_handlers._format_join_notification_message(sample_game, participant)
+
+    mock_formats.join_with_instructions.assert_called_once_with(
+        sample_game.title,
+        "Bring dice",
+        1785607200,
+        jump_url=(
+            f"https://discord.com/channels/"
+            f"{sample_game.guild.guild_id}/{sample_game.channel.channel_id}/{sample_game.message_id}"
+        ),
+    )

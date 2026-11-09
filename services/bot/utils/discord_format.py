@@ -34,6 +34,7 @@ import discord
 from shared.cache import client as cache_client
 from shared.cache import projection as member_projection
 from shared.utils.limits import GAME_LIST_DESCRIPTION_SNIPPET_LENGTH
+from shared.utils.timezone import to_unix_timestamp
 
 logger = logging.getLogger(__name__)
 
@@ -177,7 +178,7 @@ def format_discord_timestamp(dt: datetime, style: str = "F") -> str:
     Returns:
         Discord timestamp string in format <t:unix_timestamp:style>
     """
-    unix_timestamp = int(dt.timestamp())
+    unix_timestamp = to_unix_timestamp(dt)
     return f"<t:{unix_timestamp}:{style}>"
 
 

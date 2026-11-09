@@ -1251,3 +1251,39 @@ async def test_send_host_reminder_handles_error(event_handlers):
             jump_url=None,
         )
     assert True  # verifies exception is caught without propagating
+
+
+@pytest.mark.asyncio
+async def test_handle_game_reminder_treats_naive_scheduled_at_as_utc(
+    event_handlers, sample_game, non_utc_local_timezone
+):
+    """Reminders carry the UTC instant of the stored naive game time."""
+    sample_game.scheduled_at = datetime(2026, 8, 1, 18, 0)
+    sample_game.participants = []
+
+    with (
+        patch("services.bot.events.handlers.get_db_session") as mock_db_session,
+        patch.object(
+            event_handlers,
+            "_get_game_with_participants",
+            new_callable=AsyncMock,
+            return_value=sample_game,
+        ),
+        patch.object(
+            event_handlers, "_validate_game_for_reminder", new_callable=AsyncMock, return_value=True
+        ),
+        patch.object(
+            event_handlers, "_deliver_game_reminders", new_callable=AsyncMock
+        ) as mock_deliver,
+    ):
+        mock_db_session.return_value.__aenter__ = AsyncMock(return_value=MagicMock())
+        mock_db_session.return_value.__aexit__ = AsyncMock(return_value=None)
+
+        await event_handlers._handle_notification_due({
+            "game_id": sample_game.id,
+            "notification_type": "reminder",
+        })
+
+    mock_db_session.assert_called_once_with()
+    mock_deliver.assert_awaited_once()
+    assert mock_deliver.await_args.args[4] == 1785607200

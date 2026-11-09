@@ -204,3 +204,15 @@ def test_build_game_list_embed_exactly_page_size():
 
     assert len(embed.fields) == DEFAULT_PAGE_SIZE
     assert embed.footer.text == f"{DEFAULT_PAGE_SIZE} game(s) found"
+
+
+def test_build_game_list_embed_treats_naive_scheduled_at_as_utc(non_utc_local_timezone):
+    """Stored naive UTC game times render as the UTC instant."""
+    game = Mock()
+    game.title = "Naive Game"
+    game.description = None
+    game.scheduled_at = datetime(2026, 8, 1, 18, 0)
+
+    embed = build_game_list_embed([game], "Games")
+
+    assert embed.fields[0].value.startswith("🕒 <t:1785607200:F> (<t:1785607200:R>)")

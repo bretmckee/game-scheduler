@@ -64,6 +64,7 @@ from shared.utils.discord import extract_single_channel_id
 from shared.utils.games import resolve_max_players
 from shared.utils.participant_sorting import partition_participants
 from shared.utils.status_transitions import GameStatus, is_valid_transition
+from shared.utils.timezone import to_unix_timestamp
 
 _HTTP_TOO_MANY_REQUESTS = 429
 _MAX_EDIT_ATTEMPTS = 3
@@ -524,7 +525,7 @@ class EventHandlers:
 
                 confirmed, overflow = self._partition_and_filter_participants(game)
 
-                game_time_unix = int(game.scheduled_at.timestamp())
+                game_time_unix = to_unix_timestamp(game.scheduled_at)
 
                 jump_url = None
                 if game.message_id and game.guild and game.channel:
@@ -751,7 +752,7 @@ class EventHandlers:
             return DMFormats.join_with_instructions(
                 game.title,
                 game.signup_instructions,
-                int(game.scheduled_at.timestamp()),
+                to_unix_timestamp(game.scheduled_at),
                 jump_url=jump_url,
             )
         return DMFormats.join_simple(game.title, jump_url=jump_url)
@@ -849,7 +850,7 @@ class EventHandlers:
             )
             message = DMFormats.clone_confirmation(
                 game.title,
-                int(schedule.action_time.timestamp()),
+                to_unix_timestamp(schedule.action_time),
             )
 
             try:
@@ -904,7 +905,7 @@ class EventHandlers:
             view = RecurrenceConfirmationView(str(game.id))
             message = DMFormats.recurrence_confirmation(
                 game.title,
-                int(game.scheduled_at.timestamp()),
+                to_unix_timestamp(game.scheduled_at),
             )
 
             try:
@@ -1091,7 +1092,7 @@ class EventHandlers:
         if game_scheduled_at:
             try:
                 scheduled_dt = datetime.fromisoformat(game_scheduled_at)
-                dm_message += f" scheduled for <t:{int(scheduled_dt.timestamp())}:F>"
+                dm_message += f" scheduled for <t:{to_unix_timestamp(scheduled_dt)}:F>"
             except (ValueError, TypeError):
                 pass
         return dm_message

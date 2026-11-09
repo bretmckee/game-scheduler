@@ -47,6 +47,7 @@ from shared.utils.limits import (
     DISCORD_EMBED_TOTAL_SAFE_LIMIT,
     EMBED_FIELD_REWARDS,
 )
+from shared.utils.timezone import to_unix_timestamp
 
 logger = logging.getLogger(__name__)
 
@@ -667,7 +668,7 @@ class GameMessageFormatter:
         Returns:
             Configured notification embed
         """
-        ts = int(scheduled_at.timestamp())
+        ts = to_unix_timestamp(scheduled_at)
         lines = [f"**{game_title}**", f"**Starts:** <t:{ts}:F> (<t:{ts}:R>)"]
         if where:
             lines.append(f"**Where:** {where}")

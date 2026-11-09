@@ -2505,3 +2505,13 @@ class TestFormatGameAnnouncementMimeTypes:
                 banner_image_mime_type="image/gif",
             )
         assert embed.image.url.endswith(".gif"), f"Expected .gif extension, got: {embed.image.url}"
+
+
+def test_notification_embed_treats_naive_scheduled_at_as_utc(non_utc_local_timezone):
+    """The reminder embed renders a stored naive UTC time as the UTC instant."""
+    result = GameMessageFormatter.create_notification_embed(
+        game_title="D&D Session",
+        scheduled_at=datetime(2026, 8, 1, 18, 0),
+    )
+
+    assert "**Starts:** <t:1785607200:F> (<t:1785607200:R>)" in (result.description or "")

@@ -213,3 +213,50 @@ async def test_handle_clone_confirmation_user_not_in_cache(event_handlers, mock_
     mock_fmt.clone_confirmation.assert_called_once_with(
         sample_game.title, int(schedule.action_time.timestamp())
     )
+
+
+@pytest.mark.asyncio
+async def test_clone_confirmation_treats_naive_action_time_as_utc(
+    event_handlers, mock_bot, sample_game, non_utc_local_timezone
+):
+    """The clone confirmation deadline is the UTC instant of the stored naive time."""
+    participant_id = str(uuid4())
+    participant = MagicMock()
+    participant.id = participant_id
+    participant.user = MagicMock()
+    participant.user.discord_id = "555000000000000001"
+    schedule = MagicMock()
+    schedule.id = str(uuid4())
+    schedule.action_time = datetime(2026, 8, 1, 18, 0)
+    mock_user = MagicMock()
+    mock_user.send = AsyncMock()
+    mock_bot.get_user.return_value = mock_user
+    event = NotificationDueEvent(
+        game_id=sample_game.id,
+        notification_type="clone_confirmation",
+        participant_id=participant_id,
+    )
+    mock_db_instance = MagicMock()
+    schedule_result = MagicMock()
+    schedule_result.scalar_one_or_none = MagicMock(return_value=schedule)
+    mock_db_instance.execute = AsyncMock(return_value=schedule_result)
+
+    with (
+        patch("services.bot.events.handlers.get_db_session") as mock_db,
+        patch.object(
+            event_handlers,
+            "_fetch_join_notification_data",
+            new_callable=AsyncMock,
+            return_value=(sample_game, participant),
+        ),
+        patch("services.bot.events.handlers.CloneConfirmationView"),
+        patch("services.bot.events.handlers.DMFormats") as mock_fmt,
+    ):
+        mock_db.return_value.__aenter__ = AsyncMock(return_value=mock_db_instance)
+        mock_db.return_value.__aexit__ = AsyncMock(return_value=None)
+        mock_fmt.clone_confirmation.return_value = "Clone confirmation DM text"
+
+        await event_handlers._handle_clone_confirmation(event)
+
+    mock_db.assert_called_once_with()
+    mock_fmt.clone_confirmation.assert_called_once_with(sample_game.title, 1785607200)
