@@ -42,15 +42,15 @@ Send one DM per edit to every confirmed and waitlisted participant when a host c
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Change-notification helper and DM format (TDD)
+### [x] Phase 1: Change-notification helper and DM format (TDD)
 
-- [ ] Task 1.1: Create stubs for `GameNotifySnapshot`, `capture_notify_snapshot`, `notify_participants_of_changes` and `DMFormats.game_updated`
+- [x] Task 1.1: Create stubs for `GameNotifySnapshot`, `capture_notify_snapshot`, `notify_participants_of_changes` and `DMFormats.game_updated`
   - Details: .copilot-tracking/planning/details/20261108-01-game-time-change-notification-details.md (Lines 11-32)
 
-- [ ] Task 1.2: Write xfail unit tests with real assertions
+- [x] Task 1.2: Write xfail unit tests with real assertions
   - Details: .copilot-tracking/planning/details/20261108-01-game-time-change-notification-details.md (Lines 33-59)
 
-- [ ] Task 1.3: Implement helper and format; remove xfail markers
+- [x] Task 1.3: Implement helper and format; remove xfail markers
   - Details: .copilot-tracking/planning/details/20261108-01-game-time-change-notification-details.md (Lines 60-79)
 
 ### [ ] Phase 2: Wire the helper into `update_game` (TDD bug fix)

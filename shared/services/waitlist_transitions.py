@@ -28,27 +28,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from shared.message_formats import DMFormats
 from shared.models.bot_action_queue import BotActionQueue
 from shared.models.game import GameSession
-from shared.utils.games import resolve_max_players
+from shared.utils.games import build_jump_url, resolve_max_players
 from shared.utils.participant_sorting import PartitionedParticipants, partition_participants
 
 logger = logging.getLogger(__name__)
-
-
-def _build_jump_url(game: GameSession) -> str | None:
-    if game.message_id and game.guild and game.channel:
-        return (
-            f"https://discord.com/channels/"
-            f"{game.guild.guild_id}/{game.channel.channel_id}/{game.message_id}"
-        )
-    logger.warning("Cannot build jump URL for waitlist notification on game %s", game.id)
-    return None
 
 
 async def _notify_promoted_users(
     db: AsyncSession, game: GameSession, promoted_discord_ids: set[str]
 ) -> None:
     scheduled_at_unix = int(game.scheduled_at.timestamp())
-    jump_url = _build_jump_url(game)
+    jump_url = build_jump_url(game)
     message = DMFormats.promotion(
         game.title,
         scheduled_at_unix,
@@ -77,7 +67,7 @@ async def _notify_demoted_users(
     db: AsyncSession, game: GameSession, demoted_discord_ids: set[str]
 ) -> None:
     scheduled_at_unix = int(game.scheduled_at.timestamp())
-    jump_url = _build_jump_url(game)
+    jump_url = build_jump_url(game)
     message = DMFormats.waitlist_demotion(game.title, jump_url=jump_url)
 
     for discord_id in demoted_discord_ids:

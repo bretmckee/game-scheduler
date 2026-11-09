@@ -274,6 +274,29 @@ class DMFormats:
         return text
 
     @staticmethod
+    def game_updated(
+        game_title: str,
+        changes: list[tuple[str, str, str]],
+        jump_url: str | None = None,
+    ) -> str:
+        """
+        Format DM sent to participants when the host changes a game's details.
+
+        Args:
+            game_title: Title of the game
+            changes: One (label, old_text, new_text) tuple per changed field
+            jump_url: Discord jump URL to game posting, or None if unavailable
+
+        Returns:
+            Formatted game-updated message
+        """
+        lines = [f"📝 The host updated **{game_title}**:"]
+        lines.extend(f"• **{label}**: {old} → {new}" for label, old, new in changes)
+        if jump_url:
+            lines.append(f"[View game in Discord]({jump_url})")
+        return "\n".join(lines)
+
+    @staticmethod
     def host_added_dropout(
         player_mention: str,
         game_title: str,
