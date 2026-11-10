@@ -1,10 +1,5 @@
 {
   "entries": {
-    ".copilot-tracking/planning/prompts/implement-game-time-change-notification.prompt.md": {
-      "source_hash": "4dc689593869cdb66c59118947f110b2c25859333f14a6b03dec4144ede078f9",
-      "output": ".claude/commands/implement-game-time-change-notification.md",
-      "output_hash": "ca69e4b916dc0c411e7c6d0903d6b48c46fb014c7d0a223cc264aab527327459"
-    },
     ".github/agents/task-planner.agent.md": {
       "source_hash": "9c33ab9c381cea57608b8883dd3a6922a4eb507890fc08f316326114c33c0fca",
       "output": ".claude/agents/task-planner.md",
