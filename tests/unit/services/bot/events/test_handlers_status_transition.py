@@ -45,13 +45,11 @@ async def test_handle_status_transition_due_success(event_handlers, sample_game,
     mock_channel_config.channel_id = "123456789"
     sample_game.channel = mock_channel_config
 
-    with patch("services.bot.events.handlers.get_db_session") as mock_db_session:
-        mock_db = MagicMock()
-        mock_db.commit = AsyncMock()
-        mock_db.__aenter__ = AsyncMock(return_value=mock_db)
-        mock_db.__aexit__ = AsyncMock()
-        mock_db_session.return_value = mock_db
-
+    mock_db = MagicMock()
+    mock_db.commit = AsyncMock()
+    mock_db.__aenter__ = AsyncMock(return_value=mock_db)
+    mock_db.__aexit__ = AsyncMock()
+    with patch("services.bot.events.handlers.get_db_session", return_value=mock_db):
         with (
             patch(
                 "services.bot.events.handlers.EventHandlers._get_game_with_participants",
@@ -73,7 +71,6 @@ async def test_handle_status_transition_due_success(event_handlers, sample_game,
             assert sample_game.status == target_status
             mock_db.commit.assert_awaited_once()
             mock_refresh.assert_called_once_with(game_id)
-            mock_db_session.assert_called_once_with()
 
 
 @pytest.mark.asyncio
@@ -92,14 +89,12 @@ async def test_handle_status_transition_due_completed_records_metric(
     mock_channel_config.channel_id = "123456789"
     sample_game.channel = mock_channel_config
 
-    with patch("services.bot.events.handlers.get_db_session") as mock_db_session:
-        mock_db = MagicMock()
-        mock_db.commit = AsyncMock()
-        mock_db.add = MagicMock()
-        mock_db.__aenter__ = AsyncMock(return_value=mock_db)
-        mock_db.__aexit__ = AsyncMock()
-        mock_db_session.return_value = mock_db
-
+    mock_db = MagicMock()
+    mock_db.commit = AsyncMock()
+    mock_db.add = MagicMock()
+    mock_db.__aenter__ = AsyncMock(return_value=mock_db)
+    mock_db.__aexit__ = AsyncMock()
+    with patch("services.bot.events.handlers.get_db_session", return_value=mock_db):
         with (
             patch(
                 "services.bot.events.handlers.EventHandlers._get_game_with_participants",
@@ -119,7 +114,6 @@ async def test_handle_status_transition_due_completed_records_metric(
         mock_record.assert_called_once_with(
             sample_game.scheduled_at, sample_game.expected_duration_minutes
         )
-        mock_db_session.assert_called_once_with()
 
 
 @pytest.mark.asyncio
@@ -136,13 +130,11 @@ async def test_handle_status_transition_due_in_progress_does_not_record_complete
     mock_channel_config.channel_id = "123456789"
     sample_game.channel = mock_channel_config
 
-    with patch("services.bot.events.handlers.get_db_session") as mock_db_session:
-        mock_db = MagicMock()
-        mock_db.commit = AsyncMock()
-        mock_db.__aenter__ = AsyncMock(return_value=mock_db)
-        mock_db.__aexit__ = AsyncMock()
-        mock_db_session.return_value = mock_db
-
+    mock_db = MagicMock()
+    mock_db.commit = AsyncMock()
+    mock_db.__aenter__ = AsyncMock(return_value=mock_db)
+    mock_db.__aexit__ = AsyncMock()
+    with patch("services.bot.events.handlers.get_db_session", return_value=mock_db):
         with (
             patch(
                 "services.bot.events.handlers.EventHandlers._get_game_with_participants",
@@ -160,7 +152,6 @@ async def test_handle_status_transition_due_in_progress_does_not_record_complete
             await event_handlers._handle_status_transition_due(data)
 
         mock_record.assert_not_called()
-        mock_db_session.assert_called_once_with()
 
 
 @pytest.mark.asyncio
@@ -168,23 +159,24 @@ async def test_handle_status_transition_due_game_not_found(event_handlers):
     """Test status transition when game not found."""
     game_id = str(uuid4())
 
-    with patch("services.bot.events.handlers.get_db_session") as mock_db_session:
-        mock_db = MagicMock()
-        mock_db.__aenter__ = AsyncMock(return_value=mock_db)
-        mock_db.__aexit__ = AsyncMock()
-        mock_db_session.return_value = mock_db
-
+    mock_db = MagicMock()
+    mock_db.commit = AsyncMock()
+    mock_db.__aenter__ = AsyncMock(return_value=mock_db)
+    mock_db.__aexit__ = AsyncMock()
+    with patch("services.bot.events.handlers.get_db_session", return_value=mock_db):
         with patch(
             "services.bot.events.handlers.EventHandlers._get_game_with_participants",
             return_value=None,
-        ):
+        ) as mock_get_game:
             data = {
                 "game_id": game_id,
                 "target_status": "IN_PROGRESS",
                 "transition_time": datetime(2025, 11, 20, 18, 0, 0, tzinfo=UTC),
             }
             await event_handlers._handle_status_transition_due(data)
-            mock_db_session.assert_called_once_with()
+
+    mock_get_game.assert_awaited_once_with(mock_db, game_id)
+    mock_db.commit.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -203,13 +195,11 @@ async def test_handle_status_transition_due_already_transitioned(
     mock_channel_config.channel_id = "123456789"
     sample_game.channel = mock_channel_config
 
-    with patch("services.bot.events.handlers.get_db_session") as mock_db_session:
-        mock_db = MagicMock()
-        mock_db.commit = AsyncMock()
-        mock_db.__aenter__ = AsyncMock(return_value=mock_db)
-        mock_db.__aexit__ = AsyncMock()
-        mock_db_session.return_value = mock_db
-
+    mock_db = MagicMock()
+    mock_db.commit = AsyncMock()
+    mock_db.__aenter__ = AsyncMock(return_value=mock_db)
+    mock_db.__aexit__ = AsyncMock()
+    with patch("services.bot.events.handlers.get_db_session", return_value=mock_db):
         with (
             patch(
                 "services.bot.events.handlers.EventHandlers._get_game_with_participants",
@@ -230,7 +220,6 @@ async def test_handle_status_transition_due_already_transitioned(
             assert sample_game.status == "COMPLETED"
             mock_db.commit.assert_not_awaited()
             mock_refresh.assert_not_called()
-            mock_db_session.assert_called_once_with()
 
 
 @pytest.mark.asyncio
@@ -256,17 +245,15 @@ async def test_handle_status_transition_creates_archived_schedule_when_delay_set
     mock_channel_config.channel_id = "123456789"
     sample_game.channel = mock_channel_config
 
+    mock_db = MagicMock()
+    mock_db.commit = AsyncMock()
+    mock_db.add = MagicMock()
+    mock_db.__aenter__ = AsyncMock(return_value=mock_db)
+    mock_db.__aexit__ = AsyncMock()
     with (
-        patch("services.bot.events.handlers.get_db_session") as mock_db_session,
+        patch("services.bot.events.handlers.get_db_session", return_value=mock_db),
         patch("services.bot.events.handlers.utc_now", return_value=fixed_now),
     ):
-        mock_db = MagicMock()
-        mock_db.commit = AsyncMock()
-        mock_db.add = MagicMock()
-        mock_db.__aenter__ = AsyncMock(return_value=mock_db)
-        mock_db.__aexit__ = AsyncMock()
-        mock_db_session.return_value = mock_db
-
         with (
             patch(
                 "services.bot.events.handlers.EventHandlers._get_game_with_participants",
@@ -291,7 +278,6 @@ async def test_handle_status_transition_creates_archived_schedule_when_delay_set
             assert schedule.game_id == sample_game.id
             assert schedule.target_status == GameStatus.ARCHIVED.value
             assert schedule.transition_time == fixed_now + timedelta(seconds=3600)
-            mock_db_session.assert_called_once_with()
 
 
 @pytest.mark.asyncio
@@ -308,14 +294,12 @@ async def test_handle_status_transition_no_archived_schedule_when_delay_none(
     mock_channel_config.channel_id = "123456789"
     sample_game.channel = mock_channel_config
 
-    with patch("services.bot.events.handlers.get_db_session") as mock_db_session:
-        mock_db = MagicMock()
-        mock_db.commit = AsyncMock()
-        mock_db.add = MagicMock()
-        mock_db.__aenter__ = AsyncMock(return_value=mock_db)
-        mock_db.__aexit__ = AsyncMock()
-        mock_db_session.return_value = mock_db
-
+    mock_db = MagicMock()
+    mock_db.commit = AsyncMock()
+    mock_db.add = MagicMock()
+    mock_db.__aenter__ = AsyncMock(return_value=mock_db)
+    mock_db.__aexit__ = AsyncMock()
+    with patch("services.bot.events.handlers.get_db_session", return_value=mock_db):
         with (
             patch(
                 "services.bot.events.handlers.EventHandlers._get_game_with_participants",
@@ -333,7 +317,6 @@ async def test_handle_status_transition_no_archived_schedule_when_delay_none(
             assert not any(
                 isinstance(call.args[0], GameStatusSchedule) for call in mock_db.add.call_args_list
             )
-            mock_db_session.assert_called_once_with()
 
 
 @pytest.mark.asyncio
@@ -425,17 +408,15 @@ async def test_handle_status_transition_creates_archived_schedule_when_delay_zer
     mock_channel_config.channel_id = "123456789"
     sample_game.channel = mock_channel_config
 
+    mock_db = MagicMock()
+    mock_db.commit = AsyncMock()
+    mock_db.add = MagicMock()
+    mock_db.__aenter__ = AsyncMock(return_value=mock_db)
+    mock_db.__aexit__ = AsyncMock()
     with (
-        patch("services.bot.events.handlers.get_db_session") as mock_db_session,
+        patch("services.bot.events.handlers.get_db_session", return_value=mock_db),
         patch("services.bot.events.handlers.utc_now", return_value=fixed_now),
     ):
-        mock_db = MagicMock()
-        mock_db.commit = AsyncMock()
-        mock_db.add = MagicMock()
-        mock_db.__aenter__ = AsyncMock(return_value=mock_db)
-        mock_db.__aexit__ = AsyncMock()
-        mock_db_session.return_value = mock_db
-
         with (
             patch(
                 "services.bot.events.handlers.EventHandlers._get_game_with_participants",
@@ -458,7 +439,6 @@ async def test_handle_status_transition_creates_archived_schedule_when_delay_zer
             assert len(added_schedules) == 1
             schedule = added_schedules[0]
             assert schedule.transition_time == fixed_now
-            mock_db_session.assert_called_once_with()
 
 
 @pytest.mark.asyncio

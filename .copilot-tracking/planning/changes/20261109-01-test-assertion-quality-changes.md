@@ -18,6 +18,11 @@ Stop the test-assertion checker from forcing or accepting hollow `assert_called_
 ### Modified
 
 - scripts/check_test_assertions.py - `get_unasserted_named_mocks` now also accepts an alias referenced in `assert_*` call arguments (`_alias_used_in_assert_call_args`) or in an equality/identity/membership comparison inside `assert` (`_alias_used_in_assert_comparison`); bare truthiness checks still do not count
+- tests/unit/services/api/routes/test_templates.py - Phase 3: 14 `get_role_service` patches now unnamed with `return_value=`; hollow getter assertions removed
+- tests/unit/shared/discord/test_discord_api_client.py - Phase 3: 9 `get_redis_client` patches now unnamed; hollow getter assertions removed; the five 503 cache-miss tests and the emoji cache-hit test gained `mock_redis.get.assert_called_once_with(<cache key>)`, since the getter assertion had been their only evidence the cache was read
+- tests/unit/services/bot/events/test_handlers_status_transition.py - Phase 3: 8 `get_db_session` patches now unnamed with the session fake built above the patch; `test_handle_status_transition_due_game_not_found` (whose only assertion was the hollow one) now asserts the game lookup and that no commit happened
+- tests/unit/api/services/test_guild_service_channel_refresh.py - Phase 3: 7 `get_discord_client` patches now unnamed; hollow getter assertions removed
+- tests/unit/services/bot/commands/test_my_games.py - Phase 3: 6 `get_db_session` patches now take a `session_cm` MagicMock whose `__aenter__` yields the session; hollow getter assertions removed
 
 ### Removed
 

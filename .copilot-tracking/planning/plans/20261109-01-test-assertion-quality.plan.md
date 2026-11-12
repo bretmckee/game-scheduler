@@ -47,9 +47,9 @@ Stop the test-assertion checker from forcing or accepting hollow `assert_called_
 - [x] Task 2.1: Count alias use in assert-call args and assert comparisons; remove xfail
   - Details: .copilot-tracking/planning/details/20261109-01-test-assertion-quality-details.md (Lines 30-39)
 
-### [ ] Phase 3: Cleanup - largest provider files
+### [x] Phase 3: Cleanup - largest provider files
 
-- [ ] Task 3.1: Rewrite hollow provider assertions in the five largest files
+- [x] Task 3.1: Rewrite hollow provider assertions in the five largest files
   - Details: .copilot-tracking/planning/details/20261109-01-test-assertion-quality-details.md (Lines 41-52)
 
 ### [ ] Phase 4: Cleanup - remaining files and provider markers

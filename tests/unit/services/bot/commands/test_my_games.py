@@ -77,10 +77,10 @@ def sample_games():
 @pytest.mark.asyncio
 async def test_my_games_no_games(mock_interaction, mock_user):
     """Test my_games_command when user has no games."""
-    with patch("services.bot.commands.my_games.get_db_session") as mock_db:
-        mock_session = AsyncMock()
-        mock_db.return_value.__aenter__.return_value = mock_session
-
+    mock_session = AsyncMock()
+    session_cm = MagicMock()
+    session_cm.__aenter__.return_value = mock_session
+    with patch("services.bot.commands.my_games.get_db_session", return_value=session_cm):
         mock_user_result = MagicMock()
         mock_user_result.scalar_one_or_none.return_value = mock_user
 
@@ -94,7 +94,6 @@ async def test_my_games_no_games(mock_interaction, mock_user):
         await my_games_command(mock_interaction)
 
     mock_interaction.response.defer.assert_called_once_with(ephemeral=True)
-    mock_db.assert_called_once_with()
     mock_interaction.followup.send.assert_called_once()
     call_args = mock_interaction.followup.send.call_args
     assert "not hosting or participating" in call_args[0][0].lower()
@@ -104,10 +103,10 @@ async def test_my_games_no_games(mock_interaction, mock_user):
 @pytest.mark.asyncio
 async def test_my_games_with_hosted_games(mock_interaction, mock_user, sample_games):
     """Test my_games_command when user is hosting games."""
-    with patch("services.bot.commands.my_games.get_db_session") as mock_db:
-        mock_session = AsyncMock()
-        mock_db.return_value.__aenter__.return_value = mock_session
-
+    mock_session = AsyncMock()
+    session_cm = MagicMock()
+    session_cm.__aenter__.return_value = mock_session
+    with patch("services.bot.commands.my_games.get_db_session", return_value=session_cm):
         mock_user_result = MagicMock()
         mock_user_result.scalar_one_or_none.return_value = mock_user
 
@@ -128,7 +127,6 @@ async def test_my_games_with_hosted_games(mock_interaction, mock_user, sample_ga
         await my_games_command(mock_interaction)
 
     mock_interaction.followup.send.assert_called_once()
-    mock_db.assert_called_once_with()
     call_args = mock_interaction.followup.send.call_args
     embeds = call_args[1]["embeds"]
     assert len(embeds) == 1
@@ -138,10 +136,10 @@ async def test_my_games_with_hosted_games(mock_interaction, mock_user, sample_ga
 @pytest.mark.asyncio
 async def test_my_games_with_participating_games(mock_interaction, mock_user, sample_games):
     """Test my_games_command when user is participating in games."""
-    with patch("services.bot.commands.my_games.get_db_session") as mock_db:
-        mock_session = AsyncMock()
-        mock_db.return_value.__aenter__.return_value = mock_session
-
+    mock_session = AsyncMock()
+    session_cm = MagicMock()
+    session_cm.__aenter__.return_value = mock_session
+    with patch("services.bot.commands.my_games.get_db_session", return_value=session_cm):
         mock_user_result = MagicMock()
         mock_user_result.scalar_one_or_none.return_value = mock_user
 
@@ -162,7 +160,6 @@ async def test_my_games_with_participating_games(mock_interaction, mock_user, sa
         await my_games_command(mock_interaction)
 
     mock_interaction.followup.send.assert_called_once()
-    mock_db.assert_called_once_with()
     call_args = mock_interaction.followup.send.call_args
     embeds = call_args[1]["embeds"]
     assert len(embeds) == 1
@@ -172,10 +169,10 @@ async def test_my_games_with_participating_games(mock_interaction, mock_user, sa
 @pytest.mark.asyncio
 async def test_my_games_with_both_types(mock_interaction, mock_user, sample_games):
     """Test my_games_command when user is both hosting and participating."""
-    with patch("services.bot.commands.my_games.get_db_session") as mock_db:
-        mock_session = AsyncMock()
-        mock_db.return_value.__aenter__.return_value = mock_session
-
+    mock_session = AsyncMock()
+    session_cm = MagicMock()
+    session_cm.__aenter__.return_value = mock_session
+    with patch("services.bot.commands.my_games.get_db_session", return_value=session_cm):
         mock_user_result = MagicMock()
         mock_user_result.scalar_one_or_none.return_value = mock_user
 
@@ -196,7 +193,6 @@ async def test_my_games_with_both_types(mock_interaction, mock_user, sample_game
         await my_games_command(mock_interaction)
 
     mock_interaction.followup.send.assert_called_once()
-    mock_db.assert_called_once_with()
     call_args = mock_interaction.followup.send.call_args
     embeds = call_args[1]["embeds"]
     assert len(embeds) == 2
@@ -207,10 +203,11 @@ async def test_my_games_with_both_types(mock_interaction, mock_user, sample_game
 @pytest.mark.asyncio
 async def test_my_games_creates_new_user(mock_interaction):
     """Test my_games_command creates user if not exists."""
-    with patch("services.bot.commands.my_games.get_db_session") as mock_db:
-        mock_session = AsyncMock()
+    mock_session = AsyncMock()
+    session_cm = MagicMock()
+    session_cm.__aenter__.return_value = mock_session
+    with patch("services.bot.commands.my_games.get_db_session", return_value=session_cm):
         mock_session.add = MagicMock()
-        mock_db.return_value.__aenter__.return_value = mock_session
 
         mock_user_result = MagicMock()
         mock_user_result.scalar_one_or_none.return_value = None
@@ -227,20 +224,18 @@ async def test_my_games_creates_new_user(mock_interaction):
         await my_games_command(mock_interaction)
 
     assert mock_session.add.called
-    mock_db.assert_called_once_with()
     assert mock_session.commit.called
 
 
 @pytest.mark.asyncio
 async def test_my_games_error_handling(mock_interaction):
     """Test my_games_command error handling."""
-    with patch("services.bot.commands.my_games.get_db_session") as mock_db:
-        mock_db.return_value.__aenter__.side_effect = Exception("Database error")
-
+    session_cm = MagicMock()
+    session_cm.__aenter__.side_effect = Exception("Database error")
+    with patch("services.bot.commands.my_games.get_db_session", return_value=session_cm):
         await my_games_command(mock_interaction)
 
     mock_interaction.followup.send.assert_called_once()
-    mock_db.assert_called_once_with()
     call_args = mock_interaction.followup.send.call_args
     assert "error" in call_args[0][0].lower()
     assert call_args[1]["ephemeral"] is True

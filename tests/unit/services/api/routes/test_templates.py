@@ -219,9 +219,10 @@ class TestListTemplates:
         self, mock_db, mock_current_user_unit, mock_guild_config, mock_template
     ):
         """Test listing templates with role filtering."""
+        mock_role_service = AsyncMock()
         with (
             patch("services.api.database.queries.require_guild_by_id") as mock_get_guild,
-            patch("services.api.auth.roles.get_role_service") as mock_get_role_service,
+            patch("services.api.auth.roles.get_role_service", return_value=mock_role_service),
             patch(
                 "services.api.services.template_service.TemplateService"
             ) as mock_template_service,
@@ -232,9 +233,6 @@ class TestListTemplates:
         ):
             mock_get_guild.return_value = mock_guild_config
             mock_check_manager.return_value = False
-
-            mock_role_service = AsyncMock()
-            mock_get_role_service.return_value = mock_role_service
 
             mock_discord_client = AsyncMock()
             mock_discord_client.get_guild_channels.return_value = [
@@ -258,7 +256,6 @@ class TestListTemplates:
             mock_get_guild.assert_awaited_once_with(
                 mock_db, mock_guild_config.id, mock_current_user_unit.user.discord_id
             )
-            mock_get_role_service.assert_called_once_with()
             mock_template_service.assert_called_once_with(mock_db)
             mock_check_manager.assert_awaited_once_with(
                 mock_guild_config.guild_id, mock_current_user_unit, mock_role_service, mock_db
@@ -272,9 +269,10 @@ class TestListTemplates:
         mock_template.archive_delay_seconds = 900
         mock_template.archive_channel_id = "archive-channel-id"
 
+        mock_role_service = AsyncMock()
         with (
             patch("services.api.database.queries.require_guild_by_id") as mock_get_guild,
-            patch("services.api.auth.roles.get_role_service") as mock_get_role_service,
+            patch("services.api.auth.roles.get_role_service", return_value=mock_role_service),
             patch(
                 "services.api.services.template_service.TemplateService"
             ) as mock_template_service,
@@ -284,8 +282,6 @@ class TestListTemplates:
         ):
             mock_get_guild.return_value = mock_guild_config
 
-            mock_role_service = AsyncMock()
-            mock_get_role_service.return_value = mock_role_service
             mock_check_permission.return_value = True
 
             mock_discord_client = AsyncMock()
@@ -311,7 +307,6 @@ class TestListTemplates:
             mock_get_guild.assert_awaited_once_with(
                 mock_db, mock_guild_config.id, mock_current_user_unit.user.discord_id
             )
-            mock_get_role_service.assert_called_once_with()
             mock_template_service.assert_called_once_with(mock_db)
             mock_check_permission.assert_awaited_once_with(
                 mock_guild_config.guild_id, mock_current_user_unit, mock_role_service, mock_db
@@ -322,9 +317,10 @@ class TestListTemplates:
         self, mock_db, mock_current_user_unit, mock_guild_config, mock_template
     ):
         """Maintainer bypasses role filtering and sees all templates."""
+        mock_role_service = AsyncMock()
         with (
             patch("services.api.database.queries.require_guild_by_id") as mock_get_guild,
-            patch("services.api.auth.roles.get_role_service") as mock_get_role_service,
+            patch("services.api.auth.roles.get_role_service", return_value=mock_role_service),
             patch(
                 "services.api.services.template_service.TemplateService"
             ) as mock_template_service,
@@ -335,9 +331,6 @@ class TestListTemplates:
         ):
             mock_get_guild.return_value = mock_guild_config
             mock_check_manager.return_value = True
-
-            mock_role_service = AsyncMock()
-            mock_get_role_service.return_value = mock_role_service
 
             mock_discord_client = AsyncMock()
 
@@ -359,7 +352,6 @@ class TestListTemplates:
             mock_get_guild.assert_awaited_once_with(
                 mock_db, mock_guild_config.id, mock_current_user_unit.user.discord_id
             )
-            mock_get_role_service.assert_called_once_with()
             mock_template_service.assert_called_once_with(mock_db)
             mock_check_manager.assert_awaited_once_with(
                 mock_guild_config.guild_id, mock_current_user_unit, mock_role_service, mock_db
@@ -373,7 +365,7 @@ class TestListTemplates:
 
         with (
             patch("services.api.database.queries.require_guild_by_id") as mock_get_guild,
-            patch("services.api.auth.roles.get_role_service") as mock_get_role_service,
+            patch("services.api.auth.roles.get_role_service", return_value=AsyncMock()),
             patch(
                 "services.api.services.template_service.TemplateService"
             ) as mock_template_service,
@@ -384,7 +376,6 @@ class TestListTemplates:
         ):
             mock_get_guild.return_value = mock_guild_config
             mock_check_manager.return_value = False
-            mock_get_role_service.return_value = AsyncMock()
 
             mock_discord_client = AsyncMock()
             mock_discord_client.get_guild_channels.side_effect = DiscordAPIError(
@@ -407,7 +398,6 @@ class TestListTemplates:
             mock_get_guild.assert_awaited_once_with(
                 mock_db, mock_guild_config.id, mock_current_user_unit.user.discord_id
             )
-            mock_get_role_service.assert_called_once_with()
             mock_template_service.assert_called_once_with(mock_db)
             mock_check_manager.assert_awaited_once()
             warning = next(r for r in caplog.records if r.levelno == logging.WARNING)
@@ -529,9 +519,10 @@ class TestCreateTemplate:
             signup_instructions="Join us",
         )
 
+        mock_role_service = AsyncMock()
         with (
             patch("services.api.database.queries.require_guild_by_id") as mock_get_guild,
-            patch("services.api.auth.roles.get_role_service") as mock_get_role_service,
+            patch("services.api.auth.roles.get_role_service", return_value=mock_role_service),
             patch(
                 "services.api.services.template_service.TemplateService"
             ) as mock_template_service,
@@ -542,9 +533,7 @@ class TestCreateTemplate:
         ):
             mock_get_guild.return_value = mock_guild_config
 
-            mock_role_service = AsyncMock()
             mock_role_service.check_bot_manager_permission.return_value = True
-            mock_get_role_service.return_value = mock_role_service
             mock_require_manager.return_value = mock_current_user_unit
 
             mock_service = AsyncMock()
@@ -566,7 +555,6 @@ class TestCreateTemplate:
             mock_get_guild.assert_awaited_once_with(
                 mock_db, mock_guild_config.id, mock_current_user_unit.user.discord_id
             )
-            mock_get_role_service.assert_called_once_with()
             mock_template_service.assert_called_once_with(mock_db)
             mock_require_manager.assert_awaited_once_with(
                 mock_guild_config.id, mock_current_user_unit, mock_role_service, mock_db
@@ -597,9 +585,10 @@ class TestCreateTemplate:
             archive_channel_id="archive-channel-id",
         )
 
+        mock_role_service = AsyncMock()
         with (
             patch("services.api.database.queries.require_guild_by_id") as mock_get_guild,
-            patch("services.api.auth.roles.get_role_service") as mock_get_role_service,
+            patch("services.api.auth.roles.get_role_service", return_value=mock_role_service),
             patch(
                 "services.api.services.template_service.TemplateService"
             ) as mock_template_service,
@@ -610,9 +599,7 @@ class TestCreateTemplate:
         ):
             mock_get_guild.return_value = mock_guild_config
 
-            mock_role_service = AsyncMock()
             mock_role_service.check_bot_manager_permission.return_value = True
-            mock_get_role_service.return_value = mock_role_service
             mock_require_manager.return_value = mock_current_user_unit
 
             mock_service = AsyncMock()
@@ -653,7 +640,6 @@ class TestCreateTemplate:
             mock_get_guild.assert_awaited_once_with(
                 mock_db, mock_guild_config.id, mock_current_user_unit.user.discord_id
             )
-            mock_get_role_service.assert_called_once_with()
             mock_template_service.assert_called_once_with(mock_db)
             mock_require_manager.assert_awaited_once_with(
                 mock_guild_config.id, mock_current_user_unit, mock_role_service, mock_db
@@ -674,9 +660,10 @@ class TestCreateTemplate:
             default_signup_method="ROLE_BASED",
         )
 
+        mock_role_service = AsyncMock()
         with (
             patch("services.api.database.queries.require_guild_by_id") as mock_get_guild,
-            patch("services.api.auth.roles.get_role_service") as mock_get_role_service,
+            patch("services.api.auth.roles.get_role_service", return_value=mock_role_service),
             patch(
                 "services.api.services.template_service.TemplateService"
             ) as mock_template_service,
@@ -684,8 +671,6 @@ class TestCreateTemplate:
             patch("services.api.dependencies.permissions.require_bot_manager"),
         ):
             mock_get_guild.return_value = mock_guild_config
-            mock_role_service = AsyncMock()
-            mock_get_role_service.return_value = mock_role_service
             mock_service = AsyncMock()
             mock_service.create_template.return_value = mock_template
             mock_template_service.return_value = mock_service
@@ -705,7 +690,6 @@ class TestCreateTemplate:
             mock_get_guild.assert_awaited_once_with(
                 mock_db, mock_guild_config.id, mock_current_user_unit.user.discord_id
             )
-            mock_get_role_service.assert_called_once_with()
             mock_template_service.assert_called_once_with(mock_db)
 
     @pytest.mark.asyncio
@@ -719,18 +703,17 @@ class TestCreateTemplate:
             channel_id=str(uuid.uuid4()),
         )
 
+        mock_role_service = AsyncMock()
         with (
             patch("services.api.database.queries.require_guild_by_id") as mock_get_guild,
-            patch("services.api.auth.roles.get_role_service") as mock_get_role_service,
+            patch("services.api.auth.roles.get_role_service", return_value=mock_role_service),
             patch(
                 "services.api.dependencies.permissions.require_bot_manager"
             ) as mock_require_manager,
         ):
             mock_get_guild.return_value = mock_guild_config
 
-            mock_role_service = AsyncMock()
             mock_role_service.check_bot_manager_permission.return_value = False
-            mock_get_role_service.return_value = mock_role_service
             mock_require_manager.side_effect = HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden"
             )
@@ -749,7 +732,6 @@ class TestCreateTemplate:
             mock_get_guild.assert_awaited_once_with(
                 mock_db, mock_guild_config.id, mock_current_user_unit.user.discord_id
             )
-            mock_get_role_service.assert_called_once_with()
             mock_require_manager.assert_awaited_once_with(
                 mock_guild_config.id, mock_current_user_unit, mock_role_service, mock_db
             )
@@ -768,8 +750,9 @@ class TestUpdateTemplate:
             archive_channel_id=None,
         )
 
+        mock_role_service = AsyncMock()
         with (
-            patch("services.api.auth.roles.get_role_service") as mock_get_role_service,
+            patch("services.api.auth.roles.get_role_service", return_value=mock_role_service),
             patch(
                 "services.api.services.template_service.TemplateService"
             ) as mock_template_service,
@@ -778,8 +761,6 @@ class TestUpdateTemplate:
                 "services.api.dependencies.permissions.require_bot_manager"
             ) as mock_require_manager,
         ):
-            mock_role_service = AsyncMock()
-            mock_get_role_service.return_value = mock_role_service
             mock_require_manager.return_value = mock_current_user_unit
 
             updated_template = MagicMock(spec=GameTemplate)
@@ -825,7 +806,6 @@ class TestUpdateTemplate:
                 archive_delay_seconds=0,
                 archive_channel_id=None,
             )
-            mock_get_role_service.assert_called_once_with()
             mock_template_service.assert_called_once_with(mock_db)
             mock_require_manager.assert_awaited_once_with(
                 mock_template.guild_id, mock_current_user_unit, mock_role_service, mock_db
@@ -846,8 +826,9 @@ class TestUpdateTemplate:
             signup_priority_role_ids=["existing-role", "new-role"],
         )
 
+        mock_role_service = AsyncMock()
         with (
-            patch("services.api.auth.roles.get_role_service") as mock_get_role_service,
+            patch("services.api.auth.roles.get_role_service", return_value=mock_role_service),
             patch(
                 "services.api.services.template_service.TemplateService"
             ) as mock_template_service,
@@ -856,8 +837,6 @@ class TestUpdateTemplate:
                 "services.api.dependencies.permissions.require_bot_manager"
             ) as mock_require_manager,
         ):
-            mock_role_service = AsyncMock()
-            mock_get_role_service.return_value = mock_role_service
             mock_require_manager.return_value = mock_current_user_unit
 
             mock_service = AsyncMock()
@@ -877,7 +856,6 @@ class TestUpdateTemplate:
                 mock_template,
                 signup_priority_role_ids=["existing-role", "new-role"],
             )
-            mock_get_role_service.assert_called_once_with()
             mock_template_service.assert_called_once_with(mock_db)
             mock_require_manager.assert_awaited_once_with(
                 mock_template.guild_id, mock_current_user_unit, mock_role_service, mock_db
@@ -897,8 +875,9 @@ class TestUpdateTemplate:
             signup_priority_role_ids=["new-role"],
         )
 
+        mock_role_service = AsyncMock()
         with (
-            patch("services.api.auth.roles.get_role_service") as mock_get_role_service,
+            patch("services.api.auth.roles.get_role_service", return_value=mock_role_service),
             patch(
                 "services.api.services.template_service.TemplateService"
             ) as mock_template_service,
@@ -906,8 +885,6 @@ class TestUpdateTemplate:
                 "services.api.dependencies.permissions.require_bot_manager"
             ) as mock_require_manager,
         ):
-            mock_role_service = AsyncMock()
-            mock_get_role_service.return_value = mock_role_service
             mock_require_manager.return_value = mock_current_user_unit
 
             mock_service = AsyncMock()
@@ -925,7 +902,6 @@ class TestUpdateTemplate:
 
             assert exc_info.value.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
             mock_service.update_template.assert_not_awaited()
-            mock_get_role_service.assert_called_once_with()
             mock_template_service.assert_called_once_with(mock_db)
             mock_require_manager.assert_awaited_once_with(
                 mock_template.guild_id, mock_current_user_unit, mock_role_service, mock_db
@@ -945,8 +921,9 @@ class TestUpdateTemplate:
             signup_priority_role_ids=None,
         )
 
+        mock_role_service = AsyncMock()
         with (
-            patch("services.api.auth.roles.get_role_service") as mock_get_role_service,
+            patch("services.api.auth.roles.get_role_service", return_value=mock_role_service),
             patch(
                 "services.api.services.template_service.TemplateService"
             ) as mock_template_service,
@@ -954,8 +931,6 @@ class TestUpdateTemplate:
                 "services.api.dependencies.permissions.require_bot_manager"
             ) as mock_require_manager,
         ):
-            mock_role_service = AsyncMock()
-            mock_get_role_service.return_value = mock_role_service
             mock_require_manager.return_value = mock_current_user_unit
 
             mock_service = AsyncMock()
@@ -973,7 +948,6 @@ class TestUpdateTemplate:
 
             assert exc_info.value.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
             mock_service.update_template.assert_not_awaited()
-            mock_get_role_service.assert_called_once_with()
             mock_template_service.assert_called_once_with(mock_db)
             mock_require_manager.assert_awaited_once_with(
                 mock_template.guild_id, mock_current_user_unit, mock_role_service, mock_db
@@ -995,8 +969,9 @@ class TestUpdateTemplate:
             default_signup_method="SELF_SIGNUP",
         )
 
+        mock_role_service = AsyncMock()
         with (
-            patch("services.api.auth.roles.get_role_service") as mock_get_role_service,
+            patch("services.api.auth.roles.get_role_service", return_value=mock_role_service),
             patch(
                 "services.api.services.template_service.TemplateService"
             ) as mock_template_service,
@@ -1005,8 +980,6 @@ class TestUpdateTemplate:
                 "services.api.dependencies.permissions.require_bot_manager"
             ) as mock_require_manager,
         ):
-            mock_role_service = AsyncMock()
-            mock_get_role_service.return_value = mock_role_service
             mock_require_manager.return_value = mock_current_user_unit
 
             mock_service = AsyncMock()
@@ -1028,7 +1001,6 @@ class TestUpdateTemplate:
                 allowed_signup_methods=None,
                 default_signup_method="SELF_SIGNUP",
             )
-            mock_get_role_service.assert_called_once_with()
             mock_template_service.assert_called_once_with(mock_db)
             mock_require_manager.assert_awaited_once_with(
                 mock_template.guild_id, mock_current_user_unit, mock_role_service, mock_db
@@ -1045,12 +1017,13 @@ class TestDeleteTemplate:
         """Test that deleting default template is prevented."""
         mock_template.is_default = True
 
+        mock_role_service = AsyncMock()
         with (
             patch(
                 "services.api.services.template_service.TemplateService"
             ) as mock_template_service,
             patch("services.api.database.queries.require_guild_by_id"),
-            patch("services.api.auth.roles.get_role_service") as mock_get_role_service,
+            patch("services.api.auth.roles.get_role_service", return_value=mock_role_service),
             patch(
                 "services.api.dependencies.permissions.require_bot_manager"
             ) as mock_require_manager,
@@ -1059,9 +1032,7 @@ class TestDeleteTemplate:
             mock_template_svc.get_template_by_id.return_value = mock_template
             mock_template_service.return_value = mock_template_svc
 
-            mock_role_service = AsyncMock()
             mock_role_service.check_bot_manager_permission.return_value = True
-            mock_get_role_service.return_value = mock_role_service
             mock_require_manager.return_value = mock_current_user_unit
 
             with pytest.raises(HTTPException) as exc_info:
@@ -1074,7 +1045,6 @@ class TestDeleteTemplate:
             assert exc_info.value.status_code == 400
             assert "default" in str(exc_info.value.detail).lower()
             mock_template_service.assert_called_once_with(mock_db)
-            mock_get_role_service.assert_called_once_with()
             mock_require_manager.assert_awaited_once_with(
                 mock_template.guild_id, mock_current_user_unit, mock_role_service, mock_db
             )

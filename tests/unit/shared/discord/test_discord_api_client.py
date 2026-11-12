@@ -762,15 +762,12 @@ class TestCachedResourceMethods:
         cached_channel = {"id": "channel123", "name": "cached-general"}
         mock_redis.get = AsyncMock(return_value=json.dumps(cached_channel))
 
-        with patch("shared.discord.client.cache_client.get_redis_client") as mock_get_redis:
-            mock_get_redis.return_value = mock_redis
-
+        with patch("shared.discord.client.cache_client.get_redis_client", return_value=mock_redis):
             result = await discord_client.fetch_channel(channel_id="channel123")
 
             assert result["name"] == "cached-general"
             mock_redis.get.assert_called_once_with("discord:channel:channel123")
             mock_redis.set.assert_not_called()
-        mock_get_redis.assert_called_once_with()
 
     @pytest.mark.asyncio
     async def test_fetch_guild_cache_hit(self, discord_client, mock_redis):
@@ -778,15 +775,12 @@ class TestCachedResourceMethods:
         cached_guild = {"id": "guild123", "name": "Cached Server"}
         mock_redis.get = AsyncMock(return_value=json.dumps(cached_guild))
 
-        with patch("shared.discord.client.cache_client.get_redis_client") as mock_get_redis:
-            mock_get_redis.return_value = mock_redis
-
+        with patch("shared.discord.client.cache_client.get_redis_client", return_value=mock_redis):
             result = await discord_client.fetch_guild(guild_id="guild123")
 
             assert result["name"] == "Cached Server"
             mock_redis.get.assert_called_once_with("discord:guild:guild123")
             mock_redis.set.assert_not_called()
-        mock_get_redis.assert_called_once_with()
 
 
 class TestLoggingMethods:
@@ -1056,15 +1050,12 @@ class TestFetchChannelAndRolesErrorPaths:
         ]
         mock_redis.get = AsyncMock(return_value=json.dumps(roles_data))
 
-        with patch("shared.discord.client.cache_client.get_redis_client") as mock_get_redis:
-            mock_get_redis.return_value = mock_redis
-
+        with patch("shared.discord.client.cache_client.get_redis_client", return_value=mock_redis):
             result = await discord_client.fetch_guild_roles("guild123")
 
         assert len(result) == 2
         assert result[0]["name"] == "Admin"
         mock_redis.get.assert_called_once_with("discord:guild_roles:guild123")
-        mock_get_redis.assert_called_once_with()
 
 
 class TestHelperFunctions:
@@ -1366,60 +1357,52 @@ class TestPhase6CacheOnlyBehavior:
         """get_guild_channels raises DiscordAPIError(503) on cache miss; no REST call made."""
         mock_redis.get = AsyncMock(return_value=None)
 
-        with patch("shared.discord.client.cache_client.get_redis_client") as mock_get_redis:
-            mock_get_redis.return_value = mock_redis
-
+        with patch("shared.discord.client.cache_client.get_redis_client", return_value=mock_redis):
             with pytest.raises(DiscordAPIError) as exc_info:
                 await discord_client.get_guild_channels("guild123")
 
         assert exc_info.value.status == 503
         assert discord_client._session is None
-        mock_get_redis.assert_called_once_with()
+        mock_redis.get.assert_called_once_with("discord:guild_channels:guild123")
 
     @pytest.mark.asyncio
     async def test_fetch_channel_cache_miss_raises_503(self, discord_client, mock_redis):
         """fetch_channel raises DiscordAPIError(503) on cache miss; no REST call made."""
         mock_redis.get = AsyncMock(return_value=None)
 
-        with patch("shared.discord.client.cache_client.get_redis_client") as mock_get_redis:
-            mock_get_redis.return_value = mock_redis
-
+        with patch("shared.discord.client.cache_client.get_redis_client", return_value=mock_redis):
             with pytest.raises(DiscordAPIError) as exc_info:
                 await discord_client.fetch_channel("channel123")
 
         assert exc_info.value.status == 503
         assert discord_client._session is None
-        mock_get_redis.assert_called_once_with()
+        mock_redis.get.assert_called_once_with("discord:channel:channel123")
 
     @pytest.mark.asyncio
     async def test_fetch_guild_cache_miss_raises_503(self, discord_client, mock_redis):
         """fetch_guild raises DiscordAPIError(503) on cache miss; no REST call made."""
         mock_redis.get = AsyncMock(return_value=None)
 
-        with patch("shared.discord.client.cache_client.get_redis_client") as mock_get_redis:
-            mock_get_redis.return_value = mock_redis
-
+        with patch("shared.discord.client.cache_client.get_redis_client", return_value=mock_redis):
             with pytest.raises(DiscordAPIError) as exc_info:
                 await discord_client.fetch_guild("guild123")
 
         assert exc_info.value.status == 503
         assert discord_client._session is None
-        mock_get_redis.assert_called_once_with()
+        mock_redis.get.assert_called_once_with("discord:guild:guild123")
 
     @pytest.mark.asyncio
     async def test_fetch_guild_roles_cache_miss_raises_503(self, discord_client, mock_redis):
         """fetch_guild_roles raises DiscordAPIError(503) on cache miss; no REST call made."""
         mock_redis.get = AsyncMock(return_value=None)
 
-        with patch("shared.discord.client.cache_client.get_redis_client") as mock_get_redis:
-            mock_get_redis.return_value = mock_redis
-
+        with patch("shared.discord.client.cache_client.get_redis_client", return_value=mock_redis):
             with pytest.raises(DiscordAPIError) as exc_info:
                 await discord_client.fetch_guild_roles("guild123")
 
         assert exc_info.value.status == 503
         assert discord_client._session is None
-        mock_get_redis.assert_called_once_with()
+        mock_redis.get.assert_called_once_with("discord:guild_roles:guild123")
 
     @pytest.mark.asyncio
     async def test_get_guild_emojis_returns_list_on_cache_hit(self, discord_client, mock_redis):
@@ -1427,24 +1410,21 @@ class TestPhase6CacheOnlyBehavior:
         emoji_data = [{"id": "111", "name": "wave", "animated": False}]
         mock_redis.get = AsyncMock(return_value=json.dumps(emoji_data))
 
-        with patch("shared.discord.client.cache_client.get_redis_client") as mock_get_redis:
-            mock_get_redis.return_value = mock_redis
+        with patch("shared.discord.client.cache_client.get_redis_client", return_value=mock_redis):
             result = await discord_client.get_guild_emojis("guild123")
 
         assert result == emoji_data
-        mock_get_redis.assert_called_once_with()
+        mock_redis.get.assert_called_once_with("discord:guild_emojis:guild123")
 
     @pytest.mark.asyncio
     async def test_get_guild_emojis_cache_miss_raises_503(self, discord_client, mock_redis):
         """get_guild_emojis raises DiscordAPIError(503) on cache miss; no REST call made."""
         mock_redis.get = AsyncMock(return_value=None)
 
-        with patch("shared.discord.client.cache_client.get_redis_client") as mock_get_redis:
-            mock_get_redis.return_value = mock_redis
-
+        with patch("shared.discord.client.cache_client.get_redis_client", return_value=mock_redis):
             with pytest.raises(DiscordAPIError) as exc_info:
                 await discord_client.get_guild_emojis("guild123")
 
         assert exc_info.value.status == 503
         assert discord_client._session is None
-        mock_get_redis.assert_called_once_with()
+        mock_redis.get.assert_called_once_with("discord:guild_emojis:guild123")
