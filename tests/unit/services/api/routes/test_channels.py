@@ -228,7 +228,6 @@ class TestCreateChannelConfig:
             mock_execute.assert_called_once()
             (select_stmt,) = mock_execute.call_args.args
             assert "channel_configurations" in str(select_stmt)
-            mock_result.scalar_one.assert_called_once_with()  # assert-not-weak: no args
             mock_get_existing.assert_called_once_with(mock_db, mock_channel_config.channel_id)
             mock_create.assert_called_once_with(
                 mock_db,

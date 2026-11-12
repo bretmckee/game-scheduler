@@ -1243,13 +1243,12 @@ class TestFormatGameAnnouncement:
         """Test that all parameters are passed to embed formatter."""
         scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
 
+        mock_formatter = MagicMock()
+        mock_formatter.create_game_embed.return_value = MagicMock()
         with patch(
-            "services.bot.formatters.game_message.GameMessageFormatter"
-        ) as mock_formatter_class:
-            mock_formatter = MagicMock()
-            mock_formatter_class.return_value = mock_formatter
-            mock_formatter.create_game_embed.return_value = MagicMock()
-
+            "services.bot.formatters.game_message.GameMessageFormatter",
+            return_value=mock_formatter,
+        ):
             with patch("services.bot.formatters.game_message.GameView"):
                 format_game_announcement(
                     game_id="test-id",
@@ -1272,8 +1271,6 @@ class TestFormatGameAnnouncement:
                 assert call_kwargs["description"] == "Fun times"
                 assert call_kwargs["host_id"] == "host123"
                 assert call_kwargs["channel_id"] == "voice123"
-                # assert-not-weak: GameMessageFormatter() takes no constructor arguments
-                mock_formatter_class.assert_called_once_with()
 
     def test_embed_includes_url_when_game_id_provided(self):
         """Test that embed includes calendar download URL when game_id is provided."""

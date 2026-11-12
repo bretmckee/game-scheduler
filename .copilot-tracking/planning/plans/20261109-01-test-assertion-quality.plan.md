@@ -60,12 +60,12 @@ Stop the test-assertion checker from forcing or accepting hollow `assert_called_
 - [x] Task 4.2: Remove the 6 provider markers (incl. 6882f984 tests)
   - Details: .copilot-tracking/planning/details/20261109-01-test-assertion-quality-details.md (Lines 65-72)
 
-### [ ] Phase 5: Non-provider sites, getter-under-test markers, config trim
+### [x] Phase 5: Non-provider sites, getter-under-test markers, config trim
 
-- [ ] Task 5.1: Fix 2 hollow non-provider markers, 2 getter-under-test tests, test_api_main
+- [x] Task 5.1: Fix 2 hollow non-provider markers, 2 getter-under-test tests, test_api_main
   - Details: .copilot-tracking/planning/details/20261109-01-test-assertion-quality-details.md (Lines 76-88)
 
-- [ ] Task 5.2: Trim `no-arg-methods`, add provider regression test, `--all` clean
+- [x] Task 5.2: Trim `no-arg-methods`, add provider regression test, `--all` clean
   - Details: .copilot-tracking/planning/details/20261109-01-test-assertion-quality-details.md (Lines 90-97)
 
 ### [ ] Phase 6: Docs

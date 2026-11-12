@@ -141,5 +141,6 @@ async def test_get_redis_lazy_initialization():
         "services.bot.auth.cache.client.get_redis_client", return_value=mock_client
     ) as mock_get:
         redis = await role_cache.get_redis()
-        mock_get.assert_called_once()
+        # assert-not-weak: lazy creation via get_redis_client() is the behavior under test
+        mock_get.assert_called_once_with()
         assert redis is mock_client

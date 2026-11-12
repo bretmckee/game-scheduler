@@ -419,6 +419,32 @@ def test_get_weak_assert_violations_empty_assert_called_once_with_is_violation()
     assert "assert_called_once_with()" in result[0][1]
 
 
+@pytest.mark.parametrize(
+    "provider",
+    [
+        "get_db_session",
+        "get_role_service",
+        "get_redis_client",
+        "get_discord_client",
+        "get_api_config",
+        "get_config",
+    ],
+)
+def test_get_weak_assert_violations_empty_assert_on_patched_provider_is_violation(
+    provider: str,
+) -> None:
+    source = (
+        "def test_foo():\n"
+        f"    with patch('services.bot.events.handlers.{provider}') as mock_provider:\n"
+        "        fn()\n"
+        "    mock_provider.assert_called_once_with()\n"
+    )
+    func = _parse_func(source)
+    result = check_test_assertions.get_weak_assert_violations(func, source.splitlines())
+    assert len(result) == 1
+    assert "assert_called_once_with()" in result[0][1]
+
+
 def test_get_weak_assert_violations_empty_with_marker_is_exempt() -> None:
     source = f"def test_foo():\n    mock_get_client.assert_called_once_with()  {_MARKER}: no-args\n"
     func = _parse_func(source)

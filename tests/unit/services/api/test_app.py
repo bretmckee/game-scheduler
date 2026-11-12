@@ -110,6 +110,7 @@ async def test_lifespan_initializes_redis(mock_redis_client):
         async with app.lifespan(application):
             pass
 
+        # assert-not-weak: lifespan calling get_redis_client() is the behavior under test
         mock_get_redis_client.assert_called_once_with()
 
 

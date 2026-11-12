@@ -92,12 +92,12 @@ async def test_main_starts_uvicorn_server():
 @pytest.mark.asyncio
 async def test_main_uses_config_values():
     """Test that main function uses configuration values correctly."""
-    with patch("services.api.main.get_api_config") as mock_config:
-        mock_config.return_value.api_host = "0.0.0.0"
-        mock_config.return_value.api_port = 8080
-        mock_config.return_value.log_level = "DEBUG"
-        mock_config.return_value.debug = False
-
+    config = MagicMock()
+    config.api_host = "0.0.0.0"
+    config.api_port = 8080
+    config.log_level = "DEBUG"
+    config.debug = False
+    with patch("services.api.main.get_api_config", return_value=config):
         with patch("services.api.main.uvicorn.Config") as mock_uvicorn_config:
             with patch("services.api.main.uvicorn.Server") as mock_server:
                 mock_server.return_value.serve = AsyncMock()
@@ -110,7 +110,6 @@ async def test_main_uses_config_values():
                         call_kwargs = mock_uvicorn_config.call_args[1]
                         assert call_kwargs["host"] == "0.0.0.0"
                         assert call_kwargs["port"] == 8080
-                        mock_config.assert_called_once_with()
                         mock_server.assert_called_once_with(mock_uvicorn_config.return_value)
                         assert call_kwargs["log_level"] == "debug"
                         assert call_kwargs["access_log"] is True
