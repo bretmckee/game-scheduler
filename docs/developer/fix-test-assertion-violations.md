@@ -60,27 +60,55 @@ async def test_handle_event_does_not_raise(handler, mock_deps):
 
 ### `test_foo: named mock 'mock_x' has no assert_* call`
 
-The function captures a context manager with `as mock_x:` but never calls any
-`assert_*` method on it. The author named the mock, implying an intent to verify
-behavior that was never completed.
+The function captures a patch with `as mock_x:` but never checks it. The
+author named the mock, implying an intent to verify behavior that was never
+completed.
+
+The alias counts as checked if any `assert_*` method is called on it (or on an
+attribute chain from it), if one of its call-tracking attributes such as
+`call_count` or `call_args` is read, if it appears in the arguments of another
+`assert_*` call (e.g. `send.assert_called_once_with(view=mock_view_cls.return_value)`),
+or if it is an operand of `==`, `!=`, `is`, `is not`, `in`, or `not in` inside
+an `assert`. A bare `assert mock_x` does not count — a mock is always truthy.
+
+**First fix — the patch only supplies a fake: drop the name and pass `return_value=`:**
+
+Most of these violations are setup-only patches, typically dependency getters
+such as `get_db_session`, `get_config`, `get_api_config`, `get_redis_client`,
+`get_role_service`, or `get_discord_client`. Build the fake before the patch,
+pass it with `return_value=`, and assert on how the fake was used. Do **not**
+add an empty `assert_called_once_with()` on the getter — it proves nothing,
+and the checker reports it.
 
 ```python
-# before — mock_x is named but never verified
+# before — named only so its return value can be configured
 def test_foo():
-    with patch("module.fn") as mock_x:
-        result = do_thing()
-    assert result == 42
+    with patch("module.get_config") as mock_get_config:
+        mock_get_config.return_value.frontend_url = "https://example.com"
+        result = build_link(game_id)
+    assert result == "https://example.com/games/abc"
 
-# after — verify the mock was called as expected
+# after — the fake is built first; no name needed
 def test_foo():
-    with patch("module.fn") as mock_x:
-        result = do_thing()
-    assert result == 42
-    mock_x.assert_called_once_with(expected_arg)
+    config = MagicMock()
+    config.frontend_url = "https://example.com"
+    with patch("module.get_config", return_value=config):
+        result = build_link(game_id)
+    assert result == "https://example.com/games/abc"
 ```
 
-If the mock is truly irrelevant to what is being tested, remove the `as mock_x`
-alias so the intent is clear:
+For a session factory used as `async with get_db_session() as db:`:
+
+```python
+session_cm = MagicMock()
+session_cm.__aenter__.return_value = mock_db
+with patch("module.get_db_session", return_value=session_cm):
+    await handler.handle(event)
+mock_db.commit.assert_awaited_once()
+```
+
+The same applies to any patch that only suppresses a real call — remove the
+alias:
 
 ```python
 # after — alias removed; mock only exists to suppress the real call
@@ -88,6 +116,16 @@ def test_foo():
     with patch("module.fn"):
         result = do_thing()
     assert result == 42
+```
+
+**Second fix — the call is the behavior: verify it with its arguments:**
+
+```python
+def test_foo():
+    with patch("module.fn") as mock_x:
+        result = do_thing()
+    assert result == 42
+    mock_x.assert_called_once_with(expected_arg)
 ```
 
 ### `test_foo: \`assert_called_once()\` — prefer assert_called_once_with()`
@@ -131,7 +169,10 @@ Before using it, answer both questions:
 2. Is the call count itself meaningful to this test, or is this mock incidental?
 
 If the answer to (2) is "incidental," the right fix is to remove the `as` alias
-entirely, not to add a marker. If the answer to (1) is "it does take arguments
+and pass any fake with `return_value=` (see the named-mock fix above), not to
+add a marker. This covers dependency getters such as `get_config` and
+`get_db_session`: they take no arguments, but asserting that they were called
+proves nothing. If the answer to (1) is "it does take arguments
 but they are complex," use `ANY` for the parts you cannot easily reference.
 
 The marker **requires a reason** after the colon — `# assert-not-weak: <reason>`.
@@ -144,16 +185,19 @@ would exceed the line length limit:
 
 ```python
 # inline form — reason is bounded by line length
-mock_get_config.assert_called_once_with()  # assert-not-weak: get_config takes no args
+mock_message.delete.assert_called_once_with()  # assert-not-weak: delete() passes no args
 
 # preceding-line form — reason has no line length constraint
-# assert-not-weak: predates reason requirement — called with no arguments internally
-mock_db_session.assert_called_once_with()
+# assert-not-weak: lifespan calling get_redis_client() is the behavior under test
+mock_get_redis_client.assert_called_once_with()
 ```
 
 ```python
 # wrong use: bare assert_called_once() is weaker — use assert_called_once_with() instead
 mock_get_config.assert_called_once()  # assert-not-weak: ...  ← DO NOT DO THIS
+
+# wrong use: the getter only supplies a fake — unname the patch instead
+mock_get_config.assert_called_once_with()  # assert-not-weak: ...  ← DO NOT DO THIS
 
 # wrong use: the function takes real arguments but this is easier than writing them out
 mock_get_client.assert_called_once_with()  # assert-not-weak: ...  ← DO NOT DO THIS
@@ -161,22 +205,30 @@ mock_get_client.assert_called_once_with()  # assert-not-weak: ...  ← DO NOT DO
 
 **Auto-exempted methods:**
 
-Methods that genuinely take no arguments are automatically exempted — no
-annotation needed. The exemption list is configured in `pyproject.toml`:
+Action methods that genuinely take no arguments are automatically exempted —
+no annotation needed. The exemption applies when the mocked method name (e.g.
+`mock_db.flush.assert_called_once()`) or the last component of the patch target
+is in the list configured in `pyproject.toml`:
 
 ```toml
 [tool.check-test-assertions]
-no-arg-methods = ["flush", "commit", "rollback", "close"]
+no-arg-methods = ["flush", "commit", "rollback", "close", "connect", ...]
 ```
 
-If a method in the codebase genuinely takes no arguments (e.g., a Discord color
-property accessor like `Color.green()`), add it to this list rather than
-annotating every call site.
+If an action method in the codebase genuinely takes no arguments and its call
+is meaningful (e.g., a Discord color property accessor like `Color.green()`),
+add it to this list rather than annotating every call site. Do **not** add
+dependency getters (`get_config`, `get_db_session`, ...) — an empty assertion
+on a getter is hollow; unname the patch and pass `return_value=` instead.
+
+Not checked: the empty awaited forms (`assert_awaited_once_with()`) and
+`assert_called_with()`. The same standard applies to them anyway.
 
 **The `# assert-not-weak` marker is counted and gated:**
 
-Each use of `# assert-not-weak: <reason>` in a commit is counted. The commit is blocked if
-the count exceeds `APPROVED_WEAK_ASSERTIONS`:
+Each `# assert-not-weak: <reason>` added in a commit is counted by the pre-commit
+hook, except markers where Jedi can confirm the patched function takes no
+arguments. The commit is blocked if the count exceeds `APPROVED_WEAK_ASSERTIONS`:
 
 ```bash
 # permits exactly 2 assert-not-weak annotations in this commit
@@ -217,5 +269,6 @@ mock_embed_class.assert_called_once()  # assert-not-weak: ...  ← DO NOT DO THI
 | Mock must not be called              | `mock.assert_not_called()`                                    |
 | Exception expected                   | `pytest.raises(ExceptionType)`                                |
 | No return value, no mock to verify   | `assert True  # verifies no exception raised`                 |
-| Method is in `no-arg-methods` config | `mock.method.assert_called_once()` — auto-exempted            |
+| Method is in `no-arg-methods` config | `mock.method.assert_called_once_with()` — auto-exempted       |
+| Patch only supplies a fake (getter)  | `patch(..., return_value=fake)` — no name, no assertion       |
 | Args truly opaque (rare, gated)      | `mock.assert_called_once_with()  # assert-not-weak: <reason>` |

@@ -180,12 +180,50 @@ mock_counter.add.assert_called_once_with(1, {"reason": "on_ready", "status": "su
 
 Use `unittest.mock.ANY` for description strings or unit strings if those details are not the focus.
 
+## What the Pre-Commit Checker Enforces
+
+The `check-test-assertions` pre-commit hook (`scripts/check_test_assertions.py`) reports these violations. Run it directly on the files you touched before committing:
+
+```bash
+uv run python scripts/check_test_assertions.py <files>
+```
+
+1. **No assertions** — the test has no `assert` statement, no `assert_*` mock call, and no `pytest.raises`.
+2. **Named mock with no verification** — a `with patch(...) as name:` or `patch.object(...) as name:` alias is never checked. It counts as checked if any of these happens: an `assert_*` method is called on it or on an attribute chain from it; one of its call-tracking attributes (`called`, `call_count`, `await_count`, `call_args`, `call_args_list`, ...) is read; it appears in another `assert_*` call's arguments; or it is an operand of `==`, `!=`, `is`, `is not`, `in`, or `not in` inside an `assert`. A bare `assert mock_x` does not count, because a mock is always truthy.
+3. **Bare `assert_called_once()`** — use `assert_called_once_with(...)`. Adding a `# assert-not-weak:` marker to a bare `assert_called_once()` is itself a violation.
+4. **Empty `assert_called_once_with()`** — exempt only when the mocked method name, or the last component of the patch target, is listed in `[tool.check-test-assertions] no-arg-methods` in `pyproject.toml`, when the test reads `.call_args`/`.call_args_list` on the same mock, or when the line carries a `# assert-not-weak: <reason>` marker. The allowlist holds action methods such as `flush`, `commit`, and `close`, not dependency getters. The empty awaited forms (`assert_awaited_once_with()`) and `assert_called_with()` are not checked; do not take that as permission to write them.
+5. **All-`ANY` arguments** — `assert_called_once_with(ANY, ...)` or `assert_awaited_once_with(ANY, ...)` where every argument is `ANY`.
+6. **Marker on a call that takes parameters** — when Jedi can resolve the patch target and it has required parameters, a `# assert-not-weak:` marker on its empty assertion is reported.
+7. **Marker quota** — in the pre-commit hook, `# assert-not-weak:` markers added in the staged diff that Jedi cannot verify as no-argument are counted, and the commit is blocked if the count exceeds `APPROVED_WEAK_ASSERTIONS` (see `quality-check-overrides.instructions.md`).
+
+**Only name a patch you intend to check.** When a patch only supplies a setup fake, such as a dependency getter like `get_db_session`, `get_config`, or `get_redis_client`, build the fake first and pass it with `return_value=`. Then verify how the fake was used.
+
+```python
+# BAD: the name exists only to satisfy the checker; the empty assertion proves nothing
+with patch("services.bot.events.handlers.get_config") as mock_get_config:
+    mock_get_config.return_value.frontend_url = "https://example.com"
+    await handlers.notify(game)
+mock_get_config.assert_called_once_with()
+
+# GOOD: setup-only fake, no name; assertions target the behavior
+config = MagicMock()
+config.frontend_url = "https://example.com"
+with patch("services.bot.events.handlers.get_config", return_value=config):
+    await handlers.notify(game)
+mock_send.assert_awaited_once_with(game.host.discord_id, ANY)
+```
+
+For a session factory used as `async with get_db_session() as db:`, use `session_cm = MagicMock()` with `session_cm.__aenter__.return_value = mock_db` and patch with `return_value=session_cm`.
+
+Keep a getter assertion only when the getter call is the behavior under test, such as a startup routine that must create a client. In that case add `# assert-not-weak: <reason>`.
+
 ## Coverage Theater Checklist
 
 Before committing a test, verify it does not fall into these patterns:
 
 - [ ] Function body has at least one `assert`, `assert_called*`, or `pytest.raises`
 - [ ] Mock call verifications use `assert_called_once_with(...)` not just `assert_called_once()`
+- [ ] Every `patch(...) as name` has an `assert_*` call (or other real check), or the `as name` is removed
 - [ ] If a mock returns a value, the test asserts something about how that value was used
 - [ ] `assert_not_called()` is only used when a sibling test for the same mock _does_ call it
 - [ ] The test name describes a specific behavior, not just "test it runs"

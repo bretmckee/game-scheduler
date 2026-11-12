@@ -68,9 +68,9 @@ Stop the test-assertion checker from forcing or accepting hollow `assert_called_
 - [x] Task 5.2: Trim `no-arg-methods`, add provider regression test, `--all` clean
   - Details: .copilot-tracking/planning/details/20261109-01-test-assertion-quality-details.md (Lines 90-97)
 
-### [ ] Phase 6: Docs
+### [x] Phase 6: Docs
 
-- [ ] Task 6.1: Update unit-tests.instructions.md and fix-test-assertion-violations.md
+- [x] Task 6.1: Update unit-tests.instructions.md and fix-test-assertion-violations.md
   - Details: .copilot-tracking/planning/details/20261109-01-test-assertion-quality-details.md (Lines 101-111)
 
 ## Dependencies

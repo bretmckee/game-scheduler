@@ -31,6 +31,9 @@ Stop the test-assertion checker from forcing or accepting hollow `assert_called_
 - tests/unit/services/api/test_api_main.py - Phase 5 (Task 5.1): `test_main_uses_config_values` drops the empty `get_api_config` assertion; `uvicorn.Config` kwarg checks kept
 - pyproject.toml - Phase 5 (Task 5.2): removed `get_config`, `get_api_config`, `get_redis_client`, `get_db_session`, `get_role_service` and `get_discord_client` from `[tool.check-test-assertions] no-arg-methods`
 - tests/unit/scripts/test_check_test_assertions.py - Phase 5 (Task 5.2): parametrized regression test that an empty `assert_called_once_with()` on each patched provider is a violation (failed 6/6 before the trim and passes after it)
+- .github/instructions/unit-tests.instructions.md - Phase 6: new "What the Pre-Commit Checker Enforces" section (seven violation types, what counts as checking a named mock, what is not checked, the "only name a patch you intend to check" rule with a `return_value=` example, and the checker command); new Coverage Theater Checklist item for `patch(...) as name`
+- docs/developer/fix-test-assertion-violations.md - Phase 6: named-mock violation now leads with the unnamed `patch(..., return_value=fake)` fix (including the `session_cm` pattern) and lists what counts as checking an alias; getter examples removed from the escape-hatch section and replaced with a "do not" example; allowlist described as action methods only; marker quota wording notes that markers Jedi verifies are not counted; table row added for setup-only fakes
+- .claude/config-sync-manifest.json - Phase 6: unit-tests.instructions.md re-recorded as reference-only
 
 ### Removed
 
