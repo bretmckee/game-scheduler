@@ -48,12 +48,10 @@ async def test_handle_join_notification_with_signup_instructions(event_handlers,
 
     sample_game.participants = [participant]
 
-    with patch("services.bot.events.handlers.get_db_session") as mock_db_session:
-        mock_db = MagicMock()
-        mock_db.__aenter__ = AsyncMock(return_value=mock_db)
-        mock_db.__aexit__ = AsyncMock()
-        mock_db_session.return_value = mock_db
-
+    mock_db = MagicMock()
+    mock_db.__aenter__ = AsyncMock(return_value=mock_db)
+    mock_db.__aexit__ = AsyncMock()
+    with patch("services.bot.events.handlers.get_db_session", return_value=mock_db):
         with patch.object(
             event_handlers, "_get_game_with_participants", new_callable=AsyncMock
         ) as mock_get_game:
@@ -82,8 +80,6 @@ async def test_handle_join_notification_with_signup_instructions(event_handlers,
                 assert sample_game.title in sent_message
                 assert sample_game.signup_instructions in sent_message
 
-                # assert-not-weak: get_db_session() has no parameters
-                mock_db_session.assert_called_once_with()
                 mock_get_game.assert_awaited_once_with(mock_db, sample_game.id)
 
 
@@ -103,12 +99,10 @@ async def test_handle_join_notification_without_signup_instructions(event_handle
 
     sample_game.participants = [participant]
 
-    with patch("services.bot.events.handlers.get_db_session") as mock_db_session:
-        mock_db = MagicMock()
-        mock_db.__aenter__ = AsyncMock(return_value=mock_db)
-        mock_db.__aexit__ = AsyncMock()
-        mock_db_session.return_value = mock_db
-
+    mock_db = MagicMock()
+    mock_db.__aenter__ = AsyncMock(return_value=mock_db)
+    mock_db.__aexit__ = AsyncMock()
+    with patch("services.bot.events.handlers.get_db_session", return_value=mock_db):
         with patch.object(
             event_handlers, "_get_game_with_participants", new_callable=AsyncMock
         ) as mock_get_game:
@@ -137,8 +131,6 @@ async def test_handle_join_notification_without_signup_instructions(event_handle
                 assert sample_game.title in sent_message
                 assert "signup instructions" not in sent_message.lower()
 
-                # assert-not-weak: get_db_session() has no parameters
-                mock_db_session.assert_called_once_with()
                 mock_get_game.assert_awaited_once_with(mock_db, sample_game.id)
 
 
@@ -151,12 +143,10 @@ async def test_handle_join_notification_missing_participant_id(event_handlers, s
         "participant_id": None,
     }
 
-    with patch("services.bot.events.handlers.get_db_session") as mock_db_session:
-        mock_db = MagicMock()
-        mock_db.__aenter__ = AsyncMock(return_value=mock_db)
-        mock_db.__aexit__ = AsyncMock()
-        mock_db_session.return_value = mock_db
-
+    mock_db = MagicMock()
+    mock_db.__aenter__ = AsyncMock(return_value=mock_db)
+    mock_db.__aexit__ = AsyncMock()
+    with patch("services.bot.events.handlers.get_db_session", return_value=mock_db):
         with patch.object(
             event_handlers, "_get_game_with_participants", new_callable=AsyncMock
         ) as mock_get_game:
@@ -172,8 +162,6 @@ async def test_handle_join_notification_missing_participant_id(event_handlers, s
             await event_handlers._handle_notification_due(data)
 
             mock_get_game.assert_awaited_once_with(mock_db, data["game_id"])
-            # assert-not-weak: get_db_session() has no parameters
-            mock_db_session.assert_called_once_with()
 
 
 @pytest.mark.asyncio
@@ -181,12 +169,10 @@ async def test_handle_join_notification_user_not_found(event_handlers, sample_ga
     """Test join notification handles missing participant gracefully."""
     participant_id = str(uuid4())
 
-    with patch("services.bot.events.handlers.get_db_session") as mock_db_session:
-        mock_db = MagicMock()
-        mock_db.__aenter__ = AsyncMock(return_value=mock_db)
-        mock_db.__aexit__ = AsyncMock()
-        mock_db_session.return_value = mock_db
-
+    mock_db = MagicMock()
+    mock_db.__aenter__ = AsyncMock(return_value=mock_db)
+    mock_db.__aexit__ = AsyncMock()
+    with patch("services.bot.events.handlers.get_db_session", return_value=mock_db):
         with patch.object(
             event_handlers, "_get_game_with_participants", new_callable=AsyncMock
         ) as mock_get_game:
@@ -211,8 +197,6 @@ async def test_handle_join_notification_user_not_found(event_handlers, sample_ga
                     "no longer active" in str(call) for call in mock_logger.info.call_args_list
                 )
 
-                # assert-not-weak: get_db_session() has no parameters
-                mock_db_session.assert_called_once_with()
                 mock_get_game.assert_awaited_once_with(mock_db, sample_game.id)
 
 

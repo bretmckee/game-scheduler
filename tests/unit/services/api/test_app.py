@@ -22,7 +22,7 @@
 """Tests for API application factory."""
 
 import logging
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import FastAPI, Request
@@ -65,24 +65,24 @@ def test_create_app_configures_title_and_version():
 
 def test_create_app_enables_docs_in_debug_mode():
     """Test that OpenAPI docs are enabled in debug mode."""
-    with patch("services.api.app.get_api_config") as mock_config:
-        mock_config.return_value.debug = True
+    config = MagicMock()
+    config.debug = True
+    with patch("services.api.app.get_api_config", return_value=config):
         with patch("services.api.app.redis_client.get_redis_client"):
             application = app.create_app()
             assert application.docs_url == "/docs"
             assert application.redoc_url == "/redoc"
-        mock_config.assert_called_once_with()
 
 
 def test_create_app_disables_docs_in_production():
     """Test that OpenAPI docs are disabled in production mode."""
-    with patch("services.api.app.get_api_config") as mock_config:
-        mock_config.return_value.debug = False
+    config = MagicMock()
+    config.debug = False
+    with patch("services.api.app.get_api_config", return_value=config):
         with patch("services.api.app.redis_client.get_redis_client"):
             application = app.create_app()
             assert application.docs_url is None
             assert application.redoc_url is None
-        mock_config.assert_called_once_with()
 
 
 def test_health_check_endpoint():

@@ -44,8 +44,11 @@ async def test_recurrence_confirmation_treats_naive_scheduled_at_as_utc(
         game_id=sample_game.id, notification_type="recurrence_confirmation"
     )
 
+    session_cm = MagicMock()
+    session_cm.__aenter__ = AsyncMock(return_value=MagicMock())
+    session_cm.__aexit__ = AsyncMock(return_value=None)
     with (
-        patch("services.bot.events.handlers.get_db_session") as mock_db_session,
+        patch("services.bot.events.handlers.get_db_session", return_value=session_cm),
         patch.object(
             event_handlers,
             "_get_game_with_participants",
@@ -55,13 +58,10 @@ async def test_recurrence_confirmation_treats_naive_scheduled_at_as_utc(
         patch("services.bot.events.handlers.RecurrenceConfirmationView") as mock_view_cls,
         patch("services.bot.events.handlers.DMFormats") as mock_fmt,
     ):
-        mock_db_session.return_value.__aenter__ = AsyncMock(return_value=MagicMock())
-        mock_db_session.return_value.__aexit__ = AsyncMock(return_value=None)
         mock_fmt.recurrence_confirmation.return_value = "Recurrence DM text"
 
         await event_handlers._handle_recurrence_confirmation(event)
 
-    mock_db_session.assert_called_once_with()
     mock_view_cls.assert_called_once_with(str(sample_game.id))
     mock_fmt.recurrence_confirmation.assert_called_once_with(sample_game.title, 1785607200)
     mock_user.send.assert_awaited_once_with("Recurrence DM text", view=mock_view_cls.return_value)

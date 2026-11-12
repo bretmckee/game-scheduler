@@ -45,19 +45,18 @@ async def test_handle_game_updated_inserts_queue_row(
     mock_db.execute = AsyncMock()
     mock_db.commit = AsyncMock()
 
+    session_cm = MagicMock()
+    session_cm.__aenter__ = AsyncMock(return_value=mock_db)
+    session_cm.__aexit__ = AsyncMock(return_value=None)
     with (
-        patch("services.bot.events.handlers.get_db_session") as mock_db_session,
+        patch("services.bot.events.handlers.get_db_session", return_value=session_cm),
         patch(
             "services.bot.events.handlers.EventHandlers._get_game_with_participants",
             return_value=sample_game,
         ),
     ):
-        mock_db_session.return_value.__aenter__ = AsyncMock(return_value=mock_db)
-        mock_db_session.return_value.__aexit__ = AsyncMock(return_value=None)
-
         await event_handlers._handle_game_updated({"game_id": sample_game.id})
 
-    mock_db_session.assert_called_once_with()
     # Write path uses execute() with an upsert statement (not session.add)
     mock_db.execute.assert_awaited_once()
     queue_rows_via_add = [

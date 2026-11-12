@@ -52,12 +52,12 @@ Stop the test-assertion checker from forcing or accepting hollow `assert_called_
 - [x] Task 3.1: Rewrite hollow provider assertions in the five largest files
   - Details: .copilot-tracking/planning/details/20261109-01-test-assertion-quality-details.md (Lines 41-52)
 
-### [ ] Phase 4: Cleanup - remaining files and provider markers
+### [x] Phase 4: Cleanup - remaining files and provider markers
 
-- [ ] Task 4.1: Rewrite remaining provider sites (16 other files)
+- [x] Task 4.1: Rewrite remaining provider sites (16 other files)
   - Details: .copilot-tracking/planning/details/20261109-01-test-assertion-quality-details.md (Lines 54-63)
 
-- [ ] Task 4.2: Remove the 6 provider markers (incl. 6882f984 tests)
+- [x] Task 4.2: Remove the 6 provider markers (incl. 6882f984 tests)
   - Details: .copilot-tracking/planning/details/20261109-01-test-assertion-quality-details.md (Lines 65-72)
 
 ### [ ] Phase 5: Non-provider sites, getter-under-test markers, config trim

@@ -197,8 +197,11 @@ async def test_refresh_game_message_success(event_handlers, sample_game, mock_bo
     mock_channel.get_partial_message = MagicMock(return_value=mock_message)
     mock_db_instance = MagicMock()
 
+    session_cm = MagicMock()
+    session_cm.__aenter__.return_value = mock_db_instance
+    session_cm.__aexit__.return_value = None
     with (
-        patch("services.bot.events.handlers.get_db_session") as mock_db,
+        patch("services.bot.events.handlers.get_db_session", return_value=session_cm),
         patch.object(
             event_handlers, "_fetch_game_for_refresh", return_value=sample_game
         ) as mock_fetch,
@@ -207,12 +210,8 @@ async def test_refresh_game_message_success(event_handlers, sample_game, mock_bo
         ) as mock_validate,
         patch.object(event_handlers, "_update_game_message_content") as mock_update,
     ):
-        mock_db.return_value.__aenter__.return_value = mock_db_instance
-        mock_db.return_value.__aexit__.return_value = None
-
         await event_handlers._refresh_game_message(sample_game.id)
 
-        mock_db.assert_called_once_with()
         mock_fetch.assert_called_once_with(mock_db_instance, sample_game.id)
         mock_validate.assert_called_once_with(str(sample_game.channel.channel_id))
         mock_channel.get_partial_message.assert_called_once_with(int(sample_game.message_id))
@@ -225,18 +224,17 @@ async def test_refresh_game_message_game_not_found(event_handlers, mock_bot):
     game_id = str(uuid4())
     mock_db_instance = MagicMock()
 
+    session_cm = MagicMock()
+    session_cm.__aenter__.return_value = mock_db_instance
+    session_cm.__aexit__.return_value = None
     with (
-        patch("services.bot.events.handlers.get_db_session") as mock_db,
+        patch("services.bot.events.handlers.get_db_session", return_value=session_cm),
         patch.object(event_handlers, "_fetch_game_for_refresh", return_value=None) as mock_fetch,
         patch.object(event_handlers, "_validate_channel_for_refresh") as mock_validate,
         patch.object(event_handlers, "_update_game_message_content") as mock_update,
     ):
-        mock_db.return_value.__aenter__.return_value = mock_db_instance
-        mock_db.return_value.__aexit__.return_value = None
-
         await event_handlers._refresh_game_message(game_id)
 
-        mock_db.assert_called_once_with()
         mock_fetch.assert_called_once_with(mock_db_instance, game_id)
         mock_validate.assert_not_called()
         mock_update.assert_not_called()
@@ -253,8 +251,11 @@ async def test_refresh_game_message_channel_validation_fails(event_handlers, sam
 
     mock_db_instance = MagicMock()
 
+    session_cm = MagicMock()
+    session_cm.__aenter__.return_value = mock_db_instance
+    session_cm.__aexit__.return_value = None
     with (
-        patch("services.bot.events.handlers.get_db_session") as mock_db,
+        patch("services.bot.events.handlers.get_db_session", return_value=session_cm),
         patch.object(
             event_handlers, "_fetch_game_for_refresh", return_value=sample_game
         ) as mock_fetch,
@@ -263,12 +264,8 @@ async def test_refresh_game_message_channel_validation_fails(event_handlers, sam
         ) as mock_validate,
         patch.object(event_handlers, "_update_game_message_content") as mock_update,
     ):
-        mock_db.return_value.__aenter__.return_value = mock_db_instance
-        mock_db.return_value.__aexit__.return_value = None
-
         await event_handlers._refresh_game_message(sample_game.id)
 
-        mock_db.assert_called_once_with()
         mock_fetch.assert_called_once_with(mock_db_instance, sample_game.id)
         mock_validate.assert_called_once_with(str(sample_game.channel.channel_id))
         mock_update.assert_not_called()
@@ -286,8 +283,11 @@ async def test_refresh_game_message_message_not_found(event_handlers, sample_gam
     mock_channel = MagicMock(spec=discord.TextChannel)
     mock_db_instance = MagicMock()
 
+    session_cm = MagicMock()
+    session_cm.__aenter__.return_value = mock_db_instance
+    session_cm.__aexit__.return_value = None
     with (
-        patch("services.bot.events.handlers.get_db_session") as mock_db,
+        patch("services.bot.events.handlers.get_db_session", return_value=session_cm),
         patch.object(
             event_handlers, "_fetch_game_for_refresh", return_value=sample_game
         ) as mock_fetch,
@@ -301,12 +301,8 @@ async def test_refresh_game_message_message_not_found(event_handlers, sample_gam
         ) as mock_update,
         patch("services.bot.events.handlers.logger") as mock_logger,
     ):
-        mock_db.return_value.__aenter__.return_value = mock_db_instance
-        mock_db.return_value.__aexit__.return_value = None
-
         await event_handlers._refresh_game_message(sample_game.id)
 
-        mock_db.assert_called_once_with()
         mock_fetch.assert_called_once_with(mock_db_instance, sample_game.id)
         mock_validate.assert_called_once_with(str(sample_game.channel.channel_id))
         mock_update.assert_called_once_with(
@@ -323,18 +319,17 @@ async def test_refresh_game_message_handles_exception(event_handlers, sample_gam
     """Test refresh handles exceptions gracefully."""
     mock_db_instance = MagicMock()
 
+    session_cm = MagicMock()
+    session_cm.__aenter__.return_value = mock_db_instance
+    session_cm.__aexit__.return_value = None
     with (
-        patch("services.bot.events.handlers.get_db_session") as mock_db,
+        patch("services.bot.events.handlers.get_db_session", return_value=session_cm),
         patch.object(
             event_handlers,
             "_fetch_game_for_refresh",
             side_effect=Exception("Database error"),
         ),
     ):
-        mock_db.return_value.__aenter__.return_value = mock_db_instance
-        mock_db.return_value.__aexit__.return_value = None
-
         await event_handlers._refresh_game_message(sample_game.id)
 
-        mock_db.assert_called_once_with()
         assert True  # exception handled gracefully; function returns without raising

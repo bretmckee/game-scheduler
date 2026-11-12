@@ -1261,8 +1261,11 @@ async def test_handle_game_reminder_treats_naive_scheduled_at_as_utc(
     sample_game.scheduled_at = datetime(2026, 8, 1, 18, 0)
     sample_game.participants = []
 
+    session_cm = MagicMock()
+    session_cm.__aenter__ = AsyncMock(return_value=MagicMock())
+    session_cm.__aexit__ = AsyncMock(return_value=None)
     with (
-        patch("services.bot.events.handlers.get_db_session") as mock_db_session,
+        patch("services.bot.events.handlers.get_db_session", return_value=session_cm),
         patch.object(
             event_handlers,
             "_get_game_with_participants",
@@ -1276,14 +1279,10 @@ async def test_handle_game_reminder_treats_naive_scheduled_at_as_utc(
             event_handlers, "_deliver_game_reminders", new_callable=AsyncMock
         ) as mock_deliver,
     ):
-        mock_db_session.return_value.__aenter__ = AsyncMock(return_value=MagicMock())
-        mock_db_session.return_value.__aexit__ = AsyncMock(return_value=None)
-
         await event_handlers._handle_notification_due({
             "game_id": sample_game.id,
             "notification_type": "reminder",
         })
 
-    mock_db_session.assert_called_once_with()
     mock_deliver.assert_awaited_once()
     assert mock_deliver.await_args.args[4] == 1785607200

@@ -58,8 +58,11 @@ async def test_handle_clone_confirmation_sends_dm_with_view(event_handlers, mock
     schedule_result.scalar_one_or_none = MagicMock(return_value=schedule)
     mock_db_instance.execute = AsyncMock(return_value=schedule_result)
 
+    session_cm = MagicMock()
+    session_cm.__aenter__ = AsyncMock(return_value=mock_db_instance)
+    session_cm.__aexit__ = AsyncMock(return_value=None)
     with (
-        patch("services.bot.events.handlers.get_db_session") as mock_db,
+        patch("services.bot.events.handlers.get_db_session", return_value=session_cm),
         patch.object(
             event_handlers,
             "_fetch_join_notification_data",
@@ -69,8 +72,6 @@ async def test_handle_clone_confirmation_sends_dm_with_view(event_handlers, mock
         patch("services.bot.events.handlers.CloneConfirmationView") as mock_view_cls,
         patch("services.bot.events.handlers.DMFormats") as mock_fmt,
     ):
-        mock_db.return_value.__aenter__ = AsyncMock(return_value=mock_db_instance)
-        mock_db.return_value.__aexit__ = AsyncMock(return_value=None)
         mock_fmt.clone_confirmation.return_value = "Clone confirmation DM text"
 
         await event_handlers._handle_clone_confirmation(event)
@@ -84,7 +85,6 @@ async def test_handle_clone_confirmation_sends_dm_with_view(event_handlers, mock
     mock_user.send.assert_awaited_once()
     send_kwargs = mock_user.send.call_args
     assert send_kwargs[1]["view"] is mock_view_cls.return_value
-    mock_db.assert_called_once_with()
     mock_fmt.clone_confirmation.assert_called_once_with(
         sample_game.title, int(schedule.action_time.timestamp())
     )
@@ -101,8 +101,11 @@ async def test_handle_clone_confirmation_skips_when_participant_not_found(event_
 
     mock_db_instance = MagicMock()
 
+    session_cm = MagicMock()
+    session_cm.__aenter__ = AsyncMock(return_value=mock_db_instance)
+    session_cm.__aexit__ = AsyncMock(return_value=None)
     with (
-        patch("services.bot.events.handlers.get_db_session") as mock_db,
+        patch("services.bot.events.handlers.get_db_session", return_value=session_cm),
         patch.object(
             event_handlers,
             "_fetch_join_notification_data",
@@ -110,13 +113,9 @@ async def test_handle_clone_confirmation_skips_when_participant_not_found(event_
             return_value=(None, None),
         ),
     ):
-        mock_db.return_value.__aenter__ = AsyncMock(return_value=mock_db_instance)
-        mock_db.return_value.__aexit__ = AsyncMock(return_value=None)
-
         await event_handlers._handle_clone_confirmation(event)
 
     mock_bot.fetch_user.assert_not_called()
-    mock_db.assert_called_once_with()
 
 
 @pytest.mark.asyncio
@@ -141,8 +140,11 @@ async def test_handle_clone_confirmation_falls_back_to_join_dm_when_no_schedule(
     no_schedule_result.scalar_one_or_none = MagicMock(return_value=None)
     mock_db_instance.execute = AsyncMock(return_value=no_schedule_result)
 
+    session_cm = MagicMock()
+    session_cm.__aenter__ = AsyncMock(return_value=mock_db_instance)
+    session_cm.__aexit__ = AsyncMock(return_value=None)
     with (
-        patch("services.bot.events.handlers.get_db_session") as mock_db,
+        patch("services.bot.events.handlers.get_db_session", return_value=session_cm),
         patch.object(
             event_handlers,
             "_fetch_join_notification_data",
@@ -155,14 +157,10 @@ async def test_handle_clone_confirmation_falls_back_to_join_dm_when_no_schedule(
             new_callable=AsyncMock,
         ) as mock_send_join,
     ):
-        mock_db.return_value.__aenter__ = AsyncMock(return_value=mock_db_instance)
-        mock_db.return_value.__aexit__ = AsyncMock(return_value=None)
-
         await event_handlers._handle_clone_confirmation(event)
 
     mock_send_join.assert_awaited_once()
     mock_bot.fetch_user.assert_not_called()
-    mock_db.assert_called_once_with()
 
 
 @pytest.mark.asyncio
@@ -191,8 +189,11 @@ async def test_handle_clone_confirmation_user_not_in_cache(event_handlers, mock_
     schedule_result.scalar_one_or_none = MagicMock(return_value=schedule)
     mock_db_instance.execute = AsyncMock(return_value=schedule_result)
 
+    session_cm = MagicMock()
+    session_cm.__aenter__ = AsyncMock(return_value=mock_db_instance)
+    session_cm.__aexit__ = AsyncMock(return_value=None)
     with (
-        patch("services.bot.events.handlers.get_db_session") as mock_db,
+        patch("services.bot.events.handlers.get_db_session", return_value=session_cm),
         patch.object(
             event_handlers,
             "_fetch_join_notification_data",
@@ -202,14 +203,11 @@ async def test_handle_clone_confirmation_user_not_in_cache(event_handlers, mock_
         patch("services.bot.events.handlers.CloneConfirmationView"),
         patch("services.bot.events.handlers.DMFormats") as mock_fmt,
     ):
-        mock_db.return_value.__aenter__ = AsyncMock(return_value=mock_db_instance)
-        mock_db.return_value.__aexit__ = AsyncMock(return_value=None)
         mock_fmt.clone_confirmation.return_value = "Clone confirmation DM text"
 
         await event_handlers._handle_clone_confirmation(event)
 
     mock_bot.fetch_user.assert_not_called()
-    mock_db.assert_called_once_with()
     mock_fmt.clone_confirmation.assert_called_once_with(
         sample_game.title, int(schedule.action_time.timestamp())
     )
@@ -241,8 +239,11 @@ async def test_clone_confirmation_treats_naive_action_time_as_utc(
     schedule_result.scalar_one_or_none = MagicMock(return_value=schedule)
     mock_db_instance.execute = AsyncMock(return_value=schedule_result)
 
+    session_cm = MagicMock()
+    session_cm.__aenter__ = AsyncMock(return_value=mock_db_instance)
+    session_cm.__aexit__ = AsyncMock(return_value=None)
     with (
-        patch("services.bot.events.handlers.get_db_session") as mock_db,
+        patch("services.bot.events.handlers.get_db_session", return_value=session_cm),
         patch.object(
             event_handlers,
             "_fetch_join_notification_data",
@@ -252,11 +253,8 @@ async def test_clone_confirmation_treats_naive_action_time_as_utc(
         patch("services.bot.events.handlers.CloneConfirmationView"),
         patch("services.bot.events.handlers.DMFormats") as mock_fmt,
     ):
-        mock_db.return_value.__aenter__ = AsyncMock(return_value=mock_db_instance)
-        mock_db.return_value.__aexit__ = AsyncMock(return_value=None)
         mock_fmt.clone_confirmation.return_value = "Clone confirmation DM text"
 
         await event_handlers._handle_clone_confirmation(event)
 
-    mock_db.assert_called_once_with()
     mock_fmt.clone_confirmation.assert_called_once_with(sample_game.title, 1785607200)

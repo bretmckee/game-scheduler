@@ -528,9 +528,9 @@ class TestGameMessageFormatterHelpers:
         long_description = "A" * 1000
         game_id = "test-game-id"
 
-        with patch("services.bot.formatters.game_message.get_config") as mock_config:
-            mock_config.return_value.frontend_url = "https://example.com"
-
+        config = MagicMock()
+        config.frontend_url = "https://example.com"
+        with patch("services.bot.formatters.game_message.get_config", return_value=config):
             (
                 truncated,
                 calendar_url,
@@ -544,7 +544,6 @@ class TestGameMessageFormatterHelpers:
         assert truncated == long_description
         assert calendar_url == "https://example.com/download-calendar/test-game-id"
         assert game_url == "https://example.com/games/test-game-id"
-        mock_config.assert_called_once_with()  # assert-not-weak: get_config() has no parameters
 
     def test_prepare_description_and_urls_keeps_short_description(self):
         """Test that short descriptions are not truncated."""
@@ -1280,11 +1279,9 @@ class TestFormatGameAnnouncement:
         """Test that embed includes calendar download URL when game_id is provided."""
         scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
 
-        with patch("services.bot.formatters.game_message.get_config") as mock_get_config:
-            mock_config = MagicMock()
-            mock_config.frontend_url = "https://example.com"
-            mock_get_config.return_value = mock_config
-
+        mock_config = MagicMock()
+        mock_config.frontend_url = "https://example.com"
+        with patch("services.bot.formatters.game_message.get_config", return_value=mock_config):
             with patch("services.bot.formatters.game_message.discord.Embed") as mock_embed_class:
                 mock_embed = MagicMock()
                 mock_embed_class.return_value = mock_embed
@@ -1308,8 +1305,6 @@ class TestFormatGameAnnouncement:
                 call_kwargs = mock_embed_class.call_args[1]
                 # Title is now plain text without URL
                 assert "url" not in call_kwargs
-                # assert-not-weak: get_config() has no parameters
-                mock_get_config.assert_called_once_with()
 
     def test_embed_excludes_url_when_game_id_not_provided(self):
         """Test that embed excludes URL when game_id is not provided."""

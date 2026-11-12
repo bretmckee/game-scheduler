@@ -44,17 +44,17 @@ class TestOAuth2Flow:
     @pytest.mark.asyncio
     async def test_generate_authorization_url(self):
         """Test authorization URL generation with state token."""
-        with patch("services.api.auth.oauth2.cache_client.get_redis_client") as mock_redis:
-            mock_redis_instance = AsyncMock()
-            mock_redis.return_value = mock_redis_instance
-
+        mock_redis_instance = AsyncMock()
+        with patch(
+            "services.api.auth.oauth2.cache_client.get_redis_client",
+            return_value=mock_redis_instance,
+        ):
             auth_url, state = await generate_authorization_url("http://localhost:3000/callback")
 
             assert "discord.com/api/oauth2/authorize" in auth_url
             assert "client_id=" in auth_url
             assert "scope=identify" in auth_url
             assert f"state={state}" in auth_url
-            mock_redis.assert_called_once_with()
             mock_redis_instance.set_json.assert_called_once_with(
                 ANY, "http://localhost:3000/callback", ttl=600
             )
@@ -62,21 +62,21 @@ class TestOAuth2Flow:
     @pytest.mark.asyncio
     async def test_validate_state_success(self):
         """Test successful state validation."""
+        mock_redis_instance = AsyncMock()
         with (
-            patch("services.api.auth.oauth2.cache_client.get_redis_client") as mock_redis,
+            patch(
+                "services.api.auth.oauth2.cache_client.get_redis_client",
+                return_value=mock_redis_instance,
+            ),
             patch(
                 "services.api.auth.oauth2.cache_get",
                 new_callable=AsyncMock,
                 return_value="http://localhost:3000/callback",
             ),
         ):
-            mock_redis_instance = AsyncMock()
-            mock_redis.return_value = mock_redis_instance
-
             redirect_uri = await validate_state("test_state")
 
             assert redirect_uri == "http://localhost:3000/callback"
-            mock_redis.assert_called_once_with()
             mock_redis_instance.delete.assert_called_once_with("api:oauth:test_state")
 
     @pytest.mark.asyncio
@@ -96,9 +96,8 @@ class TestOAuth2Flow:
     @pytest.mark.asyncio
     async def test_exchange_code_for_tokens(self):
         """Test authorization code exchange."""
-        with patch("services.api.auth.oauth2.get_discord_client") as mock_client:
-            mock_discord = AsyncMock()
-            mock_client.return_value = mock_discord
+        mock_discord = AsyncMock()
+        with patch("services.api.auth.oauth2.get_discord_client", return_value=mock_discord):
             mock_discord.exchange_code.return_value = {
                 "access_token": "test_token",
                 "refresh_token": "test_refresh",
@@ -109,14 +108,12 @@ class TestOAuth2Flow:
 
             assert result["access_token"] == "test_token"
             assert result["refresh_token"] == "test_refresh"
-            mock_client.assert_called_once_with()
 
     @pytest.mark.asyncio
     async def test_refresh_access_token(self):
         """Test access token refresh."""
-        with patch("services.api.auth.oauth2.get_discord_client") as mock_client:
-            mock_discord = AsyncMock()
-            mock_client.return_value = mock_discord
+        mock_discord = AsyncMock()
+        with patch("services.api.auth.oauth2.get_discord_client", return_value=mock_discord):
             mock_discord.refresh_token.return_value = {
                 "access_token": "new_token",
                 "refresh_token": "new_refresh",
@@ -126,14 +123,12 @@ class TestOAuth2Flow:
             result = await refresh_access_token("old_refresh_token")
 
             assert result["access_token"] == "new_token"
-            mock_client.assert_called_once_with()
 
     @pytest.mark.asyncio
     async def test_get_user_from_token(self):
         """Test user info fetching."""
-        with patch("services.api.auth.oauth2.get_discord_client") as mock_client:
-            mock_discord = AsyncMock()
-            mock_client.return_value = mock_discord
+        mock_discord = AsyncMock()
+        with patch("services.api.auth.oauth2.get_discord_client", return_value=mock_discord):
             mock_discord.get_user_info.return_value = {
                 "id": "123456789",
                 "username": "testuser",
@@ -143,7 +138,6 @@ class TestOAuth2Flow:
 
             assert result["id"] == "123456789"
             assert result["username"] == "testuser"
-            mock_client.assert_called_once_with()
 
     def test_calculate_token_expiry(self):
         """Test token expiry calculation."""

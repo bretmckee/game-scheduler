@@ -22,7 +22,7 @@
 """Unit tests for tokens module."""
 
 import uuid
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -49,10 +49,10 @@ def test_get_guild_token_returns_bot_token_for_maintainer():
     """Test that a maintainer session returns the bot token."""
     session = _make_session(is_maintainer=True)
 
-    with patch("services.api.auth.tokens.config") as mock_cfg:
-        mock_cfg.get_api_config.return_value.discord_bot_token = BOT_TOKEN
+    api_config = MagicMock()
+    api_config.discord_bot_token = BOT_TOKEN
+    with patch("services.api.auth.tokens.config.get_api_config", return_value=api_config):
         result = tokens.get_guild_token(session)
-        mock_cfg.get_api_config.assert_called_once_with()
 
     assert result == BOT_TOKEN
 

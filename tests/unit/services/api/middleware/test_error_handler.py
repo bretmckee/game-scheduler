@@ -147,11 +147,12 @@ async def test_database_exception_handler_returns_generic_message(mock_request):
     """Test that database errors return generic message to user."""
     mock_exc = MagicMock(spec=SQLAlchemyError)
 
+    config = MagicMock()
+    config.debug = False
     with (
         patch("services.api.middleware.error_handler.logger"),
-        patch("services.api.middleware.error_handler.get_api_config") as mock_config,
+        patch("services.api.middleware.error_handler.get_api_config", return_value=config),
     ):
-        mock_config.return_value.debug = False
         response = await error_handler.database_exception_handler(mock_request, mock_exc)
 
     body = response.body.decode()
@@ -160,7 +161,6 @@ async def test_database_exception_handler_returns_generic_message(mock_request):
     assert "Please create an issue" in body
     assert "UTC" in body
     assert "detail" not in body
-    mock_config.assert_called_once_with()
 
 
 @pytest.mark.asyncio
@@ -169,11 +169,12 @@ async def test_database_exception_handler_includes_details_in_debug_mode(mock_re
     mock_exc = MagicMock(spec=SQLAlchemyError)
     mock_exc.__str__ = MagicMock(return_value="Test database error")
 
+    config = MagicMock()
+    config.debug = True
     with (
         patch("services.api.middleware.error_handler.logger"),
-        patch("services.api.middleware.error_handler.get_api_config") as mock_config,
+        patch("services.api.middleware.error_handler.get_api_config", return_value=config),
     ):
-        mock_config.return_value.debug = True
         response = await error_handler.database_exception_handler(mock_request, mock_exc)
 
     body = response.body.decode()
@@ -181,7 +182,6 @@ async def test_database_exception_handler_includes_details_in_debug_mode(mock_re
     assert "An internal error has occurred" in body
     assert "detail" in body
     assert "Test database error" in body
-    mock_config.assert_called_once_with()
 
 
 @pytest.mark.asyncio

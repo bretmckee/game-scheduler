@@ -351,16 +351,16 @@ async def test_handle_post_transition_actions_sends_rewards_dm_on_completed(hand
     game.host = MagicMock()
     game.host.discord_id = "123456789"
 
+    config = MagicMock()
+    config.frontend_url = "https://example.com"
     with (
         patch.object(handlers, "_send_dm", new=AsyncMock()) as mock_dm,
         patch.object(handlers, "_archive_game_announcement", new=AsyncMock()),
-        patch("services.bot.events.handlers.get_config") as mock_cfg,
+        patch("services.bot.events.handlers.get_config", return_value=config),
     ):
-        mock_cfg.return_value.frontend_url = "https://example.com"
         await handlers._handle_post_transition_actions(game, GameStatus.COMPLETED.value)
 
     mock_dm.assert_called_once()
-    mock_cfg.assert_called_once_with()
     call_args = mock_dm.call_args
     assert call_args[0][0] == "123456789"
     assert "Test Game" in call_args[0][1]

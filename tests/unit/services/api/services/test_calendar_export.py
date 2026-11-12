@@ -397,17 +397,16 @@ async def test_host_display_name_from_projection(
     with patch("services.api.services.calendar_export.member_projection") as mock_proj:
         mock_proj.get_member = AsyncMock(return_value=member_data)
 
-        with patch("services.api.services.calendar_export.get_redis_client") as mock_redis_fn:
-            mock_redis = AsyncMock()
-            mock_redis_fn.return_value = mock_redis
-
+        mock_redis = AsyncMock()
+        with patch(
+            "services.api.services.calendar_export.get_redis_client", return_value=mock_redis
+        ):
             service = CalendarExportService(mock_db)
             ical_data = await service.export_game(
                 "game-123", "user-123", "123456789", can_export=True
             )
 
     assert ical_data is not None
-    mock_redis_fn.assert_called_once_with()
     mock_proj.get_member.assert_awaited_once_with("987654321", "123456789", redis=mock_redis)
     cal = Calendar.from_ical(ical_data)
     events = [c for c in cal.walk() if c.name == "VEVENT"]

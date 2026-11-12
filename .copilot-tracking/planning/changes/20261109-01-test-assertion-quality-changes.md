@@ -23,9 +23,13 @@ Stop the test-assertion checker from forcing or accepting hollow `assert_called_
 - tests/unit/services/bot/events/test_handlers_status_transition.py - Phase 3: 8 `get_db_session` patches now unnamed with the session fake built above the patch; `test_handle_status_transition_due_game_not_found` (whose only assertion was the hollow one) now asserts the game lookup and that no commit happened
 - tests/unit/api/services/test_guild_service_channel_refresh.py - Phase 3: 7 `get_discord_client` patches now unnamed; hollow getter assertions removed
 - tests/unit/services/bot/commands/test_my_games.py - Phase 3: 6 `get_db_session` patches now take a `session_cm` MagicMock whose `__aenter__` yields the session; hollow getter assertions removed
+- Phase 4 (Task 4.1): 37 hollow provider assertions removed across 16 more files (test_oauth2, test_list_games, test_handlers_clone, test_handlers_refresh_message, test_api_main, test_app, test_handlers_player_removal, test_error_handler, test_auth_routes, test_handlers_misc, test_tokens, test_calendar_export, test_handlers_game_reminder, test_handlers_game_updated, test_handlers_recurrence_confirmation); fakes are built above the patch (`config = MagicMock()`, `session_cm = MagicMock()` with `__aenter__`/`__aexit__`) and passed via `return_value=`; `alias.return_value.x` references in assertions now reference the fake. test_tokens now patches `config.get_api_config` directly instead of the whole module. The three `6882f984` naive-datetime tests keep their real checks
+- tests/unit/services/bot/events/test_handlers_join_notification.py - Phase 4 (Task 4.2): 4 `get_db_session` markers and hollow assertions removed; unnamed patch with `return_value=mock_db`
+- tests/unit/services/bot/formatters/test_game_message.py - Phase 4 (Task 4.2): 2 `get_config` markers and hollow assertions removed; unnamed patch with `return_value=`
 
 ### Removed
 
 ## Notes
 
 - `uv run python scripts/check_test_assertions.py --all` output is identical before and after the Phase 2 fix (clean under the current allowlist), so the fix introduced no new violations.
+- After Phase 4, `# assert-not-weak` markers in tests/ number 19 (a raw grep for `assert-not-weak` shows 20, because one hit is a string literal in test_check_test_assertions.py). Under the trimmed allowlist, `--all` reports only the three Task 5.1 sites.

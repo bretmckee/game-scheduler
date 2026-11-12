@@ -75,18 +75,17 @@ async def test_main_starts_uvicorn_server():
     mock_server = MagicMock()
     mock_server.serve = AsyncMock()
 
-    with patch("services.api.main.get_api_config") as mock_config:
-        mock_config.return_value.api_host = "127.0.0.1"
-        mock_config.return_value.api_port = 9000
-        mock_config.return_value.log_level = "INFO"
-        mock_config.return_value.debug = True
-
+    config = MagicMock()
+    config.api_host = "127.0.0.1"
+    config.api_port = 9000
+    config.log_level = "INFO"
+    config.debug = True
+    with patch("services.api.main.get_api_config", return_value=config):
         with patch("services.api.main.uvicorn.Server", return_value=mock_server):
             with patch("services.api.main.create_app"):
                 with patch("services.api.main.setup_logging"):
                     await main.main()
 
-                    mock_config.assert_called_once_with()
                     mock_server.serve.assert_called_once_with()
 
 
@@ -123,9 +122,10 @@ async def test_main_redacts_access_log_secrets():
     access_logger = logging.getLogger("uvicorn.access")
     before = list(access_logger.filters)
     try:
-        with patch("services.api.main.get_api_config") as mock_config:
-            mock_config.return_value.log_level = "INFO"
-            mock_config.return_value.debug = False
+        config = MagicMock()
+        config.log_level = "INFO"
+        config.debug = False
+        with patch("services.api.main.get_api_config", return_value=config):
             with (
                 patch("services.api.main.uvicorn.Config") as mock_uvicorn_config,
                 patch("services.api.main.uvicorn.Server") as mock_server,
@@ -135,11 +135,10 @@ async def test_main_redacts_access_log_secrets():
                 mock_server.return_value.serve = AsyncMock()
                 await main.main()
 
-        mock_config.assert_called_once_with()
         mock_uvicorn_config.assert_called_once_with(
             ANY,
-            host=mock_config.return_value.api_host,
-            port=mock_config.return_value.api_port,
+            host=config.api_host,
+            port=config.api_port,
             log_level="info",
             access_log=True,
         )

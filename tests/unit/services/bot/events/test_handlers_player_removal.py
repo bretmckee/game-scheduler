@@ -40,8 +40,11 @@ async def test_update_message_for_player_removal_success(
     mock_channel.get_partial_message = MagicMock(return_value=mock_message)
     mock_bot.get_channel.return_value = mock_channel
 
+    mock_db = AsyncMock()
+    session_cm = MagicMock()
+    session_cm.__aenter__.return_value = mock_db
     with (
-        patch("services.bot.events.handlers.get_db_session") as mock_get_db_session,
+        patch("services.bot.events.handlers.get_db_session", return_value=session_cm),
         patch.object(event_handlers, "_get_game_with_participants", return_value=sample_game),
         patch.object(
             event_handlers,
@@ -49,36 +52,31 @@ async def test_update_message_for_player_removal_success(
             return_value=("content", "embed", "view"),
         ),
     ):
-        mock_db = AsyncMock()
-        mock_get_db_session.return_value.__aenter__.return_value = mock_db
-
         await event_handlers._update_message_for_player_removal(
             sample_game.id, message_id, channel_id
         )
 
         mock_channel.get_partial_message.assert_called_once_with(int(message_id))
         mock_message.edit.assert_awaited_once()
-        mock_get_db_session.assert_called_once_with()
 
 
 @pytest.mark.asyncio
 async def test_update_message_for_player_removal_game_not_found(event_handlers, mock_bot):
     """Test message update when game is not found."""
+    mock_db = AsyncMock()
+    session_cm = MagicMock()
+    session_cm.__aenter__.return_value = mock_db
     with (
-        patch("services.bot.events.handlers.get_db_session") as mock_get_db_session,
+        patch("services.bot.events.handlers.get_db_session", return_value=session_cm),
         patch.object(event_handlers, "_get_game_with_participants", return_value=None),
         patch("services.bot.events.handlers.logger") as mock_logger,
     ):
-        mock_db = AsyncMock()
-        mock_get_db_session.return_value.__aenter__.return_value = mock_db
-
         await event_handlers._update_message_for_player_removal(
             "invalid_game_id", "msg123", "channel123"
         )
 
         mock_logger.error.assert_called()
         assert any("Game not found" in str(call) for call in mock_logger.error.call_args_list)
-        mock_get_db_session.assert_called_once_with()
 
 
 @pytest.mark.asyncio
@@ -95,8 +93,11 @@ async def test_update_message_for_player_removal_message_not_found(
     mock_channel.get_partial_message = MagicMock(return_value=mock_message)
     mock_bot.get_channel.return_value = mock_channel
 
+    mock_db = AsyncMock()
+    session_cm = MagicMock()
+    session_cm.__aenter__.return_value = mock_db
     with (
-        patch("services.bot.events.handlers.get_db_session") as mock_get_db_session,
+        patch("services.bot.events.handlers.get_db_session", return_value=session_cm),
         patch.object(event_handlers, "_get_game_with_participants", return_value=sample_game),
         patch.object(
             event_handlers,
@@ -105,9 +106,6 @@ async def test_update_message_for_player_removal_message_not_found(
         ),
         patch("services.bot.events.handlers.logger") as mock_logger,
     ):
-        mock_db = AsyncMock()
-        mock_get_db_session.return_value.__aenter__.return_value = mock_db
-
         await event_handlers._update_message_for_player_removal(
             sample_game.id, message_id, channel_id
         )
@@ -116,7 +114,6 @@ async def test_update_message_for_player_removal_message_not_found(
         assert any(
             "Game message not found" in str(call) for call in mock_logger.warning.call_args_list
         )
-        mock_get_db_session.assert_called_once_with()
 
 
 def test_build_removal_dm_message_without_schedule(event_handlers):

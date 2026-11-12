@@ -87,6 +87,9 @@ class TestCallback:
         mock_db.execute = AsyncMock(return_value=MagicMock())
         mock_response = MagicMock()
 
+        config = MagicMock()
+        config.environment = "development"
+        config.cookie_domain = None
         with (
             patch(
                 "services.api.auth.oauth2.validate_state",
@@ -116,10 +119,8 @@ class TestCallback:
                 new_callable=AsyncMock,
                 return_value="session-tok",
             ) as mock_store,
-            patch("services.api.routes.auth.get_api_config") as mock_config,
+            patch("services.api.routes.auth.get_api_config", return_value=config),
         ):
-            mock_config.return_value.environment = "development"
-            mock_config.return_value.cookie_domain = None
             result = await auth_routes.callback(
                 response=mock_response,
                 code="auth_code",
@@ -130,7 +131,6 @@ class TestCallback:
         assert result["success"] is True
         mock_store.assert_called_once()
         assert mock_store.call_args.kwargs["can_be_maintainer"] is False
-        mock_config.assert_called_once_with()
 
     @pytest.mark.asyncio
     async def test_callback_passes_username_and_avatar_to_store_user_tokens(self):
@@ -139,6 +139,9 @@ class TestCallback:
         mock_db.execute = AsyncMock(return_value=MagicMock())
         mock_response = MagicMock()
 
+        config = MagicMock()
+        config.environment = "development"
+        config.cookie_domain = None
         with (
             patch(
                 "services.api.auth.oauth2.validate_state",
@@ -173,10 +176,8 @@ class TestCallback:
                 new_callable=AsyncMock,
                 return_value="session-tok",
             ) as mock_store,
-            patch("services.api.routes.auth.get_api_config") as mock_config,
+            patch("services.api.routes.auth.get_api_config", return_value=config),
         ):
-            mock_config.return_value.environment = "development"
-            mock_config.return_value.cookie_domain = None
             await auth_routes.callback(
                 response=mock_response,
                 code="auth_code",
@@ -186,7 +187,6 @@ class TestCallback:
 
         assert mock_store.call_args.kwargs.get("username") == "testuser"
         assert mock_store.call_args.kwargs.get("avatar") == "abc123"
-        mock_config.assert_called_once_with()
 
 
 class TestRefresh:
