@@ -185,6 +185,66 @@ def _alias_has_attr_verification(
     )
 
 
+_VERIFYING_COMPARE_OPS: tuple[type[ast.cmpop], ...] = (
+    ast.Eq,
+    ast.NotEq,
+    ast.Is,
+    ast.IsNot,
+    ast.In,
+    ast.NotIn,
+)
+
+
+def _expr_references_alias(node: ast.expr, alias: str) -> bool:
+    """Return True if the expression contains a reference to the alias name."""
+    return any(isinstance(sub, ast.Name) and sub.id == alias for sub in ast.walk(node))
+
+
+def _alias_used_in_assert_call_args(
+    func_node: ast.FunctionDef | ast.AsyncFunctionDef,
+    alias: str,
+) -> bool:
+    """Return True if alias appears in the arguments of any assert_* call in func_node.
+
+    Covers e.g. `send.assert_called_once_with(view=mock_view_cls.return_value)`,
+    which proves the patched object's product reached the asserted call.
+    """
+    for node in ast.walk(func_node):
+        if not (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr.startswith("assert_")
+        ):
+            continue
+        arg_exprs = [*node.args, *(kw.value for kw in node.keywords)]
+        if any(_expr_references_alias(arg, alias) for arg in arg_exprs):
+            return True
+    return False
+
+
+def _alias_used_in_assert_comparison(
+    func_node: ast.FunctionDef | ast.AsyncFunctionDef,
+    alias: str,
+) -> bool:
+    """Return True if alias is an operand of an equality/identity/membership compare in an assert.
+
+    A bare truthiness check (`assert mock_x`) does not count: a mock is always truthy.
+    """
+    for node in ast.walk(func_node):
+        if not isinstance(node, ast.Assert):
+            continue
+        for compare in ast.walk(node.test):
+            if not (
+                isinstance(compare, ast.Compare)
+                and all(isinstance(op, _VERIFYING_COMPARE_OPS) for op in compare.ops)
+            ):
+                continue
+            operands = [compare.left, *compare.comparators]
+            if any(_expr_references_alias(operand, alias) for operand in operands):
+                return True
+    return False
+
+
 def get_unasserted_named_mocks(
     func_node: ast.FunctionDef | ast.AsyncFunctionDef,
 ) -> list[str]:
@@ -204,6 +264,8 @@ def get_unasserted_named_mocks(
         for alias in aliases
         if not _alias_has_assert_call(func_node, alias)
         and not _alias_has_attr_verification(func_node, alias)
+        and not _alias_used_in_assert_call_args(func_node, alias)
+        and not _alias_used_in_assert_comparison(func_node, alias)
     ]
 
 

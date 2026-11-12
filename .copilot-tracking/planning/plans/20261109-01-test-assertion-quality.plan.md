@@ -37,14 +37,14 @@ Stop the test-assertion checker from forcing or accepting hollow `assert_called_
 
 ## Implementation Checklist
 
-### [ ] Phase 1: RED - checker xfail tests
+### [x] Phase 1: RED - checker xfail tests
 
-- [ ] Task 1.1: Add strict-xfail tests (assert-arg use ok, comparison use ok) plus guard test (bare `assert mock_x` violates)
+- [x] Task 1.1: Add strict-xfail tests (assert-arg use ok, comparison use ok) plus guard test (bare `assert mock_x` violates)
   - Details: .copilot-tracking/planning/details/20261109-01-test-assertion-quality-details.md (Lines 15-28)
 
-### [ ] Phase 2: GREEN - checker fix
+### [x] Phase 2: GREEN - checker fix
 
-- [ ] Task 2.1: Count alias use in assert-call args and assert comparisons; remove xfail
+- [x] Task 2.1: Count alias use in assert-call args and assert comparisons; remove xfail
   - Details: .copilot-tracking/planning/details/20261109-01-test-assertion-quality-details.md (Lines 30-39)
 
 ### [ ] Phase 3: Cleanup - largest provider files

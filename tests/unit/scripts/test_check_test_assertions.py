@@ -28,6 +28,8 @@ from pathlib import Path
 from types import ModuleType
 from unittest import mock
 
+import pytest
+
 _SCRIPT_PATH = Path(__file__).parent.parent.parent.parent / "scripts" / "check_test_assertions.py"
 _spec = importlib.util.spec_from_file_location("check_test_assertions", _SCRIPT_PATH)
 _mod: ModuleType = importlib.util.module_from_spec(_spec)  # type: ignore[arg-type]
@@ -183,6 +185,35 @@ def test_get_unasserted_named_mocks_called_attribute_is_exempt() -> None:
     )
     func = _parse_func(source)
     assert check_test_assertions.get_unasserted_named_mocks(func) == []
+
+
+def test_get_unasserted_named_mocks_alias_in_other_assert_args_is_exempt() -> None:
+    source = (
+        "def test_foo():\n"
+        "    with patch('x') as mock_view_cls:\n"
+        "        fn()\n"
+        "    send.assert_called_once_with(view=mock_view_cls.return_value)\n"
+    )
+    func = _parse_func(source)
+    assert check_test_assertions.get_unasserted_named_mocks(func) == []
+
+
+@pytest.mark.parametrize("op", ["==", "!=", "is", "is not", "in", "not in"])
+def test_get_unasserted_named_mocks_alias_in_assert_comparison_is_exempt(op: str) -> None:
+    source = (
+        "def test_foo():\n"
+        "    with patch('x') as mock_x:\n"
+        "        result = fn()\n"
+        f"    assert result {op} mock_x.return_value\n"
+    )
+    func = _parse_func(source)
+    assert check_test_assertions.get_unasserted_named_mocks(func) == []
+
+
+def test_get_unasserted_named_mocks_bare_truthiness_assert_is_violation() -> None:
+    source = "def test_foo():\n    with patch('x') as mock_x:\n        fn()\n    assert mock_x\n"
+    func = _parse_func(source)
+    assert check_test_assertions.get_unasserted_named_mocks(func) == ["mock_x"]
 
 
 def test_has_assertion_recognizes_assert_not_awaited() -> None:
