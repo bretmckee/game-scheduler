@@ -394,14 +394,17 @@ export const GameDetails: FC = () => {
           {/* Hosts see the participants header as a link to a dedicated table of
               players and their seat positions; everyone else sees plain text. */}
           {canEdit ? (
-            <Typography variant="h6" gutterBottom color="primary.main">
-              <RouterLink
+            <Typography variant="h6" gutterBottom>
+              <Link
+                component={RouterLink}
                 to={`/games/${gameId}/participant-seats`}
-                style={{ textDecoration: 'underline', textUnderlineOffset: 2 }}
+                color="inherit"
+                underline="always"
+                sx={{ textUnderlineOffset: 2 }}
               >
                 Participants ({game.participant_count || 0}/
                 {game.max_players || UI.DEFAULT_MAX_PLAYERS})
-              </RouterLink>
+              </Link>
             </Typography>
           ) : (
             <Typography variant="h6" gutterBottom>

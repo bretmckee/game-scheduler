@@ -40,14 +40,14 @@ Make the host-only "Participants (x/y)" header link on GameDetails keep a stable
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Regression Test (RED)
+### [x] Phase 1: Regression Test (RED)
 
-- [ ] Task 1.1: Add an `it.fails` regression test asserting the host header is an MUI Link with `underline="always"`
+- [x] Task 1.1: Add an `it.fails` regression test asserting the host header is an MUI Link with `underline="always"`
   - Details: .copilot-tracking/planning/details/20261109-01-participants-header-link-contrast-details.md (Lines 11-48)
 
-### [ ] Phase 2: Fix the Header Link (GREEN)
+### [x] Phase 2: Fix the Header Link (GREEN)
 
-- [ ] Task 2.1: Replace the bare `RouterLink` with `Link component={RouterLink} color="inherit" underline="always"`, drop `color="primary.main"`, remove the `.fails` marker
+- [x] Task 2.1: Replace the bare `RouterLink` with `Link component={RouterLink} color="inherit" underline="always"`, drop `color="primary.main"`, remove the `.fails` marker
   - Details: .copilot-tracking/planning/details/20261109-01-participants-header-link-contrast-details.md (Lines 51-84)
 
 ## Dependencies

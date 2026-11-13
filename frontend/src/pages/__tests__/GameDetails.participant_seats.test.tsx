@@ -135,6 +135,17 @@ describe('GameDetails - participants header link to seat positions', () => {
     expect(apiClient.get).toHaveBeenCalledTimes(1);
   });
 
+  it('renders the host header link as an MUI Link that inherits the heading color', async () => {
+    vi.mocked(apiClient.get).mockResolvedValue({ data: gameFixture(true) } as never);
+
+    renderGameDetails();
+
+    const headerLink = await screen.findByRole('link', { name: /participants/i });
+    expect(headerLink).toHaveClass('MuiLink-root');
+    expect(headerLink).toHaveClass('MuiLink-underlineAlways');
+    expect(headerLink).toHaveAttribute('href', '/games/game-1/participant-seats');
+  });
+
   it('navigates to the participant-seats page when the host clicks the header link', async () => {
     vi.mocked(apiClient.get).mockResolvedValue({ data: gameFixture(true) } as never);
     const user = userEvent.setup();
