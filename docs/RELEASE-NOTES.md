@@ -1,5 +1,17 @@
 # Release Notes
 
+## v1.4.0 — 2026-11-13
+
+<!-- release-notes-skill: generated-through=7e9d77cf755ab0486a3d86901d73b5671892ad25 -->
+
+**New**
+
+- Players now get a Discord DM when the host changes the details of a game that's already been announced. One DM goes out per edit, to everyone confirmed or on the waitlist. It lists what changed, with the old and new value for each, and links to the game. It covers changes to the start time, expected duration, location, or signup instructions. Changing only the title, description, or rewards doesn't send a DM.
+
+**Fixed**
+
+- Fixed the Participants header on a game turning purple and hard to read after a host clicked it. It now stays white.
+
 ## v1.3.0 — 2026-10-21
 
 <!-- release-notes-skill: generated-through=4951b56da5c5d446e4e225d802010a7f4ba1bd37 -->
