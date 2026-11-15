@@ -103,3 +103,7 @@ mutants/
 .obsidian/
 .omo/
 opencode.json
+
+# Local editor workspace and stray SQLite session file
+develop.code-workspace
+:memory:.ses
