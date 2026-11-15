@@ -38,6 +38,7 @@ You WILL create actionable task plans based on verified research findings. You W
    - Project structure analysis with actual patterns
    - External source research with concrete implementation examples
    - Implementation guidance based on evidence, not assumptions
+   - A Testing Strategy covering unit, integration, and e2e levels (existing tests affected, new tests needed, or an explicit reason a level is not needed)
 3. **If research missing/incomplete**: You WILL IMMEDIATELY invoke the task-researcher subagent
 4. **If research needs updates**: You WILL invoke the task-researcher subagent for refinement
 5. You WILL proceed to planning ONLY after research validation

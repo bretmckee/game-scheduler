@@ -1,14 +1,14 @@
 {
   "entries": {
     ".github/agents/task-planner.agent.md": {
-      "source_hash": "9c33ab9c381cea57608b8883dd3a6922a4eb507890fc08f316326114c33c0fca",
+      "source_hash": "77a008c3bbaec2a0c960e0d8435dec64619336400e48a7ac842721898fe11021",
       "output": ".claude/agents/task-planner.md",
-      "output_hash": "bbe148daf1bd950cc4a1a216541804712be032a068d5fb1de5cb355bbbada897"
+      "output_hash": "24719774ce22b6a33a60a15cec0eaa0415e0072f643f2cc92683f4b911db2421"
     },
     ".github/agents/task-researcher.agent.md": {
-      "source_hash": "46d4d095ee0f7d185e0ad62e9d5b18b477d9d95b7901bbc78da85f59fab197b3",
+      "source_hash": "8350e69aaf98655e182f8764744d5f0f086e53a9d7f96d3e3162fcd16bc90d38",
       "output": ".claude/agents/task-researcher.md",
-      "output_hash": "d93e0f72ed2f05b51249864d174b793d964d2f549cb697d892ad8b623182b6d0"
+      "output_hash": "70f49c83ce05455abee875e99c16f7acd5c81952a7dea30a03524eb37ea0c440"
     },
     ".github/copilot-instructions.md": {
       "source_hash": "f38694641b9cdbbfadc65b1bcc8036774b886a366a4256cb8811a4aa08d80e81",

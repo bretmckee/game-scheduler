@@ -53,6 +53,7 @@ You MUST operate under these constraints:
 - You MUST remove outdated information immediately upon discovering newer alternatives
 - You WILL NEVER duplicate information across sections, consolidating related findings into single entries
 - You WILL identify whether TDD methodology is applicable based on file types being researched (applicable to Python, TypeScript/JavaScript; not applicable to bash scripts, Dockerfiles, YAML configs)
+- You WILL consider all three levels of testing — unit, integration, and end-to-end — for every code change: search the project's unit, integration, and e2e test directories (and any frontend test folders) for existing tests that touch the affected code, cite them, and decide which levels the change needs based on what each level can prove that the others cannot (e.g. real SQL and migrations need integration tests; acceptance by an external service needs e2e tests). Record the result in the template's Testing Strategy section
 
 ## Information Management Requirements
 
@@ -185,6 +186,14 @@ You MUST use this exact template for all research notes, preserving all formatti
 ## Recommended Approach
 
 {{single_selected_approach_with_complete_details}}
+
+### Testing Strategy
+
+| Level       | Existing tests affected                   | New tests needed                              | What only this level proves |
+| ----------- | ----------------------------------------- | --------------------------------------------- | --------------------------- |
+| Unit        | {{existing_unit_tests_with_lines}}        | {{new_unit_tests}}                            | {{unit_level_value}}        |
+| Integration | {{existing_integration_tests_with_lines}} | {{new_integration_tests_or_none_with_reason}} | {{integration_level_value}} |
+| E2E         | {{existing_e2e_tests_with_lines}}         | {{new_e2e_tests_or_none_with_reason}}         | {{e2e_level_value}}         |
 
 ## Implementation Guidance
 
