@@ -2,6 +2,14 @@
 
 # Task Research Notes: Game Posting/Scheduling Cleanup (post_at / scheduled_at)
 
+> **Status (2026-11-15):** The Part 7 `clone_game` BLOCKER is resolved. The
+> clone-game review redesign (commits `9b8c4bda`..`9e49a5d6`) made
+> `clone_game` delegate to `create_game` and added `post_at` to
+> `CloneGameRequest`. Line numbers below predate that work. All other parts
+> (picker fixes, `deferred`-branch removal, edit-mode immediate-post
+> simplification, immediate-path deletion, `game.posted.scheduled_in`
+> metric) remain unimplemented.
+
 **Task:** Verify and document a design (already converged interactively) that starts from a single MUI DateTimePicker affordance bug and grows into: (1) fixing both date pickers in `GameForm.tsx`, (2) confirming downstream scheduling infra already tolerates past timestamps, (3) unifying the two independent "post to Discord" code paths onto the one that is already race-safe, (4) a hard ordering dependency on migrating `clone_game` first, and (5) a new bucketed metric replacing the now-meaningless `source="immediate"|"deferred"` label. This document verifies every claim against the current codebase; no alternatives are proposed because none were left open by the brainstorming session.
 
 ## Research Executed
