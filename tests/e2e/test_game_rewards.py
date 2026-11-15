@@ -29,6 +29,7 @@ Covers:
 Requires full stack via compose.e2e.yaml.
 """
 
+import json
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
@@ -113,6 +114,7 @@ async def test_save_and_archive_archives_game_within_seconds(
     discord_archive_channel_id,
     discord_guild_id,
     discord_user_id,
+    test_user_discord_user_id,
     synced_guild,
     test_timeouts,
 ):
@@ -167,7 +169,7 @@ async def test_save_and_archive_archives_game_within_seconds(
 
     update_response = await authenticated_admin_client.put(
         f"/api/v1/games/{game_id}",
-        data={"rewards": rewards_text, "archive_delay_seconds": "1"},
+        data={"rewards": json.dumps([rewards_text]), "archive_delay_seconds": "1"},
     )
     assert update_response.status_code == 200, update_response.text
 
@@ -227,6 +229,7 @@ async def test_rewards_reminder_dm_sent_on_completion_when_empty(
     discord_channel_id,
     discord_guild_id,
     discord_user_id,
+    test_user_discord_user_id,
     synced_guild,
     test_timeouts,
 ):
@@ -334,7 +337,7 @@ async def test_discord_embed_shows_rewards_spoiler(
 
     update_response = await authenticated_admin_client.put(
         f"/api/v1/games/{game_id}",
-        data={"rewards": rewards_value},
+        data={"rewards": json.dumps([rewards_value])},
     )
     assert update_response.status_code == 200, update_response.text
 

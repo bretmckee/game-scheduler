@@ -371,7 +371,7 @@ async def test_handle_post_transition_actions_no_dm_when_rewards_set(handlers):
     """Does not send DM when game already has rewards set."""
     game = MagicMock()
     game.remind_host_rewards = True
-    game.rewards = "Gold coins for everyone"
+    game.rewards = ["Gold coins for everyone"]
     game.recur_rule = None
     game.host = MagicMock()
 
@@ -480,7 +480,7 @@ async def test_archive_announcement_with_rewards_mentions_confirmed_players(hand
     game.archive_channel_id = "bbb"
     game.archive_channel = MagicMock()
     game.archive_channel.channel_id = "ccc"
-    game.rewards = "magic sword"
+    game.rewards = ["magic sword"]
     game.participants = []
     game.max_players = 4
 
@@ -523,7 +523,7 @@ async def test_archive_announcement_with_rewards_ignores_role_mention_content(ha
     game.archive_channel_id = "bbb"
     game.archive_channel = MagicMock()
     game.archive_channel.channel_id = "ccc"
-    game.rewards = "gold"
+    game.rewards = ["gold"]
     game.participants = []
     game.max_players = 4
 
@@ -600,7 +600,7 @@ async def test_archive_announcement_with_rewards_no_confirmed_players(handlers):
     game.archive_channel_id = "bbb"
     game.archive_channel = MagicMock()
     game.archive_channel.channel_id = "ccc"
-    game.rewards = "treasure"
+    game.rewards = ["treasure"]
     game.participants = []
     game.max_players = 4
 

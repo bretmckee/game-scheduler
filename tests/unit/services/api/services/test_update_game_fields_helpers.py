@@ -449,11 +449,43 @@ def test_update_simple_text_fields_updates_rewards(game_service):
         status="SCHEDULED",
     )
 
-    update_data = game_schemas.GameUpdateRequest(rewards="a bag of gold")
+    update_data = game_schemas.GameUpdateRequest(rewards=["a bag of gold", "a sword"])
 
     game_service._update_simple_text_fields(game, update_data)
 
-    assert game.rewards == "a bag of gold"
+    assert game.rewards == ["a bag of gold", "a sword"]
+
+
+def test_update_simple_text_fields_empty_rewards_clears_to_none(game_service):
+    game = game_model.GameSession(
+        id=str(uuid.uuid4()),
+        title="Test Game",
+        rewards=["old reward"],
+        scheduled_at=datetime.datetime.now(UTC).replace(tzinfo=None),
+        status="SCHEDULED",
+    )
+
+    update_data = game_schemas.GameUpdateRequest(rewards=[])
+
+    game_service._update_simple_text_fields(game, update_data)
+
+    assert game.rewards is None
+
+
+def test_update_simple_text_fields_rewards_omitted_leaves_existing(game_service):
+    game = game_model.GameSession(
+        id=str(uuid.uuid4()),
+        title="Test Game",
+        rewards=["keep me"],
+        scheduled_at=datetime.datetime.now(UTC).replace(tzinfo=None),
+        status="SCHEDULED",
+    )
+
+    update_data = game_schemas.GameUpdateRequest()
+
+    game_service._update_simple_text_fields(game, update_data)
+
+    assert game.rewards == ["keep me"]
 
 
 def test_update_remaining_fields_updates_remind_host_rewards(game_service):

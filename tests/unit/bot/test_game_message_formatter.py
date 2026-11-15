@@ -57,7 +57,7 @@ def test_create_game_embed_with_rewards_adds_spoiler_field():
     with patch("services.bot.formatters.game_message.get_config", return_value=_config()):
         embed = GameMessageFormatter.create_game_embed(
             **_BASE_KWARGS,
-            rewards="Gold coins for all",
+            rewards=["Gold coins for all"],
         )
 
     field_names = [f.name for f in embed.fields]
@@ -65,6 +65,22 @@ def test_create_game_embed_with_rewards_adds_spoiler_field():
     assert "🏆 Rewards" in field_names
     rewards_value = field_values[field_names.index("🏆 Rewards")]
     assert rewards_value == "||Gold coins for all||"
+
+
+def test_create_game_embed_with_multiple_rewards_adds_one_field_per_entry():
+    """Each reward gets its own spoiler field; only the first carries the heading."""
+    with patch("services.bot.formatters.game_message.get_config", return_value=_config()):
+        embed = GameMessageFormatter.create_game_embed(
+            **_BASE_KWARGS,
+            rewards=["Gold", "Sword\nof doom", "Shield"],
+        )
+
+    fields = [f for f in embed.fields if f.value and f.value.startswith("||")]
+    assert [(f.name, f.value, f.inline) for f in fields] == [
+        ("🏆 Rewards", "||Gold||", False),
+        ("\u200b", "||Sword\nof doom||", False),
+        ("\u200b", "||Shield||", False),
+    ]
 
 
 def test_create_game_embed_without_rewards_has_no_rewards_field():
@@ -76,12 +92,12 @@ def test_create_game_embed_without_rewards_has_no_rewards_field():
     assert "🏆 Rewards" not in field_names
 
 
-def test_create_game_embed_with_empty_string_rewards_has_no_rewards_field():
-    """Empty string rewards is treated as falsy — no field added."""
+def test_create_game_embed_with_empty_list_rewards_has_no_rewards_field():
+    """Empty rewards list is treated as falsy — no field added."""
     with patch("services.bot.formatters.game_message.get_config", return_value=_config()):
         embed = GameMessageFormatter.create_game_embed(
             **_BASE_KWARGS,
-            rewards="",
+            rewards=[],
         )
 
     field_names = [f.name for f in embed.fields]

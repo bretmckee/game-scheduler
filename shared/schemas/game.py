@@ -22,11 +22,11 @@
 """Pydantic schemas for Game sessions."""
 
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, StringConstraints, field_validator
 
-from shared.utils.limits import MAX_DESCRIPTION_LENGTH
+from shared.utils.limits import MAX_DESCRIPTION_LENGTH, MAX_REWARD_ENTRIES, MAX_REWARD_LENGTH
 from shared.utils.security_constants import (
     DISCORD_SNOWFLAKE_MAX_LENGTH,
     DISCORD_SNOWFLAKE_MIN_LENGTH,
@@ -163,7 +163,11 @@ class GameUpdateRequest(BaseModel):
         None,
         description="Signup method (SELF_SIGNUP or HOST_SELECTED)",
     )
-    rewards: str | None = Field(None, max_length=2000)
+    rewards: list[Annotated[str, StringConstraints(max_length=MAX_REWARD_LENGTH)]] | None = Field(
+        None,
+        description="Reward entries (spoiler); an empty list clears rewards",
+        max_length=MAX_REWARD_ENTRIES,
+    )
     remind_host_rewards: bool | None = None
     reminders_as_dms: bool | None = None
     archive_delay_seconds: int | None = Field(None, ge=0)
@@ -176,6 +180,14 @@ class GameUpdateRequest(BaseModel):
         description="If True, clear post_at and announce immediately if not yet announced.",
     )
     recur_rule: str | None = None
+
+    @field_validator("rewards")
+    @classmethod
+    def strip_blank_rewards(cls, v: list[str] | None) -> list[str] | None:
+        """Trim each reward entry and drop entries that are blank after trimming."""
+        if v is None:
+            return v
+        return [entry.strip() for entry in v if entry.strip()]
 
     @field_validator("notify_role_ids")
     @classmethod
@@ -250,7 +262,7 @@ class GameResponse(BaseModel):
         default=False,
         description="True if the requesting user can edit or manage this game",
     )
-    rewards: str | None = Field(None, description="Rewards text (spoiler)")
+    rewards: list[str] | None = Field(None, description="Reward entries (spoiler)")
     remind_host_rewards: bool = Field(
         default=False,
         description="Send host a DM reminder when completed with no rewards",

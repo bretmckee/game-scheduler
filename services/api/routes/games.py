@@ -851,7 +851,7 @@ async def update_game(
             participants=participants_list,
             signup_method=signup_method,
             removed_participant_ids=removed_participant_ids_list,
-            rewards=rewards,
+            rewards=json.loads(rewards) if rewards else None,
             remind_host_rewards=remind_host_rewards,
             reminders_as_dms=reminders_as_dms,
             archive_delay_seconds=archive_delay_seconds,

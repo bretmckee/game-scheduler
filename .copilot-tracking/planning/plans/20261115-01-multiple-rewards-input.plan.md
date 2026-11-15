@@ -37,12 +37,12 @@ Let hosts enter each reward in its own text box (add/remove), stored as a JSON l
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Storage, Migration and API
+### [x] Phase 1: Storage, Migration and API
 
-- [ ] Task 1.1: Constants, migration SQL module, migration integration tests
+- [x] Task 1.1: Constants, migration SQL module, migration integration tests
   - Details: .copilot-tracking/planning/details/20261115-01-multiple-rewards-input-details.md (Lines 13-28)
 
-- [ ] Task 1.2: Alembic revision, model, schema, route, service, formatter signature, existing test updates
+- [x] Task 1.2: Alembic revision, model, schema, route, service, formatter signature, existing test updates
   - Details: .copilot-tracking/planning/details/20261115-01-multiple-rewards-input-details.md (Lines 29-51)
 
 ### [ ] Phase 2: Discord Embed Fit-vs-Link (TDD)

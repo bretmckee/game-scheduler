@@ -36,6 +36,10 @@ DISCORD_EMBED_FIELD_VALUE_LIMIT = 1024
 
 EMBED_FIELD_REWARDS = "🏆 Rewards"
 
+# Abuse caps only; the Discord embed falls back to a link when entries do not fit.
+MAX_REWARD_ENTRIES = 20
+MAX_REWARD_LENGTH = 2000
+
 MAX_DESCRIPTION_LENGTH = 4000
 
 GAME_LIST_DESCRIPTION_SNIPPET_LENGTH = 100

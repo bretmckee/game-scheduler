@@ -1307,7 +1307,7 @@ class GameService:
         if update_data.where is not None:
             game.where = update_data.where
         if update_data.rewards is not None:
-            game.rewards = update_data.rewards
+            game.rewards = update_data.rewards or None
         if update_data.recur_rule is not None:
             game.recur_rule = update_data.recur_rule or None
 

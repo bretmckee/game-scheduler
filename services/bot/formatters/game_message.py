@@ -537,7 +537,7 @@ class GameMessageFormatter:
         host_avatar_url: str | None = None,
         thumbnail_url: str | None = None,
         image_url: str | None = None,
-        rewards: str | None = None,
+        rewards: list[str] | None = None,
         overflow_display_names: dict[str, str] | None = None,
     ) -> discord.Embed:
         """Create an embed for a game session.
@@ -613,11 +613,18 @@ class GameMessageFormatter:
         )
 
         if rewards:
-            embed.add_field(name=EMBED_FIELD_REWARDS, value=f"||{rewards}||", inline=False)
+            GameMessageFormatter._add_rewards_fields(embed, rewards)
 
         GameMessageFormatter._add_footer(embed, status)
 
         return GameMessageFormatter._trim_embed_if_needed(embed)
+
+    @staticmethod
+    def _add_rewards_fields(embed: discord.Embed, rewards: list[str]) -> None:
+        """Add one spoiler field per reward; continuation fields have blank names."""
+        for index, entry in enumerate(rewards):
+            name = EMBED_FIELD_REWARDS if index == 0 else _ZERO_WIDTH_SPACE
+            embed.add_field(name=name, value=f"||{entry}||", inline=False)
 
     @staticmethod
     def _trim_embed_if_needed(embed: discord.Embed) -> discord.Embed:
@@ -704,7 +711,7 @@ def format_game_announcement(
     thumbnail_id: str | None = None,
     banner_image_id: str | None = None,
     guild_id: str | None = None,
-    rewards: str | None = None,
+    rewards: list[str] | None = None,
     thumbnail_mime_type: str | None = None,
     banner_image_mime_type: str | None = None,
     overflow_display_names: dict[str, str] | None = None,

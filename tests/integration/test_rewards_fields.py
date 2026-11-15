@@ -21,6 +21,7 @@
 
 """Integration tests for rewards fields and Save and Archive flow."""
 
+import json
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -29,6 +30,7 @@ import pytest
 from sqlalchemy import text
 
 from shared.utils.discord_tokens import extract_bot_discord_id
+from shared.utils.limits import MAX_REWARD_ENTRIES, MAX_REWARD_LENGTH
 from tests.shared.auth_helpers import cleanup_test_session, create_test_session
 
 pytestmark = pytest.mark.integration
@@ -94,7 +96,7 @@ async def test_rewards_field_persists_through_game_update(
     seed_redis_cache,
     api_base_url,
 ):
-    """Updating a game with rewards returns the new value in the response."""
+    """Reward entries (including inner newlines) round-trip through PUT, GET and the DB."""
     ctx = await _setup_context(
         create_user, create_guild, create_channel, create_template, seed_redis_cache
     )
@@ -111,16 +113,124 @@ async def test_rewards_field_persists_through_game_update(
 
             assert game.get("rewards") is None
 
+            expected = ["a bag of gold coins", "multi\nline"]
             response = await client.put(
                 f"/api/v1/games/{game_id}",
-                data={"rewards": "a bag of gold coins"},
+                data={"rewards": json.dumps(["  a bag of gold coins ", "", "multi\nline"])},
             )
             assert response.status_code == 200, response.text
-            assert response.json()["rewards"] == "a bag of gold coins"
+            assert response.json()["rewards"] == expected
 
             fetch_response = await client.get(f"/api/v1/games/{game_id}")
             assert fetch_response.status_code == 200, fetch_response.text
-            assert fetch_response.json()["rewards"] == "a bag of gold coins"
+            assert fetch_response.json()["rewards"] == expected
+
+        row = admin_db_sync.execute(
+            text("SELECT rewards FROM game_sessions WHERE id = :id"),
+            {"id": game_id},
+        ).fetchone()
+        assert row is not None
+        assert row[0] == expected
+    finally:
+        await cleanup_test_session(session_token)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "cleared_value",
+    [pytest.param([], id="empty_list"), pytest.param(["", "  \n "], id="all_blank")],
+)
+async def test_rewards_cleared_to_null(
+    admin_db_sync,
+    create_user,
+    create_guild,
+    create_channel,
+    create_template,
+    seed_redis_cache,
+    api_base_url,
+    cleared_value,
+):
+    """Sending an empty or all-blank rewards list stores NULL, not an empty list."""
+    ctx = await _setup_context(
+        create_user, create_guild, create_channel, create_template, seed_redis_cache
+    )
+    session_token, _ = await create_test_session(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+
+    try:
+        async with httpx.AsyncClient(
+            base_url=api_base_url,
+            timeout=10.0,
+            cookies={"session_token": session_token},
+        ) as client:
+            game = await _create_game(client, ctx["template_id"])
+            game_id = game["id"]
+
+            set_response = await client.put(
+                f"/api/v1/games/{game_id}", data={"rewards": json.dumps(["gold"])}
+            )
+            assert set_response.status_code == 200, set_response.text
+            assert set_response.json()["rewards"] == ["gold"]
+
+            clear_response = await client.put(
+                f"/api/v1/games/{game_id}", data={"rewards": json.dumps(cleared_value)}
+            )
+            assert clear_response.status_code == 200, clear_response.text
+            assert clear_response.json()["rewards"] is None
+
+        row = admin_db_sync.execute(
+            text("SELECT rewards IS NULL FROM game_sessions WHERE id = :id"),
+            {"id": game_id},
+        ).fetchone()
+        assert row is not None
+        assert row[0] is True, "Cleared rewards should be SQL NULL"
+    finally:
+        await cleanup_test_session(session_token)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "rewards",
+    [
+        pytest.param([f"r{i}" for i in range(MAX_REWARD_ENTRIES + 1)], id="too_many_entries"),
+        pytest.param(["A" * (MAX_REWARD_LENGTH + 1)], id="entry_too_long"),
+    ],
+)
+async def test_rewards_over_limits_rejected(
+    admin_db_sync,
+    create_user,
+    create_guild,
+    create_channel,
+    create_template,
+    seed_redis_cache,
+    api_base_url,
+    rewards,
+):
+    """Rewards exceeding the entry-count or per-entry length caps are rejected with 422."""
+    ctx = await _setup_context(
+        create_user, create_guild, create_channel, create_template, seed_redis_cache
+    )
+    session_token, _ = await create_test_session(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+
+    try:
+        async with httpx.AsyncClient(
+            base_url=api_base_url,
+            timeout=10.0,
+            cookies={"session_token": session_token},
+        ) as client:
+            game = await _create_game(client, ctx["template_id"])
+            game_id = game["id"]
+
+            response = await client.put(
+                f"/api/v1/games/{game_id}", data={"rewards": json.dumps(rewards)}
+            )
+            assert response.status_code == 422, response.text
+
+        row = admin_db_sync.execute(
+            text("SELECT rewards IS NULL FROM game_sessions WHERE id = :id"),
+            {"id": game_id},
+        ).fetchone()
+        assert row is not None
+        assert row[0] is True, "Rejected update must not store rewards"
     finally:
         await cleanup_test_session(session_token)
 
@@ -209,7 +319,7 @@ async def test_clone_game_does_not_copy_rewards(
             game_id = game["id"]
 
             admin_db_sync.execute(
-                text("UPDATE game_sessions SET rewards = 'gold coins' WHERE id = :id"),
+                text("""UPDATE game_sessions SET rewards = '["gold coins"]' WHERE id = :id"""),
                 {"id": game_id},
             )
             admin_db_sync.commit()
@@ -500,7 +610,7 @@ async def test_archive_delay_seconds_not_in_game_update_for_non_archive_case(
 
             response = await client.put(
                 f"/api/v1/games/{game_id}",
-                data={"rewards": "some loot"},
+                data={"rewards": json.dumps(["some loot"])},
             )
             assert response.status_code == 200, response.text
 

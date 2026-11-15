@@ -28,7 +28,7 @@ from pydantic import ValidationError
 
 from shared.schemas.game import GameCreateRequest, GameResponse, GameUpdateRequest
 from shared.schemas.participant import ParticipantResponse
-from shared.utils.limits import MAX_DESCRIPTION_LENGTH
+from shared.utils.limits import MAX_DESCRIPTION_LENGTH, MAX_REWARD_ENTRIES, MAX_REWARD_LENGTH
 
 VALID_TEMPLATE_ID = "00000000-0000-0000-0000-000000000001"
 VALID_SCHEDULED_AT = datetime(2026, 6, 1, 18, 0, 0, tzinfo=UTC)
@@ -91,6 +91,69 @@ class TestGameUpdateRequestDescriptionLimit:
         """Test that None description is accepted."""
         req = GameUpdateRequest(description=None)
         assert req.description is None
+
+
+class TestGameUpdateRequestRewards:
+    """Tests for GameUpdateRequest rewards list validation."""
+
+    def test_entries_are_stripped_and_blanks_dropped(self):
+        """Surrounding whitespace is trimmed and blank entries removed; inner newlines kept."""
+        req = GameUpdateRequest(rewards=["  gold  ", "", "   ", "multi\nline\n"])
+        assert req.rewards == ["gold", "multi\nline"]
+
+    def test_all_blank_entries_become_empty_list(self):
+        """A list of only blank entries normalizes to an empty list (clears rewards)."""
+        req = GameUpdateRequest(rewards=["", "  "])
+        assert req.rewards == []
+
+    def test_none_rewards_accepted(self):
+        """Omitting rewards leaves the field None (no change)."""
+        req = GameUpdateRequest()
+        assert req.rewards is None
+
+    def test_max_entries_accepted(self):
+        """Exactly MAX_REWARD_ENTRIES entries are accepted."""
+        req = GameUpdateRequest(rewards=[f"r{i}" for i in range(MAX_REWARD_ENTRIES)])
+        assert req.rewards is not None
+        assert len(req.rewards) == MAX_REWARD_ENTRIES
+
+    def test_too_many_entries_rejected(self):
+        """More than MAX_REWARD_ENTRIES entries are rejected."""
+        with pytest.raises(ValidationError):
+            GameUpdateRequest(rewards=[f"r{i}" for i in range(MAX_REWARD_ENTRIES + 1)])
+
+    def test_entry_at_max_length_accepted(self):
+        """An entry of exactly MAX_REWARD_LENGTH characters is accepted."""
+        req = GameUpdateRequest(rewards=["A" * MAX_REWARD_LENGTH])
+        assert req.rewards == ["A" * MAX_REWARD_LENGTH]
+
+    def test_entry_over_max_length_rejected(self):
+        """An entry longer than MAX_REWARD_LENGTH characters is rejected."""
+        with pytest.raises(ValidationError):
+            GameUpdateRequest(rewards=["A" * (MAX_REWARD_LENGTH + 1)])
+
+
+class TestGameResponseRewards:
+    """Tests for GameResponse rewards list type."""
+
+    def test_rewards_list_accepted(self):
+        """GameResponse carries rewards as a list of entries."""
+        response = GameResponse(
+            id="00000000-0000-0000-0000-000000000001",
+            title="Test Game",
+            scheduled_at="2026-06-01T18:00:00+00:00",
+            guild_id="00000000-0000-0000-0000-000000000003",
+            channel_id="00000000-0000-0000-0000-000000000004",
+            host=VALID_HOST,
+            status="COMPLETED",
+            signup_method="SELF_SIGNUP",
+            participant_count=0,
+            created_at="2026-05-30T00:00:00+00:00",
+            updated_at="2026-05-30T00:00:00+00:00",
+            display_status="COMPLETED",
+            rewards=["gold", "silver"],
+        )
+        assert response.rewards == ["gold", "silver"]
 
 
 class TestGameUpdateRequestMaxPlayersLimit:

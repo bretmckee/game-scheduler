@@ -67,7 +67,8 @@ class GameSession(Base):
     archive_channel_id: Mapped[str | None] = mapped_column(
         ForeignKey("channel_configurations.id", ondelete="SET NULL"), nullable=True
     )
-    rewards: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # none_as_null so "no rewards" is SQL NULL rather than a JSON 'null' value.
+    rewards: Mapped[list[str] | None] = mapped_column(JSON(none_as_null=True), nullable=True)
     remind_host_rewards: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=text("false")
     )
