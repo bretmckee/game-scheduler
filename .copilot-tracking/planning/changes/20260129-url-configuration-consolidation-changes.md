@@ -13,6 +13,7 @@ Consolidated redundant API_BASE_URL and API_URL environment variables into a sin
 ### Modified
 
 **Configuration Files:**
+
 - config/env.dev - Consolidated API_BASE_URL and API_URL into single BACKEND_URL variable, updated comments to accurately describe usage (FRONTEND_URL for CORS/bot links, BACKEND_URL for all backend API access)
 - config/env.prod - Consolidated API_BASE_URL and API_URL into single BACKEND_URL variable, updated comments
 - config/env.staging - Fixed incorrect FRONTEND_URL (removed port :3000, changed to https://staging.mydomain.com), consolidated API_BASE_URL and API_URL into single BACKEND_URL, updated comments
@@ -21,6 +22,7 @@ Consolidated redundant API_BASE_URL and API_URL environment variables into a sin
 - config.template/env.template - Consolidated API_BASE_URL and API_URL into single BACKEND_URL variable with clear documentation stating "always use full URL - no relative URL pattern"
 
 **Code:**
+
 - services/bot/config.py - Renamed api_base_url field to backend_url in BotConfig
 - services/bot/formatters/game_message.py - Updated to use config.backend_url for Discord embed image URLs
 - services/api/config.py - Removed unused api_url field from APIConfig (was stored but never used)
@@ -28,6 +30,7 @@ Consolidated redundant API_BASE_URL and API_URL environment variables into a sin
 - frontend/src/vite-env.d.ts - Updated TypeScript interface from VITE_API_URL to VITE_BACKEND_URL
 
 **Docker & Compose:**
+
 - compose.yaml - Updated bot service to use BACKEND_URL environment variable instead of API_BASE_URL, updated frontend build args from VITE_API_URL to VITE_BACKEND_URL, updated frontend runtime environment from API_URL to BACKEND_URL, removed unused API_URL from API service
 - compose.override.yaml - Updated development build args and environment from VITE_API_URL to VITE_BACKEND_URL
 - compose.e2e.yaml - Updated e2e test environment from API_BASE_URL to BACKEND_URL
@@ -35,12 +38,14 @@ Consolidated redundant API_BASE_URL and API_URL environment variables into a sin
 - docker/frontend-config.template.js - Updated runtime config template to use BACKEND_URL instead of API_URL
 
 **Tests:**
+
 - tests/conftest.py - Updated api_base_url fixture to read from BACKEND_URL environment variable instead of API_URL
 - tests/e2e/test_00_environment.py - Updated environment variable check from API_BASE_URL to BACKEND_URL
 - tests/services/bot/formatters/test_game_message.py - Updated test to patch BACKEND_URL instead of API_BASE_URL
 - tests/services/api/test_config.py - Removed api_url from test environment variables and assertions (field no longer exists)
 
 **Documentation:**
+
 - DEPLOYMENT_QUICKSTART.md - Updated all references from API_URL to BACKEND_URL, updated configuration examples to show FRONTEND_URL=https://example.com and BACKEND_URL=https://example.com pattern, removed confusing "leave API_URL empty" pattern
 - TESTING_OAUTH.md - Updated environment configuration example from API_URL to BACKEND_URL
 - RUNTIME_CONFIG.md - Updated all references from API_URL to BACKEND_URL, updated proxy mode documentation to reflect that BACKEND_URL must always be set (no empty value pattern), updated configuration examples
@@ -61,6 +66,7 @@ None
 ### Discord Calendar Download Link Issues
 
 **Problem**: Calendar download links in Discord messages were going to wrong URL and wrong port
+
 - FRONTEND_URL was set to `https://game-scheduler.boneheads.us:3000` (incorrect port, should be standard HTTPS port 443)
 - Calendar links pointed to `https://game-scheduler.boneheads.us:3000/download-calendar/{game_id}` (incorrect)
 - Correct URL should be `https://game-scheduler.boneheads.us/download-calendar/{game_id}` (no port)
@@ -72,17 +78,20 @@ None
 ### Configuration Comment Accuracy
 
 **Problem**: Configuration file comments were misleading and didn't reflect actual code behavior
+
 - FRONTEND_URL comment said "Used by API to construct redirect URLs after authentication" but OAuth redirects actually come from frontend's window.location.origin
 - API_BASE_URL comment said "Used by bot for constructing callback URLs and links" but bot never uses it for OAuth callbacks
 - API_URL comment was accurate but the "leave empty for relative URLs" pattern was unnecessarily complex
 
 **Fix**: Updated all configuration comments to accurately describe actual usage:
+
 - FRONTEND_URL: "Frontend URL for CORS allowlist and bot calendar download links"
 - BACKEND_URL: "Backend API URL for all services (bot image embeds, frontend API calls)"
 
 ### Redundant Configuration Variables
 
 **Problem**: Two variables (API_BASE_URL and API_URL) both pointed to the backend API, creating confusion
+
 - API_BASE_URL used by bot for Discord embed image URLs
 - API_URL used by frontend for API calls
 - In practice, both always had (or should have had) the same value
@@ -93,6 +102,7 @@ None
 ## Configuration Pattern Changes
 
 ### Before (Confusing):
+
 ```bash
 # Frontend URL for bot redirects and OAuth callbacks
 # Used by API to construct redirect URLs after authentication
@@ -109,6 +119,7 @@ API_URL=
 ```
 
 ### After (Clear):
+
 ```bash
 # Frontend URL for CORS allowlist and bot calendar download links
 FRONTEND_URL=https://example.com

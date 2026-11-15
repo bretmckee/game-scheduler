@@ -111,7 +111,7 @@
       "output_hash": null
     },
     ".github/instructions/task-implementation.instructions.md": {
-      "source_hash": "fc4292dc0a3ae4cb07b15bc44baba9bf0305a57309ec1d380fc97e82c39b83fd",
+      "source_hash": "45d889a597e6756f93e8e591039d20bbdec5cded3977ba85b564407a2999bb3e",
       "output": null,
       "output_hash": null
     },
@@ -146,9 +146,9 @@
       "output_hash": "851f27d9a0568ee0d91c049d37cc3a394133d054f200e5369d6381f06edbd302"
     },
     ".github/prompts/verify-code.prompt.md": {
-      "source_hash": "1e36a07f372b2915c83ef19cfa6d5972ffc59104456e1524b1a7c3e48c963dcf",
+      "source_hash": "2b0e5044e348d25b7fa9c9ff228507e4c8bc3a67b7f9b9efa5cf887225a619ef",
       "output": ".claude/commands/verify-code.md",
-      "output_hash": "f28b2f8037db4715fcf871f718c2eb1c26b27e76b0a8f49d2f69e0027cf1a9ba"
+      "output_hash": "7d76520bf3bfd0a331a187d07cc7717f776e9fc9616e3e7e5b6a9fe94aacea37"
     }
   }
 }

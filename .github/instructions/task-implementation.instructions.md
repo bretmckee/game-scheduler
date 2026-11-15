@@ -1,5 +1,5 @@
 ---
-applyTo: '**/.copilot-tracking/changes/*.md'
+applyTo: '**/.copilot-tracking/planning/changes/*.md'
 description: 'Instructions for implementing task plans with progressive tracking and change record - Brought to you by microsoft/edge-ai'
 ---
 
@@ -7,7 +7,7 @@ description: 'Instructions for implementing task plans with progressive tracking
 
 You will implement your specific task plan located in `.copilot-tracking/planning/plans/**` and `.copilot-tracking/planning/details/**`. Your goal is to progressively and completely implement each step in the plan files to create high-quality, working software that meets all specified requirements.
 
-Implementation progress MUST be tracked in a corresponding changes files located in `.copilot-tracking/changes/**`.
+Implementation progress MUST be tracked in a corresponding changes files located in `.copilot-tracking/planning/changes/**`.
 
 ## Core Implementation Process
 
@@ -623,7 +623,7 @@ async def test_leave_game_unauthorized(unauthenticated_client):
 ## Template Changes File
 
 Use the following as a template for the changes file that tracks implementation progress for releases.
-Replace `{{ }}` with appropriate values. Create this file in `./.copilot-tracking/changes/` with filename: `YYYYMMDD-NN-task-description-changes.md` (where NN is a 2-digit sequence number starting at 01 and incrementing: 01, 02, 03, etc.)
+Replace `{{ }}` with appropriate values. Create this file in `./.copilot-tracking/planning/changes/` with filename: `YYYYMMDD-NN-task-description-changes.md` (where NN is a 2-digit sequence number starting at 01 and incrementing: 01, 02, 03, etc.)
 
 **IMPORTANT**: Update this file after EVERY task completion by appending to Added, Modified, or Removed sections.
 **MANDATORY**: Always include the following at the top of the changes file: `<!-- markdownlint-disable-file -->`

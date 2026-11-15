@@ -48,3 +48,23 @@ templates, with Discord spoiler display, a host DM reminder on completion, and a
 - [x] Phase 4: Bot Formatters & Handlers
 - [x] Phase 5: Frontend
 - [ ] Phase 6: Tests (TDD)
+
+---
+
+<!-- Merged from the former .copilot-tracking/changes/ copy of this log -->
+
+# Changes: Rewards Feature
+
+## Summary
+
+Add `rewards` (nullable text) and `remind_host_rewards` (bool) to game sessions and
+templates, wire them through the API and bot, add a spoiler display in Discord and on
+the web, a "Save and Archive" shortcut button, and a host completion-reminder DM.
+
+## Added
+
+- `alembic/versions/20260321_add_rewards_fields.py` — migration adding `rewards TEXT NULL` and `remind_host_rewards BOOLEAN NOT NULL DEFAULT false` to `game_sessions`, and `remind_host_rewards BOOLEAN NOT NULL DEFAULT false` to `game_templates` (Task 1.1)
+
+## Modified
+
+## Removed

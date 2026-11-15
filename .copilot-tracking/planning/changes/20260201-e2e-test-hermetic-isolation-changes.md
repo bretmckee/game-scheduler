@@ -1,20 +1,24 @@
 <!-- markdownlint-disable-file -->
+
 # Implementation Progress: E2E Test Hermetic Isolation
 
 ## Task Status
 
 ### ✅ Phase 1: Environment Variable Management
+
 **Status**: Complete
 **Files Modified**: tests/e2e/conftest.py
 **Estimated Completion**: 100%
 
 **Changes Made**:
+
 - Added DiscordTestEnvironment dataclass to load and validate all Discord IDs from environment variables
 - Added discord_ids session-scoped fixture that validates once at test session start
 - Implemented validate_snowflake() helper to validate Discord ID format (17-19 digits)
 - Provides fail-fast behavior with clear error messages for missing/invalid environment variables
 
 **Subtasks**:
+
 - [x] Task 1.1: Create DiscordTestEnvironment dataclass
 - [x] Task 1.2: Create discord_ids session-scoped fixture
 
@@ -23,11 +27,13 @@
 ---
 
 ### ✅ Phase 2: Guild Creation Fixtures
+
 **Status**: Complete
 **Files Modified**: tests/e2e/conftest.py, alembic/versions/cc016b875896_add_cascade_delete_guild_channel_.py
 **Estimated Completion**: 100%
 
 **Changes Made**:
+
 - Added GuildContext dataclass to hold all IDs for test guilds (database + Discord IDs)
 - Implemented fresh_guild_a fixture (renamed from fresh_guild) that creates Guild A via direct database INSERTs with automatic cleanup
 - Implemented fresh_guild_b fixture for cross-guild isolation testing with direct database INSERTs and automatic cleanup
@@ -39,6 +45,7 @@
 - Created Alembic migration cc016b875896 to add CASCADE DELETE to 5 foreign key constraints
 
 **Subtasks**:
+
 - [x] Task 2.1: Create GuildContext dataclass
 - [x] Task 2.2: Create fresh_guild_a fixture with cleanup
 - [x] Task 2.3: Create fresh_guild_b fixture with cleanup
@@ -50,17 +57,20 @@
 ---
 
 ### ✅ Phase 3: Remove Init Service Seeding
+
 **Status**: Complete
 **Files Modified**: services/init/main.py
 **Estimated Completion**: 100%
 
 **Changes Made**:
+
 - Removed seed_e2e_data() import and call from init service main.py
 - Removed Phase 6 (E2E seeding) from initialization orchestrator
 - Updated all phase numbers from 1-6 to 1-5 throughout main.py
 - Updated main.py docstring to reflect 5 phases instead of 6
 
 **Subtasks**:
+
 - [x] Task 3.1: Remove seed_e2e_data() call from init service
 - [x] Task 3.2: Mark seed_e2e.py as deprecated (skipped - not needed)
 
@@ -69,11 +79,13 @@
 ---
 
 ### ✅ Phase 4: Update test_00_environment.py
+
 **Status**: Complete
 **Files Modified**: tests/e2e/test_00_environment.py
 **Estimated Completion**: 100%
 
 **Changes Made**:
+
 - Removed test_database_seeded which validated init service seeded Guild A data
 - Removed test_guild_b_database_seeded which validated init service seeded Guild B data
 - Removed test_guild_b_has_default_template which validated Guild B template
@@ -83,6 +95,7 @@
 - Removed unused sqlalchemy.text import
 
 **Subtasks**:
+
 - [x] Task 4.1: Keep database/migration validation tests
 - [x] Task 4.2: Remove seeded data validation tests
 - [x] Task 4.3: Add discord_ids fixture validation test
@@ -92,11 +105,13 @@
 ---
 
 ### ✅ Phase 5: Update Guild-Dependent Fixtures
+
 **Status**: Complete
 **Files Modified**: tests/e2e/conftest.py
 **Estimated Completion**: 100%
 
 **Changes Made**:
+
 - Updated individual Discord ID fixtures (discord_guild_id, discord_channel_id, discord_user_id, discord_guild_b_id, discord_channel_b_id, discord_user_b_id) to use discord_ids for backward compatibility during migration
 - Added guild_a_db_id passthrough fixture returning fresh_guild.db_id
 - Added guild_b_db_id passthrough fixture returning fresh_guild_b.db_id
@@ -107,6 +122,7 @@
 - Both synced_guild fixtures now provide hermetic test isolation instead of returning sync_results dict
 
 **Subtasks**:
+
 - [x] Task 5.1: Update individual ID fixtures for backward compatibility
 - [x] Task 5.2: Add guild_a_db_id and guild_b_db_id passthrough fixtures
 - [x] Task 5.3: Add guild_a_template_id and guild_b_template_id passthrough fixtures
@@ -117,11 +133,13 @@
 ---
 
 ### ✅ Phase 6: Migrate Test Files
+
 **Status**: Complete
 **Files Modified**: tests/e2e/test_01_authentication.py, tests/e2e/test_guild_routes_e2e.py, tests/e2e/test_guild_isolation_e2e.py
 **Estimated Completion**: 100%
 
 **Changes Made**:
+
 - Updated test_01_authentication.py to use GuildContext attributes instead of sync_results dict
 - Changed test_authenticated_admin_client_can_call_api to use discord_ids.guild_a_id
 - Updated test_synced_guild_creates_configs to validate GuildContext fields (db_id, discord_id, channel_db_id, channel_discord_id, template_id)
@@ -132,6 +150,7 @@
 - All 11 game test files work without changes due to backward-compatible conftest.py fixtures
 
 **Subtasks**:
+
 - [x] Task 6.1: Update test_01_authentication.py
 - [x] Task 6.2: Update test_guild_routes_e2e.py
 - [x] Task 6.3: Update test_guild_isolation_e2e.py
@@ -142,11 +161,13 @@
 ---
 
 ### [ ] Phase 7: Update Documentation
+
 **Status**: Not Started
 **Files Modified**: None yet
 **Estimated Completion**: 0%
 
 **Subtasks**:
+
 - [ ] Replace guild_a_db_id fixture
 - [ ] Replace guild_b_db_id fixture
 - [ ] Replace guild_a_template_id fixture
@@ -159,11 +180,13 @@
 ---
 
 ### [ ] Phase 6: Migrate Test Files
+
 **Status**: Not Started
 **Files Modified**: None yet
 **Estimated Completion**: 0% (0/21 files)
 
 **Files to Migrate**:
+
 - [ ] test_01_authentication.py
 - [ ] test_guild_routes_e2e.py
 - [ ] test_guild_isolation_e2e.py
@@ -185,11 +208,13 @@
 ---
 
 ### [ ] Phase 7: Update Documentation
+
 **Status**: Not Started
 **Files Modified**: None yet
 **Estimated Completion**: 0%
 
 **Subtasks**:
+
 - [ ] Add hermetic fixture pattern section to TESTING.md
 - [ ] Document GuildContext dataclass usage
 - [ ] Add cleanup behavior explanation
@@ -201,11 +226,13 @@
 ---
 
 ### ✅ Phase 7: Update Documentation
+
 **Status**: Complete
 **Files Modified**: docs/developer/TESTING.md
 **Estimated Completion**: 100%
 
 **Changes Made**:
+
 - Added "Hermetic Test Fixtures" section to E2E Test Architecture documenting new fixture patterns
 - Documented GuildContext dataclass with all available fields
 - Added examples of using fresh_guild_a and fresh_guild_b fixtures
@@ -217,6 +244,7 @@
 - Added manual database cleanup commands for orphaned records
 
 **Subtasks**:
+
 - [x] Task 7.1: Update TESTING.md with new fixture patterns
 - [x] Task 7.2: Document environment variable validation
 - [x] Task 7.3: Add troubleshooting section
@@ -230,6 +258,7 @@
 **Completion**: 7/7 phases complete (100%)
 
 **Timeline**:
+
 - Started: 2026-02-02
 - Last Updated: 2026-02-02
 - Estimated Completion: In Progress
@@ -309,6 +338,7 @@
 ## Change Log
 
 ### 2026-02-02
+
 - ✅ Phase 7 Complete: Update Documentation
 - Added Hermetic Test Fixtures section to TESTING.md E2E Test Architecture
 - Documented GuildContext dataclass and fixture patterns
@@ -340,6 +370,7 @@
 - Implementation ready for Phase 7
 
 ### 2026-02-01
+
 - Planning phase complete
 - Research document finalized
 - Plan and changes tracking files created
@@ -362,17 +393,20 @@ None currently
 ## Testing Notes
 
 **Before Migration**:
+
 - All E2E tests depend on init service seeding
 - 21 test files use pre-seeded data
 - No guild creation tests possible
 
 **After Migration**:
+
 - Each test creates own guild via fresh_guild fixture
 - Cleanup happens automatically after each test
 - Guild creation tests can be written
 - No shared state between tests
 
 **Verification Steps**:
+
 1. Run E2E suite with fresh_guild fixtures
 2. Verify no orphaned database records
 3. Verify all tests pass

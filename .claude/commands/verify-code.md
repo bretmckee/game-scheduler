@@ -36,7 +36,7 @@ conventions, and quality requirements before finalizing changes.
      for Docker files
 
 3. **Review current state:**
-   - Check if changes file exists in `.copilot-tracking/changes/`
+   - Check if changes file exists in `.copilot-tracking/planning/changes/`
    - Read existing test files to understand testing patterns
    - Identify affected Docker containers and services
 
@@ -181,7 +181,7 @@ before proceeding.
 
 ## Changes File Update Requirements
 
-**If changes file exists** (`.copilot-tracking/changes/*.md`):
+**If changes file exists** (`.copilot-tracking/planning/changes/*.md`):
 
 - [ ] **Append meaningful changes only:**
   - Add entries to Added/Modified/Removed sections

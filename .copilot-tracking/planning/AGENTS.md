@@ -155,7 +155,7 @@ You WILL create exactly three files for each task:
 
 You WILL include:
 
-- **Frontmatter**: `---\napplyTo: '.copilot-tracking/changes/YYYYMMDD-NN-task-description-changes.md'\n---` (where NN is a 2-digit sequence number starting at 01 and incrementing: 01, 02, 03, etc.)
+- **Frontmatter**: `---\napplyTo: '.copilot-tracking/planning/changes/YYYYMMDD-NN-task-description-changes.md'\n---` (where NN is a 2-digit sequence number starting at 01 and incrementing: 01, 02, 03, etc.)
 - **Markdownlint disable**: `<!-- markdownlint-disable-file -->`
 - **Overview**: One sentence task description
 - **Objectives**: Specific, measurable goals
@@ -194,7 +194,7 @@ You WILL use these templates as the foundation for all planning files:
 
 ```markdown
 ---
-applyTo: '.copilot-tracking/changes/{{date}}-{{sequence}}-{{task_description}}-changes.md'
+applyTo: '.copilot-tracking/planning/changes/{{date}}-{{sequence}}-{{task_description}}-changes.md'
 ---
 
 <!-- markdownlint-disable-file -->
