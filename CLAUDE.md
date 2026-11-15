@@ -150,11 +150,6 @@ branch policy (commit to the current branch; ask before touching `staging` or
 **Path:** `.github/instructions/taming-copilot.instructions.md`
 **When to use:** Context on working with GitHub Copilot in this project.
 
-### Researcher Enhancements
-
-**Path:** `.github/instructions/researcher-enhancements.instructions.md`
-**When to use:** Research-related functionality or data gathering tasks.
-
 ---
 
 ## Meta

@@ -6,9 +6,9 @@
       "output_hash": "24719774ce22b6a33a60a15cec0eaa0415e0072f643f2cc92683f4b911db2421"
     },
     ".github/agents/task-researcher.agent.md": {
-      "source_hash": "8350e69aaf98655e182f8764744d5f0f086e53a9d7f96d3e3162fcd16bc90d38",
+      "source_hash": "fb3df7739311045daa6905b91d480299c43da481edd0a77f3d03694bbfebb3ad",
       "output": ".claude/agents/task-researcher.md",
-      "output_hash": "70f49c83ce05455abee875e99c16f7acd5c81952a7dea30a03524eb37ea0c440"
+      "output_hash": "15b18292c936570a25882336c72b1bde7cb629d4ebbd94623658c1d19b0bd3e7"
     },
     ".github/copilot-instructions.md": {
       "source_hash": "f38694641b9cdbbfadc65b1bcc8036774b886a366a4256cb8811a4aa08d80e81",
@@ -97,11 +97,6 @@
     },
     ".github/instructions/reactjs.instructions.md": {
       "source_hash": "e88d32bb4cb752b49bd1681f93ffcf60d49277388d1634717dd0bccdc17904fb",
-      "output": null,
-      "output_hash": null
-    },
-    ".github/instructions/researcher-enhancements.instructions.md": {
-      "source_hash": "b6e4238c9d91873d04f2d0d33d9b13dcfdb0b02595f923b1537640b3e963805a",
       "output": null,
       "output_hash": null
     },
