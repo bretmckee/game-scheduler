@@ -45,15 +45,15 @@ Let hosts enter each reward in its own text box (add/remove), stored as a JSON l
 - [x] Task 1.2: Alembic revision, model, schema, route, service, formatter signature, existing test updates
   - Details: .copilot-tracking/planning/details/20261115-01-multiple-rewards-input-details.md (Lines 29-51)
 
-### [ ] Phase 2: Discord Embed Fit-vs-Link (TDD)
+### [x] Phase 2: Discord Embed Fit-vs-Link (TDD)
 
-- [ ] Task 2.1: RED - stub and xfail unit tests
+- [x] Task 2.1: RED - stub and xfail unit tests
   - Details: .copilot-tracking/planning/details/20261115-01-multiple-rewards-input-details.md (Lines 54-64)
 
-- [ ] Task 2.2: GREEN/REFACTOR - fit decision, non-optional game_url
+- [x] Task 2.2: GREEN/REFACTOR - fit decision, non-optional game_url
   - Details: .copilot-tracking/planning/details/20261115-01-multiple-rewards-input-details.md (Lines 65-75)
 
-- [ ] Task 2.3: E2E tests (inline, at-limit, overflow, archive)
+- [x] Task 2.3: E2E tests (inline, at-limit, overflow, archive)
   - Details: .copilot-tracking/planning/details/20261115-01-multiple-rewards-input-details.md (Lines 76-85)
 
 ### [ ] Phase 3: Frontend

@@ -70,6 +70,7 @@ class TestGameMessageFormatter:
                 current_count=2,
                 max_players=5,
                 status="SCHEDULED",
+                game_id="game-123",
             )
 
             assert result == mock_embed
@@ -97,6 +98,7 @@ class TestGameMessageFormatter:
                 current_count=0,
                 max_players=5,
                 status="SCHEDULED",
+                game_id="game-123",
             )
 
             calls = [str(call) for call in mock_embed.add_field.call_args_list]
@@ -123,6 +125,7 @@ class TestGameMessageFormatter:
                 current_count=2,
                 max_players=5,
                 status="SCHEDULED",
+                game_id="game-123",
             )
 
             calls = [str(call) for call in mock_embed.add_field.call_args_list]
@@ -155,6 +158,7 @@ class TestGameMessageFormatter:
                 current_count=2,
                 max_players=2,
                 status="SCHEDULED",
+                game_id="game-123",
                 overflow_display_names={"111": "Alice", "333": "Waitlisted Carl"},
             )
 
@@ -191,6 +195,7 @@ class TestGameMessageFormatter:
                 current_count=0,
                 max_players=5,
                 status="SCHEDULED",
+                game_id="game-123",
             )
 
             # Should have Host field with Discord mention
@@ -217,6 +222,7 @@ class TestGameMessageFormatter:
                 current_count=0,
                 max_players=5,
                 status="SCHEDULED",
+                game_id="game-123",
                 host_avatar_url="https://cdn.discordapp.com/avatars/123456/abc123.png",
             )
 
@@ -250,6 +256,7 @@ class TestGameMessageFormatter:
                 current_count=0,
                 max_players=5,
                 status="SCHEDULED",
+                game_id="game-123",
                 host_display_name="JmanX",
             )
 
@@ -278,6 +285,7 @@ class TestGameMessageFormatter:
                 current_count=0,
                 max_players=5,
                 status="SCHEDULED",
+                game_id="game-123",
                 channel_id="987654321",
             )
 
@@ -304,6 +312,7 @@ class TestGameMessageFormatter:
                 current_count=0,
                 max_players=5,
                 status="SCHEDULED",
+                game_id="game-123",
                 where="Local Game Store, 123 Main St",
             )
 
@@ -330,6 +339,7 @@ class TestGameMessageFormatter:
                 current_count=0,
                 max_players=5,
                 status="SCHEDULED",
+                game_id="game-123",
             )
 
             calls = [str(call) for call in mock_embed.add_field.call_args_list]
@@ -355,6 +365,7 @@ class TestGameMessageFormatter:
                 current_count=3,
                 max_players=5,
                 status="SCHEDULED",
+                game_id="game-123",
             )
 
             calls = [str(call) for call in mock_embed.add_field.call_args_list]
@@ -380,6 +391,7 @@ class TestGameMessageFormatter:
                 current_count=0,
                 max_players=5,
                 status="SCHEDULED",
+                game_id="game-123",
             )
 
             # Verify embed was created successfully
@@ -549,25 +561,14 @@ class TestGameMessageFormatterHelpers:
         """Test that short descriptions are not truncated."""
         description = "Short description"
 
-        truncated, calendar_url, game_url, thumb, img = (
-            GameMessageFormatter._prepare_description_and_urls(description, None, None, None)
-        )
+        with patch("services.bot.formatters.game_message.get_config"):
+            truncated, _calendar_url, _game_url, _thumb, _img = (
+                GameMessageFormatter._prepare_description_and_urls(
+                    description, "game-123", None, None
+                )
+            )
 
         assert truncated == description
-        assert calendar_url is None
-        assert game_url is None
-
-    def test_prepare_description_and_urls_without_game_id(self):
-        """Test that calendar URL and game URL are None when game_id is not provided."""
-        description = "Test"
-
-        truncated, calendar_url, game_url, thumb, img = (
-            GameMessageFormatter._prepare_description_and_urls(description, None, None, None)
-        )
-
-        assert truncated == description
-        assert calendar_url is None
-        assert game_url is None
 
     def test_prepare_description_and_urls_preserves_image_urls(self):
         """Test that thumbnail and image URLs are preserved."""
@@ -1322,6 +1323,7 @@ class TestFormatGameAnnouncement:
                 current_count=1,
                 max_players=5,
                 status="SCHEDULED",
+                game_id="game-123",
             )
 
             assert result == mock_embed
@@ -1349,6 +1351,7 @@ class TestFormatGameAnnouncement:
                 current_count=0,
                 max_players=5,
                 status="SCHEDULED",
+                game_id="game-123",
                 host_avatar_url="https://cdn.discordapp.com/avatars/123456/abc123.png?size=64",
             )
 
@@ -1376,6 +1379,7 @@ class TestFormatGameAnnouncement:
                 current_count=0,
                 max_players=5,
                 status="SCHEDULED",
+                game_id="game-123",
                 host_avatar_url=None,
             )
 
@@ -1403,6 +1407,7 @@ class TestFormatGameAnnouncement:
                 current_count=0,
                 max_players=5,
                 status="SCHEDULED",
+                game_id="game-123",
                 host_avatar_url="https://cdn.discordapp.com/avatars/123456/abc123.png?size=64",
             )
 
@@ -1430,6 +1435,7 @@ class TestFormatGameAnnouncement:
                 current_count=0,
                 max_players=5,
                 status="SCHEDULED",
+                game_id="game-123",
                 host_avatar_url="https://cdn.discordapp.com/avatars/123456/a_animated123.gif?size=64",
             )
 
@@ -1457,6 +1463,7 @@ class TestFormatGameAnnouncement:
                 current_count=0,
                 max_players=5,
                 status="SCHEDULED",
+                game_id="game-123",
                 host_avatar_url="https://cdn.discordapp.com/avatars/123456/abc123.png?size=64",
             )
 
@@ -1488,6 +1495,7 @@ class TestGameEmbedImages:
                 current_count=0,
                 max_players=5,
                 status="SCHEDULED",
+                game_id="game-123",
                 thumbnail_url="http://api:8000/api/v1/games/123/thumbnail",
             )
 
@@ -1515,6 +1523,7 @@ class TestGameEmbedImages:
                 current_count=0,
                 max_players=5,
                 status="SCHEDULED",
+                game_id="game-123",
                 image_url="http://api:8000/api/v1/games/123/image",
             )
 
@@ -1542,6 +1551,7 @@ class TestGameEmbedImages:
                 current_count=0,
                 max_players=5,
                 status="SCHEDULED",
+                game_id="game-123",
                 thumbnail_url="http://api:8000/api/v1/games/123/thumbnail",
                 image_url="http://api:8000/api/v1/games/123/image",
             )
@@ -1573,6 +1583,7 @@ class TestGameEmbedImages:
                 current_count=0,
                 max_players=5,
                 status="SCHEDULED",
+                game_id="game-123",
                 thumbnail_url=None,
                 image_url=None,
             )
@@ -2120,32 +2131,6 @@ class TestEmbedNewFields:
             assert any("Add to Calendar" in str(call) and "Others" in str(call) for call in calls)
             mock_embed_class.assert_called_once_with(title="Game", description="Desc", color=ANY)
 
-    def test_embed_excludes_links_field_without_calendar_url(self):
-        """Test that embed excludes Add to Calendar field when game_id is not provided."""
-        scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
-
-        with patch("services.bot.formatters.game_message.discord.Embed") as mock_embed_class:
-            mock_embed = MagicMock()
-            mock_embed_class.return_value = mock_embed
-
-            formatter = GameMessageFormatter()
-            formatter.create_game_embed(
-                game_title="Game",
-                description="Desc",
-                scheduled_at=scheduled_at,
-                host_id="123",
-                participant_ids=[],
-                overflow_ids=[],
-                current_count=0,
-                max_players=5,
-                status="SCHEDULED",
-                game_id=None,
-            )
-
-            calls = [str(call) for call in mock_embed.add_field.call_args_list]
-            assert not any("Add to Calendar" in str(call) for call in calls)
-            mock_embed_class.assert_called_once_with(title="Game", description="Desc", color=ANY)
-
     def test_create_game_embed_threads_google_calendar_url_into_links_field(self):
         """Test that create_game_embed includes a Google Calendar quick-add link with game_id."""
         scheduled_at = datetime(2025, 11, 15, 19, 0, 0, tzinfo=UTC)
@@ -2194,6 +2179,7 @@ class TestEmbedNewFields:
                 current_count=0,
                 max_players=5,
                 status="SCHEDULED",
+                game_id="game-123",
             )
 
             calls = [str(call) for call in mock_embed.add_field.call_args_list]
@@ -2219,6 +2205,7 @@ class TestEmbedNewFields:
                 current_count=0,
                 max_players=5,
                 status="SCHEDULED",
+                game_id="game-123",
             )
 
             footer_call = str(mock_embed.set_footer.call_args)
@@ -2244,6 +2231,7 @@ class TestEmbedNewFields:
                 current_count=0,
                 max_players=5,
                 status="SCHEDULED",
+                game_id="game-123",
             )
 
             calls = [str(call) for call in mock_embed.add_field.call_args_list]
@@ -2269,6 +2257,7 @@ class TestEmbedNewFields:
                 current_count=0,
                 max_players=5,
                 status="SCHEDULED",
+                game_id="game-123",
                 expected_duration_minutes=120,
             )
 
@@ -2295,6 +2284,7 @@ class TestEmbedNewFields:
                 current_count=0,
                 max_players=5,
                 status="SCHEDULED",
+                game_id="game-123",
                 expected_duration_minutes=None,
             )
 
@@ -2321,6 +2311,7 @@ class TestEmbedNewFields:
                 current_count=0,
                 max_players=5,
                 status="SCHEDULED",
+                game_id="game-123",
                 where="Game Room #1",
             )
 
@@ -2347,6 +2338,7 @@ class TestEmbedNewFields:
                 current_count=3,
                 max_players=3,
                 status="SCHEDULED",
+                game_id="game-123",
             )
 
             calls = [call[1] for call in mock_embed.add_field.call_args_list]

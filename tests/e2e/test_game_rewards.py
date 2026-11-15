@@ -24,7 +24,9 @@
 Covers:
 - Save and Archive button flow (COMPLETED game → ARCHIVED within seconds)
 - Host rewards reminder DM on COMPLETED transition
-- Discord embed contains ||rewards|| spoiler field when rewards are set
+- Discord embed shows one ||reward|| spoiler field per entry when they fit,
+  including an entry at the per-field limit
+- Discord embed falls back to a single link field when entries do not fit
 
 Requires full stack via compose.e2e.yaml.
 """
@@ -37,7 +39,7 @@ import pytest
 from sqlalchemy import text
 
 from shared.models import GameStatus
-from shared.utils.limits import EMBED_FIELD_REWARDS
+from shared.utils.limits import DISCORD_EMBED_FIELD_VALUE_LIMIT, EMBED_FIELD_REWARDS
 from tests.e2e.conftest import (
     TimeoutType,
     wait_for_db_condition,
@@ -46,6 +48,36 @@ from tests.e2e.conftest import (
 from tests.e2e.helpers.discord import DMType, wait_for_condition
 
 pytestmark = pytest.mark.e2e
+
+_ZERO_WIDTH_SPACE = "\u200b"
+_MAX_INLINE_ENTRY = DISCORD_EMBED_FIELD_VALUE_LIMIT - len("||||")
+
+
+def _reward_fields(embed) -> list[tuple[str, str]]:
+    """Return (name, value) of the rewards heading field and every field after it."""
+    names = [f.name for f in embed.fields]
+    if EMBED_FIELD_REWARDS not in names:
+        return []
+    start = names.index(EMBED_FIELD_REWARDS)
+    return [(f.name, f.value) for f in embed.fields[start:]]
+
+
+def _expected_inline_fields(rewards: list[str]) -> list[tuple[str, str]]:
+    return [
+        (EMBED_FIELD_REWARDS if index == 0 else _ZERO_WIDTH_SPACE, f"||{entry}||")
+        for index, entry in enumerate(rewards)
+    ]
+
+
+def _is_rewards_link_field(fields: list[tuple[str, str]], game_id: str) -> bool:
+    if len(fields) != 1:
+        return False
+    name, value = fields[0]
+    return (
+        name == EMBED_FIELD_REWARDS
+        and value.startswith("[View rewards](")
+        and value.endswith(f"/games/{game_id})")
+    )
 
 
 async def _get_guild_ids(admin_db, discord_guild_id: str) -> tuple[str, str]:
@@ -126,7 +158,7 @@ async def test_save_and_archive_archives_game_within_seconds(
     - PUT /api/v1/games with rewards and archive_delay_seconds=1 schedules near-immediate archive
     - Scheduler daemon processes the ARCHIVED transition
     - Discord announcement deleted from original channel
-    - Reposted to archive channel with ||rewards|| in embed fields
+    - Reposted to archive channel with one ||reward|| spoiler field per entry
     """
     guild_db_id, template_id = await _get_guild_ids(admin_db, discord_guild_id)
     archive_channel_config_id = await _ensure_archive_channel(
@@ -142,7 +174,7 @@ async def test_save_and_archive_archives_game_within_seconds(
     )
     await admin_db.commit()
 
-    rewards_text = "magic sword"
+    rewards = ["magic sword", "cloak of\nshadows"]
     game_title = f"E2E Save Archive {uuid4().hex[:8]}"
     response = await authenticated_admin_client.post(
         "/api/v1/games",
@@ -169,7 +201,7 @@ async def test_save_and_archive_archives_game_within_seconds(
 
     update_response = await authenticated_admin_client.put(
         f"/api/v1/games/{game_id}",
-        data={"rewards": json.dumps([rewards_text]), "archive_delay_seconds": "1"},
+        data={"rewards": json.dumps(rewards), "archive_delay_seconds": "1"},
     )
     assert update_response.status_code == 200, update_response.text
 
@@ -208,12 +240,10 @@ async def test_save_and_archive_archives_game_within_seconds(
     assert archive_message.embeds, "Archive message should have embed"
     embed = archive_message.embeds[0]
 
-    rewards_field_value = discord_helper.extract_embed_field_value(embed, EMBED_FIELD_REWARDS)
-    assert rewards_field_value is not None, "Embed should have a Rewards field"
-    assert f"||{rewards_text}||" in rewards_field_value, (
-        f"Rewards field should use spoiler tags: {rewards_field_value}"
+    assert _reward_fields(embed) == _expected_inline_fields(rewards), (
+        f"Archive embed should keep one spoiler field per reward: {_reward_fields(embed)}"
     )
-    print(f"[TEST] ✓ Archive message contains spoiler rewards field: {rewards_field_value}")
+    print("[TEST] ✓ Archive message contains one spoiler field per reward")
 
     assert f"<@{discord_user_id}>" in archive_message.content, (
         f"Archive post should @mention confirmed player. Got: {archive_message.content!r}"
@@ -290,28 +320,17 @@ async def test_rewards_reminder_dm_sent_on_completion_when_empty(
     print(f"[TEST] ✓ Rewards reminder DM received: {rewards_dm.content[:100]}...")
 
 
-@pytest.mark.timeout(120)
-@pytest.mark.asyncio
-async def test_discord_embed_shows_rewards_spoiler(
-    authenticated_admin_client,
-    admin_db,
-    discord_helper,
-    discord_channel_id,
-    discord_guild_id,
-    synced_guild,
-    test_timeouts,
-):
-    """E2E: Discord game embed contains ||rewards|| spoiler field when rewards are set.
+async def _post_in_progress_game(
+    authenticated_admin_client, admin_db, discord_guild_id: str, title_prefix: str, test_timeouts
+) -> tuple[str, str, str]:
+    """Create a game, wait for its Discord post, and mark it IN_PROGRESS.
 
-    Verifies:
-    - Game created without rewards
-    - PUT with rewards value triggers message refresh
-    - Updated embed contains a Rewards field wrapped in Discord spoiler tags (||...||)
+    Returns:
+        (game_id, message_id, game_title)
     """
-    guild_db_id, template_id = await _get_guild_ids(admin_db, discord_guild_id)
+    _guild_db_id, template_id = await _get_guild_ids(admin_db, discord_guild_id)
 
-    rewards_value = "a legendary cloak"
-    game_title = f"E2E Rewards Embed {uuid4().hex[:8]}"
+    game_title = f"{title_prefix} {uuid4().hex[:8]}"
     response = await authenticated_admin_client.post(
         "/api/v1/games",
         data={
@@ -328,39 +347,152 @@ async def test_discord_embed_shows_rewards_spoiler(
         admin_db, game_id, timeout=test_timeouts[TimeoutType.DB_WRITE]
     )
 
-    admin_db_result = await admin_db.execute(
+    result = await admin_db.execute(
         text("UPDATE game_sessions SET status = 'IN_PROGRESS' WHERE id = :id RETURNING id"),
         {"id": game_id},
     )
     await admin_db.commit()
-    assert admin_db_result.fetchone() is not None
+    assert result.fetchone() is not None
 
+    return game_id, message_id, game_title
+
+
+async def _set_rewards_and_wait_for_embed(
+    authenticated_admin_client,
+    discord_helper,
+    discord_channel_id: str,
+    game_id: str,
+    message_id: str,
+    rewards: list[str],
+    check_fields,
+    description: str,
+    test_timeouts,
+) -> list[tuple[str, str]]:
+    """PUT rewards and wait until the Discord embed's reward fields satisfy check_fields."""
     update_response = await authenticated_admin_client.put(
         f"/api/v1/games/{game_id}",
-        data={"rewards": json.dumps([rewards_value])},
+        data={"rewards": json.dumps(rewards)},
     )
     assert update_response.status_code == 200, update_response.text
 
     updated_message = await discord_helper.wait_for_message_update(
         channel_id=discord_channel_id,
         message_id=message_id,
-        check_func=lambda msg: (
-            bool(msg.embeds)
-            and any(
-                f.name == EMBED_FIELD_REWARDS and f"||{rewards_value}||" in f.value
-                for f in msg.embeds[0].fields
-            )
-        ),
+        check_func=lambda msg: bool(msg.embeds) and check_fields(_reward_fields(msg.embeds[0])),
         timeout=test_timeouts[TimeoutType.MESSAGE_UPDATE],
-        description="rewards spoiler field in Discord embed",
+        description=description,
+    )
+    return _reward_fields(updated_message.embeds[0])
+
+
+@pytest.mark.timeout(120)
+@pytest.mark.asyncio
+async def test_discord_embed_shows_one_spoiler_field_per_reward(
+    authenticated_admin_client,
+    admin_db,
+    discord_helper,
+    discord_channel_id,
+    discord_guild_id,
+    synced_guild,
+    test_timeouts,
+):
+    """E2E: each reward gets its own ||spoiler|| field; only the first carries the heading."""
+    game_id, message_id, _title = await _post_in_progress_game(
+        authenticated_admin_client, admin_db, discord_guild_id, "E2E Rewards Embed", test_timeouts
+    )
+    rewards = ["a legendary cloak", "100 gold\nand a map", "a loyal hound"]
+    expected = _expected_inline_fields(rewards)
+
+    fields = await _set_rewards_and_wait_for_embed(
+        authenticated_admin_client,
+        discord_helper,
+        discord_channel_id,
+        game_id,
+        message_id,
+        rewards,
+        lambda f: f == expected,
+        "one spoiler field per reward in Discord embed",
+        test_timeouts,
     )
 
-    assert updated_message.embeds, "Updated message should have embed"
-    rewards_field = discord_helper.extract_embed_field_value(
-        updated_message.embeds[0], EMBED_FIELD_REWARDS
+    assert fields == expected
+    print(f"[TEST] ✓ Discord embed shows {len(fields)} reward spoiler fields")
+
+
+@pytest.mark.timeout(120)
+@pytest.mark.asyncio
+async def test_discord_embed_accepts_reward_at_field_value_limit(
+    authenticated_admin_client,
+    admin_db,
+    discord_helper,
+    discord_channel_id,
+    discord_guild_id,
+    synced_guild,
+    test_timeouts,
+):
+    """E2E: a reward whose ||spoiler|| value is exactly 1024 chars renders inline."""
+    game_id, message_id, _title = await _post_in_progress_game(
+        authenticated_admin_client, admin_db, discord_guild_id, "E2E Rewards Limit", test_timeouts
     )
-    assert rewards_field is not None, "Embed should contain a Rewards field after update"
-    assert f"||{rewards_value}||" in rewards_field, (
-        f"Rewards field should use Discord spoiler tags: {rewards_field}"
+    rewards = ["x" * _MAX_INLINE_ENTRY]
+    expected = _expected_inline_fields(rewards)
+
+    fields = await _set_rewards_and_wait_for_embed(
+        authenticated_admin_client,
+        discord_helper,
+        discord_channel_id,
+        game_id,
+        message_id,
+        rewards,
+        lambda f: f == expected,
+        "at-limit reward rendered inline in Discord embed",
+        test_timeouts,
     )
-    print(f"[TEST] ✓ Discord embed shows rewards spoiler: {rewards_field}")
+
+    assert fields == expected
+    assert len(fields[0][1]) == DISCORD_EMBED_FIELD_VALUE_LIMIT
+
+
+@pytest.mark.timeout(120)
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "rewards",
+    [
+        pytest.param(["Gold", "x" * (_MAX_INLINE_ENTRY + 1)], id="entry-too-long"),
+        pytest.param([f"reward {i}" for i in range(20)], id="too-many-fields"),
+    ],
+)
+async def test_discord_embed_overflowing_rewards_show_single_link_field(
+    rewards,
+    authenticated_admin_client,
+    admin_db,
+    discord_helper,
+    discord_channel_id,
+    discord_guild_id,
+    synced_guild,
+    test_timeouts,
+):
+    """E2E: rewards that do not all fit are replaced by one link to the game page."""
+    game_id, message_id, _title = await _post_in_progress_game(
+        authenticated_admin_client,
+        admin_db,
+        discord_guild_id,
+        "E2E Rewards Overflow",
+        test_timeouts,
+    )
+
+    fields = await _set_rewards_and_wait_for_embed(
+        authenticated_admin_client,
+        discord_helper,
+        discord_channel_id,
+        game_id,
+        message_id,
+        rewards,
+        lambda f: _is_rewards_link_field(f, game_id),
+        "single rewards link field in Discord embed",
+        test_timeouts,
+    )
+
+    assert _is_rewards_link_field(fields, game_id), fields
+    assert not any("||" in value for _name, value in fields)
+    print(f"[TEST] ✓ Overflowing rewards shown as link: {fields[0][1]}")

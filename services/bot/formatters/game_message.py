@@ -44,6 +44,7 @@ from services.bot.views.game_view import GameView
 from shared.models import GameStatus, SignupMethod
 from shared.utils.limits import (
     DISCORD_EMBED_FIELD_VALUE_LIMIT,
+    DISCORD_EMBED_MAX_FIELDS,
     DISCORD_EMBED_TOTAL_SAFE_LIMIT,
     EMBED_FIELD_REWARDS,
 )
@@ -63,6 +64,7 @@ _MIME_TO_EXT: dict[str, str] = {
 # not-yet-populated column, and the "no more columns to append to" sentinel
 # in _append_truncation_note.
 _ZERO_WIDTH_SPACE = "\u200b"
+_TRIM_MARKER = "..."
 
 # Wraps a line's leading number in _split_into_columns. Discord's markdown
 # auto-detects a bare "<digits>. " at the start of a line as an ordered-list
@@ -127,15 +129,15 @@ class GameMessageFormatter:
     @staticmethod
     def _prepare_description_and_urls(
         description: str,
-        game_id: str | None,
+        game_id: str,
         thumbnail_url: str | None,
         image_url: str | None,
-    ) -> tuple[str, str | None, str | None, str | None, str | None]:
+    ) -> tuple[str, str, str, str | None, str | None]:
         """Prepare truncated description and URLs for embed.
 
         Args:
             description: Original game description
-            game_id: Optional game UUID
+            game_id: Game UUID
             thumbnail_url: Optional thumbnail URL
             image_url: Optional image URL
 
@@ -145,12 +147,9 @@ class GameMessageFormatter:
         """
         truncated_description = description
 
-        calendar_url = None
-        game_url = None
-        if game_id:
-            config = get_config()
-            calendar_url = f"{config.frontend_url}/download-calendar/{game_id}"
-            game_url = f"{config.frontend_url}/games/{game_id}"
+        config = get_config()
+        calendar_url = f"{config.frontend_url}/download-calendar/{game_id}"
+        game_url = f"{config.frontend_url}/games/{game_id}"
 
         return truncated_description, calendar_url, game_url, thumbnail_url, image_url
 
@@ -528,11 +527,11 @@ class GameMessageFormatter:
         current_count: int,
         max_players: int,
         status: str,
+        game_id: str,
         channel_id: str | None = None,
         _signup_instructions: str | None = None,
         expected_duration_minutes: int | None = None,
         where: str | None = None,
-        game_id: str | None = None,
         host_display_name: str | None = None,
         host_avatar_url: str | None = None,
         thumbnail_url: str | None = None,
@@ -552,14 +551,17 @@ class GameMessageFormatter:
             current_count: Current confirmed participant count
             max_players: Maximum allowed participants
             status: Game status
+            game_id: Game UUID, used for the calendar download link and the
+                game page link
             channel_id: Optional Discord channel ID
             signup_instructions: Optional signup instructions
             expected_duration_minutes: Optional expected game duration in minutes
             where: Optional game location
-            game_id: Optional game UUID for calendar download link
             host_avatar_url: Optional host Discord CDN avatar URL for embed author icon
             thumbnail_url: Optional thumbnail image URL
             image_url: Optional banner image URL
+            rewards: Optional reward entries, shown as one spoiler field each
+                when they all fit, otherwise as a single link to the game page
             overflow_display_names: Optional map of user_id -> resolved
                 display name for waitlisted participants, rendered instead of
                 a raw `<@id>` mention
@@ -612,26 +614,67 @@ class GameMessageFormatter:
             game_url,
         )
 
-        if rewards:
-            GameMessageFormatter._add_rewards_fields(embed, rewards)
-
+        # The footer goes in before rewards so the fit check counts its length.
         GameMessageFormatter._add_footer(embed, status)
+
+        if rewards:
+            GameMessageFormatter._add_rewards_fields(embed, rewards, game_url)
 
         return GameMessageFormatter._trim_embed_if_needed(embed)
 
     @staticmethod
-    def _add_rewards_fields(embed: discord.Embed, rewards: list[str]) -> None:
-        """Add one spoiler field per reward; continuation fields have blank names."""
-        for index, entry in enumerate(rewards):
-            name = EMBED_FIELD_REWARDS if index == 0 else _ZERO_WIDTH_SPACE
-            embed.add_field(name=name, value=f"||{entry}||", inline=False)
+    def _reward_field_contents(rewards: list[str]) -> list[tuple[str, str]]:
+        """Return (name, value) for each inline reward field.
+
+        Only the first field carries the heading; the rest use a blank name so
+        the entries read as one list.
+        """
+        return [
+            (EMBED_FIELD_REWARDS if index == 0 else _ZERO_WIDTH_SPACE, f"||{entry}||")
+            for index, entry in enumerate(rewards)
+        ]
+
+    @staticmethod
+    def _rewards_fit_inline(embed: discord.Embed, rewards: list[str]) -> bool:
+        """Decide whether every reward can be shown as its own spoiler field.
+
+        Args:
+            embed: Embed holding all non-reward content, footer included
+            rewards: Non-empty list of reward entries
+
+        Returns:
+            True when all entries fit as inline fields within Discord's
+            per-field, field-count and total-length limits, treating the
+            description as trimmable
+        """
+        contents = GameMessageFormatter._reward_field_contents(rewards)
+        if any(len(value) > DISCORD_EMBED_FIELD_VALUE_LIMIT for _, value in contents):
+            return False
+        if len(embed.fields) + len(contents) > DISCORD_EMBED_MAX_FIELDS:
+            return False
+        # _trim_embed_if_needed can shrink the description down to its "..." marker.
+        description_len = len(embed.description or "")
+        trimmable = max(0, description_len - len(_TRIM_MARKER))
+        rewards_len = sum(len(name) + len(value) for name, value in contents)
+        return len(embed) - trimmable + rewards_len <= DISCORD_EMBED_TOTAL_SAFE_LIMIT
+
+    @staticmethod
+    def _add_rewards_fields(embed: discord.Embed, rewards: list[str], game_url: str) -> None:
+        """Add every reward as a spoiler field, or one link field if they do not all fit."""
+        if GameMessageFormatter._rewards_fit_inline(embed, rewards):
+            for name, value in GameMessageFormatter._reward_field_contents(rewards):
+                embed.add_field(name=name, value=value, inline=False)
+        else:
+            embed.add_field(
+                name=EMBED_FIELD_REWARDS, value=f"[View rewards]({game_url})", inline=False
+            )
 
     @staticmethod
     def _trim_embed_if_needed(embed: discord.Embed) -> discord.Embed:
         excess = len(embed) - DISCORD_EMBED_TOTAL_SAFE_LIMIT
         if excess > 0 and embed.description:
-            trim_to = len(embed.description) - excess - 3
-            embed.description = embed.description[:trim_to] + "..."
+            trim_to = len(embed.description) - excess - len(_TRIM_MARKER)
+            embed.description = embed.description[:trim_to] + _TRIM_MARKER
         return embed
 
     @staticmethod
