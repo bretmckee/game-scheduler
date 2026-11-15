@@ -184,7 +184,7 @@ describe('GameDetails - Rewards spoiler', () => {
 
   it('shows blurred rewards with click-to-reveal when rewards are set', async () => {
     vi.mocked(apiClient.get).mockResolvedValue({
-      data: { ...baseGame, rewards: 'Gold and glory' },
+      data: { ...baseGame, rewards: ['Gold and glory'] },
     });
 
     renderGameDetails();
@@ -197,7 +197,7 @@ describe('GameDetails - Rewards spoiler', () => {
 
   it('reveals rewards text after click', async () => {
     vi.mocked(apiClient.get).mockResolvedValue({
-      data: { ...baseGame, rewards: 'Gold and glory' },
+      data: { ...baseGame, rewards: ['Gold and glory'] },
     });
 
     const user = userEvent.setup();
@@ -211,6 +211,38 @@ describe('GameDetails - Rewards spoiler', () => {
 
     expect(screen.getByText('Gold and glory')).toBeInTheDocument();
     expect(screen.queryByText('Click to reveal rewards')).not.toBeInTheDocument();
+  });
+
+  it('reveals each reward entry as its own block, keeping line breaks', async () => {
+    vi.mocked(apiClient.get).mockResolvedValue({
+      data: { ...baseGame, rewards: ['Gold and glory', 'Line one\nLine two'] },
+    });
+
+    const user = userEvent.setup();
+    renderGameDetails();
+
+    await waitFor(() => {
+      expect(screen.getByText('Click to reveal rewards')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Click to reveal rewards'));
+
+    const first = screen.getByText('Gold and glory');
+    const second = screen.getByText((_, el) => el?.textContent === 'Line one\nLine two');
+    expect(first).not.toBe(second);
+    expect(first).not.toContainElement(second);
+    expect(second).toHaveStyle({ whiteSpace: 'pre-line' });
+  });
+
+  it('hides rewards section when rewards is an empty list', async () => {
+    vi.mocked(apiClient.get).mockResolvedValue({ data: { ...baseGame, rewards: [] } });
+
+    renderGameDetails();
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Game')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('🏆 Rewards')).not.toBeInTheDocument();
   });
 });
 

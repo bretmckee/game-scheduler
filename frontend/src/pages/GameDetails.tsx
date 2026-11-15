@@ -362,7 +362,7 @@ export const GameDetails: FC = () => {
           </Box>
         )}
 
-        {game.rewards && (
+        {game.rewards && game.rewards.length > 0 && (
           <Box sx={{ mb: 2 }}>
             <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
               🏆 Rewards
@@ -381,9 +381,19 @@ export const GameDetails: FC = () => {
               }}
               title={rewardsRevealed ? undefined : 'Click to reveal rewards'}
             >
-              <Typography variant="body2">
-                {rewardsRevealed ? game.rewards : 'Click to reveal rewards'}
-              </Typography>
+              {rewardsRevealed ? (
+                game.rewards.map((entry, index) => (
+                  <Typography
+                    key={index}
+                    variant="body2"
+                    sx={{ whiteSpace: 'pre-line', '&:not(:last-child)': { mb: 1 } }}
+                  >
+                    {entry}
+                  </Typography>
+                ))
+              ) : (
+                <Typography variant="body2">Click to reveal rewards</Typography>
+              )}
             </Box>
           </Box>
         )}

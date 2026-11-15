@@ -95,7 +95,7 @@ describe('EditGame - handleSaveAndArchive optional field branches', () => {
     participants: [initialParticipant],
     created_at: '2025-01-01T00:00:00Z',
     updated_at: '2025-01-01T00:00:00Z',
-    rewards: 'A shiny badge',
+    rewards: ['A shiny badge'],
     archive_channel_id: 'archive-ch-1',
   };
 
@@ -130,7 +130,7 @@ describe('EditGame - handleSaveAndArchive optional field branches', () => {
     imageFile: null,
     removeThumbnail: false,
     removeImage: false,
-    rewards: 'A shiny badge',
+    rewards: ['A shiny badge'],
     remindHostRewards: false,
     remindersAsDms: false,
     recurRule: null,
@@ -297,6 +297,22 @@ describe('EditGame - handleSaveAndArchive optional field branches', () => {
     await waitFor(() => {
       const putFormData = vi.mocked(apiClient.put).mock.calls[0]?.[1] as FormData;
       expect(putFormData.get('clear_post_at')).toBe('true');
+    });
+  });
+
+  it('sends rewards as a JSON list with entries trimmed and blanks dropped', async () => {
+    setupMocks();
+    renderEditGame();
+    const onSaveAndArchive = await getOnSaveAndArchive();
+
+    await onSaveAndArchive({
+      ...baseFormData,
+      rewards: ['  Gold  ', '', '   ', 'Line 1\nLine 2'],
+    });
+
+    await waitFor(() => {
+      const putFormData = vi.mocked(apiClient.put).mock.calls[0]?.[1] as FormData;
+      expect(JSON.parse(putFormData.get('rewards') as string)).toEqual(['Gold', 'Line 1\nLine 2']);
     });
   });
 });

@@ -120,7 +120,7 @@ export interface GameSession {
   thumbnail_id?: string | null;
   banner_image_id?: string | null;
   can_manage?: boolean;
-  rewards?: string | null;
+  rewards?: string[] | null;
   remind_host_rewards?: boolean;
   reminders_as_dms?: boolean;
   archive_channel_id?: string | null;

@@ -24,6 +24,7 @@ import userEvent from '@testing-library/user-event';
 import { GameForm } from '../GameForm';
 import { Channel, CurrentUser, GameSession, ParticipantType } from '../../types';
 import { AuthContext, type AuthContextType } from '../../contexts/AuthContext';
+import { Rewards } from '../../constants/rewards';
 
 const mockAuthContextValue: AuthContextType = {
   user: {
@@ -93,29 +94,115 @@ const renderForm = (props: Partial<Parameters<typeof GameForm>[0]> = {}) => {
 };
 
 describe('GameForm - rewards field visibility', () => {
-  it('shows rewards textarea in edit mode when status is IN_PROGRESS', () => {
+  it('shows rewards entries in edit mode when status is IN_PROGRESS', () => {
     renderForm({ initialData: { ...baseGame, status: 'IN_PROGRESS' } });
-    expect(screen.getByLabelText('Rewards')).toBeInTheDocument();
+    expect(screen.getByLabelText('Reward 1')).toBeInTheDocument();
   });
 
-  it('shows rewards textarea in edit mode when status is COMPLETED', () => {
+  it('shows rewards entries in edit mode when status is COMPLETED', () => {
     renderForm({ initialData: { ...baseGame, status: 'COMPLETED' } });
-    expect(screen.getByLabelText('Rewards')).toBeInTheDocument();
+    expect(screen.getByLabelText('Reward 1')).toBeInTheDocument();
   });
 
-  it('hides rewards textarea in edit mode when status is SCHEDULED', () => {
+  it('hides rewards entries in edit mode when status is SCHEDULED', () => {
     renderForm({ initialData: { ...baseGame, status: 'SCHEDULED' } });
-    expect(screen.queryByLabelText('Rewards')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Reward 1')).not.toBeInTheDocument();
+    expect(screen.queryByText('+ Add another reward')).not.toBeInTheDocument();
   });
 
-  it('hides rewards textarea in create mode', () => {
+  it('hides rewards entries in create mode', () => {
     renderForm({ mode: 'create', initialData: undefined });
-    expect(screen.queryByLabelText('Rewards')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Reward 1')).not.toBeInTheDocument();
+  });
+});
+
+describe('GameForm - rewards entry list', () => {
+  it('pre-populates one text box per reward entry from initialData', () => {
+    renderForm({
+      initialData: {
+        ...baseGame,
+        status: 'COMPLETED',
+        rewards: ['A golden trophy', 'Line 1\nLine 2'],
+      },
+    });
+    expect(screen.getByLabelText('Reward 1')).toHaveValue('A golden trophy');
+    expect(screen.getByLabelText('Reward 2')).toHaveValue('Line 1\nLine 2');
+    expect(screen.queryByLabelText('Reward 3')).not.toBeInTheDocument();
   });
 
-  it('pre-populates rewards field from initialData', () => {
-    renderForm({ initialData: { ...baseGame, status: 'COMPLETED', rewards: 'A golden trophy' } });
-    expect(screen.getByDisplayValue('A golden trophy')).toBeInTheDocument();
+  it('starts with a single empty text box when the game has no rewards', () => {
+    renderForm({ initialData: { ...baseGame, rewards: null } });
+    expect(screen.getByLabelText('Reward 1')).toHaveValue('');
+    expect(screen.queryByLabelText('Reward 2')).not.toBeInTheDocument();
+  });
+
+  it('limits each entry to the maximum reward length', () => {
+    renderForm();
+    expect(screen.getByLabelText('Reward 1')).toHaveAttribute(
+      'maxlength',
+      String(Rewards.MAX_LENGTH)
+    );
+  });
+
+  it('appends an empty text box when "+ Add another reward" is clicked', async () => {
+    const user = userEvent.setup();
+    renderForm({ initialData: { ...baseGame, rewards: ['First'] } });
+
+    await user.click(screen.getByText('+ Add another reward'));
+
+    expect(screen.getByLabelText('Reward 1')).toHaveValue('First');
+    expect(screen.getByLabelText('Reward 2')).toHaveValue('');
+  });
+
+  it('disables "+ Add another reward" at the maximum number of entries', () => {
+    const rewards = Array.from({ length: Rewards.MAX_ENTRIES }, (_, i) => `Prize ${i + 1}`);
+    renderForm({ initialData: { ...baseGame, rewards } });
+    expect(screen.getByText('+ Add another reward').closest('button')).toBeDisabled();
+  });
+
+  it('enables "+ Add another reward" one below the maximum number of entries', () => {
+    const rewards = Array.from({ length: Rewards.MAX_ENTRIES - 1 }, (_, i) => `Prize ${i + 1}`);
+    renderForm({ initialData: { ...baseGame, rewards } });
+    expect(screen.getByText('+ Add another reward').closest('button')).toBeEnabled();
+  });
+
+  it('hides the remove button when only one entry remains', () => {
+    renderForm({ initialData: { ...baseGame, rewards: ['Only'] } });
+    expect(screen.queryByRole('button', { name: /remove reward/i })).not.toBeInTheDocument();
+  });
+
+  it('removes the chosen entry and keeps the others in order', async () => {
+    const user = userEvent.setup();
+    renderForm({ initialData: { ...baseGame, rewards: ['First', 'Second', 'Third'] } });
+
+    await user.click(screen.getByRole('button', { name: 'Remove reward 2' }));
+
+    expect(screen.getByLabelText('Reward 1')).toHaveValue('First');
+    expect(screen.getByLabelText('Reward 2')).toHaveValue('Third');
+    expect(screen.queryByLabelText('Reward 3')).not.toBeInTheDocument();
+  });
+
+  it('edits only the entry being typed into', async () => {
+    const user = userEvent.setup();
+    renderForm({ initialData: { ...baseGame, rewards: ['First', 'Second'] } });
+
+    await user.type(screen.getByLabelText('Reward 2'), '!');
+
+    expect(screen.getByLabelText('Reward 1')).toHaveValue('First');
+    expect(screen.getByLabelText('Reward 2')).toHaveValue('Second!');
+  });
+
+  it('passes the entry list to onSubmit', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    renderForm({ initialData: { ...baseGame, rewards: ['First'] }, onSubmit });
+
+    await user.click(screen.getByText('+ Add another reward'));
+    await user.type(screen.getByLabelText('Reward 2'), 'Second');
+    await user.click(screen.getByText('Save Changes'));
+
+    expect(onSubmit).toHaveBeenCalledOnce();
+    expect(onSubmit.mock.calls[0]![0].rewards).toEqual(['First', 'Second']);
   });
 });
 
@@ -164,21 +251,50 @@ describe('GameForm - remindHostRewards checkbox', () => {
 
 describe('GameForm - Save and Archive button', () => {
   it('does not show Save and Archive when onSaveAndArchive is not provided', () => {
-    renderForm({ initialData: { ...baseGame, rewards: 'Prize', archive_channel_id: 'arch-1' } });
+    renderForm({ initialData: { ...baseGame, rewards: ['Prize'], archive_channel_id: 'arch-1' } });
     expect(screen.queryByText('Save and Archive')).not.toBeInTheDocument();
   });
 
-  it('does not show Save and Archive when rewards is empty', () => {
+  it('does not show Save and Archive when rewards is null', () => {
     renderForm({
-      initialData: { ...baseGame, rewards: '', archive_channel_id: 'arch-1' },
+      initialData: { ...baseGame, rewards: null, archive_channel_id: 'arch-1' },
       onSaveAndArchive: vi.fn(),
     });
     expect(screen.queryByText('Save and Archive')).not.toBeInTheDocument();
   });
 
+  it('does not show Save and Archive when every entry is blank', () => {
+    renderForm({
+      initialData: { ...baseGame, rewards: ['', '   ', '\n'], archive_channel_id: 'arch-1' },
+      onSaveAndArchive: vi.fn(),
+    });
+    expect(screen.queryByText('Save and Archive')).not.toBeInTheDocument();
+  });
+
+  it('shows Save and Archive when any one entry is non-blank', () => {
+    renderForm({
+      initialData: { ...baseGame, rewards: ['', 'Prize', ' '], archive_channel_id: 'arch-1' },
+      onSaveAndArchive: vi.fn(),
+    });
+    expect(screen.getByText('Save and Archive')).toBeInTheDocument();
+  });
+
+  it('shows Save and Archive once a reward is typed into an empty entry', async () => {
+    const user = userEvent.setup();
+    renderForm({
+      initialData: { ...baseGame, rewards: null, archive_channel_id: 'arch-1' },
+      onSaveAndArchive: vi.fn(),
+    });
+    expect(screen.queryByText('Save and Archive')).not.toBeInTheDocument();
+
+    await user.type(screen.getByLabelText('Reward 1'), 'Gold');
+
+    expect(screen.getByText('Save and Archive')).toBeInTheDocument();
+  });
+
   it('does not show Save and Archive when archive_channel_id is missing', () => {
     renderForm({
-      initialData: { ...baseGame, rewards: 'Prize', archive_channel_id: null },
+      initialData: { ...baseGame, rewards: ['Prize'], archive_channel_id: null },
       onSaveAndArchive: vi.fn(),
     });
     expect(screen.queryByText('Save and Archive')).not.toBeInTheDocument();
@@ -186,7 +302,7 @@ describe('GameForm - Save and Archive button', () => {
 
   it('shows Save and Archive when onSaveAndArchive provided, rewards non-empty, and archive_channel_id set', () => {
     renderForm({
-      initialData: { ...baseGame, rewards: 'A treasure chest', archive_channel_id: 'arch-1' },
+      initialData: { ...baseGame, rewards: ['A treasure chest'], archive_channel_id: 'arch-1' },
       onSaveAndArchive: vi.fn(),
     });
     expect(screen.getByText('Save and Archive')).toBeInTheDocument();
@@ -197,12 +313,13 @@ describe('GameForm - Save and Archive button', () => {
     const user = userEvent.setup();
 
     renderForm({
-      initialData: { ...baseGame, rewards: 'A treasure chest', archive_channel_id: 'arch-1' },
+      initialData: { ...baseGame, rewards: ['A treasure chest'], archive_channel_id: 'arch-1' },
       onSaveAndArchive,
     });
 
     await user.click(screen.getByText('Save and Archive'));
     expect(onSaveAndArchive).toHaveBeenCalledOnce();
+    expect(onSaveAndArchive.mock.calls[0]![0].rewards).toEqual(['A treasure chest']);
   });
 
   it('shows error when onSaveAndArchive rejects', async () => {
@@ -212,7 +329,7 @@ describe('GameForm - Save and Archive button', () => {
     const user = userEvent.setup();
 
     renderForm({
-      initialData: { ...baseGame, rewards: 'A treasure chest', archive_channel_id: 'arch-1' },
+      initialData: { ...baseGame, rewards: ['A treasure chest'], archive_channel_id: 'arch-1' },
       onSaveAndArchive,
     });
 

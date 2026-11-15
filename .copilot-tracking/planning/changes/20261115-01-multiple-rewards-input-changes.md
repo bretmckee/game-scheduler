@@ -87,3 +87,43 @@
   - The save-and-archive test now sends two entries and checks that the archive repost keeps one spoiler field per entry.
 
 **Verification**: `scripts/run-e2e-tests.sh tests/e2e/test_game_rewards.py`: 6 passed against real Discord. Output is in output-e2e.txt.
+
+## Phase 3: Frontend
+
+### Task 3.1: Constants, types, GameDetails per-entry display
+
+#### Added
+
+- frontend/src/constants/rewards.ts - `Rewards.MAX_ENTRIES = 20` and `Rewards.MAX_LENGTH = 2000`, which mirror `shared/utils/limits.py`.
+
+#### Modified
+
+- frontend/src/types/index.ts - `GameSession.rewards` is now `string[] | null`.
+- frontend/src/pages/GameDetails.tsx - once revealed, each reward entry is its own `Typography` block with `whiteSpace: 'pre-line'`. The section is hidden when the list is null or empty.
+- `frontend/src/pages/__tests__/GameDetails.test.tsx` - existing tests now use list data. New tests: per-entry blocks with preserved line breaks; an empty list hides the section.
+
+**Off-plan note**: GameDetails also hides the section for `[]`. The API never returns `[]` (it stores NULL), so this only guards against bad data. GameCard is unchanged, as planned.
+
+**Verification**: `npx vitest run src/pages/__tests__/GameDetails.test.tsx`: 19 passed. `tsc` now fails only in GameForm.tsx and the GameForm/EditGame tests. Task 3.2 fixes those, so the phase build gate runs after it.
+
+### Task 3.2: GameForm list UI, EditGame JSON submit, Save-and-Archive gate
+
+#### Modified
+
+- frontend/src/components/GameForm.tsx:
+  - `GameFormData.rewards` is now `string[]`. New `initialRewardEntries` starts the list as a single `''` when the game has no rewards.
+  - The single Rewards textarea is replaced by a "Rewards" heading and one multiline `Reward N` TextField per entry, each with `maxLength = Rewards.MAX_LENGTH`.
+  - Each row has a "Remove reward N" delete button, hidden when only one row is left.
+  - "+ Add another reward" is disabled at `Rewards.MAX_ENTRIES`.
+  - The Save-and-Archive gate now uses the new `hasRewardContent` helper, which is true when any entry is non-blank.
+- frontend/src/pages/EditGame.tsx - the new `buildRewardsPayload` trims entries and drops blank ones. Both submit paths (Save Changes and Save and Archive) send `JSON.stringify(list)`, and `[]` clears.
+- `frontend/src/components/__tests__/GameForm.rewards.test.tsx`:
+  - The visibility tests use the `Reward 1` label.
+  - New "rewards entry list" tests: pre-populate, start with one empty box, maxLength, add, add disabled at the max and enabled one below it, remove hidden at one row, remove keeps order, editing one entry leaves the others alone, onSubmit gets the list.
+  - Save-and-Archive gate tests: null, all-blank, any one non-blank, typing into an empty row.
+- `frontend/src/pages/__tests__/EditGame.archiveBranches.test.tsx` - list fixtures. New test: the archive path sends trimmed entries as a JSON list with blanks dropped.
+- `frontend/src/pages/__tests__/EditGame.test.tsx` - list fixtures. New tests: Save Changes sends every entry, including a multi-line one, as JSON; removing and clearing every entry sends `[]`.
+
+**Off-plan note**: CreateGame and CloneGame needed no change. Neither sends `rewards`; they only send `remind_host_rewards`.
+
+**Verification**: `npm run build`: passed. `npm run test`: 541 passed (47 files). eslint and prettier: clean on the changed files. `uv run pytest tests/unit`: 2706 passed. `uv run mypy shared/ services/`: clean.

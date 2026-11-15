@@ -361,7 +361,7 @@ describe('EditGame', () => {
     const gameWithRewards: GameSession = {
       ...mockGame,
       status: 'IN_PROGRESS',
-      rewards: 'A treasure chest',
+      rewards: ['A treasure chest'],
       archive_channel_id: 'archive-ch-1',
     };
 
@@ -564,7 +564,7 @@ describe('EditGame', () => {
     const gameWithRewards: GameSession = {
       ...mockGame,
       status: 'IN_PROGRESS',
-      rewards: 'A treasure chest',
+      rewards: ['A treasure chest'],
       archive_channel_id: 'archive-ch-1',
     };
 
@@ -605,6 +605,89 @@ describe('EditGame', () => {
       expect(formData.get('archive_delay_seconds')).toBe('1');
       expect(mockNavigate).toHaveBeenCalledWith('/games/game123');
     });
+  });
+
+  it('sends each reward entry in a JSON list when Save Changes is clicked', async () => {
+    const gameWithRewards: GameSession = {
+      ...mockGame,
+      status: 'IN_PROGRESS',
+      rewards: ['A treasure chest', 'Line 1\nLine 2'],
+    };
+
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url.includes('/games/')) return Promise.resolve({ data: gameWithRewards });
+      if (url.includes('/channels')) return Promise.resolve({ data: mockChannels });
+      if (url.includes('/roles')) return Promise.resolve({ data: [] });
+      return Promise.reject(new Error('Unknown URL'));
+    });
+    vi.mocked(apiClient.put).mockResolvedValueOnce({ data: gameWithRewards });
+
+    const user = userEvent.setup();
+
+    render(
+      <AuthContext.Provider value={mockAuthContextValue}>
+        <BrowserRouter>
+          <EditGame />
+        </BrowserRouter>
+      </AuthContext.Provider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Reward 2')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Save Changes'));
+
+    await waitFor(() => {
+      expect(apiClient.put).toHaveBeenCalled();
+    });
+
+    const formData = vi.mocked(apiClient.put).mock.calls[0]![1] as FormData;
+    expect(JSON.parse(formData.get('rewards') as string)).toEqual([
+      'A treasure chest',
+      'Line 1\nLine 2',
+    ]);
+  });
+
+  it('sends an empty JSON list to clear rewards when every entry is removed or blank', async () => {
+    const gameWithRewards: GameSession = {
+      ...mockGame,
+      status: 'IN_PROGRESS',
+      rewards: ['A treasure chest', 'Runner-up ribbon'],
+    };
+
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url.includes('/games/')) return Promise.resolve({ data: gameWithRewards });
+      if (url.includes('/channels')) return Promise.resolve({ data: mockChannels });
+      if (url.includes('/roles')) return Promise.resolve({ data: [] });
+      return Promise.reject(new Error('Unknown URL'));
+    });
+    vi.mocked(apiClient.put).mockResolvedValueOnce({ data: { ...gameWithRewards, rewards: null } });
+
+    const user = userEvent.setup();
+
+    render(
+      <AuthContext.Provider value={mockAuthContextValue}>
+        <BrowserRouter>
+          <EditGame />
+        </BrowserRouter>
+      </AuthContext.Provider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Reward 2')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Remove reward 2' }));
+    await user.clear(screen.getByLabelText('Reward 1'));
+    await user.click(screen.getByText('Save Changes'));
+
+    await waitFor(() => {
+      expect(apiClient.put).toHaveBeenCalled();
+    });
+
+    const formData = vi.mocked(apiClient.put).mock.calls[0]![1] as FormData;
+    expect(formData.get('rewards')).toBe('[]');
   });
 
   it('resubmits the stored channel token when Location is untouched, not the rendered display text', async () => {

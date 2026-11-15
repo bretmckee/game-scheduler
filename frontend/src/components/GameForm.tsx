@@ -35,7 +35,9 @@ import {
   Grid,
   Checkbox,
   FormControlLabel,
+  IconButton,
 } from '@mui/material';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
@@ -54,6 +56,7 @@ import { RecurrenceSelector } from './RecurrenceSelector';
 import { useAuth } from '../hooks/useAuth';
 import { Time } from '../constants/time';
 import { UI } from '../constants/ui';
+import { Rewards } from '../constants/rewards';
 import {
   validateDuration,
   validateMaxPlayers,
@@ -109,10 +112,20 @@ export interface GameFormData {
   imageFile: File | null;
   removeThumbnail: boolean;
   removeImage: boolean;
-  rewards: string;
+  rewards: string[];
   remindHostRewards: boolean;
   remindersAsDms: boolean;
   recurRule: string | null;
+}
+
+/** An empty game still shows one blank box so the host has somewhere to type. */
+function initialRewardEntries(rewards: string[] | null | undefined): string[] {
+  return rewards && rewards.length > 0 ? [...rewards] : [''];
+}
+
+/** True when at least one entry would survive the blank-dropping done on submit. */
+function hasRewardContent(rewards: string[]): boolean {
+  return rewards.some((entry) => entry.trim() !== '');
 }
 
 interface GameFormProps {
@@ -310,7 +323,7 @@ export const GameForm: FC<GameFormProps> = ({
     imageFile: null,
     removeThumbnail: false,
     removeImage: false,
-    rewards: initialData?.rewards || '',
+    rewards: initialRewardEntries(initialData?.rewards),
     remindHostRewards: initialData?.remind_host_rewards ?? false,
     // DM-only delivery is the preferred reminder mode, so new games default on
     remindersAsDms: initialData?.reminders_as_dms ?? true,
@@ -345,7 +358,7 @@ export const GameForm: FC<GameFormProps> = ({
         imageFile: null,
         removeThumbnail: false,
         removeImage: false,
-        rewards: initialData.rewards || '',
+        rewards: initialRewardEntries(initialData.rewards),
         remindHostRewards: initialData.remind_host_rewards ?? false,
         remindersAsDms: initialData.reminders_as_dms ?? true,
         recurRule: initialData.recur_rule ?? null,
@@ -395,6 +408,25 @@ export const GameForm: FC<GameFormProps> = ({
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleRewardChange = (index: number, value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      rewards: prev.rewards.map((entry, i) => (i === index ? value : entry)),
+    }));
+  };
+
+  const handleAddReward = () => {
+    setFormData((prev) =>
+      prev.rewards.length >= Rewards.MAX_ENTRIES
+        ? prev
+        : { ...prev, rewards: [...prev.rewards, ''] }
+    );
+  };
+
+  const handleRemoveReward = (index: number) => {
+    setFormData((prev) => ({ ...prev, rewards: prev.rewards.filter((_, i) => i !== index) }));
   };
 
   // Validation handler stubs
@@ -707,22 +739,43 @@ export const GameForm: FC<GameFormProps> = ({
           )}
 
           {mode === 'edit' && initialData?.status !== 'SCHEDULED' && (
-            <TextField
-              fullWidth
-              multiline
-              rows={3}
-              label="Rewards"
-              name="rewards"
-              value={formData.rewards}
-              onChange={handleChange}
-              margin="normal"
-              disabled={loading}
-              helperText="Describe rewards or prizes for participants (displayed as a spoiler)"
-              InputLabelProps={{
-                sx: { fontSize: '1.1rem' },
-              }}
-              sx={{ mb: 1 }}
-            />
+            <Box sx={{ mt: 2, mb: 1 }}>
+              <Typography variant="subtitle1">Rewards</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Describe rewards or prizes for participants, one per box (displayed as spoilers)
+              </Typography>
+              {formData.rewards.map((entry, index) => (
+                <Box key={index} sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                  <TextField
+                    fullWidth
+                    multiline
+                    minRows={2}
+                    label={`Reward ${index + 1}`}
+                    value={entry}
+                    onChange={(e) => handleRewardChange(index, e.target.value)}
+                    margin="normal"
+                    disabled={loading}
+                    inputProps={{ maxLength: Rewards.MAX_LENGTH }}
+                  />
+                  {formData.rewards.length > 1 && (
+                    <IconButton
+                      aria-label={`Remove reward ${index + 1}`}
+                      onClick={() => handleRemoveReward(index)}
+                      disabled={loading}
+                      sx={{ mt: 3 }}
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  )}
+                </Box>
+              ))}
+              <Button
+                onClick={handleAddReward}
+                disabled={loading || formData.rewards.length >= Rewards.MAX_ENTRIES}
+              >
+                + Add another reward
+              </Button>
+            </Box>
           )}
 
           <TextField
@@ -1092,7 +1145,7 @@ export const GameForm: FC<GameFormProps> = ({
               )}
             </Button>
             {onSaveAndArchive &&
-              formData.rewards.trim() !== '' &&
+              hasRewardContent(formData.rewards) &&
               initialData?.archive_channel_id && (
                 <Button
                   variant="contained"

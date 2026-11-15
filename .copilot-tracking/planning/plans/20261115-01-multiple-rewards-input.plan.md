@@ -56,12 +56,12 @@ Let hosts enter each reward in its own text box (add/remove), stored as a JSON l
 - [x] Task 2.3: E2E tests (inline, at-limit, overflow, archive)
   - Details: .copilot-tracking/planning/details/20261115-01-multiple-rewards-input-details.md (Lines 76-85)
 
-### [ ] Phase 3: Frontend
+### [x] Phase 3: Frontend
 
-- [ ] Task 3.1: Constants, types, GameDetails per-entry display
+- [x] Task 3.1: Constants, types, GameDetails per-entry display
   - Details: .copilot-tracking/planning/details/20261115-01-multiple-rewards-input-details.md (Lines 88-98)
 
-- [ ] Task 3.2: GameForm list UI, EditGame JSON submit, Save-and-Archive gate
+- [x] Task 3.2: GameForm list UI, EditGame JSON submit, Save-and-Archive gate
   - Details: .copilot-tracking/planning/details/20261115-01-multiple-rewards-input-details.md (Lines 99-109)
 
 ## Dependencies

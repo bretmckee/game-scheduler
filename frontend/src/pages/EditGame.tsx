@@ -62,6 +62,11 @@ function isReplacedParticipant(p: ParticipantInput): boolean {
   );
 }
 
+/** Trim each entry and drop blank ones; an empty list tells the API to clear rewards. */
+function buildRewardsPayload(rewards: string[]): string[] {
+  return rewards.map((entry) => entry.trim()).filter((entry) => entry !== '');
+}
+
 /**
  * Build the participants payload for a game-update submission.
  *
@@ -265,7 +270,7 @@ export const EditGame: FC = () => {
       }
 
       // Add rewards fields
-      payload.append('rewards', formData.rewards || '');
+      payload.append('rewards', JSON.stringify(buildRewardsPayload(formData.rewards)));
       payload.append('remind_host_rewards', formData.remindHostRewards ? 'true' : 'false');
       payload.append('reminders_as_dms', formData.remindersAsDms ? 'true' : 'false');
 
@@ -403,7 +408,7 @@ export const EditGame: FC = () => {
     if (formData.removeImage) {
       payload.append('remove_image', 'true');
     }
-    payload.append('rewards', formData.rewards || '');
+    payload.append('rewards', JSON.stringify(buildRewardsPayload(formData.rewards)));
     payload.append('remind_host_rewards', formData.remindHostRewards ? 'true' : 'false');
     payload.append('reminders_as_dms', formData.remindersAsDms ? 'true' : 'false');
 
