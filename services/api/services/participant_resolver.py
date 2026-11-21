@@ -176,6 +176,27 @@ class ParticipantResolver:
                     None,
                 )
 
+            # Prefix search spans username/nick/global_name, so "@bob" also matches
+            # "bobby"; a single exact name hit is unambiguous and wins outright.
+            query = mention_text.casefold()
+            exact_matches = [
+                m
+                for m in members
+                if any(
+                    (m.get(field) or "").casefold() == query
+                    for field in ("username", "nick", "global_name")
+                )
+            ]
+            if len(exact_matches) == 1:
+                return (
+                    {
+                        "type": "discord",
+                        "discord_id": exact_matches[0]["uid"],
+                        "original_input": input_text,
+                    },
+                    None,
+                )
+
             # Multiple matches - disambiguation needed
             if len(members) > _MAX_MENTION_SUGGESTIONS:
                 return (

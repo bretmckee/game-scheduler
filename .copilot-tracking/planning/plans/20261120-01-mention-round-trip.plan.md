@@ -47,12 +47,12 @@ Make user and channel mentions in game description / signup instructions survive
 
 Phases 1-6 tolerate tokens without the server emitting them. Phase 7 switches rendering last, so every phase commits cleanly.
 
-### [ ] Phase 1: Exact-match preference in mention resolution (server)
+### [x] Phase 1: Exact-match preference in mention resolution (server)
 
-- [ ] Task 1.1: RED — xfail tests for the exact-match rule
+- [x] Task 1.1: RED — xfail tests for the exact-match rule
   - Details: .copilot-tracking/planning/details/20261120-01-mention-round-trip-details.md (Lines 17-40)
 
-- [ ] Task 1.2: GREEN — implement exact-match filter
+- [x] Task 1.2: GREEN — implement exact-match filter
   - Details: .copilot-tracking/planning/details/20261120-01-mention-round-trip-details.md (Lines 41-50)
 
 ### [ ] Phase 2: Collapse `<@id|label>` / `<#id|label>` on input (server)

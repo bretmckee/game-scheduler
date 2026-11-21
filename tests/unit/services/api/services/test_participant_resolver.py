@@ -110,7 +110,7 @@ async def test_resolve_multiple_matches(resolver):
             "uid": "222",
             "username": "alice2",
             "global_name": "Alice Two",
-            "nick": "Alice",
+            "nick": "Alicia",
             "roles": [],
             "avatar_url": None,
         },
@@ -138,7 +138,7 @@ async def test_resolve_multiple_matches(resolver):
     assert errors[0]["reason"] == "Multiple matches found"
     assert len(errors[0]["suggestions"]) == 2
     assert errors[0]["suggestions"][0]["discordId"] == "111"
-    assert errors[0]["suggestions"][1]["displayName"] == "Alice"
+    assert errors[0]["suggestions"][1]["displayName"] == "Alicia"
 
 
 @pytest.mark.asyncio
@@ -724,7 +724,7 @@ async def test_resolve_user_friendly_mention_multiple_matches(resolver):
             "uid": "222",
             "username": "alice2",
             "global_name": "Alice Two",
-            "nick": "Alice",
+            "nick": "Alicia",
             "roles": [],
             "avatar_url": None,
         },
@@ -761,8 +761,101 @@ async def test_resolve_user_friendly_mention_multiple_matches(resolver):
     assert error["reason"] == "Multiple matches found"
     assert len(error["suggestions"]) == 3
     assert error["suggestions"][0]["discordId"] == "111"
-    assert error["suggestions"][1]["displayName"] == "Alice"
+    assert error["suggestions"][1]["displayName"] == "Alicia"
     assert error["suggestions"][2]["displayName"] == "alice3"
+
+
+def _member(uid: str, username: str, global_name: str | None, nick: str | None) -> dict:
+    return {
+        "uid": uid,
+        "username": username,
+        "global_name": global_name,
+        "nick": nick,
+        "roles": [],
+        "avatar_url": None,
+    }
+
+
+async def _resolve_with_prefix_matches(
+    resolver, members: list[dict], query: str
+) -> tuple[dict | None, dict | None]:
+    with (
+        patch(
+            "services.api.services.participant_resolver.cache_client.get_redis_client",
+            new_callable=AsyncMock,
+            return_value=AsyncMock(),
+        ),
+        patch(
+            "services.api.services.participant_resolver.member_projection.search_members_by_prefix",
+            new_callable=AsyncMock,
+            return_value=members,
+        ),
+    ):
+        return await resolver._resolve_user_friendly_mention(
+            guild_discord_id="999",
+            input_text=f"@{query}",
+            mention_text=query,
+        )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("exact_member", "query"),
+    [
+        pytest.param(_member("222", "xanthias", None, None), "xanthias", id="username"),
+        pytest.param(_member("222", "xan_alt", None, "Xanthias"), "Xanthias", id="nick"),
+        pytest.param(_member("222", "xan_alt", "Xanthias", None), "Xanthias", id="global_name"),
+        pytest.param(_member("222", "xan_alt", None, "Xanthias"), "XANTHIAS", id="case"),
+    ],
+)
+async def test_resolve_user_friendly_mention_prefers_single_exact_match(
+    resolver, exact_member, query
+):
+    """A single exact name match among several prefix matches resolves without prompting."""
+    members = [
+        _member("111", "xanthias_the_bold", "Xanthias Bold", None),
+        exact_member,
+        _member("333", "xanthiasfan", None, "Xanthias Fan"),
+    ]
+
+    participant, error = await _resolve_with_prefix_matches(resolver, members, query)
+
+    assert error is None
+    assert participant == {
+        "type": "discord",
+        "discord_id": "222",
+        "original_input": f"@{query}",
+    }
+
+
+@pytest.mark.asyncio
+async def test_resolve_user_friendly_mention_exact_match_beats_suggestion_cap(resolver):
+    """An exact match resolves even when the prefix matches exceed the suggestion cap."""
+    members = [_member(str(i), f"alice{i}", None, None) for i in range(11)]
+    members.append(_member("999", "alice", None, None))
+
+    participant, error = await _resolve_with_prefix_matches(resolver, members, "alice")
+
+    assert error is None
+    assert participant is not None
+    assert participant["discord_id"] == "999"
+
+
+@pytest.mark.asyncio
+async def test_resolve_user_friendly_mention_two_exact_matches_still_prompts(resolver):
+    """Two members matching exactly (username of A == nick of B) still need disambiguation."""
+    members = [
+        _member("111", "kallisti", None, None),
+        _member("222", "rubyrose", "Kallisti of the Ruby Rose", "Kallisti"),
+        _member("333", "kallisti_fan", None, None),
+    ]
+
+    participant, error = await _resolve_with_prefix_matches(resolver, members, "kallisti")
+
+    assert participant is None
+    assert error is not None
+    assert error["reason"] == "Multiple matches found"
+    assert [s["discordId"] for s in error["suggestions"]] == ["111", "222", "333"]
 
 
 @pytest.mark.asyncio
