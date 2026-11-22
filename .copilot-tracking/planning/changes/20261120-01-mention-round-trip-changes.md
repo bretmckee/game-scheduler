@@ -254,3 +254,71 @@ component="div"` so the chips nest validly.
 - `npm run lint`: clean (prettier fix applied to mentionTokens.test.ts)
 - `uv run pytest tests/unit`: 2747 passed
 - `uv run mypy shared/ services/`: clean
+
+## Phase 6: Editor Wiring + Suggestion-Click Map (frontend)
+
+### Added
+
+- frontend/src/components/\_\_tests\_\_/GameForm.mentions.test.tsx — editor/submit conversion tests:
+  labels shown instead of tokens, an unedited submit sends the collapsed original, edits map known
+  labels back, departed members and unknown channels are dropped with the removal notice (and are
+  not resubmitted), token-free text passes through, `initialData` reset, and Save and Archive goes
+  through the same conversion. Suggestion-pick tests: the 2a regression (pick → submit sends
+  `<@id>` in both fields), the pick survives a later edit, the Kallisti same-display-name case
+  (editor text unchanged, submit carries the picked ID), existing tokens stay intact when a pick
+  lands in unedited text, and a duplicate-name channel pick sends the chosen `<#id>`.
+
+### Modified
+
+- frontend/src/components/GameForm.tsx — per-field `MentionFieldStates` (`EditorTextState` for
+  description and signup instructions), built by `buildMentionFieldStates` on mount and on every
+  `initialData` reset. The editor shows `display`. `toSubmitData` applies `fromEditorText` and
+  feeds both `onSubmit` and `onSaveAndArchive`, so EditGame, CloneGame and CreateGame share one
+  conversion path and their payload builders are unchanged. An info notice ("Removed N mention(s)
+  of members or channels no longer in this server") shows above Description when either field
+  dropped mentions. The suggestion handlers now take the picked ID and go through
+  `applyMentionPick`: insert `@displayName` / `#name`, record `editorForm → <@id>` / `<#id>` in
+  the field's map, and, while the field is otherwise unedited, rewrite `raw` / `display` too.
+  Participant rows still get `@displayName` + `resolvedMention`, now always set from the
+  passed ID.
+- frontend/src/components/ValidationErrors.tsx, ChannelValidationErrors.tsx — `onSuggestionClick`
+  gets a third argument, the picked suggestion's `discordId` / channel `id`. The page-level
+  `onValidationErrorClick` / `onChannelValidationErrorClick` props keep their two-argument shape.
+- frontend/src/components/\_\_tests\_\_/GameForm.error-handling.test.tsx — the three replacement
+  tests now expect the display name (`@New Name`, `@Alice`, `@Foo Bar`) instead of `@username`.
+- frontend/src/components/\_\_tests\_\_/ValidationErrors.test.tsx, ChannelValidationErrors.test.tsx —
+  the callback assertions include the ID, and there is a new duplicate-channel-name test that passes
+  the clicked chip's ID.
+- frontend/src/pages/\_\_tests\_\_/EditGame.test.tsx, CloneGame.test.tsx — new payload tests: an
+  unedited labeled-token description / signup sends `<@id>` / `<#id>` text (PUT and clone POST).
+- All new and changed tests were written `it.fails` first. I confirmed each one failed on its
+  assertion (not on setup) with a marker-stripped copy, then removed only the modifier.
+
+### Notes / deviations
+
+- **Outside plan**: the details didn't cover a pick in an unedited field. `fromEditorText` returns
+  `raw` verbatim when the text equals `display`, so a pick that leaves the text unchanged (Kallisti:
+  both members display as "Kallisti") or lands in unedited template/legacy text would have sent the
+  unresolved name again and kept the loop going. `applyMentionPick` rewrites `raw` alongside
+  `display` in that case. Covered by the Kallisti and "existing tokens intact" tests.
+- **Decision**: a pick overrides any existing map entry for that label, including a `null`
+  (ambiguous) one. A server prompt for a label only happens when the label was sent unmapped, so
+  the host's explicit choice is the right resolution. Phase 5's note suggested the opposite;
+  following it would have recreated the 2a loop.
+- **Decision**: channel chips pass the channel ID rather than GameForm looking it up by name,
+  because duplicate channel names would otherwise always resolve to the first suggestion. User
+  chips pass the ID too, for symmetry.
+- Notice wording covers channels as well as members, per the Phase 5 decision.
+- `where` handling is unchanged.
+- The character-count helpers measure the editor text, not the submitted text.
+- One combined vitest run during RED had a single unrelated EditGame failure that didn't
+  reproduce on rerun or in the full suite.
+
+### Gates
+
+- `cd frontend && npm run build`: OK
+- `cd frontend && npx vitest --run`: 54 files, 625 tests passed
+- `npm run lint`: clean; `prettier --check` on touched files: clean
+- `uv run pytest tests/unit`: 2747 passed
+- `uv run mypy shared/ services/`: clean
+- No integration or e2e changes in this phase

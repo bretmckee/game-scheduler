@@ -34,7 +34,7 @@ interface ValidationError {
 
 interface ValidationErrorsProps {
   errors: ValidationError[];
-  onSuggestionClick: (originalInput: string, newUsername: string) => void;
+  onSuggestionClick: (originalInput: string, newUsername: string, discordId: string) => void;
 }
 
 export const ValidationErrors: FC<ValidationErrorsProps> = ({ errors, onSuggestionClick }) => {
@@ -56,7 +56,7 @@ export const ValidationErrors: FC<ValidationErrorsProps> = ({ errors, onSuggesti
                   key={sugg.discordId}
                   username={sugg.username}
                   displayName={sugg.displayName}
-                  onClick={() => onSuggestionClick(err.input, `@${sugg.username}`)}
+                  onClick={() => onSuggestionClick(err.input, `@${sugg.username}`, sugg.discordId)}
                 />
               ))}
             </Box>

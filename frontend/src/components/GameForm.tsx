@@ -54,6 +54,7 @@ import { ValidationErrors } from './ValidationErrors';
 import { ChannelValidationErrors } from './ChannelValidationErrors';
 import { formatParticipantDisplay } from '../utils/formatParticipant';
 import { toMemberRef } from '../types/memberRef';
+import { EditorTextState, fromEditorText, toEditorText } from '../utils/mentionTokens';
 import {
   EditableParticipantList,
   ParticipantInput as EditableParticipantInput,
@@ -192,6 +193,52 @@ function replaceMentionToken(text: string, token: string, replacement: string): 
   return text.replace(new RegExp(escaped + '(?![\\w.])', 'g'), replacement);
 }
 
+/** Editor state for the free-text fields that carry `<@id|label>` / `<#id|label>` tokens. */
+interface MentionFieldStates {
+  description: EditorTextState;
+  signupInstructions: EditorTextState;
+}
+
+function buildMentionFieldStates(data: Partial<GameSession> | undefined): MentionFieldStates {
+  return {
+    description: toEditorText(data?.description || ''),
+    signupInstructions: toEditorText(data?.signup_instructions || ''),
+  };
+}
+
+/**
+ * Apply a "Did you mean" pick to one mention field.
+ *
+ * The editor text gets the pick's readable form (`@displayName` / `#name`) and the
+ * field's map records the token it stands for, so the next save sends the ID instead
+ * of a name the server would have to resolve again. The host's explicit pick replaces
+ * any earlier mapping for that label, including one left ambiguous. While the field
+ * is otherwise unedited, `raw` and `display` are rewritten too, keeping `raw` the
+ * submit form of `display` for the unedited-save shortcut in `fromEditorText`.
+ */
+function applyMentionPick(
+  text: string,
+  state: EditorTextState,
+  originalInput: string,
+  editorForm: string,
+  token: string
+): { text: string; state: EditorTextState } {
+  const nextText = replaceMentionToken(text, originalInput, editorForm);
+  const map = { ...state.map, [editorForm]: token };
+  if (text !== state.display) {
+    return { text: nextText, state: { ...state, map } };
+  }
+  return {
+    text: nextText,
+    state: {
+      ...state,
+      map,
+      raw: replaceMentionToken(state.raw, originalInput, token),
+      display: nextText,
+    },
+  };
+}
+
 /**
  * Text and member reference for a persisted participant row.
  *
@@ -324,11 +371,17 @@ export const GameForm: FC<GameFormProps> = ({
       ? defaultSignupMethod
       : availableSignupMethods[0] || SignupMethod.SELF_SIGNUP;
 
+  // The editor shows `@label` / `#label`; these states map that text back to the
+  // ID-carrying form on submit so an unedited save is byte-identical.
+  const [mentionStates, setMentionStates] = useState<MentionFieldStates>(() =>
+    buildMentionFieldStates(initialData)
+  );
+
   const [formData, setFormData] = useState<GameFormData>({
     title: initialData?.title || '',
     host: '',
-    description: initialData?.description || '',
-    signupInstructions: initialData?.signup_instructions || '',
+    description: mentionStates.description.display,
+    signupInstructions: mentionStates.signupInstructions.display,
     scheduledAt: initialData?.scheduled_at ? new Date(initialData.scheduled_at) : getNextHalfHour(),
     postAt: initialData?.post_at ? new Date(initialData.post_at) : null,
     clearPostAt: false,
@@ -357,11 +410,13 @@ export const GameForm: FC<GameFormProps> = ({
   // Update form when initialData changes (e.g., after async fetch in edit mode)
   useEffect(() => {
     if (initialData) {
+      const nextMentionStates = buildMentionFieldStates(initialData);
+      setMentionStates(nextMentionStates);
       setFormData({
         title: initialData.title || '',
         host: '',
-        description: initialData.description || '',
-        signupInstructions: initialData.signup_instructions || '',
+        description: nextMentionStates.description.display,
+        signupInstructions: nextMentionStates.signupInstructions.display,
         scheduledAt: initialData.scheduled_at
           ? new Date(initialData.scheduled_at)
           : getNextHalfHour(),
@@ -644,25 +699,49 @@ export const GameForm: FC<GameFormProps> = ({
     }));
   };
 
-  const handleChannelSuggestionClick = (originalInput: string, newChannelName: string) => {
+  /** Insert a picked mention into both free-text fields and record its token. */
+  const applyPickToTextFields = (originalInput: string, editorForm: string, token: string) => {
+    const description = applyMentionPick(
+      formData.description,
+      mentionStates.description,
+      originalInput,
+      editorForm,
+      token
+    );
+    const signupInstructions = applyMentionPick(
+      formData.signupInstructions,
+      mentionStates.signupInstructions,
+      originalInput,
+      editorForm,
+      token
+    );
+    setMentionStates({
+      description: description.state,
+      signupInstructions: signupInstructions.state,
+    });
+    return { description: description.text, signupInstructions: signupInstructions.text };
+  };
+
+  const handleChannelSuggestionClick = (
+    originalInput: string,
+    newChannelName: string,
+    channelId: string
+  ) => {
+    const textFields = applyPickToTextFields(originalInput, newChannelName, `<#${channelId}>`);
     setFormData((prev) => ({
       ...prev,
       where: prev.where.trim() === originalInput.trim() ? newChannelName : prev.where,
-      description: replaceMentionToken(prev.description, originalInput, newChannelName),
-      signupInstructions: replaceMentionToken(
-        prev.signupInstructions,
-        originalInput,
-        newChannelName
-      ),
+      ...textFields,
     }));
     onChannelValidationErrorClick?.(originalInput, newChannelName);
   };
 
-  const handleSuggestionClick = (originalInput: string, newUsername: string) => {
+  const handleSuggestionClick = (originalInput: string, newUsername: string, discordId: string) => {
     const error = validationErrors?.find((e) => e.input === originalInput);
-    const suggestion = error?.suggestions.find((s) => `@${s.username}` === newUsername);
-    const resolvedMention = suggestion ? `<@${suggestion.discordId}>` : undefined;
+    const suggestion = error?.suggestions.find((s) => s.discordId === discordId);
+    const resolvedMention = `<@${discordId}>`;
     const displayMention = suggestion ? `@${suggestion.displayName}` : newUsername;
+    const textFields = applyPickToTextFields(originalInput, displayMention, resolvedMention);
     setFormData((prev) => ({
       ...prev,
       participants: prev.participants.map((p) =>
@@ -670,11 +749,20 @@ export const GameForm: FC<GameFormProps> = ({
           ? { ...p, mention: displayMention, resolvedMention, validationStatus: 'unknown' as const }
           : p
       ),
-      description: replaceMentionToken(prev.description, originalInput, newUsername),
-      signupInstructions: replaceMentionToken(prev.signupInstructions, originalInput, newUsername),
+      ...textFields,
     }));
     onValidationErrorClick?.(originalInput, newUsername);
   };
+
+  /** Form data as the pages submit it: mention labels mapped back to tokens. */
+  const toSubmitData = (data: GameFormData): GameFormData => ({
+    ...data,
+    description: fromEditorText(data.description, mentionStates.description),
+    signupInstructions: fromEditorText(data.signupInstructions, mentionStates.signupInstructions),
+  });
+
+  const removedMentionCount =
+    mentionStates.description.removedCount + mentionStates.signupInstructions.removedCount;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -701,7 +789,7 @@ export const GameForm: FC<GameFormProps> = ({
     try {
       setLoading(true);
       setError(null);
-      await onSubmit(formData);
+      await onSubmit(toSubmitData(formData));
     } catch (err: unknown) {
       console.error('Failed to submit form:', err);
       if (!validationErrors) {
@@ -996,6 +1084,12 @@ export const GameForm: FC<GameFormProps> = ({
             onChange={handleParticipantsChange}
           />
 
+          {removedMentionCount > 0 && (
+            <Alert severity="info" sx={{ mt: 2 }}>
+              {`Removed ${removedMentionCount} mention(s) of members or channels no longer in this server`}
+            </Alert>
+          )}
+
           <TextField
             fullWidth
             required
@@ -1180,7 +1274,7 @@ export const GameForm: FC<GameFormProps> = ({
                     try {
                       setLoading(true);
                       setError(null);
-                      await onSaveAndArchive(formData);
+                      await onSaveAndArchive(toSubmitData(formData));
                     } catch (err: unknown) {
                       console.error('Failed to save and archive:', err);
                       const errorDetail = (err as any).response?.data?.detail;

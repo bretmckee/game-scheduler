@@ -683,6 +683,38 @@ describe('CloneGame', () => {
       expect(formData.get('post_at')).toBeNull();
     });
 
+    it('posts untouched description and signup mentions as bare tokens, not labels', async () => {
+      const mentionGame: GameSession = {
+        ...mockGame,
+        description: 'Ask <@111222333|Kallisti> in <#444555666|lfg-chat>',
+        signup_instructions: 'DM <@777888999|Xanthias (GM)>',
+      };
+      vi.mocked(apiClient.get).mockImplementation((url: string) => {
+        if (url.includes('/games/')) return Promise.resolve({ data: mentionGame });
+        if (url.includes('/config')) return Promise.resolve({ status: 200, data: {} });
+        return Promise.reject(new Error(`Unexpected URL: ${url}`));
+      });
+      vi.mocked(apiClient.post).mockResolvedValue({ data: { id: 'cloned-game-id-3' } });
+      const user = userEvent.setup();
+      renderCloneGame();
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Game To Clone')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: 'Continue' }));
+      expect(await screen.findByDisplayValue('Ask @Kallisti in #lfg-chat')).toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: 'Create Game' }));
+
+      await waitFor(() => {
+        expect(apiClient.post).toHaveBeenCalled();
+      });
+
+      const formData = vi.mocked(apiClient.post).mock.calls[0]![1] as FormData;
+      expect(formData.get('description')).toBe('Ask <@111222333> in <#444555666>');
+      expect(formData.get('signup_instructions')).toBe('DM <@777888999>');
+    });
+
     it('reflects an edited roster (removed carried-over participant, newly added one) in the outgoing participants field', async () => {
       vi.mocked(apiClient.get).mockImplementation(mockGetImpl);
       vi.mocked(apiClient.post).mockResolvedValue({ data: { id: 'cloned-game-id' } });

@@ -772,6 +772,48 @@ describe('EditGame', () => {
     expect(formData.get('where')).toBe('#new-name');
   });
 
+  it('resubmits untouched description and signup mentions as bare tokens, not labels', async () => {
+    // The API returns labeled tokens; an unedited save must send back exactly the stored
+    // bare-token text so the description never drifts across saves.
+    const gameWithMentions: GameSession = {
+      ...mockGame,
+      description: 'Ask <@111222333|Kallisti> in <#444555666|lfg-chat>',
+      signup_instructions: 'DM <@777888999|Xanthias (GM)>',
+    };
+
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url.includes('/games/')) return Promise.resolve({ data: gameWithMentions });
+      if (url.includes('/channels')) return Promise.resolve({ data: mockChannels });
+      if (url.includes('/roles')) return Promise.resolve({ data: [] });
+      return Promise.reject(new Error('Unknown URL'));
+    });
+    vi.mocked(apiClient.put).mockResolvedValueOnce({ data: gameWithMentions });
+
+    const user = userEvent.setup();
+
+    render(
+      <AuthContext.Provider value={mockAuthContextValue}>
+        <BrowserRouter>
+          <EditGame />
+        </BrowserRouter>
+      </AuthContext.Provider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('Ask @Kallisti in #lfg-chat')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Save Changes'));
+
+    await waitFor(() => {
+      expect(apiClient.put).toHaveBeenCalled();
+    });
+
+    const formData = vi.mocked(apiClient.put).mock.calls[0]![1] as FormData;
+    expect(formData.get('description')).toBe('Ask <@111222333> in <#444555666>');
+    expect(formData.get('signup_instructions')).toBe('DM <@777888999>');
+  });
+
   it('resubmits an unchanged plain-text Location as-is when there is no where_display', async () => {
     const gameWithPlainLocation: GameSession = {
       ...mockGame,

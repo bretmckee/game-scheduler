@@ -90,12 +90,12 @@ Phases 1-6 tolerate tokens without the server emitting them. Phase 7 switches re
 - [x] Task 5.3: `MentionText` component and read-only views
   - Details: .copilot-tracking/planning/details/20261120-01-mention-round-trip-details.md (Lines 169-179)
 
-### [ ] Phase 6: Editor wiring + suggestion-click map (frontend)
+### [x] Phase 6: Editor wiring + suggestion-click map (frontend)
 
-- [ ] Task 6.1: GameForm editor state via `toEditorText` / `fromEditorText`
+- [x] Task 6.1: GameForm editor state via `toEditorText` / `fromEditorText`
   - Details: .copilot-tracking/planning/details/20261120-01-mention-round-trip-details.md (Lines 182-190)
 
-- [ ] Task 6.2: Suggestion click inserts display name and records the ID
+- [x] Task 6.2: Suggestion click inserts display name and records the ID
   - Details: .copilot-tracking/planning/details/20261120-01-mention-round-trip-details.md (Lines 191-199)
 
 ### [ ] Phase 7: Switch server rendering to token form + integration round-trip (server)

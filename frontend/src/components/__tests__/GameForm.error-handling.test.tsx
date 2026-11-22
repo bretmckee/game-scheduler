@@ -199,7 +199,7 @@ describe('GameForm Error Handling', () => {
       expect(onValidationErrorClick).toHaveBeenCalledWith('@oldname', '@newname');
     });
 
-    it('replaces @mention token in description and signupInstructions when suggestion is clicked', async () => {
+    it('replaces @mention token in description and signupInstructions with the display name when suggestion is clicked', async () => {
       const user = userEvent.setup();
       const validationErrors = [
         {
@@ -227,10 +227,10 @@ describe('GameForm Error Handling', () => {
       await user.click(suggestionChip);
 
       const descriptionInput = screen.getByRole('textbox', { name: /description/i });
-      expect(descriptionInput).toHaveValue('Game hosted by @newname, join now');
+      expect(descriptionInput).toHaveValue('Game hosted by @New Name, join now');
 
       const signupInput = screen.getByRole('textbox', { name: /signup instructions/i });
-      expect(signupInput).toHaveValue('Contact @newname to reserve a spot');
+      expect(signupInput).toHaveValue('Contact @New Name to reserve a spot');
     });
 
     it('does not replace a longer @mention token with the same prefix', async () => {
@@ -264,7 +264,7 @@ describe('GameForm Error Handling', () => {
 
       const descriptionInput = screen.getByRole('textbox', { name: /description/i });
       // @foo (standalone) is replaced; @foobar and @foo.bar are left untouched
-      expect(descriptionInput).toHaveValue('Contact @alice and also @foobar and @foo.bar today');
+      expect(descriptionInput).toHaveValue('Contact @Alice and also @foobar and @foo.bar today');
     });
 
     it('@foo and @foo.bar in the same text are replaced independently', async () => {
@@ -300,7 +300,7 @@ describe('GameForm Error Handling', () => {
 
       const descriptionInput = screen.getByRole('textbox', { name: /description/i });
       // The standalone @foo is replaced; the existing @foo.bar is untouched
-      expect(descriptionInput).toHaveValue('Contact @foo.bar and @foo.bar today');
+      expect(descriptionInput).toHaveValue('Contact @Foo Bar and @foo.bar today');
     });
   });
 

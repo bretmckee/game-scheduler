@@ -108,7 +108,7 @@ describe('ChannelValidationErrors', () => {
     expect(screen.getByText('#general-discussion')).toBeInTheDocument();
   });
 
-  it('calls onSuggestionClick when suggestion chip is clicked', async () => {
+  it('calls onSuggestionClick with the picked channel ID when a chip is clicked', async () => {
     const user = userEvent.setup();
     const onSuggestionClick = vi.fn();
     const errors = [
@@ -125,7 +125,29 @@ describe('ChannelValidationErrors', () => {
     const chip = screen.getByText('#general-chat');
     await user.click(chip);
 
-    expect(onSuggestionClick).toHaveBeenCalledWith('#general', '#general-chat');
+    expect(onSuggestionClick).toHaveBeenCalledWith('#general', '#general-chat', '123');
+  });
+
+  it('passes the ID of the chip that was clicked when two channels share a name', async () => {
+    const user = userEvent.setup();
+    const onSuggestionClick = vi.fn();
+    const errors = [
+      {
+        type: 'ambiguous',
+        input: '#lfg',
+        reason: "Multiple channels match '#lfg'",
+        suggestions: [
+          { id: '901', name: 'lfg' },
+          { id: '902', name: 'lfg' },
+        ],
+      },
+    ];
+
+    render(<ChannelValidationErrors errors={errors} onSuggestionClick={onSuggestionClick} />);
+
+    await user.click(screen.getAllByRole('button', { name: '#lfg' })[1]!);
+
+    expect(onSuggestionClick).toHaveBeenCalledWith('#lfg', '#lfg', '902');
   });
 
   it('displays multiple errors', () => {

@@ -67,7 +67,7 @@ describe('ValidationErrors', () => {
     expect(firstError?.textContent).not.toContain('Did you mean:');
   });
 
-  it('calls onSuggestionClick when suggestion chip is clicked', async () => {
+  it('calls onSuggestionClick with the picked member ID when a chip is clicked', async () => {
     const onSuggestionClick = vi.fn();
     const user = userEvent.setup();
 
@@ -76,7 +76,7 @@ describe('ValidationErrors', () => {
     const suggestion = screen.getByText(/@johndoe \(John Doe\)/);
     await user.click(suggestion);
 
-    expect(onSuggestionClick).toHaveBeenCalledWith('@john', '@johndoe');
+    expect(onSuggestionClick).toHaveBeenCalledWith('@john', '@johndoe', '111');
   });
 
   it('displays "Did you mean:" text when suggestions exist', () => {

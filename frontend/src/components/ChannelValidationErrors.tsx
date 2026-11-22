@@ -36,7 +36,7 @@ interface ChannelValidationError {
 
 interface ChannelValidationErrorsProps {
   errors: ChannelValidationError[];
-  onSuggestionClick: (originalInput: string, newChannelName: string) => void;
+  onSuggestionClick: (originalInput: string, newChannelName: string, channelId: string) => void;
 }
 
 export const ChannelValidationErrors: FC<ChannelValidationErrorsProps> = ({
@@ -66,7 +66,7 @@ export const ChannelValidationErrors: FC<ChannelValidationErrorsProps> = ({
                   <Chip
                     key={sugg.id}
                     label={`#${sugg.name}`}
-                    onClick={() => onSuggestionClick(err.input, `#${sugg.name}`)}
+                    onClick={() => onSuggestionClick(err.input, `#${sugg.name}`, sugg.id)}
                     clickable
                     size="small"
                     color="primary"
