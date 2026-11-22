@@ -70,3 +70,72 @@ repeated create/edit/clone saves.
 - `uv run pytest tests/unit`: 2732 passed
 - `uv run mypy shared/ services/`: clean
 - No frontend, integration or e2e changes in this phase
+
+## Phase 3: `MemberRef` + `MemberChip` for Participants (frontend)
+
+### Added
+
+- frontend/src/types/memberRef.ts — `MemberRef = { id; label: string | null }` (`null` = departed)
+  and the `toMemberRef` adapter (`null` for placeholders).
+- frontend/src/components/MemberChip.tsx — `@label` chip (`data-testid="member-chip"`). For a
+  null label it renders a dashed, italic "unknown member" chip with a PersonOff icon
+  (`data-testid="unknown-member-chip"`, aria-label and tooltip "No longer in this server").
+  This is separate from the existing suggestion `MentionChip.tsx`.
+- frontend/src/types/\_\_tests\_\_/memberRef.test.ts, frontend/src/components/\_\_tests\_\_/MemberChip.test.tsx —
+  adapter (member / departed / placeholder), present chip, punctuation-heavy label left
+  unmodified, departed chip by test id / accessible name / tooltip (never "Unknown User", never
+  the raw ID), and a real member named "Unknown User" rendering as a normal chip.
+- frontend/src/utils/\_\_tests\_\_/formatParticipant.test.ts — new (the function had no tests).
+- frontend/src/components/\_\_tests\_\_/ParticipantList.test.tsx — new (the component had no tests).
+  Covers confirmed and waitlisted departed members, present members and placeholders.
+
+### Modified
+
+- frontend/src/utils/formatParticipant.ts — dropped the `<@id>` and "Unknown User" fallbacks.
+  A missing name now yields `''`. Departed members have no text form and go through `MemberChip`.
+- frontend/src/components/ParticipantList.tsx — Discord participants (confirmed and waitlist)
+  render as `MemberChip`, and placeholders keep plain text. The primary slot is rendered as a `div`
+  so the chip nests validly.
+- frontend/src/components/GameCard.tsx — the host renders through `MemberChip`, which shows
+  `@name`. A departed host now shows the unknown-member chip; before, the whole host line was hidden.
+  The avatar falls back to `?`.
+- frontend/src/components/EditableParticipantList.tsx — `ParticipantInput.member?: MemberRef`.
+  Rows with `member.label === null` show the unknown-member chip with "Left the server (can
+  reorder or remove)" instead of a text field. Drag, reorder and delete still work.
+- frontend/src/components/GameForm.tsx — new `participantRowText` helper used by all three
+  `buildParticipantList` branches. It sets `member` and keeps `@label` editor text for present
+  members. Departed rows keep the bare `<@id>` as an internal, never-displayed `mention` /
+  `originalMention`. That way EditGame still submits them as `participant_id` (not a replaced
+  row), the row isn't dropped by the empty-mention filter, and Clone resubmits the same
+  token as before.
+- Tests: GameCard.test.tsx (host assertions now `@DungeonMaster` via the chip, plus a departed-host
+  test), EditableParticipantList.test.tsx (departed row is a chip, not a textbox, and stays
+  removable), GameForm.test.tsx (departed row shows the chip and never `<@222>`), and
+  EditGame.test.tsx (a dragged departed row is sent as `participant_id`, and deleting it sends
+  `removed_participant_ids: ["d1"]`).
+- .copilot-tracking/planning/details/20261120-01-mention-round-trip-details.md — updated the Phase 5/6
+  GameForm.tsx and GameCard.tsx line references after the insertions.
+
+### Notes / deviations
+
+- **Scope choice**: only _departed_ editor rows become chips. Present rows keep their text field
+  (editable for host-added rows, disabled for joined rows). Host-added rows must stay editable,
+  and existing EditGame tests and flows rely on display values like `@P1`.
+- **Test correction (RED phase)**: the first draft of the EditGame "disturbed prefix" test
+  dragged P2 above the departed row. It expected the departed row in the payload, which
+  contradicts the documented rule that untouched rows below the highest explicit index are
+  omitted. I changed the test to drag the departed row itself. The test still fails if a
+  departed row's `mention` were empty.
+- During RED, four existing EditGame tests failed because the new `it.fails` tests left an
+  unconsumed `mockResolvedValueOnce` PUT. HEAD on its own passes (28/28). They pass again now
+  that the new tests pass.
+- With today's server, a member's `display_name` is never null, so the only visible change is
+  chip styling. The departed chip takes effect when Phase 4 lands.
+
+### Gates
+
+- `cd frontend && npm run build`: OK
+- `cd frontend && npx vitest --run`: 51 files, 564 tests passed
+- `npm run lint`: clean (prettier fix applied to one test file)
+- `uv run pytest tests/unit`: 2732 passed
+- `uv run mypy shared/ services/`: clean

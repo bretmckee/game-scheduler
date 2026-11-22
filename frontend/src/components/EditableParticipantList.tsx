@@ -28,6 +28,8 @@ import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import ErrorIcon from '@mui/icons-material/Error';
+import { MemberRef } from '../types/memberRef';
+import { MemberChip } from './MemberChip';
 
 export interface ParticipantInput {
   id: string;
@@ -42,6 +44,9 @@ export interface ParticipantInput {
   // callers detect an in-place text edit, which the update API can't apply to an
   // existing participant_id -- it must be submitted as remove-old + add-new instead.
   originalMention?: string;
+  // Live member reference for a persisted Discord participant. A null label means the
+  // member has left the server: the row shows the unknown-member chip instead of text.
+  member?: MemberRef;
 }
 
 interface EditableParticipantListProps {
@@ -227,15 +232,26 @@ export const EditableParticipantList: FC<EditableParticipantListProps> = ({
                     <HelpOutlineIcon color="action" fontSize="small" titleAccess="Not validated" />
                   )}
                 </Box>
-                <TextField
-                  value={p.mention}
-                  onChange={(e) => handleMentionChange(p.id, e.target.value)}
-                  placeholder="@username or Discord user"
-                  helperText={p.isReadOnly ? 'Joined player (can reorder or remove)' : undefined}
-                  fullWidth
-                  size="small"
-                  disabled={p.isReadOnly}
-                />
+                {p.member?.label === null ? (
+                  <Box sx={{ flexGrow: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', height: 40 }}>
+                      <MemberChip member={p.member} />
+                    </Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ mx: '14px' }}>
+                      Left the server (can reorder or remove)
+                    </Typography>
+                  </Box>
+                ) : (
+                  <TextField
+                    value={p.mention}
+                    onChange={(e) => handleMentionChange(p.id, e.target.value)}
+                    placeholder="@username or Discord user"
+                    helperText={p.isReadOnly ? 'Joined player (can reorder or remove)' : undefined}
+                    fullWidth
+                    size="small"
+                    disabled={p.isReadOnly}
+                  />
+                )}
               </Box>
               <IconButton onClick={() => moveUp(index)} disabled={index === 0} size="small">
                 <ArrowUpwardIcon />

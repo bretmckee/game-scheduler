@@ -830,6 +830,65 @@ describe('GameForm - edit mode with non-HSWW participants', () => {
   });
 });
 
+describe('GameForm - departed participants', () => {
+  const mockChannel: Channel = {
+    id: 'ch1',
+    channel_name: 'General',
+    guild_id: 'guild1',
+    channel_id: 'ch1',
+    is_active: true,
+    created_at: '2025-01-01T00:00:00Z',
+    updated_at: '2025-01-01T00:00:00Z',
+  };
+
+  it('renders a departed participant row as the unknown-member chip, never a raw ID', () => {
+    renderWithAuth(
+      <GameForm
+        mode="edit"
+        guildId="guild1"
+        channels={[mockChannel]}
+        initialData={{
+          id: 'game-1',
+          title: 'Test Game',
+          scheduled_at: new Date().toISOString(),
+          channel_id: 'ch1',
+          description: 'Test',
+          signup_method: 'HOST_SELECTED',
+          participants: [
+            {
+              id: 'p1',
+              game_session_id: 'game-1',
+              user_id: null,
+              discord_id: '222',
+              display_name: null,
+              joined_at: new Date().toISOString(),
+              position_type: ParticipantType.HOST_ADDED,
+              position: 1,
+            },
+            {
+              id: 'p2',
+              game_session_id: 'game-1',
+              user_id: null,
+              discord_id: '111',
+              display_name: 'Player A',
+              joined_at: new Date().toISOString(),
+              position_type: ParticipantType.HOST_ADDED,
+              position: 2,
+            },
+          ],
+        }}
+        onSubmit={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTestId('unknown-member-chip')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('@Player A')).toBeInTheDocument();
+    expect(screen.queryByDisplayValue(/<@222>/)).not.toBeInTheDocument();
+    expect(screen.queryByDisplayValue(/Unknown User/)).not.toBeInTheDocument();
+  });
+});
+
 describe('GameForm - RecurrenceSelector Integration', () => {
   const mockChannel = {
     id: 'ch1',

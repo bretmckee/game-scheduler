@@ -31,7 +31,19 @@ import {
 } from '@mui/material';
 import { Participant, ParticipantType } from '../types';
 import { formatParticipantDisplay } from '../utils/formatParticipant';
+import { toMemberRef } from '../types/memberRef';
+import { MemberChip } from './MemberChip';
 import { UI } from '../constants/ui';
+
+/** Discord members render as a chip; placeholders keep their plain-text name. */
+const renderParticipantName = (participant: Participant) => {
+  const member = toMemberRef(participant);
+  return member ? (
+    <MemberChip member={member} />
+  ) : (
+    formatParticipantDisplay(participant.display_name, null)
+  );
+};
 
 interface ParticipantListProps {
   confirmedParticipants: Participant[];
@@ -56,7 +68,8 @@ export const ParticipantList: FC<ParticipantListProps> = ({
               <Avatar>{participant.display_name?.[0]?.toUpperCase() || '?'}</Avatar>
             </ListItemAvatar>
             <ListItemText
-              primary={formatParticipantDisplay(participant.display_name, participant.discord_id)}
+              primary={renderParticipantName(participant)}
+              slotProps={{ primary: { component: 'div' } }}
               secondary={
                 participant.position_type === ParticipantType.HOST_ADDED
                   ? 'Added by host'
@@ -93,10 +106,8 @@ export const ParticipantList: FC<ParticipantListProps> = ({
                   <Avatar sx={{ bgcolor: 'warning.main' }}>{index + 1}</Avatar>
                 </ListItemAvatar>
                 <ListItemText
-                  primary={formatParticipantDisplay(
-                    participant.display_name,
-                    participant.discord_id
-                  )}
+                  primary={renderParticipantName(participant)}
+                  slotProps={{ primary: { component: 'div' } }}
                   secondary={
                     participant.position_type === ParticipantType.HOST_ADDED
                       ? 'Added by host'

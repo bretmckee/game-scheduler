@@ -108,7 +108,21 @@ describe('GameCard', () => {
     renderWithAuth(<GameCard game={mockGame} />);
 
     expect(screen.getByText('Host:')).toBeInTheDocument();
-    expect(screen.getByText('DungeonMaster')).toBeInTheDocument();
+    expect(screen.getByTestId('member-chip')).toHaveTextContent('@DungeonMaster');
+  });
+
+  it('displays a departed host as the unknown-member chip', () => {
+    const gameWithDepartedHost: GameSession = {
+      ...mockGame,
+      host: { ...mockGame.host, display_name: null, avatar_url: null },
+    };
+
+    renderWithAuth(<GameCard game={gameWithDepartedHost} />);
+
+    expect(screen.getByText('Host:')).toBeInTheDocument();
+    expect(screen.getByTestId('unknown-member-chip')).toBeInTheDocument();
+    expect(screen.queryByText(/123456789/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Unknown User/)).not.toBeInTheDocument();
   });
 
   it('displays initial fallback when avatar_url is null', () => {
@@ -125,7 +139,7 @@ describe('GameCard', () => {
     const avatar = screen.getByText('D');
     expect(avatar).toBeInTheDocument();
     expect(screen.getByText('Host:')).toBeInTheDocument();
-    expect(screen.getByText('DungeonMaster')).toBeInTheDocument();
+    expect(screen.getByTestId('member-chip')).toHaveTextContent('@DungeonMaster');
   });
 
   it('displays initial fallback when avatar_url is undefined', () => {

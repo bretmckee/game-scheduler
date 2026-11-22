@@ -63,12 +63,12 @@ Phases 1-6 tolerate tokens without the server emitting them. Phase 7 switches re
 - [x] Task 2.2: GREEN — implement and wire into create/update paths
   - Details: .copilot-tracking/planning/details/20261120-01-mention-round-trip-details.md (Lines 73-89)
 
-### [ ] Phase 3: `MemberRef` + `MemberChip` for participants (frontend)
+### [x] Phase 3: `MemberRef` + `MemberChip` for participants (frontend)
 
-- [ ] Task 3.1: RED — `MemberRef` type, adapter, `MemberChip` stub + tests
+- [x] Task 3.1: RED — `MemberRef` type, adapter, `MemberChip` stub + tests
   - Details: .copilot-tracking/planning/details/20261120-01-mention-round-trip-details.md (Lines 92-108)
 
-- [ ] Task 3.2: GREEN — implement and render participants through `MemberChip`
+- [x] Task 3.2: GREEN — implement and render participants through `MemberChip`
   - Details: .copilot-tracking/planning/details/20261120-01-mention-round-trip-details.md (Lines 109-120)
 
 ### [ ] Phase 4: Departed participants return `display_name: null` (server)

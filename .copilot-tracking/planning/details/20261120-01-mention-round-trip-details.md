@@ -168,7 +168,7 @@ Implement the three functions until all tests pass.
 
 ### Task 5.3: `MentionText` component and read-only views
 
-Create `frontend/src/components/MentionText.tsx`. It renders `parseTokens` segments, with user tokens as `MemberChip` (Phase 3), channel tokens as a channel chip, and an empty channel label as an "unknown channel" chip. It takes an optional `maxLength` that truncates on segment boundaries (a token is never cut). Replace `truncateDescription(game.description, …)` in GameCard.tsx (~175-215) and the plain renders in GameDetails.tsx (~271, ~360). Tests: chips render, departed chip, truncation never splits a token, token-free text renders unchanged (so it is safe before Phase 7).
+Create `frontend/src/components/MentionText.tsx`. It renders `parseTokens` segments, with user tokens as `MemberChip` (Phase 3), channel tokens as a channel chip, and an empty channel label as an "unknown channel" chip. It takes an optional `maxLength` that truncates on segment boundaries (a token is never cut). Replace `truncateDescription(game.description, …)` in GameCard.tsx (~177-224) and the plain renders in GameDetails.tsx (~271, ~360). Tests: chips render, departed chip, truncation never splits a token, token-free text renders unchanged (so it is safe before Phase 7).
 
 - **Files**:
   - frontend/src/components/MentionText.tsx + **tests**/MentionText.test.tsx (new)
@@ -181,7 +181,7 @@ Create `frontend/src/components/MentionText.tsx`. It renders `parseTokens` segme
 
 ### Task 6.1: GameForm editor state via `toEditorText` / `fromEditorText`
 
-Initialise `description` / `signupInstructions` (GameForm.tsx ~306-307, ~339-340) through `toEditorText`, keeping `{map, raw, display, removedCount}` per field. Show the notice "Removed N mention(s) of members no longer in this server" when `removedCount > 0`. Apply `fromEditorText` in the submit payload builders for EditGame.tsx (~213/218, ~369/372), CloneGame.tsx (~226-229) and CreateGame.tsx (~180-184), either via the form's submit data or a shared helper so all three use one path.
+Initialise `description` / `signupInstructions` (GameForm.tsx ~330-331, ~363-364) through `toEditorText`, keeping `{map, raw, display, removedCount}` per field. Show the notice "Removed N mention(s) of members no longer in this server" when `removedCount > 0`. Apply `fromEditorText` in the submit payload builders for EditGame.tsx (~213/218, ~369/372), CloneGame.tsx (~226-229) and CreateGame.tsx (~180-184), either via the form's submit data or a shared helper so all three use one path.
 
 - **Files**: frontend/src/components/GameForm.tsx, frontend/src/pages/EditGame.tsx, CloneGame.tsx, CreateGame.tsx + their tests
 - **Success**: unedited token text round-trips byte-identical in payload tests; token-free text unchanged
@@ -190,7 +190,7 @@ Initialise `description` / `signupInstructions` (GameForm.tsx ~306-307, ~339-340
 
 ### Task 6.2: Suggestion click inserts display name and records the ID
 
-Change `handleSuggestionClick` (GameForm.tsx ~637-653) for description/signup text: insert `@displayName` and add `@displayName → <@discordId>` to that field's map. Change `handleChannelSuggestionClick` (~623-635) the same way for `#name → <#id>`. Participant-row behaviour is unchanged. Adjust `ValidationErrors.tsx` (~59) if the callback needs the suggestion object instead of `@username`. Update GameForm.error-handling.test.tsx (~173-260) and ValidationErrors.test.tsx (~70). New test: chip pick, then submit sends `<@id>` (the 2a regression).
+Change `handleSuggestionClick` (GameForm.tsx ~661-677) for description/signup text: insert `@displayName` and add `@displayName → <@discordId>` to that field's map. Change `handleChannelSuggestionClick` (~647-659) the same way for `#name → <#id>`. Participant-row behaviour is unchanged. Adjust `ValidationErrors.tsx` (~59) if the callback needs the suggestion object instead of `@username`. Update GameForm.error-handling.test.tsx (~173-260) and ValidationErrors.test.tsx (~70). New test: chip pick, then submit sends `<@id>` (the 2a regression).
 
 - **Files**: frontend/src/components/GameForm.tsx, ValidationErrors.tsx, ChannelValidationErrors.tsx (if needed) + tests
 - **Success**: frontend gates green

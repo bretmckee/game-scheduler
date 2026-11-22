@@ -39,6 +39,8 @@ import { formatScheduleDate, relativeScheduleLabel } from '../utils/dateDisplay'
 import { resolveMySeating } from '../utils/seating';
 import { useAuth } from '../hooks/useAuth';
 import { apiClient } from '../api/client';
+import { toMemberRef } from '../types/memberRef';
+import { MemberChip } from './MemberChip';
 
 // Color-blind-safe accents for the caller's seating state. The pair is chosen to
 // stay distinguishable across protanopia/deuteranopia/tritanopia and reads well in
@@ -182,20 +184,27 @@ export const GameCard: FC<GameCardProps> = ({
     return text.substring(0, maxLength).trim() + '...';
   };
 
+  const hostMember = game.host ? toMemberRef(game.host) : null;
+
   return (
     <Card data-seat={seatAttribute} sx={{ mb: 2, ...(statusBorderStyle ?? {}) }}>
       <CardContent>
-        {game.host && game.host.display_name && (
+        {game.host && (hostMember || game.host.display_name) && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
             <Avatar
               src={game.host.avatar_url || undefined}
-              alt={game.host.display_name}
+              alt={game.host.display_name ?? undefined}
               sx={{ width: 32, height: 32 }}
             >
-              {!game.host.avatar_url && game.host.display_name[0]}
+              {!game.host.avatar_url && (game.host.display_name?.[0] ?? '?')}
             </Avatar>
-            <Typography variant="subtitle2" color="text.secondary">
-              Host: <strong>{game.host.display_name}</strong>
+            <Typography variant="subtitle2" component="div" color="text.secondary">
+              Host:{' '}
+              {hostMember ? (
+                <MemberChip member={hostMember} />
+              ) : (
+                <strong>{game.host.display_name}</strong>
+              )}
             </Typography>
           </Box>
         )}

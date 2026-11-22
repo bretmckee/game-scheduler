@@ -20,7 +20,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { StatusCodes } from 'http-status-codes';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router';
 import { EditGame } from '../EditGame';
@@ -937,6 +937,99 @@ describe('EditGame', () => {
       { participant_id: 'p3', position: 2 },
       { participant_id: 'p1', position: 3 },
     ]);
+  });
+
+  it('keeps a departed participant by participant_id when it is part of the disturbed prefix', async () => {
+    const gameWithDeparted: GameSession = {
+      ...mockGame,
+      participants: [
+        { ...selfAddedParticipant('d1', 'unused', '2025-01-01T00:00:00Z'), display_name: null },
+        selfAddedParticipant('p2', 'P2', '2025-01-01T00:01:00Z'),
+      ],
+    };
+
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url.includes('/games/')) return Promise.resolve({ data: gameWithDeparted });
+      if (url.includes('/channels')) return Promise.resolve({ data: mockChannels });
+      if (url.includes('/roles')) return Promise.resolve({ data: [] });
+      return Promise.reject(new Error('Unknown URL'));
+    });
+    vi.mocked(apiClient.put).mockResolvedValueOnce({ data: gameWithDeparted });
+
+    const user = userEvent.setup();
+
+    render(
+      <AuthContext.Provider value={mockAuthContextValue}>
+        <BrowserRouter>
+          <EditGame />
+        </BrowserRouter>
+      </AuthContext.Provider>
+    );
+
+    const departedChip = await screen.findByTestId('unknown-member-chip');
+
+    // Drag the departed member below P2: [P2, d1]
+    const draggedRow = departedChip.closest('[draggable="true"]')!;
+    const dropTargetRow = screen.getByDisplayValue('@P2').closest('[draggable="true"]')!;
+    fireEvent.dragStart(draggedRow);
+    fireEvent.dragOver(dropTargetRow);
+    fireEvent.drop(dropTargetRow);
+
+    await user.click(screen.getByText('Save Changes'));
+
+    await waitFor(() => {
+      expect(apiClient.put).toHaveBeenCalled();
+    });
+
+    const formData = vi.mocked(apiClient.put).mock.calls[0]![1] as FormData;
+    expect(JSON.parse(formData.get('participants') as string)).toEqual([
+      { participant_id: 'p2', position: 1 },
+      { participant_id: 'd1', position: 2 },
+    ]);
+    expect(formData.get('removed_participant_ids')).toBeNull();
+  });
+
+  it('removes a departed participant when the host deletes its row', async () => {
+    const gameWithDeparted: GameSession = {
+      ...mockGame,
+      participants: [
+        { ...selfAddedParticipant('d1', 'unused', '2025-01-01T00:00:00Z'), display_name: null },
+        selfAddedParticipant('p2', 'P2', '2025-01-01T00:01:00Z'),
+      ],
+    };
+
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url.includes('/games/')) return Promise.resolve({ data: gameWithDeparted });
+      if (url.includes('/channels')) return Promise.resolve({ data: mockChannels });
+      if (url.includes('/roles')) return Promise.resolve({ data: [] });
+      return Promise.reject(new Error('Unknown URL'));
+    });
+    vi.mocked(apiClient.put).mockResolvedValueOnce({ data: gameWithDeparted });
+
+    const user = userEvent.setup();
+
+    render(
+      <AuthContext.Provider value={mockAuthContextValue}>
+        <BrowserRouter>
+          <EditGame />
+        </BrowserRouter>
+      </AuthContext.Provider>
+    );
+
+    const departedRow = (await screen.findByTestId('unknown-member-chip')).closest(
+      '[draggable="true"]'
+    ) as HTMLElement;
+    const rowButtons = within(departedRow).getAllByRole('button');
+    await user.click(rowButtons[rowButtons.length - 1]!);
+
+    await user.click(screen.getByText('Save Changes'));
+
+    await waitFor(() => {
+      expect(apiClient.put).toHaveBeenCalled();
+    });
+
+    const formData = vi.mocked(apiClient.put).mock.calls[0]![1] as FormData;
+    expect(JSON.parse(formData.get('removed_participant_ids') as string)).toEqual(['d1']);
   });
 
   it('excludes untouched participants below the highest explicitly-positioned index', async () => {

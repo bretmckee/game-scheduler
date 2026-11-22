@@ -42,10 +42,18 @@ import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { subMinutes } from 'date-fns';
-import { Channel, GameSession, ParticipantType, SignupMethod, SIGNUP_METHOD_INFO } from '../types';
+import {
+  Channel,
+  GameSession,
+  Participant,
+  ParticipantType,
+  SignupMethod,
+  SIGNUP_METHOD_INFO,
+} from '../types';
 import { ValidationErrors } from './ValidationErrors';
 import { ChannelValidationErrors } from './ChannelValidationErrors';
 import { formatParticipantDisplay } from '../utils/formatParticipant';
+import { toMemberRef } from '../types/memberRef';
 import {
   EditableParticipantList,
   ParticipantInput as EditableParticipantInput,
@@ -185,6 +193,25 @@ function replaceMentionToken(text: string, token: string, replacement: string): 
 }
 
 /**
+ * Text and member reference for a persisted participant row.
+ *
+ * A departed member (discord_id set, no display name) has no text form. Its row keeps
+ * the bare `<@id>` token as the internal mention so the unchanged-row check and clone
+ * resubmission behave as before, and the editor shows the unknown-member chip instead
+ * of that token.
+ */
+function participantRowText(
+  p: Participant
+): Pick<EditableParticipantInput, 'mention' | 'originalMention' | 'member'> {
+  const member = toMemberRef(p) ?? undefined;
+  const mention =
+    member && member.label === null
+      ? `<@${member.id}>`
+      : formatParticipantDisplay(p.display_name, p.discord_id);
+  return { mention, originalMention: mention, member };
+}
+
+/**
  * Build the editable participant list for the form.
  *
  * `signupMethod` defaults to `data.signup_method` (the server-side value) but callers
@@ -202,8 +229,7 @@ function buildParticipantList(
   if (signupMethod === SignupMethod.HOST_SELECTED_WITH_WAITLIST) {
     const confirmed = (data.confirmed_participants ?? []).map((p, index) => ({
       id: p.id,
-      mention: formatParticipantDisplay(p.display_name, p.discord_id),
-      originalMention: formatParticipantDisplay(p.display_name, p.discord_id),
+      ...participantRowText(p),
       isValid: true,
       preFillPosition: index + 1,
       isExplicitlyPositioned: true,
@@ -222,8 +248,7 @@ function buildParticipantList(
     }));
     const waitlisted = (data.waitlist_participants ?? []).map((p, index) => ({
       id: p.id,
-      mention: formatParticipantDisplay(p.display_name, p.discord_id),
-      originalMention: formatParticipantDisplay(p.display_name, p.discord_id),
+      ...participantRowText(p),
       isValid: true,
       preFillPosition: confirmed.length + openSlotCount + index + 1,
       isExplicitlyPositioned: false,
@@ -242,8 +267,7 @@ function buildParticipantList(
     })
     .map((p, index) => ({
       id: p.id,
-      mention: formatParticipantDisplay(p.display_name, p.discord_id),
-      originalMention: formatParticipantDisplay(p.display_name, p.discord_id),
+      ...participantRowText(p),
       isValid: true,
       preFillPosition: index + 1,
       isExplicitlyPositioned: p.position_type === ParticipantType.HOST_ADDED,

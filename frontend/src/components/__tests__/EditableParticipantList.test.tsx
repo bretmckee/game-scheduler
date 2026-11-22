@@ -19,7 +19,7 @@
 // SOFTWARE.
 
 import { describe, it, expect, vi } from 'vitest';
-import { render, fireEvent } from '@testing-library/react';
+import { render, fireEvent, screen, within } from '@testing-library/react';
 import { EditableParticipantList } from '../EditableParticipantList';
 import type { ParticipantInput } from '../EditableParticipantList';
 
@@ -124,5 +124,44 @@ describe('EditableParticipantList - resolvedMention clearing', () => {
         expect.objectContaining({ id: 'p1', mention: '@user edited', resolvedMention: undefined }),
       ])
     );
+  });
+});
+
+describe('EditableParticipantList - departed members', () => {
+  const departed: ParticipantInput = {
+    id: 'd1',
+    mention: '<@222>',
+    originalMention: '<@222>',
+    member: { id: '222', label: null },
+    preFillPosition: 1,
+    isExplicitlyPositioned: false,
+    isReadOnly: true,
+    validationStatus: 'valid',
+  };
+
+  it('renders a departed row as the unknown-member chip instead of a text field', () => {
+    render(<EditableParticipantList participants={[departed]} onChange={vi.fn()} />);
+
+    expect(screen.getByTestId('unknown-member-chip')).toBeInTheDocument();
+    expect(screen.queryByDisplayValue('<@222>')).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+  });
+
+  it('keeps a departed row removable', () => {
+    const onChange = vi.fn();
+    render(
+      <EditableParticipantList
+        participants={[departed, makeParticipant('2')]}
+        onChange={onChange}
+      />
+    );
+
+    const row = screen.getByTestId('unknown-member-chip').closest('[draggable="true"]')!;
+    const buttons = within(row as HTMLElement).getAllByRole('button');
+    fireEvent.click(buttons[buttons.length - 1]!);
+
+    expect(onChange).toHaveBeenCalledWith([
+      expect.objectContaining({ id: '2', preFillPosition: 1 }),
+    ]);
   });
 });
