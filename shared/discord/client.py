@@ -623,14 +623,18 @@ async def get_guild_channels_safe(
     guild_id: str, client: DiscordAPIClient | None = None
 ) -> list[dict]:
     """
-    Fetch guild channels from Discord API with error handling.
+    Read guild channels from the bot's gateway cache, swallowing a cache miss.
+
+    This is a cache-only read (see DiscordAPIClient.get_guild_channels); it never
+    calls the Discord REST API. An empty list means the cache key is missing
+    (bot not yet connected), not a Discord API failure.
 
     Args:
         guild_id: Discord guild ID
         client: DiscordAPIClient instance (optional, uses global if not provided)
 
     Returns:
-        List of channel dicts, or empty list on error
+        List of channel dicts, or empty list on a cache miss
     """
     if client is None:
         client = _get_global_client()

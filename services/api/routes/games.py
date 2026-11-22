@@ -1300,28 +1300,42 @@ async def _render_text_fields(
     guild_discord_id: str | None,
 ) -> tuple[str | None, str | None, str | None]:
     """
-    Render <#id>, <@id>, and <:emoji:id> tokens for display.
+    Render stored text fields into their edit-ready API form.
 
-    Returns (title, description, signup_instructions) with tokens replaced by
-    human-readable equivalents.
+    Custom emoji become ":name:" in all three fields. In description and
+    signup_instructions, "<@id>" / "<#id>" become labeled "<@id|label>" /
+    "<#id|name>" tokens, so the client can show names while keeping the IDs it
+    must send back.
+
+    A missing (departed) member or unknown channel always gets the empty label
+    ("<@id|>" / "<#id|>"). Do not add a "lookup unavailable -> leave tokens
+    bare" fallback: this code only runs after request authorization has
+    rejected a stale projection (permissions.verify_guild_membership), and the
+    channel list is the same gateway-maintained, non-expiring cache. A failure
+    here is a real error and should propagate.
+
+    Returns:
+        (title, description, signup_instructions) in rendered form
     """
+    description = emoji_resolver_module.render_emoji_for_display(description)
+    signup_instructions = emoji_resolver_module.render_emoji_for_display(signup_instructions)
+
     user_ids = channel_resolver_module.extract_user_mention_ids(
         description
     ) | channel_resolver_module.extract_user_mention_ids(signup_instructions)
-    user_id_to_name: dict[str, str] = {}
+    member_labels: dict[str, str | None] = {}
     if user_ids and guild_discord_id:
         resolver = await display_names_module.get_display_name_resolver()
-        user_id_to_name = await resolver.resolve_display_names(guild_discord_id, list(user_ids))
-    rendered_description = channel_resolver_module.render_text_for_display(
-        description, channels, user_id_to_name
+        member_labels = await resolver.resolve_member_refs(guild_discord_id, sorted(user_ids))
+    channel_names = {ch["id"]: ch["name"] for ch in channels}
+
+    return (
+        emoji_resolver_module.render_emoji_for_display(title),
+        channel_resolver_module.render_mention_tokens(description, member_labels, channel_names),
+        channel_resolver_module.render_mention_tokens(
+            signup_instructions, member_labels, channel_names
+        ),
     )
-    rendered_signup = channel_resolver_module.render_text_for_display(
-        signup_instructions, channels, user_id_to_name
-    )
-    rendered_title = emoji_resolver_module.render_emoji_for_display(title)
-    rendered_description = emoji_resolver_module.render_emoji_for_display(rendered_description)
-    rendered_signup = emoji_resolver_module.render_emoji_for_display(rendered_signup)
-    return rendered_title, rendered_description, rendered_signup
 
 
 async def _build_game_response(

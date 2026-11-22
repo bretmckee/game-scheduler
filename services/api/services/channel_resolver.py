@@ -27,6 +27,7 @@ converting #channel-name references to clickable Discord links.
 """
 
 import re
+from collections.abc import Mapping
 
 from shared.discord import client as discord_client_module
 
@@ -283,6 +284,7 @@ class ChannelResolver:
 
 
 _USER_MENTION_PATTERN = re.compile(r"<@(\d+)>")
+_CHANNEL_MENTION_PATTERN = re.compile(r"<#(\d+)>")
 
 # Edit-ready mention tokens carry a cosmetic label after the ID: "<@id|label>" and
 # "<#id|label>". The label may be empty (departed member / unknown channel) and may
@@ -304,38 +306,46 @@ def collapse_mention_tokens(text: str | None) -> str | None:
     return _LABELED_CHANNEL_TOKEN_PATTERN.sub(r"<#\1>", text)
 
 
+def render_mention_tokens(
+    text: str | None,
+    member_labels: Mapping[str, str | None],
+    channel_names: Mapping[str, str],
+) -> str | None:
+    """
+    Expand stored <@id> / <#id> tokens into edit-ready labeled tokens.
+
+    "<@id>" becomes "<@id|label>" and "<#id>" becomes "<#id|name>", the inverse of
+    collapse_mention_tokens. An ID absent from its lookup (or a None label) gets an
+    empty label ("<@id|>" / "<#id|>"), the structural marker for a departed member
+    or unknown channel.
+
+    Args:
+        text: Stored text containing bare Discord tokens
+        member_labels: Member ID to label, None for a departed member
+        channel_names: Channel ID to channel name
+
+    Returns:
+        Text with labeled tokens, or None when text is None
+    """
+    if text is None:
+        return None
+
+    def _labeled(sigil: str, token_id: str, label: str | None) -> str:
+        return f"<{sigil}{token_id}|{(label or '').replace('>', '')}>"
+
+    text = _CHANNEL_MENTION_PATTERN.sub(
+        lambda m: _labeled("#", m.group(1), channel_names.get(m.group(1))), text
+    )
+    return _USER_MENTION_PATTERN.sub(
+        lambda m: _labeled("@", m.group(1), member_labels.get(m.group(1))), text
+    )
+
+
 def extract_user_mention_ids(text: str | None) -> set[str]:
     """Extract Discord snowflake IDs from all <@id> user mention tokens in text."""
     if not text:
         return set()
     return set(_USER_MENTION_PATTERN.findall(text))
-
-
-def render_text_for_display(
-    text: str | None,
-    channels: list[dict],
-    user_id_to_name: dict[str, str],
-) -> str | None:
-    """
-    Replace <#id> and <@id> tokens in text with human-readable equivalents.
-
-    Returns None if text is None. Returns text unchanged when no tokens match.
-    Leaves tokens with unknown IDs unchanged.
-    """
-    if text is None:
-        return None
-    id_to_channel = {ch["id"]: ch["name"] for ch in channels}
-
-    def _replace_channel(m: re.Match) -> str:
-        name = id_to_channel.get(m.group(1))
-        return f"#{name}" if name is not None else m.group(0)
-
-    def _replace_user(m: re.Match) -> str:
-        name = user_id_to_name.get(m.group(1))
-        return f"@{name}" if name is not None else m.group(0)
-
-    text = re.sub(r"<#(\d+)>", _replace_channel, text)
-    return _USER_MENTION_PATTERN.sub(_replace_user, text)
 
 
 def render_where_display(where: str | None, channels: list[dict]) -> str | None:

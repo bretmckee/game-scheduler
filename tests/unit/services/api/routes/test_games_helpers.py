@@ -864,6 +864,12 @@ class TestPrefetchedDisplayData:
 class TestRenderTextFields:
     """Tests for _render_text_fields helper."""
 
+    @staticmethod
+    def _member_refs_resolver(labels: dict[str, str | None]) -> AsyncMock:
+        resolver = AsyncMock()
+        resolver.resolve_member_refs = AsyncMock(return_value=labels)
+        return resolver
+
     @pytest.mark.asyncio
     async def test_no_tokens_returns_originals(self):
         """When no tokens, returns the original text unchanged."""
@@ -885,32 +891,85 @@ class TestRenderTextFields:
     @pytest.mark.asyncio
     @patch("services.api.routes.games.display_names_module.get_display_name_resolver")
     async def test_user_tokens_resolved_in_both_fields(self, mock_get_resolver):
-        """<@id> tokens in description and signup_instructions are both resolved."""
-        mock_resolver = AsyncMock()
-        mock_resolver.resolve_display_names = AsyncMock(return_value={"111": "Alice", "222": "Bob"})
+        """<@id> tokens in both fields become <@id|label> from one member-ref lookup."""
+        mock_resolver = self._member_refs_resolver({"111": "Alice", "222": "Bob"})
         mock_get_resolver.return_value = mock_resolver
 
         title, description, signup = await _render_text_fields(
-            "A game", "Hello <@111>", "Contact <@222>", [], "guild123"
+            "A game", "Hello <@111>", "Contact <@222> or <@111>", [], "guild123"
         )
 
-        assert description == "Hello @Alice"
-        assert signup == "Contact @Bob"
-        mock_resolver.resolve_display_names.assert_called_once_with("guild123", ANY)
-        resolved_ids = set(mock_resolver.resolve_display_names.call_args.args[1])
-        assert resolved_ids == {"111", "222"}
+        assert description == "Hello <@111|Alice>"
+        assert signup == "Contact <@222|Bob> or <@111|Alice>"
+        mock_resolver.resolve_member_refs.assert_awaited_once_with("guild123", ANY)
+        resolved_ids = mock_resolver.resolve_member_refs.call_args.args[1]
+        assert sorted(resolved_ids) == ["111", "222"]
+
+    @pytest.mark.asyncio
+    @patch("services.api.routes.games.display_names_module.get_display_name_resolver")
+    async def test_departed_member_renders_empty_label(self, mock_get_resolver):
+        """A member the projection no longer has renders as <@id|>, never a fallback name."""
+        mock_get_resolver.return_value = self._member_refs_resolver({"111": None, "222": "Bob"})
+
+        _, description, _ = await _render_text_fields(
+            None, "Ask <@111> or <@222>", None, [], "guild123"
+        )
+
+        assert description == "Ask <@111|> or <@222|Bob>"
+
+    @pytest.mark.asyncio
+    @patch("services.api.routes.games.display_names_module.get_display_name_resolver")
+    async def test_closing_angle_stripped_from_member_label(self, mock_get_resolver):
+        """Every '>' is removed from a member label so the token stays parseable."""
+        mock_get_resolver.return_value = self._member_refs_resolver({"111": "a>b>c>"})
+
+        _, description, _ = await _render_text_fields(None, "Hi <@111>!", None, [], "guild123")
+
+        assert description == "Hi <@111|abc>!"
+
+    @pytest.mark.parametrize(
+        "label",
+        [
+            "Foo|Bar",
+            "@lice",
+            "Kallisti (Ruby Rose)",
+            "Kallisti of the Ruby Rose",
+            "@@@",
+            "Unknown User",
+        ],
+    )
+    @pytest.mark.asyncio
+    @patch("services.api.routes.games.display_names_module.get_display_name_resolver")
+    async def test_member_label_special_characters_kept(self, mock_get_resolver, label):
+        """Labels with |, @, (, spaces or that look like fallbacks are emitted verbatim."""
+        mock_get_resolver.return_value = self._member_refs_resolver({"111": label})
+
+        _, description, _ = await _render_text_fields(None, "See <@111>", None, [], "guild123")
+
+        assert description == f"See <@111|{label}>"
 
     @pytest.mark.asyncio
     async def test_channel_tokens_resolved_from_channels_list(self):
-        """<#id> tokens are replaced with #name from the channels list without a resolver call."""
-        channels = [{"id": "999", "name": "general"}]
+        """<#id> tokens become <#id|name> from the channels list."""
+        channels = [{"id": "999", "name": "general-chat"}]
 
         title, description, signup = await _render_text_fields(
             "A game", "Meet in <#999>", None, channels, "guild123"
         )
 
-        assert description == "Meet in #general"
+        assert description == "Meet in <#999|general-chat>"
         assert signup is None
+
+    @pytest.mark.asyncio
+    async def test_unknown_channel_renders_empty_label(self):
+        """A <#id> missing from a non-empty channel list renders as <#id|>."""
+        channels = [{"id": "999", "name": "general"}]
+
+        _, description, _ = await _render_text_fields(
+            None, "<#999> or <#555>", None, channels, "guild123"
+        )
+
+        assert description == "<#999|general> or <#555|>"
 
     @pytest.mark.asyncio
     @patch("services.api.routes.games.display_names_module.get_display_name_resolver")
@@ -923,7 +982,7 @@ class TestRenderTextFields:
         )
 
         mock_get_resolver.assert_not_called()
-        assert description == "#general channel only"
+        assert description == "<#123|general> channel only"
 
     @pytest.mark.asyncio
     async def test_stored_emoji_in_title_rendered_to_shorthand(self):
@@ -940,6 +999,20 @@ class TestRenderTextFields:
             None, "Fun <:wave:111> game", None, [], "guild123"
         )
         assert description == "Fun :wave: game"
+
+    @pytest.mark.asyncio
+    @patch("services.api.routes.games.display_names_module.get_display_name_resolver")
+    async def test_emoji_and_mention_tokens_rendered_together(self, mock_get_resolver):
+        """Emoji shorthand and labeled mention tokens coexist in one field."""
+        mock_get_resolver.return_value = self._member_refs_resolver({"111": "Alice"})
+        channels = [{"id": "222", "name": "lfg"}]
+
+        title, description, signup = await _render_text_fields(
+            "Game <:dice:5>", "<:wave:9> <@111> in <#222>", None, channels, "guild123"
+        )
+
+        assert title == "Game :dice:"
+        assert description == ":wave: <@111|Alice> in <#222|lfg>"
 
 
 class TestResolveJoinPosition:

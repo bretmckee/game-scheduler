@@ -71,6 +71,12 @@ async def _check_guild_membership(
     Returns:
         True if user is a member of the guild, False otherwise
     """
+    # Invariant: past this check the bot projection is fresh, so a member absent
+    # from it has really left the guild. Downstream code relies on this and treats
+    # "missing" as "departed" without any staleness handling of its own. Relaxing
+    # this check (e.g. serving requests on a stale projection) breaks that
+    # guarantee, and requires examining every caller of the projection read
+    # helpers to make sure none of them misbehave.
     if not await member_projection.is_bot_fresh(redis=redis):
         logger.debug(
             "Bot projection not fresh for guild membership check (user=%s, guild=%s)",
@@ -114,6 +120,7 @@ async def verify_guild_membership(
     if redis is None:
         redis = await get_redis_client()
 
+    # Enforces the same freshness invariant described in _check_guild_membership.
     if not await member_projection.is_bot_fresh(redis=redis):
         logger.warning(
             "Bot projection not fresh when verifying guild membership for user %s in guild %s",

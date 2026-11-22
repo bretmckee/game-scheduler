@@ -21,9 +21,10 @@
 
 """Integration tests for mention and emoji resolution in game text fields.
 
-Verifies that GET /api/v1/games/{id} renders custom emoji tokens, channel
-mention tokens, and user mention tokens back to human-readable form in
-title, description, and signup_instructions.
+Verifies that GET /api/v1/games/{id} renders custom emoji tokens back to
+:name: in title, description, and signup_instructions, and expands stored
+channel and user mention tokens into edit-ready labeled tokens
+("<#id|name>" / "<@id|label>") that keep the Discord ID.
 """
 
 import json
@@ -84,7 +85,7 @@ async def _seed_member_for_display(
     display_name: str,
     username: str,
 ) -> None:
-    """Seed a proj:member projection key so user mention reverse-render can resolve a name."""
+    """Seed a proj:member projection key so a user mention token can be labeled."""
     redis = RedisClient()
     await redis.connect()
     try:
@@ -189,7 +190,7 @@ async def test_custom_emoji_round_trip_in_all_text_fields(
 
 
 @pytest.mark.asyncio
-async def test_channel_mention_in_description_renders_as_name(
+async def test_channel_mention_in_description_renders_as_labeled_token(
     create_user,
     create_guild,
     create_channel,
@@ -197,11 +198,11 @@ async def test_channel_mention_in_description_renders_as_name(
     seed_redis_cache,
     api_base_url,
 ):
-    """GET /api/v1/games/{id} renders stored <#id> token in description back to #channel-name.
+    """GET /api/v1/games/{id} returns a stored <#id> token as <#id|channel-name>.
 
     When a game is created with #channel-name in description, the API resolves
-    it to a stored <#snowflake> token on POST. GET must reverse-render description
-    to show the human-readable #channel-name and must not expose the raw token.
+    it to a stored <#snowflake> token on POST. GET must return the labeled token,
+    which carries both the ID (for a lossless re-save) and the channel name.
     """
     guild = create_guild(bot_manager_roles=[BOT_MANAGER_ROLE_ID])
     posting_channel = create_channel(guild_id=guild["id"])
@@ -255,20 +256,15 @@ async def test_channel_mention_in_description_renders_as_name(
         data = get_resp.json()
         description = data["description"]
 
-        assert f"#{LOCATION_CHANNEL_NAME}" in description, (
-            f"description should contain '#{LOCATION_CHANNEL_NAME}' (rendered), "
-            f"got: {description!r}"
-        )
-        assert f"<#{LOCATION_CHANNEL_DISCORD_ID}>" not in description, (
-            f"description must not expose raw '<#{LOCATION_CHANNEL_DISCORD_ID}>' token, "
-            f"got: {description!r}"
-        )
+        assert description == (
+            f"Meet us in <#{LOCATION_CHANNEL_DISCORD_ID}|{LOCATION_CHANNEL_NAME}> before the game"
+        ), f"description should carry the labeled channel token, got: {description!r}"
     finally:
         await cleanup_test_session(session_token)
 
 
 @pytest.mark.asyncio
-async def test_user_mention_in_description_renders_as_display_name(
+async def test_user_mention_in_description_renders_as_labeled_token(
     create_user,
     create_guild,
     create_channel,
@@ -277,11 +273,11 @@ async def test_user_mention_in_description_renders_as_display_name(
     seed_redis_cache,
     api_base_url,
 ):
-    """GET /api/v1/games/{id} renders stored <@id> token in description back to @display-name.
+    """GET /api/v1/games/{id} returns a stored <@id> token as <@id|Display Name>.
 
     When a game's description contains a stored <@snowflake> mention token (injected
-    directly to bypass forward resolution), GET must reverse-render description to
-    show the human-readable @Display Name and must not expose the raw token.
+    directly to bypass forward resolution), GET must return the labeled token, which
+    keeps the ID so an unedited re-save does not lose the mention.
     """
     guild = create_guild(bot_manager_roles=[BOT_MANAGER_ROLE_ID])
     posting_channel = create_channel(guild_id=guild["id"])
@@ -330,13 +326,8 @@ async def test_user_mention_in_description_renders_as_display_name(
         data = get_resp.json()
         description = data["description"]
 
-        assert f"@{TEST_USER_DISPLAY_NAME}" in description, (
-            f"description should contain '@{TEST_USER_DISPLAY_NAME}' (rendered), "
-            f"got: {description!r}"
-        )
-        assert f"<@{TEST_USER_DISCORD_ID}>" not in description, (
-            f"description must not expose raw '<@{TEST_USER_DISCORD_ID}>' token, "
-            f"got: {description!r}"
-        )
+        assert description == (
+            f"Ping <@{TEST_USER_DISCORD_ID}|{TEST_USER_DISPLAY_NAME}> for details"
+        ), f"description should carry the labeled member token, got: {description!r}"
     finally:
         await cleanup_test_session(session_token)

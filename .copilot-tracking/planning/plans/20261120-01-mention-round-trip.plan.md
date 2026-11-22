@@ -98,15 +98,15 @@ Phases 1-6 tolerate tokens without the server emitting them. Phase 7 switches re
 - [x] Task 6.2: Suggestion click inserts display name and records the ID
   - Details: .copilot-tracking/planning/details/20261120-01-mention-round-trip-details.md (Lines 191-199)
 
-### [ ] Phase 7: Switch server rendering to token form + integration round-trip (server)
+### [x] Phase 7: Switch server rendering to token form + integration round-trip (server)
 
-- [ ] Task 7.1: RED — xfail token-render tests
+- [x] Task 7.1: RED — xfail token-render tests
   - Details: .copilot-tracking/planning/details/20261120-01-mention-round-trip-details.md (Lines 202-209)
 
-- [ ] Task 7.2: GREEN — implement token rendering
+- [x] Task 7.2: GREEN — implement token rendering
   - Details: .copilot-tracking/planning/details/20261120-01-mention-round-trip-details.md (Lines 210-218)
 
-- [ ] Task 7.3: Integration round-trip matrix
+- [x] Task 7.3: Integration round-trip matrix
   - Details: .copilot-tracking/planning/details/20261120-01-mention-round-trip-details.md (Lines 219-227)
 
 ### [ ] Phase 8: E2E regressions

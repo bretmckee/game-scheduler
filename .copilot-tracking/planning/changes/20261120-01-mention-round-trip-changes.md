@@ -322,3 +322,91 @@ component="div"` so the chips nest validly.
 - `uv run pytest tests/unit`: 2747 passed
 - `uv run mypy shared/ services/`: clean
 - No integration or e2e changes in this phase
+
+## Phase 7: Switch Server Rendering to Token Form + Integration Round-Trip (server)
+
+### Added
+
+- tests/integration/test_games_mention_round_trip.py — the round-trip matrix through the real API,
+  DB and Redis member projection. Each case applies the same text to description and signup
+  instructions: create, check stored text, GET (assert the exact labeled form), then PUT the
+  client-collapsed text and PUT the raw labeled text. Both PUTs must leave stored text
+  byte-identical. Cases: `<@id>`, `@username`, `@nick with spaces` (2b), special-char username
+  with a `( | @` label (Xanthias), a label containing `>`, a prefix of another name, two
+  members with the same display name, a departed member (`<@id|>`), a hyphenated channel,
+  duplicate channel names, custom emoji, and all of these mixed. Separate tests: the Kallisti
+  flow (two exact hits → one 422 with both suggestions → the picked `<@id>` saves), exact
+  username winning over longer prefix hits on a real projection, and a departed participant
+  (GET gives `discord_id` set with `display_name` / `avatar_url` null; an unedited client PUT
+  with no `participants` field keeps the row, its user and its position).
+
+### Modified
+
+- services/api/services/channel_resolver.py — new
+  `render_mention_tokens(text, member_labels, channel_names)`, the inverse of
+  `collapse_mention_tokens`. `<@id>` → `<@id|label>` and `<#id>` → `<#id|name>`,
+  with `>` stripped from labels. An ID missing from its lookup (or a `None`
+  label) gets the empty-label marker `<@id|>` / `<#id|>`. Added
+  `_CHANNEL_MENTION_PATTERN`.
+- services/api/routes/games.py — `_render_text_fields` now renders emoji first, then labeled
+  tokens. Members come from `resolve_member_refs` (one lookup across both fields, sorted IDs),
+  and channels come from the guild channel list.
+  `resolve_display_names` is no longer used here. Title emoji rendering and `where` /
+  `where_display` are unchanged.
+- tests/unit/services/api/routes/test_games_helpers.py — `TestRenderTextFields` rewritten for the
+  token form: both fields from one lookup, departed `<@id|>`, `>` stripped, labels with `|`, `@`,
+  `(`, spaces, all-`@` and a literal "Unknown User" kept verbatim, `<#id|name>`, unknown channel
+  `<#id|>`, emoji and tokens together, and no resolver call without user tokens. Strict xfail in
+  Task 7.1; I verified with `--runxfail` that each failed on its assertion. Task 7.2 removed only
+  the markers.
+- tests/unit/services/api/services/test_channel_resolver.py — direct `render_mention_tokens`
+  tests (None, token-free identity including non-digit look-alikes, live, departed, unknown
+  channel, `>` stripping) written xfail against a `NotImplementedError` stub.
+- tests/integration/test_games_field_display.py — the channel and user mention tests (renamed
+  `..._renders_as_labeled_token`) assert the exact `<#id|name>` / `<@id|label>` description.
+  Docstrings updated.
+
+- services/api/dependencies/permissions.py — comment on the `is_bot_fresh` check in
+  `_check_guild_membership` stating the freshness invariant ("missing" means "departed") and that
+  relaxing it requires examining every caller of the projection read helpers. Added a one-line
+  pointer at the same check in `verify_guild_membership`.
+- shared/cache/ttl.py — comment on `DISCORD_GUILD_CHANNELS`: no expiry is an invariant
+  (downstream code treats an absent channel as deleted).
+- shared/discord/client.py — corrected the `get_guild_channels_safe` docstring. It is a cache-only
+  read, and `[]` means a cache miss, not a Discord API failure. The old wording led to the
+  reverted fallback.
+- services/api/routes/games.py — the `_render_text_fields` docstring tells readers not to add a
+  "leave tokens bare" fallback and points to `permissions.verify_guild_membership`.
+
+### Removed
+
+- services/api/services/channel_resolver.py — `render_text_for_display`. It had no callers
+  left, and its tests in test_channel_resolver.py were deleted. `extract_user_mention_ids` and
+  `_USER_MENTION_PATTERN` are kept because `_render_text_fields` still uses them to collect IDs.
+
+### Notes / deviations
+
+- **Reverted after review**: I first added a fallback that left tokens bare when lookup data was
+  "unavailable" (no guild, a projection error, or an empty channel list). The user pointed out
+  it can't happen. Request authorization already returns 503 when the bot projection is stale.
+  The channel list is a cache-only read of that same gateway data (no REST fallback). A Redis
+  failure fails auth before rendering, and `guild_id` is non-null. I removed the fallback and its
+  4 unit tests. Lookup errors now propagate, and a missing ID always gets the empty label, as
+  planned.
+- **Outside plan**: emoji are rendered before mention tokens, so a member label is never
+  touched by the emoji renderer.
+- Pre-existing behaviour, unchanged: the free-text scanner captures only `@\w+(?:\.\w+)*`, so a
+  typed `@Kallisti of the Ruby Rose` resolves `@Kallisti` and keeps the rest as text. The
+  matrix's `nick_with_spaces` case types `@Kallisti`. The 2b fix is that the GET keeps the ID,
+  so the editor never has to send the spaced name back.
+
+### Gates
+
+- `uv run pytest tests/unit`: 2756 passed
+- `uv run mypy shared/ services/`: clean
+- `ruff check` / `ruff format --check` and `scripts/check_test_assertions.py` on touched files: clean
+- `scripts/run-integration-tests.sh |& tee output-integration.txt`: 396 passed (rebuilt after the
+  fallback removal). An earlier run had a single 30s setup timeout in `test_rls_enforcement.py`.
+  That run's wall clock was 7h55m, so the host had slept. The file passed on its own (7/7).
+- No frontend files changed in this phase. Every reader of `description` /
+  `signup_instructions` already goes through `MentionText` or the GameForm editor conversion.

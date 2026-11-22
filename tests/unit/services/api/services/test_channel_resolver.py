@@ -978,56 +978,46 @@ def test_extract_user_mention_ids_deduplicates():
     assert resolver_module.extract_user_mention_ids(text) == {"111"}
 
 
-# --- render_text_for_display ---
+# --- render_mention_tokens ---
 
 
-def test_render_text_for_display_none_input():
-    """render_text_for_display returns None when text is None."""
-    result = resolver_module.render_text_for_display(None, [], {})
-    assert result is None
+def test_render_mention_tokens_none_input():
+    """None text renders to None."""
+    assert resolver_module.render_mention_tokens(None, {}, {}) is None
 
 
-def test_render_text_for_display_no_tokens():
-    """render_text_for_display returns original text when no tokens are present."""
-    result = resolver_module.render_text_for_display("plain text, no tokens", [], {})
-    assert result == "plain text, no tokens"
+def test_render_mention_tokens_token_free_text_unchanged():
+    """Text without tokens is returned byte-for-byte."""
+    text = "Bring dice @bob #general <@notdigits> <#also-not>"
+    assert resolver_module.render_mention_tokens(text, {}, {"1": "x"}) == text
 
 
-def test_render_text_for_display_replaces_channel_tokens():
-    """render_text_for_display replaces <#id> tokens with #name."""
-    channels = [{"id": "123", "name": "general"}, {"id": "456", "name": "voice"}]
-    result = resolver_module.render_text_for_display("Meet in <#123>", channels, {})
-    assert result == "Meet in #general"
-
-
-def test_render_text_for_display_replaces_user_tokens():
-    """render_text_for_display replaces <@id> tokens with @display-name."""
-    result = resolver_module.render_text_for_display(
-        "Contact <@999> for details", [], {"999": "Alice"}
+def test_render_mention_tokens_live_member_and_channel():
+    """Known member and channel IDs gain their label after a pipe."""
+    result = resolver_module.render_mention_tokens(
+        "Ask <@111> in <#222>", {"111": "Kallisti of the Ruby Rose"}, {"222": "lfg"}
     )
-    assert result == "Contact @Alice for details"
+    assert result == "Ask <@111|Kallisti of the Ruby Rose> in <#222|lfg>"
 
 
-def test_render_text_for_display_replaces_both():
-    """render_text_for_display replaces both channel and user mention tokens."""
-    channels = [{"id": "123", "name": "general"}]
-    result = resolver_module.render_text_for_display(
-        "Ask <@111> in <#123>", channels, {"111": "Bob"}
+def test_render_mention_tokens_departed_member_has_empty_label():
+    """A member that maps to None renders the empty-label departed marker."""
+    result = resolver_module.render_mention_tokens("Ask <@111>", {"111": None}, {})
+    assert result == "Ask <@111|>"
+
+
+def test_render_mention_tokens_unknown_channel_has_empty_label():
+    """A channel ID missing from a known channel list renders the empty-label marker."""
+    result = resolver_module.render_mention_tokens("Go to <#999>", {}, {"222": "lfg"})
+    assert result == "Go to <#999|>"
+
+
+def test_render_mention_tokens_strips_closing_angle_from_labels():
+    """Every '>' is removed from labels so the token stays parseable."""
+    result = resolver_module.render_mention_tokens(
+        "<@111> <#222>", {"111": ">a>b>"}, {"222": "c>d"}
     )
-    assert result == "Ask @Bob in #general"
-
-
-def test_render_text_for_display_unknown_ids_unchanged():
-    """render_text_for_display leaves tokens with unknown IDs unchanged."""
-    channels = [{"id": "999", "name": "other"}]
-    result = resolver_module.render_text_for_display("<#123> and <@456>", channels, {})
-    assert result == "<#123> and <@456>"
-
-
-def test_render_text_for_display_empty_string():
-    """render_text_for_display returns empty string for empty string input."""
-    result = resolver_module.render_text_for_display("", [], {})
-    assert result == ""
+    assert result == "<@111|ab> <#222|cd>"
 
 
 # --- collapse_mention_tokens ---

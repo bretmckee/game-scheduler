@@ -37,6 +37,9 @@ class CacheTTL:
     USER_GUILDS: int = 300  # 5 minutes - Discord user guild membership
     DISCORD_CHANNEL: int | None = None  # no expiry - maintained by gateway events
     DISCORD_GUILD: int | None = None  # no expiry - maintained by gateway events
+    # No expiry is an invariant: downstream code treats a channel absent from
+    # this list as deleted. Adding a TTL breaks that, and requires examining
+    # every reader of this key to make sure none of them misbehave.
     DISCORD_GUILD_CHANNELS: int | None = None  # no expiry - maintained by gateway events
     DISCORD_GUILD_EMOJIS: int | None = None  # no expiry - maintained by gateway events
     DISCORD_GUILD_ROLES: int | None = None  # no expiry - maintained by gateway events
