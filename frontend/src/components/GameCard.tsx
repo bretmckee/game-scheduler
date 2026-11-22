@@ -41,6 +41,7 @@ import { useAuth } from '../hooks/useAuth';
 import { apiClient } from '../api/client';
 import { toMemberRef } from '../types/memberRef';
 import { MemberChip } from './MemberChip';
+import { MentionText } from './MentionText';
 
 // Color-blind-safe accents for the caller's seating state. The pair is chosen to
 // stay distinguishable across protanopia/deuteranopia/tritanopia and reads well in
@@ -174,16 +175,6 @@ export const GameCard: FC<GameCardProps> = ({
   const seatAttribute =
     !showStatusBorder || !mySeating ? undefined : mySeating === 'waitlist' ? 'waitlist' : 'seated';
 
-  const truncateDescription = (
-    text: string,
-    maxLength: number = UI.DEFAULT_TRUNCATE_LENGTH
-  ): string => {
-    if (!text || text.length <= maxLength) {
-      return text;
-    }
-    return text.substring(0, maxLength).trim() + '...';
-  };
-
   const hostMember = game.host ? toMemberRef(game.host) : null;
 
   return (
@@ -220,8 +211,8 @@ export const GameCard: FC<GameCardProps> = ({
           />
         </Box>
 
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-          {truncateDescription(game.description, UI.DEFAULT_TRUNCATE_LENGTH)}
+        <Typography variant="body2" component="div" color="text.secondary" sx={{ mb: 1 }}>
+          <MentionText text={game.description} maxLength={UI.DEFAULT_TRUNCATE_LENGTH} />
         </Typography>
 
         {game.post_at && !game.message_id && (

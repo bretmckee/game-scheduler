@@ -440,3 +440,30 @@ describe('GameDetails - pending confirmation alert', () => {
     ).not.toBeInTheDocument();
   });
 });
+
+describe('GameDetails - mention rendering', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('renders mention tokens in description and signup instructions as chips', async () => {
+    vi.mocked(apiClient.get).mockResolvedValue({
+      data: {
+        ...baseGame,
+        host: { ...baseGame.host, user_id: mockUser.user_uuid },
+        description: 'Ask <@111|Kallisti> in <#333|lfg>',
+        signup_instructions: 'DM <@222|>',
+      },
+    });
+
+    renderGameDetails();
+
+    await waitFor(() => {
+      expect(screen.getByText('@Kallisti')).toBeInTheDocument();
+    });
+    expect(screen.getByText('#lfg')).toBeInTheDocument();
+    expect(screen.getByText('Signup Instructions', { exact: false })).toBeInTheDocument();
+    expect(screen.getByTestId('unknown-member-chip')).toBeInTheDocument();
+    expect(screen.queryByText(/<[@#]\d/)).not.toBeInTheDocument();
+  });
+});

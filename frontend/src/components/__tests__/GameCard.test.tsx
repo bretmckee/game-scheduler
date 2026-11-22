@@ -93,6 +93,16 @@ describe('GameCard', () => {
     expect(screen.getByText('Epic adventure awaits')).toBeInTheDocument();
   });
 
+  it('renders mention tokens in the description as chips', () => {
+    renderWithAuth(
+      <GameCard game={{ ...mockGame, description: 'Ask <@111|Kallisti> or <@222|>' }} />
+    );
+
+    expect(screen.getByText('@Kallisti')).toBeInTheDocument();
+    expect(screen.getByTestId('unknown-member-chip')).toBeInTheDocument();
+    expect(screen.queryByText(/<@/)).not.toBeInTheDocument();
+  });
+
   it('displays host avatar when avatar_url is present', () => {
     renderWithAuth(<GameCard game={mockGame} />);
 

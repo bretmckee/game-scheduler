@@ -79,15 +79,15 @@ Phases 1-6 tolerate tokens without the server emitting them. Phase 7 switches re
 - [x] Task 4.2: GREEN — implement and switch the participant/host path
   - Details: .copilot-tracking/planning/details/20261120-01-mention-round-trip-details.md (Lines 135-146)
 
-### [ ] Phase 5: `mentionTokens` util + `MentionText` read-only rendering (frontend)
+### [x] Phase 5: `mentionTokens` util + `MentionText` read-only rendering (frontend)
 
-- [ ] Task 5.1: RED — `mentionTokens.ts` stubs + failing tests
+- [x] Task 5.1: RED — `mentionTokens.ts` stubs + failing tests
   - Details: .copilot-tracking/planning/details/20261120-01-mention-round-trip-details.md (Lines 149-161)
 
-- [ ] Task 5.2: GREEN — implement util
+- [x] Task 5.2: GREEN — implement util
   - Details: .copilot-tracking/planning/details/20261120-01-mention-round-trip-details.md (Lines 162-168)
 
-- [ ] Task 5.3: `MentionText` component and read-only views
+- [x] Task 5.3: `MentionText` component and read-only views
   - Details: .copilot-tracking/planning/details/20261120-01-mention-round-trip-details.md (Lines 169-179)
 
 ### [ ] Phase 6: Editor wiring + suggestion-click map (frontend)

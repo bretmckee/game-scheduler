@@ -189,3 +189,68 @@ repeated create/edit/clone saves.
 - `uv run mypy shared/ services/`: clean
 - `ruff check` / `ruff format --check` on touched files: clean
 - No frontend, integration or e2e changes in this phase
+
+## Phase 5: `mentionTokens` Util + `MentionText` Read-Only Rendering (frontend)
+
+### Added
+
+- frontend/src/utils/mentionTokens.ts — pure helpers for `<@id|label>` / `<#id|label>`:
+  - `parseTokens(text)` → `text` / `user{id,label}` / `channel{id,label}` segments (regex
+    `<([@#])(\d+)\|([^>]*)>`). An empty label becomes `label: null`. Bare `<@id>` and non-digit IDs
+    stay plain text.
+  - `toEditorText(text)` → `EditorTextState { raw, display, map, removedCount }`. `raw` is the
+    collapsed original (`<@id>` / `<#id>`). `display` shows `@label` / `#label`. `map` keys are the
+    editor forms, and a label shared by two different IDs maps to `null` (ambiguous, left unmapped).
+    Departed members **and unknown channels** (empty labels) are dropped from `display` and counted
+    in `removedCount`.
+  - `fromEditorText(edited, state)` → returns `raw` verbatim when unedited with nothing removed.
+    Otherwise it replaces known labels longest-first with their bare tokens. Ambiguous labels,
+    damaged names and newly typed names are left as typed. A label whose last character is a word
+    character does not match when another word character follows it (`@Kal` inside `@Kallisti`).
+- frontend/src/utils/\_\_tests\_\_/mentionTokens.test.ts — 33 tests: parsing (segments, empty
+  labels, labels with `(`, `@`, `|`, spaces and all-`@`, non-token look-alikes), editor
+  conversion (identity, map, collapsed raw, removal count, ambiguity, same-ID repeats) and
+  back-conversion (byte-identical unedited, token-free identity, edits, removals not restored,
+  longest-first, prefix boundary, ambiguity, damaged/new names, parametrized full round trip).
+  They were `it.fails` against throwing stubs in Task 5.1, and the modifier was removed in Task 5.2.
+- frontend/src/components/MentionText.tsx — renders `parseTokens` segments. Users go through
+  `MemberChip` (so departed → unknown-member chip). Channels render as a `#name` chip
+  (`data-testid="channel-chip"`), and an empty channel label renders as a dashed, italic
+  "unknown channel" chip (`data-testid="unknown-channel-chip"`, tooltip "Channel not found in this
+  server"). The optional `maxLength` counts visible characters (mention = label + sigil). It cuts
+  only text segments and drops a mention that doesn't fit whole. Token-free text truncates exactly
+  as the old `truncateDescription` did (`substring(0, n).trim() + '...'`).
+- frontend/src/components/\_\_tests\_\_/MentionText.test.tsx — 9 tests: token-free passthrough,
+  empty/null, member and channel chips with no IDs exposed, departed member, unknown channel,
+  legacy truncation parity, no truncation when the text fits, a mention dropped rather than split,
+  and an ellipsis after a whole mention.
+
+### Modified
+
+- frontend/src/components/GameCard.tsx — removed `truncateDescription`. The description renders
+  through `<MentionText maxLength={UI.DEFAULT_TRUNCATE_LENGTH}>` inside a `Typography
+component="div"` so the chips nest validly.
+- frontend/src/pages/GameDetails.tsx — description and signup instructions render through
+  `MentionText`. Both `Typography` wrappers are now `component="div"`. The description's
+  `paragraph` prop is replaced by `mb: 2`, which keeps the same 16px bottom margin.
+- frontend/src/components/\_\_tests\_\_/GameCard.test.tsx, frontend/src/pages/\_\_tests\_\_/GameDetails.test.tsx —
+  one new test each: token descriptions / signup instructions render chips (including the departed
+  chip) and never raw `<@…` / `<#…`. Existing tests pass unchanged.
+
+### Notes / deviations
+
+- **Decision**: unknown channels (`<#id|>`) are removed in the editor like departed members and
+  counted in the same `removedCount`, so hosts never see raw IDs. Phase 6's notice wording should
+  cover both (e.g. "Removed N mention(s) of members or channels no longer in this server").
+- `map` values are `string | null` rather than `string`, so ambiguity is encoded in the state
+  itself. Phase 6's suggestion-click mapping should write through the same rule (a conflicting ID
+  for an existing label → `null`).
+- With today's server (no tokens yet), every read-only view renders exactly as before.
+
+### Gates
+
+- `cd frontend && npm run build`: OK
+- `cd frontend && npx vitest --run`: 53 files, 608 tests passed
+- `npm run lint`: clean (prettier fix applied to mentionTokens.test.ts)
+- `uv run pytest tests/unit`: 2747 passed
+- `uv run mypy shared/ services/`: clean

@@ -44,6 +44,7 @@ import { apiClient } from '../api/client';
 import { mintCalendarExportToken, buildCalendarExportUrl } from '../api/calendarExport';
 import { GameSession, SignupMethod, SIGNUP_METHOD_INFO } from '../types';
 import { ParticipantList } from '../components/ParticipantList';
+import { MentionText } from '../components/MentionText';
 import { useAuth } from '../hooks/useAuth';
 import { canManageGame } from '../utils/permissions';
 import { Time } from '../constants/time';
@@ -265,10 +266,10 @@ export const GameDetails: FC = () => {
 
         <Typography
           variant="body1"
-          paragraph
-          sx={{ wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}
+          component="div"
+          sx={{ mb: 2, wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}
         >
-          {game.description}
+          <MentionText text={game.description} />
         </Typography>
 
         <Divider sx={{ my: 3 }} />
@@ -356,8 +357,8 @@ export const GameDetails: FC = () => {
             <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
               ℹ️ Signup Instructions
             </Typography>
-            <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-              {game.signup_instructions}
+            <Typography variant="body2" component="div" sx={{ whiteSpace: 'pre-wrap' }}>
+              <MentionText text={game.signup_instructions} />
             </Typography>
           </Box>
         )}
