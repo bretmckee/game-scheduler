@@ -26,6 +26,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from services.api.services import channel_resolver as resolver_module
+from services.api.services import participant_resolver as participant_resolver_module
 from shared.discord import client as discord_client_module
 
 
@@ -1027,3 +1028,82 @@ def test_render_text_for_display_empty_string():
     """render_text_for_display returns empty string for empty string input."""
     result = resolver_module.render_text_for_display("", [], {})
     assert result == ""
+
+
+# --- collapse_mention_tokens ---
+
+
+class TestCollapseMentionTokens:
+    """Labeled <@id|label> / <#id|label> tokens collapse to the stored bare form."""
+
+    @pytest.mark.parametrize(
+        ("text", "expected"),
+        [
+            ("<@123|Kallisti of the Ruby Rose>", "<@123>"),
+            ("<@123|>", "<@123>"),
+            ("<#456|lfg>", "<#456>"),
+            ("<#456|>", "<#456>"),
+        ],
+    )
+    def test_labeled_token_collapses_to_bare_token(self, text, expected):
+        assert resolver_module.collapse_mention_tokens(text) == expected
+
+    @pytest.mark.parametrize(
+        "label",
+        ["@alice", "Bob (GM)", "a|b", "Kallisti of the Ruby Rose", "\U0001f3b2 dice"],
+    )
+    def test_label_with_special_characters_collapses(self, label):
+        text = f"Ask <@123|{label}> in <#456|{label}> now"
+        assert resolver_module.collapse_mention_tokens(text) == "Ask <@123> in <#456> now"
+
+    def test_multiple_tokens_in_text_all_collapse(self):
+        text = "<@1|A> and <@2|B> meet in <#3|lfg> or <#4|>"
+        assert resolver_module.collapse_mention_tokens(text) == "<@1> and <@2> meet in <#3> or <#4>"
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "Ask <@123> in <#456>",
+            "Ask @alice in #general",
+            "Wave :wave: and <:wave:789>",
+            "## Heading and <@abc|label>",
+            "",
+        ],
+    )
+    def test_text_without_labeled_tokens_is_unchanged(self, text):
+        assert resolver_module.collapse_mention_tokens(text) == text
+
+    def test_none_returns_none(self):
+        assert resolver_module.collapse_mention_tokens(None) is None
+
+
+@pytest.mark.asyncio
+async def test_collapsed_user_token_is_skipped_by_mention_scanner():
+    """A collapsed user token is a resolved <@id>, not an @<digits> username candidate."""
+    text = resolver_module.collapse_mention_tokens("Ask <@123|Kallisti of the Ruby Rose> first")
+
+    (
+        resolved,
+        errors,
+    ) = await participant_resolver_module.ParticipantResolver().resolve_mentions_in_text(
+        text, "guild123"
+    )
+
+    assert resolved == "Ask <@123> first"
+    assert errors == []
+
+
+@pytest.mark.asyncio
+async def test_collapsed_channel_token_is_not_scanned_as_channel_name(
+    resolver, mock_discord_client
+):
+    """A collapsed channel token validates by ID instead of matching "id|name" as a name."""
+    mock_discord_client.get_guild_channels = AsyncMock(
+        return_value=[{"id": "456", "name": "lfg", "type": 0}]
+    )
+    text = resolver_module.collapse_mention_tokens("Meet in <#456|lfg> tonight")
+
+    resolved, errors = await resolver.resolve_channel_mentions(text, "guild123")
+
+    assert resolved == "Meet in <#456> tonight"
+    assert errors == []

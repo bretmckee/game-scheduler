@@ -209,7 +209,7 @@ In `tests/unit/services/api/routes/test_games_helpers.py` (~901-915), add xfail 
 
 ### Task 7.2: GREEN — implement token rendering
 
-Rewrite the user/channel part of `_render_text_fields` (services/api/routes/games.py ~1291-1320) to emit tokens. Use `resolve_member_refs` (Phase 4) for users and the guild channel list for channels. Do not use `resolve_display_names`. Keep `where` / `where_display` and the title emoji rendering as they are. Remove `render_text_for_display` / `extract_user_mention_ids` from channel_resolver.py (lines ~285-319) only if they have no remaining callers, and update or delete their tests in this same task. Remove the xfail markers.
+Rewrite the user/channel part of `_render_text_fields` (services/api/routes/games.py ~1291-1320) to emit tokens. Use `resolve_member_refs` (Phase 4) for users and the guild channel list for channels. Do not use `resolve_display_names`. Keep `where` / `where_display` and the title emoji rendering as they are. Remove `render_text_for_display` / `extract_user_mention_ids` from channel_resolver.py (`_USER_MENTION_PATTERN` line ~285, functions ~307-338; keep `collapse_mention_tokens` and its patterns at ~287-304) only if they have no remaining callers, and update or delete their tests in this same task. Remove the xfail markers.
 
 - **Files**: services/api/routes/games.py, services/api/services/channel_resolver.py (possible dead code), tests
 - **Success**: unit + mypy green

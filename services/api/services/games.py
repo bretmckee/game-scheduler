@@ -609,6 +609,9 @@ class GameService:
         Mutates resolved_fields in place. Raises ValidationError if any mentions
         cannot be resolved.
 
+        Labeled <@id|label> / <#id|label> tokens in description and
+        signup_instructions are collapsed to bare <@id> / <#id> first.
+
         Channel resolution:
           - where: always resolved when non-empty
           - description, signup_instructions: only when '#' present
@@ -624,6 +627,11 @@ class GameService:
             resolver_module.ValidationError: If any channel or @mention cannot be resolved
         """
         all_errors: list[dict] = []
+
+        for field_key in ("description", "signup_instructions"):
+            resolved_fields[field_key] = channel_resolver_module.collapse_mention_tokens(
+                resolved_fields[field_key]
+            )
 
         if resolved_fields["where"]:
             resolved_value, errors = await self.channel_resolver.resolve_channel_mentions(
@@ -2002,6 +2010,19 @@ class GameService:
         """
         await waitlist_transitions.detect_and_notify_transitions(self.db, game, old_partitioned)
 
+    @staticmethod
+    def _collapse_mention_tokens_for_update(
+        game: game_model.GameSession,
+        update_data: game_schemas.GameUpdateRequest,
+    ) -> None:
+        """Collapse labeled mention tokens in updated description / signup_instructions."""
+        if update_data.description is not None:
+            game.description = channel_resolver_module.collapse_mention_tokens(game.description)
+        if update_data.signup_instructions is not None:
+            game.signup_instructions = channel_resolver_module.collapse_mention_tokens(
+                game.signup_instructions
+            )
+
     async def _resolve_channel_mentions_for_update(
         self,
         game: game_model.GameSession,
@@ -2188,6 +2209,9 @@ class GameService:
         schedule_needs_update, status_schedule_needs_update = self._update_game_fields(
             game, update_data
         )
+
+        # Labeled tokens must be collapsed before any scanner sees them
+        self._collapse_mention_tokens_for_update(game, update_data)
 
         # Resolve channel mentions in updated free-text fields
         await self._resolve_channel_mentions_for_update(game, update_data)

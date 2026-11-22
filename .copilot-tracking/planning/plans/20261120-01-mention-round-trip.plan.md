@@ -55,12 +55,12 @@ Phases 1-6 tolerate tokens without the server emitting them. Phase 7 switches re
 - [x] Task 1.2: GREEN — implement exact-match filter
   - Details: .copilot-tracking/planning/details/20261120-01-mention-round-trip-details.md (Lines 41-50)
 
-### [ ] Phase 2: Collapse `<@id|label>` / `<#id|label>` on input (server)
+### [x] Phase 2: Collapse `<@id|label>` / `<#id|label>` on input (server)
 
-- [ ] Task 2.1: RED — stub `collapse_mention_tokens` and xfail tests
+- [x] Task 2.1: RED — stub `collapse_mention_tokens` and xfail tests
   - Details: .copilot-tracking/planning/details/20261120-01-mention-round-trip-details.md (Lines 53-72)
 
-- [ ] Task 2.2: GREEN — implement and wire into create/update paths
+- [x] Task 2.2: GREEN — implement and wire into create/update paths
   - Details: .copilot-tracking/planning/details/20261120-01-mention-round-trip-details.md (Lines 73-89)
 
 ### [ ] Phase 3: `MemberRef` + `MemberChip` for participants (frontend)

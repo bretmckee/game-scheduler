@@ -5445,6 +5445,112 @@ async def test_update_game_resolves_at_mention_in_signup_instructions(
     assert mock_game.signup_instructions == "DM <@222> to sign up"
 
 
+# Tests for collapsing labeled <@id|label> / <#id|label> tokens before resolution
+
+_LABELED_DESCRIPTION = "Ask <@111|Kallisti of the Ruby Rose> in <#222|lfg>"
+_LABELED_SIGNUP = "DM <@333|> to join"
+_COLLAPSED_DESCRIPTION = "Ask <@111> in <#222>"
+_COLLAPSED_SIGNUP = "DM <@333> to join"
+
+
+def _passthrough_mentions(mock_participant_resolver) -> None:
+    mock_participant_resolver.resolve_mentions_in_text.side_effect = lambda text, guild_id: (
+        text,
+        [],
+    )
+
+
+@pytest.mark.asyncio
+async def test_create_free_text_resolution_collapses_labeled_tokens(
+    game_service,
+    mock_channel_resolver,
+    mock_participant_resolver,
+):
+    """Labeled tokens reach the resolvers already collapsed and are stored bare."""
+    _passthrough_mentions(mock_participant_resolver)
+    resolved_fields: dict = {
+        "title": "A game",
+        "where": None,
+        "description": _LABELED_DESCRIPTION,
+        "signup_instructions": _LABELED_SIGNUP,
+    }
+
+    await game_service._resolve_free_text_fields_for_create(resolved_fields, "guild-1")
+
+    assert resolved_fields["description"] == _COLLAPSED_DESCRIPTION
+    assert resolved_fields["signup_instructions"] == _COLLAPSED_SIGNUP
+    mock_channel_resolver.resolve_channel_mentions.assert_awaited_once_with(
+        _COLLAPSED_DESCRIPTION, "guild-1", field_label="Description"
+    )
+    assert mock_participant_resolver.resolve_mentions_in_text.await_args_list == [
+        ((_COLLAPSED_DESCRIPTION, "guild-1"),),
+        ((_COLLAPSED_SIGNUP, "guild-1"),),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_update_game_collapses_labeled_tokens_before_resolution(
+    game_service,
+    mock_db,
+    mock_channel_resolver,
+    mock_participant_resolver,
+    sample_guild,
+    sample_channel,
+    sample_user,
+):
+    """Labeled tokens in an update reach the resolvers collapsed and are stored bare."""
+    _passthrough_mentions(mock_participant_resolver)
+    game_id = str(uuid.uuid4())
+    mock_game = game_model.GameSession(
+        id=game_id,
+        title="Test Game",
+        description="Original description",
+        signup_instructions="Original instructions",
+        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        guild_id=sample_guild.id,
+        channel_id=sample_channel.id,
+        host_id=sample_user.id,
+        max_players=5,
+        status="SCHEDULED",
+        participants=[],
+    )
+    mock_game.host = sample_user
+    mock_game.guild = sample_guild
+    mock_game.channel = sample_channel
+
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = mock_game
+    mock_db.execute.return_value = mock_result
+    mock_db.refresh = AsyncMock()
+
+    update_data = game_schemas.GameUpdateRequest(
+        description=_LABELED_DESCRIPTION,
+        signup_instructions=_LABELED_SIGNUP,
+    )
+    mock_current_user = MagicMock()
+    mock_current_user.user.discord_id = sample_user.discord_id
+
+    with patch("services.api.dependencies.permissions.can_manage_game", return_value=True):
+        await game_service.update_game(
+            game_id=game_id,
+            update_data=update_data,
+            current_user=mock_current_user,
+            role_service=AsyncMock(),
+        )
+
+    assert mock_game.description == _COLLAPSED_DESCRIPTION
+    assert mock_game.signup_instructions == _COLLAPSED_SIGNUP
+    mock_channel_resolver.resolve_channel_mentions.assert_any_await(
+        _COLLAPSED_DESCRIPTION, sample_guild.guild_id, field_label="Description"
+    )
+    mock_participant_resolver.resolve_mentions_in_text.assert_any_await(
+        _COLLAPSED_DESCRIPTION, sample_guild.guild_id
+    )
+    mock_participant_resolver.resolve_mentions_in_text.assert_any_await(
+        _COLLAPSED_SIGNUP, sample_guild.guild_id
+    )
+
+
 # Tests for post_at validation in create_game
 
 

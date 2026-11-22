@@ -284,6 +284,25 @@ class ChannelResolver:
 
 _USER_MENTION_PATTERN = re.compile(r"<@(\d+)>")
 
+# Edit-ready mention tokens carry a cosmetic label after the ID: "<@id|label>" and
+# "<#id|label>". The label may be empty (departed member / unknown channel) and may
+# hold any character except ">", which is stripped when the token is produced.
+_LABELED_USER_TOKEN_PATTERN = re.compile(r"<@(\d+)\|[^>]*>")
+_LABELED_CHANNEL_TOKEN_PATTERN = re.compile(r"<#(\d+)\|[^>]*>")
+
+
+def collapse_mention_tokens(text: str | None) -> str | None:
+    """
+    Reduce labeled mention tokens to the bare Discord form that gets stored.
+
+    "<@id|label>" becomes "<@id>" and "<#id|label>" becomes "<#id>". Everything else,
+    including bare tokens and typed "@name" / "#name" text, is left untouched.
+    """
+    if text is None:
+        return None
+    text = _LABELED_USER_TOKEN_PATTERN.sub(r"<@\1>", text)
+    return _LABELED_CHANNEL_TOKEN_PATTERN.sub(r"<#\1>", text)
+
 
 def extract_user_mention_ids(text: str | None) -> set[str]:
     """Extract Discord snowflake IDs from all <@id> user mention tokens in text."""
