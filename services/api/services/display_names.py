@@ -217,11 +217,12 @@ class DisplayNameResolver:
         Returns:
             Dictionary mapping user IDs to display_name and avatar_url
         """
-        result = {}
+        result: dict[str, dict[str, str | None]] = {}
         for user_id in uncached_ids:
             member = await member_projection.get_member(guild_id, user_id, redis=self.cache)
             if member is None:
-                result[user_id] = {"display_name": "Unknown User", "avatar_url": None}
+                # Departed member: a null name is the signal, never a placeholder string.
+                result[user_id] = {"display_name": None, "avatar_url": None}
                 continue
             display_name = self._resolve_display_name(member)
             avatar_url = member.get("avatar_url")
@@ -263,7 +264,9 @@ class DisplayNameResolver:
             user_ids: List of Discord user IDs to resolve
 
         Returns:
-            Dictionary mapping user IDs to dicts with display_name and avatar_url
+            Dictionary mapping user IDs to dicts with display_name and avatar_url.
+            Members no longer in the guild map to display_name None and
+            avatar_url None; projection errors fall back to "User#last4".
         """
         try:
             result = await self._fetch_and_cache_display_names_avatars(guild_id, user_ids)
@@ -271,6 +274,32 @@ class DisplayNameResolver:
             logger.exception("Failed to fetch display names and avatars")
             result = self._create_fallback_user_data(user_ids)
 
+        return result
+
+    async def resolve_member_refs(
+        self, guild_discord_id: str, ids: list[str]
+    ) -> dict[str, str | None]:
+        """
+        Resolve Discord user IDs to member labels, with None marking departed members.
+
+        The projection is guaranteed fresh whenever this runs (guild membership
+        checks reject stale projections), so a missing member has left the
+        server rather than being temporarily unknown. Labels are returned
+        exactly as Discord reports them; callers that embed them in tokens
+        are responsible for any escaping.
+
+        Args:
+            guild_discord_id: Discord guild (server) ID
+            ids: Discord user IDs to resolve
+
+        Returns:
+            Mapping of each ID to its label (nick > global_name > username),
+            or None when the member is no longer in the guild
+        """
+        result: dict[str, str | None] = {}
+        for user_id in ids:
+            member = await member_projection.get_member(guild_discord_id, user_id, redis=self.cache)
+            result[user_id] = None if member is None else self._resolve_display_name(member)
         return result
 
     async def resolve_single(self, guild_id: str, user_id: str) -> str:

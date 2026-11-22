@@ -71,12 +71,12 @@ Phases 1-6 tolerate tokens without the server emitting them. Phase 7 switches re
 - [x] Task 3.2: GREEN — implement and render participants through `MemberChip`
   - Details: .copilot-tracking/planning/details/20261120-01-mention-round-trip-details.md (Lines 109-120)
 
-### [ ] Phase 4: Departed participants return `display_name: null` (server)
+### [x] Phase 4: Departed participants return `display_name: null` (server)
 
-- [ ] Task 4.1: RED — `resolve_member_refs` stub + xfail tests
+- [x] Task 4.1: RED — `resolve_member_refs` stub + xfail tests
   - Details: .copilot-tracking/planning/details/20261120-01-mention-round-trip-details.md (Lines 123-134)
 
-- [ ] Task 4.2: GREEN — implement and switch the participant/host path
+- [x] Task 4.2: GREEN — implement and switch the participant/host path
   - Details: .copilot-tracking/planning/details/20261120-01-mention-round-trip-details.md (Lines 135-146)
 
 ### [ ] Phase 5: `mentionTokens` util + `MentionText` read-only rendering (frontend)

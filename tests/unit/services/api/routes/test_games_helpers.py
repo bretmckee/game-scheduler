@@ -400,6 +400,34 @@ class TestBuildGameResponseHelpers:
         assert responses[0].display_name == "Placeholder"
         assert responses[0].avatar_url is None
 
+    def test_build_participant_responses_departed_member_has_null_name(
+        self, sample_partitioned_participants
+    ):
+        """A departed member keeps discord_id; the stored row name never leaks through."""
+        display_data_map = {
+            "discord123": {"display_name": None, "avatar_url": None},
+            "discord456": {"display_name": "User2", "avatar_url": "http://avatar2.com"},
+        }
+
+        responses = _build_participant_responses(
+            sample_partitioned_participants.all_sorted, display_data_map
+        )
+
+        assert responses[0].discord_id == "discord123"
+        assert responses[0].display_name is None
+        assert responses[0].avatar_url is None
+        assert responses[1].display_name == "User2"
+
+    def test_build_host_response_departed_host_has_null_name(self, sample_game):
+        """A departed host keeps discord_id but gets display_name and avatar None."""
+        display_data_map = {"host_discord": {"display_name": None, "avatar_url": None}}
+
+        response = _build_host_response(sample_game, "host_discord", display_data_map)
+
+        assert response.discord_id == "host_discord"
+        assert response.display_name is None
+        assert response.avatar_url is None
+
     def test_build_host_response_with_display_data(self, sample_game):
         """Build host response with display data."""
         display_data_map = {
@@ -988,6 +1016,25 @@ class TestResolveParticipantDisplay:
         )
 
         assert display_name == "StoredName"
+        assert avatar_url is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_name_for_departed_member(self):
+        """A departed member's None display_name is passed through, not the stored name."""
+        participant = MagicMock()
+        participant.user.discord_id = "discord-123"
+        participant.display_name = "StoredName"
+
+        resolver = AsyncMock()
+        resolver.resolve_display_names_and_avatars.return_value = {
+            "discord-123": {"display_name": None, "avatar_url": None}
+        }
+
+        display_name, avatar_url = await _resolve_participant_display(
+            participant, "guild-123", resolver
+        )
+
+        assert display_name is None
         assert avatar_url is None
 
     @pytest.mark.asyncio

@@ -139,3 +139,53 @@ repeated create/edit/clone saves.
 - `npm run lint`: clean (prettier fix applied to one test file)
 - `uv run pytest tests/unit`: 2732 passed
 - `uv run mypy shared/ services/`: clean
+
+## Phase 4: Departed Participants Return `display_name: null` (server)
+
+### Modified
+
+- services/api/services/display_names.py — new `DisplayNameResolver.resolve_member_refs(guild_discord_id, ids)
+-> dict[str, str | None]`, built on `member_projection.get_member`. A missing member maps to `None`
+  (departed). Otherwise the label is nick > global_name > username, returned unmodified (no
+  escaping). Projection errors propagate to the caller. `_fetch_and_cache_display_names_avatars`
+  (and so `resolve_display_names_and_avatars`) now maps a missing member to
+  `{"display_name": None, "avatar_url": None}` instead of `"Unknown User"`. The `User#last4`
+  exception fallback is unchanged. `resolve_display_names`, `resolve_single` and
+  `resolve_primary_names` are untouched (no caller in scope).
+- services/api/routes/games.py — `_resolve_participant_display` return type widened to
+  `tuple[str | None, str | None]` and documented. No logic change was needed: all three callers
+  (join response, list_games host prefetch, `_resolve_display_data`) already pass the value
+  straight into `ParticipantResponse.display_name`, which is `str | None`.
+- tests/unit/services/api/services/test_display_names.py — replaced the `"Unknown User"` assertion
+  test for the avatar path with `resolve_display_names_and_avatars` tests (departed → None, mixed
+  present + departed). Added `resolve_member_refs` tests: label priority (parametrized,
+  including a missing `nick` key, with call-argument verification), departed → None alongside a
+  present member, labels with `>`, `|`, a token-like string, whitespace and a literal "Unknown User"
+  returned unmodified, and empty IDs → `{}` with no lookups. These were strict xfail against the
+  `NotImplementedError` stub / old fallback (verified failing on assertions with `--runxfail`).
+  Task 4.2 removed the markers.
+- tests/unit/services/api/routes/test_games_helpers.py — `_build_participant_responses`,
+  `_build_host_response` and `_resolve_participant_display` pass `display_name: None` through with
+  `discord_id` set. The participant fixtures keep a stored row name, so falling back to it would
+  fail the test.
+  - **Deviation**: the plan asked for these to be xfail, but today's builders already copy the
+    value through, so strict xfail would XPASS. Like the Phase 1 two-exact-match guard, they are
+    plain regression tests.
+
+- .copilot-tracking/planning/details/20261120-01-mention-round-trip-details.md — Phase 7
+  `_render_text_fields` line reference updated (~1295-1324) after the docstring insertion.
+
+### Notes
+
+- `resolve_member_refs` has no production caller yet. The Phase 7 token renderer will call it.
+  The avatar path keeps its own loop because it needs the full member dict for `avatar_url`.
+  It shares the same departed rule (`None`) and `_resolve_display_name` priority.
+- The departed participant keeps their seat, and promotion is unchanged. The frontend (Phase 3)
+  already renders `display_name: null` + `discord_id` as the unknown-member chip.
+
+### Gates
+
+- `uv run pytest tests/unit`: 2747 passed
+- `uv run mypy shared/ services/`: clean
+- `ruff check` / `ruff format --check` on touched files: clean
+- No frontend, integration or e2e changes in this phase

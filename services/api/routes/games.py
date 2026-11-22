@@ -182,8 +182,12 @@ async def _resolve_participant_display(
     participant: GameParticipant,
     guild_discord_id: str,
     display_name_resolver: display_names_module.DisplayNameResolver,
-) -> tuple[str, str | None]:
-    """Fetch the guild display name and avatar for a joined participant."""
+) -> tuple[str | None, str | None]:
+    """
+    Fetch the guild display name and avatar for a joined participant.
+
+    A departed member yields (None, None); the stored row name is not used.
+    """
     if not (participant.user and participant.user.discord_id):
         return participant.display_name, None
     display_data = await display_name_resolver.resolve_display_names_and_avatars(

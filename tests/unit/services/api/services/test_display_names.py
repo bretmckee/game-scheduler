@@ -345,20 +345,124 @@ def test_resolve_display_name_flat_dict():
 
 
 @pytest.mark.asyncio
-async def test_fetch_display_names_avatars_absent_member_from_projection(mock_cache):
-    """_fetch_and_cache_display_names_avatars returns Unknown User for absent member."""
+async def test_resolve_display_names_and_avatars_absent_member_is_none(mock_cache):
+    """A member missing from the projection has departed: display_name and avatar are None."""
     resolver = display_names.DisplayNameResolver(mock_cache)
-    guild_id = "guild123"
-    uncached_ids = ["user1"]
 
     with patch(
         "services.api.services.display_names.member_projection.get_member",
         new=AsyncMock(return_value=None),
     ):
-        result = await resolver._fetch_and_cache_display_names_avatars(guild_id, uncached_ids)
+        result = await resolver.resolve_display_names_and_avatars("guild123", ["user1"])
 
-    assert result["user1"]["display_name"] == "Unknown User"
-    assert result["user1"]["avatar_url"] is None
+    assert result == {"user1": {"display_name": None, "avatar_url": None}}
+
+
+@pytest.mark.asyncio
+async def test_resolve_display_names_and_avatars_mixed_present_and_departed(mock_cache):
+    """Present members keep their name and avatar while departed ones map to None."""
+    resolver = display_names.DisplayNameResolver(mock_cache)
+    present = {
+        "nick": None,
+        "global_name": "Present",
+        "username": "present_base",
+        "avatar_url": "https://cdn.discordapp.com/avatars/p/hash.png?size=64",
+    }
+
+    def fake_get_member(gid, uid, *, redis):
+        return present if uid == "present" else None
+
+    with patch(
+        "services.api.services.display_names.member_projection.get_member",
+        side_effect=fake_get_member,
+    ):
+        result = await resolver.resolve_display_names_and_avatars("guild123", ["present", "gone"])
+
+    assert result == {
+        "present": {
+            "display_name": "Present",
+            "avatar_url": "https://cdn.discordapp.com/avatars/p/hash.png?size=64",
+        },
+        "gone": {"display_name": None, "avatar_url": None},
+    }
+
+
+@pytest.mark.parametrize(
+    ("member", "expected"),
+    [
+        ({"nick": "Nick", "global_name": "Global", "username": "base"}, "Nick"),
+        ({"nick": None, "global_name": "Global", "username": "base"}, "Global"),
+        ({"nick": None, "global_name": None, "username": "base"}, "base"),
+        ({"global_name": None, "username": "base"}, "base"),
+    ],
+    ids=["nick", "global_name", "username", "missing_nick_key"],
+)
+@pytest.mark.asyncio
+async def test_resolve_member_refs_label_priority(mock_cache, member, expected):
+    """Labels follow nick > global_name > username."""
+    resolver = display_names.DisplayNameResolver(mock_cache)
+
+    with patch(
+        "services.api.services.display_names.member_projection.get_member",
+        new=AsyncMock(return_value=member),
+    ) as mock_get_member:
+        result = await resolver.resolve_member_refs("guild123", ["user1"])
+
+    assert result == {"user1": expected}
+    mock_get_member.assert_awaited_once_with("guild123", "user1", redis=mock_cache)
+
+
+@pytest.mark.asyncio
+async def test_resolve_member_refs_departed_member_is_none(mock_cache):
+    """A member missing from the projection maps to None, alongside present members."""
+    resolver = display_names.DisplayNameResolver(mock_cache)
+
+    def fake_get_member(gid, uid, *, redis):
+        if uid == "present":
+            return {"nick": None, "global_name": None, "username": "here"}
+        return None
+
+    with patch(
+        "services.api.services.display_names.member_projection.get_member",
+        side_effect=fake_get_member,
+    ):
+        result = await resolver.resolve_member_refs("guild123", ["present", "gone"])
+
+    assert result == {"present": "here", "gone": None}
+
+
+@pytest.mark.parametrize(
+    "label",
+    ["a>b", "pipe|name", "<@123|x>", "  spaced  ", "Unknown User"],
+    ids=["gt", "pipe", "token_like", "whitespace", "literal_unknown_user"],
+)
+@pytest.mark.asyncio
+async def test_resolve_member_refs_returns_label_unmodified(mock_cache, label):
+    """Labels are returned verbatim; escaping is the token renderer's job."""
+    resolver = display_names.DisplayNameResolver(mock_cache)
+
+    with patch(
+        "services.api.services.display_names.member_projection.get_member",
+        new=AsyncMock(return_value={"nick": label, "global_name": None, "username": "base"}),
+    ):
+        result = await resolver.resolve_member_refs("guild123", ["user1"])
+
+    assert result == {"user1": label}
+
+
+@pytest.mark.asyncio
+async def test_resolve_member_refs_empty_ids(mock_cache):
+    """No IDs means no projection lookups and an empty mapping."""
+    resolver = display_names.DisplayNameResolver(mock_cache)
+
+    with patch(
+        "services.api.services.display_names.member_projection.get_member",
+        new=AsyncMock(),
+    ) as mock_get_member:
+        result = await resolver.resolve_member_refs("guild123", [])
+
+    assert result == {}
+    mock_get_member.assert_not_awaited()
 
 
 @pytest.mark.asyncio
