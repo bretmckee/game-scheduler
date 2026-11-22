@@ -40,16 +40,87 @@ E2E data seeded by init service:
 """
 
 import json
+import re
+from collections.abc import AsyncGenerator
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
 from sqlalchemy import text
 
+from shared.cache.client import RedisClient
+from shared.cache.projection import search_members_by_prefix
 from tests.e2e.conftest import TimeoutType, wait_for_game_message_id
 from tests.e2e.helpers.discord import DMType
 
 pytestmark = pytest.mark.e2e
+
+# Mirrors the free-text scanner (participant_resolver) and the suggestion cap.
+_SCANNABLE_PREFIX = re.compile(r"\w+")
+_MAX_MENTION_SUGGESTIONS = 10
+_NAME_FIELDS = ("username", "nick", "global_name")
+
+
+@pytest.fixture
+async def redis() -> AsyncGenerator[RedisClient]:
+    """Fresh Redis client per test, avoiding the module-level singleton."""
+    client = RedisClient()
+    await client.connect()
+    yield client
+    await client.disconnect()
+
+
+async def _default_template_id(admin_db, discord_guild_id: str) -> str:
+    result = await admin_db.execute(
+        text(
+            "SELECT t.id FROM game_templates t "
+            "JOIN guild_configurations g ON g.id = t.guild_id "
+            "WHERE g.guild_id = :guild_id AND t.is_default = true"
+        ),
+        {"guild_id": discord_guild_id},
+    )
+    row = result.fetchone()
+    assert row, f"Default template not found for guild {discord_guild_id}"
+    return row[0]
+
+
+def _members_matching(members: list[dict], prefix: str) -> list[dict]:
+    return [
+        m
+        for m in members
+        if any((m.get(field) or "").casefold().startswith(prefix) for field in _NAME_FIELDS)
+    ]
+
+
+def _find_ambiguous_prefix(members: list[dict]) -> tuple[str, set[str]]:
+    """
+    Pick a scannable prefix that matches 2..cap real members and no name exactly.
+
+    Such a prefix makes the API return "Multiple matches found" with suggestions
+    instead of resolving outright via the exact-match rule.
+    """
+    candidates = sorted(
+        {
+            name[:length]
+            for m in members
+            for field in _NAME_FIELDS
+            if (name := (m.get(field) or "").casefold())
+            for length in range(1, len(name) + 1)
+            if _SCANNABLE_PREFIX.fullmatch(name[:length])
+        },
+        key=lambda p: (-len(p), p),
+    )
+    for prefix in candidates:
+        matches = _members_matching(members, prefix)
+        exact = any(
+            (m.get(field) or "").casefold() == prefix for m in matches for field in _NAME_FIELDS
+        )
+        if 2 <= len(matches) <= _MAX_MENTION_SUGGESTIONS and not exact:
+            return prefix, {m["uid"] for m in matches}
+    pytest.fail(
+        "E2E guild needs two members sharing a name prefix that is not itself a "
+        f"member name; projection members: {[m.get('username') for m in members]}"
+    )
 
 
 @pytest.mark.asyncio
@@ -270,3 +341,149 @@ async def test_game_time_change_sends_dm(
         f"Change DM should contain link to game embed: {expected_jump_url}"
     )
     print(f"[TEST] ✓ Participant received change DM: {change_dm.content[:100]}...")
+
+
+@pytest.mark.asyncio
+async def test_unedited_mentions_survive_edit_of_other_field(
+    authenticated_admin_client,
+    admin_db,
+    discord_helper,
+    discord_channel_id,
+    discord_user_id,
+    discord_guild_id,
+    synced_guild,
+    test_timeouts,
+):
+    """
+    E2E (2b regression): echoing the GET description back on edit keeps mention IDs.
+
+    The GET returns labeled tokens (<@id|label>, <#id|label>) whatever the member's
+    display name contains; the PUT sends them back untouched alongside a title change.
+
+    Verifies:
+    - GET description carries the IDs as labeled tokens
+    - Stored description is byte-identical after the PUT
+    - The edited Discord embed still contains the plain <@id> / <#id> mentions
+    """
+    template_id = await _default_template_id(admin_db, discord_guild_id)
+    user_mention = f"<@{discord_user_id}>"
+    channel_mention = f"<#{discord_channel_id}>"
+    stored_description = f"Ask {user_mention} for the code, then join {channel_mention}."
+
+    response = await authenticated_admin_client.post(
+        "/api/v1/games",
+        data={
+            "template_id": template_id,
+            "title": f"E2E Mention Round Trip {uuid4().hex[:8]}",
+            "description": stored_description,
+            "scheduled_at": (datetime.now(UTC) + timedelta(hours=2)).isoformat(),
+            "max_players": "4",
+        },
+    )
+    assert response.status_code == 201, f"Failed to create game: {response.text}"
+    game_id = response.json()["id"]
+
+    message_id = await wait_for_game_message_id(
+        admin_db, game_id, timeout=test_timeouts[TimeoutType.DB_WRITE]
+    )
+    assert message_id is not None, "Message ID should be populated after announcement"
+
+    fetched = await authenticated_admin_client.get(f"/api/v1/games/{game_id}")
+    assert fetched.status_code == 200, fetched.text
+    returned_description = fetched.json()["description"]
+    labeled_pattern = (
+        rf"Ask <@{discord_user_id}\|[^>]+> for the code, "
+        rf"then join <#{discord_channel_id}\|[^>]+>\."
+    )
+    assert re.fullmatch(labeled_pattern, returned_description), (
+        f"GET should return labeled tokens for live mentions, got: {returned_description!r}"
+    )
+
+    updated_title = f"E2E Mention Round Trip Edited {uuid4().hex[:8]}"
+    update_response = await authenticated_admin_client.put(
+        f"/api/v1/games/{game_id}",
+        data={"title": updated_title, "description": returned_description},
+    )
+    assert update_response.status_code == 200, f"Failed to update game: {update_response.text}"
+
+    result = await admin_db.execute(
+        text("SELECT description FROM game_sessions WHERE id = :game_id"),
+        {"game_id": game_id},
+    )
+    assert result.scalar_one() == stored_description
+
+    updated_message = await discord_helper.wait_for_message_update(
+        channel_id=discord_channel_id,
+        message_id=message_id,
+        check_func=lambda msg: msg.embeds and msg.embeds[0].title == updated_title,
+        timeout=test_timeouts[TimeoutType.MESSAGE_UPDATE],
+        description="game title update after mention round trip",
+    )
+    embed_description = updated_message.embeds[0].description
+    assert stored_description in embed_description, (
+        f"Embed should keep plain Discord mentions, got: {embed_description!r}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_ambiguous_mention_saves_on_first_retry_with_picked_id(
+    authenticated_admin_client,
+    admin_db,
+    discord_helper,
+    discord_channel_id,
+    discord_guild_id,
+    synced_guild,
+    redis,
+    test_timeouts,
+):
+    """
+    E2E (2a regression): an ambiguous @prefix prompts once; the picked <@id> saves.
+
+    The prefix is chosen from the live member projection so it matches several real
+    guild members without exactly naming any of them.
+
+    Verifies:
+    - First POST returns 422 "Multiple matches found" listing exactly those members
+    - Resubmitting with the suggestion's <@id> (what the editor sends) returns 201
+    - The announcement embed contains the picked member's mention
+    """
+    members = await search_members_by_prefix(discord_guild_id, "", redis=redis)
+    prefix, expected_ids = _find_ambiguous_prefix(members)
+    template_id = await _default_template_id(admin_db, discord_guild_id)
+
+    def game_form(description: str) -> dict[str, str]:
+        return {
+            "template_id": template_id,
+            "title": f"E2E Ambiguous Mention {uuid4().hex[:8]}",
+            "description": description,
+            "scheduled_at": (datetime.now(UTC) + timedelta(hours=2)).isoformat(),
+            "max_players": "4",
+        }
+
+    ambiguous = await authenticated_admin_client.post(
+        "/api/v1/games", data=game_form(f"Ask @{prefix} first")
+    )
+    assert ambiguous.status_code == 422, ambiguous.text
+    errors = ambiguous.json()["detail"]["invalid_mentions"]
+    assert [(e["input"], e["reason"]) for e in errors] == [(f"@{prefix}", "Multiple matches found")]
+    suggestion_ids = {s["discordId"] for s in errors[0]["suggestions"]}
+    assert suggestion_ids == expected_ids
+
+    picked_id = sorted(suggestion_ids)[0]
+    picked_description = f"Ask <@{picked_id}> first"
+    picked = await authenticated_admin_client.post(
+        "/api/v1/games", data=game_form(picked_description)
+    )
+    assert picked.status_code == 201, f"Picked suggestion should save: {picked.text}"
+    game_id = picked.json()["id"]
+
+    message_id = await wait_for_game_message_id(
+        admin_db, game_id, timeout=test_timeouts[TimeoutType.DB_WRITE]
+    )
+    assert message_id is not None, "Message ID should be populated after announcement"
+    message = await discord_helper.wait_for_message(
+        channel_id=discord_channel_id,
+        message_id=message_id,
+        timeout=test_timeouts[TimeoutType.MESSAGE_CREATE],
+    )
+    assert picked_description in message.embeds[0].description

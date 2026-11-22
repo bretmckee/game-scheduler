@@ -410,3 +410,40 @@ component="div"` so the chips nest validly.
   That run's wall clock was 7h55m, so the host had slept. The file passed on its own (7/7).
 - No frontend files changed in this phase. Every reader of `description` /
   `signup_instructions` already goes through `MentionText` or the GameForm editor conversion.
+
+---
+
+## Phase 8: E2E Regressions
+
+### Modified
+
+- tests/e2e/test_game_update.py — two regression tests plus helpers (`redis` fixture,
+  `_default_template_id`, `_members_matching`, `_find_ambiguous_prefix`):
+  - `test_unedited_mentions_survive_edit_of_other_field` (2b) creates a game with
+    `<@host_id>` / `<#channel_id>` in the description. The GET returns `<@id|label>` /
+    `<#id|label>`, and a PUT echoes that description back with a title change. The test
+    asserts the stored description is byte-identical and the edited embed still has the
+    plain mentions.
+  - `test_ambiguous_mention_saves_on_first_retry_with_picked_id` (2a) chooses a word-character
+    prefix from the live Redis member projection that matches 2–10 real members and is not
+    itself any member's name. It asserts the 422 "Multiple matches found" suggestions are
+    exactly those members, that resubmitting with the picked `<@id>` returns 201 on the first
+    retry, and that the announcement embed contains it.
+
+### Notes / deviations
+
+- The e2e guild uses real Discord accounts, so the test can't force a "display name with
+  spaces". The 2b test doesn't depend on the label text: it checks for the ID-carrying token
+  whatever the label is. The spaced-name case is covered by the Phase 7 integration matrix.
+- The ambiguous prefix is computed at runtime, not hard-coded. If the guild ever lacks a
+  usable shared prefix, the test fails with the member list rather than skipping.
+- No existing e2e assertions depended on rendered text. `test_channel_mentions.py` checks the
+  embed (stored plain `<@id>` / `<#id>`), which Phase 7 left unchanged, so it was not modified.
+
+### Gates
+
+- `uv run pytest tests/unit`: 2756 passed
+- `uv run mypy shared/ services/`: clean
+- `ruff check` / `ruff format` and `scripts/check_test_assertions.py` on the touched file: clean
+- `scripts/run-e2e-tests.sh |& tee output-e2e.txt`: 112 passed (25m55s)
+- No frontend files changed in this phase.

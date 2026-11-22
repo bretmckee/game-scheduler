@@ -109,9 +109,9 @@ Phases 1-6 tolerate tokens without the server emitting them. Phase 7 switches re
 - [x] Task 7.3: Integration round-trip matrix
   - Details: .copilot-tracking/planning/details/20261120-01-mention-round-trip-details.md (Lines 219-227)
 
-### [ ] Phase 8: E2E regressions
+### [x] Phase 8: E2E regressions
 
-- [ ] Task 8.1: E2E tests for 2a and 2b
+- [x] Task 8.1: E2E tests for 2a and 2b
   - Details: .copilot-tracking/planning/details/20261120-01-mention-round-trip-details.md (Lines 230-238)
 
 ## Dependencies
