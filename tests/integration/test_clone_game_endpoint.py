@@ -193,6 +193,49 @@ def test_clone_game_endpoint_returns_201_with_new_game(
     assert result[2] == GameStatus.SCHEDULED
 
 
+def test_clone_game_endpoint_past_scheduled_at_returns_422_and_persists_nothing(
+    admin_db_sync,
+    create_user,
+    create_guild,
+    create_channel,
+    create_template,
+    create_game,
+    seed_redis_cache,
+    create_authenticated_client,
+):
+    """POST /{game_id}/clone with a past scheduled_at is a 422 and creates no row."""
+    env = _setup_environment(
+        create_user, create_guild, create_channel, create_template, seed_redis_cache
+    )
+    authenticated_client = create_authenticated_client(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+
+    source_game = create_game(
+        guild_id=env["guild"]["id"],
+        channel_id=env["channel"]["id"],
+        host_id=env["user"]["id"],
+        template_id=env["template"]["id"],
+        title="Source Game For Past Clone Test",
+    )
+
+    response = authenticated_client.post(
+        f"/api/v1/games/{source_game['id']}/clone",
+        data={
+            "scheduled_at": (datetime.now(UTC) - timedelta(hours=1)).isoformat(),
+            "player_carryover": "NO",
+            "waitlist_carryover": "NO",
+        },
+    )
+
+    assert response.status_code == 422, f"Expected 422, got {response.status_code}: {response.text}"
+    assert response.json()["detail"] == "Scheduled at: must be in the future"
+
+    game_count = admin_db_sync.execute(
+        text("SELECT COUNT(*) FROM game_sessions WHERE id != :source_id"),
+        {"source_id": source_game["id"]},
+    ).scalar_one()
+    assert game_count == 0, "No new game must be created for a past scheduled_at"
+
+
 def test_clone_game_endpoint_non_host_receives_403(
     admin_db_sync,
     create_user,

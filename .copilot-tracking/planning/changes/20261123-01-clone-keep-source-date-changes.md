@@ -34,3 +34,33 @@
 - Swept all of tests/integration and tests/e2e for fixed dates, negative offsets and bare `now()` values. The only past `scheduled_at` values are direct DB inserts of completed-game fixtures (test_join_game.py, test_leave_game.py), which bypass `GameCreateRequest`.
 
 **Verification**: Full `scripts/run-integration-tests.sh |& tee output-integration.txt` with the Phase 2 validator temporarily applied — 396 passed (exit 0); the probe was reverted afterwards.
+
+## Phase 2: Server-side guard — reject past `scheduled_at` on create/clone
+
+### Task 2.1: RED — xfail regression tests (schema, route, integration create + clone)
+
+#### Added
+
+- tests/unit/shared/schemas/test_game_schema.py - `TestGameCreateRequestScheduledAt`: past aware, past naive, and past-in-a-non-UTC-zone values raise `ValidationError` on `scheduled_at` (xfail strict); future aware and future naive values are accepted unchanged (plain tests, already passing).
+- tests/unit/services/api/routes/test_games_routes.py - `TestCreateGameRoutePastScheduledAt`: the create route returns 422 `"Scheduled at: must be in the future"` and never calls the service (xfail strict).
+- tests/integration/test_games_crud.py - `test_create_game_past_scheduled_at_returns_422_and_persists_nothing`: POST create with a past date → 422 with that detail, and no `game_sessions` row for the guild (xfail strict).
+- tests/integration/test_clone_game_endpoint.py - `test_clone_game_endpoint_past_scheduled_at_returns_422_and_persists_nothing`: clone with a past date → 422 with that detail, and no new row (xfail strict).
+
+#### Outside the plan
+
+- Added a non-UTC-zone case (+10:00) to prove the validator normalizes to UTC before comparing.
+
+**Verification**: unit — 4 xfailed; scoped `scripts/run-integration-tests.sh tests/integration/test_games_crud.py tests/integration/test_clone_game_endpoint.py` — 48 passed, 2 xfailed.
+
+### Task 2.2: GREEN — add `scheduled_at` field validator to `GameCreateRequest`
+
+#### Modified
+
+- shared/schemas/game.py - Added `GameCreateRequest.validate_scheduled_at_in_future`: aware values are converted to naive UTC (naive values are taken as UTC), and anything `<=` the server's UTC now is rejected; the original value is returned unchanged. Imported `UTC`. `GameUpdateRequest` is not touched.
+- Removed only the six `xfail` decorators added in Task 2.1. No assertions changed. Before removal, all four unit tests reported strict XPASS.
+
+#### Outside the plan
+
+- The error message is `"must be in the future"`, not the planned `"scheduled_at must be in the future"`. `_format_field_errors` already prefixes the field label, so the planned text would have reached users as `"Scheduled at: scheduled_at must be in the future"`; the API now returns `"Scheduled at: must be in the future"`.
+
+**Verification**: `uv run pytest tests/unit` — 2762 passed; `uv run mypy shared/ services/` — clean; ruff — clean; full `scripts/run-integration-tests.sh |& tee output-integration.txt` — 398 passed (includes recurrence clone tests). No e2e run needed: tests/e2e/test_clone_game_e2e.py is unchanged, and the shortest e2e lead time (test_game_rewards.py, `now + 15s`) is computed immediately before its POST.

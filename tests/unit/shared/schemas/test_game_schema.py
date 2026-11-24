@@ -21,7 +21,7 @@
 
 """Tests for game schema description length constraints."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 from pydantic import ValidationError
@@ -188,6 +188,53 @@ class TestGameUpdateRequestMaxPlayersLimit:
         """Test that None max_players (no change) is accepted."""
         req = GameUpdateRequest(max_players=None)
         assert req.max_players is None
+
+
+class TestGameCreateRequestScheduledAt:
+    """GameCreateRequest.scheduled_at must be strictly in the future."""
+
+    def test_past_aware_scheduled_at_rejected(self):
+        """A timezone-aware past scheduled_at raises ValidationError."""
+        past = datetime.now(UTC) - timedelta(hours=1)
+        with pytest.raises(ValidationError) as exc_info:
+            GameCreateRequest(template_id=VALID_TEMPLATE_ID, title="Test Game", scheduled_at=past)
+        errors = exc_info.value.errors()
+        assert [e["loc"] for e in errors] == [("scheduled_at",)]
+        assert "must be in the future" in errors[0]["msg"]
+
+    def test_past_naive_scheduled_at_rejected(self):
+        """A naive (implicit UTC) past scheduled_at raises ValidationError."""
+        past = (datetime.now(UTC) - timedelta(hours=1)).replace(tzinfo=None)
+        with pytest.raises(ValidationError) as exc_info:
+            GameCreateRequest(template_id=VALID_TEMPLATE_ID, title="Test Game", scheduled_at=past)
+        errors = exc_info.value.errors()
+        assert [e["loc"] for e in errors] == [("scheduled_at",)]
+        assert "must be in the future" in errors[0]["msg"]
+
+    def test_past_scheduled_at_in_non_utc_zone_rejected(self):
+        """A past instant expressed in a non-UTC zone is normalized before comparing."""
+        plus_ten = timezone(timedelta(hours=10))
+        past = (datetime.now(UTC) - timedelta(hours=1)).astimezone(plus_ten)
+        with pytest.raises(ValidationError):
+            GameCreateRequest(template_id=VALID_TEMPLATE_ID, title="Test Game", scheduled_at=past)
+
+    def test_future_aware_scheduled_at_accepted(self):
+        """A timezone-aware future scheduled_at is accepted unchanged."""
+        future = datetime.now(UTC) + timedelta(hours=1)
+        req = GameCreateRequest(
+            template_id=VALID_TEMPLATE_ID, title="Test Game", scheduled_at=future
+        )
+        assert req.scheduled_at == future
+        assert req.scheduled_at.tzinfo is not None
+
+    def test_future_naive_scheduled_at_accepted(self):
+        """A naive (implicit UTC) future scheduled_at is accepted unchanged."""
+        future = (datetime.now(UTC) + timedelta(hours=1)).replace(tzinfo=None)
+        req = GameCreateRequest(
+            template_id=VALID_TEMPLATE_ID, title="Test Game", scheduled_at=future
+        )
+        assert req.scheduled_at == future
+        assert req.scheduled_at.tzinfo is None
 
 
 class TestGameCreateRequestPostAt:

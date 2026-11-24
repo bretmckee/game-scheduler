@@ -1561,6 +1561,47 @@ async def test_create_game_over_length_description_returns_readable_422(
 
 
 @pytest.mark.asyncio
+async def test_create_game_past_scheduled_at_returns_422_and_persists_nothing(
+    admin_db_sync,
+    create_user,
+    create_guild,
+    create_channel,
+    create_template,
+    seed_redis_cache,
+    api_base_url,
+):
+    """POST /api/v1/games with a past scheduled_at is a 422 and creates no row."""
+    ctx = await _setup_game_context(
+        create_user, create_guild, create_channel, create_template, seed_redis_cache
+    )
+    session_token, _ = await create_test_session(TEST_DISCORD_TOKEN, TEST_BOT_DISCORD_ID)
+
+    try:
+        async with _authed_client(api_base_url, session_token) as client:
+            response = await client.post(
+                "/api/v1/games",
+                data={
+                    "template_id": ctx["template_id"],
+                    "title": "Past Game",
+                    "scheduled_at": (datetime.now(UTC) - timedelta(hours=1)).isoformat(),
+                },
+            )
+
+        assert response.status_code == 422, (
+            f"Expected 422, got {response.status_code}: {response.text}"
+        )
+        assert response.json()["detail"] == "Scheduled at: must be in the future"
+
+        game_count = admin_db_sync.execute(
+            text("SELECT COUNT(*) FROM game_sessions WHERE guild_id = :guild_id"),
+            {"guild_id": ctx["guild_id"]},
+        ).scalar_one()
+        assert game_count == 0, "No game must be persisted for a past scheduled_at"
+    finally:
+        await cleanup_test_session(session_token)
+
+
+@pytest.mark.asyncio
 async def test_update_game_accepts_max_length_description(
     create_user,
     create_guild,

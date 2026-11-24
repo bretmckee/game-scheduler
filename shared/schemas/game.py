@@ -21,7 +21,7 @@
 
 """Pydantic schemas for Game sessions."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Annotated
 
 from pydantic import BaseModel, Field, StringConstraints, field_validator
@@ -111,6 +111,19 @@ class GameCreateRequest(BaseModel):
         description="When to post the Discord announcement. None or past = post immediately.",
     )
     recur_rule: str | None = None
+
+    @field_validator("scheduled_at")
+    @classmethod
+    def validate_scheduled_at_in_future(cls, v: datetime) -> datetime:
+        """Reject a start time that is not strictly after the server's current UTC time.
+
+        Naive values are treated as UTC, matching how the API stores them.
+        """
+        scheduled_naive_utc = v.astimezone(UTC).replace(tzinfo=None) if v.tzinfo else v
+        if scheduled_naive_utc <= datetime.now(UTC).replace(tzinfo=None):
+            msg = "must be in the future"
+            raise ValueError(msg)
+        return v
 
     @field_validator("signup_method")
     @classmethod

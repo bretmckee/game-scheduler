@@ -620,6 +620,30 @@ class TestListGamesUsesDisplayNameResolver:
         )
 
 
+class TestCreateGameRoutePastScheduledAt:
+    """The create route turns a past scheduled_at into a readable 422."""
+
+    @pytest.mark.asyncio
+    async def test_create_game_route_rejects_past_scheduled_at(self):
+        mock_game_service = MagicMock()
+        mock_game_service.create_game = AsyncMock()
+        past_iso = (datetime.now(UTC) - timedelta(hours=1)).isoformat()
+
+        with pytest.raises(HTTPException) as exc_info:
+            await games_routes.create_game(
+                template_id="template-123",
+                title="Test Game",
+                scheduled_at=past_iso,
+                current_user=MagicMock(),
+                game_service=mock_game_service,
+                role_service=MagicMock(),
+            )
+
+        assert exc_info.value.status_code == http_status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert exc_info.value.detail == "Scheduled at: must be in the future"
+        mock_game_service.create_game.assert_not_called()
+
+
 class TestOverLengthDescriptionRoutes:
     """The real routes turn an over-length description into a readable 422.
 
