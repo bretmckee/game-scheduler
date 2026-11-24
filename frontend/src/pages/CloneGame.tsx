@@ -37,7 +37,6 @@ import {
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { addDays } from 'date-fns';
 import { useNavigate, useParams } from 'react-router';
 import { apiClient } from '../api/client';
 import { Channel, GameSession, SignupMethod } from '../types';
@@ -79,8 +78,6 @@ const CARRYOVER_OPTIONS: { value: CarryoverOption; label: string }[] = [
   { value: 'YES_WITH_DEADLINE', label: 'Yes — carry over with confirmation deadline' },
 ];
 
-const DEFAULT_DAYS_AHEAD = 14;
-
 /**
  * Build the frozen `GameForm` `initialData` for Stage 2, snapshotting the carryover
  * selections as they stood the moment "Continue" was clicked.
@@ -106,7 +103,8 @@ function buildStage2InitialData(
     // Cleared so GameForm's own "leave empty = post now" default applies, instead of
     // inheriting the source game's own post time.
     post_at: null,
-    scheduled_at: addDays(new Date(sourceGame.scheduled_at), DEFAULT_DAYS_AHEAD).toISOString(),
+    // Kept as-is; GameForm flags it if it has already passed.
+    scheduled_at: sourceGame.scheduled_at,
   };
 
   if (sourceGame.signup_method === SignupMethod.HOST_SELECTED_WITH_WAITLIST) {

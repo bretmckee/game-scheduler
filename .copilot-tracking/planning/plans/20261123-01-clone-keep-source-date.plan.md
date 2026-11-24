@@ -64,12 +64,12 @@ Make Clone Game copy the source game's `scheduled_at` exactly instead of adding 
 - [x] Task 3.2: GREEN — validate initial `scheduledAt` and re-validate in `handleSubmit`
   - Details: .copilot-tracking/planning/details/20261123-01-clone-keep-source-date-details.md (Lines 95-112)
 
-### [ ] Phase 4: CloneGame — copy the source date unchanged
+### [x] Phase 4: CloneGame — copy the source date unchanged
 
-- [ ] Task 4.1: RED — future fixture date and `it.fails` same-date tests
+- [x] Task 4.1: RED — future fixture date and `it.fails` same-date tests
   - Details: .copilot-tracking/planning/details/20261123-01-clone-keep-source-date-details.md (Lines 115-129)
 
-- [ ] Task 4.2: GREEN — drop the +14-day offset, `DEFAULT_DAYS_AHEAD`, and the `addDays` import
+- [x] Task 4.2: GREEN — drop the +14-day offset, `DEFAULT_DAYS_AHEAD`, and the `addDays` import
   - Details: .copilot-tracking/planning/details/20261123-01-clone-keep-source-date-details.md (Lines 130-143)
 
 ## Dependencies

@@ -55,14 +55,19 @@ vi.mock('@mui/x-date-pickers/DateTimePicker', () => ({
     label: string;
     value: Date | null;
     onChange: (v: Date | null) => void;
-    slotProps?: { textField?: { required?: boolean; fullWidth?: boolean } };
+    slotProps?: {
+      textField?: { required?: boolean; fullWidth?: boolean; helperText?: string | null };
+    };
   }) => (
-    <input
-      aria-label={label}
-      required={slotProps?.textField?.required}
-      value={value ? value.toISOString() : ''}
-      onChange={(e) => onChange(e.target.value ? new Date(e.target.value) : null)}
-    />
+    <>
+      <input
+        aria-label={label}
+        required={slotProps?.textField?.required}
+        value={value ? value.toISOString() : ''}
+        onChange={(e) => onChange(e.target.value ? new Date(e.target.value) : null)}
+      />
+      {slotProps?.textField?.helperText ? <span>{slotProps.textField.helperText}</span> : null}
+    </>
   ),
 }));
 
@@ -684,6 +689,52 @@ describe('CloneGame', () => {
       expect(formData.get('thumbnail')).toBeNull();
       expect(formData.get('image')).toBeNull();
       expect(formData.get('post_at')).toBeNull();
+    });
+
+    it('keeps the source game date unchanged when it is still in the future', async () => {
+      vi.mocked(apiClient.get).mockImplementation(mockGetImpl);
+      vi.mocked(apiClient.post).mockResolvedValue({ data: { id: 'cloned-same-date' } });
+      const user = userEvent.setup();
+      renderCloneGame();
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Game To Clone')).toBeInTheDocument();
+      });
+      await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+      expect(await screen.findByLabelText(/^Game time/)).toHaveValue(sourceScheduledAt);
+
+      await user.click(screen.getByRole('button', { name: 'Create Game' }));
+      await waitFor(() => {
+        expect(apiClient.post).toHaveBeenCalled();
+      });
+      const formData = vi.mocked(apiClient.post).mock.calls[0]![1] as FormData;
+      expect(formData.get('scheduled_at')).toBe(sourceScheduledAt);
+    });
+
+    it('flags a past source date on open and does not post the clone', async () => {
+      const pastScheduledAt = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      const pastGame: GameSession = { ...mockGame, scheduled_at: pastScheduledAt };
+      vi.mocked(apiClient.get).mockImplementation((url: string) => {
+        if (url.includes('/games/')) return Promise.resolve({ data: pastGame });
+        return mockGetImpl(url);
+      });
+      const user = userEvent.setup();
+      renderCloneGame();
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Game To Clone')).toBeInTheDocument();
+      });
+      await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+      expect(await screen.findByText('Date must be in the future')).toBeInTheDocument();
+      expect(screen.getByLabelText(/^Game time/)).toHaveValue(pastScheduledAt);
+
+      await user.click(screen.getByRole('button', { name: 'Create Game' }));
+      expect(
+        await screen.findByText('Please fix all validation errors before submitting.')
+      ).toBeInTheDocument();
+      expect(apiClient.post).not.toHaveBeenCalled();
     });
 
     it('posts untouched description and signup mentions as bare tokens, not labels', async () => {

@@ -94,3 +94,50 @@
 - `frontend/src/pages/__tests__/CloneGame.test.tsx` - The `mockGame.scheduled_at` fixture change from Task 4.1 was pulled forward into this phase. The fixed `2026-09-01T18:00:00Z` source, plus the current +14-day offset, gives a past clone date. Once the form flagged it, 12 clone submit tests failed, so the fixture is now `sourceScheduledAt = now + 7 days`. Task 4.1 still adds the new same-date tests.
 
 **Verification**: `npm run test` — 628 passed (54 files); `npm run build` — OK; `eslint`, `prettier --check`, and `tsc --noEmit` — clean on the changed files. No Python changes in this phase.
+
+## Phase 4: CloneGame — copy the source date unchanged
+
+### Task 4.1: RED — future fixture date and `it.fails` same-date tests
+
+#### Added
+
+- `frontend/src/pages/__tests__/CloneGame.test.tsx` - Two new submit-handler tests:
+  - future source → the "Game time" picker shows `sourceScheduledAt` and the POST `scheduled_at` equals it exactly (`it.fails`)
+  - source one hour in the past → "Date must be in the future" is shown on open, the picker shows the source date, and submit shows the validation banner without posting (`it.fails`)
+
+#### Modified
+
+- `frontend/src/pages/__tests__/CloneGame.test.tsx` - The `DateTimePicker` mock now renders `slotProps.textField.helperText`, so the inline date error can be asserted. The fixture date itself was already made relative in Phase 3.
+
+#### Outside the plan
+
+- The past-source test is `it.fails`, not the planned plain `it`. With the +14-day offset still in place, a source date one hour in the past becomes a future clone date, so the error does not appear until Task 4.2.
+- The mock change above was needed because this test file's picker mock dropped `helperText`.
+
+**Verification**: ran both tests unmarked first. The same-date test failed with picker value `…12-15…` vs expected `…12-01…` (the +14-day bug), and the past-source test failed because the error never appeared. With `it.fails`, the suite reports 29 passed.
+
+### Task 4.2: GREEN — drop the +14-day offset
+
+#### Modified
+
+- frontend/src/pages/CloneGame.tsx - `buildStage2InitialData` sets `scheduled_at: sourceGame.scheduled_at`.
+
+#### Removed
+
+- frontend/src/pages/CloneGame.tsx - `DEFAULT_DAYS_AHEAD` constant and the `addDays` import (`date-fns` itself is still used by GameForm).
+- `frontend/src/pages/__tests__/CloneGame.test.tsx` - `.fails` on the two Task 4.1 tests. Both had first reported "Expect test to fail".
+
+**Verification**: `npm run test` — 630 passed (54 files); `npm run build` — OK; `eslint`, `prettier --check`, and `tsc --noEmit` — clean. No e2e run: tests/e2e/test_clone_game_e2e.py is unchanged, and it calls the API directly with explicit dates.
+
+## Release Summary
+
+Clone Game now keeps the source game's `scheduled_at` exactly instead of adding 14 days. Past dates are rejected at three points:
+
+- **Form open (create/clone only):** a prefilled past date shows "Date must be in the future" immediately.
+- **Form submit (create/clone only):** the date is re-checked against the current clock, so a date that passes while the form is open blocks submission.
+- **API:** `GameCreateRequest` rejects any create or clone whose `scheduled_at` is not strictly in the future, returning 422 "Scheduled at: must be in the future" with nothing persisted.
+
+Editing past or in-progress games is unaffected, and so is recurrence cloning.
+
+- **Production files changed:** shared/schemas/game.py, frontend/src/components/GameForm.tsx, frontend/src/pages/CloneGame.tsx.
+- **Test files changed:** 7 Python test files (unit and integration) and 2 frontend test files.
