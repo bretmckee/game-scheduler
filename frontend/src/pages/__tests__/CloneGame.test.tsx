@@ -90,12 +90,15 @@ describe('CloneGame', () => {
     position: 0,
   };
 
+  // Relative to now so the cloned date stays in the future and the form allows submit.
+  const sourceScheduledAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
   const mockGame: GameSession = {
     id: 'game123',
     title: 'Test Game To Clone',
     description: 'A game description',
     signup_instructions: null,
-    scheduled_at: '2026-09-01T18:00:00Z',
+    scheduled_at: sourceScheduledAt,
     where: null,
     max_players: 4,
     guild_id: 'guild123',

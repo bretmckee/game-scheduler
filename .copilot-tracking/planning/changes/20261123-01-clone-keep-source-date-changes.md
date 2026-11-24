@@ -64,3 +64,33 @@
 - The error message is `"must be in the future"`, not the planned `"scheduled_at must be in the future"`. `_format_field_errors` already prefixes the field label, so the planned text would have reached users as `"Scheduled at: scheduled_at must be in the future"`; the API now returns `"Scheduled at: must be in the future"`.
 
 **Verification**: `uv run pytest tests/unit` — 2762 passed; `uv run mypy shared/ services/` — clean; ruff — clean; full `scripts/run-integration-tests.sh |& tee output-integration.txt` — 398 passed (includes recurrence clone tests). No e2e run needed: tests/e2e/test_clone_game_e2e.py is unchanged, and the shortest e2e lead time (test_game_rewards.py, `now + 15s`) is computed immediately before its POST.
+
+## Phase 3: GameForm — show past-date error at form open and at submit (create mode)
+
+### Task 3.1: RED — `it.fails` tests for initial and submit-time validation
+
+#### Added
+
+- `frontend/src/components/__tests__/GameForm.validation.test.tsx` - New `initial and submit-time validation` block:
+  - create mode with a past `initialData.scheduled_at` shows "Date must be in the future" on render (`it.fails`)
+  - edit mode with a past `initialData.scheduled_at` (IN_PROGRESS game) shows no error (plain `it`, regression guard)
+  - create mode with a date that is valid on open, then `Date` advanced past it, then submit → the error is shown and `onSubmit` is not called (`it.fails`)
+  - Only `Date` is faked (`vi.useFakeTimers({ toFake: ['Date'] })`), so `userEvent` and `waitFor` keep real timers.
+
+**Verification**: before marking them, ran both create-mode tests as plain `it` and confirmed they failed for the bug ("Unable to find … Date must be in the future"), not for a setup error; with `it.fails`, the suite reports 17 passed.
+
+### Task 3.2: GREEN — validate initial `scheduledAt` and re-validate at submit
+
+#### Modified
+
+- frontend/src/components/GameForm.tsx - Added module helper `initialScheduledAtError(mode, initialData)`: returns the `validateFutureDate` error for a prefilled date in create mode, and `null` in edit mode or when there is no prefilled date.
+  - `scheduledAtError` uses it as a lazy `useState` initializer.
+  - The `initialData` effect calls it after resetting `formData`; `mode` was added to the effect's dependencies.
+  - `handleSubmit` (create mode only) re-runs `validateFutureDate(formData.scheduledAt)` before the stale-state guard. On failure it sets `scheduledAtError` plus the existing "Please fix all validation errors before submitting." banner, and returns.
+- `frontend/src/components/__tests__/GameForm.validation.test.tsx` - Changed `it.fails` → `it` only; both tests had first reported "Expect test to fail".
+
+#### Outside the plan
+
+- `frontend/src/pages/__tests__/CloneGame.test.tsx` - The `mockGame.scheduled_at` fixture change from Task 4.1 was pulled forward into this phase. The fixed `2026-09-01T18:00:00Z` source, plus the current +14-day offset, gives a past clone date. Once the form flagged it, 12 clone submit tests failed, so the fixture is now `sourceScheduledAt = now + 7 days`. Task 4.1 still adds the new same-date tests.
+
+**Verification**: `npm run test` — 628 passed (54 files); `npm run build` — OK; `eslint`, `prettier --check`, and `tsc --noEmit` — clean on the changed files. No Python changes in this phase.

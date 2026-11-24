@@ -56,12 +56,12 @@ Make Clone Game copy the source game's `scheduled_at` exactly instead of adding 
 - [x] Task 2.2: GREEN — add `scheduled_at` field validator to `GameCreateRequest`; remove xfail markers
   - Details: .copilot-tracking/planning/details/20261123-01-clone-keep-source-date-details.md (Lines 59-76)
 
-### [ ] Phase 3: GameForm — show past-date error at form open and at submit (create mode)
+### [x] Phase 3: GameForm — show past-date error at form open and at submit (create mode)
 
-- [ ] Task 3.1: RED — `it.fails` tests for initial and submit-time validation
+- [x] Task 3.1: RED — `it.fails` tests for initial and submit-time validation
   - Details: .copilot-tracking/planning/details/20261123-01-clone-keep-source-date-details.md (Lines 81-94)
 
-- [ ] Task 3.2: GREEN — validate initial `scheduledAt` and re-validate in `handleSubmit`
+- [x] Task 3.2: GREEN — validate initial `scheduledAt` and re-validate in `handleSubmit`
   - Details: .copilot-tracking/planning/details/20261123-01-clone-keep-source-date-details.md (Lines 95-112)
 
 ### [ ] Phase 4: CloneGame — copy the source date unchanged

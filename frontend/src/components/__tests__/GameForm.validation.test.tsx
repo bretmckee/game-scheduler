@@ -18,11 +18,11 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import { describe, it, expect, vi } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { GameForm } from '../GameForm';
-import { Channel, CurrentUser } from '../../types';
+import { Channel, CurrentUser, GameSession } from '../../types';
 import { AuthContext, type AuthContextType } from '../../contexts/AuthContext';
 import React from 'react';
 
@@ -267,6 +267,62 @@ describe('GameForm Validation', () => {
       // formData.scheduledAt (pastDate) and incorrectly keeps the error.
       await waitFor(() => {
         expect(screen.queryByText(/in the future/i)).not.toBeInTheDocument();
+      });
+    });
+
+    describe('initial and submit-time validation', () => {
+      const HOUR_MS = 60 * 60 * 1000;
+      const singleChannel = mockChannels.slice(0, 1);
+
+      const gameAt = (scheduledAt: Date): Partial<GameSession> => ({
+        title: 'Cloned Game',
+        description: 'A fun game',
+        channel_id: 'channel-1',
+        scheduled_at: scheduledAt.toISOString(),
+      });
+
+      afterEach(() => {
+        vi.useRealTimers();
+      });
+
+      it('shows the past-date error on open in create mode', () => {
+        renderGameForm({
+          initialData: gameAt(new Date(Date.now() - HOUR_MS)),
+          channels: singleChannel,
+        });
+
+        expect(screen.getByText('Date must be in the future')).toBeInTheDocument();
+      });
+
+      it('does not show a past-date error on open in edit mode', () => {
+        renderGameForm({
+          mode: 'edit',
+          initialData: { ...gameAt(new Date(Date.now() - HOUR_MS)), status: 'IN_PROGRESS' },
+          channels: singleChannel,
+        });
+
+        expect(screen.getByRole('button', { name: /Save Changes/i })).toBeInTheDocument();
+        expect(screen.queryByText('Date must be in the future')).not.toBeInTheDocument();
+      });
+
+      it('blocks submit when the date passes while the form is open', async () => {
+        vi.useFakeTimers({ toFake: ['Date'] });
+        const openedAt = new Date('2030-01-01T12:00:00Z');
+        vi.setSystemTime(openedAt);
+        const user = userEvent.setup();
+        const onSubmit = vi.fn().mockResolvedValue(undefined);
+        renderGameForm({
+          onSubmit,
+          initialData: gameAt(new Date(openedAt.getTime() + HOUR_MS)),
+          channels: singleChannel,
+        });
+        expect(screen.queryByText('Date must be in the future')).not.toBeInTheDocument();
+
+        vi.setSystemTime(new Date(openedAt.getTime() + 2 * HOUR_MS));
+        await user.click(screen.getByRole('button', { name: /Create Game/i }));
+
+        expect(await screen.findByText('Date must be in the future')).toBeInTheDocument();
+        expect(onSubmit).not.toHaveBeenCalled();
       });
     });
   });

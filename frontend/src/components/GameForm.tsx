@@ -132,6 +132,21 @@ function initialRewardEntries(rewards: string[] | null | undefined): string[] {
   return rewards && rewards.length > 0 ? [...rewards] : [''];
 }
 
+/**
+ * A new game (including a clone that copies its source date) must start in the future,
+ * so a past prefilled date is flagged as soon as the form opens. Edit mode is exempt
+ * because past and in-progress games keep their original start time.
+ */
+function initialScheduledAtError(
+  mode: 'create' | 'edit',
+  initialData: Partial<GameSession> | undefined
+): string | null {
+  if (mode !== 'create' || !initialData?.scheduled_at) {
+    return null;
+  }
+  return validateFutureDate(new Date(initialData.scheduled_at)).error || null;
+}
+
 /** True when at least one entry would survive the blank-dropping done on submit. */
 function hasRewardContent(rewards: string[]): boolean {
   return rewards.some((entry) => entry.trim() !== '');
@@ -354,7 +369,9 @@ export const GameForm: FC<GameFormProps> = ({
   const [locationError, setLocationError] = useState<string | null>(null);
   const [descriptionError, setDescriptionError] = useState<string | null>(null);
   const [signupInstructionsError, setSignupInstructionsError] = useState<string | null>(null);
-  const [scheduledAtError, setScheduledAtError] = useState<string | null>(null);
+  const [scheduledAtError, setScheduledAtError] = useState<string | null>(() =>
+    initialScheduledAtError(mode, initialData)
+  );
 
   // Calculate available signup methods: if empty/null, all methods are available.
   // HOST_SELECTED_WITH_WAITLIST is a sub-option of HOST_SELECTED and is excluded from the
@@ -442,8 +459,9 @@ export const GameForm: FC<GameFormProps> = ({
         remindersAsDms: initialData.reminders_as_dms ?? true,
         recurRule: initialData.recur_rule ?? null,
       });
+      setScheduledAtError(initialScheduledAtError(mode, initialData));
     }
-  }, [initialData, resolvedDefaultSignupMethod]);
+  }, [initialData, resolvedDefaultSignupMethod, mode]);
 
   // Auto-select channel when only one is available
   useEffect(() => {
@@ -770,6 +788,17 @@ export const GameForm: FC<GameFormProps> = ({
     if (!guildId || !formData.channelId || !formData.scheduledAt) {
       setError('Please fill in all required fields.');
       return;
+    }
+
+    // Re-check against the current clock: a date that was valid when picked can pass
+    // while the form stays open, and the stored error state would still be clear.
+    if (mode === 'create') {
+      const dateCheck = validateFutureDate(formData.scheduledAt);
+      if (!dateCheck.isValid) {
+        setScheduledAtError(dateCheck.error || null);
+        setError('Please fix all validation errors before submitting.');
+        return;
+      }
     }
 
     const hasValidationErrors =
