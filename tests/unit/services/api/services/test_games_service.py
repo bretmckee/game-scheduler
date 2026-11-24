@@ -48,6 +48,10 @@ from shared.services.game_change_notifications import GameNotifySnapshot
 from shared.utils.games import DEFAULT_MAX_PLAYERS
 from shared.utils.participant_sorting import partition_participants
 
+FUTURE_SCHEDULED_AT = datetime.datetime.now(UTC).replace(microsecond=0) + datetime.timedelta(
+    days=30
+)
+
 
 @pytest.fixture
 def mock_role_service():
@@ -81,7 +85,7 @@ def sample_game_data(sample_template):
         template_id=sample_template.id,
         title="Test Game",
         description="Test description",
-        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        scheduled_at=FUTURE_SCHEDULED_AT.replace(tzinfo=None),
         max_players=4,
         reminder_minutes=[60],
     )
@@ -171,7 +175,7 @@ def test_resolve_template_fields_uses_request_values(game_service):
         template_id=template.id,
         title="Test Game",
         description="Test Description",
-        scheduled_at=datetime.datetime.now(UTC),
+        scheduled_at=datetime.datetime.now(UTC) + datetime.timedelta(days=1),
         max_players=8,
         reminder_minutes=[30],
         expected_duration_minutes=90,
@@ -211,7 +215,7 @@ def test_resolve_template_fields_uses_template_defaults(game_service):
         template_id=template.id,
         title="Test Game",
         description="Test Description",
-        scheduled_at=datetime.datetime.now(UTC),
+        scheduled_at=datetime.datetime.now(UTC) + datetime.timedelta(days=1),
     )
 
     result = game_service._resolve_template_fields(game_data, template)
@@ -242,7 +246,7 @@ def test_resolve_template_fields_handles_empty_string_overrides(game_service):
         template_id=template.id,
         title="Test Game",
         description="Test Description",
-        scheduled_at=datetime.datetime.now(UTC),
+        scheduled_at=datetime.datetime.now(UTC) + datetime.timedelta(days=1),
         where="",
         signup_instructions="",
     )
@@ -270,7 +274,7 @@ def test_resolve_template_fields_uses_default_reminder_when_template_none(game_s
         template_id=template.id,
         title="Test Game",
         description="Test Description",
-        scheduled_at=datetime.datetime.now(UTC),
+        scheduled_at=datetime.datetime.now(UTC) + datetime.timedelta(days=1),
     )
 
     result = game_service._resolve_template_fields(game_data, template)
@@ -295,7 +299,7 @@ def test_resolve_template_fields_empty_reminder_list_overrides_template(game_ser
         template_id=template.id,
         title="Test Game",
         description="Test Description",
-        scheduled_at=datetime.datetime.now(UTC),
+        scheduled_at=datetime.datetime.now(UTC) + datetime.timedelta(days=1),
         reminder_minutes=[],
     )
 
@@ -321,7 +325,7 @@ def test_resolve_template_fields_signup_method_fallback_chain(game_service):
         template_id=template.id,
         title="Test Game",
         description="Test Description",
-        scheduled_at=datetime.datetime.now(UTC),
+        scheduled_at=datetime.datetime.now(UTC) + datetime.timedelta(days=1),
         signup_method=None,
     )
 
@@ -349,7 +353,7 @@ def test_resolve_template_fields_validates_signup_method_against_allowed_list(
         template_id=template.id,
         title="Test Game",
         description="Test Description",
-        scheduled_at=datetime.datetime.now(UTC),
+        scheduled_at=datetime.datetime.now(UTC) + datetime.timedelta(days=1),
         signup_method=SignupMethod.SELF_SIGNUP.value,
     )
 
@@ -374,7 +378,7 @@ def test_resolve_template_fields_allows_any_method_when_allowed_list_none(game_s
         template_id=template.id,
         title="Test Game",
         description="Test Description",
-        scheduled_at=datetime.datetime.now(UTC),
+        scheduled_at=datetime.datetime.now(UTC) + datetime.timedelta(days=1),
         signup_method=SignupMethod.SELF_SIGNUP.value,
     )
 
@@ -402,7 +406,7 @@ def test_resolve_template_fields_allows_any_method_when_allowed_list_empty(
         template_id=template.id,
         title="Test Game",
         description="Test Description",
-        scheduled_at=datetime.datetime.now(UTC),
+        scheduled_at=datetime.datetime.now(UTC) + datetime.timedelta(days=1),
         signup_method=SignupMethod.SELF_SIGNUP.value,
     )
 
@@ -1012,7 +1016,7 @@ async def test_build_game_session_with_media_attachments(
         template_id=sample_template.id,
         title="Test Game",
         description="Test description",
-        scheduled_at=datetime.datetime(2026, 6, 15, 12, 0, 0, tzinfo=UTC),
+        scheduled_at=FUTURE_SCHEDULED_AT,
     )
 
     resolved_fields = {
@@ -1069,7 +1073,7 @@ async def test_build_game_session_without_media(
         template_id=sample_template.id,
         title="Test Game",
         description="Test description",
-        scheduled_at=datetime.datetime(2026, 6, 15, 12, 0, 0, tzinfo=UTC),
+        scheduled_at=FUTURE_SCHEDULED_AT,
     )
 
     resolved_fields = {
@@ -1107,7 +1111,7 @@ async def test_build_game_session_copies_archive_fields(
         template_id=sample_template.id,
         title="Test Game",
         description="Test description",
-        scheduled_at=datetime.datetime(2026, 6, 15, 12, 0, 0, tzinfo=UTC),
+        scheduled_at=FUTURE_SCHEDULED_AT,
     )
 
     resolved_fields = {
@@ -1145,7 +1149,7 @@ async def test_build_game_session_timezone_normalization_aware(
     )
 
     # Create a timezone-aware datetime
-    scheduled_at_aware = datetime.datetime(2026, 6, 15, 12, 0, 0, tzinfo=UTC)
+    scheduled_at_aware = FUTURE_SCHEDULED_AT
 
     game_data = game_schemas.GameCreateRequest(
         template_id=sample_template.id,
@@ -1171,9 +1175,7 @@ async def test_build_game_session_timezone_normalization_aware(
 
     # Should be naive UTC
     assert game.scheduled_at.tzinfo is None
-    assert game.scheduled_at == datetime.datetime(2026, 6, 15, 12, 0, 0, tzinfo=UTC).replace(
-        tzinfo=None
-    )
+    assert game.scheduled_at == scheduled_at_aware.replace(tzinfo=None)
 
 
 @pytest.mark.asyncio
@@ -1189,7 +1191,7 @@ async def test_build_game_session_timezone_normalization_naive(
     )
 
     # Create a naive datetime
-    scheduled_at_naive = datetime.datetime(2026, 6, 15, 12, 0, 0, tzinfo=UTC).replace(tzinfo=None)
+    scheduled_at_naive = FUTURE_SCHEDULED_AT.replace(tzinfo=None)
 
     game_data = game_schemas.GameCreateRequest(
         template_id=sample_template.id,
@@ -1232,7 +1234,7 @@ async def test_build_game_session_remind_host_rewards_request_overrides_template
         template_id=sample_template.id,
         title="Test Game",
         description="Test description",
-        scheduled_at=datetime.datetime(2026, 6, 15, 12, 0, 0, tzinfo=UTC),
+        scheduled_at=FUTURE_SCHEDULED_AT,
         remind_host_rewards=True,
     )
     resolved_fields = {
@@ -1265,7 +1267,7 @@ async def test_build_game_session_remind_host_rewards_falls_back_to_template(
         template_id=sample_template.id,
         title="Test Game",
         description="Test description",
-        scheduled_at=datetime.datetime(2026, 6, 15, 12, 0, 0, tzinfo=UTC),
+        scheduled_at=FUTURE_SCHEDULED_AT,
     )
     resolved_fields = {
         "max_players": 5,
@@ -1296,7 +1298,7 @@ async def test_build_game_session_reminders_as_dms_request_sets_flag(
         template_id=sample_template.id,
         title="Test Game",
         description="Test description",
-        scheduled_at=datetime.datetime(2026, 6, 15, 12, 0, 0, tzinfo=UTC),
+        scheduled_at=FUTURE_SCHEDULED_AT,
         reminders_as_dms=True,
     )
     resolved_fields = {
@@ -1328,7 +1330,7 @@ async def test_build_game_session_reminders_as_dms_defaults_false_when_absent(
         template_id=sample_template.id,
         title="Test Game",
         description="Test description",
-        scheduled_at=datetime.datetime(2026, 6, 15, 12, 0, 0, tzinfo=UTC),
+        scheduled_at=FUTURE_SCHEDULED_AT,
     )
     resolved_fields = {
         "max_players": 5,
@@ -1354,13 +1356,13 @@ async def test_build_game_session_post_at_stored_as_naive_utc(
 ):
     """Test _build_game_session stores post_at as naive UTC, stripping tzinfo."""
     host_user = user_model.User(id=str(uuid.uuid4()), discord_id="123456")
-    post_at_aware = datetime.datetime(2026, 6, 15, 14, 0, 0, tzinfo=datetime.UTC)
+    post_at_aware = FUTURE_SCHEDULED_AT - datetime.timedelta(hours=6)
 
     game_data = game_schemas.GameCreateRequest(
         template_id=sample_template.id,
         title="Deferred Game",
         description="Test deferred",
-        scheduled_at=datetime.datetime(2026, 6, 15, 20, 0, 0, tzinfo=datetime.UTC),
+        scheduled_at=FUTURE_SCHEDULED_AT,
         post_at=post_at_aware,
     )
 
@@ -1379,9 +1381,7 @@ async def test_build_game_session_post_at_stored_as_naive_utc(
 
     assert game.post_at is not None
     assert game.post_at.tzinfo is None
-    assert game.post_at == datetime.datetime(2026, 6, 15, 14, 0, 0, tzinfo=datetime.UTC).replace(
-        tzinfo=None
-    )
+    assert game.post_at == post_at_aware.replace(tzinfo=None)
 
 
 @pytest.mark.asyncio
@@ -1397,7 +1397,7 @@ async def test_build_game_session_post_at_none_when_not_provided(
         template_id=sample_template.id,
         title="Immediate Game",
         description="No deferred post",
-        scheduled_at=datetime.datetime(2026, 6, 15, 20, 0, 0, tzinfo=datetime.UTC),
+        scheduled_at=FUTURE_SCHEDULED_AT,
     )
 
     resolved_fields = {
@@ -1667,7 +1667,7 @@ async def test_create_game_with_where_field(
         template_id=sample_template.id,
         title="Test Game",
         description="Test description",
-        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        scheduled_at=FUTURE_SCHEDULED_AT.replace(tzinfo=None),
         where="Discord Voice Channel #gaming",
         max_players=4,
         reminder_minutes=[60],
@@ -1729,7 +1729,7 @@ async def test_create_game_with_valid_channel_mention(
         template_id=sample_template.id,
         title="Test Game",
         description="Test description",
-        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        scheduled_at=FUTURE_SCHEDULED_AT.replace(tzinfo=None),
         where="Meet in #general lobby",
         max_players=4,
         reminder_minutes=[60],
@@ -1796,7 +1796,7 @@ async def test_create_game_with_invalid_channel_raises_validation_error(
         template_id=sample_template.id,
         title="Test Game",
         description="Test description",
-        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        scheduled_at=FUTURE_SCHEDULED_AT.replace(tzinfo=None),
         where="Meet in #nonexistent",
         max_players=4,
         reminder_minutes=[60],
@@ -1867,7 +1867,7 @@ async def test_create_game_with_ambiguous_channel_raises_validation_error(
         template_id=sample_template.id,
         title="Test Game",
         description="Test description",
-        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        scheduled_at=FUTURE_SCHEDULED_AT.replace(tzinfo=None),
         where="Meet in #general",
         max_players=4,
         reminder_minutes=[60],
@@ -1938,7 +1938,7 @@ async def test_create_game_with_plain_text_location_unchanged(
         template_id=sample_template.id,
         title="Test Game",
         description="Test description",
-        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        scheduled_at=FUTURE_SCHEDULED_AT.replace(tzinfo=None),
         where="In-person at the office",
         max_players=4,
         reminder_minutes=[60],
@@ -2119,8 +2119,9 @@ async def test_create_game_timezone_conversion(
     """Test that timezone-aware datetimes are properly converted to UTC."""
     # Create game with EST time (UTC-5)
     est = datetime.timezone(datetime.timedelta(hours=-5))
-    # 10 AM EST = 3 PM UTC (15:00)
-    scheduled_time_est = datetime.datetime(2025, 11, 20, 10, 0, 0, tzinfo=est)
+    # 10 AM EST = 3 PM UTC (15:00), on a future date
+    scheduled_time_utc = FUTURE_SCHEDULED_AT.replace(hour=15, minute=0, second=0)
+    scheduled_time_est = scheduled_time_utc.astimezone(est)
 
     game_data = game_schemas.GameCreateRequest(
         template_id=sample_template.id,
@@ -2135,9 +2136,7 @@ async def test_create_game_timezone_conversion(
         id=str(uuid.uuid4()),
         title="Timezone Test",
         description="Test timezone conversion",
-        scheduled_at=datetime.datetime(2025, 11, 20, 15, 0, 0, tzinfo=UTC).replace(
-            tzinfo=None
-        ),  # Naive UTC
+        scheduled_at=scheduled_time_utc.replace(tzinfo=None),  # Naive UTC
         guild_id=sample_guild.id,
         channel_id=sample_channel.id,
         host_id=sample_user.id,
@@ -3258,7 +3257,7 @@ async def test_create_game_creates_status_schedules(
 ):
     """Test create_game creates both IN_PROGRESS and COMPLETED status schedules."""
 
-    scheduled_time = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+    scheduled_time = FUTURE_SCHEDULED_AT.replace(tzinfo=None)
     game_data = game_schemas.GameCreateRequest(
         template_id=sample_template.id,
         title="Test Game",
@@ -3357,7 +3356,7 @@ async def test_create_game_with_empty_host_defaults_to_current_user(
     game_data = game_schemas.GameCreateRequest(
         template_id=sample_template.id,
         title="Test Game",
-        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        scheduled_at=FUTURE_SCHEDULED_AT.replace(tzinfo=None),
         host=None,
     )
 
@@ -3434,7 +3433,7 @@ async def test_create_game_uses_default_host_user_id_when_no_host_override(
     game_data = game_schemas.GameCreateRequest(
         template_id=sample_template.id,
         title="Test Game",
-        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        scheduled_at=FUTURE_SCHEDULED_AT.replace(tzinfo=None),
         host=None,
     )
 
@@ -3513,7 +3512,7 @@ async def test_create_game_regular_user_cannot_override_host(
     game_data = game_schemas.GameCreateRequest(
         template_id=sample_template.id,
         title="Test Game",
-        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        scheduled_at=FUTURE_SCHEDULED_AT.replace(tzinfo=None),
         host="@different_user",
     )
 
@@ -3563,7 +3562,7 @@ async def test_create_game_bot_manager_can_override_host(
     game_data = game_schemas.GameCreateRequest(
         template_id=sample_template.id,
         title="Test Game",
-        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        scheduled_at=FUTURE_SCHEDULED_AT.replace(tzinfo=None),
         host="@different_host",
     )
 
@@ -3652,7 +3651,7 @@ async def test_create_game_bot_manager_invalid_host_raises_validation_error(
     game_data = game_schemas.GameCreateRequest(
         template_id=sample_template.id,
         title="Test Game",
-        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        scheduled_at=FUTURE_SCHEDULED_AT.replace(tzinfo=None),
         host="@invalid_user",
     )
 
@@ -3728,7 +3727,7 @@ async def test_create_game_bot_manager_host_without_permissions_fails(
     game_data = game_schemas.GameCreateRequest(
         template_id=template_with_restrictions.id,
         title="Test Game",
-        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        scheduled_at=FUTURE_SCHEDULED_AT.replace(tzinfo=None),
         host="@different_host",
     )
 
@@ -3802,7 +3801,7 @@ async def test_create_game_bot_manager_empty_host_uses_self(
     game_data = game_schemas.GameCreateRequest(
         template_id=sample_template.id,
         title="Test Game",
-        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        scheduled_at=FUTURE_SCHEDULED_AT.replace(tzinfo=None),
         host="",
     )
 
@@ -3885,7 +3884,7 @@ async def test_create_game_validates_signup_method_against_allowed_list(
         template_id=template_with_restrictions.id,
         title="Test Game",
         description="Test description",
-        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        scheduled_at=FUTURE_SCHEDULED_AT.replace(tzinfo=None),
         signup_method=SignupMethod.SELF_SIGNUP.value,
     )
 
@@ -4813,7 +4812,7 @@ async def test_create_game_resolves_channel_mention_in_description(
         template_id=sample_template.id,
         title="Test Game",
         description="See #announcements for details",
-        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        scheduled_at=FUTURE_SCHEDULED_AT.replace(tzinfo=None),
         max_players=4,
         reminder_minutes=[60],
     )
@@ -4875,7 +4874,7 @@ async def test_create_game_with_invalid_channel_in_description_raises_validation
         template_id=sample_template.id,
         title="Test Game",
         description="See #nonexistent for details",
-        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        scheduled_at=FUTURE_SCHEDULED_AT.replace(tzinfo=None),
         max_players=4,
         reminder_minutes=[60],
     )
@@ -4933,7 +4932,7 @@ async def test_create_game_resolves_channel_mention_in_signup_instructions(
         template_id=sample_template.id,
         title="Test Game",
         description="A game",
-        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        scheduled_at=FUTURE_SCHEDULED_AT.replace(tzinfo=None),
         signup_instructions="Post in #signup-channel to join",
         max_players=4,
         reminder_minutes=[60],
@@ -4997,7 +4996,7 @@ async def test_create_game_with_invalid_channel_in_signup_instructions_raises_va
         template_id=sample_template.id,
         title="Test Game",
         description="A game",
-        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        scheduled_at=FUTURE_SCHEDULED_AT.replace(tzinfo=None),
         signup_instructions="Post in #nonexistent-channel to join",
         max_players=4,
         reminder_minutes=[60],
@@ -5170,7 +5169,7 @@ async def test_create_game_resolves_at_mention_in_description(
         template_id=sample_template.id,
         title="Test Game",
         description="Ask @alice for details",
-        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        scheduled_at=FUTURE_SCHEDULED_AT.replace(tzinfo=None),
         max_players=4,
         reminder_minutes=[60],
     )
@@ -5230,7 +5229,7 @@ async def test_create_game_resolves_at_mention_in_signup_instructions(
         template_id=sample_template.id,
         title="Test Game",
         description="A game",
-        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        scheduled_at=FUTURE_SCHEDULED_AT.replace(tzinfo=None),
         signup_instructions="DM @bob to reserve a spot",
         max_players=4,
         reminder_minutes=[60],
@@ -5292,7 +5291,7 @@ async def test_create_game_with_invalid_at_mention_in_description_raises_validat
         template_id=sample_template.id,
         title="Test Game",
         description="Contact @nobody for info",
-        scheduled_at=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
+        scheduled_at=FUTURE_SCHEDULED_AT.replace(tzinfo=None),
         max_players=4,
         reminder_minutes=[60],
     )
@@ -5564,7 +5563,7 @@ async def test_create_game_rejects_post_at_after_scheduled_at(
     sample_user,
 ):
     """create_game raises ValueError when post_at is not before scheduled_at."""
-    scheduled_at = datetime.datetime(2026, 7, 1, 18, 0, 0, tzinfo=datetime.UTC)
+    scheduled_at = FUTURE_SCHEDULED_AT
     template_id = str(uuid.uuid4())
     game_data = game_schemas.GameCreateRequest(
         template_id=template_id,

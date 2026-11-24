@@ -40,12 +40,12 @@ Make Clone Game copy the source game's `scheduled_at` exactly instead of adding 
 
 ## Implementation Checklist
 
-### [ ] Phase 1: Replace fixed-past test dates with relative future dates
+### [x] Phase 1: Replace fixed-past test dates with relative future dates
 
-- [ ] Task 1.1: Convert Python unit test fixtures to relative future dates
+- [x] Task 1.1: Convert Python unit test fixtures to relative future dates
   - Details: .copilot-tracking/planning/details/20261123-01-clone-keep-source-date-details.md (Lines 13-27)
 
-- [ ] Task 1.2: Convert integration (and check e2e) fixtures to relative future dates
+- [x] Task 1.2: Convert integration (and check e2e) fixtures to relative future dates
   - Details: .copilot-tracking/planning/details/20261123-01-clone-keep-source-date-details.md (Lines 28-41)
 
 ### [ ] Phase 2: Server-side guard — reject past `scheduled_at` on create/clone

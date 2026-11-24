@@ -22,7 +22,7 @@
 """Unit tests for game routes error handling."""
 
 import io
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pydantic
@@ -35,6 +35,9 @@ from services.api.services import participant_resolver as resolver_module
 from services.api.services.display_names import DisplayNameResolver
 from shared.schemas import game as game_schemas
 from shared.utils import limits
+
+FUTURE_SCHEDULED_AT = datetime.now(UTC).replace(microsecond=0) + timedelta(days=30)
+FUTURE_SCHEDULED_AT_ISO = FUTURE_SCHEDULED_AT.isoformat()
 
 
 def _mock_upload_file(content: bytes, content_type: str) -> UploadFile:
@@ -52,7 +55,7 @@ def sample_game_data():
     return game_schemas.GameCreateRequest(
         template_id="template-123",
         title="Test Game",
-        scheduled_at=datetime(2026, 2, 1, 14, 0, 0, tzinfo=UTC),
+        scheduled_at=FUTURE_SCHEDULED_AT,
         description="Test description",
         max_players=4,
     )
@@ -90,7 +93,7 @@ def _pydantic_error_for(**overrides) -> pydantic.ValidationError:
     fields = {
         "template_id": "template-123",
         "title": "Test Game",
-        "scheduled_at": datetime(2026, 2, 1, 14, 0, 0, tzinfo=UTC),
+        "scheduled_at": FUTURE_SCHEDULED_AT,
         **overrides,
     }
     with pytest.raises(pydantic.ValidationError) as caught:
@@ -638,7 +641,7 @@ class TestOverLengthDescriptionRoutes:
             await games_routes.create_game(
                 template_id="template-123",
                 title="Test Game",
-                scheduled_at="2026-07-01T18:00:00Z",
+                scheduled_at=FUTURE_SCHEDULED_AT_ISO,
                 description="x" * (limits.MAX_DESCRIPTION_LENGTH + 1),
                 current_user=MagicMock(),
                 game_service=mock_game_service,
@@ -699,7 +702,7 @@ class TestCreateGameRoutePostAt:
             await games_routes.create_game(
                 template_id="template-123",
                 title="Test Game",
-                scheduled_at="2026-07-01T18:00:00Z",
+                scheduled_at=FUTURE_SCHEDULED_AT_ISO,
                 post_at=post_at_str,
                 current_user=mock_current_user,
                 game_service=mock_game_service,
@@ -797,7 +800,7 @@ class TestCreateGameRouteRecurRule:
             await games_routes.create_game(
                 template_id="template-123",
                 title="Test Game",
-                scheduled_at="2026-07-01T18:00:00Z",
+                scheduled_at=FUTURE_SCHEDULED_AT_ISO,
                 recur_rule="FREQ=WEEKLY;INTERVAL=1;BYDAY=TH",
                 current_user=mock_current_user,
                 game_service=mock_game_service,
@@ -836,7 +839,7 @@ class TestCreateGameRouteRecurRule:
             await games_routes.create_game(
                 template_id="template-123",
                 title="Test Game",
-                scheduled_at="2026-07-01T18:00:00Z",
+                scheduled_at=FUTURE_SCHEDULED_AT_ISO,
                 current_user=mock_current_user,
                 game_service=mock_game_service,
                 role_service=MagicMock(),
@@ -872,7 +875,7 @@ class TestCreateGameRouteRecurRule:
             await games_routes.create_game(
                 template_id="template-123",
                 title="Test Game",
-                scheduled_at="2026-07-01T18:00:00Z",
+                scheduled_at=FUTURE_SCHEDULED_AT_ISO,
                 current_user=mock_current_user,
                 game_service=mock_game_service,
                 role_service=MagicMock(),
@@ -997,7 +1000,7 @@ class TestCloneGameRouteCanManage:
         ):
             await games_routes.clone_game(
                 game_id="game-123",
-                scheduled_at="2026-07-01T20:00:00Z",
+                scheduled_at=FUTURE_SCHEDULED_AT_ISO,
                 current_user=mock_current_user,
                 game_service=mock_game_service,
                 role_service=MagicMock(),
@@ -1032,7 +1035,7 @@ class TestCloneGameRouteCanManage:
         ):
             await games_routes.clone_game(
                 game_id="game-123",
-                scheduled_at="2026-07-01T20:00:00Z",
+                scheduled_at=FUTURE_SCHEDULED_AT_ISO,
                 current_user=mock_current_user,
                 game_service=mock_game_service,
                 role_service=MagicMock(),
@@ -1067,7 +1070,7 @@ class TestCloneGameRouteCanManage:
         ):
             await games_routes.clone_game(
                 game_id="game-123",
-                scheduled_at="2026-07-01T20:00:00Z",
+                scheduled_at=FUTURE_SCHEDULED_AT_ISO,
                 thumbnail=thumbnail_file,
                 image=image_file,
                 current_user=mock_current_user,

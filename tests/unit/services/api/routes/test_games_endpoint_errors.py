@@ -21,7 +21,7 @@
 
 """Unit tests for game endpoint error paths."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -30,6 +30,10 @@ from starlette import status as http_status
 
 from services.api.routes import games as games_routes
 from services.api.services import participant_resolver as resolver_module
+
+FUTURE_SCHEDULED_AT_ISO = (
+    datetime.now(UTC).replace(microsecond=0) + timedelta(days=30)
+).isoformat()
 
 
 @pytest.fixture
@@ -50,7 +54,7 @@ class TestCreateGame:
             await games_routes.create_game(
                 template_id="tmpl-1",
                 title="Test Game",
-                scheduled_at="2026-06-01T20:00:00Z",
+                scheduled_at=FUTURE_SCHEDULED_AT_ISO,
                 current_user=mock_current_user_unit,
                 game_service=mock_game_service,
                 role_service=MagicMock(),
@@ -69,7 +73,7 @@ class TestCreateGame:
             await games_routes.create_game(
                 template_id="tmpl-1",
                 title="Test Game",
-                scheduled_at="2026-06-01T20:00:00Z",
+                scheduled_at=FUTURE_SCHEDULED_AT_ISO,
                 current_user=mock_current_user_unit,
                 game_service=mock_game_service,
                 role_service=MagicMock(),
@@ -113,7 +117,7 @@ class TestCreateGame:
             await games_routes.create_game(
                 template_id="tmpl-1",
                 title="Test Game",
-                scheduled_at="2026-06-01T20:00:00Z",
+                scheduled_at=FUTURE_SCHEDULED_AT_ISO,
                 reminder_minutes="not-json",
                 current_user=mock_current_user_unit,
                 game_service=mock_game_service,
@@ -323,7 +327,7 @@ class TestCloneGame:
         with pytest.raises(HTTPException) as exc_info:
             await games_routes.clone_game(
                 game_id="game-1",
-                scheduled_at="2026-07-01T20:00:00Z",
+                scheduled_at=FUTURE_SCHEDULED_AT_ISO,
                 current_user=mock_current_user_unit,
                 game_service=mock_game_service,
                 role_service=mock_role_service,
@@ -341,7 +345,7 @@ class TestCloneGame:
         with pytest.raises(HTTPException) as exc_info:
             await games_routes.clone_game(
                 game_id="game-1",
-                scheduled_at="2026-07-01T20:00:00Z",
+                scheduled_at=FUTURE_SCHEDULED_AT_ISO,
                 current_user=mock_current_user_unit,
                 game_service=mock_game_service,
                 role_service=mock_role_service,
@@ -358,7 +362,7 @@ class TestCloneGame:
         with pytest.raises(HTTPException) as exc_info:
             await games_routes.clone_game(
                 game_id="game-1",
-                scheduled_at="2026-07-01T20:00:00Z",
+                scheduled_at=FUTURE_SCHEDULED_AT_ISO,
                 current_user=mock_current_user_unit,
                 game_service=mock_game_service,
                 role_service=mock_role_service,

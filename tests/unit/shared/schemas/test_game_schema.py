@@ -21,7 +21,7 @@
 
 """Tests for game schema description length constraints."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from pydantic import ValidationError
@@ -31,7 +31,7 @@ from shared.schemas.participant import ParticipantResponse
 from shared.utils.limits import MAX_DESCRIPTION_LENGTH, MAX_REWARD_ENTRIES, MAX_REWARD_LENGTH
 
 VALID_TEMPLATE_ID = "00000000-0000-0000-0000-000000000001"
-VALID_SCHEDULED_AT = datetime(2026, 6, 1, 18, 0, 0, tzinfo=UTC)
+VALID_SCHEDULED_AT = datetime.now(UTC).replace(microsecond=0) + timedelta(days=30)
 VALID_HOST = ParticipantResponse(
     id="00000000-0000-0000-0000-000000000002",
     game_session_id="00000000-0000-0000-0000-000000000001",
@@ -204,7 +204,7 @@ class TestGameCreateRequestPostAt:
 
     def test_post_at_datetime_accepted(self):
         """post_at accepts a datetime value."""
-        post_at = datetime(2026, 5, 31, 12, 0, 0, tzinfo=UTC)
+        post_at = VALID_SCHEDULED_AT - timedelta(days=1)
         req = GameCreateRequest(
             template_id=VALID_TEMPLATE_ID,
             title="Test Game",

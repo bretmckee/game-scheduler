@@ -58,9 +58,11 @@ from shared.models.signup_method import SignupMethod
 from shared.schemas import auth as auth_schemas
 from shared.schemas import game as game_schemas
 
-SCHEDULED_AT = datetime.datetime(2026, 9, 1, 18, 0, 0, tzinfo=datetime.UTC)
-CLONE_AT = datetime.datetime(2026, 10, 1, 18, 0, 0, tzinfo=datetime.UTC)
-DEADLINE = datetime.datetime(2027, 1, 1, 12, 0, 0, tzinfo=datetime.UTC)
+SCHEDULED_AT = datetime.datetime.now(datetime.UTC).replace(microsecond=0) + datetime.timedelta(
+    days=30
+)
+CLONE_AT = SCHEDULED_AT + datetime.timedelta(days=30)
+DEADLINE = SCHEDULED_AT + datetime.timedelta(days=120)
 CURRENT_USER_DB_ID = "current-user-db-uuid"
 
 
